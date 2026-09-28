@@ -22,8 +22,7 @@ const MAX_REVISION_ROUNDS = 2;
 /** 读取题材基线文件；优先尝试同类可比 Benchmark，按精确名、包含关系依次匹配。 */
 function loadGenreBaseline(genre, baselineDir = DEFAULT_BASELINE_DIR, criteria = {}) {
   let wanted = String(genre || '').trim();
-  if (wanted.toLowerCase() === 'auto') wanted = '玄幻';
-  if (!wanted) return null;
+  if (!wanted || wanted.toLowerCase() === 'auto') return null;
 
   let loaded = null;
   if (fs.existsSync(baselineDir)) {
@@ -52,6 +51,11 @@ function loadGenreBaseline(genre, baselineDir = DEFAULT_BASELINE_DIR, criteria =
     if (compBm) {
       if (!loaded) {
         const m = compBm.metrics_target || {};
+        const chapterChars = Array.isArray(m.chapterChars)
+          && m.chapterChars.length === 2
+          && m.chapterChars.every(Number.isFinite)
+          ? m.chapterChars
+          : null;
         loaded = {
           genre: compBm.subgenre || wanted,
           baseline: {
@@ -65,9 +69,8 @@ function loadGenreBaseline(genre, baselineDir = DEFAULT_BASELINE_DIR, criteria =
             similePerKilo: { mean: m.similePerKilo }
           },
           structureBaseline: {
-            chapterCharsMean: 2500,
-            chapterCharsP25: m.chapterChars?.[0] || 2125,
-            chapterCharsP75: m.chapterChars?.[1] || 2875,
+            chapterCharsP25: chapterChars ? chapterChars[0] : undefined,
+            chapterCharsP75: chapterChars ? chapterChars[1] : undefined,
             openingModeDistribution: { scene: 0.85, dialogue: 0.15 }
           },
           bookCount: compBm.sample_count || 10
@@ -80,7 +83,7 @@ function loadGenreBaseline(genre, baselineDir = DEFAULT_BASELINE_DIR, criteria =
   return loaded;
 }
 
-/** 根据题材基线生成正面节奏目标块（注入起草 system，≤ 300 字）。 */
+/** 根据题材基线生成样本统计观察块（注入起草 system，≤ 300 字）。 */
 function buildBaselineTargetBlock(baselinePack) {
   if (!baselinePack || !baselinePack.baseline) return '';
   if (baselinePack.comparableBenchmark) {
@@ -93,16 +96,15 @@ function buildBaselineTargetBlock(baselinePack) {
   if (num(base.sentenceLenMean)) lines.push('- 句长均值约 ' + num(base.sentenceLenMean) + ' 字，句长波动 ' + num(base.sentenceLenStd) + '；段长均值约 ' + num(base.paragraphLenMean) + ' 字。');
   if (num(base.dialogueRatio)) lines.push('- 对白占比约 ' + Math.round(Number(base.dialogueRatio.mean) * 100) + '%，单轮对白约 ' + num(base.dialogueTurnMean) + ' 字。');
   if (Number.isFinite(structure.singleSentenceParagraphRatio)) lines.push('- 单句短段占比约 ' + Math.round(structure.singleSentenceParagraphRatio * 100) + '%：短段是常态，不是缺陷；直接心理句占比约 ' + Math.round((structure.directPsychRatio || 0) * 100) + '%，允许有个人声音的直接心理。');
-  if (Number.isFinite(structure.chapterCharsP25)) lines.push('- 章长参考区间 ' + structure.chapterCharsP25 + '–' + structure.chapterCharsP75 + ' 字。');
+  if (Number.isFinite(structure.chapterCharsP25) && Number.isFinite(structure.chapterCharsP75)) {
+    lines.push('- 同题材样本章长中间区间约 ' + structure.chapterCharsP25 + '～' + structure.chapterCharsP75 + ' 字，仅作统计参考，实际篇幅以本章目标为准。');
+  }
   if (structure.openingModeDistribution) {
     const top = Object.entries(structure.openingModeDistribution).sort((a, b) => b[1] - a[1])[0];
     const label = { dialogue: '对白直接切入', scene: '具体场景动作切入', exposition: '设定交代切入' }[top && top[0]] || '';
-    if (label) lines.push('- 同题材范本开篇最常见方式：' + label + '（占 ' + Math.round(top[1] * 100) + '%）。');
+    if (label) lines.push('- 同题材样本常见开篇方式：' + label + '（占 ' + Math.round(top[1] * 100) + '%，仅供观察，不要求采用）。');
   }
-  lines.push('- 【篇幅硬预算与节奏控制】：单章正文严格控制在 2200～2800 字区间（基准目标 2500 字）。达到目标篇幅前应主动收束本章主线矛盾并制造章末钩子，严禁漫无边际扩写或膨胀至 3000 字以上。');
-  lines.push('- 【单轮对白饱满度目标】：单轮对话目标 15～30 字（同题材基准均值 21 字），严禁以机械单字或无信息量短句敷衍交锋，保持人物言语博弈质感。');
-  lines.push('- 【新实体前置空间登场契约（Entity Grounding）】：任何执行关键决策、展开对话或改变局面的角色，登场前必须至少有空间位置或视线引出（如身处位置、衣着轮廓、脚步声或同伴提及），严禁未经任何空间铺垫突然空降做出重大行动。');
-  lines.push('- 【爽点爆发与战利品即时验货】：冲突交锋高潮处，对手必须有具象生理/心理挫败反应（如脸色惨白、冷汗、踉跄倒退、失声骇然或鲜血喷出），严禁平淡退场；主角获取战利品/机缘（储物袋、残卷、灵石等）时必须有当场触感验货细节（入手冰凉/温热微沉、神念探入扫视或揣入怀中），形成确凿即时正向反馈。');
+  lines.push('- 对白长度、描写方式和章末落点只描述样本分布，不是质量门槛；按人物表达目的与本章合同取舍，不强制统一比例或套路。');
   lines.push('- 统计只描述样本，不是文学质量门槛；章末按局面兑现决定是否留问题，人物密度按可理解性判断，不强制段落比例或人名数量。');
   return lines.join('\n');
 }
@@ -129,7 +131,7 @@ function inferGenre(genre, text = '') {
   if (wanted && wanted.toLowerCase() !== 'auto') {
     const evidenceLibrary = require('./genre-evidence');
     const norm = evidenceLibrary.normalizeGenre ? evidenceLibrary.normalizeGenre(wanted) : wanted;
-    if (evidenceLibrary.GENRES.includes(norm)) return norm;
+    return evidenceLibrary.GENRES.includes(norm) ? norm : wanted;
   }
   const t = String(text || '');
   if (/凡人|长春功|灵根|修仙|修真|仙侠|散修|药园|练气|筑基|金丹|灵气|口诀|丹药|采药|七玄门|神手谷|宗门|道友|法宝|元婴|玄幻|斗气|武魂/i.test(t)) return '玄幻';
@@ -138,7 +140,7 @@ function inferGenre(genre, text = '') {
   if (/朝廷|大明|大秦|边军|锦衣卫|皇帝|科举|漕运|藩王|历史|军垦/i.test(t)) return '历史脑洞';
   if (/甜宠|校草|学霸|暗恋|总裁|婚恋|恋爱|女频|校园/i.test(t)) return '青春甜宠';
   if (/商战|资本|重仓|并购|职场|名利|首富|金融|重生|武馆|气血|基因|高武|都市/i.test(t)) return '都市高武';
-  return '玄幻';
+  return null;
 }
 
 /**
@@ -150,7 +152,10 @@ async function evidenceAudit(deps, auth, params = {}) {
   const genre = inferGenre(params.genre, [params.prompt, text, params.contract && params.contract.goal].join(' '));
   const baselinePack = loadGenreBaseline(genre);
   const known = collectKnownEntities(params);
-  const targetWords = Number(params.targetWords) || (baselinePack && baselinePack.structureBaseline && baselinePack.structureBaseline.chapterCharsMean) || 0;
+  const comparableRange = baselinePack?.comparableBenchmark?.metrics_target?.chapterChars;
+  const baselineTarget = Number(baselinePack?.structureBaseline?.chapterCharsMean)
+    || (Array.isArray(comparableRange) && comparableRange.length === 2 ? (Number(comparableRange[0]) + Number(comparableRange[1])) / 2 : 0);
+  const targetWords = Number(params.targetWords) || baselineTarget;
   const hard = metrics.hardConstraintChecks(text, { targetWords, tolerance: 0.15, knownEntities: known, maxNewNames: 8 });
   const fingerprint = metrics.computeTextFingerprint(text);
   const styleDistance = baselinePack ? metrics.computeStyleDistance(fingerprint, baselinePack.baseline) : null;
@@ -227,20 +232,21 @@ async function evidenceAudit(deps, auth, params = {}) {
   const correctionIssues = correction && Array.isArray(correction.findings) ? correction.findings.slice(0, 12).map(item => ({ severity: item.severity === 'high' ? 'medium' : 'low', category: 'correction:' + item.ruleId, quote: item.text, problem: item.label, reason: '题材纠错库命中', fixHint: '改为具体动作或删除套话', paragraphIndex: (review.locateQuote(text, item.text).paragraphIndex || null) })) : [];
   const issues = [...modelIssues.issues, ...hardIssues, ...groundingIssues, ...payoffIssues, ...correctionIssues];
   const noStageChange = stageChange && /^(?:无|没有|无变化|无实质变化)/.test(stageChange);
+  const stageChangeRequired = params.requireStageChange === true || params.contract?.requireStageChange === true;
   const ledger = verifiedLedgerDelta(text, parsed && parsed.factLedgerDelta);
   if (ledger.invalidCount) incompleteReasons.push('unverified_ledger_evidence');
   const blocking = issues.some(item => ['blocker', 'high', 'medium'].includes(item.severity) && !String(item.category).startsWith('correction:'));
   return {
-    passed: incompleteReasons.length === 0 && !blocking && !noStageChange,
+    passed: incompleteReasons.length === 0 && !blocking && !(stageChangeRequired && noStageChange),
     needsRevision: issues.some(item => item.paragraphIndex && ['blocker', 'high', 'medium'].includes(item.severity)) && !['content_too_short', 'context_budget_exceeded', 'model_not_available'].some(r => incompleteReasons.includes(r)),
-    status: incompleteReasons.length ? 'incomplete' : blocking || noStageChange ? 'needs_review' : 'passed',
+    status: incompleteReasons.length ? 'incomplete' : blocking || (stageChangeRequired && noStageChange) ? 'needs_review' : 'passed',
     incompleteReasons, contentHash: review.textHash(text), coverage: parsed && parsed.coverage || {},
     coveredChars: parsed ? text.length : 0, humanReviewStatus: 'pending',
     factLedgerDelta: ledger.delta,
     invalidLedgerEvidence: ledger.invalidEvidence,
     issues,
     droppedIssues: modelIssues.dropped,
-    stageChange, noStageChange, summary,
+    stageChange, noStageChange, stageChangeRequired, summary,
     hard: { passed: hard.passed, chars: hard.chars, newNames: hard.newNames, repeatedSentences: hard.repeatedSentences, duplicateParagraphs: hard.duplicateParagraphs.length },
     correction: correction ? { status: correction.status, findingCount: correction.findingCount, genreFamily: correction.genreFamily, skippedRuleIds: correction.skippedRuleIds, matchedRuleIds: correction.matchedRuleIds } : null,
     fingerprint, styleDistance, structure,
@@ -367,7 +373,7 @@ function aggregateUsage(calls) {
 
 function auditPenalty(audit) {
   if (!audit || audit.status === 'incomplete') return 1000000;
-  return (audit.noStageChange ? 1000 : 0) + audit.issues.reduce((total, item) => total + ({ blocker: 10000, high: 1000, medium: 100, low: 1 }[item.severity] || 1), 0);
+  return (audit.stageChangeRequired && audit.noStageChange ? 1000 : 0) + audit.issues.reduce((total, item) => total + ({ blocker: 10000, high: 1000, medium: 100, low: 1 }[item.severity] || 1), 0);
 }
 
 async function generateChapter(deps, auth, params = {}) {
@@ -377,7 +383,10 @@ async function generateChapter(deps, auth, params = {}) {
   const runtime = genreRuntime(effectiveGenre);
   const baseline = loadGenreBaseline(effectiveGenre);
   const generationReasoningEffort = params.reasoningEffort || (/^gpt-6-luna$/i.test(String(params.modelId || '')) ? 'medium' : undefined);
-  const targetWords = Math.max(1200, Math.min(8000, Number(params.targetWords) || 2500));
+  const comparableRange = baseline?.comparableBenchmark?.metrics_target?.chapterChars;
+  const genreTarget = Number(baseline?.structureBaseline?.chapterCharsMean)
+    || (Array.isArray(comparableRange) && comparableRange.length === 2 ? (Number(comparableRange[0]) + Number(comparableRange[1])) / 2 : 0);
+  const targetWords = Math.max(1200, Math.min(8000, Math.round(Number(params.targetWords) || genreTarget || 2500)));
   const context = JSON.stringify({ contract: params.contract || {}, factLedger: params.factLedger || {}, previousEnding: params.previousEnding || '', continuity: params.continuity || {}, memoryContext: params.memoryContext || null });
   const runtimeBlock = runtime.writingBlock || '';
   const baselineBlock = buildBaselineTargetBlock(baseline);
@@ -413,7 +422,9 @@ async function generateChapter(deps, auth, params = {}) {
   const maxTokensClamped = (isReasoning || /^gpt-6-luna$/i.test(String(params.modelId || '')))
     ? Math.min(12000, Math.max(8000, Math.ceil(targetWords * 3.5)))
     : Math.min(4800, Math.ceil(targetWords * 1.5));
-  const chapterPrompt = '【只读上下文】\n' + context + '\n【本章任务】\n' + params.prompt + '\n目标篇幅：' + targetWords + '字（篇幅预算 2200～2800 字，按时利落收口）。正文到达 2400～2600 字区间必须完成本章主线冲突的阶段性收网与章末断点，严禁继续漫延到 3000 字以上。';
+  const minTargetWords = Math.ceil(targetWords * 0.85);
+  const maxTargetWords = Math.floor(targetWords * 1.15);
+  const chapterPrompt = '【只读上下文】\n' + context + '\n【本章任务】\n' + params.prompt + '\n目标篇幅：' + targetWords + ' 字；字数校验区间：' + minTargetWords + '～' + maxTargetWords + ' 字。按本章合同和叙事任务收束，不为凑字数扩写，也不因固定通用字数删去必要内容。';
   try {
     draft = await tracked.callModel(auth, {
       system,
@@ -441,7 +452,7 @@ async function generateChapter(deps, auth, params = {}) {
   let selectedText = text;
   let selectedAudit = await evidenceAudit(tracked, auth, { ...params, text, targetWords });
   const candidates = [{ contentHash: review.textHash(text), audit: selectedAudit }];
-  if (params.control !== true && selectedAudit.status !== 'incomplete' && (!selectedAudit.passed || selectedAudit.styleDistance && selectedAudit.styleDistance.score < 70)) {
+  if (params.control !== true && selectedAudit.status !== 'incomplete' && !selectedAudit.passed) {
     let alternative;
     try {
       alternative = await tracked.callModel(auth, {
@@ -467,7 +478,7 @@ async function generateChapter(deps, auth, params = {}) {
       const alternativeText = sanitizeAiFlavor(alternative.text.trim());
       const alternativeAudit = await evidenceAudit(tracked, auth, { ...params, text: alternativeText, targetWords });
       candidates.push({ contentHash: review.textHash(alternativeText), audit: alternativeAudit });
-      if (auditPenalty(alternativeAudit) < auditPenalty(selectedAudit) || auditPenalty(alternativeAudit) === auditPenalty(selectedAudit) && (alternativeAudit.styleDistance?.score || 0) > (selectedAudit.styleDistance?.score || 0)) {
+      if (auditPenalty(alternativeAudit) < auditPenalty(selectedAudit)) {
         selectedText = alternativeText;
         selectedAudit = alternativeAudit;
       }
@@ -476,7 +487,7 @@ async function generateChapter(deps, auth, params = {}) {
   const result = await auditReviseLoop({ ...deps, initialAudit: selectedAudit }, auth, { ...params, text: selectedText, targetWords, maxRounds: params.control === true ? 0 : params.maxRounds });
   const allCalls = [...calls, ...result.calls];
   const totalUsage = aggregateUsage(allCalls);
-  return { ...result, status: result.audit.passed && totalUsage.complete ? 'passed' : 'needs_review', calls: allCalls, candidates, selectedHash: selectedAudit.contentHash, usage: totalUsage, protocol: 'benchmark-local-v2', genreAssetStatus: runtime.status };
+  return { ...result, status: result.audit.passed && totalUsage.complete ? 'passed' : 'needs_review', calls: allCalls, candidates, selectedHash: selectedAudit.contentHash, usage: totalUsage, protocol: 'benchmark-local-v2', effectiveGenre, genreAssetStatus: runtime.status };
 }
 
 module.exports = { DEFAULT_BASELINE_DIR, MAX_REVISION_ROUNDS, loadGenreBaseline, buildBaselineTargetBlock, collectKnownEntities, evidenceAudit, localRevise, auditReviseLoop, generateChapter, verifiedLedgerDelta, hasUsage, aggregateUsage, auditPenalty, genreRuntime, resolveGenreFamily: scope.resolveGenreFamily, benchmarkDatabase };

@@ -10,6 +10,13 @@ const ROOT = path.resolve(__dirname, '..');
 const readJson = relative => JSON.parse(fs.readFileSync(path.join(ROOT, relative), 'utf8'));
 const chapterText = (suffix = '') => `\uFEFF第一章起点\r\n  甲醒来。${suffix}\r\n\t门外有人。\r\n第二章 转折\r\n“是谁？”\r\n他没有回答。\r\n第三章 决定\r\n他走上台阶😀。\r\n尾句未落标点\r\n第四章 下一章\r\n仅下一章残片`;
 
+test('空题材规范化保留未定状态，不匹配首个题材', () => {
+  assert.equal(evidenceLib.normalizeGenre(''), '');
+  assert.equal(evidenceLib.normalizeGenre('   '), '');
+  assert.equal(evidenceLib.normalizeGenre(null), '');
+  assert.equal(evidenceLib.loadGenreRuntime(null).status, 'unsupported');
+});
+
 test('解码：完整UTF-8越过旧600KiB字节边界仍不误判编码', () => {
   const text = `第一章 标题\n${'甲'.repeat(220000)}\n第二章 标题\n乙\n第三章 标题\n丙\n第四章 标题\n丁`;
   const decoded = evidenceLib.decodeSource(Buffer.from(text));

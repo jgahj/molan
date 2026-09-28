@@ -111,9 +111,10 @@ test('Benchmark 分层匹配引擎：同类可比与安全降级', async (t) => 
     assert.ok(bm);
     const targetBlock = benchmarkDatabase.buildComparablePromptTarget(bm);
     assert.ok(targetBlock.includes('【同类可比基准锚点'));
-    assert.ok(targetBlock.includes('篇幅硬预算'));
-    assert.ok(targetBlock.includes('言语节奏与对白拉扯'));
-    assert.ok(targetBlock.includes('感官具象描写'));
+    assert.ok(targetBlock.includes('样本章长范围'));
+    assert.ok(targetBlock.includes('样本对白统计'));
+    assert.ok(targetBlock.includes('仅作参考，不构成目标或门禁'));
+    assert.ok(!targetBlock.includes('篇幅硬预算'));
     assert.ok(targetBlock.length < 500, '目标块应保持紧凑（≤500字）');
   });
 });
@@ -130,6 +131,8 @@ test('管线集成：benchmark-pipeline 无缝挂载同类可比基准', async (
     const targetBlock = benchmarkPipeline.buildBaselineTargetBlock(pack);
     assert.ok(targetBlock.includes('同类可比基准锚点'));
     assert.ok(targetBlock.includes('凡人谨慎修仙流'));
+    assert.ok(targetBlock.includes('仅作参考，不构成目标或门禁'));
+    assert.ok(!targetBlock.includes('篇幅硬预算'));
   });
 
   await t.test('loadGenreBaseline 对未独立切片的题材亦可由基准库平滑提供', () => {
@@ -138,6 +141,11 @@ test('管线集成：benchmark-pipeline 无缝挂载同类可比基准', async (
     assert.ok(pack.baseline);
     assert.ok(pack.baseline.sentenceLenMean);
     assert.ok(pack.comparableBenchmark);
+    const chapterChars = pack.comparableBenchmark.metrics_target.chapterChars;
+    const hasChapterRange = Array.isArray(chapterChars) && chapterChars.length === 2 && chapterChars.every(Number.isFinite);
+    assert.equal(pack.structureBaseline.chapterCharsMean, undefined);
+    assert.equal(pack.structureBaseline.chapterCharsP25, hasChapterRange ? chapterChars[0] : undefined);
+    assert.equal(pack.structureBaseline.chapterCharsP75, hasChapterRange ? chapterChars[1] : undefined);
   });
 });
 

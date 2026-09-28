@@ -63,6 +63,58 @@ test('完整覆盖和用量的干净审稿可通过，但人工体验保持pendi
   assert.equal(audit.contentHash, review.textHash(content));
 });
 
+test('stageChange只在章节合同明确要求时作为门禁', async () => {
+  const noChange = { ...clean(), stageChange: '无' };
+  const deps = { callModel: async () => ({ json: noChange, usage }) };
+  const optional = await pipeline.evidenceAudit(deps, null, options);
+  assert.equal(optional.noStageChange, true);
+  assert.equal(optional.stageChangeRequired, false);
+  assert.equal(optional.passed, true);
+  assert.equal(pipeline.auditPenalty(optional), 0);
+
+  const required = await pipeline.evidenceAudit(deps, null, { ...options, contract: { requireStageChange: true } });
+  assert.equal(required.stageChangeRequired, true);
+  assert.equal(required.passed, false);
+  assert.equal(required.status, 'needs_review');
+  assert.equal(pipeline.auditPenalty(required), 1000);
+});
+
+test('auto题材无可靠线索时不套用玄幻规则', async () => {
+  const requests = [];
+  const result = await pipeline.generateChapter({ callModel: async (_, request) => {
+    requests.push(request);
+    return request.jsonMode ? { json: clean(), usage } : { text: content, usage };
+  } }, null, {
+    prompt: '写一段未知题材的原创章节', genre: 'auto', targetWords,
+    control: true, controlSystem: '只写小说正文', maxRounds: 0
+  });
+
+  assert.equal(requests[0].genre, null);
+  assert.equal(result.effectiveGenre, null);
+  assert.equal(result.genreAssetStatus, 'unsupported');
+  assert.equal(result.audit.baseline, null);
+  assert.equal(pipeline.loadGenreBaseline('auto'), null);
+});
+
+test('审稿已通过时低风格统计分不触发额外整章生成', async () => {
+  const requests = [];
+  const styleDivergentContent = Array.from({ length: 36 }, (_, index) => `第${index}号码头的货箱带着编号${index + 20}，搬运工对照清单核实箱内的器物后登记到第${index + 50}页账册。`).join('\n');
+  const styleDivergentTarget = styleDivergentContent.replace(/\s/g, '').length;
+  const result = await pipeline.generateChapter({ callModel: async (_, request) => {
+    requests.push(request);
+    return request.jsonMode ? { json: clean(), usage } : { text: styleDivergentContent, usage };
+  } }, null, {
+    prompt: '核对并交付货物', genre: '都市高武', targetWords: styleDivergentTarget,
+    maxRounds: 0
+  });
+
+  assert.equal(result.status, 'passed', JSON.stringify(result.audit));
+  assert.ok(result.audit.styleDistance.score < 70, '样本刻意与统计基线偏离');
+  assert.equal(result.candidates.length, 1);
+  assert.equal(requests.filter(request => !request.jsonMode).length, 1);
+  assert.equal(result.usage.callCount, 2);
+});
+
 test('审稿不静默截断正文和上下文，超预算零调用', async () => {
   let calls = 0;
   const audit = await pipeline.evidenceAudit({ callModel: async () => { calls++; return { json: clean(), usage }; } }, null, { ...options, factLedger: { raw: '字'.repeat(25000) } });
@@ -245,8 +297,9 @@ test('generateChapter 刚性钳位 maxTokens 并完整记录 topP、seed 与 mod
   assert.equal(capturedOptions.topP, 0.95);
   assert.equal(capturedOptions.seed, 42);
   assert.equal(capturedOptions.modelVersion, 'test-llm-v1');
-  assert.ok(capturedOptions.userPrompt.includes('篇幅预算 2200～2800 字'));
-  assert.ok(capturedOptions.userPrompt.includes('严禁继续漫延到 3000 字以上'));
+  assert.ok(capturedOptions.userPrompt.includes('目标篇幅：2500 字；字数校验区间：2125～2875 字'));
+  assert.ok(!capturedOptions.userPrompt.includes('2200～2800 字'));
+  assert.ok(!capturedOptions.userPrompt.includes('3000 字以上'));
 
   const draftCall = result.calls.find(c => c.stage === 'writing' || c.stage === 'draft');
   assert.ok(draftCall);
@@ -261,6 +314,18 @@ test('generateChapter 刚性钳位 maxTokens 并完整记录 topP、seed 与 mod
   assert.ok(entities.includes('白灵'));
   assert.ok(entities.includes('陆沉'));
   assert.ok(entities.includes('陈西风'));
+});
+
+test('未指定篇幅时使用题材基线均值', async () => {
+  let draftRequest;
+  await pipeline.generateChapter({ callModel: async (_, request) => {
+    if (!request.jsonMode) draftRequest = request;
+    return request.jsonMode ? { json: clean(), usage } : { text: content, usage };
+  } }, null, {
+    genre: '青春甜宠', prompt: '写人物初次见面', modelId: 'test-llm-v1',
+    control: true, controlSystem: '只写小说正文', maxRounds: 0
+  });
+  assert.ok(draftRequest.userPrompt.includes('目标篇幅：2134 字；字数校验区间：1814～2454 字'));
 });
 
 test('generateChapter 支持大窗口模型扩展预算，并对重复基准块去重', async () => {
@@ -304,5 +369,3 @@ test('题材别名与简称规范化为六大母类且证据运行时正常加�
   assert.equal(xianxiaRuntime.status, 'ready');
   assert.equal(xianxiaRuntime.genre, '玄幻');
 });
-
-

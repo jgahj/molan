@@ -40,7 +40,7 @@ test('checkEntityGrounding 对有空间物理锚定的登场角色放行', () =>
   assert.equal(issues.length, 0);
 });
 
-test('buildBaselineTargetBlock 注入篇幅硬预算与实体登场契约指令', () => {
+test('buildBaselineTargetBlock 保留题材样本统计但不注入通用套路门禁', () => {
   const baselinePack = {
     bookCount: 20,
     genre: '玄幻',
@@ -60,11 +60,12 @@ test('buildBaselineTargetBlock 注入篇幅硬预算与实体登场契约指令'
   };
 
   const block = pipeline.buildBaselineTargetBlock(baselinePack);
-  assert.ok(block.includes('2200～2800 字区间'));
-  assert.ok(block.includes('单轮对白饱满度目标'));
-  assert.ok(block.includes('15～30 字'));
-  assert.ok(block.includes('新实体前置空间登场契约（Entity Grounding）'));
-  assert.ok(block.includes('爽点爆发与战利品即时验货'));
+  assert.ok(block.includes('2200～2800 字'));
+  assert.ok(block.includes('仅作统计参考，实际篇幅以本章目标为准'));
+  assert.ok(block.includes('对白长度、描写方式和章末落点只描述样本分布'));
+  assert.ok(!block.includes('篇幅硬预算'));
+  assert.ok(!block.includes('Entity Grounding'));
+  assert.ok(!block.includes('战利品即时验货'));
 });
 
 test('checkPayoffExecution 检测高潮冲突中对手缺乏身心受挫与战利品缺乏验货', () => {
@@ -113,4 +114,3 @@ test('evidenceAudit 对严重超篇幅生成给出聚焦修剪提示', async () 
   assert.ok(wordCountIssue, '应命中 word_count 硬约束');
   assert.ok(wordCountIssue.fixHint.includes('聚焦修剪'), '应提供聚焦修剪提示');
 });
-
