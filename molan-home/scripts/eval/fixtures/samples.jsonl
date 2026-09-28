@@ -1,0 +1,9 @@
+{"sampleId":"unit-001","task":"unit","expected":{"planned":3},"actual":{"completed":3}}
+{"sampleId":"claim-001","task":"claim","expected":{"claimCount":2,"importantClaimCount":1},"actual":{"claimCount":2,"correctClaimCount":2,"foundCorrectClaimCount":2,"withValidEvidence":2}}
+{"sampleId":"evidence-001","task":"evidence","expected":{"claimCount":3,"importantClaimCount":2},"actual":{"claimCount":3,"correctClaimCount":2,"foundCorrectClaimCount":2,"withValidEvidence":2}}
+{"sampleId":"entity-001","task":"entity_state","expected":{},"actual":{"truePos":3,"falsePos":1,"falseNeg":0}}
+{"sampleId":"fs-001","task":"foreshadow","expected":{},"actual":{"truePos":2,"falsePos":0,"falseNeg":1}}
+{"sampleId":"contract-001","task":"contract","expected":{},"actual":{"passed":true}}
+{"sampleId":"contract-002","task":"contract","expected":{"shouldFail":true},"actual":{"passed":false}}
+{"sampleId":"orig-001","task":"originality","expected":{"risky":true},"actual":{"blocked":true}}
+{"sampleId":"orig-002","task":"originality","expected":{"risky":true},"actual":{"blocked":false}}

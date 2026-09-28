@@ -1,0 +1,256 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log"
+  },
+  "inbounds": [
+    {
+      "tag": "http",
+      "listen": "127.0.0.1",
+      "port": 10809,
+      "protocol": "http",
+      "settings": {}
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "hk3",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link3.liangxin1.xyz",
+            "port": 27786,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.lamer.com.hk",
+          "fingerprint": "ios",
+          "publicKey": "EYa4ic3GAxqznV61U-OOww-WKsu5wuQQptyS3fw7czM",
+          "shortId": "c50db39f"
+        }
+      }
+    },
+    {
+      "tag": "hk4",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link4.liangxin1.xyz",
+            "port": 23564,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.lamer.com.hk",
+          "fingerprint": "ios",
+          "publicKey": "3FPGTaxkfOM3nEUWUyCiqkH5oJGsOx-WxPJfADi1QWY",
+          "shortId": "7f369e14"
+        }
+      }
+    },
+    {
+      "tag": "sg1",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link7.liangxin1.xyz",
+            "port": 48574,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.lamer.com.sg",
+          "fingerprint": "ios",
+          "publicKey": "lmxSayN8tUg2Dag2MPXrdqZ2SQK9K3OjlaKk8wVCRnc",
+          "shortId": "f8f18902"
+        }
+      }
+    },
+    {
+      "tag": "sg4",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link30.liangxin1.xyz",
+            "port": 23568,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.lamer.com.hk",
+          "fingerprint": "safari",
+          "publicKey": "EjcM-ENrpWY8iIL82qJtQrZgRs4KlVqhdisqLAXonUY",
+          "shortId": "55d046dc"
+        }
+      }
+    },
+    {
+      "tag": "jp1",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link13.liangxin1.xyz",
+            "port": 36574,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.apple.com.cn",
+          "fingerprint": "safari",
+          "publicKey": "sDG-KQk1BF7V83-xnmrWDouXxpPd_ZSxKcHrJJzbols",
+          "shortId": "32a3650d"
+        }
+      }
+    },
+    {
+      "tag": "jp4",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link20.liangxin1.xyz",
+            "port": 443,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "download-porter.hoyoverse.com",
+          "fingerprint": "ios",
+          "publicKey": "QE5l0RUqs4OsH3j3u_xHm06-4NlILmQivZUJqiEx11o",
+          "shortId": "6314e825"
+        }
+      }
+    },
+    {
+      "tag": "jp5",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link23.liangxin1.xyz",
+            "port": 443,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "download-porter.hoyoverse.com",
+          "fingerprint": "safari",
+          "publicKey": "dLmUAqcdy4Z7iucApd9zjOhkXTjl-xt_eHumShIYW0c",
+          "shortId": "ba826a54"
+        }
+      }
+    },
+    {
+      "tag": "kr1",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link27.liangxin1.xyz",
+            "port": 443,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "download-porter.hoyoverse.com",
+          "fingerprint": "safari",
+          "publicKey": "a9I2uA3NNZA6uBAe3Tui9vZ8CG5MrMaYOifWrAdc0zg",
+          "shortId": "a8609be8"
+        }
+      }
+    },
+    {
+      "tag": "tw1",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "aws-link28.liangxin1.xyz",
+            "port": 443,
+            "users": [
+              { "id": "ace5f71b-87fd-4656-9b21-39b250da54cf", "flow": "xtls-rprx-vision", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "download-porter.hoyoverse.com",
+          "fingerprint": "safari",
+          "publicKey": "PFTc9Cn176HxLhtBCIzONGZIBVDJJodsCs4QHaTt7Sc",
+          "shortId": "b8fe57fe"
+        }
+      }
+    },
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    }
+  ],
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["http"],
+        "outboundTag": "hk3"
+      }
+    ]
+  }
+}

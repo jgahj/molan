@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "molan-quality-issue-map-v1",
+  "updatedAt": "2026-09-22T03:15:00.000Z",
+  "rules": {
+    "dialogue_mechanical": {
+      "name": "人物对话机械同质化",
+      "symptom": "各角色语言风格雷同，句长趋同，缺乏性格化口吻、停顿与潜台词",
+      "severity": "high",
+      "impact": 0.85,
+      "modules": [
+        "molan-home/lib/character-material.js",
+        "molan-home/completion-editor.js",
+        "molan-home/skills/humanizer"
+      ],
+      "layer": "L4 Contract / L1 Prompt",
+      "rootCause": "角色资料仅包含静态性格描述与标签，缺少可执行的语言行为约束契约（Character Voice Contract）",
+      "status": "REPAIRED",
+      "repairTask": "OPT-01"
+    },
+    "pacing_overshoot": {
+      "name": "篇幅超标与节奏稀释",
+      "symptom": "单章生成字数超出目标设定30%-50%，剧情推进稀释，高潮后移",
+      "severity": "high",
+      "impact": 0.80,
+      "modules": [
+        "molan-home/lib/benchmark-pipeline.js",
+        "molan-home/lib/genre-engine.js",
+        "molan-home/pages/editor.js"
+      ],
+      "layer": "L5 Algorithm / L1 Prompt",
+      "rootCause": "起草 Prompt 缺乏严格篇幅硬预算拦截与镜头聚焦机制，未对超出 2800 字的冗余分支进行剪枝",
+      "status": "REPAIRED",
+      "repairTask": "OPT-03"
+    },
+    "causal_break": {
+      "name": "因果链条断裂与凭空设定",
+      "symptom": "人物突然具备此前未交代的信息、权力或行动依据，状态前后突兀跳跃",
+      "severity": "blocker",
+      "impact": 0.95,
+      "modules": [
+        "molan-home/lib/causal-debt-tracker.js",
+        "molan-home/lib/memory-system.js",
+        "molan-home/lib/evidence-review.js"
+      ],
+      "layer": "L5 Algorithm / L4 Contract",
+      "rootCause": "合同新实体注入时缺乏前置登场空间与身份关系的接地（Grounding）校验，事实账本未前置锁定",
+      "status": "REPAIRED",
+      "repairTask": "OPT-04"
+    },
+    "setting_conflict": {
+      "name": "世界观与环境状态冲突",
+      "symptom": "同一场景中地理介质或世界规则自相矛盾（如江面与海面混用、境界规则漂移）",
+      "severity": "blocker",
+      "impact": 0.90,
+      "modules": [
+        "molan-home/lib/memory-commit-guard.js",
+        "molan-home/lib/genre-engine.js",
+        "molan-home/pages/project-docs.js"
+      ],
+      "layer": "L5 Algorithm / L3 Knowledge",
+      "rootCause": "场景空间属性（Domain Scope）在多轮扩写时未强制继承上一段地理状态，允许局部自由发挥",
+      "status": "REPAIRED",
+      "repairTask": "MEMORY-COMMIT-GUARD"
+    },
+    "ai_flavor_dense": {
+      "name": "AI 味套话与结构性套路密集",
+      "symptom": "高频命中套话词表（如'深深地'、'一种'、'话音刚落'），出现拟声断语、植物神经痉挛等非自愿肌群套路",
+      "severity": "high",
+      "impact": 0.88,
+      "modules": [
+        "molan-home/lib/ai-flavor-detector.js",
+        "molan-home/correction-policy.js",
+        "molan-home/skills/humanizer"
+      ],
+      "layer": "L2 Skill / L5 Algorithm",
+      "rootCause": "起草提示未前置注入纠错库高频负向拦截词；AI检测器与基线对象解包一度脱节",
+      "status": "REPAIRED",
+      "repairTask": "OPT-02"
+    },
+    "ungrounded_entity": {
+      "name": "新专名突然入场决策",
+      "symptom": "次要配角或突发决策者未交代身份登场直接下达关键指令（如陈西风案）",
+      "severity": "high",
+      "impact": 0.78,
+      "modules": [
+        "molan-home/lib/benchmark-pipeline.js",
+        "molan-home/lib/evidence-review.js"
+      ],
+      "layer": "L4 Contract / L5 Algorithm",
+      "rootCause": "Chapter Contract 中的 viewpoint/knownEntities 校验仅做数量统计，未校验出场动因与登场位置",
+      "status": "REPAIRED",
+      "repairTask": "OPT-04"
+    },
+    "simile_deficiency": {
+      "name": "感官比喻与物理意象贫乏",
+      "symptom": "千字明喻密度仅 0.32，远低于对标原本 1.25，语言白描过度抽象，缺乏物理质感",
+      "severity": "medium",
+      "impact": 0.65,
+      "modules": [
+        "molan-home/lib/benchmark-metrics.js",
+        "molan-home/skills/write-high-tension-fiction",
+        "molan-home/lib/style-system.js"
+      ],
+      "layer": "L2 Skill / L3 Knowledge",
+      "rootCause": "提示词片面追求'去AI味'，导致模型过度防御抽象比喻，进而连带抑制了高质量物理具象描写",
+      "status": "REPAIRED",
+      "repairTask": "OPT-05"
+    }
+  }
+}

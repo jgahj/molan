@@ -1,0 +1,11 @@
+{
+  "unit_coverage": 1,
+  "claim_precision": 1,
+  "claim_recall": 1,
+  "evidence_traceability": 1,
+  "entity_state_f1": 0.8,
+  "foreshadow_f1": 0.7,
+  "contract_pass_rate": 0.9,
+  "originality_block_rate": 0.5,
+  "false_pass_rate": 0
+}

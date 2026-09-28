@@ -1,0 +1,10 @@
+{
+  "deepseekApiKey": "sk-替换为你的 DeepSeek API Key",
+  "cloudApiBase": "http://8.138.128.184:3000",
+  "platformModels": [
+    { "id": "deepseek-chat", "name": "通用写作", "group": "通用", "provider": "deepseek", "model": "deepseek-chat", "supportsThinking": false, "baseURL": "https://api.deepseek.com", "apiKey": "sk-可选，缺省用 deepseekApiKey", "creditsPer1k": 1 }
+  ],
+  "modelPolicy": { "defaultModel": "deepseek-chat" },
+  "pricing": {},
+  "note": "复制本文件为 config.json 并填入真实 key 后重启服务。环境变量 DEEPSEEK_API_KEY 优先级高于本文件；MOLAN_EDITOR_LOCAL_CORRECTION_FILE / MOLAN_EDITOR_LOCAL_SKILL_DIR 可覆盖编辑器本地纠错库与技能目录（默认取仓库上级目录）。"
+}

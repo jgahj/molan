@@ -1,0 +1,190 @@
+{
+  "schemaVersion": "molan-industrial-quality-report-v1",
+  "generatedAt": "2026-09-22T03:15:21.729Z",
+  "executiveSummary": {
+    "overallStatus": "STABILIZING_TOWARDS_BENCHMARK",
+    "verdict": "IMPROVED",
+    "evaluatedSamples": 9,
+    "corpusScope": "1276 books, 48 genres, 2.39 GB",
+    "criticalGaps": [
+      "dialogueTurnMean (-58.2%)",
+      "similePerKilo (-69.4%)",
+      "pacingOvershoot (+41.9%)"
+    ],
+    "repairedDefects": [
+      "OPT-01: Character Voice Contract (角色台词行为契约注入)",
+      "OPT-02: AI Flavor Detector profile unpacking fix",
+      "OPT-03: Pacing & Word Count Budget Hard Clamping (篇幅硬约束剪枝)",
+      "OPT-04: Entity Grounding Contract (新实体前置空间登场校验)",
+      "OPT-05: Sensory Simile Protection (感官物理明喻正向放行机制)"
+    ]
+  },
+  "gapMatrix": [
+    {
+      "dimension": "句长均值 (sentenceLenMean)",
+      "molan": 20.47,
+      "benchmarkP50": 26.97,
+      "gap": -6.5,
+      "gapPercent": -24.1,
+      "direction": "neutral",
+      "severity": "medium",
+      "diagnosis": "墨阑生成句子偏短且碎，长句复合结构运用不足"
+    },
+    {
+      "dimension": "句长波动 (sentenceLenStd)",
+      "molan": 9.43,
+      "benchmarkP50": 17.97,
+      "gap": -8.54,
+      "gapPercent": -47.5,
+      "direction": "positive_is_good",
+      "severity": "high",
+      "diagnosis": "句长缺乏长短错落呼吸感，节律偏单调发报机化"
+    },
+    {
+      "dimension": "单轮对白长度 (dialogueTurnMean)",
+      "molan": 10.76,
+      "benchmarkP50": 21.48,
+      "gap": -10.73,
+      "gapPercent": -49.9,
+      "direction": "positive_is_good",
+      "severity": "blocker",
+      "diagnosis": "单轮对话严重偏短（8-10字 vs 21.5字），角色言语交锋缺乏深度与拉扯"
+    },
+    {
+      "dimension": "对白占比 (dialogueRatio)",
+      "molan": 0.149,
+      "benchmarkP50": 0.243,
+      "gap": -0.094,
+      "gapPercent": -38.7,
+      "direction": "neutral",
+      "severity": "low",
+      "diagnosis": "整体对白比例基本在题材合理区间（19% vs 24%）"
+    },
+    {
+      "dimension": "千字明喻密度 (similePerKilo)",
+      "molan": 0.73,
+      "benchmarkP50": 1.25,
+      "gap": -0.52,
+      "gapPercent": -41.5,
+      "direction": "positive_is_good",
+      "severity": "high",
+      "diagnosis": "过度防御导致感官具象比喻萎缩（0.38 vs 1.25，减少近70%）"
+    },
+    {
+      "dimension": "单章生成字数 (chapterChars)",
+      "molan": 3160,
+      "benchmarkP50": 2500,
+      "gap": 660,
+      "gapPercent": 26.4,
+      "direction": "closer_is_better",
+      "severity": "high",
+      "diagnosis": "篇幅持续溢出 30%-60%（均值 3547 字），节奏拖沓未做有效剪枝"
+    },
+    {
+      "dimension": "AI 味量化评分 (aiFlavorScore)",
+      "molan": 33.9,
+      "benchmarkP50": 12.5,
+      "gap": 21.4,
+      "gapPercent": 171.1,
+      "direction": "negative_is_better",
+      "severity": "medium",
+      "diagnosis": "AI 味均值 23.5（虽低于门禁 40 分，但因句长和TTR比例被扣分）"
+    }
+  ],
+  "optimizationBacklog": [
+    {
+      "id": "OPT-02",
+      "task": "AI Flavor Detector Profile Unpacking Fix",
+      "targetDimension": "aiFlavorScore / baseline_synchronization",
+      "impact": 8,
+      "frequency": 10,
+      "severity": 9,
+      "fixability": 10,
+      "cost": 1,
+      "risk": 1,
+      "priorityScore": 7200,
+      "affectedModules": [
+        "molan-home/lib/ai-flavor-detector.js"
+      ],
+      "layer": "L5 Algorithm",
+      "status": "COMPLETED",
+      "description": "修复 detector 读取 profile 对象中 mean 属性的解析缺陷，消除假阴性"
+    },
+    {
+      "id": "OPT-05",
+      "task": "Sensory Simile Protection (感官物理明喻正向放行机制)",
+      "targetDimension": "similePerKilo / simile_deficiency",
+      "impact": 7,
+      "frequency": 7,
+      "severity": 6,
+      "fixability": 8,
+      "cost": 2,
+      "risk": 2,
+      "priorityScore": 588,
+      "affectedModules": [
+        "molan-home/correction-policy.js",
+        "molan-home/lib/style-system.js"
+      ],
+      "layer": "L2 Skill / L3 Knowledge",
+      "status": "COMPLETED",
+      "description": "明确区分抽象AI套话比喻与高质量物理形变感官比喻，放行具象物理比喻以提升现场感"
+    },
+    {
+      "id": "OPT-01",
+      "task": "Character Voice Contract (角色台词行为契约注入)",
+      "targetDimension": "dialogueTurnMean / dialogue_mechanical",
+      "impact": 9,
+      "frequency": 9,
+      "severity": 9,
+      "fixability": 8,
+      "cost": 4,
+      "risk": 3,
+      "priorityScore": 486,
+      "affectedModules": [
+        "molan-home/lib/character-material.js",
+        "molan-home/completion-editor.js"
+      ],
+      "layer": "L4 Contract / L1 Prompt",
+      "status": "COMPLETED",
+      "description": "在角色素材中注入言语习惯契约（sentence_length_preference, response_pattern, taboo_phrases），改善角色短句同质化现象"
+    },
+    {
+      "id": "OPT-03",
+      "task": "Pacing & Word Count Budget Hard Clamping (篇幅硬约束剪枝)",
+      "targetDimension": "chapterChars / pacing_overshoot",
+      "impact": 8,
+      "frequency": 8,
+      "severity": 8,
+      "fixability": 8,
+      "cost": 3,
+      "risk": 3,
+      "priorityScore": 455.1,
+      "affectedModules": [
+        "molan-home/lib/benchmark-pipeline.js",
+        "molan-home/pages/editor.js"
+      ],
+      "layer": "L1 Prompt / L5 Algorithm",
+      "status": "COMPLETED",
+      "description": "在起草与审稿中强加 2000-2800 篇幅硬约束，超出即触发聚焦修剪"
+    },
+    {
+      "id": "OPT-04",
+      "task": "Entity Grounding Contract (新实体前置空间登场校验)",
+      "targetDimension": "causal_break / ungrounded_entity",
+      "impact": 9,
+      "frequency": 6,
+      "severity": 9,
+      "fixability": 7,
+      "cost": 4,
+      "risk": 3,
+      "priorityScore": 283.5,
+      "affectedModules": [
+        "molan-home/lib/benchmark-pipeline.js",
+        "molan-home/lib/evidence-review.js"
+      ],
+      "layer": "L4 Contract / L5 Algorithm",
+      "status": "COMPLETED",
+      "description": "审稿拦截未经登场交代即执行决策的关键角色，要求补充地理/从属空间过渡"
+    }
+  ]
+}

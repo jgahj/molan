@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7f8f6">
+  <title>开放 Skill | 墨阑 AI 小说</title>
+  <link rel="stylesheet" href="./account.css">
+  <link rel="stylesheet" href="./skills.css">
+  <link rel="stylesheet" href="./molan-ui.css">
+  <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="skills-page">
+  <header class="skills-topbar">
+    <a class="skills-brand" href="../index.html" aria-label="返回墨阑首页">
+      <span class="skills-brand__mark">墨</span>
+      <span>墨阑<span class="skills-brand__sub">AI 小说</span></span>
+    </a>
+    <nav class="skills-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="./novels.html">我的小说</a>
+      <a class="is-active" href="./skills.html" aria-current="page">开放 Skill</a>
+      <a href="../index.html#editor">工作台</a>
+    </nav>
+    <div class="skills-topbar__actions">
+      <a class="skills-icon-btn" href="../index.html#editor" title="进入工作台" aria-label="进入工作台"><i data-lucide="pen-line"></i></a>
+      <button class="skills-account" data-molan-account type="button" aria-label="登录">登录</button>
+    </div>
+  </header>
+
+  <main class="skills-shell">
+    <section class="skills-heading" aria-labelledby="skillsTitle">
+      <div>
+        <div class="skills-eyebrow">COMMUNITY LIBRARY</div>
+        <h1 id="skillsTitle">开放 Skill</h1>
+        <p class="skills-heading__meta">浏览、复用并分享适合小说创作的写作规范与工作流。</p>
+      </div>
+      <button class="skills-primary-btn" id="createSkillBtn" type="button"><i data-lucide="plus"></i><span>创建 Skill</span></button>
+    </section>
+
+    <section class="skills-layout">
+      <div class="skills-main">
+        <div class="skills-toolbar">
+          <div class="skills-tabs" role="tablist" aria-label="Skill 范围">
+            <button class="is-active" type="button" role="tab" aria-selected="true" data-scope="public">开放 Skill</button>
+            <button type="button" role="tab" aria-selected="false" data-scope="mine">我的开放 Skill</button>
+          </div>
+          <div class="skills-toolbar__controls">
+            <label class="skills-search"><i data-lucide="search"></i><input id="skillSearch" type="search" placeholder="搜索名称或描述" autocomplete="off"></label>
+            <label class="skills-select-wrap"><select id="skillSort" aria-label="排序方式"><option value="updated">最近更新</option><option value="downloads">下载最多</option></select><i data-lucide="chevron-down"></i></label>
+            <button class="skills-icon-btn skills-refresh" id="refreshSkillsBtn" type="button" title="刷新列表" aria-label="刷新列表"><i data-lucide="refresh-cw"></i></button>
+          </div>
+        </div>
+        <div class="skills-statusline"><span id="skillsResultMeta">正在读取 Skill</span><span id="skillsAuthHint"></span></div>
+        <section id="skillsLoading" class="skills-loading" aria-live="polite"><span class="skills-spinner" aria-hidden="true"></span><span>正在加载</span></section>
+        <section id="skillsGrid" class="skills-grid" aria-live="polite"></section>
+        <section id="skillsEmpty" class="skills-empty" hidden>
+          <div class="skills-empty__icon"><i data-lucide="sparkles"></i></div>
+          <h2 id="skillsEmptyTitle">还没有开放 Skill</h2>
+          <p id="skillsEmptyText">创建一个 Skill，和其他作者分享你的写作方法。</p>
+          <button class="skills-secondary-btn" id="emptyCreateSkillBtn" type="button"><i data-lucide="plus"></i>创建 Skill</button>
+        </section>
+        <div class="skills-pagination" id="skillsPagination" hidden>
+          <button class="skills-secondary-btn" id="prevSkillPage" type="button">上一页</button>
+          <span id="skillPageLabel">1 / 1</span>
+          <button class="skills-secondary-btn" id="nextSkillPage" type="button">下一页</button>
+        </div>
+      </div>
+
+      <aside class="skills-aside">
+        <div class="skills-aside__head"><div><div class="skills-eyebrow">PRIVATE LIBRARY</div><h2>我的 Skill</h2></div><button class="skills-icon-btn" id="refreshPrivateBtn" type="button" title="刷新我的 Skill" aria-label="刷新我的 Skill"><i data-lucide="refresh-cw"></i></button></div>
+        <p class="skills-aside__hint">下载的开放 Skill 会保存到这里，只对你本人可见。</p>
+        <div id="privateSkillsList" class="private-skills-list"></div>
+        <div id="privateSkillsGuest" class="skills-aside__guest" hidden><p>登录后可以创建、保存和发布 Skill。</p><a href="./login.html">去登录</a></div>
+      </aside>
+    </section>
+  </main>
+
+  <div class="skills-modal" id="skillEditorModal" hidden aria-hidden="true">
+    <section class="skills-modal__card skills-modal__card--editor" role="dialog" aria-modal="true" aria-labelledby="skillEditorTitle">
+      <header class="skills-modal__head"><div><div class="skills-eyebrow">SKILL EDITOR</div><h2 id="skillEditorTitle">创建 Skill</h2></div><button class="skills-modal__close" id="closeSkillEditorBtn" type="button" aria-label="关闭"><i data-lucide="x"></i></button></header>
+      <form id="skillEditorForm" class="skills-form">
+        <label><span>Skill 名称</span><input id="skillNameInput" name="name" maxlength="120" required placeholder="例如：克制的玄幻对白"></label>
+        <label><span>简短描述 <em>可选</em></span><input id="skillDescriptionInput" name="description" maxlength="500" placeholder="说明它适合什么创作场景"></label>
+        <div class="skills-import-field"><div class="skills-form__label">导入 Skill 文件 <em>可选</em></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><label class="skills-secondary-btn" style="display:inline-flex;cursor:pointer;">选择多个文件<input id="skillFileInput" type="file" multiple accept=".md,.markdown,.txt,.json,.yaml,.yml,.xml,.csv,.toml,.ini,.cfg,.html,.htm,.css,.js,.ts,.py,.sh,.sql,text/*,application/json" hidden></label><label class="skills-secondary-btn" style="display:inline-flex;cursor:pointer;">选择文件夹<input id="skillFolderInput" type="file" webkitdirectory directory multiple hidden></label><button class="skills-secondary-btn" id="skillImportClear" type="button">清空清单</button></div><small id="skillImportStatus">可选择单个 SKILL.md、多选文件或包含 SKILL.md 的整个文件夹；重复选择会追加，附属文件按相对路径保存。</small><div id="skillImportList" style="max-height:100px;overflow:auto;margin-top:7px;color:var(--skill-muted);font-size:11px;"></div></div>
+        <label><span>指令内容</span><textarea id="skillInstructionInput" name="instruction" rows="14" maxlength="200000" required placeholder="写下模型需要长期遵守的文风、结构和约束..."></textarea></label>
+        <p class="skills-form__hint" id="skillEditorHint">保存到我的 Skill 后，可在编辑器中选择使用；发布后所有人都能查看并下载。</p>
+        <div class="skills-modal__actions"><button class="skills-secondary-btn" id="cancelSkillEditorBtn" type="button">取消</button><button class="skills-secondary-btn" id="savePrivateSkillBtn" type="submit" data-submit-action="private">仅保存到我的 Skill</button><button class="skills-primary-btn" id="publishSkillBtn" type="submit" data-submit-action="publish"><i data-lucide="upload"></i><span>保存并发布</span></button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="skills-modal" id="skillDetailModal" hidden aria-hidden="true">
+    <section class="skills-modal__card skills-modal__card--detail" role="dialog" aria-modal="true" aria-labelledby="skillDetailTitle">
+      <header class="skills-modal__head"><div><div class="skills-eyebrow">OPEN SKILL</div><h2 id="skillDetailTitle">Skill 详情</h2><p class="skills-detail__meta" id="skillDetailMeta"></p></div><button class="skills-modal__close" id="closeSkillDetailBtn" type="button" aria-label="关闭"><i data-lucide="x"></i></button></header>
+      <div class="skills-detail__body"><p id="skillDetailDescription" class="skills-detail__description"></p><pre id="skillDetailInstruction" class="skills-detail__instruction"></pre></div>
+      <footer class="skills-modal__actions"><button class="skills-secondary-btn" id="closeSkillDetailBtn2" type="button">关闭</button><button class="skills-primary-btn" id="downloadDetailSkillBtn" type="button"><i data-lucide="download"></i><span>下载到我的 Skill</span></button></footer>
+    </section>
+  </div>
+
+  <div id="skillsToast" class="skills-toast" role="status" aria-live="polite"></div>
+  <script src="./account.js"></script>
+  <script src="./site.js"></script>
+  <script src="./skills.js"></script>
+  <script src="./molan-shell.js"></script>
+</body>
+</html>

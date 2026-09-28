@@ -1,0 +1,81 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const test = require('node:test');
+const {
+  internalUuid,
+  readConfig,
+  createPostgresRepository
+} = require('../lib/postgres-repository');
+
+test('PostgreSQL内部ID映射稳定且符合UUID格式', () => {
+  const first = internalUuid('n_stable_project');
+  const second = internalUuid('n_stable_project');
+  const other = internalUuid('n_other_project');
+  assert.equal(first, second);
+  assert.notEqual(first, other);
+  assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(internalUuid(first), first);
+});
+
+test('PostgreSQL必须显式启用，连接密码可从项目外文件读取', () => {
+  assert.equal(readConfig({}).enabled, false);
+  const temporaryPath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'molan-pg-config-')), 'password.txt');
+  fs.writeFileSync(temporaryPath, 'local-only-secret\n', 'utf8');
+  const configuration = readConfig({
+    MOLAN_PG_ENABLED: '1',
+    MOLAN_PG_HOST: '127.0.0.1',
+    MOLAN_PG_PORT: '55432',
+    MOLAN_PG_DATABASE: 'molan_test',
+    MOLAN_PG_USER: 'novel_runtime',
+    MOLAN_PG_PASSWORD_FILE: temporaryPath
+  });
+  try {
+    assert.equal(configuration.enabled, true);
+    assert.equal(configuration.config.password, 'local-only-secret');
+  } finally {
+    fs.rmSync(path.dirname(temporaryPath), { recursive: true, force: true });
+  }
+});
+
+test('未启用PostgreSQL时仓储不会创建连接池', async () => {
+  const repository = createPostgresRepository({ env: {} });
+  assert.equal(repository.enabled, false);
+  assert.deepEqual(await repository.health(), { enabled: false, available: false });
+  await repository.close();
+});
+
+test('普通仓储与worker事务使用隔离角色并在归还连接前重置角色', async () => {
+  const statements = [];
+  const client = {
+    async query(sql) {
+      statements.push(String(sql));
+      if (String(sql).includes('luna.read_job_input')) return { rows: [{ payload: { bookId: 'book-a' } }] };
+      return { rows: [] };
+    },
+    release() {}
+  };
+  class FakePool {
+    constructor() {}
+    async connect() { return client; }
+    async end() {}
+  }
+  const repository = createPostgresRepository({
+    env: {
+      MOLAN_PG_ENABLED: '1',
+      MOLAN_PG_RUNTIME_ROLE: 'novel_app',
+      MOLAN_PG_WORKER_ROLE: 'novel_worker'
+    },
+    Pool: FakePool
+  });
+
+  assert.equal(await repository.getJob('author-a', 'job-a'), null);
+  assert.deepEqual(await repository.getJobInput({
+    workerId: 'worker-a', workspaceId: 'workspace-a', projectId: 'project-a', jobId: 'job-a'
+  }), { bookId: 'book-a' });
+  assert.deepEqual(statements.filter(sql => sql.startsWith('SET ROLE') || sql === 'RESET ROLE'), [
+    'SET ROLE "novel_app"', 'RESET ROLE', 'SET ROLE "novel_worker"', 'RESET ROLE'
+  ]);
+  await repository.close();
+});

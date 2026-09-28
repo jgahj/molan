@@ -1,0 +1,41 @@
+{
+  "updatedOn": "2026-09-16",
+  "fullSystemComplete": false,
+  "productionMigrationExecuted": false,
+  "stage": "sqlite-memory-commit-safety",
+  "stageStatus": "implemented-and-targeted-tests-passed",
+  "baselineWorkPackage": "T01",
+  "relatedWorkPackages": ["T03", "T11"],
+  "fullWorkPackageAcceptance": false,
+  "evidenceFile": "memory-commit-safety-2026-09-16.md",
+  "verification": {
+    "runtime": "v22.23.2",
+    "database": "isolated SQLite fixtures only",
+    "testCount": 42,
+    "passed": 42,
+    "failed": 0,
+    "skipped": 0,
+    "realProviderCalled": false,
+    "browserVerified": false,
+    "postgresVerified": false,
+    "fullSuiteExecuted": false
+  },
+  "implemented": [
+    "Append-only approval records bind changeset content hashes",
+    "Branch state compare-and-set under BEGIN IMMEDIATE",
+    "Atomic memory operations, branch head, persistent receipt and outbox",
+    "Scoped request-key replay and payload conflict rejection",
+    "Operation whitelist, scoped proposition/evidence/event references and prerequisite checks",
+    "Project membership and write-role checks on book memory/style routes",
+    "Unknown or unauthorized runs return 404; no fabricated completion or stage events"
+  ],
+  "remainingScope": [
+    "Seven-category authoring materials with complete UI, versioned persistence and round-trip verification",
+    "Canonical chapter revision, bible/config version and memory commit in one transaction across all generation entries",
+    "Evidence extraction anchors, fact adjudication, nested cognition, temporal intervals and disclosure-aware retrieval",
+    "Layered style assets, semantic audits, shared rewrite budget and meaning-preserving acceptance",
+    "Editor changeset creation, partial confirmation, dependency impact and versioned compensation undo",
+    "Outbox consumers, drift detection, snapshots/index rebuild and durable run event recovery",
+    "Historical migration, backup/restore, golden semantic regressions and full acceptance gates"
+  ]
+}

@@ -1,0 +1,3950 @@
+{
+  "schemaVersion": 1,
+  "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+  "genre": "历史脑洞",
+  "status": "excerpt-evidence-ready",
+  "method": "固定选择原基线各题材文件名排序中的前两本；完整读取前三章建立哈希和段落索引；本轮代理只对列明段落做定点摘段解释及相邻段复核，不调用网络推理服务。",
+  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "reviewStatus": {
+    "deterministicIndex": "complete",
+    "excerptReview": "complete-for-cited-paragraphs-only",
+    "fullChapterReview": "pending",
+    "humanReview": "pending"
+  },
+  "limitations": [
+    "36章是确定性完整切章覆盖，不是36章人工或AI全文精读完成；未列明段落仅建立机器索引。",
+    "每题材两本为便利样本，目录标签可能混合子类型，不代表文学质量、市场表现或题材总体。",
+    "摘段观察区分原文事件与阅读解释；后文兑现、人物弧线和整体质量尚未评估。",
+    "保留原始作者注、分隔符和原文差异，不补章、不改写源文件；指标含这些杂质，不作为阈值。",
+    "原文未做出版版本和采集完整性认证；下一章标题只证明本文件的章节边界。",
+    "证据仅保存少量短摘录及全章段落定位，不复制整章；runtime仅提供抽象方法和摘要。"
+  ],
+  "books": [
+    {
+      "id": "历史脑洞:bad233bea5f77ab8",
+      "title": "三国：开局项羽模板，你当谋士？",
+      "source": {
+        "path": "资源库/小说原本/历史脑洞/三国：开局项羽模板，你当谋士？.txt",
+        "sha256": "bad233bea5f77ab8860bc39048c6508044c1b7aa987bf312dd31648a2e4c11b0",
+        "decodedSha256": "bad233bea5f77ab8860bc39048c6508044c1b7aa987bf312dd31648a2e4c11b0",
+        "byteLength": 129000,
+        "encoding": "utf-8",
+        "encodingMethod": "strict-utf8",
+        "offsetUnit": "utf16-code-unit",
+        "hashMethod": "source.sha256=raw-file-bytes; decoded/chapter/body/paragraph/excerpt hashes=UTF-8 encoding of exact decoded slices; ranges=[start,end), UTF-16 offsets, BOM retained",
+        "completeFileRead": true
+      },
+      "chapters": [
+        {
+          "id": "ch1",
+          "number": 1,
+          "title": "第1章 霸王绝力",
+          "start": 418,
+          "bodyStart": 427,
+          "end": 2959,
+          "complete": true,
+          "boundary": "next-consecutive-numbered-heading",
+          "nextHeading": "第2章 事已至此，先吃饭吧！",
+          "sha256": "39b90523128342a483dc9f0fa7ff95052750d8afc7dbe0504f6a00701577ad22",
+          "bodySha256": "242a945ea9fd92cdfff80b67e47106f1a0674bfa81ba025a12c19f85a79b98ab",
+          "paragraphs": [
+            {
+              "id": "ch1:p1",
+              "number": 1,
+              "start": 428,
+              "end": 448,
+              "sha256": "7b1701e474b3b0ea025d667236316b912f2ea8ee5606aa82a9afa1172af2b45e"
+            },
+            {
+              "id": "ch1:p2",
+              "number": 2,
+              "start": 452,
+              "end": 496,
+              "sha256": "14fc07ce6cba07e8660f90cfedd2087fc30fa8f721167176336f65965344ad85"
+            },
+            {
+              "id": "ch1:p3",
+              "number": 3,
+              "start": 500,
+              "end": 502,
+              "sha256": "a7f878b8ced1a7957c560d573e30ddbbc1696e38c370513aacbbf4bff12e7f43"
+            },
+            {
+              "id": "ch1:p4",
+              "number": 4,
+              "start": 506,
+              "end": 529,
+              "sha256": "a07467ea902d7b501ab2b41c857f8a2a2961b57d8280e87f7d52719adc2d1dd6"
+            },
+            {
+              "id": "ch1:p5",
+              "number": 5,
+              "start": 533,
+              "end": 556,
+              "sha256": "b18271383b8f49d35d7e645be89df8ca63b91ae5992cd702c304c0ff1fcbdf28"
+            },
+            {
+              "id": "ch1:p6",
+              "number": 6,
+              "start": 560,
+              "end": 600,
+              "sha256": "1070da2ad37d1cfadbe2393e3eec1ca569e5495a265567c3c52d8be2055c9149"
+            },
+            {
+              "id": "ch1:p7",
+              "number": 7,
+              "start": 604,
+              "end": 620,
+              "sha256": "e513ca17f9beb44826c4e9b3fa1e1c1fcf6104e29d245588aee6ba2254dd5148"
+            },
+            {
+              "id": "ch1:p8",
+              "number": 8,
+              "start": 624,
+              "end": 665,
+              "sha256": "f4945d1c62f635a13362d980f976ffe444463bfd80adf5ef1fe3d4f2c3b1b0a2"
+            },
+            {
+              "id": "ch1:p9",
+              "number": 9,
+              "start": 669,
+              "end": 681,
+              "sha256": "f42f9623b45dec7c34e8b3e5cac6932f1c235c97dbfec792a91415748482b375"
+            },
+            {
+              "id": "ch1:p10",
+              "number": 10,
+              "start": 685,
+              "end": 710,
+              "sha256": "18f10a41cc6fd90937dc21001af1a75763e8394a1c35a8be6932bab0b798c4dd"
+            },
+            {
+              "id": "ch1:p11",
+              "number": 11,
+              "start": 714,
+              "end": 765,
+              "sha256": "512e6da0deb901b59e6460f7e98147e9e491b24857be44c78043c97c261c8608"
+            },
+            {
+              "id": "ch1:p12",
+              "number": 12,
+              "start": 769,
+              "end": 820,
+              "sha256": "d0471bca545b117d460db84f6dfc80d40e1338385d230aa46fc845534c02b339"
+            },
+            {
+              "id": "ch1:p13",
+              "number": 13,
+              "start": 824,
+              "end": 851,
+              "sha256": "ae95382a887f84c658a277fec30c50775083660c1f9d4d068ac95bb1ea5f97b4"
+            },
+            {
+              "id": "ch1:p14",
+              "number": 14,
+              "start": 855,
+              "end": 883,
+              "sha256": "a00294c6783c2b80c537f989b7eed7afa79d54233940aa5cdb2036dd7455508e"
+            },
+            {
+              "id": "ch1:p15",
+              "number": 15,
+              "start": 887,
+              "end": 902,
+              "sha256": "a9f75310afa7a47ff1d915e6c8486b633a746dd904e8c8ab5270e2dbcd343d31"
+            },
+            {
+              "id": "ch1:p16",
+              "number": 16,
+              "start": 906,
+              "end": 953,
+              "sha256": "2ec5c9a9b43fa69ac6462e9004d62810a23363458bc4d18d4df970a38371bcab"
+            },
+            {
+              "id": "ch1:p17",
+              "number": 17,
+              "start": 957,
+              "end": 971,
+              "sha256": "b7e540ac75f22247e126535c3f63a25bf842ed3688b0118b52e160122f53e59e"
+            },
+            {
+              "id": "ch1:p18",
+              "number": 18,
+              "start": 975,
+              "end": 983,
+              "sha256": "2847af00286486312f20374876f2af107f6902b47eab6a47dd35958c15ad6ca5"
+            },
+            {
+              "id": "ch1:p19",
+              "number": 19,
+              "start": 987,
+              "end": 1025,
+              "sha256": "6b493420d08084049128166dec871d08ba9534d3c2492e46cc05fb6ba08315e9"
+            },
+            {
+              "id": "ch1:p20",
+              "number": 20,
+              "start": 1029,
+              "end": 1041,
+              "sha256": "e1257339160d98493012ada1a4f729e8de8cdc29406f7aeb5726919e88d1a427"
+            },
+            {
+              "id": "ch1:p21",
+              "number": 21,
+              "start": 1045,
+              "end": 1071,
+              "sha256": "1dd33de2d19dc3447c302cbcdb2cf7bb04b397eacc91cc5061c1da1886c2f374"
+            },
+            {
+              "id": "ch1:p22",
+              "number": 22,
+              "start": 1075,
+              "end": 1113,
+              "sha256": "12ac388cbc31721f14dc07b2a9af550ac017433a4a9fd4d6582bdfcac6aa41c8"
+            },
+            {
+              "id": "ch1:p23",
+              "number": 23,
+              "start": 1117,
+              "end": 1124,
+              "sha256": "0cb9c94407a52775e67d4b7e8a4aa8f370bd2bb8112c15edd8f8e02ef9bc18a8"
+            },
+            {
+              "id": "ch1:p24",
+              "number": 24,
+              "start": 1128,
+              "end": 1158,
+              "sha256": "193902249aa0455f1434e1f809e49b110ca41cfe6e7a2f938f1ea90e0576b8a8"
+            },
+            {
+              "id": "ch1:p25",
+              "number": 25,
+              "start": 1162,
+              "end": 1227,
+              "sha256": "56d502577fd4c4a46f91a48f4e3625f2705082b176236f041a1753cbf6824e2d"
+            },
+            {
+              "id": "ch1:p26",
+              "number": 26,
+              "start": 1231,
+              "end": 1272,
+              "sha256": "7dd8473a00af360d60a61999b94ca8154b6b8f3be44092868c914a7e441a4dfa"
+            },
+            {
+              "id": "ch1:p27",
+              "number": 27,
+              "start": 1276,
+              "end": 1306,
+              "sha256": "39c04b5b674ef4b38eaa0bdafb6a92d7c5e56207f0805e3e4b6db9898a02d847"
+            },
+            {
+              "id": "ch1:p28",
+              "number": 28,
+              "start": 1310,
+              "end": 1382,
+              "sha256": "9699e1d5582e668497ef62d89b3aaffeb317b4890b0fb84f818f3a8880976463"
+            },
+            {
+              "id": "ch1:p29",
+              "number": 29,
+              "start": 1386,
+              "end": 1418,
+              "sha256": "fe979b7876d50fda72bfcde1347b41c5a86920ec174d6a3001f39a6b2e578cf6"
+            },
+            {
+              "id": "ch1:p30",
+              "number": 30,
+              "start": 1422,
+              "end": 1455,
+              "sha256": "bebbe55df68d7930f02bee919f25fbf987bd5e2056153792ea0650c949963a4a"
+            },
+            {
+              "id": "ch1:p31",
+              "number": 31,
+              "start": 1459,
+              "end": 1466,
+              "sha256": "fe98582573ba50452548380293ade15679dedd513c1a282b310bb3873c3b0e40"
+            },
+            {
+              "id": "ch1:p32",
+              "number": 32,
+              "start": 1470,
+              "end": 1535,
+              "sha256": "6e965b2869807caa6f12936d2c53686c47b4349ef60568650e9a9b034fec99ca"
+            },
+            {
+              "id": "ch1:p33",
+              "number": 33,
+              "start": 1539,
+              "end": 1572,
+              "sha256": "1358086ef5132809fa38844c208c1a420995c2ff922e8b212c73c63a9d7be148"
+            },
+            {
+              "id": "ch1:p34",
+              "number": 34,
+              "start": 1576,
+              "end": 1606,
+              "sha256": "304a34d112e79ca3a048ffddbc87aa00eed883ba3c8a6d90602aa670970851dd"
+            },
+            {
+              "id": "ch1:p35",
+              "number": 35,
+              "start": 1610,
+              "end": 1642,
+              "sha256": "8d709089281659cbef2e690d4706712b82a3baeb177a183db6b63501d4dc88f5"
+            },
+            {
+              "id": "ch1:p36",
+              "number": 36,
+              "start": 1646,
+              "end": 1719,
+              "sha256": "f220d060e4e03ff16cfd46cf9dcac70a0615c8912bbf27459e11862670d50957"
+            },
+            {
+              "id": "ch1:p37",
+              "number": 37,
+              "start": 1723,
+              "end": 1761,
+              "sha256": "9c10ccfc6197614ec000718abca14b05c2a2eac52cfdd728ec3b5867d23dd0cd"
+            },
+            {
+              "id": "ch1:p38",
+              "number": 38,
+              "start": 1765,
+              "end": 1814,
+              "sha256": "0288ed3877b4698d64db723b994667cf32af9177d3e26794280b99f1262f48a9"
+            },
+            {
+              "id": "ch1:p39",
+              "number": 39,
+              "start": 1818,
+              "end": 1833,
+              "sha256": "f60815d8c9baa72c7b82f7a71d53f47fb01aa3e624ad18dbe5b7b2534540bf3d"
+            },
+            {
+              "id": "ch1:p40",
+              "number": 40,
+              "start": 1837,
+              "end": 1885,
+              "sha256": "a476bac55aaeb444815df99ef69eea24b0f0759a13fab06b4185f0e494f563d1"
+            },
+            {
+              "id": "ch1:p41",
+              "number": 41,
+              "start": 1889,
+              "end": 1936,
+              "sha256": "f019cd8de4f8329f55905c03d54b66f8a9fca81fb4cb65166e18d64cb892365b"
+            },
+            {
+              "id": "ch1:p42",
+              "number": 42,
+              "start": 1940,
+              "end": 1965,
+              "sha256": "f97331b85076502ce5e8e8b03523938c7449ab0b3dcde49a45c80d3826aaf3da"
+            },
+            {
+              "id": "ch1:p43",
+              "number": 43,
+              "start": 1969,
+              "end": 1997,
+              "sha256": "1016b319fb012fb33f806ae2aabd1f282bbe9a86715dfe96def90e12619ced3f"
+            },
+            {
+              "id": "ch1:p44",
+              "number": 44,
+              "start": 2001,
+              "end": 2017,
+              "sha256": "55349e223e468446389ed3fb9b67432dfc43c0f7796184bc36d820aaff29f272"
+            },
+            {
+              "id": "ch1:p45",
+              "number": 45,
+              "start": 2021,
+              "end": 2038,
+              "sha256": "c6f43d39a221c65d546a596b3c83a614300c02a6496a47996eb4fec8b235a78e"
+            },
+            {
+              "id": "ch1:p46",
+              "number": 46,
+              "start": 2042,
+              "end": 2046,
+              "sha256": "aa53d6755237ba4281cc14ae34b5cb4ad499381f78cbd9be67ac84090817884a"
+            },
+            {
+              "id": "ch1:p47",
+              "number": 47,
+              "start": 2050,
+              "end": 2092,
+              "sha256": "2ded6cc0896a26cfc4e7358acf277fb615016bd79571137d587e8321435be9f3"
+            },
+            {
+              "id": "ch1:p48",
+              "number": 48,
+              "start": 2096,
+              "end": 2112,
+              "sha256": "6339197bf44e0c503fb46fae8de97b01f46af887656e7e7171d78e260ae7e701"
+            },
+            {
+              "id": "ch1:p49",
+              "number": 49,
+              "start": 2116,
+              "end": 2120,
+              "sha256": "55aad56c3b847398a41fa9909c4ad73b649cba081f3666c6668d9e83a6dc3c5b"
+            },
+            {
+              "id": "ch1:p50",
+              "number": 50,
+              "start": 2124,
+              "end": 2149,
+              "sha256": "ee0d14b56737dcdd5c814ebd01370738025e1b7fc4f2cf40e46bf5a22ab271fc"
+            },
+            {
+              "id": "ch1:p51",
+              "number": 51,
+              "start": 2153,
+              "end": 2201,
+              "sha256": "6b2f73515e3a6f6bc0e6a20398d5999ec59ed88f22cdf05ba21e821a0bdb834f"
+            },
+            {
+              "id": "ch1:p52",
+              "number": 52,
+              "start": 2205,
+              "end": 2232,
+              "sha256": "2b70c6c3afb9cd63506473decb0538f3ab61aa5cc434eb4484a4fb1bbeba0790"
+            },
+            {
+              "id": "ch1:p53",
+              "number": 53,
+              "start": 2236,
+              "end": 2258,
+              "sha256": "2ea7f62254de6a0e2aea82e5d3dce1feab664b8eafce53e35c604e8d8e7593b3"
+            },
+            {
+              "id": "ch1:p54",
+              "number": 54,
+              "start": 2262,
+              "end": 2292,
+              "sha256": "ce78ca0119ba33302c0e7554d626af9b775a735e6006bf8b42f118d57b78a063"
+            },
+            {
+              "id": "ch1:p55",
+              "number": 55,
+              "start": 2296,
+              "end": 2344,
+              "sha256": "0655a2f0de7da10ae895bcab9ca62294cfa8ffb2327b6bc7626f0d466f130596"
+            },
+            {
+              "id": "ch1:p56",
+              "number": 56,
+              "start": 2348,
+              "end": 2385,
+              "sha256": "6e724e5643347ad9516d6e197e4292c2e88df9202b02be66390e7d43266017c7"
+            },
+            {
+              "id": "ch1:p57",
+              "number": 57,
+              "start": 2389,
+              "end": 2402,
+              "sha256": "79a76f99f9d15e3b1f574d7f65084cd0593bf2cddc6e2a0a21c8dae215472403"
+            },
+            {
+              "id": "ch1:p58",
+              "number": 58,
+              "start": 2406,
+              "end": 2424,
+              "sha256": "416d341bbc11d621ff879118f132f451f19d74d4d85a1e799aaa9a6d53fec447"
+            },
+            {
+              "id": "ch1:p59",
+              "number": 59,
+              "start": 2428,
+              "end": 2475,
+              "sha256": "a8b8ac874b60d143e96f57865fd7a4a9572c6b8cfe893392217e6f135fd1f52b"
+            },
+            {
+              "id": "ch1:p60",
+              "number": 60,
+              "start": 2479,
+              "end": 2532,
+              "sha256": "ca595da83eddd94d478953a4638219cedac6804c63194346197c98b7ef40106d"
+            },
+            {
+              "id": "ch1:p61",
+              "number": 61,
+              "start": 2536,
+              "end": 2562,
+              "sha256": "ae94d113d7a1f7127061352ac69b28843cd0add4c11c7b0fdf7163330dcb6f2f"
+            },
+            {
+              "id": "ch1:p62",
+              "number": 62,
+              "start": 2566,
+              "end": 2614,
+              "sha256": "3e94dc7db982681d736b8cbf52c83f1fd14704946558e3a52e7a8335d88bd84d"
+            },
+            {
+              "id": "ch1:p63",
+              "number": 63,
+              "start": 2618,
+              "end": 2662,
+              "sha256": "307c679c3241a2a308cc6ea7e17c61e44d91662a334cf2820c3737b557ce5fd5"
+            },
+            {
+              "id": "ch1:p64",
+              "number": 64,
+              "start": 2666,
+              "end": 2722,
+              "sha256": "de564a626f369c72295bb8e3a9b49cc7c8f1192e1bf5d3ae741fef3aecd8a1c5"
+            },
+            {
+              "id": "ch1:p65",
+              "number": 65,
+              "start": 2726,
+              "end": 2734,
+              "sha256": "eb49a5311884c3837958f8e7705c710b7620921f18233698118caeffe49941e8"
+            },
+            {
+              "id": "ch1:p66",
+              "number": 66,
+              "start": 2738,
+              "end": 2785,
+              "sha256": "192945651ede893da6429459b7fb4ca6d28f5a4e9e952457c2afa821752a29f4"
+            },
+            {
+              "id": "ch1:p67",
+              "number": 67,
+              "start": 2789,
+              "end": 2824,
+              "sha256": "6a0eee6f3c611d053ffe49abf9689ea954870e02abea043050a733cc583cfb69"
+            },
+            {
+              "id": "ch1:p68",
+              "number": 68,
+              "start": 2828,
+              "end": 2853,
+              "sha256": "1e09989036e07a09b7c83df528a8f79222ee2b2ded7c551d7166d4fe10f6ef72"
+            },
+            {
+              "id": "ch1:p69",
+              "number": 69,
+              "start": 2857,
+              "end": 2869,
+              "sha256": "1b48ed6639ff4224efd5077443165a9eb1e4236db668824bb7f1eab50add1223"
+            },
+            {
+              "id": "ch1:p70",
+              "number": 70,
+              "start": 2873,
+              "end": 2888,
+              "sha256": "3e284e84d765119166022c48b072818e03a7e9fae3a7774c432cc2cc1578f283"
+            },
+            {
+              "id": "ch1:p71",
+              "number": 71,
+              "start": 2892,
+              "end": 2933,
+              "sha256": "7e900e01be5df0826de880817d309ff57bd2bec963b89c81c16274f1266014a9"
+            },
+            {
+              "id": "ch1:p72",
+              "number": 72,
+              "start": 2937,
+              "end": 2955,
+              "sha256": "ba1a373586238cbf1d50a16c2ed3c43d10972332c614c1b9bebcabc77e520efa"
+            }
+          ],
+          "excerpts": [
+            {
+              "paragraphId": "ch1:p6",
+              "start": 560,
+              "end": 600,
+              "sha256": "1070da2ad37d1cfadbe2393e3eec1ca569e5495a265567c3c52d8be2055c9149",
+              "text": "他不过就是连夜赶论文，结果就昏过去了，再次醒来时，却不料来到了这片陌生的树林中。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch1:p71",
+              "start": 2892,
+              "end": 2933,
+              "sha256": "7e900e01be5df0826de880817d309ff57bd2bec963b89c81c16274f1266014a9",
+              "text": "他方才光顾着确认所处世界的时代，却忘记询问樵夫此为何地，距离那汜水关又该如何去也。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch1:p72",
+              "start": 2937,
+              "end": 2955,
+              "sha256": "ba1a373586238cbf1d50a16c2ed3c43d10972332c614c1b9bebcabc77e520efa",
+              "text": "“这给我干哪儿来了，我怎么过去啊？”",
+              "truncated": false
+            }
+          ],
+          "metrics": {
+            "fingerprint": {
+              "sentenceLenMean": 26.3882,
+              "sentenceLenStd": 18.1847,
+              "paragraphLenMean": 31.1528,
+              "paragraphLenStd": 16.6572,
+              "dialogueRatio": 0.141329,
+              "dialogueTurnMean": 19.8125,
+              "commaPeriodRatio": 3.9091,
+              "ttr": 0.837686,
+              "similePerKilo": 0,
+              "totalChars": 2243
+            },
+            "structure": {
+              "chars": 2243,
+              "paragraphCount": 72,
+              "sentenceCount": 85,
+              "singleSentenceParagraphRatio": 0.5694,
+              "directPsychRatio": 0.0353,
+              "onomatopoeiaParagraphRatio": 0,
+              "dialogueParagraphRatio": 0.2222,
+              "openingMode": "scene",
+              "endingMode": "question",
+              "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+              "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+            }
+          },
+          "closeReading": {
+            "status": "excerpt-reviewed",
+            "reviewer": "agent-excerpt-analysis",
+            "reviewedAt": "2026-09-10",
+            "humanReviewStatus": "pending",
+            "fullChapterReviewStatus": "pending",
+            "method": "本轮代理阅读所引段落并作首尾/相邻段对照；未评读段落只建立确定性索引。observations为局部阅读解释，不是模型全文审稿结果。",
+            "coverage": {
+              "indexedParagraphs": 72,
+              "citedParagraphs": 3,
+              "fullyReviewedChapters": 0
+            },
+            "observations": [
+              {
+                "claim": "开头从赶论文后醒于树林交代错位，末尾已问到时代却忘问地点和路线；宏大历史目的被眼前导航缺口打断，形成行动级障碍。",
+                "paragraphIds": [
+                  "ch1:p6",
+                  "ch1:p71",
+                  "ch1:p72"
+                ],
+                "limits": "原文现代口语和穿越前经历服务错位，不应全题材禁现代语体；史实准确性没有在本资产中核验。"
+              }
+            ],
+            "limitations": [
+              "原文仅保存每个证据段前160个Unicode字符；truncated=true时需用段落范围回查全文。",
+              "整章语义、后文兑现、人工复核待完成；量化指标不证明文学质量。"
+            ]
+          }
+        },
+        {
+          "id": "ch2",
+          "number": 2,
+          "title": "第2章 事已至此，先吃饭吧！",
+          "start": 2959,
+          "bodyStart": 2974,
+          "end": 5492,
+          "complete": true,
+          "boundary": "next-consecutive-numbered-heading",
+          "nextHeading": "第3章 献计，入主平原！",
+          "sha256": "d9718a4fbb14aa71ba70969ec4c4e131bd8611adb6d121d0f5efe578106abb27",
+          "bodySha256": "966f04767d0b27addeedfe3fe815cf605915f3f4259b37992ebe241b823bc722",
+          "paragraphs": [
+            {
+              "id": "ch2:p1",
+              "number": 1,
+              "start": 2975,
+              "end": 2980,
+              "sha256": "a11d826b60f525a9ecab2bb366772674720595d86203c45354bef6d20ff6bbab"
+            },
+            {
+              "id": "ch2:p2",
+              "number": 2,
+              "start": 2984,
+              "end": 3006,
+              "sha256": "d2a7d034363f8cd4b6cd74c8944019323fc1e757c04a70b08b622fde0e643715"
+            },
+            {
+              "id": "ch2:p3",
+              "number": 3,
+              "start": 3010,
+              "end": 3066,
+              "sha256": "91f1fe5534adac7d9748464715560824cb4cd56499df7770175edea964372152"
+            },
+            {
+              "id": "ch2:p4",
+              "number": 4,
+              "start": 3070,
+              "end": 3112,
+              "sha256": "3d325a78b787bf1939af9c3c9a1391d396c389cf4aa1ee8e655d5bc9e3ccd7c9"
+            },
+            {
+              "id": "ch2:p5",
+              "number": 5,
+              "start": 3116,
+              "end": 3182,
+              "sha256": "184073f8e119bef97d43d544f4658e2ec7ea489bacc5b166d8bff88c240ab82a"
+            },
+            {
+              "id": "ch2:p6",
+              "number": 6,
+              "start": 3186,
+              "end": 3208,
+              "sha256": "4cbcce7c2010111e70576787e1c7592bb09b575e4576a125e25736d39f489d5c"
+            },
+            {
+              "id": "ch2:p7",
+              "number": 7,
+              "start": 3212,
+              "end": 3277,
+              "sha256": "08084210f3dde2d58082ea9df598fe8649a3803a7ae7e01ac3c6c64578a77f2e"
+            },
+            {
+              "id": "ch2:p8",
+              "number": 8,
+              "start": 3281,
+              "end": 3336,
+              "sha256": "c3f25d485e7fb68dd066b162142ff19973dae3a94df629c0541270ec83ce1e74"
+            },
+            {
+              "id": "ch2:p9",
+              "number": 9,
+              "start": 3340,
+              "end": 3376,
+              "sha256": "e205b066f51b9f5f64c1a5aa4360d04d8ca6e2380896f84b583e2db5b4e9895d"
+            },
+            {
+              "id": "ch2:p10",
+              "number": 10,
+              "start": 3380,
+              "end": 3410,
+              "sha256": "5a8e88b73b7a9b2205ba5c7e39d1574744907c7b6d76d70fc17f227b0340d170"
+            },
+            {
+              "id": "ch2:p11",
+              "number": 11,
+              "start": 3414,
+              "end": 3447,
+              "sha256": "f4ea3c8713aa725b4bea6103870d9733a40cc07226332c213c205f6459ee42c8"
+            },
+            {
+              "id": "ch2:p12",
+              "number": 12,
+              "start": 3451,
+              "end": 3523,
+              "sha256": "b1f264117c0e8de14bcbda8c811d105d7ad0045b9a2815585ed0826adbb40e70"
+            },
+            {
+              "id": "ch2:p13",
+              "number": 13,
+              "start": 3527,
+              "end": 3555,
+              "sha256": "bfa9aa85ebb931f27928c93779073f8702eb302c2bc160aa2628c880a99435d3"
+            },
+            {
+              "id": "ch2:p14",
+              "number": 14,
+              "start": 3559,
+              "end": 3590,
+              "sha256": "15bfb4a213340c1c7aa3f7ac7feb636854d7da5b8bed021f431dfb3e931bf1b5"
+            },
+            {
+              "id": "ch2:p15",
+              "number": 15,
+              "start": 3594,
+              "end": 3630,
+              "sha256": "3961d35b5f7f271a78d07c0eb4f6bfe28ebd47db5503f204ac12af4a8ebaa08c"
+            },
+            {
+              "id": "ch2:p16",
+              "number": 16,
+              "start": 3634,
+              "end": 3694,
+              "sha256": "1625064c070f4db0d4aca609f60965a1baa5983d69857593917f2a303093c702"
+            },
+            {
+              "id": "ch2:p17",
+              "number": 17,
+              "start": 3698,
+              "end": 3732,
+              "sha256": "9541b696573a0b89f0b30f796234d2e70293eac1d038df875ab41f3990b342c0"
+            },
+            {
+              "id": "ch2:p18",
+              "number": 18,
+              "start": 3736,
+              "end": 3772,
+              "sha256": "0b5a02352d842860ffe375255705bec6100caeb473dd432db02d372fd2d1c54f"
+            },
+            {
+              "id": "ch2:p19",
+              "number": 19,
+              "start": 3776,
+              "end": 3815,
+              "sha256": "ed0267c3a0ad26dc9246d78c34c8df7df153eb5860580483eeaad026e31f66ac"
+            },
+            {
+              "id": "ch2:p20",
+              "number": 20,
+              "start": 3819,
+              "end": 3867,
+              "sha256": "d0301a785ad48bf9dc232f0076c7c3fb1d0f0c2b816572c11f6a9f7ed78fd11f"
+            },
+            {
+              "id": "ch2:p21",
+              "number": 21,
+              "start": 3871,
+              "end": 3937,
+              "sha256": "8bd5f579a75934e4b6a75f37757054aef16e0f36834caa62133b74ba71d25565"
+            },
+            {
+              "id": "ch2:p22",
+              "number": 22,
+              "start": 3941,
+              "end": 3966,
+              "sha256": "8fa94eb81c0b3a594e7caf9020d6073e82e47bc53f37d977143efba5200df9b3"
+            },
+            {
+              "id": "ch2:p23",
+              "number": 23,
+              "start": 3970,
+              "end": 3984,
+              "sha256": "63c23568d6810575ebdbde0ed19c77fcb5161fd22a7cc2af941498eb63194954"
+            },
+            {
+              "id": "ch2:p24",
+              "number": 24,
+              "start": 3988,
+              "end": 3998,
+              "sha256": "5780883e8f43ffaecd8d611308ec62fda9ca2ea0905912a3f43edb7fe5faf1fe"
+            },
+            {
+              "id": "ch2:p25",
+              "number": 25,
+              "start": 4002,
+              "end": 4033,
+              "sha256": "58caa507e1211fc3dc8c1ed08c02501727b493e44bcefc826d29a647e893c81f"
+            },
+            {
+              "id": "ch2:p26",
+              "number": 26,
+              "start": 4037,
+              "end": 4048,
+              "sha256": "6d97a38dcf032fa85ab1cee1a67b3671b21c7d998af3666d6f219e4a3141e705"
+            },
+            {
+              "id": "ch2:p27",
+              "number": 27,
+              "start": 4052,
+              "end": 4059,
+              "sha256": "f016ce0637183212b46dbac7545bbaee82e68413d6ba16498a1bb81fcfd32ff5"
+            },
+            {
+              "id": "ch2:p28",
+              "number": 28,
+              "start": 4063,
+              "end": 4098,
+              "sha256": "cc3e9dd067cc11d406450286d508f4ab44fa64b603db1a26938ad9711bf5e5e2"
+            },
+            {
+              "id": "ch2:p29",
+              "number": 29,
+              "start": 4102,
+              "end": 4110,
+              "sha256": "4caa916f85ad58a9ddfb13c491967c7d6c333dc267b774cdea2d4de195e60115"
+            },
+            {
+              "id": "ch2:p30",
+              "number": 30,
+              "start": 4114,
+              "end": 4132,
+              "sha256": "00678b398883fe176e2c2d61f6e4c1753de0c45dc32d7d1b7d008b52d27a440c"
+            },
+            {
+              "id": "ch2:p31",
+              "number": 31,
+              "start": 4136,
+              "end": 4154,
+              "sha256": "b8099215720d3e100e59be4c49f090a0c37acb55393cd65a643f69a7df97af90"
+            },
+            {
+              "id": "ch2:p32",
+              "number": 32,
+              "start": 4158,
+              "end": 4229,
+              "sha256": "5a2340cc485ae36e8ef1c8bb24549b09d6bc9b4231bc98a4a2ba9ebfae5f7b96"
+            },
+            {
+              "id": "ch2:p33",
+              "number": 33,
+              "start": 4233,
+              "end": 4252,
+              "sha256": "6a04451dcf9d8a58ccf4c7b2d539894fd897905b606a437c6982a00db0627301"
+            },
+            {
+              "id": "ch2:p34",
+              "number": 34,
+              "start": 4256,
+              "end": 4261,
+              "sha256": "92b49345a50e1bfa3a404fe674a97708b66e731a5ab805e4c027063f7b021ba8"
+            },
+            {
+              "id": "ch2:p35",
+              "number": 35,
+              "start": 4265,
+              "end": 4270,
+              "sha256": "85b608795e3449f701eb90353d5b5cf253ed80fbc124589c0912e011444230da"
+            },
+            {
+              "id": "ch2:p36",
+              "number": 36,
+              "start": 4274,
+              "end": 4276,
+              "sha256": "a7f878b8ced1a7957c560d573e30ddbbc1696e38c370513aacbbf4bff12e7f43"
+            },
+            {
+              "id": "ch2:p37",
+              "number": 37,
+              "start": 4280,
+              "end": 4296,
+              "sha256": "bfb6e49d89fa6c6c8048730e9ed5c991e148623b41ff79d89ff4feef4c16c3f4"
+            },
+            {
+              "id": "ch2:p38",
+              "number": 38,
+              "start": 4300,
+              "end": 4360,
+              "sha256": "9aa32123f85aa310d61b5f79e3b1d37198ae41f44046da8482a95b24a91672ee"
+            },
+            {
+              "id": "ch2:p39",
+              "number": 39,
+              "start": 4364,
+              "end": 4406,
+              "sha256": "bd88400284e76f3ed944bd3523774006e70fe40388529f32155fda3b2cbd116f"
+            },
+            {
+              "id": "ch2:p40",
+              "number": 40,
+              "start": 4410,
+              "end": 4424,
+              "sha256": "98d06eef708abffc89dfb87cf7c3d18d4649639d69f2416ceb4d34d5b310c509"
+            },
+            {
+              "id": "ch2:p41",
+              "number": 41,
+              "start": 4428,
+              "end": 4476,
+              "sha256": "b2e70125c8f9ec994963a794df3e9a9639286fc9cb91e77d018e80953178d40f"
+            },
+            {
+              "id": "ch2:p42",
+              "number": 42,
+              "start": 4480,
+              "end": 4530,
+              "sha256": "2f7111912308f993a6f28e8ae7fee3b777a5ff313d7b9c599e1076d55137c180"
+            },
+            {
+              "id": "ch2:p43",
+              "number": 43,
+              "start": 4534,
+              "end": 4561,
+              "sha256": "bc4f003b006595cec2f63be7ff443c87fa7c54acba6d4815ee95cbbb3738284c"
+            },
+            {
+              "id": "ch2:p44",
+              "number": 44,
+              "start": 4565,
+              "end": 4624,
+              "sha256": "06b2c86f57626581a52cbe06101ec69c71f827f88731e8f966d91a82e9d1811a"
+            },
+            {
+              "id": "ch2:p45",
+              "number": 45,
+              "start": 4628,
+              "end": 4660,
+              "sha256": "a017b421e19d39e1da007750bbfb2a9e2f6d6db7c3f55e8e9595c7aab9286cb1"
+            },
+            {
+              "id": "ch2:p46",
+              "number": 46,
+              "start": 4664,
+              "end": 4729,
+              "sha256": "3d5c082d5261c37845addb540e4304a2333ec00f62b487a8772a3669d823cf2a"
+            },
+            {
+              "id": "ch2:p47",
+              "number": 47,
+              "start": 4733,
+              "end": 4798,
+              "sha256": "2101953b66bf185c921e268aa6b8c11e918905dcbe1e4f9a94cde85633e1ebab"
+            },
+            {
+              "id": "ch2:p48",
+              "number": 48,
+              "start": 4802,
+              "end": 4823,
+              "sha256": "deccc716d99e3795eb1bae40180133c492ea8d07e9f385672e0b4e540ecd694f"
+            },
+            {
+              "id": "ch2:p49",
+              "number": 49,
+              "start": 4827,
+              "end": 4911,
+              "sha256": "50843d45676a62acdb9d69eb4e7a2119a0f2554c4db84d4240cfcb2b055f5cba"
+            },
+            {
+              "id": "ch2:p50",
+              "number": 50,
+              "start": 4915,
+              "end": 4942,
+              "sha256": "8fccad65b040634df28ab423df2c7619e6c0af4e0d0e0a5b22b3c79ec6101cec"
+            },
+            {
+              "id": "ch2:p51",
+              "number": 51,
+              "start": 4946,
+              "end": 4965,
+              "sha256": "feeb19536e2975905320c82c6d34c1a10344decaf4e3a15750e0b49a068aa48d"
+            },
+            {
+              "id": "ch2:p52",
+              "number": 52,
+              "start": 4969,
+              "end": 5006,
+              "sha256": "6a4b573e60c4383d5a57125808577a52d7a06384b680c4a7c642ed2ac0f2cee3"
+            },
+            {
+              "id": "ch2:p53",
+              "number": 53,
+              "start": 5010,
+              "end": 5147,
+              "sha256": "9e356018846d0d833b8c1741bf2e16c9a44f71e98f4d484394a4297aba69def2"
+            },
+            {
+              "id": "ch2:p54",
+              "number": 54,
+              "start": 5151,
+              "end": 5165,
+              "sha256": "ac03a1643d41b8e987f4484cd0825160f0145c3bbe459c817ca19f065fea26a2"
+            },
+            {
+              "id": "ch2:p55",
+              "number": 55,
+              "start": 5169,
+              "end": 5197,
+              "sha256": "243f466486d467ce66a2c2ecab34ac64f3ffc2fedf821fce78bae1fbd61528a3"
+            },
+            {
+              "id": "ch2:p56",
+              "number": 56,
+              "start": 5201,
+              "end": 5224,
+              "sha256": "8a63b3c8747f2de331065a1ba21fc3d6a3e3fd5b9558e8f697e4b6f5c7a122bd"
+            },
+            {
+              "id": "ch2:p57",
+              "number": 57,
+              "start": 5228,
+              "end": 5315,
+              "sha256": "4ccfaf862115dc75d9f1a3e45d53c37acb3095b3c7d4a2f2c90d88c80c5d583b"
+            },
+            {
+              "id": "ch2:p58",
+              "number": 58,
+              "start": 5319,
+              "end": 5339,
+              "sha256": "a331134ce6be8ab39430031b3f54e502f4ba122eed43e6e2a8f3dbcd5932be1f"
+            },
+            {
+              "id": "ch2:p59",
+              "number": 59,
+              "start": 5343,
+              "end": 5364,
+              "sha256": "2b013e1ad349c847231b85e593858fb60c2223dd377a09c47795ffd0c11d43e9"
+            },
+            {
+              "id": "ch2:p60",
+              "number": 60,
+              "start": 5368,
+              "end": 5396,
+              "sha256": "352832be252f6dae03435fe7c622397afe85a11fa3a2dc012d09c0ddadc1f3ba"
+            },
+            {
+              "id": "ch2:p61",
+              "number": 61,
+              "start": 5400,
+              "end": 5440,
+              "sha256": "2324dfcddd08ccd7fc5fcab1ce61611c29944535c34f05974a9fbc0c4a75b1a1"
+            },
+            {
+              "id": "ch2:p62",
+              "number": 62,
+              "start": 5444,
+              "end": 5474,
+              "sha256": "8f2ce86e7db6e5a5c3413e0cfa0a32187d1e9462641417c3d8d0fa719e4018a2"
+            },
+            {
+              "id": "ch2:p63",
+              "number": 63,
+              "start": 5478,
+              "end": 5488,
+              "sha256": "78526791ff4163eabf018f159a5a4a1677fcd0cfe8b69190c539f34643239db4"
+            }
+          ],
+          "excerpts": [
+            {
+              "paragraphId": "ch2:p32",
+              "start": 4158,
+              "end": 4229,
+              "sha256": "5a2340cc485ae36e8ef1c8bb24549b09d6bc9b4231bc98a4a2ba9ebfae5f7b96",
+              "text": "嘶……这身板看着也不似二哥与我这般健壮，长得也白白净净的，再加上这般虚弱，脚步虚浮，风都给他刮倒了，完全不像是个武人啊，难不成我之前感受错了？",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch2:p61",
+              "start": 5400,
+              "end": 5440,
+              "sha256": "2324dfcddd08ccd7fc5fcab1ce61611c29944535c34f05974a9fbc0c4a75b1a1",
+              "text": "刘备顿时反应过来，急忙让关羽去喊人准备吃食，随后邀请龙渊移步他的军帐中边吃边聊。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch2:p62",
+              "start": 5444,
+              "end": 5474,
+              "sha256": "8f2ce86e7db6e5a5c3413e0cfa0a32187d1e9462641417c3d8d0fa719e4018a2",
+              "text": "面对刘备的邀请，龙渊不可能拒绝，因为他早就饿得前胸贴后背了。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch2:p63",
+              "start": 5478,
+              "end": 5488,
+              "sha256": "78526791ff4163eabf018f159a5a4a1677fcd0cfe8b69190c539f34643239db4",
+              "text": "事已至此，先吃饭吧！",
+              "truncated": false
+            }
+          ],
+          "metrics": {
+            "fingerprint": {
+              "sentenceLenMean": 32.3571,
+              "sentenceLenStd": 24.2399,
+              "paragraphLenMean": 35.9524,
+              "paragraphLenStd": 24.4257,
+              "dialogueRatio": 0.184106,
+              "dialogueTurnMean": 29.7857,
+              "commaPeriodRatio": 3.2041,
+              "ttr": 0.840522,
+              "similePerKilo": 0.883,
+              "totalChars": 2265
+            },
+            "structure": {
+              "chars": 2265,
+              "paragraphCount": 63,
+              "sentenceCount": 70,
+              "singleSentenceParagraphRatio": 0.619,
+              "directPsychRatio": 0,
+              "onomatopoeiaParagraphRatio": 0,
+              "dialogueParagraphRatio": 0.2222,
+              "openingMode": "scene",
+              "endingMode": "unknown",
+              "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+              "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+            }
+          },
+          "closeReading": {
+            "status": "excerpt-reviewed",
+            "reviewer": "agent-excerpt-analysis",
+            "reviewedAt": "2026-09-10",
+            "humanReviewStatus": "pending",
+            "fullChapterReviewStatus": "pending",
+            "method": "本轮代理阅读所引段落并作首尾/相邻段对照；未评读段落只建立确定性索引。observations为局部阅读解释，不是模型全文审稿结果。",
+            "coverage": {
+              "indexedParagraphs": 63,
+              "citedParagraphs": 4,
+              "fullyReviewedChapters": 0
+            },
+            "observations": [
+              {
+                "claim": "张飞从虚弱外貌质疑武人判断，末尾刘备安排吃食且龙渊确实饥饿；能力身份与身体需求可并置，饭食也能推进接待关系。",
+                "paragraphIds": [
+                  "ch2:p32",
+                  "ch2:p61",
+                  "ch2:p62",
+                  "ch2:p63"
+                ],
+                "limits": "称张飞的判断来自所引二哥语境，具体视点仍待全文复核；不把饥饿当所有历史开局的必选桥段。"
+              }
+            ],
+            "limitations": [
+              "原文仅保存每个证据段前160个Unicode字符；truncated=true时需用段落范围回查全文。",
+              "整章语义、后文兑现、人工复核待完成；量化指标不证明文学质量。"
+            ]
+          }
+        },
+        {
+          "id": "ch3",
+          "number": 3,
+          "title": "第3章 献计，入主平原！",
+          "start": 5492,
+          "bodyStart": 5505,
+          "end": 7918,
+          "complete": true,
+          "boundary": "next-consecutive-numbered-heading",
+          "nextHeading": "第4章 三计定前程",
+          "sha256": "a065c96169d349cfaf4816067446d52dcad44218d709c48b499d987835fbc34e",
+          "bodySha256": "d354f796715d9b6e7c90be0cbad8a9be55e7f9338a2fc0ec094db66bee2ef5aa",
+          "paragraphs": [
+            {
+              "id": "ch3:p1",
+              "number": 1,
+              "start": 5506,
+              "end": 5546,
+              "sha256": "34df91e86c47d8bdbf6f4e19b1dacd2b184a7a0f565be189f3fa5364699f4ea3"
+            },
+            {
+              "id": "ch3:p2",
+              "number": 2,
+              "start": 5550,
+              "end": 5587,
+              "sha256": "f818eef145322dee4637ceac714043cd440b2f870f64ed8227ca83011f082141"
+            },
+            {
+              "id": "ch3:p3",
+              "number": 3,
+              "start": 5591,
+              "end": 5663,
+              "sha256": "be2617dc5f50314898f063f05264aa7141f8cb4518c5da469e70e502329a33d1"
+            },
+            {
+              "id": "ch3:p4",
+              "number": 4,
+              "start": 5667,
+              "end": 5709,
+              "sha256": "8bdc7707687b16609c97209f771a3a46f28dd05543e1d44bf9b271f5abc0f05c"
+            },
+            {
+              "id": "ch3:p5",
+              "number": 5,
+              "start": 5713,
+              "end": 5757,
+              "sha256": "1b39cbd5d6601e0ddf5b1d6b67128ec1aa656c9d15cab6f079dec29ed9994ba7"
+            },
+            {
+              "id": "ch3:p6",
+              "number": 6,
+              "start": 5761,
+              "end": 5793,
+              "sha256": "35cda86d86c5c38873347abf80a5b215331be8f3a7498202cbc66e43b2f5bf99"
+            },
+            {
+              "id": "ch3:p7",
+              "number": 7,
+              "start": 5797,
+              "end": 5830,
+              "sha256": "aeb1ea3ea3af7259afcf3fa776ce132e98afce289b7d47ec71954d335e63433e"
+            },
+            {
+              "id": "ch3:p8",
+              "number": 8,
+              "start": 5834,
+              "end": 5841,
+              "sha256": "8d10abd0efbcad924b2ea2670f36e944fe26f9074e3da74a09fcabce3fe4aaf4"
+            },
+            {
+              "id": "ch3:p9",
+              "number": 9,
+              "start": 5845,
+              "end": 5890,
+              "sha256": "8d8c4fe014912e0a63e15da600c3f194b8df9a612467eb01019fee063d59481a"
+            },
+            {
+              "id": "ch3:p10",
+              "number": 10,
+              "start": 5894,
+              "end": 5903,
+              "sha256": "93ff0b257631784985ad0c867240a0c068a175b0f7c18e82b2523c5b34b831db"
+            },
+            {
+              "id": "ch3:p11",
+              "number": 11,
+              "start": 5907,
+              "end": 5925,
+              "sha256": "4ac567ab8b34737a2cdf75ddf9a356f10e4de5d76e6751d3564913c37787727a"
+            },
+            {
+              "id": "ch3:p12",
+              "number": 12,
+              "start": 5929,
+              "end": 5970,
+              "sha256": "7fe9d2009ed42c0908156adecd6a8d5276d30c847dcc84f1dee50cbc75e154de"
+            },
+            {
+              "id": "ch3:p13",
+              "number": 13,
+              "start": 5974,
+              "end": 6034,
+              "sha256": "e8c1438b68ae101318dc777194c7876ae4c834c42e80578c74b0dd7a70507197"
+            },
+            {
+              "id": "ch3:p14",
+              "number": 14,
+              "start": 6038,
+              "end": 6052,
+              "sha256": "c1752582d5d12e4e05b2c7fa3f9c83d298d4ff587e63ab0504479926b0f351f0"
+            },
+            {
+              "id": "ch3:p15",
+              "number": 15,
+              "start": 6056,
+              "end": 6065,
+              "sha256": "80996ad6ac200b2e993d3ab198dad5e2aacb437497d5beb6abf2bef19622b9cd"
+            },
+            {
+              "id": "ch3:p16",
+              "number": 16,
+              "start": 6069,
+              "end": 6079,
+              "sha256": "b2db0c5f6193c0f193034c8911dd8ab0b5541c6ba983e5323c00dc5b452c1513"
+            },
+            {
+              "id": "ch3:p17",
+              "number": 17,
+              "start": 6083,
+              "end": 6103,
+              "sha256": "02a20c90caff0290ede4f82ba3b6f70da3e91b5881163bff1e66857dd1c6b148"
+            },
+            {
+              "id": "ch3:p18",
+              "number": 18,
+              "start": 6107,
+              "end": 6165,
+              "sha256": "bdb605c8c685543a3d4efc508eef4cd7862b31c0fccb29df3d43f46f7ecf8cd4"
+            },
+            {
+              "id": "ch3:p19",
+              "number": 19,
+              "start": 6169,
+              "end": 6215,
+              "sha256": "abd68482086943718c3e5435816b1faaf8a5981f082855d8a514555c6c10011d"
+            },
+            {
+              "id": "ch3:p20",
+              "number": 20,
+              "start": 6219,
+              "end": 6233,
+              "sha256": "e75717852519d99434abc88d9429738873e4aacb02915c8bda16cae93e9f193b"
+            },
+            {
+              "id": "ch3:p21",
+              "number": 21,
+              "start": 6237,
+              "end": 6263,
+              "sha256": "3b1b68799168f1ce85806a645fbf27b61989545e4fedabbf04e6476be5ccbb00"
+            },
+            {
+              "id": "ch3:p22",
+              "number": 22,
+              "start": 6267,
+              "end": 6310,
+              "sha256": "cfeb9a7ea65e47864c0c99bcf47911bd1dce37c07bd0066460fea59e6b08c032"
+            },
+            {
+              "id": "ch3:p23",
+              "number": 23,
+              "start": 6314,
+              "end": 6343,
+              "sha256": "fba3d1780441303f5bff5fbb10b0eb490d714220590660be499909b3c7db1bf7"
+            },
+            {
+              "id": "ch3:p24",
+              "number": 24,
+              "start": 6347,
+              "end": 6388,
+              "sha256": "ea1f919a565d1a0a11fa61d15e52b9785b799d95ec03cfc35d6cf5b8ab2203fb"
+            },
+            {
+              "id": "ch3:p25",
+              "number": 25,
+              "start": 6392,
+              "end": 6412,
+              "sha256": "d04c9d5c8b26bf73eb5f89281124fe738103e61de78f8cddade466935bf50530"
+            },
+            {
+              "id": "ch3:p26",
+              "number": 26,
+              "start": 6416,
+              "end": 6449,
+              "sha256": "3d8cc3c65f137acb01cf79216c972b8bf2eb1ae6d70e5fc7b818d325e664902e"
+            },
+            {
+              "id": "ch3:p27",
+              "number": 27,
+              "start": 6453,
+              "end": 6483,
+              "sha256": "d757308723da92e6f7e9b7be8731dc5ac90c4942d16ddee7885cec4239226035"
+            },
+            {
+              "id": "ch3:p28",
+              "number": 28,
+              "start": 6487,
+              "end": 6516,
+              "sha256": "1d3bed54002288c32de9698a0ca1fc255db4485c6383b0ef24d4d6f181ec2c97"
+            },
+            {
+              "id": "ch3:p29",
+              "number": 29,
+              "start": 6520,
+              "end": 6560,
+              "sha256": "b6b51d4aa370e6c194676482af9209f3b7f6bfedce4abc61bb79eeb080aae17c"
+            },
+            {
+              "id": "ch3:p30",
+              "number": 30,
+              "start": 6564,
+              "end": 6590,
+              "sha256": "f6debf6289121a7c0c019922a16e40fc91e9d2488a1f9a9517aaaaf2c94ac337"
+            },
+            {
+              "id": "ch3:p31",
+              "number": 31,
+              "start": 6594,
+              "end": 6696,
+              "sha256": "dca827a7b8d18ffb9f47bf9d2cfc3fccaff17433bb9aa44d2ab49594f5e77343"
+            },
+            {
+              "id": "ch3:p32",
+              "number": 32,
+              "start": 6700,
+              "end": 6707,
+              "sha256": "e32082cd66290af5ff0a29d969e121cabcaebce34bf1419afd1801236e247d96"
+            },
+            {
+              "id": "ch3:p33",
+              "number": 33,
+              "start": 6711,
+              "end": 6729,
+              "sha256": "609aa2dc9083cd2dd50a671fc2f9e793c6f91ae2df51714299a73c0ffd1df78a"
+            },
+            {
+              "id": "ch3:p34",
+              "number": 34,
+              "start": 6733,
+              "end": 6786,
+              "sha256": "acecf11df21ce6ae14aafe3a2b47bfff82b817ebc389cce87188f00f54b69f82"
+            },
+            {
+              "id": "ch3:p35",
+              "number": 35,
+              "start": 6790,
+              "end": 6857,
+              "sha256": "efdf8bb7c0c43811d811d26eee04beb83ecdcaab98d93098a3294f9220b08822"
+            },
+            {
+              "id": "ch3:p36",
+              "number": 36,
+              "start": 6861,
+              "end": 6890,
+              "sha256": "fd50f48da0e99f7d4e7ed6097a94d4d6f730a5b0c6ec2e5939b737d14ee6d18b"
+            },
+            {
+              "id": "ch3:p37",
+              "number": 37,
+              "start": 6894,
+              "end": 6913,
+              "sha256": "e68fee95fef7ac337b4dfc3469f2b951b9c7bd686b9e7c31b5105447678a79fd"
+            },
+            {
+              "id": "ch3:p38",
+              "number": 38,
+              "start": 6917,
+              "end": 6932,
+              "sha256": "3d2c1b57187887f28c3ed0fd5c58853b6499cb8b0c4ad7f54ec42e056af6833a"
+            },
+            {
+              "id": "ch3:p39",
+              "number": 39,
+              "start": 6936,
+              "end": 6948,
+              "sha256": "f6eccdc705a292fb67a2265dd3e68675e15fc10756ad0995871489d08a888dd4"
+            },
+            {
+              "id": "ch3:p40",
+              "number": 40,
+              "start": 6952,
+              "end": 7016,
+              "sha256": "9b10862d066b893e9cb3eccb5e74f49095d2358d1027226d0f499c471525f56b"
+            },
+            {
+              "id": "ch3:p41",
+              "number": 41,
+              "start": 7020,
+              "end": 7082,
+              "sha256": "da9721100140293ca96a654ab991caab17df603936d41ae8d571156536e2fe54"
+            },
+            {
+              "id": "ch3:p42",
+              "number": 42,
+              "start": 7086,
+              "end": 7143,
+              "sha256": "5ef22d7c215ce9059edc569de6e64c7e0b4662da09ecd71844ac4bdab2f6670d"
+            },
+            {
+              "id": "ch3:p43",
+              "number": 43,
+              "start": 7147,
+              "end": 7195,
+              "sha256": "467108c03682dbe365dae7ef29386b090826f894292e9590ff4fea689ad317e1"
+            },
+            {
+              "id": "ch3:p44",
+              "number": 44,
+              "start": 7199,
+              "end": 7214,
+              "sha256": "081f0e87d1fa23bdf5bb01969e27836a64bba52eef84c16df19bcd3e2c17fa97"
+            },
+            {
+              "id": "ch3:p45",
+              "number": 45,
+              "start": 7218,
+              "end": 7230,
+              "sha256": "f438fcdf282ce7a4f14ca208dff5e76f9a88c72ed2a224d667fcc0c18149b0e8"
+            },
+            {
+              "id": "ch3:p46",
+              "number": 46,
+              "start": 7234,
+              "end": 7260,
+              "sha256": "4a46772a3f3552b2d660be3c4b00b92355e7a8e8f37780e2336e824a263c539d"
+            },
+            {
+              "id": "ch3:p47",
+              "number": 47,
+              "start": 7264,
+              "end": 7318,
+              "sha256": "133b06a833ed787a61961361d81e4932738656bcab62f9b90148447f91b99f9f"
+            },
+            {
+              "id": "ch3:p48",
+              "number": 48,
+              "start": 7322,
+              "end": 7332,
+              "sha256": "21c958e874468c447e326e7e4a591fe4f88c451382751beffee559d2182a74ec"
+            },
+            {
+              "id": "ch3:p49",
+              "number": 49,
+              "start": 7336,
+              "end": 7384,
+              "sha256": "173fd597897b214e0e3bf513d5a3d6e52805a8530656032d84f84304519c2773"
+            },
+            {
+              "id": "ch3:p50",
+              "number": 50,
+              "start": 7388,
+              "end": 7416,
+              "sha256": "722705735f5aed890fd4a68d7ed618269706013535b4e3edaffd55c426c1963a"
+            },
+            {
+              "id": "ch3:p51",
+              "number": 51,
+              "start": 7420,
+              "end": 7437,
+              "sha256": "4ede4134de3bb9f660804caa646b7003391d483428154d8664df8431c146077c"
+            },
+            {
+              "id": "ch3:p52",
+              "number": 52,
+              "start": 7441,
+              "end": 7579,
+              "sha256": "b6019494160c385fe4b103d8018b7f948076cb52d37b2d487e14431c111c7eee"
+            },
+            {
+              "id": "ch3:p53",
+              "number": 53,
+              "start": 7583,
+              "end": 7627,
+              "sha256": "9577bd256bd7cebc8803f1851ab3ee9e41c738ebeb4fff8d026c4b80ae5d71bb"
+            },
+            {
+              "id": "ch3:p54",
+              "number": 54,
+              "start": 7631,
+              "end": 7722,
+              "sha256": "9933ae06bd76417fe3577df51b29391e5e59ec9cad59a836c722a924bc4fde18"
+            },
+            {
+              "id": "ch3:p55",
+              "number": 55,
+              "start": 7726,
+              "end": 7775,
+              "sha256": "b6dd201df5e1f267ae8486b7e54d3dbfa140c9fc001aab5809acf206dc04e8ac"
+            },
+            {
+              "id": "ch3:p56",
+              "number": 56,
+              "start": 7779,
+              "end": 7829,
+              "sha256": "6f7ed6398b086bed1241b8a599cdb0f8d4f1ce2627fa0b863f0130cdf1a77a8a"
+            },
+            {
+              "id": "ch3:p57",
+              "number": 57,
+              "start": 7833,
+              "end": 7878,
+              "sha256": "48d1e96b01f751c8906d95138526b42c56cacc321322f04027d4f1fde79f3e21"
+            },
+            {
+              "id": "ch3:p58",
+              "number": 58,
+              "start": 7882,
+              "end": 7897,
+              "sha256": "6989e0956878784663a4d1a43ecda9a740d25ee616a7f8fe39bb9042fa30d711"
+            },
+            {
+              "id": "ch3:p59",
+              "number": 59,
+              "start": 7901,
+              "end": 7914,
+              "sha256": "9609a3c7ec3fd95662f4d2123a094521b979156e7ff2aaabf200e12fda6459ac"
+            }
+          ],
+          "excerpts": [
+            {
+              "paragraphId": "ch3:p1",
+              "start": 5506,
+              "end": 5546,
+              "sha256": "34df91e86c47d8bdbf6f4e19b1dacd2b184a7a0f565be189f3fa5364699f4ea3",
+              "text": "“先生，是备唐突了，光顾着说话，忘了设席招待先生，还望先生勿怪。”刘备拱手道歉。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch3:p57",
+              "start": 7833,
+              "end": 7878,
+              "sha256": "48d1e96b01f751c8906d95138526b42c56cacc321322f04027d4f1fde79f3e21",
+              "text": "此话一出，刘备顿时激动起来，连忙抓住龙渊双臂，欣喜道：“此话当真？是何处？子川有何妙计？”",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch3:p59",
+              "start": 7901,
+              "end": 7914,
+              "sha256": "9609a3c7ec3fd95662f4d2123a094521b979156e7ff2aaabf200e12fda6459ac",
+              "text": "“成为平原相，入主平原！”",
+              "truncated": false
+            }
+          ],
+          "metrics": {
+            "fingerprint": {
+              "sentenceLenMean": 31.5362,
+              "sentenceLenStd": 24.4283,
+              "paragraphLenMean": 36.8814,
+              "paragraphLenStd": 24.5765,
+              "dialogueRatio": 0.410386,
+              "dialogueTurnMean": 35.72,
+              "commaPeriodRatio": 4.359,
+              "ttr": 0.853867,
+              "similePerKilo": 0,
+              "totalChars": 2176
+            },
+            "structure": {
+              "chars": 2176,
+              "paragraphCount": 59,
+              "sentenceCount": 69,
+              "singleSentenceParagraphRatio": 0.5254,
+              "directPsychRatio": 0.087,
+              "onomatopoeiaParagraphRatio": 0,
+              "dialogueParagraphRatio": 0.4237,
+              "openingMode": "dialogue",
+              "endingMode": "unknown",
+              "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+              "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+            }
+          },
+          "closeReading": {
+            "status": "excerpt-reviewed",
+            "reviewer": "agent-excerpt-analysis",
+            "reviewedAt": "2026-09-10",
+            "humanReviewStatus": "pending",
+            "fullChapterReviewStatus": "pending",
+            "method": "本轮代理阅读所引段落并作首尾/相邻段对照；未评读段落只建立确定性索引。observations为局部阅读解释，不是模型全文审稿结果。",
+            "coverage": {
+              "indexedParagraphs": 59,
+              "citedParagraphs": 3,
+              "fullyReviewedChapters": 0
+            },
+            "observations": [
+              {
+                "claim": "刘备致歉设席承接接待，末尾追问地点和妙计后得到入主平原的具体目标；议论在章尾转成下一步去处，而非只说成大业。",
+                "paragraphIds": [
+                  "ch3:p1",
+                  "ch3:p57",
+                  "ch3:p59"
+                ],
+                "limits": "具体目标不等于计策可行；政治条件、历史真实性及实施成本未核验，不能当历史论据。"
+              }
+            ],
+            "limitations": [
+              "原文仅保存每个证据段前160个Unicode字符；truncated=true时需用段落范围回查全文。",
+              "整章语义、后文兑现、人工复核待完成；量化指标不证明文学质量。"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "历史脑洞:68f302be8aaee65e",
+      "title": "三国：我用边角料，吊打刘关张",
+      "source": {
+        "path": "资源库/小说原本/历史脑洞/三国：我用边角料，吊打刘关张.txt",
+        "sha256": "68f302be8aaee65e9366028dbb315c9ba35a3bca030fb6032a90fd12c4713bef",
+        "decodedSha256": "68f302be8aaee65e9366028dbb315c9ba35a3bca030fb6032a90fd12c4713bef",
+        "byteLength": 106124,
+        "encoding": "utf-8",
+        "encodingMethod": "strict-utf8",
+        "offsetUnit": "utf16-code-unit",
+        "hashMethod": "source.sha256=raw-file-bytes; decoded/chapter/body/paragraph/excerpt hashes=UTF-8 encoding of exact decoded slices; ranges=[start,end), UTF-16 offsets, BOM retained",
+        "completeFileRead": true
+      },
+      "chapters": [
+        {
+          "id": "ch1",
+          "number": 1,
+          "title": "第1章 卧牛山下认宗亲",
+          "start": 251,
+          "bodyStart": 263,
+          "end": 2735,
+          "complete": true,
+          "boundary": "next-consecutive-numbered-heading",
+          "nextHeading": "第2章 桃源结义开宝箱",
+          "sha256": "65a54dc6942d22ac2b00b5dca732e90833403d1822b150e555430ce791cec25d",
+          "bodySha256": "4b131b72a415657f95abe97df859676729f02e31e8531fd93998020bbaebff87",
+          "paragraphs": [
+            {
+              "id": "ch1:p1",
+              "number": 1,
+              "start": 264,
+              "end": 269,
+              "sha256": "b34721e24931c02102c8e4e220dbc08ed7e9da428a88d04bd9f1945f82351391"
+            },
+            {
+              "id": "ch1:p2",
+              "number": 2,
+              "start": 273,
+              "end": 282,
+              "sha256": "3203040367c852827f77d99cd2ff15698d7ad987dcaba729d01fd6d8e3976378"
+            },
+            {
+              "id": "ch1:p3",
+              "number": 3,
+              "start": 286,
+              "end": 290,
+              "sha256": "ad3a15836d58be554e8491aa9bdfe75d7e9ab90b7878617566191ef74c2ca60f"
+            },
+            {
+              "id": "ch1:p4",
+              "number": 4,
+              "start": 294,
+              "end": 303,
+              "sha256": "1f901bd52e41a7f22238ae30e50312d23b3a97fb8acebaf47fd3bfcbbed7a16d"
+            },
+            {
+              "id": "ch1:p5",
+              "number": 5,
+              "start": 307,
+              "end": 323,
+              "sha256": "a39604e86cf1cdc507626a23ea3ce4a7a316962429ed95eea7c5d3e3564815c7"
+            },
+            {
+              "id": "ch1:p6",
+              "number": 6,
+              "start": 327,
+              "end": 366,
+              "sha256": "29504cb3be186a89d2e6709719113d43075d00a00af4bfe954a861f305003017"
+            },
+            {
+              "id": "ch1:p7",
+              "number": 7,
+              "start": 370,
+              "end": 387,
+              "sha256": "2db3bb84e576c15b28124ce230a82ca728cee9b9e2b2a8c3b3f75147044169e2"
+            },
+            {
+              "id": "ch1:p8",
+              "number": 8,
+              "start": 391,
+              "end": 432,
+              "sha256": "1d2219870397b13256f209df74b3f03844ab77617bb63a3b3eb3c8633d0068ba"
+            },
+            {
+              "id": "ch1:p9",
+              "number": 9,
+              "start": 436,
+              "end": 461,
+              "sha256": "f74773d4f3ff4e72401cc54e5d2da1eca7e3b95f85470f4fe64b583462e2392c"
+            },
+            {
+              "id": "ch1:p10",
+              "number": 10,
+              "start": 465,
+              "end": 497,
+              "sha256": "c0e9b9f59223f5842bcbf519104758fd6e84200162fadd7857883b55e21257af"
+            },
+            {
+              "id": "ch1:p11",
+              "number": 11,
+              "start": 501,
+              "end": 539,
+              "sha256": "e8a612a7ad7cad657babdfc843037e251dd30b5fabd5c9c6abd6e5360a93bd83"
+            },
+            {
+              "id": "ch1:p12",
+              "number": 12,
+              "start": 543,
+              "end": 577,
+              "sha256": "d939d8bdaccd203c47e68e08733e24aa362b42e49dd2fdf083d6c592f24a18a2"
+            },
+            {
+              "id": "ch1:p13",
+              "number": 13,
+              "start": 581,
+              "end": 596,
+              "sha256": "eb83ff6b8b941844a9bf252f743e1ba7a0110a04b277e2decb105b74b8445f78"
+            },
+            {
+              "id": "ch1:p14",
+              "number": 14,
+              "start": 600,
+              "end": 626,
+              "sha256": "c879ff2a99ba8555993e948fc9d984f7a00e343b5cd44bcd419b0bde99c8aef0"
+            },
+            {
+              "id": "ch1:p15",
+              "number": 15,
+              "start": 630,
+              "end": 660,
+              "sha256": "0fdb585cabb0487d6aff1bc3db7ced6a45117452abc1cafb35c3415b2059938e"
+            },
+            {
+              "id": "ch1:p16",
+              "number": 16,
+              "start": 664,
+              "end": 684,
+              "sha256": "061a1ac2008ecca8e92845261b0ea56ef2b184729ec4740a109fca182ef631e7"
+            },
+            {
+              "id": "ch1:p17",
+              "number": 17,
+              "start": 688,
+              "end": 692,
+              "sha256": "15c5a0d8e5a742232d47b6369db27d3af98f5a4e6316424283e092f0a95cace2"
+            },
+            {
+              "id": "ch1:p18",
+              "number": 18,
+              "start": 696,
+              "end": 733,
+              "sha256": "38f3783db94936aed63617bd8764f4751267933a342eed6802282caec5b93ad0"
+            },
+            {
+              "id": "ch1:p19",
+              "number": 19,
+              "start": 737,
+              "end": 759,
+              "sha256": "e1cc60f10cae0288a1ef2745f99c9852cd380ec2785e9b9c5631cad298771b05"
+            },
+            {
+              "id": "ch1:p20",
+              "number": 20,
+              "start": 763,
+              "end": 779,
+              "sha256": "378ef4005fb0020bf7b510a068c821ffcfd5785c9abc4cf5b5b7c29e5c4a2683"
+            },
+            {
+              "id": "ch1:p21",
+              "number": 21,
+              "start": 783,
+              "end": 810,
+              "sha256": "8189c3935424f525d7b8b52e1df9985fa67e6ed00b33d71aa982870a8a304b5b"
+            },
+            {
+              "id": "ch1:p22",
+              "number": 22,
+              "start": 814,
+              "end": 833,
+              "sha256": "61676bab4d4d62befd09b55b64aa0eabdec8c2d93b05d9f2f6a4d448ec300a3b"
+            },
+            {
+              "id": "ch1:p23",
+              "number": 23,
+              "start": 837,
+              "end": 863,
+              "sha256": "ea2ac732e07cd9286fee566caf98c9a4e8f26b97a05409da6e975f7cf6ebcba2"
+            },
+            {
+              "id": "ch1:p24",
+              "number": 24,
+              "start": 867,
+              "end": 896,
+              "sha256": "01d13a0067823c283531243e608b60a6509e24697b26b3a4b997fae723beca10"
+            },
+            {
+              "id": "ch1:p25",
+              "number": 25,
+              "start": 900,
+              "end": 917,
+              "sha256": "e024b12856e4a19bde9504dbea31d8526fafa529fd45c6e08c4b591acea27703"
+            },
+            {
+              "id": "ch1:p26",
+              "number": 26,
+              "start": 921,
+              "end": 937,
+              "sha256": "134925b55e7e1859cfaed3b6754adb5633a1210ca9f69ca3967406f2201bdff0"
+            },
+            {
+              "id": "ch1:p27",
+              "number": 27,
+              "start": 941,
+              "end": 967,
+              "sha256": "01eb271780608802abff7c6e173e0f295d006d5f61615776ee3a26e6e6e0df1e"
+            },
+            {
+              "id": "ch1:p28",
+              "number": 28,
+              "start": 971,
+              "end": 1006,
+              "sha256": "2d8a9022f1869c94ca8f2b0fb40ae598fc8f2502fa1239ba2c3d6993b54b9077"
+            },
+            {
+              "id": "ch1:p29",
+              "number": 29,
+              "start": 1010,
+              "end": 1020,
+              "sha256": "6c4639f84ea5775153a7a7de3ecce5d3ac35f04007cbb4fd6bc965d70b949042"
+            },
+            {
+              "id": "ch1:p30",
+              "number": 30,
+              "start": 1024,
+              "end": 1071,
+              "sha256": "b6e2bf71942ad307a1e0760b8bf6beb549e265e84283954dee47753e0ccb83bf"
+            },
+            {
+              "id": "ch1:p31",
+              "number": 31,
+              "start": 1075,
+              "end": 1089,
+              "sha256": "81e8c2e8b1061c31f4ba57de05693ec30a3c18d88a5efd49e4ebffe3f7ce4c04"
+            },
+            {
+              "id": "ch1:p32",
+              "number": 32,
+              "start": 1093,
+              "end": 1106,
+              "sha256": "ffbf022bf60e703672afe771f569d30c82d629a00326717e2b121f0e38a6d119"
+            },
+            {
+              "id": "ch1:p33",
+              "number": 33,
+              "start": 1110,
+              "end": 1120,
+              "sha256": "59ed0f35f8ffefe466052d22ca8820834a96a9434e32f588d4d1fcb5452c50d2"
+            },
+            {
+              "id": "ch1:p34",
+              "number": 34,
+              "start": 1124,
+              "end": 1136,
+              "sha256": "d97bcfd10785dcd36184f51b34abdfd5780e5727d2fd85c2c7395360799c76ca"
+            },
+            {
+              "id": "ch1:p35",
+              "number": 35,
+              "start": 1140,
+              "end": 1163,
+              "sha256": "7e413c2ee6fa70668cf607f32621670979362261bb499dbcd8a72707b7c04d85"
+            },
+            {
+              "id": "ch1:p36",
+              "number": 36,
+              "start": 1167,
+              "end": 1183,
+              "sha256": "cce51666dc4a6d7c4bcceee06977a98cb358cb4b5ca2a921efe7ea45a3459cf0"
+            },
+            {
+              "id": "ch1:p37",
+              "number": 37,
+              "start": 1187,
+              "end": 1231,
+              "sha256": "ccff0682bdbb2659d8a6dceefbcd502d92de44b09c00b7f9401fb397d0e91f04"
+            },
+            {
+              "id": "ch1:p38",
+              "number": 38,
+              "start": 1235,
+              "end": 1243,
+              "sha256": "ac1a7bebd46b2d9ff80b53b173503e35ea00b06be2cad235eb66ed228caa9e76"
+            },
+            {
+              "id": "ch1:p39",
+              "number": 39,
+              "start": 1247,
+              "end": 1254,
+              "sha256": "3e2ead772d0dcff64777cb9697bcce6104f70dac0eb03e2f71433fd5e41141e4"
+            },
+            {
+              "id": "ch1:p40",
+              "number": 40,
+              "start": 1258,
+              "end": 1280,
+              "sha256": "c727b145bc7b356a2c74ed9627780164bbb790ce9dcf0d934b244de8a51bd764"
+            },
+            {
+              "id": "ch1:p41",
+              "number": 41,
+              "start": 1284,
+              "end": 1294,
+              "sha256": "3579ede3106875e6e58d0f093c33924d35b86ed24db3266397e04a7ffa309b39"
+            },
+            {
+              "id": "ch1:p42",
+              "number": 42,
+              "start": 1298,
+              "end": 1334,
+              "sha256": "08c8a34262aa1745176f8d85e5250a7c2053dfe3e884beddadb79017bab9bf79"
+            },
+            {
+              "id": "ch1:p43",
+              "number": 43,
+              "start": 1338,
+              "end": 1357,
+              "sha256": "b8a3d62bc0c8fd167566e84011a3a7cb9286335793d3b751708066e683542aac"
+            },
+            {
+              "id": "ch1:p44",
+              "number": 44,
+              "start": 1361,
+              "end": 1403,
+              "sha256": "7708b58fd2526625bacefe1900b5cd63a5d8e8e72b9c0b94a20333224f63b6a2"
+            },
+            {
+              "id": "ch1:p45",
+              "number": 45,
+              "start": 1407,
+              "end": 1452,
+              "sha256": "0448a2b7dadd5f58c6f1025479e88b142c4e6cba9ccc5236c3df31fa5161a8c0"
+            },
+            {
+              "id": "ch1:p46",
+              "number": 46,
+              "start": 1456,
+              "end": 1480,
+              "sha256": "469f4abafd1d6003be8728788151b116d823ac7c50e1cbcb5f7319e357ec26a5"
+            },
+            {
+              "id": "ch1:p47",
+              "number": 47,
+              "start": 1484,
+              "end": 1510,
+              "sha256": "37896a1763a662975e712cd3d6b1e009ecf4f3caccea697a6409f09017439200"
+            },
+            {
+              "id": "ch1:p48",
+              "number": 48,
+              "start": 1514,
+              "end": 1539,
+              "sha256": "d006be09b6bd24c29466af3311571aabc3597ae0e62865745ccb4912a14fba2a"
+            },
+            {
+              "id": "ch1:p49",
+              "number": 49,
+              "start": 1543,
+              "end": 1552,
+              "sha256": "94b9f30637a7a80dad3f4471f7159ca9ba30ae25aa87f63bf7173732e4629b9e"
+            },
+            {
+              "id": "ch1:p50",
+              "number": 50,
+              "start": 1556,
+              "end": 1575,
+              "sha256": "a12dfaf7317b662c49cf5286177509e36f27d94ac6c50b055e21237b8a0d8661"
+            },
+            {
+              "id": "ch1:p51",
+              "number": 51,
+              "start": 1579,
+              "end": 1601,
+              "sha256": "5d765f06b64fcfe5e93db5072b78880fc68027256d5e26bf5158f17463c65aba"
+            },
+            {
+              "id": "ch1:p52",
+              "number": 52,
+              "start": 1605,
+              "end": 1633,
+              "sha256": "679c3ebde7005d6b893098e9c34c1aab86049921f8a131fbaf301abc6a3b4aa7"
+            },
+            {
+              "id": "ch1:p53",
+              "number": 53,
+              "start": 1637,
+              "end": 1655,
+              "sha256": "2b197e79454622fa8b865fec94b5ef89375c23b09c427617e448f88e3da6cc89"
+            },
+            {
+              "id": "ch1:p54",
+              "number": 54,
+              "start": 1659,
+              "end": 1682,
+              "sha256": "a7c3495851176feb17574df818068213f140108734f4c9e4ecb0ec540baa3cab"
+            },
+            {
+              "id": "ch1:p55",
+              "number": 55,
+              "start": 1686,
+              "end": 1701,
+              "sha256": "1a5f401cb609d2937d3255a00893dfb8caf6dcd644f0973d2c845b0d1d7b50be"
+            },
+            {
+              "id": "ch1:p56",
+              "number": 56,
+              "start": 1705,
+              "end": 1735,
+              "sha256": "83b0930322ff0b024f47e27b7f701d68202c05ee94608ff61e7c30a00d9fdde6"
+            },
+            {
+              "id": "ch1:p57",
+              "number": 57,
+              "start": 1739,
+              "end": 1776,
+              "sha256": "a4a8e97b93a6d1933290f2b34bc6c6ce8a09af529b627da21fdd3df2e2376a31"
+            },
+            {
+              "id": "ch1:p58",
+              "number": 58,
+              "start": 1780,
+              "end": 1804,
+              "sha256": "90cd35bd4494d642e0feffc6c8a275d86d0b19d7df281253580a5903440479a0"
+            },
+            {
+              "id": "ch1:p59",
+              "number": 59,
+              "start": 1808,
+              "end": 1818,
+              "sha256": "72debd307ef55dbf3e5fe2f257b0569fb6f177ced72b2f3e22528e18aa0ab7d1"
+            },
+            {
+              "id": "ch1:p60",
+              "number": 60,
+              "start": 1822,
+              "end": 1852,
+              "sha256": "9ba172dd052d3f38208e40287f585a34c0f9f4ee00750077d193fe8ea53b63b0"
+            },
+            {
+              "id": "ch1:p61",
+              "number": 61,
+              "start": 1856,
+              "end": 1869,
+              "sha256": "f9a0c488078e60858c40f5f8c15346b2181fd0cf0ce6409f2a762bc2d2b2bf56"
+            },
+            {
+              "id": "ch1:p62",
+              "number": 62,
+              "start": 1873,
+              "end": 1893,
+              "sha256": "4786381bfd60fa9f2ab22eac29d93311447797bb5f205baea265ab04372c7197"
+            },
+            {
+              "id": "ch1:p63",
+              "number": 63,
+              "start": 1897,
+              "end": 1914,
+              "sha256": "bb4a56f8feb60d901be5da8dadc8efc5c6f8aa316dc15ba60532841e47f6206c"
+            },
+            {
+              "id": "ch1:p64",
+              "number": 64,
+              "start": 1918,
+              "end": 1950,
+              "sha256": "d1f5ff0326d9310666d73dc43c8aad47efa6ca7b2e797d31734ba54a2260d8ef"
+            },
+            {
+              "id": "ch1:p65",
+              "number": 65,
+              "start": 1954,
+              "end": 1975,
+              "sha256": "d61ad6dcfbc6a3985cf991f455a4894af7fd45c0c8aeb0d9b7b96e83f6319df3"
+            },
+            {
+              "id": "ch1:p66",
+              "number": 66,
+              "start": 1979,
+              "end": 1990,
+              "sha256": "ac3f1c6e538039662b7b56bcd592cac32bbc0af3187208165c42a72fb7743e2b"
+            },
+            {
+              "id": "ch1:p67",
+              "number": 67,
+              "start": 1994,
+              "end": 2030,
+              "sha256": "beb91d07e99a446a531eeafb5bbadf35f4d7216888e12b23bdb37377e510ce41"
+            },
+            {
+              "id": "ch1:p68",
+              "number": 68,
+              "start": 2034,
+              "end": 2070,
+              "sha256": "b27dfa78999c94242d66a00309e5b5a0b117c9f2cd01bae2943d25bcf21be270"
+            },
+            {
+              "id": "ch1:p69",
+              "number": 69,
+              "start": 2074,
+              "end": 2099,
+              "sha256": "1109fb98f07a95172427f3b51fd5f5756415778faec9851a201be693de792b63"
+            },
+            {
+              "id": "ch1:p70",
+              "number": 70,
+              "start": 2103,
+              "end": 2143,
+              "sha256": "7d724993fbbaa166171a8c69693687254d0fe6a650b47934374dd6e18cbcfa78"
+            },
+            {
+              "id": "ch1:p71",
+              "number": 71,
+              "start": 2147,
+              "end": 2189,
+              "sha256": "48dba8726678b8268edf44f8a0945d11e1738cac327fec9702ce3bb5f71c182b"
+            },
+            {
+              "id": "ch1:p72",
+              "number": 72,
+              "start": 2193,
+              "end": 2213,
+              "sha256": "cfe3cd904177fae9da88515cd216a980a6df159ef8729e73ca87df6ca5dacd93"
+            },
+            {
+              "id": "ch1:p73",
+              "number": 73,
+              "start": 2217,
+              "end": 2237,
+              "sha256": "1c2e3e8d5275a249da15ce1e3e45273e5c2399b231140804f4abc54a4a589f12"
+            },
+            {
+              "id": "ch1:p74",
+              "number": 74,
+              "start": 2241,
+              "end": 2256,
+              "sha256": "e1d98b95ec630cd1d3c4718654ea06be7e32323daf7358865987d69c69bf991e"
+            },
+            {
+              "id": "ch1:p75",
+              "number": 75,
+              "start": 2260,
+              "end": 2272,
+              "sha256": "d841be39357c3380338c11fef20ecd5625bcf319737faa284712ef3f40e75e2a"
+            },
+            {
+              "id": "ch1:p76",
+              "number": 76,
+              "start": 2276,
+              "end": 2305,
+              "sha256": "dcaf1b611d0444ad63919af0213e724f3e98702e6d2b3411899aa7fb5d89014d"
+            },
+            {
+              "id": "ch1:p77",
+              "number": 77,
+              "start": 2309,
+              "end": 2327,
+              "sha256": "857a04bf881da4be609c53e5b60ad845edd016798b54609ef0dfe1f795308102"
+            },
+            {
+              "id": "ch1:p78",
+              "number": 78,
+              "start": 2331,
+              "end": 2346,
+              "sha256": "970c3250671d64510c692bf9ec325340dd0afaaf8e4cd3a23ecfce5f3205581c"
+            },
+            {
+              "id": "ch1:p79",
+              "number": 79,
+              "start": 2350,
+              "end": 2386,
+              "sha256": "ecdd35b6ec6839f92366f6ea32982ed3d11c67867d30b1fda53a54984fcd91dc"
+            },
+            {
+              "id": "ch1:p80",
+              "number": 80,
+              "start": 2390,
+              "end": 2398,
+              "sha256": "7b5ec1807c9f1180f06b69344311475dbaeec8a018bff8218dea4c262ff8fbd9"
+            },
+            {
+              "id": "ch1:p81",
+              "number": 81,
+              "start": 2402,
+              "end": 2422,
+              "sha256": "e9580accd05ec9d0989f75d382926201c7137b2545dd24f6ef5c1fb6baa5fb18"
+            },
+            {
+              "id": "ch1:p82",
+              "number": 82,
+              "start": 2426,
+              "end": 2441,
+              "sha256": "8d609be051d7a8895e500013b35d81d843b19293d84d3f92df2185647f97ef28"
+            },
+            {
+              "id": "ch1:p83",
+              "number": 83,
+              "start": 2445,
+              "end": 2470,
+              "sha256": "09a19af8f599309d5d277693e0c3a09577eea2ee2c092cc343a0bf4c92a47c4f"
+            },
+            {
+              "id": "ch1:p84",
+              "number": 84,
+              "start": 2474,
+              "end": 2485,
+              "sha256": "af481a13119e7c8b7bab807e5049a027d21dd201658ca91d5fc7179aefbccded"
+            },
+            {
+              "id": "ch1:p85",
+              "number": 85,
+              "start": 2489,
+              "end": 2535,
+              "sha256": "d8f84f51f17341ecd5edb63e0ad6ee4b4096eb6098bbf05a917968e3549252a1"
+            },
+            {
+              "id": "ch1:p86",
+              "number": 86,
+              "start": 2539,
+              "end": 2583,
+              "sha256": "605a3faa7abfcc636a5e210cfb73e2bcf9f3c7141c8a7cd047bb615530684bc9"
+            },
+            {
+              "id": "ch1:p87",
+              "number": 87,
+              "start": 2587,
+              "end": 2600,
+              "sha256": "2be0a8220d1dfa3cea5e86d75051a002b74418c6e88336cbb244bf337b52a8f4"
+            },
+            {
+              "id": "ch1:p88",
+              "number": 88,
+              "start": 2604,
+              "end": 2647,
+              "sha256": "9dc58d05d35c1f7eb9ede886820a9a9c5a21d978c3a381495177820243e8e5df"
+            },
+            {
+              "id": "ch1:p89",
+              "number": 89,
+              "start": 2651,
+              "end": 2680,
+              "sha256": "2bcd24591b3172570de7a713c74be22224d8c9041332a82511121e0fd6fa1f80"
+            },
+            {
+              "id": "ch1:p90",
+              "number": 90,
+              "start": 2684,
+              "end": 2703,
+              "sha256": "859c65d31ae66ff5975eb70c75b03d485e78b3f66ec8f1badd7b8248adaad87b"
+            },
+            {
+              "id": "ch1:p91",
+              "number": 91,
+              "start": 2707,
+              "end": 2731,
+              "sha256": "f284b1bfbcf6ba336ccd1af7888fc3ffe9df6076a543fcb921f5c664d428f8bc"
+            }
+          ],
+          "excerpts": [
+            {
+              "paragraphId": "ch1:p1",
+              "start": 264,
+              "end": 269,
+              "sha256": "b34721e24931c02102c8e4e220dbc08ed7e9da428a88d04bd9f1945f82351391",
+              "text": "中平六年。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch1:p2",
+              "start": 273,
+              "end": 282,
+              "sha256": "3203040367c852827f77d99cd2ff15698d7ad987dcaba729d01fd6d8e3976378",
+              "text": "公元189年，春。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch1:p89",
+              "start": 2651,
+              "end": 2680,
+              "sha256": "2bcd24591b3172570de7a713c74be22224d8c9041332a82511121e0fd6fa1f80",
+              "text": "“兄长，你以后就留在山上，只要有我一口吃的，就饿不着你。”",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch1:p90",
+              "start": 2684,
+              "end": 2703,
+              "sha256": "859c65d31ae66ff5975eb70c75b03d485e78b3f66ec8f1badd7b8248adaad87b",
+              "text": "裴逸笑了笑，没急着答应，而是话锋一转：",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch1:p91",
+              "start": 2707,
+              "end": 2731,
+              "sha256": "f284b1bfbcf6ba336ccd1af7888fc3ffe9df6076a543fcb921f5c664d428f8bc",
+              "text": "“贤弟，我问你，你就打算一辈子在这山上当山贼？”",
+              "truncated": false
+            }
+          ],
+          "metrics": {
+            "fingerprint": {
+              "sentenceLenMean": 21.7113,
+              "sentenceLenStd": 11.1188,
+              "paragraphLenMean": 23.1429,
+              "paragraphLenStd": 11.1233,
+              "dialogueRatio": 0.240741,
+              "dialogueTurnMean": 23.0455,
+              "commaPeriodRatio": 2.0405,
+              "ttr": 0.836757,
+              "similePerKilo": 0.9497,
+              "totalChars": 2106
+            },
+            "structure": {
+              "chars": 2106,
+              "paragraphCount": 91,
+              "sentenceCount": 97,
+              "singleSentenceParagraphRatio": 0.8571,
+              "directPsychRatio": 0.0928,
+              "onomatopoeiaParagraphRatio": 0,
+              "dialogueParagraphRatio": 0.2418,
+              "openingMode": "scene",
+              "endingMode": "question",
+              "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+              "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+            }
+          },
+          "closeReading": {
+            "status": "excerpt-reviewed",
+            "reviewer": "agent-excerpt-analysis",
+            "reviewedAt": "2026-09-10",
+            "humanReviewStatus": "pending",
+            "fullChapterReviewStatus": "pending",
+            "method": "本轮代理阅读所引段落并作首尾/相邻段对照；未评读段落只建立确定性索引。observations为局部阅读解释，不是模型全文审稿结果。",
+            "coverage": {
+              "indexedParagraphs": 91,
+              "citedParagraphs": 5,
+              "fullyReviewedChapters": 0
+            },
+            "observations": [
+              {
+                "claim": "开头直接给纪年，末尾从许诺留山有饭吃转到是否一辈子当山贼的追问；眼前容身与未来身份形成两个尺度的目标。",
+                "paragraphIds": [
+                  "ch1:p1",
+                  "ch1:p2",
+                  "ch1:p89",
+                  "ch1:p90",
+                  "ch1:p91"
+                ],
+                "limits": "纪年只是原文声明，未做史料核验；询问未来不等于完整政治动机已建立。"
+              }
+            ],
+            "limitations": [
+              "原文仅保存每个证据段前160个Unicode字符；truncated=true时需用段落范围回查全文。",
+              "整章语义、后文兑现、人工复核待完成；量化指标不证明文学质量。"
+            ]
+          }
+        },
+        {
+          "id": "ch2",
+          "number": 2,
+          "title": "第2章 桃源结义开宝箱",
+          "start": 2735,
+          "bodyStart": 2747,
+          "end": 5169,
+          "complete": true,
+          "boundary": "next-consecutive-numbered-heading",
+          "nextHeading": "第3章 获得仙丹求发展",
+          "sha256": "36bb06684392c755a3617ead087ed9119513f16407c6adbd3805038f7296d3ea",
+          "bodySha256": "c633e1e8a8b1db1476b509820f53d6431d757b825aaa79e3f5e97e8f9d20479d",
+          "paragraphs": [
+            {
+              "id": "ch2:p1",
+              "number": 1,
+              "start": 2748,
+              "end": 2754,
+              "sha256": "6841721bacfee7b2c962d53a99a9e81230951987fb19f8e0591da075a0d25ade"
+            },
+            {
+              "id": "ch2:p2",
+              "number": 2,
+              "start": 2758,
+              "end": 2790,
+              "sha256": "19c87abcc7db6c9f2fce5b67164f54966a9dc24a99fcbaffdf445fa7ced02706"
+            },
+            {
+              "id": "ch2:p3",
+              "number": 3,
+              "start": 2794,
+              "end": 2804,
+              "sha256": "17a97b4902359c1026e72a2f4d38a210c9420ff95bf1e1cca3aea7388054d8dc"
+            },
+            {
+              "id": "ch2:p4",
+              "number": 4,
+              "start": 2808,
+              "end": 2836,
+              "sha256": "6c2b58ed929b444d117c3511a1ec2cea69b64fad8613bf3f91156db725b9b2ea"
+            },
+            {
+              "id": "ch2:p5",
+              "number": 5,
+              "start": 2840,
+              "end": 2865,
+              "sha256": "9515482871f8afbe3371d6bbb861a551fed628f899f366baa8edd832301cbb5e"
+            },
+            {
+              "id": "ch2:p6",
+              "number": 6,
+              "start": 2869,
+              "end": 2877,
+              "sha256": "99583ec8200ef7407e77df501635e49aeb381d5d58c740d480dc18e47db28603"
+            },
+            {
+              "id": "ch2:p7",
+              "number": 7,
+              "start": 2881,
+              "end": 2895,
+              "sha256": "95c55c02e25557719d719fd2945f6d66d7f2d407b0e201f34dd0d6f834e0676e"
+            },
+            {
+              "id": "ch2:p8",
+              "number": 8,
+              "start": 2899,
+              "end": 2913,
+              "sha256": "7ba8ef331bb53a333cb497c4c32c818a1d1980e93a455a0660855de6491c72d8"
+            },
+            {
+              "id": "ch2:p9",
+              "number": 9,
+              "start": 2917,
+              "end": 2949,
+              "sha256": "00015785bda4b6b90af5135984823767f88afe97609049c6962f9db5e9b138a8"
+            },
+            {
+              "id": "ch2:p10",
+              "number": 10,
+              "start": 2953,
+              "end": 2992,
+              "sha256": "5d5df7eea0c03b1e1f16e89b24dea4fe5eab57d24d01742a4bfb4fcb47e70ea9"
+            },
+            {
+              "id": "ch2:p11",
+              "number": 11,
+              "start": 2996,
+              "end": 3008,
+              "sha256": "fd36417c49019dd34da4b0ca79e62c3fe38368687ea7b9a88effb3b1ec41fa0e"
+            },
+            {
+              "id": "ch2:p12",
+              "number": 12,
+              "start": 3012,
+              "end": 3043,
+              "sha256": "49f1f1b9525755b41be33d71c438fb73c44ac2f9dbb7567fb37092f39f597979"
+            },
+            {
+              "id": "ch2:p13",
+              "number": 13,
+              "start": 3047,
+              "end": 3077,
+              "sha256": "ffb51001a91ddf60330412ce6a28d0fedcbc11e770cb7130bcf45e9e991059d0"
+            },
+            {
+              "id": "ch2:p14",
+              "number": 14,
+              "start": 3081,
+              "end": 3099,
+              "sha256": "31a9bf079c395863337f2c15d365f0251db37bba8c07ac6f97d635c36b3925f8"
+            },
+            {
+              "id": "ch2:p15",
+              "number": 15,
+              "start": 3103,
+              "end": 3131,
+              "sha256": "5813eae6d81038b6c86e833696866def1eda83a687a4e47a9faef4717f4fc9b8"
+            },
+            {
+              "id": "ch2:p16",
+              "number": 16,
+              "start": 3135,
+              "end": 3157,
+              "sha256": "f777613bdb0fd216b13725db4fe74a3f2b53910b52093c2ab638b876fbe91e4a"
+            },
+            {
+              "id": "ch2:p17",
+              "number": 17,
+              "start": 3161,
+              "end": 3168,
+              "sha256": "064124a054fa66e6a3ae8bbf18b3ac785baa49d9f304c62f5097c0ea057ba1aa"
+            },
+            {
+              "id": "ch2:p18",
+              "number": 18,
+              "start": 3172,
+              "end": 3210,
+              "sha256": "b7f9e7dc805f5f0a3f70dcea3224030b9a85d013a58b15a58402a311bd31198c"
+            },
+            {
+              "id": "ch2:p19",
+              "number": 19,
+              "start": 3214,
+              "end": 3244,
+              "sha256": "10cedc04cbd2d54e93dcc866754ec9059668fabe4321e53fa47517a8bda913e6"
+            },
+            {
+              "id": "ch2:p20",
+              "number": 20,
+              "start": 3248,
+              "end": 3267,
+              "sha256": "4e52bcab4583cbecb42cd0953ba5775db57caa408931cedbcd10bf5076929d94"
+            },
+            {
+              "id": "ch2:p21",
+              "number": 21,
+              "start": 3271,
+              "end": 3306,
+              "sha256": "5ca692fe823b624c9aec77a83b5b451daa16f592bcc5fcf05b0125647808f80e"
+            },
+            {
+              "id": "ch2:p22",
+              "number": 22,
+              "start": 3310,
+              "end": 3336,
+              "sha256": "06ffbe1d74912d684432feef4aea1db0b74695d56e7b7239760a857118c796d6"
+            },
+            {
+              "id": "ch2:p23",
+              "number": 23,
+              "start": 3340,
+              "end": 3352,
+              "sha256": "e0af588811df640d8e84b7e1155045b6fbcafdf8b51ce3f54bfb2e5b87a58ae9"
+            },
+            {
+              "id": "ch2:p24",
+              "number": 24,
+              "start": 3356,
+              "end": 3375,
+              "sha256": "166be3b368c01408591024fe52b034c41e244c10dd6e9252e853d50aa5ee4138"
+            },
+            {
+              "id": "ch2:p25",
+              "number": 25,
+              "start": 3379,
+              "end": 3394,
+              "sha256": "d5289cd329cf176b84f5bed21deaa314793f2f6c02038c6698a8723fc2c13508"
+            },
+            {
+              "id": "ch2:p26",
+              "number": 26,
+              "start": 3398,
+              "end": 3413,
+              "sha256": "5eb1c427da9b942de568e8b084fed82ee2c0b5e04a06afa5bfad33e8c3e4021a"
+            },
+            {
+              "id": "ch2:p27",
+              "number": 27,
+              "start": 3417,
+              "end": 3451,
+              "sha256": "2d18d16c79198afffdaca06e2428eba24ef5f772f56949e2340bce5ebb391921"
+            },
+            {
+              "id": "ch2:p28",
+              "number": 28,
+              "start": 3455,
+              "end": 3473,
+              "sha256": "a4c957e6f71383b213ca11a8c58d44144b6925954c1e543f77fc769e4dfcfdb9"
+            },
+            {
+              "id": "ch2:p29",
+              "number": 29,
+              "start": 3477,
+              "end": 3489,
+              "sha256": "991aecffbdb350758ec3ad2bf5c46be40c77435efb4e5142157d34760ff92df7"
+            },
+            {
+              "id": "ch2:p30",
+              "number": 30,
+              "start": 3493,
+              "end": 3543,
+              "sha256": "389924261db21d2ac3b915faabbdf42cb396576ba3104b724843be8f84e2dde2"
+            },
+            {
+              "id": "ch2:p31",
+              "number": 31,
+              "start": 3547,
+              "end": 3555,
+              "sha256": "b257c53f296bdd5167bf6af2a7443415ba154c7925dd22c400a06a158ae56191"
+            },
+            {
+              "id": "ch2:p32",
+              "number": 32,
+              "start": 3559,
+              "end": 3591,
+              "sha256": "50b29a26a061330b8b0b1632903d189c65195c8be328e083f3b5b47fd2f2c0d5"
+            },
+            {
+              "id": "ch2:p33",
+              "number": 33,
+              "start": 3595,
+              "end": 3602,
+              "sha256": "91432c709cf09df5a4b9ca8bfe858ad42a5c8743606f059038b8bd77b641e058"
+            },
+            {
+              "id": "ch2:p34",
+              "number": 34,
+              "start": 3606,
+              "end": 3623,
+              "sha256": "0e99c9aac78ac1e37dac76866502d9d16a6e02b97cdae644daf93ee838a972d9"
+            },
+            {
+              "id": "ch2:p35",
+              "number": 35,
+              "start": 3627,
+              "end": 3648,
+              "sha256": "774b6cb88615eaa90f142fa2e8788606530066ac34a92c8665e82196725a2cec"
+            },
+            {
+              "id": "ch2:p36",
+              "number": 36,
+              "start": 3652,
+              "end": 3671,
+              "sha256": "b077517be0f25a9eab963021a11e33f57eaa2a411d49dc471acc1e0a170ec0a2"
+            },
+            {
+              "id": "ch2:p37",
+              "number": 37,
+              "start": 3675,
+              "end": 3688,
+              "sha256": "b217053e5899978afa3e93df22689503bb277c1d60d433b95bb258d837056dec"
+            },
+            {
+              "id": "ch2:p38",
+              "number": 38,
+              "start": 3692,
+              "end": 3707,
+              "sha256": "e7197a3dfa64af63bf681436460d98b450d0f0d2c8336cad26a31ce818bd3cc3"
+            },
+            {
+              "id": "ch2:p39",
+              "number": 39,
+              "start": 3711,
+              "end": 3724,
+              "sha256": "8c092134e47576f67c7724f56d765de707541bcfa729e11eff83f1746f376129"
+            },
+            {
+              "id": "ch2:p40",
+              "number": 40,
+              "start": 3728,
+              "end": 3735,
+              "sha256": "651be4b38c85ea285fef6a73c668e00431467c706cf74857f51322e6bb03919d"
+            },
+            {
+              "id": "ch2:p41",
+              "number": 41,
+              "start": 3739,
+              "end": 3749,
+              "sha256": "4a39862621231488c92dbfd07347c70319a8de83c9cc6126f36f5d6603607614"
+            },
+            {
+              "id": "ch2:p42",
+              "number": 42,
+              "start": 3753,
+              "end": 3763,
+              "sha256": "6089e73fc59962042e0bc0bae865cc1606bca868c86604dd4b78678b886e2699"
+            },
+            {
+              "id": "ch2:p43",
+              "number": 43,
+              "start": 3767,
+              "end": 3777,
+              "sha256": "d0ab123667a26ff6cd294c34197f48febcc8432c51d19a659b8b264accdea889"
+            },
+            {
+              "id": "ch2:p44",
+              "number": 44,
+              "start": 3781,
+              "end": 3786,
+              "sha256": "2d19ed1de3bd785fa1fb6f20c4702fdd17cc59be0a49771f3362c510dd8c6b64"
+            },
+            {
+              "id": "ch2:p45",
+              "number": 45,
+              "start": 3790,
+              "end": 3795,
+              "sha256": "6897463c500c2ba55efa661d8f9ba61547da588ba97f46af7ce92489307b626a"
+            },
+            {
+              "id": "ch2:p46",
+              "number": 46,
+              "start": 3799,
+              "end": 3804,
+              "sha256": "7194237963b4c6473f7c3a18ac77315ef1698fceecfc481a9dd742798132aa6b"
+            },
+            {
+              "id": "ch2:p47",
+              "number": 47,
+              "start": 3808,
+              "end": 3826,
+              "sha256": "f57335645615ac259a759a8814cd29320004aa996d04245f8e63611bcc9c3499"
+            },
+            {
+              "id": "ch2:p48",
+              "number": 48,
+              "start": 3830,
+              "end": 3840,
+              "sha256": "ba12b1763eda8bdc94c20973956568b2849c65f57909fbd760d38418a6c24c71"
+            },
+            {
+              "id": "ch2:p49",
+              "number": 49,
+              "start": 3844,
+              "end": 3858,
+              "sha256": "a9c49406756757d4dd020984ac0474bf97640ff9e86717b26845e405618e5f5c"
+            },
+            {
+              "id": "ch2:p50",
+              "number": 50,
+              "start": 3862,
+              "end": 3889,
+              "sha256": "b73d88407307870cf6b43965d9d9b2e61bfe7099796139e7f0c53583d6fffea6"
+            },
+            {
+              "id": "ch2:p51",
+              "number": 51,
+              "start": 3893,
+              "end": 3903,
+              "sha256": "a272e8ee1ca6d461d46c0328d25db063b36afa705604bbf4e112c90aa9f1fa68"
+            },
+            {
+              "id": "ch2:p52",
+              "number": 52,
+              "start": 3907,
+              "end": 3920,
+              "sha256": "9b1af94dc0277030e2e88a8f4698a3a8400ad07189f68ffd3559177518c924cd"
+            },
+            {
+              "id": "ch2:p53",
+              "number": 53,
+              "start": 3924,
+              "end": 3956,
+              "sha256": "cc03adf22805655a9056e38da67a9ef98d5314aa0aa25ac420bb5880494bb438"
+            },
+            {
+              "id": "ch2:p54",
+              "number": 54,
+              "start": 3960,
+              "end": 4007,
+              "sha256": "4a2df06801f6a9b7a9a3b56bfa30fc11424871c0b226a17cb8b867456827c4ed"
+            },
+            {
+              "id": "ch2:p55",
+              "number": 55,
+              "start": 4011,
+              "end": 4034,
+              "sha256": "9e2dfaef54974599f2df27dfaf04cefbffc4a351e0d8821d6508bbb8fbcfa07d"
+            },
+            {
+              "id": "ch2:p56",
+              "number": 56,
+              "start": 4038,
+              "end": 4047,
+              "sha256": "e84a5cdf7f3abfded1eaf34c0d0790942b249b8d081d39c8f6d124920b170d22"
+            },
+            {
+              "id": "ch2:p57",
+              "number": 57,
+              "start": 4051,
+              "end": 4064,
+              "sha256": "86c07983cb609e727fe87c999393cc3779bb7cc2cabf1a4b5febdeab4a985db9"
+            },
+            {
+              "id": "ch2:p58",
+              "number": 58,
+              "start": 4068,
+              "end": 4088,
+              "sha256": "4a39fa0ef84dde27b08258b0a8c449d30f7d6abe9a0eba71072de622bf16614c"
+            },
+            {
+              "id": "ch2:p59",
+              "number": 59,
+              "start": 4092,
+              "end": 4117,
+              "sha256": "c9f56769b25647b5af272022dd799537420ce3b29f83fb5a0c55688ec5e4c486"
+            },
+            {
+              "id": "ch2:p60",
+              "number": 60,
+              "start": 4121,
+              "end": 4144,
+              "sha256": "d4972e12be89de9a60b19d3a8cc8d0bd76a42512dd63e0e4021b95647186f5f9"
+            },
+            {
+              "id": "ch2:p61",
+              "number": 61,
+              "start": 4148,
+              "end": 4171,
+              "sha256": "efd29f9c9e7b2520285bc5ae26f217ac02f695e2b5b088d8d46af153bb615fb4"
+            },
+            {
+              "id": "ch2:p62",
+              "number": 62,
+              "start": 4175,
+              "end": 4217,
+              "sha256": "f679de6077b2c56b09089963dd49590394b6eba60714d28a6239d4f0ed3fb076"
+            },
+            {
+              "id": "ch2:p63",
+              "number": 63,
+              "start": 4221,
+              "end": 4225,
+              "sha256": "bf9b9d4967a0b3c567be99b4b0a74cc52cad6559bd21b8c9392570d4658d9b3b"
+            },
+            {
+              "id": "ch2:p64",
+              "number": 64,
+              "start": 4229,
+              "end": 4249,
+              "sha256": "28f9fa914a9d92d2f447d0791f336ff26dd230bcf5af7911da4004fe01c996da"
+            },
+            {
+              "id": "ch2:p65",
+              "number": 65,
+              "start": 4253,
+              "end": 4279,
+              "sha256": "62a43ecddb4118b3a025001f4be7c0e6df0389037b5a20afb4d3531232750678"
+            },
+            {
+              "id": "ch2:p66",
+              "number": 66,
+              "start": 4283,
+              "end": 4303,
+              "sha256": "2cea84e1e6f0b66c43ffab0227645868605dc45b4d979bec5213d6460fbd53e2"
+            },
+            {
+              "id": "ch2:p67",
+              "number": 67,
+              "start": 4307,
+              "end": 4326,
+              "sha256": "79e75cb18bf5745046ba1854bc2a20a5eb245d9ca9349b04ee55051c8113413e"
+            },
+            {
+              "id": "ch2:p68",
+              "number": 68,
+              "start": 4330,
+              "end": 4358,
+              "sha256": "fbd41db9c976596817846bce0b3184aaa82f3cc5bd2d3db9380ccc6f654d150c"
+            },
+            {
+              "id": "ch2:p69",
+              "number": 69,
+              "start": 4362,
+              "end": 4384,
+              "sha256": "26ffd99da505671414f7c7fa7ec92ef3ee0bf48b7fc84c565a948f2bdeef6616"
+            },
+            {
+              "id": "ch2:p70",
+              "number": 70,
+              "start": 4388,
+              "end": 4395,
+              "sha256": "58ecdcb0f9ef58f2dbb016393f371d5ed63f1001b9bb0f78f77f7e08afeeabe5"
+            },
+            {
+              "id": "ch2:p71",
+              "number": 71,
+              "start": 4399,
+              "end": 4420,
+              "sha256": "fb924ad6e768b65d508bc7d1022c526bc0b5fba808c7b8c86ce0bdda19c71ccd"
+            },
+            {
+              "id": "ch2:p72",
+              "number": 72,
+              "start": 4424,
+              "end": 4439,
+              "sha256": "20943a78ac4a673bc6834c78299ba85be1734489b8b244dad290414368a53fdf"
+            },
+            {
+              "id": "ch2:p73",
+              "number": 73,
+              "start": 4443,
+              "end": 4459,
+              "sha256": "523357e334ef3f6c1ea2e2daba6a3a507d7a65adf483c8ffe921a57dff331840"
+            },
+            {
+              "id": "ch2:p74",
+              "number": 74,
+              "start": 4463,
+              "end": 4493,
+              "sha256": "cadb6a440425ed69af61cf3ea02ccda0779e21768a4bf1683890dc904cff2063"
+            },
+            {
+              "id": "ch2:p75",
+              "number": 75,
+              "start": 4497,
+              "end": 4524,
+              "sha256": "6379a7cda509b9d059144cc6ff82d7c566d377ade101d915236819c40d3b3d44"
+            },
+            {
+              "id": "ch2:p76",
+              "number": 76,
+              "start": 4528,
+              "end": 4548,
+              "sha256": "28a92107e9e1313b3355b427bbbea88acb4df1d16c5fcbd7a447ba5591b7a01b"
+            },
+            {
+              "id": "ch2:p77",
+              "number": 77,
+              "start": 4552,
+              "end": 4567,
+              "sha256": "395ded6926f0634b2a120f5daa939bcd842e058b859ce9b9ab5e63b56bcb557b"
+            },
+            {
+              "id": "ch2:p78",
+              "number": 78,
+              "start": 4571,
+              "end": 4583,
+              "sha256": "3ae203a30d4fd7f4cede25fd3778b5a4cf8aa1f50d29f0d3b560d43f50b70b46"
+            },
+            {
+              "id": "ch2:p79",
+              "number": 79,
+              "start": 4587,
+              "end": 4599,
+              "sha256": "90fe7ff0e073026bf4fa6b2aec1f099c318fc1aa36a52773082feabd80db846a"
+            },
+            {
+              "id": "ch2:p80",
+              "number": 80,
+              "start": 4603,
+              "end": 4618,
+              "sha256": "d4be8fc1faa36187224fee8fe4e1d5b5ea2d36509515ed26951b959e4fd095cd"
+            },
+            {
+              "id": "ch2:p81",
+              "number": 81,
+              "start": 4622,
+              "end": 4676,
+              "sha256": "e6da81beab7305e1aa1f79de1999d0bbb9078433cfaabf5146dfd5cd7f3aac75"
+            },
+            {
+              "id": "ch2:p82",
+              "number": 82,
+              "start": 4680,
+              "end": 4684,
+              "sha256": "01b521c1061a48abdea0706a5f3a43e870fff080907d841a79349cea781a3311"
+            },
+            {
+              "id": "ch2:p83",
+              "number": 83,
+              "start": 4688,
+              "end": 4703,
+              "sha256": "cba44c0ec23d82b9b16c1d3a9c248a7cf2548c470740afb7151a153a60d14679"
+            },
+            {
+              "id": "ch2:p84",
+              "number": 84,
+              "start": 4707,
+              "end": 4716,
+              "sha256": "f1ca3927b6178777bcf34dca6e4e4a36a34228e7bf5d95e0350513765fec02ef"
+            },
+            {
+              "id": "ch2:p85",
+              "number": 85,
+              "start": 4720,
+              "end": 4734,
+              "sha256": "d0e2f8d66177b49925a95f459d88d095e6059fc706f2a36a7bce90e843ad98c1"
+            },
+            {
+              "id": "ch2:p86",
+              "number": 86,
+              "start": 4738,
+              "end": 4743,
+              "sha256": "88124bc899f187b07ff57792c8f588784656300c84368cfe8fd20ad2e1de7fb8"
+            },
+            {
+              "id": "ch2:p87",
+              "number": 87,
+              "start": 4747,
+              "end": 4770,
+              "sha256": "2be69d6141da7c605b1f6ddd6f44c8cfc21c94dde3934f817aaf42ed88425a91"
+            },
+            {
+              "id": "ch2:p88",
+              "number": 88,
+              "start": 4774,
+              "end": 4830,
+              "sha256": "03f65a3a5e38c09706eddb160ba2bf38afa1984a620ebc103350b51f79517cde"
+            },
+            {
+              "id": "ch2:p89",
+              "number": 89,
+              "start": 4834,
+              "end": 4846,
+              "sha256": "445799f773ec1c73753540f7078a4a5eedb031a5b72279da48716eb4241418d9"
+            },
+            {
+              "id": "ch2:p90",
+              "number": 90,
+              "start": 4850,
+              "end": 4864,
+              "sha256": "7785d98df1b1ec8cb311c84aef1049cfb8d46a4cd6f00c0e2bc0679412001998"
+            },
+            {
+              "id": "ch2:p91",
+              "number": 91,
+              "start": 4868,
+              "end": 4886,
+              "sha256": "4a397ab8fde5e2e1f4cea274486d70636e5355b24be8e2e63b802f8dad66e28c"
+            },
+            {
+              "id": "ch2:p92",
+              "number": 92,
+              "start": 4890,
+              "end": 4944,
+              "sha256": "e7ab238d83b248142d8c4de22bc643964d9df8ce1f5604ffb2711ee271b2ee8e"
+            },
+            {
+              "id": "ch2:p93",
+              "number": 93,
+              "start": 4948,
+              "end": 4951,
+              "sha256": "0b32788c897800ab23d12469105afe75f801dde66186160d5c4ce5bed9d34376"
+            },
+            {
+              "id": "ch2:p94",
+              "number": 94,
+              "start": 4955,
+              "end": 4966,
+              "sha256": "252b80ffaa9ecea29fdcab84d7e3857186508c4b329d8cac1e7d72855eb89c55"
+            },
+            {
+              "id": "ch2:p95",
+              "number": 95,
+              "start": 4970,
+              "end": 4990,
+              "sha256": "6b93b33ba15c4c97699b8b5cd6407fed335bb6fd179d6294ad9febf0234b0401"
+            },
+            {
+              "id": "ch2:p96",
+              "number": 96,
+              "start": 4994,
+              "end": 5035,
+              "sha256": "342da33370b6ec1fb1e6c3e4eaa1a882db635c7575f36b02187f59d76283d643"
+            },
+            {
+              "id": "ch2:p97",
+              "number": 97,
+              "start": 5039,
+              "end": 5053,
+              "sha256": "fcc84d83f13752947f69922afc5d8038ebef1d696d4556a647014d604bc7d760"
+            },
+            {
+              "id": "ch2:p98",
+              "number": 98,
+              "start": 5057,
+              "end": 5081,
+              "sha256": "72e7f5c017fcb8de6d386530c98192978a8e76c8414cbdb3943744249429e9dc"
+            },
+            {
+              "id": "ch2:p99",
+              "number": 99,
+              "start": 5085,
+              "end": 5104,
+              "sha256": "f701e6e36520500559353f76dda80c503c650e7dc4a6c3e98e1c2162034a3573"
+            },
+            {
+              "id": "ch2:p100",
+              "number": 100,
+              "start": 5108,
+              "end": 5132,
+              "sha256": "f091ee40684d225f9db37b837d8d749686b5c567369c8702d28a4d3a08cfb82f"
+            },
+            {
+              "id": "ch2:p101",
+              "number": 101,
+              "start": 5136,
+              "end": 5152,
+              "sha256": "ee5d53a39320db93b762d27522e34d5788685acf538c92acadc92f3e952fcc14"
+            },
+            {
+              "id": "ch2:p102",
+              "number": 102,
+              "start": 5156,
+              "end": 5165,
+              "sha256": "0aaa68f5e58ac0794e2737cf530ad81f684d16708100a3bcf422685cb8a1d681"
+            }
+          ],
+          "excerpts": [
+            {
+              "paragraphId": "ch2:p2",
+              "start": 2758,
+              "end": 2790,
+              "sha256": "19c87abcc7db6c9f2fce5b67164f54966a9dc24a99fcbaffdf445fa7ced02706",
+              "text": "“不当山贼干啥？朝廷到处围剿咱们黄巾余部，不当山贼活不下去啊。”",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch2:p100",
+              "start": 5108,
+              "end": 5132,
+              "sha256": "f091ee40684d225f9db37b837d8d749686b5c567369c8702d28a4d3a08cfb82f",
+              "text": "失传的神兵利器？顶级的武将功法？还是逆天的法术？",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch2:p102",
+              "start": 5156,
+              "end": 5165,
+              "sha256": "0aaa68f5e58ac0794e2737cf530ad81f684d16708100a3bcf422685cb8a1d681",
+              "text": "“开启特殊宝箱。”",
+              "truncated": false
+            }
+          ],
+          "metrics": {
+            "fingerprint": {
+              "sentenceLenMean": 16.7667,
+              "sentenceLenStd": 10.7515,
+              "paragraphLenMean": 19.7255,
+              "paragraphLenStd": 11.5607,
+              "dialogueRatio": 0.304175,
+              "dialogueTurnMean": 18.5455,
+              "commaPeriodRatio": 1.6125,
+              "ttr": 0.814149,
+              "similePerKilo": 0.497,
+              "totalChars": 2012
+            },
+            "structure": {
+              "chars": 2012,
+              "paragraphCount": 102,
+              "sentenceCount": 120,
+              "singleSentenceParagraphRatio": 0.8235,
+              "directPsychRatio": 0.0667,
+              "onomatopoeiaParagraphRatio": 0,
+              "dialogueParagraphRatio": 0.3137,
+              "openingMode": "scene",
+              "endingMode": "unknown",
+              "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+              "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+            }
+          },
+          "closeReading": {
+            "status": "excerpt-reviewed",
+            "reviewer": "agent-excerpt-analysis",
+            "reviewedAt": "2026-09-10",
+            "humanReviewStatus": "pending",
+            "fullChapterReviewStatus": "pending",
+            "method": "本轮代理阅读所引段落并作首尾/相邻段对照；未评读段落只建立确定性索引。observations为局部阅读解释，不是模型全文审稿结果。",
+            "coverage": {
+              "indexedParagraphs": 102,
+              "citedParagraphs": 3,
+              "fullyReviewedChapters": 0
+            },
+            "observations": [
+              {
+                "claim": "开头回答当山贼是为躲围剿求生，末尾列举宝箱可能产物并下令开启；生存困局与系统奖励期待同时存在，不能只按严肃历史写实规范衡量。",
+                "paragraphIds": [
+                  "ch2:p2",
+                  "ch2:p100",
+                  "ch2:p102"
+                ],
+                "limits": "宝箱如何获得及奖励是否破坏因果尚未全文审查；不把系统流设定泛化成全部历史脑洞。"
+              }
+            ],
+            "limitations": [
+              "原文仅保存每个证据段前160个Unicode字符；truncated=true时需用段落范围回查全文。",
+              "整章语义、后文兑现、人工复核待完成；量化指标不证明文学质量。"
+            ]
+          }
+        },
+        {
+          "id": "ch3",
+          "number": 3,
+          "title": "第3章 获得仙丹求发展",
+          "start": 5169,
+          "bodyStart": 5181,
+          "end": 7319,
+          "complete": true,
+          "boundary": "next-consecutive-numbered-heading",
+          "nextHeading": "第4章 一年深耕山寨变",
+          "sha256": "3ad42ea3d147ff6fcb6a673a97a1ab0a59b8523e6fe350e67a92b7e72c09e08e",
+          "bodySha256": "ff3b203896db77f2ad2f3a11fd87f258d89717942c3da80538e5c0382534bbbe",
+          "paragraphs": [
+            {
+              "id": "ch3:p1",
+              "number": 1,
+              "start": 5182,
+              "end": 5194,
+              "sha256": "4ba53d401188a6faa38a206d0722ef947e0903e793d3142a445b432304464d7b"
+            },
+            {
+              "id": "ch3:p2",
+              "number": 2,
+              "start": 5198,
+              "end": 5215,
+              "sha256": "2517f00243708f2ec41e733c72e881e519cdbfa0aa3363b1b38331965e21ed12"
+            },
+            {
+              "id": "ch3:p3",
+              "number": 3,
+              "start": 5219,
+              "end": 5241,
+              "sha256": "510ea9adaa577035b87529bf13847c9f37f5d00f9bdb2e789c998606c8c1f204"
+            },
+            {
+              "id": "ch3:p4",
+              "number": 4,
+              "start": 5245,
+              "end": 5277,
+              "sha256": "9f605ec0d8e5e90bbd31ac2963e242cfccd9afd8dde9404fc9970331ee755f12"
+            },
+            {
+              "id": "ch3:p5",
+              "number": 5,
+              "start": 5281,
+              "end": 5314,
+              "sha256": "2f4c3257cb9f98f44a1aad8b85fca93f82596d6458c2385e763f687e85980b57"
+            },
+            {
+              "id": "ch3:p6",
+              "number": 6,
+              "start": 5318,
+              "end": 5321,
+              "sha256": "88cb559397a03c83c410475e292dab397e74c005569fe78a7ebb2be14092a085"
+            },
+            {
+              "id": "ch3:p7",
+              "number": 7,
+              "start": 5325,
+              "end": 5344,
+              "sha256": "2be8589060381056fdb34d71a07e7453245ce8726dc50c23cc099fb0c16e8874"
+            },
+            {
+              "id": "ch3:p8",
+              "number": 8,
+              "start": 5348,
+              "end": 5371,
+              "sha256": "ff7478e83156304aa190ecd6a0b9ba9925c64a84321a966dccd06e24cd1cc422"
+            },
+            {
+              "id": "ch3:p9",
+              "number": 9,
+              "start": 5375,
+              "end": 5414,
+              "sha256": "db41f6ab438ea764b0c54498dfd1ee6ac27e2d5e958af7857fc420337ed81369"
+            },
+            {
+              "id": "ch3:p10",
+              "number": 10,
+              "start": 5418,
+              "end": 5457,
+              "sha256": "e8ffac633baeca4dea9cbce5d51cdb94d04d1b7f913390861cd74a555c35e882"
+            },
+            {
+              "id": "ch3:p11",
+              "number": 11,
+              "start": 5461,
+              "end": 5480,
+              "sha256": "3e584f6a5fa51cd66cc3d09f05c6df760bbdb800978cabd5226b40f962a3d5a0"
+            },
+            {
+              "id": "ch3:p12",
+              "number": 12,
+              "start": 5484,
+              "end": 5516,
+              "sha256": "0b489f11b780b47c415ebf5c112f1673990948e2b9b1b8d9d0363e38fd57a856"
+            },
+            {
+              "id": "ch3:p13",
+              "number": 13,
+              "start": 5520,
+              "end": 5525,
+              "sha256": "2818893923bc4d6fe1a7fffcf13effb6909422881fe8ac91ff16f340bc554f42"
+            },
+            {
+              "id": "ch3:p14",
+              "number": 14,
+              "start": 5529,
+              "end": 5546,
+              "sha256": "abd4c72873ddca95e05171e80478bcf5741de27137c603cbc81e9b6bf241a4eb"
+            },
+            {
+              "id": "ch3:p15",
+              "number": 15,
+              "start": 5550,
+              "end": 5569,
+              "sha256": "d9a6dfab53bfb188faaf692313b29be9cd59c60a590a18b7b119567b68d65767"
+            },
+            {
+              "id": "ch3:p16",
+              "number": 16,
+              "start": 5573,
+              "end": 5578,
+              "sha256": "ad7d64851e9dbf020d704921a23196c4e6513862517c2d34b16a8e099ec967b7"
+            },
+            {
+              "id": "ch3:p17",
+              "number": 17,
+              "start": 5582,
+              "end": 5588,
+              "sha256": "38d896065479824d43dd87004062f50b1994fb626fa95bedf9addfcfae457c27"
+            },
+            {
+              "id": "ch3:p18",
+              "number": 18,
+              "start": 5592,
+              "end": 5610,
+              "sha256": "3d8de5dff3c9d6585342b83c477b9707fb0acdd2e81a95fc5bf1c3dc28669c01"
+            },
+            {
+              "id": "ch3:p19",
+              "number": 19,
+              "start": 5614,
+              "end": 5627,
+              "sha256": "fef32173747d2a3c8e9d37d41b01afc660e724da672c81855af057e47fed2c29"
+            },
+            {
+              "id": "ch3:p20",
+              "number": 20,
+              "start": 5631,
+              "end": 5657,
+              "sha256": "9a9bd1a2bcee55d5b6dd8d0b06e0f7e1c0da50c7222e8fd272fb40f1452227c4"
+            },
+            {
+              "id": "ch3:p21",
+              "number": 21,
+              "start": 5661,
+              "end": 5685,
+              "sha256": "492399f53250c670fe199be05f3b002e14b34e3e85630cffc08b7847ad6ae930"
+            },
+            {
+              "id": "ch3:p22",
+              "number": 22,
+              "start": 5689,
+              "end": 5715,
+              "sha256": "b8858f60d66b6043123a3caef11307b60bea19d332bfa82c5ceb5f25292589b7"
+            },
+            {
+              "id": "ch3:p23",
+              "number": 23,
+              "start": 5719,
+              "end": 5730,
+              "sha256": "f96c56ede143134423289a13c59f527449970750a96553df6c4d736b20d7de78"
+            },
+            {
+              "id": "ch3:p24",
+              "number": 24,
+              "start": 5734,
+              "end": 5753,
+              "sha256": "206a44dd26009161738d5b742a1847213765dcd0f580b8cb223bccd525de841f"
+            },
+            {
+              "id": "ch3:p25",
+              "number": 25,
+              "start": 5757,
+              "end": 5788,
+              "sha256": "bd9d2f522b123cf0e6d82c7dbce099de4a522363ae2e2b496a6e80aec36ea3a9"
+            },
+            {
+              "id": "ch3:p26",
+              "number": 26,
+              "start": 5792,
+              "end": 5799,
+              "sha256": "988535e382d401b493bb62641560f99b6eb8d6dfb708edf55f20f9618a16ed1a"
+            },
+            {
+              "id": "ch3:p27",
+              "number": 27,
+              "start": 5803,
+              "end": 5840,
+              "sha256": "4071e8846ec13ea1f9f17e48ee6b68fc9c43a066c5083fdb629464596cd9bfe2"
+            },
+            {
+              "id": "ch3:p28",
+              "number": 28,
+              "start": 5844,
+              "end": 5871,
+              "sha256": "a819082bc2f0ec2dd5b0bc2151f7547e09c53142994019fa652203d895837404"
+            },
+            {
+              "id": "ch3:p29",
+              "number": 29,
+              "start": 5875,
+              "end": 5902,
+              "sha256": "96b9a8da6b225ee6a150551d7e8575cbf5062722134755c91673b607f7a4e8f4"
+            },
+            {
+              "id": "ch3:p30",
+              "number": 30,
+              "start": 5906,
+              "end": 5912,
+              "sha256": "8f53bc042416f18d9f5e4dc2b1ca806cfa0050e5c209c242ac6e835dd630ca76"
+            },
+            {
+              "id": "ch3:p31",
+              "number": 31,
+              "start": 5916,
+              "end": 5938,
+              "sha256": "93eef658a8f6067e0f2025d166f9a64de0dffd785f7fbcd52d0b1defb72431e6"
+            },
+            {
+              "id": "ch3:p32",
+              "number": 32,
+              "start": 5942,
+              "end": 5967,
+              "sha256": "31d70afe4ac5afc41257e2491620debfd242757738189779f9d3a7dfc84c2bbf"
+            },
+            {
+              "id": "ch3:p33",
+              "number": 33,
+              "start": 5971,
+              "end": 6003,
+              "sha256": "802ed8b8d4aa06c4c43d7d96bd74ae80415baaf5fecc881850fdb754565b2aab"
+            },
+            {
+              "id": "ch3:p34",
+              "number": 34,
+              "start": 6007,
+              "end": 6020,
+              "sha256": "cdb8f34b24e081b0a9e309b5ba5b21f92f08f47846f95fbefbaf223803da56c1"
+            },
+            {
+              "id": "ch3:p35",
+              "number": 35,
+              "start": 6024,
+              "end": 6060,
+              "sha256": "35e917aa4c56ff71a33ec32fe5ef36758ef337225747dccd8dbe469a7c828bad"
+            },
+            {
+              "id": "ch3:p36",
+              "number": 36,
+              "start": 6064,
+              "end": 6090,
+              "sha256": "166281ef9b351172724066f726dd4e76a8a4df3c510934d2edf86f80d9d26290"
+            },
+            {
+              "id": "ch3:p37",
+              "number": 37,
+              "start": 6094,
+              "end": 6117,
+              "sha256": "1dbbab60836904df0e6c48e45013d0bd12f278e66f4b3b1cde5cfa7d65f625fd"
+            },
+            {
+              "id": "ch3:p38",
+              "number": 38,
+              "start": 6121,
+              "end": 6137,
+              "sha256": "853bd67f89c4c1837e7bf9a8fac472025ab1438251c613129d37ce83622b5af2"
+            },
+            {
+              "id": "ch3:p39",
+              "number": 39,
+              "start": 6141,
+              "end": 6188,
+              "sha256": "27e1b8d943833d90122d45c2b32d4e6f6f67f61944d9efe25f8b323158234df8"
+            },
+            {
+              "id": "ch3:p40",
+              "number": 40,
+              "start": 6192,
+              "end": 6245,
+              "sha256": "7fb199a7cea088c70ed60d7a6a6ee53f16a665e47d1f7e9272830751364b2b29"
+            },
+            {
+              "id": "ch3:p41",
+              "number": 41,
+              "start": 6249,
+              "end": 6254,
+              "sha256": "059a756240024c3a73bf914f1c251298643aaacf55fe0c18bd75fe2d6968736f"
+            },
+            {
+              "id": "ch3:p42",
+              "number": 42,
+              "start": 6258,
+              "end": 6275,
+              "sha256": "e2fb62cb5ea8efd8f84a9b8e8805ef91235e9983676c09d1fd9cb5f710651c8e"
+            },
+            {
+              "id": "ch3:p43",
+              "number": 43,
+              "start": 6279,
+              "end": 6300,
+              "sha256": "0c0c3409f6e5f6ac0f9c424f69723e03dd85e796eb5dbb764a8beac06c3fb63d"
+            },
+            {
+              "id": "ch3:p44",
+              "number": 44,
+              "start": 6304,
+              "end": 6344,
+              "sha256": "859e31337610fbe344f76647b5129386b777b222eb6754b32e6d16cdcfd9cb0b"
+            },
+            {
+              "id": "ch3:p45",
+              "number": 45,
+              "start": 6348,
+              "end": 6374,
+              "sha256": "3de1a2727c74a14c3bcdde250cedd0315331ac970f1d03041db0f8b4eb99583d"
+            },
+            {
+              "id": "ch3:p46",
+              "number": 46,
+              "start": 6378,
+              "end": 6403,
+              "sha256": "f1acfc3876a183f624e280703a5beb6d892cce93eff25f109af5aeffc19dd27f"
+            },
+            {
+              "id": "ch3:p47",
+              "number": 47,
+              "start": 6407,
+              "end": 6424,
+              "sha256": "96d5e5955451c7774c43efd71d7ae3dfe8538cedf5c2304ef29ed62621aa2b6b"
+            },
+            {
+              "id": "ch3:p48",
+              "number": 48,
+              "start": 6428,
+              "end": 6446,
+              "sha256": "3194e8febe30d76b6a26c18922a974bb7984e69f619ec738cd7cb0ab25562edb"
+            },
+            {
+              "id": "ch3:p49",
+              "number": 49,
+              "start": 6450,
+              "end": 6478,
+              "sha256": "e0abfad3c17ada51ea3e3f3ad496f38bb478cbdb8ae25d211e4a412038fa3580"
+            },
+            {
+              "id": "ch3:p50",
+              "number": 50,
+              "start": 6482,
+              "end": 6501,
+              "sha256": "7e05de890179597407a597d95e76771e4da101c87caee9ed3be78ae96f3185d3"
+            },
+            {
+              "id": "ch3:p51",
+              "number": 51,
+              "start": 6505,
+              "end": 6521,
+              "sha256": "d0d1ad98289dd7190353b5d6c8f7ff4819ad6f3a029f0cf57ad4f0ca6d803e70"
+            },
+            {
+              "id": "ch3:p52",
+              "number": 52,
+              "start": 6525,
+              "end": 6533,
+              "sha256": "8c1096d7dd6369fbd235bdc97bc15133bc685603220ba11f43e58c55800af156"
+            },
+            {
+              "id": "ch3:p53",
+              "number": 53,
+              "start": 6537,
+              "end": 6560,
+              "sha256": "eb9e78566dd5195f86d007618feaad25a65b43764af3b61a9555533cce707d27"
+            },
+            {
+              "id": "ch3:p54",
+              "number": 54,
+              "start": 6564,
+              "end": 6578,
+              "sha256": "be0de4c596e037beff25461fcb84bb47706fef0ccb1531b743bfaf5f4efa3e2e"
+            },
+            {
+              "id": "ch3:p55",
+              "number": 55,
+              "start": 6582,
+              "end": 6598,
+              "sha256": "085de0d90225c394a3afe82a698139c8700d435da12705d7f32be6ab7b598b02"
+            },
+            {
+              "id": "ch3:p56",
+              "number": 56,
+              "start": 6602,
+              "end": 6660,
+              "sha256": "d4fb2bcfff61ffb16c68bda29b564c81780a5756f4ed6fe2adad2f953cdccfc8"
+            },
+            {
+              "id": "ch3:p57",
+              "number": 57,
+              "start": 6664,
+              "end": 6685,
+              "sha256": "8e58d27758eeb6c7750b865beaad68ccf0ed44362a5c9d73c36e9ad1a522dc5e"
+            },
+            {
+              "id": "ch3:p58",
+              "number": 58,
+              "start": 6689,
+              "end": 6699,
+              "sha256": "7369ca17abf0b21ba265891c8bb406983a654cf6551be3a104c4ed2b29a86cf0"
+            },
+            {
+              "id": "ch3:p59",
+              "number": 59,
+              "start": 6703,
+              "end": 6762,
+              "sha256": "d1c6e39f270b38a809592412f65f344c5c70fe05e94eebff4a4fa064457f5c73"
+            },
+            {
+              "id": "ch3:p60",
+              "number": 60,
+              "start": 6766,
+              "end": 6801,
+              "sha256": "81d663baa78d132740b6324b00c6249fe327b4f459631f86c95c42b08099cf80"
+            },
+            {
+              "id": "ch3:p61",
+              "number": 61,
+              "start": 6805,
+              "end": 6832,
+              "sha256": "92fb5c0b0c92adea66349a49de29cc949f8b91f747a69923705431346d09f713"
+            },
+            {
+              "id": "ch3:p62",
+              "number": 62,
+              "start": 6836,
+              "end": 6880,
+              "sha256": "3a11e4d2642bec5e3444ecf1152e2553b5e82ff2403b55d7c199607bf1ece4a9"
+            },
+            {
+              "id": "ch3:p63",
+              "number": 63,
+              "start": 6884,
+              "end": 6907,
+              "sha256": "642feb44033ab5639c1bd3668a8d19b4a9fd8a767a49f5520853d7650309de81"
+            },
+            {
+              "id": "ch3:p64",
+              "number": 64,
+              "start": 6911,
+              "end": 6917,
+              "sha256": "6841721bacfee7b2c962d53a99a9e81230951987fb19f8e0591da075a0d25ade"
+            },
+            {
+              "id": "ch3:p65",
+              "number": 65,
+              "start": 6921,
+              "end": 6933,
+              "sha256": "a21ba8656786f9b62b0295f53cb6f4f7f2c2d257666f31eeb064c46abd4f53c3"
+            },
+            {
+              "id": "ch3:p66",
+              "number": 66,
+              "start": 6937,
+              "end": 6949,
+              "sha256": "e222205205d1ef7dacfab2151734dad4094d4a3aae0d0e8efa830319fbd45709"
+            },
+            {
+              "id": "ch3:p67",
+              "number": 67,
+              "start": 6953,
+              "end": 6959,
+              "sha256": "5fc12eee61ee5a829898c3f4a364ce3994ffdf9e36e4418f9aa61cb349083b1b"
+            },
+            {
+              "id": "ch3:p68",
+              "number": 68,
+              "start": 6963,
+              "end": 6989,
+              "sha256": "fc713b1b40d7467d0571d45ad13f8fac9f9d7e83284fc467fd841c193be9878a"
+            },
+            {
+              "id": "ch3:p69",
+              "number": 69,
+              "start": 6993,
+              "end": 7049,
+              "sha256": "dc1d2e0b06df3ab406da96cffa958256bb38b77636ba864d925af9531b18b90d"
+            },
+            {
+              "id": "ch3:p70",
+              "number": 70,
+              "start": 7053,
+              "end": 7095,
+              "sha256": "8e3bcded981b1f5048808dcc6339b1e7a2de993586497e83b7218cb9962f77b9"
+            },
+            {
+              "id": "ch3:p71",
+              "number": 71,
+              "start": 7099,
+              "end": 7116,
+              "sha256": "94a1717dd1e855a7d15292d41e5eab4d54b86981558a8fb81d1c03ec55ab5765"
+            },
+            {
+              "id": "ch3:p72",
+              "number": 72,
+              "start": 7120,
+              "end": 7128,
+              "sha256": "a59d2aae4a8cd40ff75a4edb7c99e07372ef3931115a100631fa26971aeb0f27"
+            },
+            {
+              "id": "ch3:p73",
+              "number": 73,
+              "start": 7132,
+              "end": 7142,
+              "sha256": "1a1fc6ae018459533b1ddc5de27fe28cc661a5ca955cb6028341d6ac74eefae2"
+            },
+            {
+              "id": "ch3:p74",
+              "number": 74,
+              "start": 7146,
+              "end": 7168,
+              "sha256": "8b4ab607c4a7447de40877a3b8fd656fb59eadfe78accf895092ab2e22ba8227"
+            },
+            {
+              "id": "ch3:p75",
+              "number": 75,
+              "start": 7172,
+              "end": 7191,
+              "sha256": "ceea55ad07ff7dfe3175502b566e8fdb56a2e1a4356b29ee739e04bf77c35467"
+            },
+            {
+              "id": "ch3:p76",
+              "number": 76,
+              "start": 7195,
+              "end": 7221,
+              "sha256": "73abb6351cca4f9d996f42d68e2ef50e805f89cdcf1bd3ef840e8b9611676129"
+            },
+            {
+              "id": "ch3:p77",
+              "number": 77,
+              "start": 7225,
+              "end": 7255,
+              "sha256": "3b146d6bbb224ab9c7596e23543f16cb91cbc67b880d034f8c9564e3545709e1"
+            },
+            {
+              "id": "ch3:p78",
+              "number": 78,
+              "start": 7259,
+              "end": 7288,
+              "sha256": "12f5c209978b86f7cd7a55467e94938b9397d4457b9cde7788f94ce1dd43bcaf"
+            },
+            {
+              "id": "ch3:p79",
+              "number": 79,
+              "start": 7292,
+              "end": 7315,
+              "sha256": "e399294c197b120d41969eb943931e4c34b738bc4156fa98bd2adfb2bf2d66bb"
+            }
+          ],
+          "excerpts": [
+            {
+              "paragraphId": "ch3:p1",
+              "start": 5182,
+              "end": 5194,
+              "sha256": "4ba53d401188a6faa38a206d0722ef947e0903e793d3142a445b432304464d7b",
+              "text": "宝箱开启，一道金光闪过。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch3:p2",
+              "start": 5198,
+              "end": 5215,
+              "sha256": "2517f00243708f2ec41e733c72e881e519cdbfa0aa3363b1b38331965e21ed12",
+              "text": "五只精致的小锦盒，出现在裴逸眼前。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch3:p40",
+              "start": 6192,
+              "end": 6245,
+              "sha256": "7fb199a7cea088c70ed60d7a6a6ee53f16a665e47d1f7e9272830751364b2b29",
+              "text": "丹药入腹瞬间，三人只觉一股暖流自丹田升起，全身筋骨被无形力量拉扯、重塑，经脉不断拓宽延展，顷刻间汗流如注。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch3:p77",
+              "start": 7225,
+              "end": 7255,
+              "sha256": "3b146d6bbb224ab9c7596e23543f16cb91cbc67b880d034f8c9564e3545709e1",
+              "text": "裴元绍带着屯田的部众开垦荒地，按照裴逸教的方法沤肥、修水渠。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch3:p78",
+              "start": 7259,
+              "end": 7288,
+              "sha256": "12f5c209978b86f7cd7a55467e94938b9397d4457b9cde7788f94ce1dd43bcaf",
+              "text": "裴逸则每天四处巡查，指点农事和练兵，处理山寨里的大小事务。",
+              "truncated": false
+            },
+            {
+              "paragraphId": "ch3:p79",
+              "start": 7292,
+              "end": 7315,
+              "sha256": "e399294c197b120d41969eb943931e4c34b738bc4156fa98bd2adfb2bf2d66bb",
+              "text": "日子一天天过去，卧牛山以肉眼可见的速度变化着。",
+              "truncated": false
+            }
+          ],
+          "metrics": {
+            "fingerprint": {
+              "sentenceLenMean": 19.75,
+              "sentenceLenStd": 11.0105,
+              "paragraphLenMean": 23,
+              "paragraphLenStd": 12.6551,
+              "dialogueRatio": 0.373693,
+              "dialogueTurnMean": 22.6333,
+              "commaPeriodRatio": 1.662,
+              "ttr": 0.852845,
+              "similePerKilo": 0,
+              "totalChars": 1817
+            },
+            "structure": {
+              "chars": 1817,
+              "paragraphCount": 79,
+              "sentenceCount": 92,
+              "singleSentenceParagraphRatio": 0.8101,
+              "directPsychRatio": 0.0761,
+              "onomatopoeiaParagraphRatio": 0,
+              "dialogueParagraphRatio": 0.3671,
+              "openingMode": "scene",
+              "endingMode": "unknown",
+              "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+              "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+            }
+          },
+          "closeReading": {
+            "status": "excerpt-reviewed",
+            "reviewer": "agent-excerpt-analysis",
+            "reviewedAt": "2026-09-10",
+            "humanReviewStatus": "pending",
+            "fullChapterReviewStatus": "pending",
+            "method": "本轮代理阅读所引段落并作首尾/相邻段对照；未评读段落只建立确定性索引。observations为局部阅读解释，不是模型全文审稿结果。",
+            "coverage": {
+              "indexedParagraphs": 79,
+              "citedParagraphs": 6,
+              "fullyReviewedChapters": 0
+            },
+            "observations": [
+              {
+                "claim": "宝箱开出锦盒、中段服丹改变身体，末尾以屯田、沤肥、巡查和练兵概述山寨变化；超凡捷径与发展蒙太奇并置。",
+                "paragraphIds": [
+                  "ch3:p1",
+                  "ch3:p2",
+                  "ch3:p40",
+                  "ch3:p77",
+                  "ch3:p78",
+                  "ch3:p79"
+                ],
+                "limits": "本段压缩建设时间，不能据术语判定制度推演扎实；丹药效果只属虚构设定，非现实可行性证明。"
+              }
+            ],
+            "limitations": [
+              "原文仅保存每个证据段前160个Unicode字符；truncated=true时需用段落范围回查全文。",
+              "整章语义、后文兑现、人工复核待完成；量化指标不证明文学质量。"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

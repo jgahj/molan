@@ -1,0 +1,89 @@
+# ==========================================
+# 小说原本与书库（Strictly exclude novel originals）
+# ==========================================
+books/
+raws/
+资源库/小说原本/
+资源库/intermediate/
+资源库/素材库.md
+tmp-booktest/
+extracted/
+*.txt
+!molan-deploy-current.txt
+*.epub
+*.mobi
+*.azw3
+*.pdf
+*.rar
+*.zip
+*.7z
+
+# ==========================================
+# 运行时数据库、密钥与大体积样本语料
+# ==========================================
+molan-home-publish/
+molan-home/.ds-profile/
+molan-home/data/config.json
+molan-home/data/*.db
+molan-home/data/*.db-*
+molan-home/data/*.sqlite
+molan-home/data/*.sqlite-*
+molan-home/data/xuanhuan-lab/
+molan-home/data/character-material*
+molan-home/data/genre-lab/
+molan-home/data/paragraph-samples.json
+molan-home/data/evaluation-input/
+molan-home/data/benchmark-runs/
+molan-home/data/benchmark-local-runtime/
+molan-home/data/watchdog.lock
+molan-home/data/users.json
+molan-home/data/sessions.json
+molan-home/data/token_usage.json
+molan-home/data/user_skills.json
+molan-home/data/global_skills.json
+molan-home/data/admin_audit.json
+molan-home/lib/character-material/
+molan-home/scratch/*.sqlite
+molan-home/scratch/*.sqlite-*
+molan-home/generated/
+
+# ==========================================
+# 工具链二进制、构建归档与敏感备份
+# ==========================================
+tools/
+deploy_tmp/
+security-backup-*/
+资源库/third-party/
+资源库/tools/
+molan-deploy-*.tar.gz
+*.tar.gz
+*.tar
+
+# ==========================================
+# 依赖与环境
+# ==========================================
+node_modules/
+*/node_modules/
+*/*/node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# 编辑器与系统杂项
+# ==========================================
+.git_sub_backup/
+**/.git_sub_backup/
+.trae/
+.workbuddy/
+.uploads/
+nul
+.DS_Store
+Thumbs.db
+*.log
+*.log.*
+*.tmp
+

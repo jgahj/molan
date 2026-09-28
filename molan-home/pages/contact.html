@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light" data-theme="light">
+<head>
+    <link rel="stylesheet" href="./account.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>联系我们 - 墨阑 | 上海欧克安文化传媒有限公司</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Brand Tokens -->
+    <style data-vd-inlined-stylesheet="../colors_and_type.css">
+/* ===================== 墨阑 · 设计系统 ===================== */
+/* 复刻 maliangwriter.com：极简黑白、现代 SaaS、中式文学雅致 */
+
+:root {
+  /* 色彩系统 */
+  --ml-ink: #0a0a0a;            /* 主文字 / 主按钮 */
+  --ml-ink-2: #1a1a1a;          /* 次级深色 */
+  --ml-ink-3: #2a2a2a;          /* 第三层深色 */
+  --ml-paper: #ffffff;          /* 纯白背景 */
+  --ml-paper-2: #fafafa;        /* 次白 / 卡片底 */
+  --ml-paper-3: #f5f5f5;        /* 浅灰底 */
+  --ml-paper-4: #f0f0f0;        /* 更深浅灰 */
+  --ml-line: #e8e8e8;           /* 分割线 */
+  --ml-line-2: #e5e5e5;         /* 卡片描边 */
+  --ml-line-3: #eeeeee;         /* 浅色描边 */
+  --ml-gray: #666666;           /* 次级文字 */
+  --ml-gray-2: #999999;         /* 辅助文字 */
+  --ml-gray-3: #b3b3b3;         /* 占位/弱化 */
+  --ml-gray-4: #d4d4d4;         /* 边框灰 */
+  --ml-accent: #111111;         /* 强调黑 */
+  --ml-success: #16a34a;        /* 成功绿 */
+  --ml-success-bg: #f0fdf4;     /* 成功绿浅底 */
+  --ml-success-dark: #15803d;   /* 深成功绿 */
+  --ml-warning: #f59e0b;        /* 警告橙 */
+  --ml-warning-bg: #fffbeb;     /* 警告浅底 */
+  --ml-orange: #f97316;         /* 活力橙 */
+  --ml-gold: #eab308;           /* 金色强调 */
+
+  /* 字体系统 */
+  --ml-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ml-font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --ml-font-mono: "SFMono-Regular", "Consolas", monospace;
+  --ml-font-brush: "Ma Shan Zheng", "ZCOOL XiaoWei", "Noto Serif SC", "Songti SC", serif;
+
+  /* 圆角 */
+  --ml-radius-sm: 6px;
+  --ml-radius-md: 8px;
+  --ml-radius-lg: 12px;
+  --ml-radius-xl: 16px;
+  --ml-radius-2xl: 20px;
+  --ml-radius-full: 9999px;
+
+  /* 阴影 */
+  --ml-shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --ml-shadow-md: 0 4px 16px rgba(0,0,0,.06);
+  --ml-shadow-lg: 0 12px 40px rgba(0,0,0,.08);
+  --ml-shadow-card: 0 4px 24px rgba(0,0,0,.05);
+  --ml-shadow-float: 0 20px 60px rgba(0,0,0,.1);
+
+  /* 间距节奏 */
+  --ml-space-1: 4px;
+  --ml-space-2: 8px;
+  --ml-space-3: 12px;
+  --ml-space-4: 16px;
+  --ml-space-5: 24px;
+  --ml-space-6: 32px;
+  --ml-space-7: 48px;
+  --ml-space-8: 64px;
+  --ml-space-9: 80px;
+  --ml-space-10: 96px;
+
+  /* 语义别名 */
+  --ml-background: var(--ml-paper);
+  --ml-foreground: var(--ml-ink);
+  --ml-card: var(--ml-paper);
+  --ml-card-foreground: var(--ml-ink);
+  --ml-primary: var(--ml-ink);
+  --ml-primary-foreground: var(--ml-paper);
+  --ml-secondary: var(--ml-paper-3);
+  --ml-secondary-foreground: var(--ml-ink);
+  --ml-muted: var(--ml-paper-2);
+  --ml-muted-foreground: var(--ml-gray);
+  --ml-accent-foreground: var(--ml-ink);
+  --ml-border: var(--ml-line-2);
+  --ml-input: var(--ml-line-2);
+  --ml-ring: var(--ml-ink);
+}
+
+/* 字号刻度 */
+.ml-text-xs { font-size: 11px; line-height: 1.5; }
+.ml-text-sm { font-size: 13px; line-height: 1.6; }
+.ml-text-base { font-size: 14px; line-height: 1.7; }
+.ml-text-md { font-size: 15px; line-height: 1.7; }
+.ml-text-lg { font-size: 17px; line-height: 1.6; }
+.ml-text-xl { font-size: 20px; line-height: 1.5; }
+.ml-text-2xl { font-size: 24px; line-height: 1.4; }
+.ml-text-3xl { font-size: 32px; line-height: 1.35; }
+.ml-text-4xl { font-size: 40px; line-height: 1.25; }
+.ml-text-5xl { font-size: 52px; line-height: 1.2; }
+.ml-text-6xl { font-size: 64px; line-height: 1.15; }
+.ml-text-7xl { font-size: 76px; line-height: 1.1; }
+
+/* 字重 */
+.ml-font-normal { font-weight: 400; }
+.ml-font-medium { font-weight: 500; }
+.ml-font-semibold { font-weight: 600; }
+.ml-font-bold { font-weight: 700; }
+
+/* 字体族 */
+.ml-font-sans { font-family: var(--ml-font-sans); }
+.ml-font-serif { font-family: var(--ml-font-serif); }
+.ml-font-mono { font-family: var(--ml-font-mono); }
+.ml-font-brush { font-family: var(--ml-font-brush); }
+
+/* 文字颜色 */
+.ml-text-ink { color: var(--ml-ink); }
+.ml-text-ink-2 { color: var(--ml-ink-2); }
+.ml-text-gray { color: var(--ml-gray); }
+.ml-text-gray-2 { color: var(--ml-gray-2); }
+.ml-text-gray-3 { color: var(--ml-gray-3); }
+.ml-text-success { color: var(--ml-success); }
+.ml-text-warning { color: var(--ml-warning); }
+
+/* 背景色 */
+.ml-bg-paper { background: var(--ml-paper); }
+.ml-bg-paper-2 { background: var(--ml-paper-2); }
+.ml-bg-paper-3 { background: var(--ml-paper-3); }
+.ml-bg-paper-4 { background: var(--ml-paper-4); }
+.ml-bg-ink { background: var(--ml-ink); }
+.ml-bg-success { background: var(--ml-success); }
+.ml-bg-success-bg { background: var(--ml-success-bg); }
+
+/* 渐变背景 */
+.ml-gradient-radial { background: radial-gradient(circle at center, var(--ml-paper-3) 0%, transparent 70%); }
+
+</style>
+
+    <!-- Base Reset -->
+    <style>
+        /* 基础盒模型重置 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* 去除默认边距与内边距 */
+        html, body, h1, h2, h3, h4, h5, h6, p, ul, ol, li, figure, figcaption, blockquote, dl, dd {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 设置全站字体族与抗锯齿 */
+        body {
+            font-family: 'Noto Serif SC', 'ZCOOL XiaoWei', 'Ma Shan Zheng', serif;
+            color: #0a0a0a;
+            background-color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* 列表无默认样式 */
+        ul, ol {
+            list-style: none;
+        }
+
+        /* 链接继承颜色与去除下划线 */
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        /* 图片与媒体元素自适应 */
+        img, picture, video, canvas, svg {
+            display: block;
+            max-width: 100%;
+        }
+
+        /* 按钮与输入框继承字体 */
+        button, input, textarea, select {
+            font: inherit;
+        }
+
+        /* 去除按钮默认边框与背景 */
+        button {
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+    </style>
+    <link rel="stylesheet" href="./molan-ui.css">
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- 顶部导航栏 -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-[#f5f5f5]">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- 左侧 Logo -->
+            <a href="./index.html" class="flex items-center gap-2 text-[#0a0a0a]" data-dom-id="nav-index">
+                <span class="font-['Ma_Shan_Zheng'] text-2xl">墨阑</span>
+            </a>
+
+            <!-- 桌面端导航 -->
+            <div class="hidden md:flex items-center gap-8">
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-features">功能总览</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-pricing">价格与订阅</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-docs">使用文档</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-blog">创作者手札</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-tools">免费工具</a>
+                <a href="#" class="text-sm px-4 py-2 border border-[#0a0a0a] rounded-full text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition-colors" data-dom-id="nav-login">登录</a>
+                <button type="button" aria-label="切换主题" class="p-2 text-[#666666] hover:text-[#0a0a0a] transition-colors">
+                    <i data-lucide="moon" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- 移动端汉堡菜单按钮 -->
+            <button type="button" class="md:hidden p-2 text-[#0a0a0a]" aria-label="打开菜单" id="mobile-menu-toggle">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </nav>
+
+        <!-- 移动端导航面板 -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-[#f5f5f5]">
+            <div class="px-4 py-4 space-y-3">
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-features">功能总览</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-pricing">价格与订阅</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-docs">使用文档</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-blog">创作者手札</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-tools">免费工具</a>
+                <a href="#" class="block text-base text-[#0a0a0a] font-medium" data-dom-id="nav-login">登录</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 占位：固定导航栏高度，避免内容被遮挡 -->
+    <div class="h-16"></div>
+
+    <!-- 主内容区 -->
+    <main class="flex-1">
+        <!-- 顶部标题区 -->
+        <section class="relative overflow-hidden border-b border-[#f5f5f5]">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+                <div class="max-w-3xl">
+                    <h1 class="text-4xl md:text-5xl font-semibold text-[#0a0a0a] mb-6 tracking-tight">联系我们</h1>
+                    <p class="text-lg md:text-xl text-[#666666] leading-relaxed">墨阑官方联系方式 · 运营主体：上海欧克安文化传媒有限公司</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 官方邮箱区 -->
+        <section class="py-16 md:py-24">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="max-w-3xl mx-auto">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 rounded-full bg-[#fafafa] border border-[#e5e5e5] flex items-center justify-center">
+                            <i data-lucide="mail" class="w-5 h-5 text-[#0a0a0a]"></i>
+                        </div>
+                        <h2 class="text-2xl font-semibold text-[#0a0a0a]">官方邮箱</h2>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- 客服与技术支持 -->
+                        <a href="mailto:postmaster@maliangwriter.com" class="group block p-6 bg-[#fafafa] rounded-2xl border border-[#e5e5e5] hover:border-[#0a0a0a] transition-colors">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                    <h3 class="text-base font-semibold text-[#0a0a0a] mb-1">客服与技术支持</h3>
+                                    <p class="text-sm text-[#666666]">产品使用、账号问题、功能咨询等一般性事务</p>
+                                </div>
+                                <span class="text-sm font-medium text-[#0a0a0a] group-hover:underline">postmaster@maliangwriter.com</span>
+                            </div>
+                        </a>
+
+                        <!-- 商务合作 / 渠道分发 -->
+                        <a href="mailto:postmaster@maliangwriter.com?subject=%E5%95%86%E5%8A%A1%E5%90%88%E4%BD%9C" class="group block p-6 bg-[#fafafa] rounded-2xl border border-[#e5e5e5] hover:border-[#0a0a0a] transition-colors">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                    <h3 class="text-base font-semibold text-[#0a0a0a] mb-1">商务合作 / 渠道分发</h3>
+                                    <p class="text-sm text-[#666666]">邮件主题请加 [商务合作]</p>
+                                </div>
+                                <span class="text-sm font-medium text-[#0a0a0a] group-hover:underline">postmaster@maliangwriter.com</span>
+                            </div>
+                        </a>
+
+                        <!-- 侵权举报 / 内容投诉 -->
+                        <a href="mailto:postmaster@maliangwriter.com?subject=%E4%BE%B5%E6%9D%83%E4%B8%BE%E6%8A%A5" class="group block p-6 bg-[#fafafa] rounded-2xl border border-[#e5e5e5] hover:border-[#0a0a0a] transition-colors">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                    <h3 class="text-base font-semibold text-[#0a0a0a] mb-1">侵权举报 / 内容投诉</h3>
+                                    <p class="text-sm text-[#666666]">邮件主题请加 [侵权举报]</p>
+                                </div>
+                                <span class="text-sm font-medium text-[#0a0a0a] group-hover:underline">postmaster@maliangwriter.com</span>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 即时沟通区 -->
+        <section class="py-16 md:py-24 bg-[#fafafa] border-y border-[#f5f5f5]">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="max-w-3xl mx-auto">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 rounded-full bg-white border border-[#e5e5e5] flex items-center justify-center">
+                            <i data-lucide="message-circle" class="w-5 h-5 text-[#0a0a0a]"></i>
+                        </div>
+                        <h2 class="text-2xl font-semibold text-[#0a0a0a]">即时沟通</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- QQ 在线咨询 -->
+                        <a href="https://wpa.qq.com/msgrd?v=3&uin=1062403092&site=qq&menu=yes" target="_blank" rel="noopener noreferrer" class="group p-6 bg-white rounded-2xl border border-[#e5e5e5] hover:border-[#0a0a0a] transition-colors">
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 rounded-full bg-[#fafafa] border border-[#e5e5e5] flex items-center justify-center shrink-0">
+                                    <i data-lucide="message-square" class="w-5 h-5 text-[#0a0a0a]"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-semibold text-[#0a0a0a] mb-1">QQ 在线咨询</h3>
+                                    <p class="text-sm text-[#666666]">1062403092</p>
+                                </div>
+                            </div>
+                        </a>
+
+                        <!-- 站内反馈说明 -->
+                        <div class="p-6 bg-white rounded-2xl border border-[#e5e5e5]">
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 rounded-full bg-[#fafafa] border border-[#e5e5e5] flex items-center justify-center shrink-0">
+                                    <i data-lucide="send" class="w-5 h-5 text-[#0a0a0a]"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-semibold text-[#0a0a0a] mb-1">站内反馈</h3>
+                                    <p class="text-sm text-[#666666]">登录后可在产品内「帮助与反馈」入口提交工单，我们会优先处理。</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GitHub Issues -->
+                        <a href="https://github.com/Deng-m1/MaliangAINovalWriter/issues" target="_blank" rel="noopener noreferrer" class="group p-6 bg-white rounded-2xl border border-[#e5e5e5] hover:border-[#0a0a0a] transition-colors md:col-span-2">
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 rounded-full bg-[#fafafa] border border-[#e5e5e5] flex items-center justify-center shrink-0">
+                                    <i data-lucide="code-2" class="w-5 h-5 text-[#0a0a0a]"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="text-base font-semibold text-[#0a0a0a] mb-1">GitHub Issues</h3>
+                                    <p class="text-sm text-[#666666]">技术问题、Bug 反馈与功能建议欢迎提交至开源仓库。</p>
+                                    <p class="text-sm font-medium text-[#0a0a0a] mt-2 group-hover:underline">github.com/Deng-m1/MaliangAINovalWriter</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 公司信息说明 -->
+        <section class="py-16 md:py-24">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="max-w-3xl mx-auto">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 rounded-full bg-[#fafafa] border border-[#e5e5e5] flex items-center justify-center">
+                            <i data-lucide="building-2" class="w-5 h-5 text-[#0a0a0a]"></i>
+                        </div>
+                        <h2 class="text-2xl font-semibold text-[#0a0a0a]">公司信息</h2>
+                    </div>
+
+                    <div class="p-6 md:p-8 bg-[#fafafa] rounded-2xl border border-[#e5e5e5]">
+                        <p class="text-base text-[#666666] leading-relaxed mb-4">
+                            墨阑由 <strong class="text-[#0a0a0a]">上海欧克安文化传媒有限公司</strong> 运营，专注于为中文小说创作者提供智能写作辅助工具。
+                        </p>
+                        <p class="text-base text-[#666666] leading-relaxed">
+                            如需开具发票、签订合同或发送公函，请通过官方邮箱联系，并在邮件中注明公司名称、联系人与具体事项，我们将安排专人对接。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 服务时间说明 -->
+        <section class="py-16 md:py-24 bg-[#fafafa] border-y border-[#f5f5f5]">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="max-w-3xl mx-auto">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 rounded-full bg-white border border-[#e5e5e5] flex items-center justify-center">
+                            <i data-lucide="clock" class="w-5 h-5 text-[#0a0a0a]"></i>
+                        </div>
+                        <h2 class="text-2xl font-semibold text-[#0a0a0a]">服务时间</h2>
+                    </div>
+
+                    <div class="p-6 md:p-8 bg-white rounded-2xl border border-[#e5e5e5]">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                                <h3 class="text-sm font-semibold text-[#0a0a0a] mb-2">在线客服</h3>
+                                <p class="text-sm text-[#666666] leading-relaxed">工作日 09:00 - 18:00（北京时间），节假日可能延迟回复。</p>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-[#0a0a0a] mb-2">邮件反馈</h3>
+                                <p class="text-sm text-[#666666] leading-relaxed">全年无休接收，一般会在 1 - 2 个工作日内答复。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-[#fafafa] border-t border-[#f5f5f5]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <!-- 五栏链接 -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-8">
+                <!-- 产品 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">产品</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">开始使用</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">登录</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">订阅方案</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">功能总览</a></li>
+                    </ul>
+                </div>
+
+                <!-- 资源 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">资源</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">使用文档</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">创作者手札</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">文档</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">联系我们</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">llms.txt</a></li>
+                    </ul>
+                </div>
+
+                <!-- 免费工具 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">免费工具</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">去 AI 味改写</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">错别字检测</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">AI 味浓度检测</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">小说命名生成器</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">排版清洗</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">重复内容检测</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">AI 小说生成器</a></li>
+                        <li><a href="#" class="text-sm text-[#16a34a] hover:text-[#0a0a0a] transition-colors">查看全部工具</a></li>
+                    </ul>
+                </div>
+
+                <!-- 功能对比 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">功能对比</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与 Sudowrite 对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与 NovelCrafter 对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与 ChatGPT 对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与 DeepSeek 对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与笔灵 AI 写作对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与蛙蛙写作对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">2026 中文网文 AI 横评</a></li>
+                        <li><a href="#" class="text-sm text-[#16a34a] hover:text-[#0a0a0a] transition-colors">查看全部对比</a></li>
+                    </ul>
+                </div>
+
+                <!-- 社区 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">社区</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">作者交流 QQ 1062403092</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">微信交流群</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">GitHub 源码</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">姊妹产品 Foreverse</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 底部信息 -->
+            <div class="mt-16 pt-8 border-t border-[#f5f5f5] flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#666666]">
+                <div class="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                    <span>ICP 备案：待填写</span>
+                    <span>统一社会信用代码：待填写</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="mail" class="w-4 h-4"></i>
+                    <a href="mailto:postmaster@maliangwriter.com" class="hover:text-[#0a0a0a] transition-colors">postmaster@maliangwriter.com</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 图标初始化脚本 -->
+    <script>
+        /**
+         * 初始化 Lucide 图标
+         * 在 DOM 加载完成后调用，将页面中所有 data-lucide 属性替换为对应 SVG 图标
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+    <script src="./site.js"></script>
+    <script src="./account.js"></script>
+    <script src="./molan-shell.js"></script>
+</body>
+</html>

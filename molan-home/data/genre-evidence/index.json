@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "scope": "P1-only; existing corpus rows untouched",
+  "counts": {
+    "genres": 6,
+    "books": 12,
+    "completeChapters": 36,
+    "humanReviewedChapters": 0,
+    "fullChapterReviewedChapters": 0
+  },
+  "genres": [
+    {
+      "genre": "玄幻",
+      "file": "玄幻.json",
+      "status": "excerpt-evidence-ready",
+      "bookCount": 2,
+      "chapterCount": 6
+    },
+    {
+      "genre": "都市高武",
+      "file": "都市高武.json",
+      "status": "excerpt-evidence-ready",
+      "bookCount": 2,
+      "chapterCount": 6
+    },
+    {
+      "genre": "悬疑脑洞",
+      "file": "悬疑脑洞.json",
+      "status": "excerpt-evidence-ready",
+      "bookCount": 2,
+      "chapterCount": 6
+    },
+    {
+      "genre": "青春甜宠",
+      "file": "青春甜宠.json",
+      "status": "excerpt-evidence-ready",
+      "bookCount": 2,
+      "chapterCount": 6
+    },
+    {
+      "genre": "历史脑洞",
+      "file": "历史脑洞.json",
+      "status": "excerpt-evidence-ready",
+      "bookCount": 2,
+      "chapterCount": 6
+    },
+    {
+      "genre": "科幻末世",
+      "file": "科幻末世.json",
+      "status": "excerpt-evidence-ready",
+      "bookCount": 2,
+      "chapterCount": 6
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "genre": "青春甜宠",
+  "familyId": "urban_modern",
+  "summary": "样本包含豪门、身体错位、救援与直播冲突，不预设全是温柔校园或健康关系。参考行动障碍与信息变化，不照搬亲密桥段。",
+  "policy": {
+    "enforcement": "advisory-only",
+    "nameOverlap": "共姓、辈分字和一般共享汉字本身不构成硬门禁；仅在具体辨识困难时提示复核。",
+    "opening": "宏观、微观、对白均可按当前叙事任务选择，不统一强制任何开篇尺度或器物清单。",
+    "ending": "关键词未命中为unknown；ease需有上下文证据，不据结尾词自动通过或拒稿。",
+    "metrics": "同口径描述性分布，不设置文学质量、字数、对白长度或词频硬门禁。",
+    "review": "仅定点摘段已评；整章、后文及人工复核pending。",
+    "legacyCards": "旧卡缺原文定位，旧固定targetMetrics和自造范句均已撤下；未将未读作品印象迁移为已证实事实。"
+  },
+  "targetMetrics": {},
+  "baselineRef": "../genre-baselines/青春甜宠.json",
+  "evidenceRef": "../genre-evidence/青春甜宠.json",
+  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "writingDirectives": [
+    {
+      "key": "wish_action_obstacle",
+      "rule": "让小行动遇到可见条件",
+      "detail": "把外形、消费或出门等愿望接到实际行动，再观察条件如何改变选择。",
+      "scope": "生活场景中的自我形象与经济差距。",
+      "limits": "不固定使用余额或理发；消费数字不证明情感充分。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "青春甜宠:cab200af621a742e",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p34",
+            "ch3:p35",
+            "ch3:p36",
+            "ch3:p39"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "viewpoint_gap",
+      "rule": "区分观看印象与现场代价",
+      "detail": "可比较镜头、旁观者与当事人看到什么，避免把一方评价直接当事实。",
+      "scope": "直播、围观或公众误解。",
+      "limits": "未认证角色善恶或关系健康，不复制物化、胁迫桥段。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "青春甜宠:be2c6eafb2fe1f26",
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p81",
+            "ch2:p82",
+            "ch2:p83"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "information_changes_relation",
+      "rule": "观察公开信息能否改变旧认知",
+      "detail": "新身份或当众报告可以提供关系转折条件，审稿时再检查情绪与行动是否实际改变。",
+      "scope": "身份揭晓、误解澄清、公共场合冲突。",
+      "limits": "信息出现不等于情感转折完成，章末也无需统一ease。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "青春甜宠:be2c6eafb2fe1f26",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p65",
+            "ch3:p66",
+            "ch3:p67"
+          ]
+        }
+      ]
+    }
+  ],
+  "positivePatterns": [],
+  "negativePatterns": [],
+  "decisionCards": [
+    {
+      "sourceTitle": "F4里最病弱的那个，被团宠了",
+      "topic": "前三章局部信息与行动变化",
+      "application": "醒来想竖耳却动不了，把身体失常放在感知入口；末尾门外脚步和门把手被握住，停在来人身份揭晓前。 开头先揭晓来人身份及F4关系，末尾把威慑不足落到头发、继而立即出门；人物愿望转成一个可执行的小行动。 账户只有一百二十三块，与家人昂贵消费并置，紧接理发店剪不起；金钱差距具体改变上一章的外形行动计划。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "青春甜宠:cab200af621a742e",
+      "sourceSha256": "cab200af621a742ee7f401d668416306b81e4392a8266868d51de7a512ac812e",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p1",
+            "ch1:p2",
+            "ch1:p90",
+            "ch1:p91"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p2",
+            "ch2:p94",
+            "ch2:p95",
+            "ch2:p96"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p34",
+            "ch3:p35",
+            "ch3:p36",
+            "ch3:p39"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    },
+    {
+      "sourceTitle": "厌世农村妹也要被少爷强制爱吗？",
+      "topic": "前三章局部信息与行动变化",
+      "application": "暴雨、救援车受阻与隘口泥石流使救人困难具象化；导演以少爷身份和赔偿责问施压，环境困难与身份差距同时进入场景。 末段弹幕替黄鼠狼加油，叙述点出镜头使鸡血也显得无害，随后也蔓动手驱赶；观看偏好与现场处置形成冲突。 末尾先写易衍嫌麻烦，再让护士当众报告听力正常；医疗信息经公开场合进入人际关系，可提出旧判断将被重新审视的假设。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "青春甜宠:be2c6eafb2fe1f26",
+      "sourceSha256": "be2c6eafb2fe1f26161a1b823470d7be8da9f74bd5014cbdbf48f77c3c3d36bb",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p2",
+            "ch1:p3",
+            "ch1:p5"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p81",
+            "ch2:p82",
+            "ch2:p83"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p65",
+            "ch3:p66",
+            "ch3:p67"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    }
+  ]
+}

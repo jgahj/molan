@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "genre": "玄幻",
+  "familyId": "ancient_cultivation",
+  "summary": "制度裁决、日常感受、异常获利与能力反差是这两本的局部入口，不是全题材统一的家族生计模板。",
+  "policy": {
+    "enforcement": "advisory-only",
+    "nameOverlap": "共姓、辈分字和一般共享汉字本身不构成硬门禁；仅在具体辨识困难时提示复核。",
+    "opening": "宏观、微观、对白均可按当前叙事任务选择，不统一强制任何开篇尺度或器物清单。",
+    "ending": "关键词未命中为unknown；ease需有上下文证据，不据结尾词自动通过或拒稿。",
+    "metrics": "同口径描述性分布，不设置文学质量、字数、对白长度或词频硬门禁。",
+    "review": "仅定点摘段已评；整章、后文及人工复核pending。",
+    "legacyCards": "旧卡缺原文定位，旧固定targetMetrics和自造范句均已撤下；未将未读作品印象迁移为已证实事实。"
+  },
+  "targetMetrics": {},
+  "baselineRef": "../genre-baselines/玄幻.json",
+  "evidenceRef": "../genre-evidence/玄幻.json",
+  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "writingDirectives": [
+    {
+      "key": "external_consequence",
+      "rule": "将人物自评落到外部后果",
+      "detail": "可对照人物自以为得当的行为与制度、他人的实际反应，让性格通过后果显现。",
+      "scope": "入门裁决、组织考核、身份转换。",
+      "limits": "不要求主角总受打压或绝对冷静；只核验当前因果。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "玄幻:365c4c2dbd4845f0",
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p77",
+            "ch1:p78",
+            "ch1:p79"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "cost_and_uncertainty",
+      "rule": "并置当前需求与异常疑问",
+      "detail": "可让求医、钱等眼前需求碰上来源不明的能力收益，将疑问具体到来源与目的。",
+      "scope": "求生、异物初现或委托不明。",
+      "limits": "不强制资源精算、毁尸灭迹或惨胜；系统责任链未核验。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "玄幻:8d795a4200c88311",
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p107",
+            "ch1:p109",
+            "ch1:p110",
+            "ch1:p111"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "emotional_remainder",
+      "rule": "允许情绪余留承担章末任务",
+      "detail": "章末可以留下思乡感受而非新危险；选择取决于本章信息和情绪的变化。",
+      "scope": "异乡体验、日常过渡。",
+      "limits": "月色、寂静或无关键词本身不证明ease，整章递进待核验。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "玄幻:365c4c2dbd4845f0",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p102",
+            "ch3:p103"
+          ]
+        }
+      ]
+    }
+  ],
+  "positivePatterns": [],
+  "negativePatterns": [],
+  "decisionCards": [
+    {
+      "sourceTitle": "一世之尊 - 爱潜水的乌贼",
+      "topic": "前三章局部信息与行动变化",
+      "application": "孟奇自认回答机智，玄苦随即以机心太重将他分入杂役院；自我评价与制度裁决相反，把内心机巧转成实际身份后果。 开头接续被裁决后的羞恼，末尾以追赶小师弟和没有小师妹的自嘲转换情绪；人物并非始终冷静无波。 陈旧斋堂、僧众人数提供具体处境，末段借月亮与思乡诗转向孟奇发痴；结尾可通过情绪余留而非新危险延续阅读。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "玄幻:365c4c2dbd4845f0",
+      "sourceSha256": "365c4c2dbd4845f0e04ebff144fe86093081afe32819717d3a1058f79e002c6a",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p77",
+            "ch1:p78",
+            "ch1:p79"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p1",
+            "ch2:p74",
+            "ch2:p75"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p102",
+            "ch3:p103"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    },
+    {
+      "sourceTitle": "从效法万妖开始成就真仙 - 陆月十九",
+      "topic": "前三章局部信息与行动变化",
+      "application": "老杨把入伙分钱和求医联系起来，随后掌中铜钱在老妪断气时出现；生计催逼与异常获利在相邻段落相撞，产生伦理疑问。 开头夜风、酒意将视线放在林舒身上，章末刘三爷询问朋友好看吗；可提出观察者可能被反向发现的阅读假设。 开头树梢显出墙头白影，中段以瘦弱者撞开习武者的反问标记预期落差，末尾四名活人的寂静保留震动；能力反差不只由战力数字表达。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "玄幻:8d795a4200c88311",
+      "sourceSha256": "8d795a4200c8831198c1a2e69103661acbff982b321bb22e01ac6dd2b9915241",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p107",
+            "ch1:p109",
+            "ch1:p110",
+            "ch1:p111"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p1",
+            "ch2:p2",
+            "ch2:p87",
+            "ch2:p88"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p2",
+            "ch3:p54",
+            "ch3:p106"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双书精读 · 墨阑</title><link rel="stylesheet" href="/pages/xuanhuan-blind.css"><link rel="stylesheet" href="/pages/xuanhuan-reading.css"><script src="/pages/xuanhuan-reading.js" defer></script></head>
+<body><header><a class="brand" href="/">墨阑 <span>/ 双书精读</span></a><a href="/pages/xuanhuan-blind.html">旧盲测记录保留</a></header>
+<main><section class="hero"><div><div class="eyebrow">READ IN ORDER. UNDERSTAND THE CHOICES.</div><h1>先读懂，再谈写好。</h1><p>两本书，两条独立路线。逐章全文阅读，追踪人物行动与信息变化。<br>不拿句式统计当学习，不拿模型评分当文学质量。</p></div><div class="corpus" id="sources">正在核查指定原文…</div></section>
+<div id="notice" role="status" aria-live="polite"></div>
+<section class="panel"><div class="panel-title"><h2>01 / 各3章精读试点</h2><span>不自动扩展至30章 · 不生成新盲测</span></div>
+<div class="setup"><label>同一模型用于两条路线<select id="model" aria-label="精读模型"></select></label><button id="quote">核实用量预算</button></div>
+<p id="estimate">先核实账户可用模型、上下文和积分预估；无法确认计费则不启动。</p>
+<label class="consent"><input type="checkbox" id="consent">我确认仅两本各3章，最多38次调用（失败尝试计入），接受此处显示的积分预算。</label>
+<div class="form-bottom"><button class="primary" id="start" disabled>开始精读试点 ↗</button><span class="muted">相同版本重复点击复用记录，不重新计费生成；恢复未保存的在途请求可能重复计费。</span></div>
+<details><summary>学习机理与创作落地</summary><p>逐段读入 → 章节综合 → 独立模型复核 → 三章跨章复盘。摒弃表面句式统计，提炼出【元始法则路线（飞天鱼·资格争议与责任建立、行动压力下信息层级揭示）】与【剑烛大荒路线（乌贼·对白即博弈试探、市井烟火与世界规则共生）】。精读完成后解除只读限制，双路线直连小说创作空间。</p></details></section>
+<section class="workspace"><aside class="panel"><div class="panel-title"><h2>02 / 阅读记录</h2><button id="refresh">刷新</button></div><div id="jobs" class="job-list"></div></aside>
+<article class="panel"><div class="panel-title"><h2 id="job-title">选择一份精读记录</h2><div class="job-actions"><button id="resume" hidden>恢复</button><button id="cancel" hidden>停止</button><button id="export" hidden>导出笔记与用量</button><button id="activate" class="primary" hidden>解除只读 · 激活双路线创作</button><a id="to-editor" class="button" href="/#editor" hidden>前往创作空间 ↗</a></div></div><p id="progress" class="muted"></p><p id="usage" class="muted"></p>
+<div id="reader" hidden><div class="reading-nav"><label>独立路线<select id="book"></select></label><label>阅读范围<select id="chapter"></select></label><label>查看阶段<select id="phase"><option value="review">经模型复核的笔记</option><option value="synthesis">章节综合</option><option value="reading">全文阅读原始笔记</option></select></label></div><p id="version" class="muted"></p><div id="notes"></div><details id="original"><summary>查看本范围完整原文 · 点击笔记证据可定位段落</summary><div id="paragraphs" class="prose"></div></details></div></article></section>
+<footer>只使用指定两本原文。理解与创作效果仍需你判断；无需填写旧盲测评分。</footer></main></body></html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <link rel="stylesheet" href="./account.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>墨阑 · 拆书分析</title>
+  <link rel="stylesheet" href="./dissect.css">
+  <link rel="stylesheet" href="./molan-ui.css">
+</head>
+<body>
+  <div class="dissect-shell">
+    <header class="dissect-header">
+      <div class="dissect-header__inner">
+        <a class="brand" href="../index.html"><span class="brand-mark">墨</span><span>墨阑 AI 小说</span></a>
+        <div class="header-actions">
+          <button class="header-link dissect-account" type="button" data-molan-account aria-label="登录" title="登录">登录</button>
+          <a class="header-link" href="../index.html">返回首页</a>
+          <a class="header-link" href="../index.html#editor">进入编辑器</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="dissect-main">
+      <section class="dissect-hero">
+        <div>
+          <p class="eyebrow">Dissection Studio</p>
+          <h1>把一本书拆成可复用的创作方法</h1>
+          <p>从正文中提炼结构、人物功能、节奏、伏笔与文风证据。原书专属设定和可迁移技法分开保存，仿写时不会把别人的世界观混进你的作品。</p>
+        </div>
+        <div class="credit-pill">本次预计消耗 <strong id="estimateCredits">--</strong> 积分</div>
+      </section>
+
+      <section class="dissect-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>新建拆书任务</h2><p>建议先用完整正文；超长作品会自动分块并按样本范围分析。</p></div>
+          </div>
+          <div class="panel-body">
+            <div class="source-tabs" role="tablist">
+              <button class="source-tab is-active" data-source-tab="text" type="button">粘贴文本</button>
+              <button class="source-tab" data-source-tab="file" type="button">多个文件</button>
+              <button class="source-tab" data-source-tab="folder" type="button">文件夹</button>
+            </div>
+            <div class="source-pane is-active" data-source-pane="text">
+              <div class="field"><label for="sourceText">正文或拆书样本</label><textarea id="sourceText" placeholder="粘贴正文、章节、人物卡或你希望分析的文本……"></textarea></div>
+            </div>
+            <div class="source-pane" data-source-pane="file">
+              <div class="drop-zone" data-drop-source="file"><strong>选择多个正文文件</strong><span>支持 TXT、MD、LOG、SRT、VTT 等可读文本。浏览器只读取你主动选择的文件。</span><div class="file-actions"><button class="btn" type="button" id="pickFilesBtn">选择文件</button><button class="btn" type="button" data-clear-files>清空清单</button></div></div>
+              <div class="file-list" id="fileList"></div>
+            </div>
+            <div class="source-pane" data-source-pane="folder">
+              <div class="drop-zone" data-drop-source="folder"><strong>选择一个或多个文件夹</strong><span>会递归读取文件夹中的 TXT/MD/TEXT 文件，并按文件名保留来源标记。</span><div class="file-actions"><button class="btn" type="button" id="pickFolderBtn">选择文件夹</button><button class="btn" type="button" data-clear-files>清空清单</button></div></div>
+              <div class="file-list" id="folderList"></div>
+            </div>
+          <input id="fileInput" type="file" multiple accept=".txt,.md,.markdown,.text,.log,.srt,.vtt,.json" hidden>
+            <input id="folderInput" type="file" webkitdirectory directory multiple accept=".txt,.md,.text,.log,.srt,.vtt" hidden>
+
+            <div class="field"><label for="taskTitle">任务名称</label><input id="taskTitle" type="text" maxlength="120" placeholder="例如：都市悬疑样本拆解"></div>
+            <div class="option-row">
+              <div class="field"><label for="purpose">拆书目的</label><select id="purpose"><option value="new-writer">新作者入门</option><option value="advanced">进阶优化节奏与爆点</option><option value="problem">解决一个具体写作问题</option></select></div>
+              <div class="field"><label for="model">分析模型</label><select id="model"><option value="">加载中……</option></select></div>
+            </div>
+            <div class="field"><label>分析深度</label><div class="depth-options">
+              <label class="depth-option"><input type="radio" name="depth" value="quick"><strong>快速</strong><span>抽取开篇、高潮和结尾样本，适合试跑。</span></label>
+              <label class="depth-option"><input type="radio" name="depth" value="standard" checked><strong>标准</strong><span>覆盖全书分布，适合大多数作品。</span></label>
+              <label class="depth-option"><input type="radio" name="depth" value="deep"><strong>深入</strong><span>扩大样本范围，费用和耗时更高。</span></label>
+            </div></div>
+            <div class="notice" id="sourceNotice">拆书结果不会自动写入正文或设定集。完成后，你可以只应用“文风 + 创作技法”，原书人物、剧情和世界观默认排除。</div>
+            <div class="action-row"><button class="btn btn-primary" id="startBtn" type="button">开始拆书分析</button></div>
+            <div class="progress-wrap" id="progressWrap" hidden><div class="progress-label"><strong id="progressPhase">等待开始</strong><span id="progressPercent">0%</span></div><div class="progress-track"><i id="progressBar"></i></div><div class="task-meta" id="progressMeta">阶段完成后会自动保存，可取消并从当前阶段继续。</div><div class="action-row"><button class="btn btn-danger" id="cancelBtn" type="button">取消任务</button></div></div>
+          </div>
+        </div>
+
+        <aside class="panel">
+          <div class="panel-head"><div><h2>我的拆书任务</h2><p>任务会按账户保存，退出后仍可继续查看。</p></div><button class="btn" id="refreshBtn" type="button">刷新</button></div>
+          <div class="task-list" id="taskList"><div class="empty">正在加载任务……</div></div>
+        </aside>
+      </section>
+
+      <section class="panel result-panel" id="resultPanel" hidden>
+        <div class="panel-head"><div><h2 id="resultTitle">拆书结果</h2><p id="resultMeta"></p></div><div class="result-actions"><button class="btn" id="exportJsonBtn" type="button">导出 JSON</button><button class="btn" id="exportMdBtn" type="button">导出 Markdown</button><button class="btn btn-primary" id="rewriteBtn" type="button">开始仿写</button></div></div>
+        <div class="result-tabs" id="resultTabs"></div>
+        <div class="result-content" id="resultContent"></div>
+      </section>
+    </main>
+  </div>
+  <div class="dissect-toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-backdrop" id="rewriteModal" hidden><div class="modal"><div class="modal-head"><h2>开始仿写</h2><button class="btn" id="closeRewriteBtn" type="button">关闭</button></div><div class="modal-body"><div class="boundary">为了保护作品边界，仿写只会应用已提取的可迁移文风和创作技法，不会带入原书人物、剧情、世界观或专有名词。</div><div class="json-block" id="rewritePreview"></div><div class="action-row"><button class="btn" id="applyEditorBtn" type="button">带入编辑器</button></div></div></div></div>
+  <script src="./dissect.js"></script>
+  <script src="./account.js"></script>
+  <script src="./molan-shell.js"></script>
+</body>
+</html>

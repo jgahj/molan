@@ -1,0 +1,270 @@
+.molan-account-control,
+.molan-account-login {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
+.molan-account-control {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+  border: 1px solid var(--ml-border, #dfe5df) !important;
+  border-radius: 50% !important;
+  color: var(--ml-ink, #182018) !important;
+  background: transparent !important;
+  overflow: hidden;
+  cursor: pointer;
+  text-decoration: none !important;
+}
+
+.molan-account-control:hover {
+  border-color: var(--ml-ink, #182018) !important;
+  background: var(--ml-paper-3, #f3f6f2) !important;
+}
+
+.molan-account-control .molan-avatar,
+.molan-account-avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: transparent;
+  object-fit: cover;
+}
+
+.molan-account-control .molan-avatar img,
+.molan-account-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.molan-account-login {
+  cursor: pointer;
+}
+
+.molan-account-modal[hidden] {
+  display: none;
+}
+
+.molan-account-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 20, .42);
+}
+
+.molan-account-modal__card {
+  width: min(420px, 100%);
+  max-height: min(680px, calc(100vh - 40px));
+  overflow: auto;
+  border: 1px solid var(--ml-border, #dfe5df);
+  border-radius: 14px;
+  color: var(--ml-ink, #182018);
+  background: var(--ml-paper, #fff);
+  box-shadow: 0 22px 60px rgba(15, 23, 20, .22);
+}
+
+.molan-account-modal__head,
+.molan-account-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.molan-account-modal__head {
+  border-bottom: 1px solid var(--ml-border, #dfe5df);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.molan-account-modal__body {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.molan-account-modal__close,
+.molan-account-modal__clear,
+.molan-account-modal__logout {
+  border: 0;
+  color: var(--ml-gray, #657065);
+  background: transparent;
+  cursor: pointer;
+}
+
+.molan-account-modal__close {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.molan-account-modal__close:hover,
+.molan-account-modal__clear:hover,
+.molan-account-modal__logout:hover {
+  color: var(--ml-ink, #182018);
+  background: var(--ml-paper-3, #f3f6f2);
+}
+
+.molan-account-modal__profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.molan-account-avatar {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--ml-border, #dfe5df);
+}
+
+.molan-account-modal__identity {
+  min-width: 0;
+}
+
+.molan-account-modal__identity strong,
+.molan-account-modal__identity span {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.molan-account-modal__identity strong {
+  font-size: 14px;
+}
+
+.molan-account-modal__identity span,
+.molan-account-modal__hint,
+.molan-account-modal__status {
+  color: var(--ml-gray, #657065);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.molan-account-modal__field {
+  display: grid;
+  gap: 7px;
+  color: var(--ml-ink, #182018);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.molan-account-modal__field input[type="text"] {
+  width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--ml-border, #dfe5df);
+  border-radius: 8px;
+  color: var(--ml-ink, #182018);
+  background: var(--ml-paper, #fff);
+  outline: none;
+}
+
+.molan-account-modal__field input[type="text"]:focus {
+  border-color: #7b9d82;
+  box-shadow: 0 0 0 3px rgba(123, 157, 130, .16);
+}
+
+.molan-account-modal__upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ml-border, #dfe5df);
+  border-radius: 8px;
+  color: var(--ml-ink, #182018);
+  background: var(--ml-paper, #fff);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.molan-account-modal__upload:hover {
+  background: var(--ml-paper-3, #f3f6f2);
+}
+
+.molan-account-modal__upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.molan-account-modal__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.molan-account-modal__save {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid #315d39;
+  border-radius: 8px;
+  color: #fff;
+  background: #315d39;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.molan-account-modal__save:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.molan-account-modal__status {
+  min-height: 18px;
+  margin: 0;
+}
+
+.molan-account-modal__status.is-error {
+  color: #b42318;
+}
+
+.molan-account-modal__foot {
+  justify-content: flex-start;
+  border-top: 1px solid var(--ml-border, #dfe5df);
+}
+
+html.dark .molan-account-control:hover,
+html.dark .molan-account-modal__close:hover,
+html.dark .molan-account-modal__clear:hover,
+html.dark .molan-account-modal__logout:hover,
+html.dark .molan-account-modal__upload:hover {
+  background: rgba(255, 255, 255, .08) !important;
+}
+
+html.dark .molan-account-modal {
+  background: rgba(0, 0, 0, .56);
+}
+
+@media (max-width: 640px) {
+  .molan-account-modal {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .molan-account-modal__card {
+    max-height: calc(100vh - 20px);
+    border-radius: 13px;
+  }
+}

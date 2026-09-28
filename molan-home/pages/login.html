@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light" data-theme="light">
+<head>
+  <link rel="stylesheet" href="./account.css">
+  <link rel="stylesheet" href="./molan-ui.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 | 墨阑 AI 小说</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --login-ink: #17211d;
+      --login-muted: #707975;
+      --login-line: #dfe5df;
+      --login-paper: #fbfcf6;
+      --login-green: #0b6949;
+      --login-green-dark: #075238;
+      --login-radius: 26px;
+      --login-serif: "Noto Serif SC", "Songti SC", serif;
+      --login-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { min-height: 100%; margin: 0; }
+    body {
+      min-height: 100vh;
+      color: var(--login-ink);
+      background: #242c32;
+      font-family: var(--login-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    [data-lucide] { width: 18px; height: 18px; stroke-width: 1.8; }
+
+    .login-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    .login-frame {
+      width: min(1080px, 100%);
+      height: min(680px, calc(100vh - 48px));
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, .96fr) minmax(0, 1.04fr);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.6);
+      border-radius: var(--login-radius);
+      background: var(--login-paper);
+      box-shadow: 0 28px 80px rgba(0,0,0,.26);
+    }
+    .login-form-panel { display: flex; flex-direction: column; padding: 30px 44px; background: var(--login-paper); }
+    .login-brand {
+      display: inline-flex; align-items: center; gap: 9px; width: fit-content;
+      color: var(--login-ink); font-family: var(--login-serif); font-size: 19px; font-weight: 700; letter-spacing: .02em;
+    }
+    .login-brand__mark { display: grid; place-items: center; width: 30px; height: 30px; color: #fff; border-radius: 9px 9px 9px 3px; background: var(--login-green); }
+    .login-brand__mark [data-lucide] { width: 17px; height: 17px; }
+    .login-language { align-self: flex-end; margin-top: -28px; padding: 6px 9px; border: 1px solid var(--login-line); border-radius: 999px; color: var(--login-muted); background: transparent; font-size: 12px; }
+    .login-language:hover { color: var(--login-ink); border-color: #aeb8b0; }
+    .login-copy { width: min(100%, 400px); margin: auto; padding: 24px 0 18px; }
+    .login-copy h1 { margin: 0; color: var(--login-ink); font-family: var(--login-serif); font-size: clamp(26px, 2.6vw, 34px); font-weight: 700; line-height: 1.24; letter-spacing: 0; }
+    .login-copy__lead { margin: 8px 0 22px; color: #4c5952; font-family: var(--login-serif); font-size: 15px; line-height: 1.55; }
+    .login-provider-list { display: grid; gap: 8px; }
+    .login-provider, .login-field, .login-submit { min-height: 44px; border-radius: 999px; }
+    .login-provider { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; border: 1px solid var(--login-line); color: var(--login-ink); background: rgba(255,255,255,.7); font-size: 14px; }
+    .login-provider:hover { border-color: #aeb8b0; background: #fff; }
+    .login-divider { display: flex; align-items: center; gap: 14px; margin: 14px 0; color: #97a19a; font-size: 12px; }
+    .login-divider::before, .login-divider::after { content: ""; height: 1px; flex: 1; background: var(--login-line); }
+    .login-form { display: grid; gap: 10px; }
+    .login-field-wrap { position: relative; }
+    .login-field { width: 100%; padding: 0 44px 0 46px; border: 1px solid var(--login-line); outline: none; color: var(--login-ink); background: rgba(255,255,255,.76); font-size: 14px; }
+    .login-field::placeholder { color: #9da69f; }
+    .login-field:focus { border-color: var(--login-green); box-shadow: 0 0 0 3px rgba(11,105,73,.1); }
+    .login-field-wrap > [data-lucide] { position: absolute; top: 50%; left: 16px; width: 18px; height: 18px; color: #7f8b83; pointer-events: none; transform: translateY(-50%); }
+    .login-password-toggle { position: absolute; top: 50%; right: 10px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #7f8b83; transform: translateY(-50%); }
+    .login-password-toggle:hover { color: var(--login-ink); background: #eef3ed; }
+    .login-tip { min-height: 18px; margin: 2px 0 0; color: #bb3d3d; font-size: 12px; line-height: 1.5; }
+    .login-submit { width: 100%; margin-top: 4px; border: 0; color: #fff; background: var(--login-green); font-size: 15px; font-weight: 700; letter-spacing: .08em; transition: background .18s ease, transform .18s ease; }
+    .login-submit:hover { background: var(--login-green-dark); transform: translateY(-1px); }
+    .login-submit:disabled { cursor: wait; opacity: .6; transform: none; }
+    .login-links { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; color: var(--login-muted); font-size: 13px; }
+    .login-links a:hover { color: var(--login-green); }
+    .login-links__sep { color: #bec6bf; }
+    .login-terms { margin: 16px 0 0; color: #99a39b; font-size: 11px; line-height: 1.7; text-align: center; }
+    .login-terms a { color: #607068; text-decoration: underline; text-underline-offset: 3px; }
+    .login-terms a:hover { color: var(--login-green); }
+    .login-art-panel { min-height: 0; background: #b9ded1; }
+    .login-art-panel img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+
+    @media (max-width: 860px) {
+      .login-shell { padding: 20px; }
+      .login-frame { grid-template-columns: 1fr; height: auto; min-height: 0; }
+      .login-form-panel { padding: 30px 36px; }
+      .login-copy { padding: 24px 0 18px; }
+      .login-art-panel { min-height: 300px; max-height: 360px; }
+      .login-form-panel { order: 1; }
+      .login-art-panel { order: 2; }
+    }
+    @media (max-width: 520px) {
+      .login-shell { padding: 0; }
+      .login-frame { height: auto; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
+      .login-form-panel { padding: 24px 20px 28px; }
+      .login-copy { padding: 30px 0 16px; }
+      .login-copy h1 { font-size: 28px; }
+      .login-copy__lead { margin-bottom: 20px; font-size: 14px; }
+      .login-art-panel { min-height: 220px; max-height: 260px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .login-submit { transition: none; } }
+  </style>
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-frame" aria-label="墨阑 AI 小说登录">
+      <div class="login-form-panel">
+        <a class="login-brand" href="../index.html" data-dom-id="nav-index" aria-label="墨阑 AI 小说首页">
+          <span class="login-brand__mark"><i data-lucide="book-open"></i></span>
+          <span>墨阑 AI 小说</span>
+        </a>
+        <button class="login-language" type="button" aria-label="切换语言为英文">EN</button>
+
+        <div class="login-copy">
+          <h1 id="login-title">开始你的 AI 写作工作台</h1>
+          <p class="login-copy__lead" id="login-description">从灵感、大纲到成稿，智能完成每一本书</p>
+          <div class="login-provider-list" aria-label="第三方登录">
+            <button class="login-provider" type="button"><i data-lucide="sparkles"></i>使用 Google 登录</button>
+            <button class="login-provider" type="button"><i data-lucide="code-2"></i>使用 GitHub 登录</button>
+          </div>
+          <div class="login-divider"><span>或使用邮箱登录</span></div>
+          <form class="login-form" onsubmit="event.preventDefault();" aria-label="登录表单">
+            <p class="login-tip" aria-live="polite"></p>
+            <div class="login-field-wrap">
+              <label class="sr-only" for="email">邮箱地址</label>
+              <i data-lucide="mail"></i>
+              <input class="login-field" type="email" id="email" name="email" placeholder="邮箱地址" autocomplete="email">
+            </div>
+            <div class="login-field-wrap">
+              <label class="sr-only" for="password">密码</label>
+              <i data-lucide="lock-keyhole"></i>
+              <input class="login-field" type="password" id="password" name="password" placeholder="密码" autocomplete="current-password">
+              <button class="login-password-toggle" type="button" aria-label="切换密码可见性"><i data-lucide="eye"></i></button>
+            </div>
+            <button class="login-submit" type="submit">登录</button>
+          </form>
+          <div class="login-links">
+            <a href="javascript:void(0)" class="login-forgot">忘记密码</a>
+            <span class="login-links__sep">|</span>
+            <a href="javascript:void(0)" class="login-register">创建新账号</a>
+          </div>
+          <p class="login-terms">继续即表示你同意<a href="javascript:void(0)">服务条款</a>与<a href="javascript:void(0)">隐私政策</a></p>
+        </div>
+      </div>
+      <div class="login-art-panel">
+        <img src="../assets/login-writing-room.png" alt="书本、羽毛笔与 AI 写作伙伴">
+      </div>
+    </section>
+  </main>
+  <script>if (window.lucide) lucide.createIcons();</script>
+  <script src="./site.js"></script>
+  <script src="./account.js"></script>
+  <script src="./molan-shell.js"></script>
+</body>
+</html>

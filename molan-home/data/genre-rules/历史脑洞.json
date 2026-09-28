@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 2,
+  "genre": "历史脑洞",
+  "familyId": "ancient_world",
+  "summary": "两本便利样本均为三国系统/穿越混合，支持眼前障碍、接待关系和发展目标的局部观察，不代表史实考据或全题材总体。",
+  "policy": {
+    "enforcement": "advisory-only",
+    "nameOverlap": "共姓、辈分字和一般共享汉字本身不构成硬门禁；仅在具体辨识困难时提示复核。",
+    "opening": "宏观、微观、对白均可按当前叙事任务选择，不统一强制任何开篇尺度或器物清单。",
+    "ending": "关键词未命中为unknown；ease需有上下文证据，不据结尾词自动通过或拒稿。",
+    "metrics": "同口径描述性分布，不设置文学质量、字数、对白长度或词频硬门禁。",
+    "review": "仅定点摘段已评；整章、后文及人工复核pending。",
+    "legacyCards": "旧卡缺原文定位，旧固定targetMetrics和自造范句均已撤下；未将未读作品印象迁移为已证实事实。"
+  },
+  "targetMetrics": {},
+  "baselineRef": "../genre-baselines/历史脑洞.json",
+  "evidenceRef": "../genre-evidence/历史脑洞.json",
+  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "writingDirectives": [
+    {
+      "key": "goal_and_local_gap",
+      "rule": "让大目标遇到眼前信息缺口",
+      "detail": "可以把时代或天下目标落到路线、落脚与当前接待问题，建立具体行动障碍。",
+      "scope": "穿越初到、投奔或行军。",
+      "limits": "不固定用迷路、饥饿或钱粮清单；现代语体按设定判断。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "历史脑洞:bad233bea5f77ab8",
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p6",
+            "ch1:p71",
+            "ch1:p72"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "specific_next_step",
+      "rule": "交涉可落到下一步去处",
+      "detail": "交谈可在明确地点、身份目标或行动上收束，留下可行性供后续检验。",
+      "scope": "招揽、结盟、势力发展。",
+      "limits": "有具体地名不等于谋略合理，制度与史实未经核验。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "历史脑洞:bad233bea5f77ab8",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p57",
+            "ch3:p59"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "declared_subgenre",
+      "rule": "辨明写实与系统混合的设定契约",
+      "detail": "评估奖励、身体改变与建设概述时，区分小说机制和真实历史生产力证据。",
+      "scope": "系统三国、超凡历史或架空发展。",
+      "limits": "允许系统不等于免除因果核验；术语和数字不证明质量。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "历史脑洞:68f302be8aaee65e",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p40",
+            "ch3:p77",
+            "ch3:p78",
+            "ch3:p79"
+          ]
+        }
+      ]
+    }
+  ],
+  "positivePatterns": [],
+  "negativePatterns": [],
+  "decisionCards": [
+    {
+      "sourceTitle": "三国：开局项羽模板，你当谋士？",
+      "topic": "前三章局部信息与行动变化",
+      "application": "开头从赶论文后醒于树林交代错位，末尾已问到时代却忘问地点和路线；宏大历史目的被眼前导航缺口打断，形成行动级障碍。 张飞从虚弱外貌质疑武人判断，末尾刘备安排吃食且龙渊确实饥饿；能力身份与身体需求可并置，饭食也能推进接待关系。 刘备致歉设席承接接待，末尾追问地点和妙计后得到入主平原的具体目标；议论在章尾转成下一步去处，而非只说成大业。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "历史脑洞:bad233bea5f77ab8",
+      "sourceSha256": "bad233bea5f77ab8860bc39048c6508044c1b7aa987bf312dd31648a2e4c11b0",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p6",
+            "ch1:p71",
+            "ch1:p72"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p32",
+            "ch2:p61",
+            "ch2:p62",
+            "ch2:p63"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p57",
+            "ch3:p59"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    },
+    {
+      "sourceTitle": "三国：我用边角料，吊打刘关张",
+      "topic": "前三章局部信息与行动变化",
+      "application": "开头直接给纪年，末尾从许诺留山有饭吃转到是否一辈子当山贼的追问；眼前容身与未来身份形成两个尺度的目标。 开头回答当山贼是为躲围剿求生，末尾列举宝箱可能产物并下令开启；生存困局与系统奖励期待同时存在，不能只按严肃历史写实规范衡量。 宝箱开出锦盒、中段服丹改变身体，末尾以屯田、沤肥、巡查和练兵概述山寨变化；超凡捷径与发展蒙太奇并置。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "历史脑洞:68f302be8aaee65e",
+      "sourceSha256": "68f302be8aaee65e9366028dbb315c9ba35a3bca030fb6032a90fd12c4713bef",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p1",
+            "ch1:p2",
+            "ch1:p89",
+            "ch1:p90",
+            "ch1:p91"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p2",
+            "ch2:p100",
+            "ch2:p102"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p40",
+            "ch3:p77",
+            "ch3:p78",
+            "ch3:p79"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    }
+  ]
+}

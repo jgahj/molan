@@ -1,0 +1,25 @@
+node_modules/
+.ds-profile/
+
+# Runtime secrets and user data
+data/config.json
+data/*.db
+data/*.db-*
+data/users.json
+data/sessions.json
+data/token_usage.json
+data/user_skills.json
+data/global_skills.json
+data/admin_audit.json
+data/xuanhuan-lab/
+data/watchdog.lock
+data/benchmark-local-runtime/
+data/benchmark-runs/
+
+# Local logs and temporary files
+*.log
+*.log.1
+*.tmp
+.env
+.env.*
+!.env.example

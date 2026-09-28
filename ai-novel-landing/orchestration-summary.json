@@ -1,0 +1,310 @@
+{
+  "skillProvenance": {
+    "name": "solo-design",
+    "version": "2026.07.06.8",
+    "version_source": "skill-version.json",
+    "runtime_skill_dir": "c:\\Users\\lyh\\.trae-cn\\builtin\\design\\default\\skills\\solo-design",
+    "recorded_at": "2026-07-28T12:00:00+08:00"
+  },
+  "project": {
+    "name": "AI 小说创作平台首页",
+    "path": "c:\\Users\\lyh\\Desktop\\小说专属网页\\ai-novel-landing",
+    "operation": "create",
+    "deviceType": "desktop",
+    "language": "zh-CN",
+    "dashboardMode": false,
+    "intentProfile": {
+      "caseFamily": "restore_1to1",
+      "graphicStrategy": null,
+      "sourceType": "image",
+      "routingReason": "用户上传截图并要求一比一复刻截图风格，明确 high-fidelity 还原"
+    },
+    "replicationMode": "high-fidelity",
+    "sourceUrl": null,
+    "contextReadBudget": {
+      "workflowFileReadLimit": 1,
+      "largeWorkflowFilesCachedInSummary": [],
+      "restoreInputsCached": ["referenceCaptureEvidence", "visualSpecExcerpt", "restorationContractLite", "restoreVisualCheckpoints"],
+      "subAgentReadsFullSummary": false
+    },
+    "readBudgetLedger": [
+      {
+        "file": "workflows/create-project-restore-1to1.md",
+        "readCount": 1,
+        "limit": 1,
+        "reason": "initial route-locked workflow read",
+        "exceeded": false
+      }
+    ],
+    "dispatchPreflightManifest": [],
+    "cssPreflightEvidence": {
+      "applies": false,
+      "status": "not-needed",
+      "reason": "restore path uses project-local CSS directly"
+    },
+    "repairEntryEvidence": [],
+    "finishReadinessEvidence": null,
+    "referenceCaptureEvidence": {
+      "sourceType": "image",
+      "sourceAuthority": "screenshot",
+      "providedImagePath": "c:\\Users\\lyh\\.trae-cn\\attachments\\6a68bfc3dd397e08ed0ed4f3\\c556ba16-7d55-436e-94c3-109374b2b50e_9c6b6267-841c-4422-9ef9-d37c73debbcc_image.png",
+      "fullPageScreenshotEvidence": null,
+      "viewportScreenshotEvidence": "c:\\Users\\lyh\\.trae-cn\\attachments\\6a68bfc3dd397e08ed0ed4f3\\c556ba16-7d55-436e-94c3-109374b2b50e_9c6b6267-841c-4422-9ef9-d37c73debbcc_image.png",
+      "browserSnapshotSections": [],
+      "webFetchStatus": "not-needed",
+      "visualSpecExcerptLength": 1800,
+      "captureBlockingReason": null
+    },
+    "visualSpecExcerpt": "极简黑白现代 SaaS 风格 Landing Page。背景纯白 #ffffff / #fafafa。顶部导航栏：左侧黑色方形 Logo（内含白色 Z/笔触字符），导航项依次为 产品功能(带下拉)、首页、订阅、知识库、免费工具(带下拉)、文档、博客；右侧依次为主题切换图标、语言切换、登录(带箭头)链接、黑色实心圆角按钮 开始创作。导航下方有药丸形公告标签 AI 引擎 V4.0 全新上线 带 info 图标。Hero 区域左右分栏：左侧大标题 落笔生花，一字千金。 使用粗体衬线/书法感中文字体，字号约 56-68px；下方灰色副标题约 15px。右侧三张浮动卡片：①世界观设定生成 卡片含 已完成一致性校验 标签；②统计仪表盘卡片 今日已生成字数 125,430字 含上升箭头与柱状图；③文本生成预览卡片含小说片段文本及 润色完成/剧情高潮 标签。Hero 下方为聊天式输入框，占位文字 帮我构思一个悬疑推理的开头...，含用户/分享/火花图标、技能模式·动态装载 标签、高级 标签，底部有 智能体 选择器与 claude-3.5-sonnet 下拉及发送按钮。最底部 CTA：黑色药丸按钮 + 快速创建小说、免费注册；白色描边按钮 我的小说、导入小说。整体留白充足，视觉层次靠字号与黑色对比建立。",
+    "restoreVisualCheckpoints": [
+      {
+        "id": "vc-01",
+        "priority": "high",
+        "sourceObservation": "顶部导航栏白底，左侧黑色方形 Logo 含白色字符，导航项水平排列，右侧有主题/语言切换、登录链接、黑色实心 开始创作 按钮",
+        "targetImplementation": "sticky top navbar, white bg, flex 布局；左 Logo 用黑色圆角方块 + 白色文字；nav items 用 flex gap 排列；右侧按钮组，开始创作为黑底白字圆角按钮",
+        "tolerance": "none",
+        "region": "header"
+      },
+      {
+        "id": "vc-02",
+        "priority": "high",
+        "sourceObservation": "导航栏下方有药丸形公告标签 AI 引擎 V4.0 全新上线，带 info 图标",
+        "targetImplementation": "inline-flex pill, 浅灰底 #f5f5f5, 圆角 full, 含 info svg 图标 + 文字，字号 13px",
+        "tolerance": "approximate icon acceptable",
+        "region": "header"
+      },
+      {
+        "id": "vc-03",
+        "priority": "high",
+        "sourceObservation": "Hero 左侧大标题 落笔生花，一字千金。 使用粗体衬线/书法感中文字体，字号极大约 56-68px，黑色",
+        "targetImplementation": "h1 使用 Noto Serif SC / Songti SC, font-weight 700, font-size 约 64px, color #0a0a0a, line-height 1.15",
+        "tolerance": "small spacing variance",
+        "region": "hero"
+      },
+      {
+        "id": "vc-04",
+        "priority": "high",
+        "sourceObservation": "Hero 左侧副标题为灰色小字，约 15px，解释平台功能",
+        "targetImplementation": "p 标签, color #666, font-size 15px, line-height 1.7, max-width 约 420px",
+        "tolerance": "none",
+        "region": "hero"
+      },
+      {
+        "id": "vc-05",
+        "priority": "high",
+        "sourceObservation": "Hero 右侧三张浮动卡片错落排列：世界观设定生成、统计仪表盘(125,430字)、文本生成预览",
+        "targetImplementation": "右侧用相对/绝对定位或 grid 排列三张白色卡片，圆角 12px，阴影 box-shadow card，含不同内容与标签",
+        "tolerance": "small spacing variance",
+        "region": "card"
+      },
+      {
+        "id": "vc-06",
+        "priority": "high",
+        "sourceObservation": "Hero 下方有聊天式输入框，占位文字 帮我构思一个悬疑推理的开头...，底部有 智能体 + claude-3.5-sonnet 下拉和发送按钮",
+        "targetImplementation": "白色圆角输入区域，圆角 16px，描边 #e5e5e5，内含 placeholder 文字、功能图标行、底部分隔的 agent 选择器与发送圆形黑按钮",
+        "tolerance": "none",
+        "region": "form"
+      },
+      {
+        "id": "vc-07",
+        "priority": "high",
+        "sourceObservation": "最底部 CTA 为黑色药丸按钮 + 快速创建小说 / 免费注册，以及白色描边按钮 我的小说 / 导入小说",
+        "targetImplementation": "flex gap 按钮组；黑色按钮 bg #0a0a0a color #fff 圆角 full padding 适中；白色按钮 bg transparent border 1px #e5e5e5",
+        "tolerance": "none",
+        "region": "hero"
+      },
+      {
+        "id": "vc-08",
+        "priority": "medium",
+        "sourceObservation": "整体背景纯白，大量留白，视觉层次靠黑色文字与灰度对比建立",
+        "targetImplementation": "body bg #ffffff, 内容区 max-width 约 1200px 居中，hero 区域上下大间距 padding 80px+",
+        "tolerance": "small spacing variance",
+        "region": "hero"
+      },
+      {
+        "id": "vc-09",
+        "priority": "medium",
+        "sourceObservation": "统计卡片含柱状图可视化与上升箭头趋势图标",
+        "targetImplementation": "卡片内用 CSS 绘制简易柱状图 div 条形 + 上升箭头 svg，数字 125,430 用大号粗体",
+        "tolerance": "approximate icon acceptable",
+        "region": "card"
+      },
+      {
+        "id": "vc-10",
+        "priority": "medium",
+        "sourceObservation": "文本预览卡片含小说片段文字及 润色完成 / 剧情高潮 小标签",
+        "targetImplementation": "卡片内一段小说文字 font-serif, 下方两个 pill 标签 浅灰底",
+        "tolerance": "none",
+        "region": "card"
+      },
+      {
+        "id": "vc-11",
+        "priority": "medium",
+        "sourceObservation": "世界观设定卡片标题旁有 已完成一致性校验 绿色/带勾标签",
+        "targetImplementation": "卡片标题行含一个带勾圆形图标 + 文字的 pill 标签",
+        "tolerance": "approximate icon acceptable",
+        "region": "card"
+      },
+      {
+        "id": "vc-12",
+        "priority": "low",
+        "sourceObservation": "输入框上方功能行含用户图标、分享图标、火花图标及 技能模式·动态装载 / 高级 标签",
+        "targetImplementation": "输入框内顶部一行 inline-flex 图标与 pill 标签，灰色小字",
+        "tolerance": "approximate icon acceptable",
+        "region": "form"
+      }
+    ],
+    "restorationContractLite": {
+      "sourceAuthority": "screenshot",
+      "targetViewport": "desktop",
+      "similarityFreeze": [
+        "黑白极简配色，纯白背景 + 黑色文字/按钮",
+        "Hero 大标题用衬线/书法感中文字体，字号 56-68px",
+        "左右分栏 Hero，右侧三张浮动卡片错落排列",
+        "聊天式输入框 + 底部 CTA 按钮组",
+        "顶部导航 + 公告药丸标签"
+      ],
+      "contentToPreserve": [
+        "落笔生花，一字千金。",
+        "基于多智能体协作的高级小说创作平台。从设定推演到正文生成，将您的灵感化为传世之作。以书香之韵，驭现代之智。",
+        "AI 引擎 V4.0 全新上线",
+        "世界观设定生成 / 已完成一致性校验",
+        "今日已生成字数 / 125,430字",
+        "帮我构思一个悬疑推理的开头...",
+        "技能模式·动态装载 / 高级 / 智能体 / claude-3.5-sonnet",
+        "+ 快速创建小说 / 免费注册 / 我的小说 / 导入小说",
+        "他拔剑的那一刻，漫天风雪似乎都停滞了。这不是剑意，是...",
+        "润色完成 / 剧情高潮",
+        "开始创作 / 登录"
+      ],
+      "sourceRegionCoverage": [
+        { "region": "header navigation", "coverage": "mapped", "checkpoint": "vc-01" },
+        { "region": "announcement banner", "coverage": "mapped", "checkpoint": "vc-02" },
+        { "region": "hero headline", "coverage": "mapped", "checkpoint": "vc-03" },
+        { "region": "hero subheadline", "coverage": "mapped", "checkpoint": "vc-04" },
+        { "region": "hero floating cards", "coverage": "mapped", "checkpoint": "vc-05" },
+        { "region": "chat input demo", "coverage": "mapped", "checkpoint": "vc-06" },
+        { "region": "bottom CTA buttons", "coverage": "mapped", "checkpoint": "vc-07" },
+        { "region": "page background", "coverage": "mapped", "checkpoint": "vc-08" },
+        { "region": "stats card chart", "coverage": "mapped", "checkpoint": "vc-09" },
+        { "region": "text preview card", "coverage": "mapped", "checkpoint": "vc-10" },
+        { "region": "worldview card tag", "coverage": "mapped", "checkpoint": "vc-11" },
+        { "region": "input feature row", "coverage": "mapped", "checkpoint": "vc-12" }
+      ],
+      "allowedDeviationBudget": []
+    },
+    "restoreEvidenceReview": {
+      "applies": true,
+      "reviewedPages": ["page-index"],
+      "highPriorityCheckpointCount": 7,
+      "highPriorityMatchedCount": 7,
+      "highPriorityMissingCount": 0,
+      "highPriorityPartialWithoutDeviationCount": 0,
+      "allHighPriorityCheckpointsAcceptable": true,
+      "screenshotAuditUsed": false,
+      "screenshotAuditReason": null,
+      "blockingReason": null
+    },
+    "styleDefinitionBrief": null,
+    "designRead": "showcase / 中文创作者 / 文学雅致+现代科技 / 中等密度 / 大标题留白风险",
+    "designDials": {
+      "layoutVariance": 2,
+      "motionIntensity": 1,
+      "visualDensity": 2
+    },
+    "styleContinuityAnchors": null,
+    "specsConstraints": null,
+    "sharedProjectShellContract": null,
+    "generationTree": null
+  },
+  "designSource": {
+    "operatingMode": "free-explore",
+    "libraryIdentity": null,
+    "libraryPath": null,
+    "cssFilePath": "c:\\Users\\lyh\\Desktop\\小说专属网页\\ai-novel-landing\\colors_and_type.css",
+    "brandPrefix": "ml",
+    "themeMode": "light",
+    "designDecisionSummary": "基于截图还原：黑白极简、衬线大标题、浮动卡片、聊天输入框",
+    "componentContractKind": null,
+    "forbiddenInventedComponents": [],
+    "allowedComponents": [],
+    "styleConstraints": {
+      "radiusMax": 16,
+      "spacingBase": 4,
+      "fontSizeBody": 14,
+      "fontSizeMin": 11,
+      "controlHeightDefault": 36,
+      "controlHeightLarge": 44
+    },
+    "productContext": {
+      "kitType": "free-explore",
+      "productType": "AI 小说创作平台 Landing Page"
+    },
+    "actualTokenNameReference": [
+      { "semanticPurpose": "主文字色", "tokenName": "--ml-ink" },
+      { "semanticPurpose": "背景白", "tokenName": "--ml-paper" },
+      { "semanticPurpose": "次级文字灰", "tokenName": "--ml-gray" },
+      { "semanticPurpose": "分割线", "tokenName": "--ml-line" }
+    ]
+  },
+  "pages": [
+    {
+      "nodeId": "page-index",
+      "slug": "index",
+      "title": "首页",
+      "htmlSrc": "pages/index.html",
+      "pageIndex": 1,
+      "stateGroupId": null,
+      "stateRole": null,
+      "baseStatePageId": null,
+      "sharedShellContract": [],
+      "mutableRegions": [],
+      "derivedFromHtmlSrc": null,
+      "derivationType": "original",
+      "sourcePageId": null,
+      "sourceHtmlSrc": null,
+      "pageType": "showcase",
+      "viewportMode": "document-scroll",
+      "businessScenario": "AI 小说创作平台 Landing Page，展示产品核心价值与功能演示",
+      "visualNorthStar": "极简黑白、衬线大标题文学感、右侧浮动产品卡片、底部聊天输入与 CTA",
+      "compositionPattern": "asymmetric hero: 左文右浮动卡片群 + 底部输入与 CTA",
+      "continuityAnchors": ["黑白配色", "衬线大标题", "浮动卡片阴影"],
+      "libraryRestraintMode": false,
+      "uiKitPath": null,
+      "componentPlan": ["navbar", "hero", "floating-card", "chat-input", "cta-group"],
+      "imagePlan": [],
+      "chartsRequired": false,
+      "miniProgramStyle": false,
+      "qualityRisks": ["大标题字号与留白平衡", "浮动卡片错落定位", "输入框还原度"],
+      "restoreEvidence": {
+        "visualCheckpointResults": [
+          { "id": "vc-01", "result": "matched", "note": "sticky 白底导航栏，黑色方形 Logo + 白色笔触 svg，导航项 14px 灰色 hover 变黑，右侧主题/语言/登录/开始创作按钮" },
+          { "id": "vc-02", "result": "matched", "note": "药丸标签 rounded-full 浅灰底，info 图标 + AI 引擎 V4.0 全新上线" },
+          { "id": "vc-03", "result": "matched", "note": "衬线大标题 落笔生花，一字千金。Noto Serif SC bold clamp(40px,6vw,64px) #0a0a0a" },
+          { "id": "vc-04", "result": "matched", "note": "灰色副标题 15px line-height 1.7 max-width 440px，逐字保留" },
+          { "id": "vc-05", "result": "matched", "note": "三张白色浮动卡片 absolute 定位 rotate 错落，圆角 12px 阴影 card" },
+          { "id": "vc-06", "result": "matched", "note": "聊天输入框圆角 16px 描边，占位文字、功能行图标 pill、底部智能体选择器与圆形黑色发送按钮" },
+          { "id": "vc-07", "result": "matched", "note": "CTA 按钮组：两个黑色药丸 + 两个白色描边，逐字保留文案" },
+          { "id": "vc-08", "result": "matched", "note": "body 纯白背景 max-w-1200px 居中 hero 大间距 padding" },
+          { "id": "vc-09", "result": "matched", "note": "统计卡片 7 根 div 柱状图高度递增 30%-90% #0a0a0a 宽 10px gap 4px + 上升箭头" },
+          { "id": "vc-10", "result": "matched", "note": "文本预览卡片 font-serif 14px + 润色完成/剧情高潮 pill 标签" },
+          { "id": "vc-11", "result": "matched", "note": "世界观卡片带勾圆形绿色 svg + 已完成一致性校验标签" },
+          { "id": "vc-12", "result": "matched", "note": "输入框功能行用户/分享/火花 svg stroke 1.5px 16px + 技能模式·动态装载/高级 pill" }
+        ],
+        "sourceRegionCoverageResults": [
+          { "region": "header navigation", "result": "mapped" },
+          { "region": "announcement pill", "result": "mapped" },
+          { "region": "hero left title + subtitle", "result": "mapped" },
+          { "region": "hero right floating cards (3)", "result": "mapped" },
+          { "region": "chat input box", "result": "mapped" },
+          { "region": "bottom CTA button group", "result": "mapped" }
+        ],
+        "dominantReferenceImageUsedAsBody": false,
+        "componentRebuildEvidence": "所有组件均用 HTML/CSS 重建，未使用截图作为背景图；三张浮动卡片用 absolute 定位 + transform rotate 错落排列，柱状图用 div 条形，全部图标为内联 SVG stroke-based"
+      }
+    }
+  ],
+  "assets": [],
+  "wiringPlan": [],
+  "hiddenInteractionPlan": []
+}

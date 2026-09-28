@@ -1,0 +1,536 @@
+{
+  "data": [
+    {
+      "id": "page-index",
+      "title": "首页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/index.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          },
+          {
+            "domId": "nav-login",
+            "targetPageId": "page-login",
+            "hideEdge": true,
+            "transitionLabel": "登录"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-features",
+      "title": "功能总览",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 620,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/features.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          },
+          {
+            "domId": "nav-login",
+            "targetPageId": "page-login",
+            "hideEdge": true,
+            "transitionLabel": "登录"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-pricing",
+      "title": "价格与订阅",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 1240,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/pricing.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          },
+          {
+            "domId": "nav-login",
+            "targetPageId": "page-login",
+            "hideEdge": true,
+            "transitionLabel": "登录"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-docs",
+      "title": "使用文档",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 1860,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/docs.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          },
+          {
+            "domId": "nav-login",
+            "targetPageId": "page-login",
+            "hideEdge": true,
+            "transitionLabel": "登录"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-blog",
+      "title": "创作者手札",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 2480,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/blog.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          },
+          {
+            "domId": "nav-login",
+            "targetPageId": "page-login",
+            "hideEdge": true,
+            "transitionLabel": "登录"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tools",
+      "title": "免费工具",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 3100,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tools.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          },
+          {
+            "domId": "nav-login",
+            "targetPageId": "page-login",
+            "hideEdge": true,
+            "transitionLabel": "登录"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-about",
+      "title": "关于我们",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 3720,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/about.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          },
+          {
+            "domId": "nav-login",
+            "targetPageId": "page-login",
+            "hideEdge": true,
+            "transitionLabel": "登录"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-contact",
+      "title": "联系我们",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 4340,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/contact.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          },
+          {
+            "domId": "nav-login",
+            "targetPageId": "page-login",
+            "hideEdge": true,
+            "transitionLabel": "登录"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-login",
+      "title": "登录",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785261000000,
+      "canvasData": {
+        "x": 4960,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/login.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "首页"
+          },
+          {
+            "domId": "nav-features",
+            "targetPageId": "page-features",
+            "hideEdge": true,
+            "transitionLabel": "功能总览"
+          },
+          {
+            "domId": "nav-pricing",
+            "targetPageId": "page-pricing",
+            "hideEdge": true,
+            "transitionLabel": "价格与订阅"
+          },
+          {
+            "domId": "nav-docs",
+            "targetPageId": "page-docs",
+            "hideEdge": true,
+            "transitionLabel": "使用文档"
+          },
+          {
+            "domId": "nav-blog",
+            "targetPageId": "page-blog",
+            "hideEdge": true,
+            "transitionLabel": "创作者手札"
+          },
+          {
+            "domId": "nav-tools",
+            "targetPageId": "page-tools",
+            "hideEdge": true,
+            "transitionLabel": "免费工具"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "马良写作官网复刻",
+    "designLibrary": null,
+    "showEdge": false
+  }
+}

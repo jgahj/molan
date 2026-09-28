@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>墨阑 | 管理员登录</title>
+  <link rel="stylesheet" href="./molan-ui.css">
+  <style>
+    :root {
+      --ink: #1d2730;
+      --muted: #7a858c;
+      --line: #dde4e7;
+      --paper: #ffffff;
+      --page: #e8f0f2;
+      --deep: #202b33;
+      --deep-soft: #2c3942;
+      --accent: #7865d2;
+      --accent-dark: #6552bf;
+      --danger: #c95858;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { min-height: 100%; margin: 0; }
+    body { min-height: 100vh; color: var(--ink); background: var(--page); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; -webkit-font-smoothing: antialiased; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    .admin-login-shell { min-height: 100vh; display: grid; place-items: center; padding: 28px; }
+    .admin-login-card { width: min(920px, 100%); display: grid; grid-template-columns: minmax(280px, .88fr) minmax(360px, 1.12fr); overflow: hidden; border: 1px solid rgba(255,255,255,.85); border-radius: 22px; background: var(--paper); box-shadow: 0 24px 70px rgba(35, 53, 62, .15); }
+    .admin-login-aside { display: flex; flex-direction: column; justify-content: space-between; min-height: 540px; padding: 34px; color: #fff; background: var(--deep); }
+    .admin-brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; letter-spacing: .04em; }
+    .admin-brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px 10px 10px 3px; color: #fff; background: var(--accent); font-size: 17px; }
+    .admin-aside-copy { max-width: 260px; margin: auto 0; }
+    .admin-aside-copy small { display: block; margin-bottom: 14px; color: #b9c2c8; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
+    .admin-aside-copy h1 { margin: 0; font-size: clamp(26px, 4vw, 42px); line-height: 1.18; letter-spacing: 0; }
+    .admin-aside-copy p { margin: 15px 0 0; color: #bec8cd; font-size: 13px; line-height: 1.8; }
+    .admin-aside-footer { display: flex; align-items: center; gap: 9px; color: #aeb9bf; font-size: 11px; }
+    .admin-aside-footer i { width: 7px; height: 7px; border-radius: 50%; background: #74d1a7; box-shadow: 0 0 0 4px rgba(116,209,167,.12); }
+    .admin-login-form-panel { display: flex; align-items: center; padding: 48px 56px; }
+    .admin-login-form-wrap { width: min(360px, 100%); margin: 0 auto; }
+    .admin-eyebrow { margin: 0 0 9px; color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .17em; }
+    .admin-login-form-wrap h2 { margin: 0; font-size: 28px; letter-spacing: 0; }
+    .admin-login-lead { margin: 9px 0 27px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .admin-login-form { display: grid; gap: 14px; }
+    .admin-field { display: grid; gap: 7px; color: #626e76; font-size: 11px; font-weight: 600; }
+    .admin-field input { width: 100%; height: 45px; padding: 0 13px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: #fbfcfc; outline: 0; font-size: 13px; }
+    .admin-field input:focus { border-color: #a99bea; box-shadow: 0 0 0 3px rgba(120,101,210,.12); background: #fff; }
+    .admin-tip { min-height: 19px; margin: -2px 0 -3px; color: var(--danger); font-size: 12px; line-height: 1.5; }
+    .admin-submit { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 46px; padding: 0 15px 0 17px; border: 0; border-radius: 9px; color: #fff; background: var(--accent); font-size: 13px; font-weight: 700; transition: background .18s ease, transform .18s ease; }
+    .admin-submit:hover { background: var(--accent-dark); transform: translateY(-1px); }
+    .admin-submit:disabled { cursor: wait; opacity: .6; transform: none; }
+    .admin-submit span:last-child { font-size: 18px; font-weight: 400; line-height: 1; }
+    .admin-login-links { display: flex; justify-content: space-between; gap: 12px; margin-top: 21px; color: var(--muted); font-size: 11px; }
+    .admin-login-links a:hover { color: var(--accent-dark); }
+    .admin-security-note { display: flex; gap: 8px; margin-top: 30px; padding-top: 15px; border-top: 1px solid #edf0f1; color: #89939a; font-size: 10px; line-height: 1.6; }
+    .admin-security-note strong { color: #67737b; }
+    @media (max-width: 760px) {
+      .admin-login-shell { padding: 0; }
+      .admin-login-card { min-height: 100vh; grid-template-columns: 1fr; border: 0; border-radius: 0; box-shadow: none; }
+      .admin-login-aside { min-height: 270px; padding: 27px 24px; }
+      .admin-aside-copy { margin: 38px 0 0; }
+      .admin-aside-copy h1 { font-size: 30px; }
+      .admin-aside-copy p { margin-top: 9px; font-size: 12px; }
+      .admin-login-form-panel { align-items: flex-start; padding: 37px 24px 32px; }
+    }
+    @media (max-width: 380px) {
+      .admin-login-aside { min-height: 245px; }
+      .admin-login-form-panel { padding-left: 19px; padding-right: 19px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .admin-submit { transition: none; } }
+  </style>
+</head>
+<body class="admin-login-page">
+  <main class="admin-login-shell">
+    <section class="admin-login-card" aria-label="墨阑管理员登录">
+      <aside class="admin-login-aside">
+        <a class="admin-brand" href="../index.html" aria-label="返回墨阑首页"><span class="admin-brand-mark">墨</span><span>墨阑</span></a>
+        <div class="admin-aside-copy"><small>ADMIN CONSOLE</small><h1>管理创作平台。</h1><p>集中管理账户、模型费率与全局 Skill，让每一次创作服务都可控、可追踪。</p></div>
+        <div class="admin-aside-footer"><i aria-hidden="true"></i><span>管理员专属入口</span></div>
+      </aside>
+      <section class="admin-login-form-panel">
+        <div class="admin-login-form-wrap">
+          <p class="admin-eyebrow">SECURE ACCESS</p>
+          <h2>登录管理后台</h2>
+          <p class="admin-login-lead">请输入管理员账户凭据。普通用户和 VIP 用户无法访问此页面。</p>
+          <form class="admin-login-form" id="adminLoginForm">
+            <p class="admin-tip" id="adminLoginTip" aria-live="polite"></p>
+            <label class="admin-field" for="adminEmail">管理员邮箱<input id="adminEmail" type="email" autocomplete="username" required placeholder="name@example.com"></label>
+            <label class="admin-field" for="adminPassword">登录密码<input id="adminPassword" type="password" autocomplete="current-password" required placeholder="请输入密码"></label>
+            <button class="admin-submit" id="adminSubmit" type="submit"><span>进入管理后台</span><span aria-hidden="true">→</span></button>
+          </form>
+          <div class="admin-login-links"><a href="./login.html">返回普通登录</a><span>墨阑 AI 小说</span></div>
+          <p class="admin-security-note"><strong>安全提示</strong><span>管理员会话仍受服务端权限校验与有效期控制。</span></p>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script>
+    (function () {
+      'use strict';
+      var form = document.getElementById('adminLoginForm');
+      var emailInput = document.getElementById('adminEmail');
+      var passwordInput = document.getElementById('adminPassword');
+      var submit = document.getElementById('adminSubmit');
+      var tip = document.getElementById('adminLoginTip');
+      function setTip(message, ok) { tip.textContent = message || ''; tip.style.color = ok ? '#3b9b70' : '#c95858'; }
+      function storedToken() { try { return localStorage.getItem('molan_admin_token') || ''; } catch (_) { return ''; } }
+      function fetchMe(token) { return fetch('/api/admin/auth/me', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' }).then(function (res) { return res.ok ? res.json() : null; }); }
+      function redirectIfAdmin() {
+        var token = storedToken();
+        if (!token) return;
+        fetchMe(token).then(function (data) {
+          if (data && data.user && data.user.isAdmin) location.href = './admin.html';
+        }).catch(function () {});
+      }
+      function logoutToken(token) { return fetch('/api/admin/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: '{}' }).catch(function () {}); }
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var email = emailInput.value.trim();
+        var password = passwordInput.value;
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setTip('请输入正确的管理员邮箱'); return; }
+        if (!password) { setTip('请输入登录密码'); return; }
+        submit.disabled = true;
+        setTip('正在验证管理员权限...', true);
+        fetch('/api/admin/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, password: password }), cache: 'no-store' })
+          .then(function (res) { return res.json().catch(function () { return {}; }).then(function (data) { if (!res.ok) { throw new Error(data.error || '登录失败'); } return data; }); })
+          .then(function (data) {
+            if (!data.user || !data.user.isAdmin) {
+              return logoutToken(data.token).then(function () { throw new Error('该账户没有管理员权限'); });
+            }
+            try { localStorage.setItem('molan_admin_token', data.token); localStorage.setItem('molan_admin_user', JSON.stringify(data.user)); } catch (_) {}
+            setTip('验证通过，正在进入管理后台...', true);
+            setTimeout(function () { location.href = './admin.html'; }, 260);
+          })
+          .catch(function (error) { setTip(error.message || '登录失败'); })
+          .finally(function () { submit.disabled = false; });
+      });
+      redirectIfAdmin();
+    }());
+  </script>
+  <script src="./molan-shell.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "纯玄幻节奏写作"
+  short_description: "以近距离视角、自然对白与具象情绪创作原创玄幻正文"
+  default_prompt: "使用 $mars-style-pure-xuanhuan-writing 按当前设定创作或润色一章原创玄幻正文。"

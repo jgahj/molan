@@ -1,0 +1,139 @@
+{
+  "$schema": "https://molan.ai/schemas/pipeline-v1.json",
+  "pipelineId": "pipeline-765e8f1c8f26700a-v1",
+  "version": "1.0.0",
+  "meta": {
+    "name": "《快穿：恶毒女配？男主都给她当狗》9月10日标杆叙事引擎：快穿特化流",
+    "genre": "现代言情 / 快穿",
+    "sourceNovel": {
+      "title": "快穿：恶毒女配？男主都给她当狗",
+      "author": "名家精选",
+      "bookId": "765e8f1c8f26700a",
+      "category": "快穿",
+      "family": "现代言情",
+      "totalChapters": 214,
+      "samplePointers": {
+        "firstChapter": "第1章 男频文恶毒女配1",
+        "midChapter": "第108章 苗疆文里的恶毒女配4",
+        "lastChapter": "第214章 暗恋文里的恶毒女配6"
+      }
+    },
+    "coreDrive": "跨位面专业任务者的理性解题与因果清账，严格计算积分回报与情绪剥离保护 ➔ 商业底线被共同守住、防备铠甲卸下与势均力敌的情感契约确立"
+  },
+  "macroRhythm": {
+    "openingPacingModel": {
+      "targetChapterWordCount": [
+        2500,
+        3500
+      ],
+      "goldFiveChaptersBlueprint": [
+        {
+          "chapterIndex": 1,
+          "titlePattern": "【第1章 男频文恶毒女配1 ➔ 严酷物理阻力 ➔ 突发危机破绽】",
+          "emotionIntensity": 4,
+          "tensionCurve": "日常微观生计(3) ➔ 规制摩擦与代价试探(5) ➔ 异象或危机制高点(7) ➔ 警报断章(8)",
+          "narrativeMission": "确立主角身份、生存环境真实阻力（位面脱离倒计时压迫、原身残留情感肌肉记忆反噬、商城积分严格收支）；引出核心动机（拿下对赌轮次融资项目、在合伙人排挤中保住核心技术团队）；章末以即时危险强力留钩。",
+          "hookType": "生存倒计时或核心底牌受迫暴露威胁"
+        },
+        {
+          "chapterIndex": 2,
+          "titlePattern": "【突围受挫 ➔ 严酷物理损伤 ➔ 果断反制破局】",
+          "emotionIntensity": 7,
+          "tensionCurve": "险境封堵(7) ➔ 器械/武力受损(8) ➔ 抓住关键破绽(8) ➔ 惨胜制敌见血(9)",
+          "narrativeMission": "写实展开第一场生死搏杀或利益碰撞；展现身体受创与物资消耗；绝无空灵闪避，全写物理重量与借力换位。",
+          "hookType": "线索外泄或敌对势力二阶段更大压迫"
+        },
+        {
+          "chapterIndex": 3,
+          "titlePattern": "【盟友入局 ➔ 隐秘利益账本 ➔ 势力裂隙初显】",
+          "emotionIntensity": 6,
+          "tensionCurve": "伤口处理与物资清点(5) ➔ 关键盟友带战略物资入场(7) ➔ 利益分配分歧(7) ➔ 外部围网逼近(8)",
+          "narrativeMission": "揭开危机背后的体制或利益网（对方看似苛刻的尽调条款实则是为替自己挡掉恶意收购陷阱）；确立与盟友的理性合作契约；章末倒计时逼近。",
+          "hookType": "因果揭晓与不可逆抉择"
+        },
+        {
+          "chapterIndex": 4,
+          "titlePattern": "【防线撕裂 ➔ 底牌极限出鞘 ➔ 决定性战役】",
+          "emotionIntensity": 9,
+          "tensionCurve": "外部重压逼临绝境(8) ➔ 孤立无援(9) ➔ 动用隐秘传承/技术绝杀(10) ➔ 震撼破局(8)",
+          "narrativeMission": "第一卷最高潮之战；主角在所有人面前兑现不可替代的生存与战斗价值；彻底打破原有压迫平衡。",
+          "hookType": "阶段性大捷 + 更高阶势力目光投射"
+        },
+        {
+          "chapterIndex": 5,
+          "titlePattern": "【结算战果 ➔ 规则初立 ➔ 新天地大幕展开】",
+          "emotionIntensity": 7,
+          "tensionCurve": "战后重组秩序(6) ➔ 结算核心权益（${mech.settlementStakes}）(8) ➔ 确立新地位(7) ➔ 遥望下一重险峰(8)",
+          "narrativeMission": "第一卷圆满闭环；兑现利益凭证；确立不可动摇的话语权；引出更宏大世界观主线。",
+          "hookType": "世界观主线大幕拉开"
+        }
+      ]
+    },
+    "macroProgressionLaws": {
+      "crisisDualTrack": "【外部恶劣生存压力】 + 【内部利益与组织制度摩擦（位面脱离倒计时压迫、原身残留情感肌肉记忆反噬、商城积分严格收支）】，双轨交织。",
+      "physicalWeightLaw": "严格遵循客观世界物理规律与生理耐受极限。失血必虚脱、受冻必僵硬、器械受压必形变。严禁无代价自愈。"
+    }
+  },
+  "narrativeSlots": {
+    "protagonistSlot": {
+      "archetypeRole": "深谙快穿现实规则、沉静果决的求生与破局者",
+      "coreTraits": "目光清亮敏锐、作风雷厉克制、做事从不逞口舌之快、身负重担却不宣泄负面情绪",
+      "voiceSpec": {
+        "samples": [
+          "多余的废话留给能活下来的人说，先把眼前的死局解了。",
+          "既然规矩是用来压人的，那就按我的账目重新立规矩。"
+        ],
+        "taboos": [
+          "严禁在任务世界流连忘返搞虐恋情深、严禁把复杂世界降智为粗糙打脸工具",
+          "绝不说教与中二叫嚣",
+          "不在生死关头冷笑讥讽"
+        ]
+      },
+      "tellSpec": {
+        "anxious": "指尖微扣掌心伤痕，呼吸减缓至平时一半观察破绽",
+        "focused": "肌肉微紧重心沉于足下，眼神不怒自威凝视关键枢纽",
+        "grief": "背对众人整理残破衣物或擦拭器械，默不作声"
+      }
+    }
+  },
+  "causalDebt": {
+    "trackerRules": [
+      "每一次动用底牌或非常规手段破局，必在下一章承担资源亏空或引来审查。",
+      "击杀或得罪对手必留下物理痕迹与社会关系牵连。"
+    ]
+  },
+  "writingSkillSpec": {
+    "styleToneId": "write-high-tension-fiction",
+    "fewShotExemplars": [
+      {
+        "sceneType": "opening_atmospheric_friction",
+        "annotation": "开篇客观环境物态阻力与行动切入",
+        "text": "邻居阿姨偷偷摸摸的把陈野给拉了过去，随即低声对着他道：“不是阿姨挑拨离间你跟女朋友的关系，这都几个月了，你女朋友怎么还没一个正经工作，全靠着你养啊？”"
+      },
+      {
+        "sceneType": "interpersonal_dialogue_tension",
+        "annotation": "克制对白博弈与利益试探",
+        "text": "邻居阿姨偷偷摸摸的把陈野给拉了过去，随即低声对着他道：“不是阿姨挑拨离间你跟女朋友的关系，这都几个月了，你女朋友怎么还没一个正经工作，全靠着你养啊？”"
+      },
+      {
+        "sceneType": "climax_physical_weight",
+        "annotation": "高潮阶段物理受挫与生死破局",
+        "text": "然而村民却是看也不看的直接一脸冷漠的对着他们说：“你们最好马上离开，照片也删了，我们这里不欢迎你们这些不守规矩的外地人。”"
+      }
+    ]
+  },
+  "styleDirectives": {
+    "prohibitedWords": [
+      "眼神一凝",
+      "倒吸一口凉气",
+      "嘴角勾起一抹弧度",
+      "深吸一口气",
+      "恐怖如斯",
+      "眸中闪过一丝异色"
+    ],
+    "encouragedPatterns": [
+      "客观物态、公差参数、生理受挫的精准描写",
+      "成年人克制、专业、充满潜台词的对白交锋"
+    ]
+  }
+}

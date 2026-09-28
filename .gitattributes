@@ -1,0 +1,4 @@
+molan-home/lib/character-material/sharded/buckets/*.json filter=lfs diff=lfs merge=lfs -text
+molan-home/data/corpus-prompt-experiments/** filter=lfs diff=lfs merge=lfs -text
+molan-home/data/genre-lab/corpus-*.json filter=lfs diff=lfs merge=lfs -text
+molan-home/data/paragraph-samples.json filter=lfs diff=lfs merge=lfs -text

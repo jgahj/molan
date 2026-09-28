@@ -1,0 +1,273 @@
+{
+  "planVersion": "1.0",
+  "createdOn": "2026-09-15",
+  "status": "PLANNING_ONLY",
+  "implementationVerified": false,
+  "runtimeVerified": false,
+  "sourceRequirements": "../../小说全套资料能力审查与优化方案-2026-09-15.md",
+  "entryDocument": "README.md",
+  "databaseContract": "DATABASE_AND_API.md",
+  "acceptanceContract": "ACCEPTANCE_PLAYBOOK.md",
+  "fieldPathSemantics": "Target logical domain fields to formalize in T01; not existing database columns or an already implemented JSON Schema.",
+  "progressTracking": {
+    "planIsBaseline": true,
+    "progressFile": "docs/implementation-evidence/progress.json",
+    "progressFileCreated": false,
+    "resultsBelongToEvidenceNotThisPlan": true,
+    "newRequirementScopeRequiresPlanVersionChange": true
+  },
+  "apiContract": {
+    "projectDataOperationCount": 24,
+    "controlPlaneOperationCount": 15,
+    "genericResourceMutationDoesNotApproveCanon": true,
+    "manualChangeSetDoesNotRequireProviderCall": true,
+    "sharedIntegrationFiles": ["server.js", "completion-editor.js", "completion-import.js", "index.html"]
+  },
+  "databaseDecision": {
+    "multiUserTarget": "PostgreSQL 18",
+    "patchVersion": "VERIFY_AND_PIN_AT_IMPLEMENTATION",
+    "legacySqlite": "migration-source; optional standalone mode is not PostgreSQL acceptance",
+    "applicationStyle": "modular-monolith-with-async-repositories",
+    "tenantBoundary": "workspace",
+    "privateResourceBoundary": "explicit-project-membership",
+    "platformOperatorImplicitContentAccess": false,
+    "workspaceAdminImplicitProjectAccess": false,
+    "productionMigrationExecuted": false
+  },
+  "roles": {
+    "workspace": ["owner", "admin", "member"],
+    "project": ["owner", "admin", "editor", "reviewer", "viewer"],
+    "separateCapabilities": ["canSpend", "canExport"],
+    "defaultDeny": true
+  },
+  "policyContract": {
+    "approvalDefault": "author_owned",
+    "twoPersonApprovalOptional": true,
+    "formalCommitRoles": ["owner", "admin", "editor"],
+    "reviewerCanExecuteFormalCommit": false,
+    "generationRoles": ["owner", "admin", "editor"],
+    "generationRequiresCanSpend": true,
+    "exportEligibleRoles": ["owner", "admin", "editor"],
+    "exportDefaultRoles": ["owner", "admin"],
+    "exportRequiresCurrentCanExport": true,
+    "downloadMediatedByApplication": true,
+    "logoutAutomaticallyCancelsAcceptedJobs": false,
+    "permissionRevocationPreventsNewAuthorizedOperations": true,
+    "jobStates": ["queued", "claimed", "running", "cancel_requested", "cancelled", "succeeded", "failed", "provider_unknown"],
+    "errors": {
+      "unauthenticated": 401,
+      "hiddenScopeOrMissingResource": 404,
+      "forbiddenAction": 403,
+      "missingIfMatch": 428,
+      "malformedRequest": 400,
+      "staleIfMatch": 412,
+      "staleBaselineOrIdempotencyConflict": 409,
+      "insufficientBudget": 409,
+      "invalidSchemaOrReference": 422,
+      "payloadTooLarge": 413,
+      "unsupportedMediaType": 415,
+      "rateOrConcurrencyLimit": 429,
+      "dependencyUnavailable": 503
+    },
+    "noGenericResourceMutation": ["audits", "commits", "billing", "members", "outbox", "canon_facts", "knowledge_states"]
+  },
+  "caseFamilies": { "SEC": 12, "DATA": 10, "CON": 8, "AI": 8, "MIG": 6, "OPS": 6 },
+  "caseInitialStatus": "NOT_RUN",
+  "acceptanceStages": {
+    "engineeringWorkPackage": "T13",
+    "engineeringDeferredCaseIds": ["AI-08"],
+    "realProviderWorkPackage": "T14",
+    "realProviderCaseIds": ["AI-08"],
+    "parameterizedFunctionalWorkPackage": "T13",
+    "deferredDoesNotMeanPassed": true,
+    "allScopeRuntimeAcceptanceRequiresAllMandatoryCases": true
+  },
+  "functionalAcceptance": {
+    "baseCase": "DATA-01",
+    "instanceFormat": "DATA-01/<requirementId>",
+    "operations": ["create", "read", "update", "reload", "reference", "archive_or_restore_when_applicable", "export_import"],
+    "actors": ["authorized-editor", "authorized-viewer", "same-workspace-nonmember", "other-workspace-user"],
+    "notApplicableRequiresReason": true,
+    "passingPlanValidationDoesNotPassRuntimeCases": true
+  },
+  "requirements": [
+    { "id": "A01", "label": "书名、副标题、笔名", "workPackage": "T05", "objects": ["ProjectProfile"], "fieldPaths": ["profile.title", "profile.subtitle", "profile.penName"], "view": "profile/basic", "invariant": "三字段独立往返；改名不改变项目ID和引用", "acceptanceInstance": "DATA-01/A01" },
+    { "id": "A02", "label": "题材及复合类型", "workPackage": "T05", "objects": ["ProjectProfile", "GenreCapabilities"], "fieldPaths": ["profile.primaryGenre", "profile.genreTags", "profile.genreCapabilities"], "view": "profile/genre", "invariant": "多题材标签保留；冲突由显式配置处理，不截成单标签", "acceptanceInstance": "DATA-01/A02" },
+    { "id": "A03", "label": "主题、立意、内核", "workPackage": "T05", "objects": ["ProjectProfile", "PlotNode"], "fieldPaths": ["profile.theme", "profile.centralQuestion", "profile.counterTheme", "profile.themePlotRefs"], "view": "profile/theme", "invariant": "主题文本和剧情引用均可编辑与追溯", "acceptanceInstance": "DATA-01/A03" },
+    { "id": "A04", "label": "作品基调", "workPackage": "T05", "objects": ["ProjectProfile"], "fieldPaths": ["profile.tone", "profile.toneExceptions"], "view": "profile/tone", "invariant": "允许局部基调变化，不强制所有场景同一情绪值", "acceptanceInstance": "DATA-01/A04" },
+    { "id": "A05", "label": "目标读者、核心卖点、钩子", "workPackage": "T05", "objects": ["ProjectProfile"], "fieldPaths": ["profile.audience", "profile.sellingPoints", "profile.marketingHooks"], "view": "profile/audience", "invariant": "读者、卖点、宣传钩子分开且保留版本", "acceptanceInstance": "DATA-01/A05" },
+    { "id": "A06", "label": "总字数与完结规划", "workPackage": "T05", "objects": ["ProjectProfile", "WritingTask"], "fieldPaths": ["profile.targetWordRange", "profile.completionMilestones", "profile.endingDeadline"], "view": "profile/targets", "invariant": "目标与实际统计分离，调整保留历史，不仅用章数乘固定字数代替", "acceptanceInstance": "DATA-01/A06" },
+    { "id": "A07", "label": "短简介、长简介、宣传文案", "workPackage": "T05", "objects": ["ProjectDocument"], "fieldPaths": ["copy.shortSynopsis", "copy.longSynopsis", "copy.platformVariants", "copy.spoilerLevel"], "view": "profile/copy", "invariant": "多版本和用途独立；无剧透导出不夹带保密结局", "acceptanceInstance": "DATA-01/A07" },
+    { "id": "B01", "label": "时代、文明、底层法则", "workPackage": "T05", "objects": ["WorldProfile", "Rule"], "fieldPaths": ["world.era", "world.civilization", "world.foundationRules"], "view": "world/foundation", "invariant": "规则有ID、范围和来源，随版本变化失效相关审计", "acceptanceInstance": "DATA-01/B01" },
+    { "id": "B02", "label": "地理地图、距离、地貌", "workPackage": "T05", "objects": ["Place", "TravelEdge"], "fieldPaths": ["place.parentId", "place.terrain", "travel.distance", "travel.duration", "travel.method"], "view": "world/places", "invariant": "地点树和交通边稳定引用；未知距离不补零；移动按世界规则判断", "acceptanceInstance": "DATA-01/B02" },
+    { "id": "B03", "label": "势力与阵营关系", "workPackage": "T05", "objects": ["Faction", "Relation"], "fieldPaths": ["faction.goals", "faction.resources", "faction.members", "relation.validRange"], "view": "world/factions", "invariant": "势力/人物成员及方向关系不依赖名称，变更有有效期", "acceptanceInstance": "DATA-01/B03" },
+    { "id": "B04", "label": "力量体系与升级限制", "workPackage": "T05", "objects": ["PowerSystem", "Ability", "Rule"], "fieldPaths": ["power.levels", "power.transitions", "power.upperBounds", "power.costs", "power.exceptions"], "view": "world/power", "invariant": "等级、能力、前置及例外分开；无超凡题材可明确不适用", "acceptanceInstance": "DATA-01/B04" },
+    { "id": "B05", "label": "风俗律法货币语言信仰阶级", "workPackage": "T05", "objects": ["CultureEntry"], "fieldPaths": ["culture.kind", "culture.description", "culture.placeRefs", "culture.validRange"], "view": "world/culture", "invariant": "文化条目与地区时期关联，不能由后世制度覆盖历史版本", "acceptanceInstance": "DATA-01/B05" },
+    { "id": "B06", "label": "历史事件与年代纪年", "workPackage": "T05", "objects": ["Calendar", "StoryEvent"], "fieldPaths": ["calendar.definition", "event.storyTime", "event.orderConstraints", "event.sources"], "view": "world/history", "invariant": "支持架空/区间/相对日期，史料说法与事实有区别", "acceptanceInstance": "DATA-01/B06" },
+    { "id": "B07", "label": "金手指系统禁忌世界限制", "workPackage": "T05", "objects": ["Rule", "PowerSystem"], "fieldPaths": ["rule.trigger", "rule.scope", "rule.limit", "rule.cost", "rule.exception"], "view": "world/rules", "invariant": "规则可版本化、带适用条件；不强制每书有系统或金手指", "acceptanceInstance": "DATA-01/B07" },
+    { "id": "C01", "label": "人物姓名年龄外貌身份", "workPackage": "T06", "objects": ["Person"], "fieldPaths": ["person.name", "person.aliases", "person.birthTime", "person.ageRange", "person.appearance", "person.identities"], "view": "characters/basic", "invariant": "完整人物字段经过转换和导出不丢，同名不自动合并", "acceptanceInstance": "DATA-01/C01" },
+    { "id": "C02", "label": "性格优缺点执念底线弧光", "workPackage": "T06", "objects": ["Person", "CharacterArc"], "fieldPaths": ["person.traits", "person.strengths", "person.flaws", "person.obsessions", "person.boundaries", "arc.milestones"], "view": "characters/arc", "invariant": "计划成长与正文已发生变化分开，允许正向或负向弧光", "acceptanceInstance": "DATA-01/C02" },
+    { "id": "C03", "label": "背景家庭与创伤", "workPackage": "T06", "objects": ["Person", "Relation", "StoryEvent"], "fieldPaths": ["person.background", "person.familyRelations", "person.pastEventRefs", "person.wounds"], "view": "characters/background", "invariant": "家庭关系使用实体引用；不强制每个角色有创伤", "acceptanceInstance": "DATA-01/C03" },
+    { "id": "C04", "label": "短期中期终极目标", "workPackage": "T06", "objects": ["CharacterGoal"], "fieldPaths": ["goal.horizon", "goal.objective", "goal.obstacle", "goal.status", "goal.validRange"], "view": "characters/goals", "invariant": "多目标独立保留，完成/放弃原因和时期可追踪", "acceptanceInstance": "DATA-01/C04" },
+    { "id": "C05", "label": "人物能力技能金手指装备", "workPackage": "T06", "objects": ["Person", "Ability", "Item", "CanonFact"], "fieldPaths": ["person.abilityRefs", "person.itemRefs", "fact.acquiredAt", "fact.ownership"], "view": "characters/abilities-items", "invariant": "能力掌握和物品所有权有时间及证据，不复制成独立文本副本", "acceptanceInstance": "DATA-01/C05" },
+    { "id": "C06", "label": "语言风格习惯口头禅", "workPackage": "T06", "objects": ["Person"], "fieldPaths": ["person.voice", "person.habits", "person.catchphrases", "person.emotionStyle"], "view": "characters/voice", "invariant": "演绎字段完整保留，按情境选用而非每句机械注入口头禅", "acceptanceInstance": "DATA-01/C06" },
+    { "id": "C07", "label": "重要配角", "workPackage": "T06", "objects": ["Person"], "fieldPaths": ["person.roleTags", "person.importance", "person.stageFunctions"], "view": "characters/supporting", "invariant": "盟友导师伙伴是角色标签，升级重要性不生成第二个实体", "acceptanceInstance": "DATA-01/C07" },
+    { "id": "C08", "label": "分阶段反派", "workPackage": "T06", "objects": ["Person", "CharacterGoal"], "fieldPaths": ["person.antagonistStage", "person.resources", "person.knowledge", "person.oppositionGoals"], "view": "characters/antagonists", "invariant": "阶段作用与人物动机独立，可不采用最终BOSS结构", "acceptanceInstance": "DATA-01/C08" },
+    { "id": "C09", "label": "路人与次要角色", "workPackage": "T06", "objects": ["Person"], "fieldPaths": ["person.importance", "person.function", "person.minimumCard"], "view": "characters/minor", "invariant": "精简卡可扩展为完整卡，同一ID和出场历史保持", "acceptanceInstance": "DATA-01/C09" },
+    { "id": "C10", "label": "人物关系表", "workPackage": "T06", "objects": ["Relation"], "fieldPaths": ["relation.sourceId", "relation.targetId", "relation.type", "relation.visibility", "relation.validRange"], "view": "characters/relations", "invariant": "有向关系可增改归档，公开/秘密和双方认知不混用", "acceptanceInstance": "DATA-01/C10" },
+    { "id": "C11", "label": "人物出场顺序表", "workPackage": "T06", "objects": ["Appearance", "PlotNode"], "fieldPaths": ["appearance.personId", "appearance.sceneId", "appearance.kind", "appearance.narrativeOrder"], "view": "characters/appearances", "invariant": "实际出场、提及、回忆、POV区分；移章后顺序和引用可更新", "acceptanceInstance": "DATA-01/C11" },
+    { "id": "D01", "label": "全书故事梗概", "workPackage": "T07", "objects": ["PlotNode"], "fieldPaths": ["plot.incitingEvent", "plot.development", "plot.turns", "plot.climax", "plot.ending"], "view": "outline/book", "invariant": "总纲节点有稳定ID和因果关系，生成后可人工维护", "acceptanceInstance": "DATA-01/D01" },
+    { "id": "D02", "label": "主线辅线感情线悬疑线", "workPackage": "T07", "objects": ["Storyline", "PlotNode"], "fieldPaths": ["storyline.type", "storyline.priority", "storyline.nodeRefs"], "view": "outline/storylines", "invariant": "不固定截为三条；故事线与章节/场景多对多关联", "acceptanceInstance": "DATA-01/D02" },
+    { "id": "D03", "label": "全书关键事件节点", "workPackage": "T07", "objects": ["PlotNode", "StoryEvent"], "fieldPaths": ["event.prerequisites", "event.consequences", "event.planRef", "event.actualRefs"], "view": "outline/events", "invariant": "计划事件与实际正文事件对应但不混为已发生事实", "acceptanceInstance": "DATA-01/D03" },
+    { "id": "D04", "label": "结局设定", "workPackage": "T07", "objects": ["EndingPlan"], "fieldPaths": ["ending.kind", "ending.characterOutcomes", "ending.requiredPayoffs", "ending.openQuestions"], "view": "outline/ending", "invariant": "开放结局与遗漏兑现分开，可保存备选结局不污染主线", "acceptanceInstance": "DATA-01/D04" },
+    { "id": "D05", "label": "卷名章节区间本卷字数", "workPackage": "T07", "objects": ["PlotNode"], "fieldPaths": ["volume.title", "volume.chapterRefs", "volume.wordTarget", "volume.actualWordCount"], "view": "outline/volumes", "invariant": "以章节ID关联，不靠区间字符串作唯一依据；重排保持完整", "acceptanceInstance": "DATA-01/D05" },
+    { "id": "D06", "label": "本卷目标与冲突", "workPackage": "T07", "objects": ["PlotNode"], "fieldPaths": ["volume.goal", "volume.conflict", "volume.result"], "view": "outline/volume-goals", "invariant": "卷目标可编辑、版本化并被章纲引用", "acceptanceInstance": "DATA-01/D06" },
+    { "id": "D07", "label": "本卷事件与高潮", "workPackage": "T07", "objects": ["PlotNode", "StoryEvent"], "fieldPaths": ["volume.eventRefs", "volume.climaxRef", "volume.turningPoints"], "view": "outline/volume-events", "invariant": "事件排序与因果依赖分别保持，修改显示受影响章节", "acceptanceInstance": "DATA-01/D07" },
+    { "id": "D08", "label": "卷末伏笔与下一卷引子", "workPackage": "T07", "objects": ["PlotNode", "Foreshadow"], "fieldPaths": ["volume.foreshadowRefs", "volume.nextVolumeRef", "volume.endingHook"], "view": "outline/volume-links", "invariant": "卷重排后仍能定位伏笔和下一目标，不能依赖旧名称猜测", "acceptanceInstance": "DATA-01/D08" },
+    { "id": "D09", "label": "本章事件与冲突", "workPackage": "T07", "objects": ["PlotNode", "ChapterContract"], "fieldPaths": ["chapter.goal", "chapter.events", "chapter.conflict", "chapter.stateChange"], "view": "outline/chapters", "invariant": "章纲与正文偏离可比较，不把空泛字段存在算合格", "acceptanceInstance": "DATA-01/D09" },
+    { "id": "D10", "label": "本章看点爽点情绪点", "workPackage": "T07", "objects": ["ChapterContract"], "fieldPaths": ["chapter.highlights", "chapter.emotionGoal", "chapter.payoffPlan"], "view": "outline/chapter-emotion", "invariant": "题材策略可选，不对所有题材硬性要求打脸或高强度", "acceptanceInstance": "DATA-01/D10" },
+    { "id": "D11", "label": "本章出场人物与场景", "workPackage": "T07", "objects": ["PlotNode", "Appearance"], "fieldPaths": ["scene.castIds", "scene.placeId", "scene.povId", "scene.storyTime"], "view": "outline/scenes", "invariant": "场景引用项目内有效实体，POV知识按场景时间过滤", "acceptanceInstance": "DATA-01/D11" },
+    { "id": "D12", "label": "本章伏笔埋设与回收", "workPackage": "T07", "objects": ["Foreshadow", "PlotNode"], "fieldPaths": ["chapter.foreshadowActions", "foreshadow.plannedChapterIds", "foreshadow.actualEvidenceRefs"], "view": "outline/chapter-foreshadows", "invariant": "计划和实际分开；改章不丢ID；未到期不伪判遗漏", "acceptanceInstance": "DATA-01/D12" },
+    { "id": "D13", "label": "章末钩子", "workPackage": "T07", "objects": ["ChapterContract"], "fieldPaths": ["chapter.endingMode", "chapter.hook", "chapter.transition"], "view": "outline/chapter-ending", "invariant": "允许悬念余韵兑现平静转场，规则由任务决定", "acceptanceInstance": "DATA-01/D13" },
+    { "id": "E01", "label": "物品道具", "workPackage": "T06", "objects": ["Item", "CanonFact"], "fieldPaths": ["item.properties", "item.ownerId", "item.placeId", "item.state", "item.eventRefs"], "view": "materials/items", "invariant": "所有权位置损毁按事件演进，跨项目物品引用被拒", "acceptanceInstance": "DATA-01/E01" },
+    { "id": "E02", "label": "技能招式", "workPackage": "T06", "objects": ["Ability"], "fieldPaths": ["ability.effect", "ability.preconditions", "ability.cost", "ability.limit", "ability.systemId"], "view": "materials/abilities", "invariant": "人物掌握关系与技能定义分开，规则变化可追溯", "acceptanceInstance": "DATA-01/E02" },
+    { "id": "E03", "label": "场景环境素材", "workPackage": "T08", "objects": ["SceneMaterial", "Place"], "fieldPaths": ["material.placeId", "material.weather", "material.timeCondition", "material.povCondition", "material.text"], "view": "materials/scenes", "invariant": "地点事实与表达模板分开，不把旧天气写为永久设定", "acceptanceInstance": "DATA-01/E03" },
+    { "id": "E04", "label": "伏笔清单", "workPackage": "T07", "objects": ["Foreshadow"], "fieldPaths": ["foreshadow.id", "foreshadow.plantPlan", "foreshadow.payoffPlan", "foreshadow.status", "foreshadow.evidence", "foreshadow.deferralReason"], "view": "materials/foreshadows", "invariant": "状态ID不重置，延期部分兑现放弃均有依据，实际回收关联正文版本", "acceptanceInstance": "DATA-01/E04" },
+    { "id": "E05", "label": "名场面与台词", "workPackage": "T08", "objects": ["HighlightMaterial"], "fieldPaths": ["highlight.text", "highlight.speakerId", "highlight.sceneId", "highlight.usageStatus", "highlight.source"], "view": "materials/highlights", "invariant": "未用拟用已用分开，来源和使用记录可回查", "acceptanceInstance": "DATA-01/E05" },
+    { "id": "E06", "label": "术语名词表", "workPackage": "T06", "objects": ["Term"], "fieldPaths": ["term.canonicalName", "term.aliases", "term.definition", "term.scope", "term.disambiguation"], "view": "materials/glossary", "invariant": "别名与定义保持对应，同名歧义有明确对象，不全局误替换", "acceptanceInstance": "DATA-01/E06" },
+    { "id": "F01", "label": "故事时间与年龄记录", "workPackage": "T07", "objects": ["Calendar", "StoryEvent", "Person"], "fieldPaths": ["event.storyTime", "event.narrativeOrder", "event.recordedAt", "person.birthTime"], "view": "management/timeline", "invariant": "三种时间不混用；生日、回忆、未知日期和架空规则有用例", "acceptanceInstance": "DATA-01/F01" },
+    { "id": "F02", "label": "写作进度与卡点", "workPackage": "T08", "objects": ["WritingTask"], "fieldPaths": ["task.chapterId", "task.status", "task.blocker", "task.nextAction", "task.assigneeId"], "view": "management/progress", "invariant": "已写不等于已审/已发布，卡点与任务历史可维护且成员授权有效", "acceptanceInstance": "DATA-01/F02" },
+    { "id": "F03", "label": "设定纠错记录", "workPackage": "T08", "objects": ["Issue", "ChangeSet"], "fieldPaths": ["issue.evidenceRefs", "issue.affectedRefs", "issue.resolution", "issue.review", "issue.authorDecision"], "view": "management/issues", "invariant": "双侧证据绑定版本，关闭问题有修复/解释记录，旧审计可失效", "acceptanceInstance": "DATA-01/F03" },
+    { "id": "F04", "label": "章节正文", "workPackage": "T08", "objects": ["ManuscriptRevision"], "fieldPaths": ["manuscript.text", "manuscript.richContent", "manuscript.hash", "manuscript.status", "manuscript.revision"], "view": "editor/manuscript", "invariant": "正文原文可恢复，草稿不冒充正式采纳；正式事务在T11完成", "acceptanceInstance": "DATA-01/F04" },
+    { "id": "F05", "label": "番外与后记", "workPackage": "T08", "objects": ["PlotNode", "ManuscriptRevision"], "fieldPaths": ["manuscript.kind", "manuscript.continuityId", "manuscript.numberingPolicy", "manuscript.canonApplicability"], "view": "management/extras", "invariant": "后记默认不入故事事实，平行设定与主线隔离，导出范围正确", "acceptanceInstance": "DATA-01/F05" }
+  ],
+  "workPackages": [
+    {
+      "id": "T00", "title": "现状盘点与可复现基线", "status": "PLANNED", "dependsOn": [], "ownerRole": "integrator",
+      "fileScopes": ["docs/implementation-evidence/", "test/project-v2/baseline/"],
+      "preconditions": ["读取当前AGENTS和用户改动；尚不触碰真实数据"],
+      "deliverables": ["HTTP/页面/任务/存储写入入口清单", "身份与资料副本清单及数据分类", "49项现状映射", "已知字段丢失、版本旁路和权限缺口的失败夹具"],
+      "definitionOfDone": ["确认所有待跑测试不读写真实账户或作品", "基线绑定当前代码和fixture", "未知数据归属与不可恢复字段有清单", "不沿用历史测试计数冒充本次结果"],
+      "testSelectors": ["DATA-*", "MIG-*"]
+    },
+    {
+      "id": "T01", "title": "契约、标识与数据止损", "status": "PLANNED", "dependsOn": ["T00"], "ownerRole": "domain-integrator",
+      "fileScopes": ["lib/project-v2/contracts/", "test/project-v2/contracts/", "docs/adr/"],
+      "preconditions": ["基线与迁移来源已盘点", "49项逻辑字段和角色决策无冲突"],
+      "deliverables": ["正式schema与扩展字段政策", "统一ID/哈希/版本/错误规范", "无损旧投影适配设计与必要止损修复", "PostgreSQL版本及依赖ADR"],
+      "definitionOfDone": ["人物完整字段/伏笔ID状态/timeline/多故事线不再静默裁剪", "未知字段保留或显式报告", "题材不适用语义明确", "共享入口修改由主集成人统一执行"],
+      "testSelectors": ["DATA-*", "AI-*"]
+    },
+    {
+      "id": "T02", "title": "PostgreSQL迁移与事务基础", "status": "PLANNED", "dependsOn": ["T01"], "ownerRole": "database-integrator",
+      "fileScopes": ["db/migrations/", "lib/project-v2/db/", "test/project-v2/database/", "package.json", "package-lock.json"],
+      "preconditions": ["数据库/补丁/驱动版本已锁定", "隔离空库可用，禁止指向真实库"],
+      "deliverables": ["版本化migration和角色授权脚本", "异步连接池与同连接事务封装", "复合FK/唯一/CHECK约束", "迁移失败回滚证据"],
+      "definitionOfDone": ["真实PG空库迁移成功且可重复检查版本", "普通app不拥有表且无BYPASSRLS", "错误回滚无半写入", "没有Promise冒充同步SQLite返回"],
+      "testSelectors": ["DATA-*", "CON-*", "MIG-*"]
+    },
+    {
+      "id": "T03", "title": "稳定身份、成员权限与共享会话", "status": "PLANNED", "dependsOn": ["T02"], "ownerRole": "security-integrator",
+      "fileScopes": ["lib/project-v2/auth/", "lib/project-v2/routes/memberships.js", "lib/project-v2/routes/sessions.js", "test/project-v2/security/"],
+      "preconditions": ["角色/RLS设计已审查", "多租户和同租户多项目fixture已准备"],
+      "deliverables": ["userId与旧email映射", "workspace/project成员和能力授权", "共享会话/撤销与双实例登录", "tenant+project RLS与旧端点阻断/适配"],
+      "definitionOfDone": ["路径/请求体伪造不获权", "workspace管理员不自动读私有项目", "viewer/reviewer不能修改或支出", "pool复用及撤权后无权限残留", "旧端点不绕过新授权"],
+      "testSelectors": ["SEC-*", "CON-*"]
+    },
+    {
+      "id": "T04", "title": "权威资料仓储与兼容适配", "status": "PLANNED", "dependsOn": ["T03"], "ownerRole": "data-integrator",
+      "fileScopes": ["lib/project-v2/repositories/", "lib/project-v2/services/documents.js", "lib/project-v2/routes/documents.js", "test/project-v2/repositories/"],
+      "preconditions": ["权限上下文与事务封装可用", "新旧项目ID映射规范固定"],
+      "deliverables": ["项目/资料/实体/关系/版本repository", "带If-Match的mutation API", "引用影响预览及归档恢复", "单一权威写入与浏览器revision缓存政策"],
+      "definitionOfDone": ["多对象更新使用真实事务", "同名与跨项目引用被正确区分", "不传版本不能无痕覆盖", "缓存不会覆盖更新的服务端资料"],
+      "testSelectors": ["DATA-*", "CON-*", "SEC-*"]
+    },
+    {
+      "id": "T05", "title": "基础定位和世界观资料中心", "status": "PLANNED", "dependsOn": ["T04"], "ownerRole": "profile-world-frontend",
+      "fileScopes": ["pages/project-docs/profile.js", "pages/project-docs/world.js", "lib/project-v2/services/world.js", "test/project-v2/profile-world/"],
+      "preconditions": ["通用CRUD/版本/权限契约冻结", "共用UI组件由主集成人交付"],
+      "deliverables": ["A01-A07全部资料维护", "B01-B07世界/规则/地理/文化/历史维护", "题材能力配置及适用性说明"],
+      "definitionOfDone": ["14项各有参数化CRUD重开往返证据", "不是只增加prompt字段", "非超凡题材不强制金手指", "多文案和世界规则版本可追溯"],
+      "testSelectors": ["DATA-01", "DATA-*", "SEC-*"]
+    },
+    {
+      "id": "T06", "title": "人物、关系、道具技能术语", "status": "PLANNED", "dependsOn": ["T04"], "ownerRole": "character-material-frontend",
+      "fileScopes": ["pages/project-docs/characters.js", "pages/project-docs/relations.js", "pages/project-docs/items.js", "pages/project-docs/glossary.js", "lib/project-v2/services/entities.js", "test/project-v2/characters/"],
+      "preconditions": ["实体ID与关系约束稳定", "基础人物/轻量卡schema完成"],
+      "deliverables": ["C01-C11统一人物管理", "E01/E02/E06专用实体", "合并/归档/改名影响及可逆映射", "出场引用与场景接口"],
+      "definitionOfDone": ["角色库不再产生可独立修改的另一权威副本", "长字段不丢失", "全部引用正确重指或明确阻止操作", "完整场景出场顺序在T07集成后复核"],
+      "testSelectors": ["DATA-*", "SEC-*"]
+    },
+    {
+      "id": "T07", "title": "总卷章场景、故事时间与伏笔", "status": "PLANNED", "dependsOn": ["T05", "T06"], "ownerRole": "plot-timeline-frontend",
+      "fileScopes": ["pages/project-docs/outline.js", "pages/project-docs/timeline.js", "pages/project-docs/foreshadows.js", "lib/project-v2/services/plot.js", "lib/project-v2/services/continuity.js", "test/project-v2/continuity/"],
+      "preconditions": ["人物/地点/规则引用已可用", "日期不确定性及continuityId规范完成"],
+      "deliverables": ["D01-D13结构化规划", "E04/F01与出场关联", "计划/事实/认知分层", "变更影响与审计失效标记"],
+      "definitionOfDone": ["移章删章恢复不破坏引用", "年龄和回忆按故事时间处理", "伏笔计划和实际不混淆", "并发改父节点不形成未检测的环"],
+      "testSelectors": ["DATA-*", "CON-*", "AI-*"]
+    },
+    {
+      "id": "T08", "title": "素材、管理、正文与番外", "status": "PLANNED", "dependsOn": ["T07"], "ownerRole": "editor-management-frontend",
+      "fileScopes": ["pages/project-docs/materials.js", "pages/project-docs/progress.js", "pages/project-docs/issues.js", "lib/project-v2/services/manuscripts.js", "test/project-v2/editor-management/"],
+      "preconditions": ["章场景和引用可用", "草稿与正式状态契约明确"],
+      "deliverables": ["E03/E05素材管理", "F02-F05任务/问题/正文/番外后记", "正文版本和作者确认UI", "多用户冲突提示"],
+      "definitionOfDone": ["保存草稿不宣称审计通过", "后记及平行番外不污染主线", "角色权限在UI和API一致", "正式采纳保持关闭或接现有安全适配直到T11完成"],
+      "testSelectors": ["DATA-*", "SEC-*", "AI-*"]
+    },
+    {
+      "id": "T09", "title": "持久任务、额度、围栏和outbox", "status": "PLANNED", "dependsOn": ["T04"], "ownerRole": "worker-billing-integrator",
+      "fileScopes": ["lib/project-v2/jobs/", "lib/project-v2/billing/", "lib/project-v2/outbox/", "test/project-v2/jobs-billing/"],
+      "preconditions": ["成员和预算归属模型已定", "仅使用模拟供应商验证"],
+      "deliverables": ["共享队列和attempt凭证", "租约及fencingToken", "额度预留/结算/对账", "共享限流及任务授权"],
+      "definitionOfDone": ["双worker不重复结算", "旧worker不能提交过期结果", "unknown不自动重发供应商请求", "两个API实例不能绕过同一预算或并发限额"],
+      "testSelectors": ["CON-*", "AI-*", "OPS-*", "SEC-*"]
+    },
+    {
+      "id": "T10", "title": "按权限和故事状态构造上下文", "status": "PLANNED", "dependsOn": ["T05", "T06", "T07", "T08", "T09"], "ownerRole": "generation-integrator",
+      "fileScopes": ["lib/project-v2/context/", "lib/project-v2/generation/", "lib/project-v2/audits/", "test/project-v2/generation/"],
+      "preconditions": ["资料和任务均有稳定版本及授权", "模型调用走持久任务而非长数据库事务"],
+      "deliverables": ["上下文来源/版本清单及哈希", "计划事实认知分离", "完整证据审稿与有限局修", "各起草入口统一领域服务适配"],
+      "definitionOfDone": ["未授权内容不进入prompt/检索/日志", "资料不足和未到期区分", "段落与版本证据精确绑定", "超预算明确失败不静默裁剪关键事实"],
+      "testSelectors": ["AI-*", "DATA-*", "SEC-*"]
+    },
+    {
+      "id": "T11", "title": "正式采纳原子事务与全入口统一", "status": "PLANNED", "dependsOn": ["T10"], "ownerRole": "commit-integrator",
+      "fileScopes": ["lib/project-v2/services/commit.js", "lib/project-v2/routes/commits.js", "test/project-v2/commit/", "server.js", "completion-editor.js", "completion-import.js"],
+      "preconditions": ["审计完整绑定正文/上下文/delta版本", "主集成人独占共享旧入口文件"],
+      "deliverables": ["正式提交事务与稳定回执", "版本冲突和撤权检查", "原子文稿/事实/关系/伏笔/outbox", "旧直接采纳/保存端点分层并封闭旁路"],
+      "definitionOfDone": ["相同正文篡改delta不能提交", "审计后改圣经会失效", "缺字段不清空状态", "回包丢失重放不重复收费或推进", "作者例外不绕过技术完整性"],
+      "testSelectors": ["CON-*", "AI-*", "SEC-*", "DATA-*"]
+    },
+    {
+      "id": "T12", "title": "迁移、整包导出和恢复演练", "status": "PLANNED", "dependsOn": ["T11"], "ownerRole": "migration-integrator",
+      "fileScopes": ["scripts/project-v2/migration/", "lib/project-v2/exports/", "test/project-v2/migration-export/"],
+      "preconditions": ["前面能力均在隔离PG运行", "旧数据只读快照/映射和冲突清单已审查"],
+      "deliverables": ["dry-run迁移与legacy_id_map", "资料/正文/版本完整导入导出", "哈希/关系/费用对账", "备份恢复与切换后新数据保护方案"],
+      "definitionOfDone": ["重复迁移幂等", "不得自动认领无主/跨用户作品", "资料包无凭据或未授权数据", "真正恢复后的数据和权限一致", "真实切换尚不自动执行"],
+      "testSelectors": ["MIG-*", "DATA-*", "SEC-*", "OPS-*"]
+    },
+    {
+      "id": "T13", "title": "多用户多实例综合验收", "status": "PLANNED", "dependsOn": ["T12"], "ownerRole": "independent-reviewer",
+      "fileScopes": ["test/project-v2/e2e/", "test/project-v2/load/", "docs/implementation-evidence/"],
+      "preconditions": ["全部功能已集成", "使用普通app数据库角色而非superuser", "两API两worker和固定fixture可运行"],
+      "deliverables": ["除AI-08外49个工程系统案例及49项参数化验收证据", "AI-08在总清单中保留待T14执行，不计通过", "权限/API/浏览器/数据库对应断言", "固定规模压力报告", "故障注入与恢复报告"],
+      "definitionOfDone": ["跨租户或未授权项目泄漏为零", "本阶段强制案例NOT_RUN/BLOCKED不计通过", "性能与错误率以冻结负载合同判定", "修改后受影响证据重跑", "工程范围通过不能宣布AI-08或文学质量通过"],
+      "testSelectors": ["SEC-*", "DATA-*", "CON-*", "AI-*", "MIG-*", "OPS-*"]
+    },
+    {
+      "id": "T14", "title": "受控切换与独立内容质量验收", "status": "PLANNED", "dependsOn": ["T13"], "ownerRole": "release-integrator-and-human-reviewer",
+      "fileScopes": ["docs/implementation-evidence/release/", "scripts/project-v2/cutover/"],
+      "preconditions": ["G1-G5通过且风险审查完成", "真实目标和操作范围明确授权", "已验证可恢复备份与写入围栏", "真实生成预算另行明确"],
+      "deliverables": ["AI-08真实供应商/真人切章技术闭环证据", "逐项目灰度与停止/回退记录", "切换后新编辑不丢的验证", "真实中文长篇/题材评测和人工审阅", "未通过与剩余事项列表"],
+      "definitionOfDone": ["不把迁移完成当文学达标", "历史P0-P4缺口没有被自动关闭", "真实生成失败记录不删除不自动重试", "仅在所有强制门禁满足后宣布对应范围可用"],
+      "testSelectors": ["MIG-*", "OPS-*", "AI-*"]
+    }
+  ],
+  "selectorPolicy": {
+    "wildcards": "A family wildcard selects all case definitions in that family for impact review.",
+    "earlyStages": "Cases requiring later functionality remain NOT_RUN; this does not pass the entire family.",
+    "finalGate": "T13 must account for all 50 fixed IDs, complete the 49 engineering cases excluding AI-08 and all 49 DATA-01 instances, and retain AI-08 as deferred to T14 without passing it. Full-scope runtime acceptance requires AI-08 and all mandatory cases. Approved not-applicable cases require specific reasons.",
+    "futurePaths": "fileScopes are proposed ownership boundaries, not claims that files already exist.",
+    "sharedEntryOwnership": "server.js, completion-editor.js, completion-import.js edits belong to the main integrator and must not be concurrently edited by other workers."
+  }
+}

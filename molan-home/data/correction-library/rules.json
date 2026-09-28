@@ -1,0 +1,468 @@
+{
+  "version": "f4d035d0d608",
+  "sha256": "f4d035d0d6083f34a70100b5aa01c0358f4da6dbde02af4c0a03cb41f415dd95",
+  "updatedAt": "2026-09-10T01:52:07.988Z",
+  "ruleCount": 46,
+  "rules": [
+    {
+      "id": "R-01",
+      "category": "物理与感官",
+      "label": "感官实体化",
+      "must": "声音、光线、动作遵守物理常识，不为“高级感”强行实体化",
+      "badExample": "声音从夜色里“漏出来”、声音“飘忽不定”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-02",
+      "category": "动词完整",
+      "label": "动词缩写生硬",
+      "must": "优先使用自然的双音节动词，不把完整动作缩成生硬单字",
+      "badExample": "“颤一下”代替“颤抖一下”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-03",
+      "category": "语句完整",
+      "label": "语句不完整",
+      "must": "主谓、宾语和必要音节完整，避免为简短而破坏汉语语感",
+      "badExample": "“哄笑一片”“力量是真实的”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-04",
+      "category": "修饰节制",
+      "label": "动作后情绪二次解释",
+      "must": "删除同义重复、动作后的二次解释和无功能修饰",
+      "badExample": "“脸色一沉，又压了回去”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-05",
+      "category": "情绪展示",
+      "label": "告知情绪而非展示",
+      "must": "优先用动作、生理反应和具体细节承担情绪",
+      "badExample": "直接写“满是心疼和无奈”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-06",
+      "category": "情景契合",
+      "label": "神态情绪与情境不符",
+      "must": "每个动作、神态和情绪必须有当前情境依据",
+      "badExample": "无开心理由却“破涕为笑”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": true
+    },
+    {
+      "id": "R-07",
+      "category": "台词力度",
+      "label": "同步群体反应模板与台词弱",
+      "must": "台词必须符合人物身份、处境和目标，避免全场统一震惊模板",
+      "badExample": "强者受辱后只说“那是你的事”，“所有人都愣住了”",
+      "severity": "high",
+      "scope": "对白",
+      "manual": false
+    },
+    {
+      "id": "R-08",
+      "category": "指代清晰",
+      "label": "关键动作指代模糊与越界推断",
+      "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+      "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+      "severity": "medium",
+      "scope": "通用",
+      "manual": false
+    },
+    {
+      "id": "R-09",
+      "category": "比喻准确",
+      "label": "套话比喻",
+      "must": "删除烂俗或不贴合人物状态的比喻，好比喻四原则与删除测试",
+      "badExample": "“泪如断线珠子”“语气像谈天气”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-10",
+      "category": "语序自然",
+      "label": "状语后置语序",
+      "must": "避免“笑得很轻、说得很轻”等状态后置",
+      "badExample": "改为“轻笑一声、轻声说道”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-11",
+      "category": "证据因果",
+      "label": "结论超过证据",
+      "must": "区分观察、怀疑、假设与确认，结论不得超过证据范围",
+      "badExample": "“显然就是”“一定是”“太恐怖了”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-12",
+      "category": "禁用AI句式",
+      "label": "机械工整与装饰性数量词",
+      "must": "删除否定式煽情与机械工整推理，节制装饰性数量词",
+      "badExample": "“不是不想说，是说不出”，“一丝/一股+抽象词”泛滥",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-13",
+      "category": "制度解释",
+      "label": "制度解释顺序倒置",
+      "must": "人物因规则行动前，先交代名词对象、执行方式与代价，不写百科段落",
+      "badExample": "先说“扣三房份额”，后文才解释三房、份额与考核",
+      "severity": "high",
+      "scope": "开篇",
+      "manual": true
+    },
+    {
+      "id": "R-14",
+      "category": "模板神态",
+      "label": "嘴角勾起一抹弧度套话",
+      "must": "严禁用“嘴角/唇角勾起一抹弧度/冷笑”等模板化神态",
+      "badExample": "“嘴角勾起一抹玩味的弧度”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-15",
+      "category": "句子功能",
+      "label": "无功能身体状态与转场",
+      "must": "身体状态、转场和时间句必须新增行动限制或局势变化",
+      "badExample": "“双腿还能用”“两人赶在第三遍钟前离开柴院”",
+      "severity": "low",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-16",
+      "category": "人物口吻",
+      "label": "不自然用词“唇角”",
+      "must": "对白带出身份性格，叙述用“嘴角”不用“唇角”",
+      "badExample": "亲近人物对白机械压成冷硬短句，叙述频现“唇角”",
+      "severity": "low",
+      "scope": "通用",
+      "manual": false
+    },
+    {
+      "id": "R-17",
+      "category": "动作主体",
+      "label": "局部物件替代人物主体",
+      "must": "人物或持有物承担动作，不让局部物件无故独立行动",
+      "badExample": "“叶宁的笔尖顿在纸上”，“目光落在/视线投向”",
+      "severity": "low",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-18",
+      "category": "声音实体化",
+      "label": "声音实体化变体",
+      "must": "声音自具体物理位置传来，严禁用从齿缝挤出或化作凝重",
+      "badExample": "“从齿缝里挤出这两个字”，“关上门化作冰冷的凝重”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-19",
+      "category": "旁白越权",
+      "label": "旁白越权价值判断与惊叹",
+      "must": "旁白只写物理事实与可观察行为，不替读者下价值判断与过度惊叹",
+      "badExample": "“实在不值当”“成长速度太恐怖了”“何其骇人”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-20",
+      "category": "对比句式",
+      "label": "AI典型对比句装逼框架",
+      "must": "清零能力展示对比句框架，让判断直接紧跟感官",
+      "badExample": "“普通人未必能分辨，主角却太熟悉/一眼看穿”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-21",
+      "category": "伤势具象",
+      "label": "伤势感知抽象比喻",
+      "must": "战斗伤势落到具体皮肉受损、出血与活动受限，不用抽象比喻代替实际损伤",
+      "badExample": "“像被重新凿了一遍”“像被撕裂开来”",
+      "severity": "medium",
+      "scope": "战斗",
+      "manual": false
+    },
+    {
+      "id": "R-22",
+      "category": "避免微计时",
+      "label": "微反应刻意计时",
+      "must": "神态反应使用直接动作，不用刻意计时营造精密感",
+      "badExample": "“嘴角的笑停了半息/一息”",
+      "severity": "low",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-23",
+      "category": "时代与语境",
+      "label": "出戏的现代法务行政黑话",
+      "must": "用语服从故事背景，古代语境不滥用现代法务/行政黑话，现代不强行古风",
+      "badExample": "古代写“证物链、涉案物、流程闭环、KPI、颗粒度”",
+      "severity": "high",
+      "scope": "通用",
+      "manual": false
+    },
+    {
+      "id": "R-24",
+      "category": "拒绝脱口秀",
+      "label": "现代段子与脱口秀感悟腔",
+      "must": "删除脱离人物处境的现代段子与脱口秀感悟腔，保留真实关系幽默",
+      "badExample": "“坏事总能精准地……所谓的不过是……或许这就是……的意义”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-25",
+      "category": "拒绝账目复盘",
+      "label": "章尾账目盘点式机械复盘",
+      "must": "章末落在即时后果与当面行动，禁止章尾账目盘点式机械复盘",
+      "badExample": "“他损了多少、赔了多少重铠法器银两”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-26",
+      "category": "段落呼吸",
+      "label": "拟声段落节奏观察",
+      "must": "短段、拟声独立成段与心理停顿结合上下文，不设置机械句数配额",
+      "badExample": "为迎合检测分数机械合并短段或为凑句数强行扩写",
+      "severity": "low",
+      "scope": "叙述",
+      "manual": true
+    },
+    {
+      "id": "R-27",
+      "category": "拒绝回合制",
+      "label": "动作戏回合制点名排队",
+      "must": "多人群殴必须写出泥泞混乱合围感，严禁领号报数排队单挑",
+      "badExample": "“最前一人……第二名……第三名……第四名……拔刀”",
+      "severity": "high",
+      "scope": "战斗",
+      "manual": false
+    },
+    {
+      "id": "R-28",
+      "category": "破除二元对称",
+      "label": "工整对称二分句式",
+      "must": "语法自然质朴，严禁机械二元工整对仗句式",
+      "badExample": "“一枚……一枚……后者……”、“第一步……第二步……”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-29",
+      "category": "拒绝口号复读",
+      "label": "角色口号复读与标签台词",
+      "must": "配角对白体现真实惊惶算计与市井油滑，禁止像喇叭般重复播报口号",
+      "badExample": "“别见血！”“老子护账不护脑袋！”复读",
+      "severity": "high",
+      "scope": "对白",
+      "manual": false
+    },
+    {
+      "id": "R-30",
+      "category": "拒绝招式报幕",
+      "label": "旁白招式报幕与设定弹窗",
+      "must": "战斗叙事中禁止突然蹦出游戏技能名与图鉴说明",
+      "badExample": "突然蹦出“杀步。”或“那是行水客常用的引煞线”",
+      "severity": "medium",
+      "scope": "战斗",
+      "manual": false
+    },
+    {
+      "id": "R-31",
+      "category": "拒绝痛觉循环",
+      "label": "生理痛觉指标循环播报",
+      "must": "生理痛觉感官随动作推进递进，禁止同一个伤痛跨段反复巡检打卡",
+      "badExample": "“砂粒往发白的脚掌肉里磨”跨段循环打卡",
+      "severity": "medium",
+      "scope": "战斗",
+      "manual": false
+    },
+    {
+      "id": "R-32",
+      "category": "避免说明堆砌",
+      "label": "说明文式多层因果堆砌",
+      "must": "旁白最多给一个必要事实，不连续堆放多层因果推断",
+      "badExample": "“大概是……又有……才一直没有……”多层堆砌",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-33",
+      "category": "拒绝伪精确",
+      "label": "伪精确数字与死板步数",
+      "must": "数量与尺度使用自然感官与生活化观察，避免机械测绘数据",
+      "badExample": "“每隔七步敲碎一层薄冰”、“北偏东七度”、“长约七尺”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-34",
+      "category": "拒绝套路伤势",
+      "label": "套路化伤势感知（旧伤发紧）",
+      "must": "伤势感知转化为具体可感情境，严禁空洞标签套话",
+      "badExample": "“旧伤在寒气里发紧”、“疼痛沿着骨缝往上爬”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-35",
+      "category": "拒绝秒表倒数",
+      "label": "动作戏秒表倒数",
+      "must": "动作戏呈现连贯混乱感，全量封杀游戏报时排队倒数",
+      "badExample": "“第一息……第二息……第三息……第十息”",
+      "severity": "high",
+      "scope": "战斗",
+      "manual": false
+    },
+    {
+      "id": "R-36",
+      "category": "拒绝套路瞳孔",
+      "label": "套路化瞳孔反应与翻译腔",
+      "must": "严禁条件反射式眼睛模板与翻译腔排比",
+      "badExample": "“瞳孔放大/骤缩”，“没有回答/没有接话，只……”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-37",
+      "category": "物理客体优先",
+      "label": "神经反射式受击震颤套话",
+      "must": "受力与撞击描写外部物体真实物理形变，严禁模型神经反射套话",
+      "badExample": "“震得脚底发麻/虎口发麻/手腕生疼/喉头一甜/气血翻涌”",
+      "severity": "high",
+      "scope": "战斗",
+      "manual": false
+    },
+    {
+      "id": "R-38",
+      "category": "力量真实落地",
+      "label": "战斗机械数值打卡跳字",
+      "must": "力量通过肌肉负荷、骨骼受力与环境破坏呈现，严禁数值跳字打卡",
+      "badExample": "“气血测试仪从93跳到106”、“战力提升至105卡”",
+      "severity": "high",
+      "scope": "战斗",
+      "manual": false
+    },
+    {
+      "id": "R-39",
+      "category": "叙事呼吸韵律",
+      "label": "主角名连续主语发报机流水账",
+      "must": "长短句自然交织，严禁连续多句使用代码式发报机流水账",
+      "badExample": "“周烈开门。周烈没有接。周烈看向……周烈抬手……”",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-40",
+      "category": "植物神经痉挛",
+      "label": "植物神经/微肌群痉挛套路",
+      "must": "紧张愤怒恐惧置换为外部器物处置或言语攻防，严禁非自愿肌群痉挛套话",
+      "badExample": "“喉咙发紧/指节泛白/心跳漏了一拍/呼吸一滞/下颌收紧/后颈发凉/手心冷汗/牙关紧咬”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-41",
+      "category": "隐形翻译腔",
+      "label": "隐形翻译腔与假深沉修饰链",
+      "must": "回归干净利落白描，严禁假深沉假大空的翻译腔修饰链",
+      "badExample": "“在这一刻显得格外”、“无不在昭示着”、“带着一种不容置疑的”、“仿佛只要轻轻一碰就会”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-42",
+      "category": "指骨泛白变种",
+      "label": "变种指骨关节泛白套话",
+      "must": "严禁各类肢体骨节泛白套话变种，改为自然动作细节",
+      "badExample": "“指骨/骨节/关节/手背泛白/失去血色/捏得发白”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-43",
+      "category": "机械节律抽动",
+      "label": "机械节律脉动抽动套路",
+      "must": "严禁机械生理节律脉动套话，以行动受阻替代抽痛描写",
+      "badExample": "“一下一下地收紧/抽痛”、“随着脉搏跳动/缩紧”",
+      "severity": "high",
+      "scope": "叙述",
+      "manual": false
+    },
+    {
+      "id": "R-44",
+      "category": "契约惩罚弹窗",
+      "label": "网游任务惩罚弹窗式四字通告",
+      "must": "严肃对峙避免网游任务弹窗式四字通告腔",
+      "badExample": "“违约者，抽取生魂/当为矿奴/抹杀”",
+      "severity": "high",
+      "scope": "对白",
+      "manual": false
+    },
+    {
+      "id": "R-45",
+      "category": "篇幅字数硬标",
+      "label": "商业单章篇幅硬标准（2000~3000字）",
+      "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+      "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+      "severity": "high",
+      "scope": "通用",
+      "manual": false
+    },
+    {
+      "id": "R-46",
+      "category": "拒绝滥用盯视",
+      "label": "滥用盯/盯住制造虚假紧绷感",
+      "must": "日常交接与观察使用自然松弛动词（看/打量/扫了眼），单章盯 ≤ 1 处",
+      "badExample": "“死死盯着/冷冷盯住/低头盯住”，日常场景全员盯人",
+      "severity": "medium",
+      "scope": "叙述",
+      "manual": false
+    }
+  ]
+}

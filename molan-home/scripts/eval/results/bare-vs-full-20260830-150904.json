@@ -1,0 +1,224 @@
+{
+  "generatedAt": "2026-08-30T15:09:04.043Z",
+  "script": "bare-vs-full",
+  "fixture": "C:\\Users\\lyh\\Desktop\\小说专属网页\\molan-home\\scripts\\eval\\fixtures\\golden.jsonl",
+  "genre": "仙侠",
+  "fingerprintProfile": {
+    "genre": "仙侠",
+    "matchedBucket": "东方仙侠、仙侠",
+    "bookCount": 6
+  },
+  "baseUrl": "http://127.0.0.1:3000",
+  "aiFlavorPassThreshold": 40,
+  "taskCount": 1,
+  "tasks": [
+    {
+      "sampleId": "contract-001",
+      "task": "contract",
+      "instruction": "第一章大纲：废柴少年陆沉在宗门大比前夜意外唤醒体内沉眠的龙魂，决定暗中苦修三招剑式，却不知执法长老已布下禁制要当场揭穿他的秘密。\n\n请根据以上内容写出一段连贯的小说正文（400-600字），只输出正文本身，不要解释，不要使用 Markdown。",
+      "configurations": [
+        {
+          "id": "bare",
+          "label": "裸请求",
+          "description": "stage='single'，不带 characterMaterial、不带 skill（最小注入路径）",
+          "httpStatus": 200,
+          "elapsedMs": 388,
+          "text": "他缓缓地抬起头，眼中闪过一丝震撼。他的心跳骤然加速。他感到一种前所未有的震撼。\n他不可抑制地颤抖起来。他的呼吸微微地急促。他的眼中再次闪过一丝震撼。\n他深深地吸了一口气。他的内心久久不能平静。他的思绪万般涌动。\n他感到无与伦比的震撼。这个景象令人叹为观止。他久久不能平静。\n他的眼神变得深邃起来。他的呼吸变得急促起来。他的心跳变得剧烈起来。",
+          "usage": {
+            "promptTokens": 688,
+            "completionTokens": 170,
+            "totalTokens": 858
+          },
+          "requestId": "req_1917c422497da9766d33704ee30327e4",
+          "error": null,
+          "aiFlavor": {
+            "score": 80,
+            "passed": false,
+            "metrics": {
+              "sentenceStdRatio": 0.1294,
+              "ttrRatio": 1.4564,
+              "paragraphUniformity": 0.0997,
+              "lexiconBlockPerKilo": 60.241,
+              "lexiconWatchPerKilo": 12.0482
+            },
+            "details": {
+              "blockHits": [
+                {
+                  "term": "一丝",
+                  "count": 2
+                },
+                {
+                  "term": "久久不能平静",
+                  "count": 2
+                },
+                {
+                  "term": "一种",
+                  "count": 1
+                },
+                {
+                  "term": "不可抑制地",
+                  "count": 1
+                },
+                {
+                  "term": "令人叹为观止",
+                  "count": 1
+                },
+                {
+                  "term": "微微地",
+                  "count": 1
+                },
+                {
+                  "term": "无与伦比",
+                  "count": 1
+                },
+                {
+                  "term": "缓缓地",
+                  "count": 1
+                }
+              ],
+              "watchHits": [
+                {
+                  "term": "深深地",
+                  "count": 1
+                },
+                {
+                  "term": "骤然",
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "legacy-full",
+          "label": "旧全量注入",
+          "description": "stage='writing' 且显式 twoPassHumanize=false（旧单遍注入路径：纠错库 + skill + 素材）",
+          "httpStatus": 200,
+          "elapsedMs": 478,
+          "text": "他缓缓地抬起头，眼中闪过一丝震撼。他的心跳骤然加速。他感到一种前所未有的震撼。\n他不可抑制地颤抖起来。他的呼吸微微地急促。他的眼中再次闪过一丝震撼。\n他深深地吸了一口气。他的内心久久不能平静。他的思绪万般涌动。\n他感到无与伦比的震撼。这个景象令人叹为观止。他久久不能平静。\n他的眼神变得深邃起来。他的呼吸变得急促起来。他的心跳变得剧烈起来。",
+          "usage": {
+            "promptTokens": 4842,
+            "completionTokens": 170,
+            "totalTokens": 5012
+          },
+          "requestId": "req_41df4b2c0a3ff297b30d6834060744af",
+          "error": null,
+          "aiFlavor": {
+            "score": 80,
+            "passed": false,
+            "metrics": {
+              "sentenceStdRatio": 0.1294,
+              "ttrRatio": 1.4564,
+              "paragraphUniformity": 0.0997,
+              "lexiconBlockPerKilo": 60.241,
+              "lexiconWatchPerKilo": 12.0482
+            },
+            "details": {
+              "blockHits": [
+                {
+                  "term": "一丝",
+                  "count": 2
+                },
+                {
+                  "term": "久久不能平静",
+                  "count": 2
+                },
+                {
+                  "term": "一种",
+                  "count": 1
+                },
+                {
+                  "term": "不可抑制地",
+                  "count": 1
+                },
+                {
+                  "term": "令人叹为观止",
+                  "count": 1
+                },
+                {
+                  "term": "微微地",
+                  "count": 1
+                },
+                {
+                  "term": "无与伦比",
+                  "count": 1
+                },
+                {
+                  "term": "缓缓地",
+                  "count": 1
+                }
+              ],
+              "watchHits": [
+                {
+                  "term": "深深地",
+                  "count": 1
+                },
+                {
+                  "term": "骤然",
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "two-pass",
+          "label": "两遍去 AI 味",
+          "description": "stage='writing' + twoPassHumanize=true + characterMaterial enabled",
+          "httpStatus": 200,
+          "elapsedMs": 439,
+          "text": "山门开在两崖之间，风从谷底灌上来，吹得他袖子贴着手臂。\n他站了半炷香。\n石阶上生了苔，一脚踩下去，鞋底打滑——他伸手抓住旁边的铁索，掌心立刻传来一股凉意，凉意底下还带着锈味。崖下云雾翻涌，看不见底。他咽了口唾沫，继续往上爬。\n爬到第三百级的时候，膝盖开始发酸。他数着数，数到三百二十七，忘了。重数。又是三百多。\n「你就是新来的？」\n声音从头顶落下来。他抬头，一个青袍道人坐在崖边的松枝上，腿悬着晃，手里捏着个酒葫芦。\n「测试灵根的地方在哪？」他问。\n道人没答，把酒葫芦扔下来。他手忙脚乱接住，酒液泼了半袖子。\n「喝完再问。」道人说，「一口。」",
+          "usage": {
+            "promptTokens": 893,
+            "completionTokens": 271,
+            "totalTokens": 1164
+          },
+          "requestId": "req_724acf80b0acbb515a35d2b96ba00899",
+          "error": null,
+          "aiFlavor": {
+            "score": 46,
+            "passed": false,
+            "metrics": {
+              "sentenceStdRatio": 0.7352,
+              "ttrRatio": 1.8546,
+              "paragraphUniformity": 0.7031,
+              "lexiconBlockPerKilo": 3.8023,
+              "lexiconWatchPerKilo": 0
+            },
+            "details": {
+              "blockHits": [
+                {
+                  "term": "一股",
+                  "count": 1
+                }
+              ],
+              "watchHits": []
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "aiFlavorMeanScore": {
+      "bare": 80,
+      "legacy-full": 80,
+      "two-pass": 46
+    },
+    "meanElapsedMs": {
+      "bare": 388,
+      "legacy-full": 478,
+      "two-pass": 439
+    },
+    "meanTotalTokens": {
+      "bare": 858,
+      "legacy-full": 5012,
+      "two-pass": 1164
+    },
+    "ranking": [
+      "two-pass",
+      "bare",
+      "legacy-full"
+    ]
+  }
+}
