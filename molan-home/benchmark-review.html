@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>本地匿名 A/B 盲评</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { max-width: 1440px; margin: auto; padding: 24px; }
+    h1 { font-size: 1.6rem; } h2 { font-size: 1.2rem; }
+    .note { color: #777; } #message { white-space: pre-wrap; }
+    .controls { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+    input, select, textarea, button { font: inherit; padding: 8px; }
+    textarea { width: 100%; box-sizing: border-box; min-height: 80px; }
+    article { border-top: 2px solid #888; margin-top: 36px; padding-top: 12px; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .candidate { min-width: 0; }
+    .text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 640px; overflow-y: auto; padding: 16px; border: 1px solid #888; }
+    .prompt { white-space: pre-wrap; }
+    label { display: block; margin: 10px 0; }
+    fieldset { border: 1px solid #888; margin-top: 18px; }
+    button { cursor: pointer; }
+    @media(max-width: 850px) { .pair { grid-template-columns: 1fr; } body { padding: 14px; } }
+  </style>
+  <script src="benchmark-review.js" defer></script>
+</head>
+<body>
+  <h1>本地匿名 A/B 盲评</h1>
+  <p>只加载 <code>molan-blind-review</code> JSON，不加载运行账本或私钥。页面不发起网络请求，不自动保存；关闭前请导出。正文只作文本显示。</p>
+  <p class="note">同一匿名系列的 A/B 顺序始终一致。请按章序通读，再审关系、知识权限和伏笔状态。1 分最差、5 分最好；所有评分、判断和理由均须本人填写，没有预填结果。正文可能自报身份；发现时停止评审并告知组织者。</p>
+  <div class="controls">
+    <label>匿名题包 <input id="packet-file" type="file" accept=".json,application/json"></label>
+    <label>评审者代号 <input id="reviewer" autocomplete="off" maxlength="120" placeholder="请本人填写"></label>
+    <button id="export-review" type="button" disabled>校验并导出完整人工结果</button>
+  </div>
+  <p id="message" role="status" aria-live="polite">尚未加载；没有已执行或通过结论。</p>
+  <main id="items"></main>
+</body>
+</html>

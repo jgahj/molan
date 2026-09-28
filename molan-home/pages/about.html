@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light" data-theme="light">
+<head>
+    <link rel="stylesheet" href="./account.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>关于我们 - 墨阑团队</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Brand Tokens -->
+    <style data-vd-inlined-stylesheet="../colors_and_type.css">
+/* ===================== 墨阑 · 设计系统 ===================== */
+/* 复刻 maliangwriter.com：极简黑白、现代 SaaS、中式文学雅致 */
+
+:root {
+  /* 色彩系统 */
+  --ml-ink: #0a0a0a;            /* 主文字 / 主按钮 */
+  --ml-ink-2: #1a1a1a;          /* 次级深色 */
+  --ml-ink-3: #2a2a2a;          /* 第三层深色 */
+  --ml-paper: #ffffff;          /* 纯白背景 */
+  --ml-paper-2: #fafafa;        /* 次白 / 卡片底 */
+  --ml-paper-3: #f5f5f5;        /* 浅灰底 */
+  --ml-paper-4: #f0f0f0;        /* 更深浅灰 */
+  --ml-line: #e8e8e8;           /* 分割线 */
+  --ml-line-2: #e5e5e5;         /* 卡片描边 */
+  --ml-line-3: #eeeeee;         /* 浅色描边 */
+  --ml-gray: #666666;           /* 次级文字 */
+  --ml-gray-2: #999999;         /* 辅助文字 */
+  --ml-gray-3: #b3b3b3;         /* 占位/弱化 */
+  --ml-gray-4: #d4d4d4;         /* 边框灰 */
+  --ml-accent: #111111;         /* 强调黑 */
+  --ml-success: #16a34a;        /* 成功绿 */
+  --ml-success-bg: #f0fdf4;     /* 成功绿浅底 */
+  --ml-success-dark: #15803d;   /* 深成功绿 */
+  --ml-warning: #f59e0b;        /* 警告橙 */
+  --ml-warning-bg: #fffbeb;     /* 警告浅底 */
+  --ml-orange: #f97316;         /* 活力橙 */
+  --ml-gold: #eab308;           /* 金色强调 */
+
+  /* 字体系统 */
+  --ml-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ml-font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --ml-font-mono: "SFMono-Regular", "Consolas", monospace;
+  --ml-font-brush: "Ma Shan Zheng", "ZCOOL XiaoWei", "Noto Serif SC", "Songti SC", serif;
+
+  /* 圆角 */
+  --ml-radius-sm: 6px;
+  --ml-radius-md: 8px;
+  --ml-radius-lg: 12px;
+  --ml-radius-xl: 16px;
+  --ml-radius-2xl: 20px;
+  --ml-radius-full: 9999px;
+
+  /* 阴影 */
+  --ml-shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --ml-shadow-md: 0 4px 16px rgba(0,0,0,.06);
+  --ml-shadow-lg: 0 12px 40px rgba(0,0,0,.08);
+  --ml-shadow-card: 0 4px 24px rgba(0,0,0,.05);
+  --ml-shadow-float: 0 20px 60px rgba(0,0,0,.1);
+
+  /* 间距节奏 */
+  --ml-space-1: 4px;
+  --ml-space-2: 8px;
+  --ml-space-3: 12px;
+  --ml-space-4: 16px;
+  --ml-space-5: 24px;
+  --ml-space-6: 32px;
+  --ml-space-7: 48px;
+  --ml-space-8: 64px;
+  --ml-space-9: 80px;
+  --ml-space-10: 96px;
+
+  /* 语义别名 */
+  --ml-background: var(--ml-paper);
+  --ml-foreground: var(--ml-ink);
+  --ml-card: var(--ml-paper);
+  --ml-card-foreground: var(--ml-ink);
+  --ml-primary: var(--ml-ink);
+  --ml-primary-foreground: var(--ml-paper);
+  --ml-secondary: var(--ml-paper-3);
+  --ml-secondary-foreground: var(--ml-ink);
+  --ml-muted: var(--ml-paper-2);
+  --ml-muted-foreground: var(--ml-gray);
+  --ml-accent-foreground: var(--ml-ink);
+  --ml-border: var(--ml-line-2);
+  --ml-input: var(--ml-line-2);
+  --ml-ring: var(--ml-ink);
+}
+
+/* 字号刻度 */
+.ml-text-xs { font-size: 11px; line-height: 1.5; }
+.ml-text-sm { font-size: 13px; line-height: 1.6; }
+.ml-text-base { font-size: 14px; line-height: 1.7; }
+.ml-text-md { font-size: 15px; line-height: 1.7; }
+.ml-text-lg { font-size: 17px; line-height: 1.6; }
+.ml-text-xl { font-size: 20px; line-height: 1.5; }
+.ml-text-2xl { font-size: 24px; line-height: 1.4; }
+.ml-text-3xl { font-size: 32px; line-height: 1.35; }
+.ml-text-4xl { font-size: 40px; line-height: 1.25; }
+.ml-text-5xl { font-size: 52px; line-height: 1.2; }
+.ml-text-6xl { font-size: 64px; line-height: 1.15; }
+.ml-text-7xl { font-size: 76px; line-height: 1.1; }
+
+/* 字重 */
+.ml-font-normal { font-weight: 400; }
+.ml-font-medium { font-weight: 500; }
+.ml-font-semibold { font-weight: 600; }
+.ml-font-bold { font-weight: 700; }
+
+/* 字体族 */
+.ml-font-sans { font-family: var(--ml-font-sans); }
+.ml-font-serif { font-family: var(--ml-font-serif); }
+.ml-font-mono { font-family: var(--ml-font-mono); }
+.ml-font-brush { font-family: var(--ml-font-brush); }
+
+/* 文字颜色 */
+.ml-text-ink { color: var(--ml-ink); }
+.ml-text-ink-2 { color: var(--ml-ink-2); }
+.ml-text-gray { color: var(--ml-gray); }
+.ml-text-gray-2 { color: var(--ml-gray-2); }
+.ml-text-gray-3 { color: var(--ml-gray-3); }
+.ml-text-success { color: var(--ml-success); }
+.ml-text-warning { color: var(--ml-warning); }
+
+/* 背景色 */
+.ml-bg-paper { background: var(--ml-paper); }
+.ml-bg-paper-2 { background: var(--ml-paper-2); }
+.ml-bg-paper-3 { background: var(--ml-paper-3); }
+.ml-bg-paper-4 { background: var(--ml-paper-4); }
+.ml-bg-ink { background: var(--ml-ink); }
+.ml-bg-success { background: var(--ml-success); }
+.ml-bg-success-bg { background: var(--ml-success-bg); }
+
+/* 渐变背景 */
+.ml-gradient-radial { background: radial-gradient(circle at center, var(--ml-paper-3) 0%, transparent 70%); }
+
+</style>
+
+    <!-- Base Reset -->
+    <style>
+        /* 基础盒模型重置 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* 去除默认边距与内边距 */
+        html, body, h1, h2, h3, h4, h5, h6, p, ul, ol, li, figure, figcaption, blockquote, dl, dd {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 设置全站字体族与抗锯齿 */
+        body {
+            font-family: 'Noto Serif SC', 'ZCOOL XiaoWei', 'Ma Shan Zheng', serif;
+            color: #0a0a0a;
+            background-color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* 列表无默认样式 */
+        ul, ol {
+            list-style: none;
+        }
+
+        /* 链接继承颜色与去除下划线 */
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        /* 图片与媒体元素自适应 */
+        img, picture, video, canvas, svg {
+            display: block;
+            max-width: 100%;
+        }
+
+        /* 按钮与输入框继承字体 */
+        button, input, textarea, select {
+            font: inherit;
+        }
+
+        /* 去除按钮默认边框与背景 */
+        button {
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+    </style>
+    <link rel="stylesheet" href="./molan-ui.css">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-[#f5f5f5]">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- 左侧 Logo -->
+            <a href="./index.html" class="flex items-center gap-2 text-[#0a0a0a]" data-dom-id="nav-index">
+                <span class="font-['Ma_Shan_Zheng'] text-2xl">墨阑</span>
+            </a>
+
+            <!-- 桌面端导航 -->
+            <div class="hidden md:flex items-center gap-8">
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-features">功能总览</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-pricing">价格与订阅</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-docs">使用文档</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-blog">创作者手札</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-tools">免费工具</a>
+                <a href="#" class="text-sm px-4 py-2 border border-[#0a0a0a] rounded-full text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition-colors" data-dom-id="nav-login">登录</a>
+                <button type="button" aria-label="切换主题" class="p-2 text-[#666666] hover:text-[#0a0a0a] transition-colors">
+                    <i data-lucide="moon" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- 移动端汉堡菜单按钮 -->
+            <button type="button" class="md:hidden p-2 text-[#0a0a0a]" aria-label="打开菜单" id="mobile-menu-toggle">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </nav>
+
+        <!-- 移动端导航面板 -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-[#f5f5f5]">
+            <div class="px-4 py-4 space-y-3">
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-features">功能总览</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-pricing">价格与订阅</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-docs">使用文档</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-blog">创作者手札</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-tools">免费工具</a>
+                <a href="#" class="block text-base text-[#0a0a0a] font-medium" data-dom-id="nav-login">登录</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 占位：固定导航栏高度，避免内容被遮挡 -->
+    <div class="h-16"></div>
+
+    <main>
+        <!-- Hero 区 -->
+        <section class="relative overflow-hidden bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                    <!-- 左侧文案 -->
+                    <div class="space-y-6">
+                        <h1 class="text-4xl md:text-5xl lg:text-6xl font-semibold text-[#0a0a0a] leading-tight">
+                            关于墨阑
+                        </h1>
+                        <p class="text-xl md:text-2xl text-[#666666] leading-relaxed">
+                            让每个人都能成为神笔马良
+                        </p>
+                        <p class="text-base text-[#666666] leading-relaxed max-w-lg">
+                            我们相信，技术与创意的结合能让写作不再是少数人的天赋，而是每一位创作者手中的神笔。
+                        </p>
+                    </div>
+                    <!-- 右侧品牌插画 -->
+                    <div class="relative">
+                        <div class="aspect-[4/3] rounded-2xl bg-gradient-to-br from-[#fafafa] to-[#f0f0f0] border border-[#e5e5e5] flex items-center justify-center overflow-hidden">
+                            <svg viewBox="0 0 400 300" width="100%" height="100%" role="img" aria-label="神笔马良 · 创作插画">
+                                <defs>
+                                    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+                                        <stop offset="0" stop-color="#0a0a0a"/>
+                                        <stop offset="1" stop-color="#3a3a3a"/>
+                                    </linearGradient>
+                                </defs>
+                                <g transform="translate(200 200)">
+                                    <path d="M-130 0 Q-65 -22 0 -8 Q65 -22 130 0 L120 40 Q60 24 0 36 Q-60 24 -120 40 Z" fill="#ffffff" stroke="#0a0a0a" stroke-width="2.5"/>
+                                    <path d="M0 -8 L0 36" stroke="#0a0a0a" stroke-width="2"/>
+                                    <path d="M-100 6 Q-50 -8 0 0" fill="none" stroke="#d4d4d4" stroke-width="2"/>
+                                    <path d="M100 6 Q50 -8 0 0" fill="none" stroke="#d4d4d4" stroke-width="2"/>
+                                </g>
+                                <g transform="translate(232 96) rotate(38)">
+                                    <rect x="-6" y="0" width="12" height="92" rx="6" fill="url(#ink)"/>
+                                    <path d="M-6 92 L6 92 L0 120 Z" fill="#0a0a0a"/>
+                                    <rect x="-5" y="-26" width="10" height="28" rx="5" fill="#16a34a"/>
+                                </g>
+                                <circle cx="150" cy="110" r="4" fill="#16a34a" opacity="0.9"/>
+                                <circle cx="120" cy="86" r="2.5" fill="#0a0a0a" opacity="0.5"/>
+                                <circle cx="278" cy="150" r="3" fill="#0a0a0a" opacity="0.4"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 我们的故事 -->
+        <section class="bg-[#fafafa] border-y border-[#f5f5f5]">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl md:text-4xl font-semibold text-[#0a0a0a] mb-4">我们的故事</h2>
+                    <div class="w-16 h-0.5 bg-[#0a0a0a] mx-auto"></div>
+                </div>
+                <div class="space-y-6 text-base md:text-lg text-[#666666] leading-relaxed">
+                    <p>
+                        墨阑诞生于 2024 年，由一群热爱文学的工程师与深耕创作一线的作家共同创立。创始团队在一次深夜的读书会中萌生了一个朴素的念头：如果能为每一位写作者配备一位永不疲倦、通晓万千故事的智能创作伙伴，创作会变成什么样子？
+                    </p>
+                    <p>
+                        从第一行代码到第一次完整的小说生成，我们经历了数百次产品迭代。每一次迭代都源自真实创作者在 QQ 群、微信交流群里提出的宝贵反馈。我们反复打磨 Agent 协作逻辑、优化知识图谱结构、调试 RAG 检索链路，只为让 AI 真正理解中文网文的叙事节奏与情感张力。
+                    </p>
+                    <p>
+                        如今，已有超过 10,000 位创作者使用墨阑完成构思、大纲、章节扩写与润色。从玄幻修仙到都市情感，从科幻设定到历史传奇，我们见证了无数故事从灵光一闪到落笔成章。对我们而言，每一位用户的作品，都是产品价值最好的注脚。
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 核心价值观 -->
+        <section class="bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl md:text-4xl font-semibold text-[#0a0a0a] mb-4">核心价值观</h2>
+                    <p class="text-base text-[#666666]">指引我们产品方向的四项原则</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- 创意至上 -->
+                    <div class="p-6 rounded-2xl bg-[#fafafa] border border-[#f5f5f5] hover:border-[#e5e5e5] transition-colors">
+                        <div class="w-12 h-12 rounded-xl bg-white border border-[#e5e5e5] flex items-center justify-center mb-5">
+                            <i data-lucide="lightbulb" class="w-6 h-6 text-[#0a0a0a]"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#0a0a0a] mb-2">创意至上</h3>
+                        <p class="text-sm text-[#666666] leading-relaxed">
+                            技术服务于灵感，不让算法定义故事，只为让作者的想象力尽情飞翔。
+                        </p>
+                    </div>
+                    <!-- 技术驱动 -->
+                    <div class="p-6 rounded-2xl bg-[#fafafa] border border-[#f5f5f5] hover:border-[#e5e5e5] transition-colors">
+                        <div class="w-12 h-12 rounded-xl bg-white border border-[#e5e5e5] flex items-center justify-center mb-5">
+                            <i data-lucide="cpu" class="w-6 h-6 text-[#0a0a0a]"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#0a0a0a] mb-2">技术驱动</h3>
+                        <p class="text-sm text-[#666666] leading-relaxed">
+                            持续探索多智能体协作、知识图谱与检索增强生成，为创作提供坚实底座。
+                        </p>
+                    </div>
+                    <!-- 用户共创 -->
+                    <div class="p-6 rounded-2xl bg-[#fafafa] border border-[#f5f5f5] hover:border-[#e5e5e5] transition-colors">
+                        <div class="w-12 h-12 rounded-xl bg-white border border-[#e5e5e5] flex items-center justify-center mb-5">
+                            <i data-lucide="message-circle-heart" class="w-6 h-6 text-[#0a0a0a]"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#0a0a0a] mb-2">用户共创</h3>
+                        <p class="text-sm text-[#666666] leading-relaxed">
+                            产品迭代来自创作者的真实反馈，让每一位用户都成为墨阑的共建者。
+                        </p>
+                    </div>
+                    <!-- 开放透明 -->
+                    <div class="p-6 rounded-2xl bg-[#fafafa] border border-[#f5f5f5] hover:border-[#e5e5e5] transition-colors">
+                        <div class="w-12 h-12 rounded-xl bg-white border border-[#e5e5e5] flex items-center justify-center mb-5">
+                            <i data-lucide="eye" class="w-6 h-6 text-[#0a0a0a]"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#0a0a0a] mb-2">开放透明</h3>
+                        <p class="text-sm text-[#666666] leading-relaxed">
+                            清晰披露运营主体与技术边界，让每一位创作者都能安心使用。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 技术实力 -->
+        <section class="bg-[#fafafa] border-y border-[#f5f5f5]">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl md:text-4xl font-semibold text-[#0a0a0a] mb-4">技术实力</h2>
+                    <p class="text-base text-[#666666]">支撑墨阑的四大核心能力</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- 多智能体协作架构 -->
+                    <div class="p-6 rounded-2xl bg-white border border-[#e5e5e5] hover:shadow-[0_4px_24px_rgba(0,0,0,.05)] transition-shadow">
+                        <div class="w-12 h-12 rounded-xl bg-[#0a0a0a] flex items-center justify-center mb-5">
+                            <i data-lucide="network" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#0a0a0a] mb-2">多智能体协作架构</h3>
+                        <p class="text-sm text-[#666666] leading-relaxed">
+                            多个专业 Agent 分工协作，覆盖构思、大纲、章节扩写与润色全流程。
+                        </p>
+                    </div>
+                    <!-- 知识图谱引擎 -->
+                    <div class="p-6 rounded-2xl bg-white border border-[#e5e5e5] hover:shadow-[0_4px_24px_rgba(0,0,0,.05)] transition-shadow">
+                        <div class="w-12 h-12 rounded-xl bg-[#0a0a0a] flex items-center justify-center mb-5">
+                            <i data-lucide="git-branch" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#0a0a0a] mb-2">知识图谱引擎</h3>
+                        <p class="text-sm text-[#666666] leading-relaxed">
+                            自动构建人物、势力、道具与事件关系网，保证长篇故事的设定一致性。
+                        </p>
+                    </div>
+                    <!-- RAG 检索增强生成 -->
+                    <div class="p-6 rounded-2xl bg-white border border-[#e5e5e5] hover:shadow-[0_4px_24px_rgba(0,0,0,.05)] transition-shadow">
+                        <div class="w-12 h-12 rounded-xl bg-[#0a0a0a] flex items-center justify-center mb-5">
+                            <i data-lucide="search" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#0a0a0a] mb-2">RAG 检索增强生成</h3>
+                        <p class="text-sm text-[#666666] leading-relaxed">
+                            基于作品上下文实时检索，让 AI 的续写贴合前文风格与世界观。
+                        </p>
+                    </div>
+                    <!-- 多模型支持 -->
+                    <div class="p-6 rounded-2xl bg-white border border-[#e5e5e5] hover:shadow-[0_4px_24px_rgba(0,0,0,.05)] transition-shadow">
+                        <div class="w-12 h-12 rounded-xl bg-[#0a0a0a] flex items-center justify-center mb-5">
+                            <i data-lucide="layers" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#0a0a0a] mb-2">多模型支持</h3>
+                        <p class="text-sm text-[#666666] leading-relaxed">
+                            兼容多种主流大模型，根据不同创作场景灵活选择最合适的智能伙伴。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 公司信息 -->
+        <section class="bg-white">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28 text-center">
+                <h2 class="text-3xl md:text-4xl font-semibold text-[#0a0a0a] mb-6">公司信息</h2>
+                <p class="text-base text-[#666666] leading-relaxed mb-6">
+                    墨阑由上海欧克安文化传媒有限公司运营。我们致力于以 AI 技术赋能中文创作生态，为网文作者、编剧与内容创作者提供安全、可靠、易用的写作辅助工具。
+                </p>
+                <a href="https://www.gsxt.gov.cn" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-sm text-[#16a34a] hover:text-[#15803d] transition-colors">
+                    <i data-lucide="external-link" class="w-4 h-4"></i>
+                    查看国家企业信用信息公示系统
+                </a>
+            </div>
+        </section>
+
+        <!-- 加入社区 CTA -->
+        <section class="bg-[#0a0a0a]">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28 text-center">
+                <h2 class="text-3xl md:text-4xl font-semibold text-white mb-6">加入社区</h2>
+                <p class="text-lg text-[#b3b3b3] mb-8">
+                    有任何问题或建议？欢迎随时联系我们。
+                </p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <a href="mailto:postmaster@maliangwriter.com" class="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#0a0a0a] rounded-full text-sm font-medium hover:bg-[#f5f5f5] transition-colors">
+                        <i data-lucide="mail" class="w-4 h-4"></i>
+                        发送邮件
+                    </a>
+                    <a href="#" class="inline-flex items-center gap-2 px-6 py-3 border border-[#666666] text-white rounded-full text-sm font-medium hover:border-white transition-colors">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i>
+                        加入交流群
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-[#fafafa] border-t border-[#f5f5f5]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <!-- 五栏链接 -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-8">
+                <!-- 产品 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">产品</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">开始使用</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">登录</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">订阅方案</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">功能总览</a></li>
+                    </ul>
+                </div>
+
+                <!-- 资源 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">资源</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">使用文档</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">创作者手札</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">文档</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">联系我们</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">llms.txt</a></li>
+                    </ul>
+                </div>
+
+                <!-- 免费工具 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">免费工具</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">去 AI 味改写</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">错别字检测</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">AI 味浓度检测</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">小说命名生成器</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">排版清洗</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">重复内容检测</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">AI 小说生成器</a></li>
+                        <li><a href="#" class="text-sm text-[#16a34a] hover:text-[#0a0a0a] transition-colors">查看全部工具</a></li>
+                    </ul>
+                </div>
+
+                <!-- 功能对比 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">功能对比</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与 Sudowrite 对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与 NovelCrafter 对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与 ChatGPT 对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与 DeepSeek 对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与笔灵 AI 写作对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">与蛙蛙写作对比</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">2026 中文网文 AI 横评</a></li>
+                        <li><a href="#" class="text-sm text-[#16a34a] hover:text-[#0a0a0a] transition-colors">查看全部对比</a></li>
+                    </ul>
+                </div>
+
+                <!-- 社区 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-[#0a0a0a] mb-4">社区</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">作者交流 QQ 1062403092</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">微信交流群</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">GitHub 源码</a></li>
+                        <li><a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors">姊妹产品 Foreverse</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 底部信息 -->
+            <div class="mt-16 pt-8 border-t border-[#f5f5f5] flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#666666]">
+                <div class="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                    <span>ICP 备案：待填写</span>
+                    <span>统一社会信用代码：待填写</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="mail" class="w-4 h-4"></i>
+                    <a href="mailto:postmaster@maliangwriter.com" class="hover:text-[#0a0a0a] transition-colors">postmaster@maliangwriter.com</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 初始化 Lucide 图标 -->
+    <script>
+        lucide.createIcons();
+    </script>
+
+    <!-- 移动端菜单切换脚本 -->
+    <script>
+        /**
+         * 切换移动端导航菜单的显示与隐藏
+         */
+        (function () {
+            const toggle = document.getElementById('mobile-menu-toggle');
+            const menu = document.getElementById('mobile-menu');
+            if (!toggle || !menu) return;
+
+            toggle.addEventListener('click', function () {
+                menu.classList.toggle('hidden');
+            });
+        })();
+    </script>
+    <script src="./site.js"></script>
+    <script src="./account.js"></script>
+    <script src="./molan-shell.js"></script>
+</body>
+</html>

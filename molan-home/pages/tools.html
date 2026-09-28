@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light" data-theme="light">
+<head>
+    <link rel="stylesheet" href="./account.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>免费工具｜去AI味、错别字检测、章节标题、人设卡、简介、节奏分析 · 墨阑</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Brand Tokens -->
+    <style data-vd-inlined-stylesheet="../colors_and_type.css">
+/* ===================== 墨阑 · 设计系统 ===================== */
+/* 复刻 maliangwriter.com：极简黑白、现代 SaaS、中式文学雅致 */
+
+:root {
+  /* 色彩系统 */
+  --ml-ink: #0a0a0a;            /* 主文字 / 主按钮 */
+  --ml-ink-2: #1a1a1a;          /* 次级深色 */
+  --ml-ink-3: #2a2a2a;          /* 第三层深色 */
+  --ml-paper: #ffffff;          /* 纯白背景 */
+  --ml-paper-2: #fafafa;        /* 次白 / 卡片底 */
+  --ml-paper-3: #f5f5f5;        /* 浅灰底 */
+  --ml-paper-4: #f0f0f0;        /* 更深浅灰 */
+  --ml-line: #e8e8e8;           /* 分割线 */
+  --ml-line-2: #e5e5e5;         /* 卡片描边 */
+  --ml-line-3: #eeeeee;         /* 浅色描边 */
+  --ml-gray: #666666;           /* 次级文字 */
+  --ml-gray-2: #999999;         /* 辅助文字 */
+  --ml-gray-3: #b3b3b3;         /* 占位/弱化 */
+  --ml-gray-4: #d4d4d4;         /* 边框灰 */
+  --ml-accent: #111111;         /* 强调黑 */
+  --ml-success: #16a34a;        /* 成功绿 */
+  --ml-success-bg: #f0fdf4;     /* 成功绿浅底 */
+  --ml-success-dark: #15803d;   /* 深成功绿 */
+  --ml-warning: #f59e0b;        /* 警告橙 */
+  --ml-warning-bg: #fffbeb;     /* 警告浅底 */
+  --ml-orange: #f97316;         /* 活力橙 */
+  --ml-gold: #eab308;           /* 金色强调 */
+
+  /* 字体系统 */
+  --ml-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ml-font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --ml-font-mono: "SFMono-Regular", "Consolas", monospace;
+  --ml-font-brush: "Ma Shan Zheng", "ZCOOL XiaoWei", "Noto Serif SC", "Songti SC", serif;
+
+  /* 圆角 */
+  --ml-radius-sm: 6px;
+  --ml-radius-md: 8px;
+  --ml-radius-lg: 12px;
+  --ml-radius-xl: 16px;
+  --ml-radius-2xl: 20px;
+  --ml-radius-full: 9999px;
+
+  /* 阴影 */
+  --ml-shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --ml-shadow-md: 0 4px 16px rgba(0,0,0,.06);
+  --ml-shadow-lg: 0 12px 40px rgba(0,0,0,.08);
+  --ml-shadow-card: 0 4px 24px rgba(0,0,0,.05);
+  --ml-shadow-float: 0 20px 60px rgba(0,0,0,.1);
+
+  /* 间距节奏 */
+  --ml-space-1: 4px;
+  --ml-space-2: 8px;
+  --ml-space-3: 12px;
+  --ml-space-4: 16px;
+  --ml-space-5: 24px;
+  --ml-space-6: 32px;
+  --ml-space-7: 48px;
+  --ml-space-8: 64px;
+  --ml-space-9: 80px;
+  --ml-space-10: 96px;
+
+  /* 语义别名 */
+  --ml-background: var(--ml-paper);
+  --ml-foreground: var(--ml-ink);
+  --ml-card: var(--ml-paper);
+  --ml-card-foreground: var(--ml-ink);
+  --ml-primary: var(--ml-ink);
+  --ml-primary-foreground: var(--ml-paper);
+  --ml-secondary: var(--ml-paper-3);
+  --ml-secondary-foreground: var(--ml-ink);
+  --ml-muted: var(--ml-paper-2);
+  --ml-muted-foreground: var(--ml-gray);
+  --ml-accent-foreground: var(--ml-ink);
+  --ml-border: var(--ml-line-2);
+  --ml-input: var(--ml-line-2);
+  --ml-ring: var(--ml-ink);
+}
+
+/* 字号刻度 */
+.ml-text-xs { font-size: 11px; line-height: 1.5; }
+.ml-text-sm { font-size: 13px; line-height: 1.6; }
+.ml-text-base { font-size: 14px; line-height: 1.7; }
+.ml-text-md { font-size: 15px; line-height: 1.7; }
+.ml-text-lg { font-size: 17px; line-height: 1.6; }
+.ml-text-xl { font-size: 20px; line-height: 1.5; }
+.ml-text-2xl { font-size: 24px; line-height: 1.4; }
+.ml-text-3xl { font-size: 32px; line-height: 1.35; }
+.ml-text-4xl { font-size: 40px; line-height: 1.25; }
+.ml-text-5xl { font-size: 52px; line-height: 1.2; }
+.ml-text-6xl { font-size: 64px; line-height: 1.15; }
+.ml-text-7xl { font-size: 76px; line-height: 1.1; }
+
+/* 字重 */
+.ml-font-normal { font-weight: 400; }
+.ml-font-medium { font-weight: 500; }
+.ml-font-semibold { font-weight: 600; }
+.ml-font-bold { font-weight: 700; }
+
+/* 字体族 */
+.ml-font-sans { font-family: var(--ml-font-sans); }
+.ml-font-serif { font-family: var(--ml-font-serif); }
+.ml-font-mono { font-family: var(--ml-font-mono); }
+.ml-font-brush { font-family: var(--ml-font-brush); }
+
+/* 文字颜色 */
+.ml-text-ink { color: var(--ml-ink); }
+.ml-text-ink-2 { color: var(--ml-ink-2); }
+.ml-text-gray { color: var(--ml-gray); }
+.ml-text-gray-2 { color: var(--ml-gray-2); }
+.ml-text-gray-3 { color: var(--ml-gray-3); }
+.ml-text-success { color: var(--ml-success); }
+.ml-text-warning { color: var(--ml-warning); }
+
+/* 背景色 */
+.ml-bg-paper { background: var(--ml-paper); }
+.ml-bg-paper-2 { background: var(--ml-paper-2); }
+.ml-bg-paper-3 { background: var(--ml-paper-3); }
+.ml-bg-paper-4 { background: var(--ml-paper-4); }
+.ml-bg-ink { background: var(--ml-ink); }
+.ml-bg-success { background: var(--ml-success); }
+.ml-bg-success-bg { background: var(--ml-success-bg); }
+
+/* 渐变背景 */
+.ml-gradient-radial { background: radial-gradient(circle at center, var(--ml-paper-3) 0%, transparent 70%); }
+
+</style>
+
+    <!-- Base Reset -->
+    <style>
+        /* 基础盒模型重置 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* 去除默认边距与内边距 */
+        html, body, h1, h2, h3, h4, h5, h6, p, ul, ol, li, figure, figcaption, blockquote, dl, dd {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 设置全站字体族与抗锯齿 */
+        body {
+            font-family: 'Noto Serif SC', 'ZCOOL XiaoWei', 'Ma Shan Zheng', serif;
+            color: #0a0a0a;
+            background-color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* 列表无默认样式 */
+        ul, ol {
+            list-style: none;
+        }
+
+        /* 链接继承颜色与去除下划线 */
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        /* 图片与媒体元素自适应 */
+        img, picture, video, canvas, svg {
+            display: block;
+            max-width: 100%;
+        }
+
+        /* 按钮与输入框继承字体 */
+        button, input, textarea, select {
+            font: inherit;
+        }
+
+        /* 按钮重置（不移除背景色与边框） */
+        button {
+            font: inherit;
+            cursor: pointer;
+        }
+
+        /* 顶部卡片独立样式，留出充足上边距杜绝顶部粘连 */
+        .tools-banner-card {
+            margin-top: 24px !important;
+            margin-bottom: 24px !important;
+            border-radius: 18px !important;
+            border: 1px solid #e5e5e5 !important;
+            background: #ffffff !important;
+            box-shadow: 0 2px 14px rgba(0, 0, 0, 0.03) !important;
+        }
+
+        /* 顶部主按钮独立深色卡片样式，杜绝文字隐形 */
+        .hero-primary-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #0a0a0a !important;
+            color: #ffffff !important;
+            border: 1px solid #0a0a0a !important;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.18s ease;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .hero-primary-action:hover {
+            background: #262626 !important;
+            border-color: #262626 !important;
+        }
+        .hero-primary-action span, .hero-primary-action i {
+            color: #ffffff !important;
+        }
+
+        /* 分类切换栏：点击强调色为黑色加粗字体，杜绝白色字体 */
+        .tool-cat-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 7px 14px;
+            border: 1px solid transparent !important;
+            background: transparent !important;
+            color: #666666 !important;
+            font-size: 13px;
+            font-weight: 500 !important;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: color 0.15s ease, background-color 0.15s ease, font-weight 0.15s ease, box-shadow 0.15s ease;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .tool-cat-btn:hover {
+            color: #0a0a0a !important;
+        }
+        /* 选中态：黑色加粗字体，白色卡片底，纯黑字高对比，绝不使用白色 */
+        .tool-cat-btn.is-active {
+            color: #0a0a0a !important;
+            font-weight: 700 !important;
+            background: #ffffff !important;
+            border-color: #e5e5e5 !important;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
+        }
+        .tool-cat-btn .tool-cat-count {
+            font-size: 11px;
+            color: #999999;
+            font-weight: normal;
+        }
+        .tool-cat-btn.is-active .tool-cat-count {
+            color: #0a0a0a !important;
+            font-weight: 700 !important;
+            opacity: 0.65;
+        }
+
+        /* 工具卡片悬停动效 */
+        .tool-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .tool-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,.08);
+            border-color: #e5e5e5;
+        }
+
+        /* 灵感链卡片悬停动效 */
+        .idea-card {
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+        .idea-card:hover {
+            background-color: #fafafa;
+            transform: translateY(-2px);
+        }
+    </style>
+    <link rel="stylesheet" href="./molan-ui.css">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-[#f5f5f5]">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- 左侧 Logo -->
+            <a href="./index.html" class="flex items-center gap-2 text-[#0a0a0a]" data-dom-id="nav-index">
+                <span class="font-['Ma_Shan_Zheng'] text-2xl">墨阑</span>
+            </a>
+
+            <!-- 桌面端导航 -->
+            <div class="hidden md:flex items-center gap-8">
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-features">功能总览</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-pricing">价格与订阅</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-docs">使用文档</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-blog">创作者手札</a>
+                <a href="#" class="text-sm text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-tools">免费工具</a>
+                <a href="#" class="text-sm px-4 py-2 border border-[#0a0a0a] rounded-full text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition-colors" data-dom-id="nav-login">登录</a>
+                <button type="button" aria-label="切换主题" class="p-2 text-[#666666] hover:text-[#0a0a0a] transition-colors">
+                    <i data-lucide="moon" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- 移动端汉堡菜单按钮 -->
+            <button type="button" class="md:hidden p-2 text-[#0a0a0a]" aria-label="打开菜单" id="mobile-menu-toggle">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </nav>
+
+        <!-- 移动端导航面板 -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-[#f5f5f5]">
+            <div class="px-4 py-4 space-y-3">
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-features">功能总览</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-pricing">价格与订阅</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-docs">使用文档</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-blog">创作者手札</a>
+                <a href="#" class="block text-base text-[#666666] hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-tools">免费工具</a>
+                <a href="#" class="block text-base text-[#0a0a0a] font-medium" data-dom-id="nav-login">登录</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 占位：固定导航栏高度，避免内容被遮挡 -->
+    <div class="h-16"></div>
+
+    <!-- 页面主内容 -->
+    <main class="tools-shell max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <!-- 顶部功能横幅：独立卡片样式，杜绝与顶部粘连 -->
+        <section class="tools-banner-card relative overflow-hidden bg-white border border-[#e5e5e5] rounded-2xl p-6 sm:p-8 mb-6 shadow-sm">
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div class="max-w-3xl">
+                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold tracking-wider text-[#16a34a] bg-[#eef7ee] border border-[#d2ead2] rounded-full uppercase">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> AI TOOLS · 创作工具箱
+                        </span>
+                        <span class="text-xs text-[#666666] flex items-center gap-1.5">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-[#16a34a]"></i> 所有工具登录后即可使用
+                        </span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-[#0a0a0a] tracking-tight mb-3">
+                        登录后即可使用完整的 AI 写作工具
+                    </h1>
+                    <p class="text-sm text-[#666666] leading-relaxed">
+                        10 款核心小工具 + 7 款开书灵感链，覆盖去 AI 味、错别字检测、命名排版、角色与节奏分析等高频创作场景。登录后即可提交内容并获得 AI 结果，让每一段文字都更干净、更自然、更有人味儿。
+                    </p>
+                </div>
+                <div class="flex flex-wrap sm:flex-nowrap md:flex-col items-stretch gap-2.5 shrink-0">
+                    <button type="button" class="hero-primary-action" data-tool="deai" data-dom-id="hero-cta-deai">
+                        <i data-lucide="wand-2" class="w-4 h-4" style="color:#4ade80 !important;"></i>
+                        <span>去 AI 味改写</span>
+                        <span class="px-1.5 py-0.5 text-[10px] bg-[#16a34a] rounded font-normal" style="background:#16a34a;color:#ffffff !important;">热门</span>
+                    </button>
+                    <a href="#tools-grid" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 border border-[#e5e5e5] hover:border-[#999] hover:bg-[#fafafa] text-[#333] rounded-xl text-xs font-medium transition-colors" data-dom-id="hero-cta-try">
+                        <i data-lucide="grid-3x3" class="w-3.5 h-3.5 text-[#666]"></i> 浏览全部工具
+                    </a>
+                    <a href="#idea-chain" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs text-[#666] hover:text-[#0a0a0a] transition-colors" data-dom-id="hero-cta-docs">
+                        <i data-lucide="book-open" class="w-3.5 h-3.5"></i> 查看开书灵感链
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- 工具筛选与即时搜索栏 -->
+        <section class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
+            <!-- 分类切换标签：黑色加粗字体，杜绝白色强调色 -->
+            <div id="toolCategoryTabs" class="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none" role="tablist">
+                <button type="button" class="tool-cat-btn is-active" data-category="all">全部工具 <span class="tool-cat-count">(18)</span></button>
+                <button type="button" class="tool-cat-btn" data-category="polish">去味与润色 <span class="tool-cat-count">(3)</span></button>
+                <button type="button" class="tool-cat-btn" data-category="clean">排版查重 <span class="tool-cat-count">(2)</span></button>
+                <button type="button" class="tool-cat-btn" data-category="naming">设定与命名 <span class="tool-cat-count">(3)</span></button>
+                <button type="button" class="tool-cat-btn" data-category="structure">结构与分析 <span class="tool-cat-count">(2)</span></button>
+                <button type="button" class="tool-cat-btn" data-category="idea">开书灵感 <span class="tool-cat-count">(7)</span></button>
+                <button type="button" class="tool-cat-btn" data-category="generator">生成器 <span class="tool-cat-count">(1)</span></button>
+            </div>
+
+            <!-- 即时搜索框 -->
+            <div class="relative w-full sm:w-72 shrink-0">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#999] pointer-events-none"></i>
+                <input id="toolSearchInput" type="search" placeholder="搜索工具名称、功能或场景..." autocomplete="off" class="w-full pl-9 pr-8 py-2 text-xs bg-white border border-[#e5e5e5] rounded-xl focus:outline-none focus:border-[#0a0a0a] transition-colors">
+                <button id="toolSearchClear" type="button" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#999] hover:text-[#0a0a0a]">✕</button>
+            </div>
+        </section>
+
+        <!-- 10 款核心在线工具 -->
+        <section id="tools-grid" class="mb-8" data-category-section="core">
+            <div class="flex items-center justify-between gap-4 mb-4">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-[#0a0a0a]">核心 AI 写作工具</h2>
+                    <span class="px-2 py-0.5 text-xs font-medium text-[#16a34a] bg-[#eef7ee] border border-[#d2ead2] rounded-full">10 款在线</span>
+                </div>
+                <p class="text-xs text-[#666666]">所有工具登录后即可使用，每日免费额度自动刷新</p>
+            </div>
+
+            <div id="coreToolsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+
+                <!-- 卡片 01：去 AI 味改写 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="polish" data-tool-key="deai" data-search-text="去 AI 味改写 deai rewrite stop slop 消除中文痕迹 拆排比 去名词化 人话">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-[#999999] font-mono">№01</span>
+                            <span class="px-2 py-0.5 text-[10px] font-semibold bg-[#16a34a] text-white rounded-full">⭐ 热门推荐</span>
+                        </div>
+                        <div class="w-8 h-8 rounded-lg bg-[#eef7ee] flex items-center justify-center">
+                            <i data-lucide="wand-2" class="w-4 h-4 text-[#16a34a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">DeAI Rewrite · v6</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">去 AI 味改写</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">把 AI 生成的生硬文字改成人话，保留原意，拆排比三件套、去名词化，让小说读起来更自然。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费 5 次/日</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">流式</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">500字/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">Stop AI Slop</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="deai" data-dom-id="tool-deai-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 02：中文错别字检测 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="polish" data-tool-key="typo" data-search-text="中文错别字检测 typo check 纠错 错字 标红 修改建议">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№02</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#eef7ee] flex items-center justify-center">
+                            <i data-lucide="spell-check" class="w-4 h-4 text-[#16a34a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">Typo Check · v3</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">中文错别字检测</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">自动扫描文本中的错别字、多字少字、形近字与常见用词错误，一键标红并给出修改建议。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费 10 次/日</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">3000字/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">快速校对</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="typo" data-dom-id="tool-typo-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 03：AI 味浓度检测 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="polish" data-tool-key="aiflavor" data-search-text="AI 味浓度检测 aiflavor flavor meter 评分 五维评分 诊断">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№03</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#eef7ee] flex items-center justify-center">
+                            <i data-lucide="gauge" class="w-4 h-4 text-[#16a34a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">AI Flavor Meter · v2</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">AI 味浓度检测</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">量化分析文本的 AI 生成特征，输出五维评分与高风险片段，帮助你有针对性地润色。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费 5 次/日</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">2000字/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">五维诊断</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="aiflavor" data-dom-id="tool-aiflavor-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 04：小说命名生成器 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="naming" data-tool-key="namer" data-search-text="小说命名生成器 novel namer 起名 书名 章节名 爆款标题">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№04</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#f5f5f5] flex items-center justify-center">
+                            <i data-lucide="book-type" class="w-4 h-4 text-[#0a0a0a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">Novel Namer · v4</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">小说命名生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">根据题材、风格与核心梗，批量生成吸睛书名与章节名，支持网文平台爆款标题风格。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费无限</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">10 个/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">爆款标题</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="namer" data-dom-id="tool-namer-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 05：排版清洗 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="clean" data-tool-key="format" data-search-text="排版清洗 format cleaner 清理空行 标点 缩进 网文排版">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№05</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#f5f5f5] flex items-center justify-center">
+                            <i data-lucide="align-left" class="w-4 h-4 text-[#0a0a0a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">Format Cleaner · v3</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">排版清洗</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">自动清理复制粘贴带来的多余空行、乱码符号、段首空格与不规则缩进，恢复干净排版。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费无限</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">5000字/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">一键规整</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="format" data-dom-id="tool-format-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 06：重复内容检测 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="clean" data-tool-key="duplicate" data-search-text="重复内容检测 duplicate finder 查重 水字数 重复句式 高频词">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№06</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#f5f5f5] flex items-center justify-center">
+                            <i data-lucide="copy-x" class="w-4 h-4 text-[#0a0a0a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">Duplicate Finder · v2</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">重复内容检测</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">识别章节内的重复句式、高频副词与近义表达，避免水字数，让叙事更紧凑有力。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费 5 次/日</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">3000字/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">脱水去重</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="duplicate" data-dom-id="tool-duplicate-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 07：章节标题生成器 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="naming" data-tool-key="chaptertitle" data-search-text="章节标题生成器 chapter title gen 悬念 节奏 抓人眼球">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№07</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#f5f5f5] flex items-center justify-center">
+                            <i data-lucide="heading" class="w-4 h-4 text-[#0a0a0a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">Chapter Title Gen · v5</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">章节标题生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">输入章节剧情概要，自动生成悬念感强、节奏明快的章节标题，提升读者点击率。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费 8 次/日</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">5 个/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">悬念钩子</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="chaptertitle" data-dom-id="tool-chaptertitle-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 08：角色设定生成器 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="naming" data-tool-key="charactercard" data-search-text="角色设定生成器 character card gen 人设 性格 动机 人物卡">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№08</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#f5f5f5] flex items-center justify-center">
+                            <i data-lucide="user-circle" class="w-4 h-4 text-[#0a0a0a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">Character Card Gen · v4</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">角色设定生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">从一句话人设到完整角色卡，包含外貌、性格、动机、关系线与成长弧光，快速丰满人物。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费 5 次/日</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">完整卡/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">深度人设</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="charactercard" data-dom-id="tool-charactercard-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 09：书籍简介生成器 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="structure" data-tool-key="blurb" data-search-text="书籍简介生成器 blurb gen 梗概 爽点 钩子 起点 晋江 文案">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№09</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#f5f5f5] flex items-center justify-center">
+                            <i data-lucide="notebook-pen" class="w-4 h-4 text-[#0a0a0a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">Blurb Gen · v3</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">书籍简介生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">根据故事梗概生成多版书籍简介，自动突出爽点、钩子与情绪张力，适配起点、晋江等平台。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费 5 次/日</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">3 版/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">吸睛文案</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="blurb" data-dom-id="tool-blurb-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+                <!-- 卡片 10：爽点节奏分析 -->
+                <article class="tool-card group relative p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl flex flex-col transition-all shadow-sm hover:shadow" data-category="structure" data-tool-key="beat" data-search-text="爽点节奏分析 beat analyzer 节拍表 情绪曲线 拖沓 高潮 转折">
+                    <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[#999999] font-mono">№10</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#f5f5f5] flex items-center justify-center">
+                            <i data-lucide="activity" class="w-4 h-4 text-[#0a0a0a]"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] tracking-wider text-[#999999] uppercase mb-1">Beat Analyzer · v2</p>
+                    <h3 class="text-base font-bold text-[#0a0a0a] mb-1.5 group-hover:text-[#16a34a] transition-colors">爽点节奏分析</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed mb-4 flex-1">分析章节情绪曲线与爽点分布，标注拖沓、高潮与转折位置，优化网文阅读快感与留存。</p>
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">免费 3 次/日</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">节拍表</span>
+                        <span class="px-2 py-0.5 text-[10px] bg-[#f5f5f5] text-[#666666] rounded">3000字/次</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-3 border-t border-[#f0f0f0] mt-auto">
+                        <span class="text-xs text-[#999]">节拍曲线</span>
+                        <a href="#" class="inline-flex items-center gap-1 px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg text-xs font-medium transition-colors" data-tool="beat" data-dom-id="tool-beat-try">
+                            立即体验 <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                        </a>
+                    </div>
+                </article>
+
+            </div>
+        </section>
+
+        <!-- AI 小说生成器总入口 (旗舰生成器) -->
+        <section id="generatorSection" class="mb-8" data-category-section="generator">
+            <a href="#" class="tool-card group block relative overflow-hidden p-6 sm:p-8 bg-[#171c17] text-white border border-[#263328] rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer" data-category="generator" data-tool="novel" data-dom-id="hub-novel-generator" data-search-text="AI 小说生成器 hub novel generator 总入口 正文生成 一站式 写作工作流">
+                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-radial from-[#16a34a]/20 to-transparent rounded-full pointer-events-none"></div>
+                <div class="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <div class="max-w-2xl">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-[#4ade80] bg-[#16a34a]/20 border border-[#16a34a]/40 rounded-full uppercase">
+                                HUB Novel Generator · 旗舰总入口
+                            </span>
+                        </div>
+                        <h2 class="text-xl sm:text-2xl font-bold text-white mb-2 group-hover:text-[#4ade80] transition-colors">
+                            AI 小说生成器
+                        </h2>
+                        <p class="text-xs sm:text-sm text-[#a0aaa0] leading-relaxed">
+                            从灵感、大纲、角色、对话到正文的一站式 AI 写作工作流。无需在多个工具间跳转，一个入口即可开启你的整本小说创作。
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span class="text-xs font-semibold text-white group-hover:text-[#4ade80] transition-colors">进入总入口</span>
+                        <span class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-white/10 group-hover:bg-[#16a34a] text-white transition-colors">
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </section>
+
+        <!-- 开书灵感链 -->
+        <section id="idea-chain" class="mb-8" data-category-section="idea">
+            <div class="flex items-center justify-between gap-4 mb-4">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-[#0a0a0a]">开书灵感链</h2>
+                    <span class="px-2 py-0.5 text-xs font-medium text-[#666666] bg-[#eef2ed] border border-[#d8e0d7] rounded-full">7 款灵感工具</span>
+                </div>
+                <p class="text-xs text-[#666666] hidden sm:block">从 0 到 1 搭建新书：世界观、金手指、大纲与开篇全链路梳理</p>
+            </div>
+
+            <div id="ideaToolsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+
+                <!-- 01: 小说大纲生成器 -->
+                <a href="#" class="idea-card group p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl transition-all shadow-sm hover:shadow flex flex-col cursor-pointer" data-category="idea" data-tool="idea_outline" data-dom-id="idea-outline" data-search-text="小说大纲生成器 三级大纲 outline 三幕式 扩写 架构">
+                    <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f5f5f5] mb-3 group-hover:bg-[#0a0a0a] group-hover:text-white transition-colors">
+                        <i data-lucide="list-tree" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-[#0a0a0a] mb-1 group-hover:text-[#16a34a] transition-colors">小说大纲生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed flex-1">一句话故事扩写成可执行的三幕式三级大纲。</p>
+                    <div class="pt-3 border-t border-[#f0f0f0] mt-3 flex items-center justify-between text-xs text-[#16a34a]">
+                        <span>生成大纲</span>
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </div>
+                </a>
+
+                <!-- 02: 世界观生成器 -->
+                <a href="#" class="idea-card group p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl transition-all shadow-sm hover:shadow flex flex-col cursor-pointer" data-category="idea" data-tool="idea_world" data-dom-id="idea-world" data-search-text="世界观生成器 world 力量规则 势力 背景 设定框架">
+                    <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f5f5f5] mb-3 group-hover:bg-[#0a0a0a] group-hover:text-white transition-colors">
+                        <i data-lucide="globe" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-[#0a0a0a] mb-1 group-hover:text-[#16a34a] transition-colors">世界观生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed flex-1">快速搭建力量规则、势力与时代历史背景。</p>
+                    <div class="pt-3 border-t border-[#f0f0f0] mt-3 flex items-center justify-between text-xs text-[#16a34a]">
+                        <span>生成设定</span>
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </div>
+                </a>
+
+                <!-- 03: 金手指生成器 -->
+                <a href="#" class="idea-card group p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl transition-all shadow-sm hover:shadow flex flex-col cursor-pointer" data-category="idea" data-tool="idea_cheat" data-dom-id="idea-cheat" data-search-text="金手指生成器 cheat 能力 外挂 代价 系统 爽点">
+                    <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f5f5f5] mb-3 group-hover:bg-[#0a0a0a] group-hover:text-white transition-colors">
+                        <i data-lucide="zap" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-[#0a0a0a] mb-1 group-hover:text-[#16a34a] transition-colors">金手指生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed flex-1">为主角定制有张力、带使用代价的外挂能力。</p>
+                    <div class="pt-3 border-t border-[#f0f0f0] mt-3 flex items-center justify-between text-xs text-[#16a34a]">
+                        <span>定制能力</span>
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </div>
+                </a>
+
+                <!-- 04: 力量体系生成器 -->
+                <a href="#" class="idea-card group p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl transition-all shadow-sm hover:shadow flex flex-col cursor-pointer" data-category="idea" data-tool="idea_power" data-dom-id="idea-power" data-search-text="力量体系生成器 power 境界 等级 升级 晋升 规则漏洞">
+                    <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f5f5f5] mb-3 group-hover:bg-[#0a0a0a] group-hover:text-white transition-colors">
+                        <i data-lucide="layers" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-[#0a0a0a] mb-1 group-hover:text-[#16a34a] transition-colors">力量体系生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed flex-1">设计严密境界、升级条件与等级对照表。</p>
+                    <div class="pt-3 border-t border-[#f0f0f0] mt-3 flex items-center justify-between text-xs text-[#16a34a]">
+                        <span>搭建体系</span>
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </div>
+                </a>
+
+                <!-- 05: 小说开头生成器 -->
+                <a href="#" class="idea-card group p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl transition-all shadow-sm hover:shadow flex flex-col cursor-pointer" data-category="idea" data-tool="idea_opening" data-dom-id="idea-opening" data-search-text="小说开头生成器 opening 黄金三章 开篇 困境 吸引读者">
+                    <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f5f5f5] mb-3 group-hover:bg-[#0a0a0a] group-hover:text-white transition-colors">
+                        <i data-lucide="book-open" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-[#0a0a0a] mb-1 group-hover:text-[#16a34a] transition-colors">小说开头生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed flex-1">黄金三章开篇方案，快速切入困境吸引读者。</p>
+                    <div class="pt-3 border-t border-[#f0f0f0] mt-3 flex items-center justify-between text-xs text-[#16a34a]">
+                        <span>构思开篇</span>
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </div>
+                </a>
+
+                <!-- 06: 小说对话生成器 -->
+                <a href="#" class="idea-card group p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl transition-all shadow-sm hover:shadow flex flex-col cursor-pointer" data-category="idea" data-tool="idea_dialogue" data-dom-id="idea-dialogue" data-search-text="小说对话生成器 dialogue 名场面 对白 潜台词 冲突">
+                    <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f5f5f5] mb-3 group-hover:bg-[#0a0a0a] group-hover:text-white transition-colors">
+                        <i data-lucide="message-square" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-[#0a0a0a] mb-1 group-hover:text-[#16a34a] transition-colors">小说对话生成器</h3>
+                    <p class="text-xs text-[#666666] leading-relaxed flex-1">让角色口吻鲜明，带潜台词与冲突推进名场面。</p>
+                    <div class="pt-3 border-t border-[#f0f0f0] mt-3 flex items-center justify-between text-xs text-[#16a34a]">
+                        <span>生成对话</span>
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </div>
+                </a>
+
+                <!-- 07: 发布前检查清单 (双栏扩展卡片) -->
+                <a href="#" class="idea-card group p-5 bg-white border border-[#e5e5e5] hover:border-[#0a0a0a] rounded-2xl transition-all shadow-sm hover:shadow flex flex-col sm:col-span-2 lg:col-span-2 cursor-pointer" data-category="idea" data-tool="idea_checklist" data-dom-id="idea-checklist" data-search-text="发布前检查清单 checklist 自查 体检 简介 标题 节奏 审核">
+                    <div class="flex items-start gap-4 flex-1">
+                        <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f5f5f5] shrink-0 group-hover:bg-[#0a0a0a] group-hover:text-white transition-colors">
+                            <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-[#0a0a0a] mb-1 group-hover:text-[#16a34a] transition-colors">发布前检查清单</h3>
+                            <p class="text-xs text-[#666666] leading-relaxed">从简介、标题、错别字到节奏做全面体检，逐项核对，确保上传前不遗漏关键细节。</p>
+                        </div>
+                    </div>
+                    <div class="pt-3 border-t border-[#f0f0f0] mt-3 flex items-center justify-between text-xs text-[#16a34a]">
+                        <span>开始体检核对</span>
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </div>
+                </a>
+
+            </div>
+        </section>
+
+        <!-- 搜索无结果提示 -->
+        <div id="toolsEmptyState" class="hidden py-14 text-center bg-white border border-[#e5e5e5] rounded-2xl mb-8">
+            <div class="w-12 h-12 mx-auto rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#999] mb-3">
+                <i data-lucide="search-x" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-sm font-bold text-[#0a0a0a] mb-1">未找到匹配的工具</h3>
+            <p class="text-xs text-[#666] mb-4">请尝试更换关键词，或切换分类标签</p>
+            <button id="toolsResetFilterBtn" type="button" class="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg text-xs font-medium hover:bg-[#262626] transition-colors cursor-pointer">
+                显示全部工具
+            </button>
+        </div>
+    </main>
+
+
+
+    <!-- 脚本：Lucide 图标渲染与移动端菜单切换 -->
+    <script>
+        /**
+         * 渲染所有 Lucide 图标
+         */
+        lucide.createIcons();
+
+        /**
+         * 移动端汉堡菜单切换逻辑
+         */
+        (function () {
+            const toggle = document.getElementById('mobile-menu-toggle');
+            const menu = document.getElementById('mobile-menu');
+            if (!toggle || !menu) return;
+
+            toggle.addEventListener('click', function () {
+                menu.classList.toggle('hidden');
+            });
+        })();
+
+        /**
+         * 工具即时搜索与分类筛选交互
+         */
+        (function () {
+            const searchInput = document.getElementById('toolSearchInput');
+            const searchClear = document.getElementById('toolSearchClear');
+            const catButtons = document.querySelectorAll('.tool-cat-btn');
+            const emptyState = document.getElementById('toolsEmptyState');
+            const resetBtn = document.getElementById('toolsResetFilterBtn');
+            const coreSection = document.getElementById('tools-grid');
+            const genSection = document.getElementById('generatorSection');
+            const ideaSection = document.getElementById('idea-chain');
+            const allCards = document.querySelectorAll('#tools-grid .tool-card, #generatorSection .tool-card, #idea-chain .idea-card');
+
+            let currentCategory = 'all';
+            let currentSearch = '';
+
+            function applyFilter() {
+                let visibleCount = 0;
+                let visibleCore = 0;
+                let visibleGen = 0;
+                let visibleIdea = 0;
+
+                allCards.forEach(function (card) {
+                    const cardCat = card.getAttribute('data-category') || '';
+                    const searchSource = (card.getAttribute('data-search-text') || card.textContent || '').toLowerCase();
+                    
+                    let catMatch = false;
+                    if (currentCategory === 'all') {
+                        catMatch = true;
+                    } else if (currentCategory === cardCat) {
+                        catMatch = true;
+                    }
+
+                    let searchMatch = true;
+                    if (currentSearch) {
+                        searchMatch = searchSource.includes(currentSearch);
+                    }
+
+                    const isMatch = catMatch && searchMatch;
+                    card.style.display = isMatch ? '' : 'none';
+
+                    if (isMatch) {
+                        visibleCount++;
+                        if (card.closest('#tools-grid')) visibleCore++;
+                        else if (card.closest('#generatorSection')) visibleGen++;
+                        else if (card.closest('#idea-chain')) visibleIdea++;
+                    }
+                });
+
+                if (coreSection) coreSection.style.display = visibleCore > 0 ? '' : 'none';
+                if (genSection) genSection.style.display = visibleGen > 0 ? '' : 'none';
+                if (ideaSection) ideaSection.style.display = visibleIdea > 0 ? '' : 'none';
+
+                if (emptyState) {
+                    if (visibleCount === 0) emptyState.classList.remove('hidden');
+                    else emptyState.classList.add('hidden');
+                }
+
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', function () {
+                    currentSearch = this.value.trim().toLowerCase();
+                    if (searchClear) {
+                        if (currentSearch) searchClear.classList.remove('hidden');
+                        else searchClear.classList.add('hidden');
+                    }
+                    applyFilter();
+                });
+            }
+
+            if (searchClear) {
+                searchClear.addEventListener('click', function () {
+                    if (searchInput) {
+                        searchInput.value = '';
+                        currentSearch = '';
+                        searchClear.classList.add('hidden');
+                        applyFilter();
+                        searchInput.focus();
+                    }
+                });
+            }
+
+            if (catButtons && catButtons.length) {
+                catButtons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        catButtons.forEach(function (b) {
+                            b.classList.remove('is-active');
+                        });
+                        this.classList.add('is-active');
+                        currentCategory = this.getAttribute('data-category') || 'all';
+                        applyFilter();
+                    });
+                });
+            }
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function () {
+                    currentCategory = 'all';
+                    currentSearch = '';
+                    if (searchInput) searchInput.value = '';
+                    if (searchClear) searchClear.classList.add('hidden');
+                    catButtons.forEach(function (b) {
+                        if (b.getAttribute('data-category') === 'all') {
+                            b.classList.add('is-active');
+                        } else {
+                            b.classList.remove('is-active');
+                        }
+                    });
+                    applyFilter();
+                });
+            }
+        })();
+    </script>
+    <script src="./diffchecker.js"></script>
+    <script src="./site.js"></script>
+    <script src="./account.js"></script>
+    <script src="./molan-shell.js"></script>
+</body>
+</html>

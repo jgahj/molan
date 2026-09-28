@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>玄幻盲测 · 墨阑</title>
+  <link rel="stylesheet" href="/pages/xuanhuan-blind.css">
+  <script src="/pages/xuanhuan-blind.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="/index.html#creation">墨阑 <span> / 玄幻写作实验室</span></a><span class="badge">作者盲评 · 第一阶段</span></header>
+  <main>
+    <section class="hero"><div><p class="eyebrow">READ FIRST. JUDGE BLIND.</p><h1>好不好看，由你来定。</h1><p class="lead">同一道题，四种写法。先读正文，再评分；全部提交后才揭晓方案。<br>不拿文风统计分冒充文学质量，不替你宣判哪篇更好。</p></div><div class="corpus" id="corpus">正在读取玄幻语料库…</div></section>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <section class="setup panel">
+      <div class="section-title"><h2>01 / 准备一轮盲测</h2><button type="button" id="full-protocol" class="text-button">选择完整30题</button><span>原小说只读 · 结果保存在服务端</span></div>
+      <form id="create-form">
+        <div class="fields">
+          <label>测试模式<select name="kind" id="kind"><option value="scenes">独立场景对照</option><option value="serial">连续十章 · 四条独立分支</option></select></label>
+          <label>题目数量<select name="count" id="count"><option value="3">3题 · 先校准标准</option><option value="10">10题 · 扩大验证</option><option value="30">30题 · 完整第一轮</option></select></label>
+          <label>每份目标字数<select name="targetLength"><option value="1200">1200字</option><option value="1500" selected>1500字</option><option value="2000">2000字</option></select></label>
+          <label>精读叙事路线<select name="narrativeRoute" id="narrativeRoute">
+            <option value="auto">智能适配（按题匹配双书机理）</option>
+            <option value="yuanshi">《元始法则》飞天鱼·硬朗秩序与危机担当</option>
+            <option value="jianzhu">《剑烛大荒》乌贼·细腻世俗与对白博弈</option>
+          </select></label>
+          <label>写作模型<select name="modelId" id="model" required><option value="">读取中…</option></select></label>
+          <label>评审模型<select name="judgeModelId" id="judge" required><option value="">读取中…</option></select></label>
+        </div>
+        <p class="muted" id="estimate">本轮使用真实模型，费用进入原有账单。首次建议3题。</p>
+        <div class="form-bottom"><label class="consent"><input type="checkbox" required> 我确认启动真实生成，并接受页面列出的调用次数上限；不是免费的预置范文。</label><button class="primary" id="create" type="submit">生成匿名稿件 <span>↗</span></button></div>
+      </form>
+      <details><summary>测试协议与边界</summary><p>四方案：旧规则对照、精简约束、技法与场景规划、证据评审后局部修订。旧规则对照不是完整创书流水线复刻。独立场景中修订组复用场景组初稿以隔离修订收益；无有效修订时两稿可能相同。所有方案使用相同写作模型。统计特征不参与盲测排名。</p><p>参考库按作者与留出集隔离；场景窗口为规则候选，尚需作者校准。连续模式每条分支有独立的世界事实、人物认知和读者信息账本。模型评审不是人类质量证明。</p><p>刷新页面不终止服务端任务；重启服务后需手动恢复。未保存响应的模型调用可能重复计费，不承诺跨进程恰好一次。30题仅用于首轮筛选，不足以宣称达到整本精品水平。</p></details>
+    </section>
+    <section class="workspace">
+      <aside class="panel"><div class="section-title"><h2>02 / 测试记录</h2><button id="refresh" class="text-button">刷新</button></div><div id="jobs" class="job-list">还没有测试记录</div></aside>
+      <section class="panel reading-panel">
+        <div id="empty" class="empty"><span>墨</span><h2>把方案藏起来，把文字留下来。</h2><p>选择测试记录，或创建第一轮匿名稿件。</p></div>
+        <div id="reader" hidden>
+          <div class="section-title"><h2 id="job-title">匿名阅读</h2><span id="progress"></span></div>
+          <div class="job-actions"><button id="resume">恢复生成</button><button id="cancel">停止生成</button><button id="reveal">全部评分后揭晓</button><button id="export" hidden>导出评分与偏好数据</button></div>
+          <p class="muted" id="job-status"></p>
+          <div id="case-body" hidden>
+            <div class="case-nav"><button id="previous">← 上一题</button><select id="case-select" aria-label="选择题目"></select><button id="next">下一题 →</button></div>
+            <details class="task" open><summary id="case-title">本题任务</summary><p id="case-prompt"></p></details>
+            <div id="tabs" class="tabs" role="tablist" aria-label="匿名稿件"></div>
+            <article id="prose" class="prose" tabindex="0"></article>
+            <div id="method" class="method" hidden></div>
+            <div class="rubric"><h3>这一份读起来怎样？</h3><p class="muted">1 很弱 · 2 较弱 · 3 可读但需修改 · 4 明显不错 · 5 愿意追读。请独立判断，不以长短或华丽程度代替质量。</p><div id="ratings"></div></div>
+            <form id="vote-form"><div class="vote-row"><label>本题整体选择<select id="winner" required><option value="">四份读完后选择</option><option>A</option><option>B</option><option>C</option><option>D</option><option value="tie">难分高下</option><option value="neither">都不满意</option></select></label><label class="reason">为什么？最想改哪里？<textarea id="reason" rows="2" maxlength="3000" placeholder="可记下具体句子、人物行为或读不下去的位置"></textarea></label></div><button class="primary" id="submit-vote">提交本题并继续</button><p class="muted">提交前可来回比较。原始盲评提交后不可覆盖，避免揭晓影响评分。</p></form>
+          </div>
+          <div id="report" hidden></div>
+        </div>
+      </section>
+    </section>
+    <section class="panel" style="margin-top:24px"><details id="benchmark-section"><summary>03 / 留出范文标尺 · 独立评分，不当作同题胜率</summary><p>这些片段没有进入本轮技法检索。可在完成生成稿盲评后，以同一套六维标准给出参考评分。来源标题在全部参照评分完成后显示；原文中的专名可能让熟悉作品的读者认出来源。</p><button id="load-benchmarks" type="button">加载留出参照</button><p id="benchmark-status" class="muted" aria-live="polite"></p><div id="benchmark-body" hidden><select id="benchmark-select" aria-label="参照片段"></select><article id="benchmark-prose" class="prose"></article><div id="benchmark-ratings"></div><button id="benchmark-vote" class="primary" type="button">保存参照评分</button><p id="benchmark-source" class="muted"></p></div></details></section>
+    <footer>玄幻精选语料 → 场景技法 → 原创正文 → 人工盲评。训练尚未开启，导出偏好不等于授权训练。</footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light" data-theme="light">
+<head>
+    <script>
+      (function () {
+        var target = new URL('../index.html', window.location.href);
+        var params = new URLSearchParams(window.location.search);
+        target.search = window.location.search;
+        target.hash = params.get('panel') === 'resources'
+          ? 'resources'
+          : params.get('panel') === 'sheji'
+            ? 'knowledge'
+            : params.get('tab') === 'outline'
+              ? 'outline'
+              : 'editor';
+        if (target.href !== window.location.href) window.location.replace(target.href);
+      }());
+    </script>
+    <link rel="stylesheet" href="./account.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>墨阑 · 小说编辑器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>📝</text></svg>">
+    <style>
+      /* 深色主题：覆盖设计令牌，使主编辑区随之变暗（侧栏本身为常驻深色） */
+      html.dark { --ml-background:#1b1b1d; --ml-foreground:#e8e8e8; --ml-card:#242427; --ml-border:#3a3a3e; --ml-muted:#bfc4cc; --ml-primary:#f0f0f0; --ml-banner:#2a2620; }
+      html.dark .editor-page { background: var(--ml-background); color: var(--ml-foreground); }
+      html.dark .editor-main-area,
+      html.dark .tab-view[data-view="chat"],
+      html.dark .tv-card,
+      html.dark .editor-right-panel,
+      html.dark .editor-ai,
+      html.dark .chat-content,
+      html.dark .immersive-content,
+      html.dark .ai-recent,
+      html.dark .plot-card { background: var(--ml-card) !important; color: var(--ml-foreground); border-color: var(--ml-border) !important; }
+      html.dark .editor-content, html.dark .immersive-editor { color: var(--ml-foreground); }
+      html.dark .editor-content p, html.dark .immersive-editor p { color: var(--ml-foreground); }
+      html.dark .editor-toolbar, html.dark .editor-topbar { background: #1f1f22; border-color: var(--ml-border); }
+      html.dark .set-row__label, html.dark .outline-label, html.dark .ctx-label, html.dark .tv-header__title, html.dark .rp-section__title { color: var(--ml-muted); }
+      html.dark .chat-msg--user, html.dark .ai-chat-msg--user { background: #363632; color: #f2f2ed; }
+      html.dark .ai-msg--bot, html.dark .chat-msg--bot, html.dark .ai-chat-msg--bot { background: #262629; color: #e2e2dc; }
+    </style>
+    <style id="theme-vars">
+/* Maliang Writer 1:1 Restore - Color & Typography Tokens */
+
+:root {
+  /* sampled: page background gradient top */
+  --ml-background: #fafafa;
+  /* sampled: page background gradient bottom */
+  --ml-foreground: #111111;
+  /* sampled: card surfaces */
+  --ml-card: #ffffff;
+  /* sampled: primary action buttons */
+  --ml-primary: #111111;
+  /* sampled: subtle borders */
+  --ml-border: #e5e5e5;
+  /* sampled: muted text */
+  --ml-muted: #4b5563;
+  /* sampled: announcement banner background */
+  --ml-banner: #f7f3ed;
+  /* sampled: accent gold/yellow for icons */
+  --ml-accent: #f59e0b;
+  /* sampled: input placeholder */
+  --ml-placeholder: #6b7280;
+
+  --ml-radius-sm: 6px;
+  --ml-radius-md: 12px;
+  --ml-radius-lg: 24px;
+
+  /* Typography */
+  --ml-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ml-font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+}
+
+    </style>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style>
+      /* 基础排版（原 Tailwind @layer base，已内联以支持离线运行） */
+      body { background: var(--ml-background); color: var(--ml-foreground); }
+      td, th { overflow-wrap: break-word; word-break: break-all; word-break: auto-phrase; }
+      th { white-space: nowrap; }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <link rel="stylesheet" href="styles.css?v=reasoning-control-2">
+    <link rel="stylesheet" href="molan-ui.css">
+</head>
+<body class="editor-migrated">
+  <main class="editor-page">
+
+    <!-- macOS traffic lights -->
+    <div class="traffic-lights" aria-hidden="true">
+      <span class="tl-red"></span>
+      <span class="tl-yellow"></span>
+      <span class="tl-green"></span>
+    </div>
+
+    <!-- Region 1 · Top Bar (48px) -->
+    <header class="editor-topbar">
+      <div class="topbar-left">
+        <button class="editor-icon-btn is-back" id="sidebarToggle" aria-label="收起/展开章节目录" title="收起/展开侧栏">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </button>
+        <button class="editor-icon-btn" id="backBtn" aria-label="返回" title="返回">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          <span class="editor-back-label">返回</span>
+        </button>
+        <button class="editor-icon-btn" id="libBtn" aria-label="我的文库" title="我的文库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        </button>
+      </div>
+      <div class="topbar-center">
+        <h1 class="editor-topbar__title">未命名小说</h1>
+        <span class="editor-topbar__save">
+          <span class="save-dot"></span>
+          已保存
+        </span>
+      </div>
+      <div class="topbar-right">
+        <button class="editor-icon-btn molan-editor-account" id="editorAccount" data-molan-account type="button" aria-label="登录" title="登录">登录</button>
+        <button class="editor-icon-btn" id="shareBtn" aria-label="分享" title="分享">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </button>
+        <button class="editor-icon-btn" id="moreBtn" aria-label="更多" title="更多">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        </button>
+        <button class="editor-icon-btn" id="settingsBtn" aria-label="设置" title="设置">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <div class="editor-menu" id="moreMenu">
+          <button class="editor-menu__item" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            保存草稿
+          </button>
+          <button class="editor-menu__item" type="button" data-act="chapter-settings">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            章节设置
+          </button>
+          <button class="editor-menu__item" type="button" data-act="export-novel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            导出正文
+          </button>
+          <button class="editor-menu__item" type="button" data-act="delete-chapter">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            删除章节
+          </button>
+          <div class="editor-menu__sep"></div>
+          <button class="editor-menu__item" type="button" data-act="export-lib">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            导出文库（全部）
+          </button>
+          <button class="editor-menu__item" type="button" data-act="import-lib">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            导入文库（全部）
+          </button>
+          <button class="editor-menu__item" type="button" data-act="import-novel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+            导入小说（TXT/MD）
+          </button>
+          <button class="editor-menu__item" type="button" data-act="consistency">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            一致性校验（吃书检测）
+          </button>
+          <button class="editor-menu__item" type="button" data-act="correction">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            纠错库审校（正文复核）
+          </button>
+          <button class="editor-menu__item" type="button" data-act="inspirations">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+            灵感卡片
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Region 2 · Editor Toolbar (40px, tabs) -->
+    <nav class="editor-toolbar no-scrollbar" id="editorToolbar">
+      <button class="editor-tab" type="button" data-tab="outline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        大纲
+      </button>
+      <button class="editor-tab" type="button" data-tab="timeline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+        故事画布
+      </button>
+      <button class="editor-tab is-active" type="button" data-tab="writing">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        写作
+      </button>
+      <button class="editor-tab" type="button" data-tab="immersive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        沉浸模式
+      </button>
+      <button class="editor-tab" type="button" data-tab="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        设置
+      </button>
+      <button class="editor-tab" type="button" data-tab="ai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+        AI辅助
+      </button>
+      <button class="editor-tab" type="button" data-tab="plot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        剧情推演
+      </button>
+      <button class="editor-tab" type="button" data-tab="chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        聊天
+      </button>
+      <div class="toolbar-spacer"></div>
+      <button class="toolbar-right-btn" type="button" id="historyBtn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+        历史版本
+      </button>
+    </nav>
+
+    <!-- Region 3 · Three-Column Layout -->
+    <div class="editor-main">
+
+      <!-- LEFT COLUMN · Chapter Sidebar (240px, dark) -->
+      <aside class="editor-sidebar" id="sidebar" aria-label="编辑器辅助面板">
+        <div class="sidebar-header">
+          <h3 class="sidebar-header__title">未命名小说</h3>
+          <div class="sidebar-header__actions">
+            <button class="sidebar-icon-btn" aria-label="搜索章节" title="搜索">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+            <button class="sidebar-icon-btn" aria-label="更多操作" title="更多">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="sidebar-tabs" id="sidebarTabs">
+          <button class="sidebar-tab" type="button" data-tab="sheji">设定集</button>
+          <button class="sidebar-tab" type="button" data-tab="resources">资源</button>
+          <button class="sidebar-tab" type="button" data-tab="foreshadow">伏笔</button>
+          <button class="sidebar-tab" type="button" data-tab="dagang">大纲</button>
+          <button class="sidebar-tab is-active" type="button" data-tab="xigang">章节目录</button>
+          <button class="sidebar-tab" type="button" data-tab="ai">AI续写</button>
+          <button class="sidebar-tab" type="button" data-tab="aidetect">AI检测</button>
+          <button class="sidebar-tab" type="button" data-tab="recycle">回收站</button>
+          <button class="sidebar-tab" type="button" data-tab="search">搜索替换</button>
+        </div>
+        <div class="sidebar-view is-active" id="sbXigang">
+        <div class="chapter-directory ml-scroll ml-scroll-dark" id="chapterDirectory">
+          <div class="chapter-volume" id="vol1">
+            <svg class="vol-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg class="vol-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span>第一卷</span>
+          </div>
+          <ul class="chapter-list" id="chapterList">
+            <li class="chapter-item" data-chapter="1">
+              <div class="chapter-row">
+                <svg class="ch-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="ch-doc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span class="chapter-title">第1章 — 重生归来：轮回之道初现锋芒</span>
+                <span class="chapter-meta">4406字</span>
+              </div>
+              <ul class="chapter-scenes">
+                <li class="scene-row"><span class="scene-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="scene-name">场景一：场景1</span></li>
+                <li class="scene-row"><span class="scene-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="scene-name">力量爆发：天灵根</span></li>
+                <li class="scene-row"><span class="scene-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="scene-name">力量觉醒：全力挽回</span></li>
+              </ul>
+            </li>
+            <li class="chapter-item" data-chapter="2">
+              <div class="chapter-row">
+                <svg class="ch-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="ch-doc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span class="chapter-title">第2章 — 初露峥嵘：苍云宗内的首次交锋</span>
+                <span class="chapter-meta">5093字</span>
+              </div>
+              <ul class="chapter-scenes">
+                <li class="scene-row"><span class="scene-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="scene-name">反派的力量宣告</span></li>
+                <li class="scene-row"><span class="scene-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="scene-name">总线设计</span></li>
+                <li class="scene-row"><span class="scene-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="scene-name">台词金句</span></li>
+              </ul>
+            </li>
+            <li class="chapter-item is-current" data-chapter="3">
+              <div class="chapter-row">
+                <svg class="ch-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="ch-doc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span class="chapter-title">第3章</span>
+                <span class="chapter-meta">10039字</span>
+              </div>
+              <ul class="chapter-scenes">
+                <li class="scene-row is-active"><span class="scene-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="scene-name">场景一：场景1</span></li>
+                <li class="scene-row"><span class="scene-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="scene-name">场景二：场景2</span></li>
+              </ul>
+            </li>
+          </ul>
+          <button class="chapter-add" id="chapterAdd" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            新章节
+          </button>
+        </div>
+        <div class="toolbar sidebar-toolbar">
+          <button class="toolbar__btn" type="button" title="添加Act">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            添加Act
+          </button>
+          <button class="toolbar__btn" type="button" title="编辑大纲">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            编辑大纲
+          </button>
+          <button class="toolbar__btn" type="button" title="筛选">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            筛选
+          </button>
+          <button class="toolbar__btn" type="button" title="选项">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="10"/></svg>
+            选项
+          </button>
+        </div>
+        </div><!-- /sbXigang -->
+        <div class="sidebar-view" id="sbDagang"><div class="sidebar-view__pad" id="sbDagangBody"></div></div>
+        <div class="sidebar-view" id="sbSheji"><div class="sidebar-view__pad" id="sbShejiBody"></div></div>
+        <div class="sidebar-view" id="sbResources"><div class="sidebar-view__pad" id="sbResourcesBody"></div></div>
+        <div class="sidebar-view" id="sbForeshadow"><div class="sidebar-view__pad" id="sbForeshadowBody"></div></div>
+        <div class="sidebar-view" id="sbAI"><div class="sidebar-view__pad" id="sbAIBody"></div></div>
+
+        <!-- AI检测历史视图 -->
+        <div class="sidebar-view" id="sbAIDetect">
+          <div class="sidebar-view__pad" id="sbAIDetectBody">
+            <div class="sidebar-empty-hint">暂无AI调用记录</div>
+          </div>
+        </div>
+
+        <!-- 回收站视图 -->
+        <div class="sidebar-view" id="sbRecycle">
+          <div class="sidebar-view__pad" id="sbRecycleBody">
+            <div class="sidebar-empty-hint">回收站为空</div>
+          </div>
+        </div>
+
+        <!-- 搜索替换视图 -->
+        <div class="sidebar-view" id="sbSearch">
+          <div class="sidebar-view__pad">
+            <div class="search-replace-panel">
+              <div class="sr-field">
+                <input type="text" class="sr-input" id="srSearch" placeholder="搜索内容..." />
+              </div>
+              <div class="sr-field">
+                <input type="text" class="sr-input" id="srReplace" placeholder="替换为..." />
+              </div>
+              <div class="sr-options">
+                <label class="sr-check"><input type="checkbox" id="srCaseSensitive" /> 区分大小写</label>
+                <span class="sr-count" id="srCount">0 / 0</span>
+              </div>
+              <div class="sr-scope-row"><select id="srScope" aria-label="搜索范围"><option value="chapter">当前章节</option><option value="book">全书正文</option><option value="resources">设定与资料</option><option value="all">全部资源</option></select><select id="srMode" aria-label="搜索模式"><option value="keyword">关键词</option><option value="related">相关匹配</option></select></div>
+              <div class="sr-results" id="srResults"></div>
+              <div class="sr-buttons">
+                <button class="sr-btn" type="button" id="srPrev">上一个</button>
+                <button class="sr-btn" type="button" id="srNext">下一个</button>
+                <button class="sr-btn" type="button" id="srReplaceOne">替换</button>
+                <button class="sr-btn sr-btn--primary" type="button" id="srReplaceAll">全部替换</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CENTER COLUMN · Main Editor Area (flex:1, white) -->
+      <section class="editor-main-area">
+
+        <!-- ===== TAB VIEW · 写作 (default) ===== -->
+        <div class="tab-view is-active" data-view="writing">
+          <div class="editor-area-header">
+            <div class="editor-area-header__left">
+              <h2 class="editor-chapter-title">第3章</h2>
+              <span class="editor-scene-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                场景一
+              </span>
+            </div>
+            <span class="editor-wordcount">10039字</span>
+          </div>
+          <!-- 空状态引导 -->
+          <div class="editor-empty-state" id="editorEmptyState" hidden>
+            <div class="empty-state-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <div class="empty-state-text">当前卷暂无章节</div>
+            <button class="empty-state-btn" type="button" id="emptyCreateChapter">创建第一个章节</button>
+          </div>
+          <div class="editor-format-bar" id="formatBar">
+            <button type="button" data-cmd="bold" title="加粗 Ctrl+B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
+            <button type="button" data-cmd="italic" title="斜体 Ctrl+I"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+            <span class="editor-format-sep"></span>
+            <button type="button" data-cmd="formatBlock" data-val="H2" title="二级标题">H2</button>
+            <button type="button" data-cmd="formatBlock" data-val="H3" title="三级标题">H3</button>
+            <span class="editor-format-sep"></span>
+            <button type="button" data-cmd="formatBlock" data-val="blockquote" title="引用"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg></button>
+            <button type="button" data-cmd="insertUnorderedList" title="无序列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+            <button type="button" data-cmd="insertOrderedList" title="有序列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4H4V6zm0 6h1v4H4v-4zm0 6h1v4H4v-4z"/></svg></button>
+            <span class="editor-format-sep"></span>
+            <button type="button" data-cmd="undo" title="撤销"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
+            <button type="button" data-cmd="redo" title="重做"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg></button>
+            <span class="editor-format-sep"></span>
+            <button type="button" data-cmd="insertImage" title="插入图片"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+            <button type="button" data-cmd="insertSeparator" title="插入章节分隔符"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="12" r="2"/><circle cx="6" cy="12" r="1"/><circle cx="18" cy="12" r="1"/></svg></button>
+          </div>
+          <div class="editor-scroll ml-scroll">
+            <div class="editor-content-wrap">
+              <div class="editor-scene-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                <span class="scene-name-h">场景一</span>
+                <span>· 幽冥秘境探索</span>
+              </div>
+              <div class="editor-content" contenteditable="true" spellcheck="false" id="editorContent">
+                <p>幽暗古老的秘境深处，浓郁的灵气如雾霭般弥漫，遮蔽了视线。参天古林的枝桠相互纠缠，形成一道道天然的屏障，脚下是腐朽的落叶和湿滑的苔藓，韩立身形鬼魅般穿梭其间，每一步都轻若无物，双眸却锐利如鹰，警惕地扫视着四周。</p>
+
+                <p>前方忽有异香扑鼻而来，那香气清冽如冰，又夹杂着一缕若有若无的甜腥。韩立脚步一顿，神识悄然外放，瞬间锁定了三十丈外一株通体幽蓝的奇草——正是传闻中只生于万年寒潭之畔的玄冥冰魄草。</p>
+
+                <p class="sys-line">「叮！检测到高阶灵材玄冥冰魄草，品阶：天阶下品。建议宿主谨慎采集，此草周围潜藏三阶妖兽寒蟒一条。」</p>
+
+                <p>韩立心头一凛，掌心悄然凝聚起一道淡金色的灵力护罩。他屏住呼吸，借着古木的遮掩缓缓靠近。就在指尖将触未触之际，身后枯叶堆猛然炸开，一道银白色的寒芒破空而至，正是一头丈许长的寒蟒，竖瞳中满是嗜血的红光。</p>
+
+                <p class="dialogue">「果然来了。」韩立低喝一声，身形未退反进，袖中飞出三道符箓，于半空化作炽烈的火墙挡下寒蟒的第一击。热浪与寒气相撞，发出刺耳的嘶鸣。</p>
+
+                <p>寒蟒吃痛，身躯一摆卷起漫天冰晶。韩立借着火墙的遮蔽，指尖掐诀，识海中那枚黑色轮回印记骤然亮起。一道无形的轮回之力顺着他的指尖注入玄冥冰魄草，那株奇草竟自行脱离泥土，悬浮于半空。</p>
+
+                <p class="sys-line">「叮！'轮回之道'系统能量积蓄完成，首次升级成功！当前轮回印记封印解除进度：<span class="pct">12%</span>。新技能解锁——'灵息敛踪'，可于三息内完全隐匿自身灵力波动。」</p>
+
+                <p>冰冷的机械音落下的刹那，寒蟒的第二次攻击已至。韩立嘴角勾起一抹冷笑，身形骤然虚化，仿佛融入了这片幽暗的森林。寒蟒的巨尾狠狠砸在他方才站立之处，将地面砸出一个数尺深坑，却只卷起一片残影。</p>
+
+                <p class="dialogue">「轮到我了。」少年的声音在寒蟒身后响起，掌中玄冥冰魄草的寒气已被他借轮回之力尽数炼化，化作一柄三尺长的冰魄剑，剑身流转着幽蓝的寒光。</p>
+
+                <p>一剑斩落，寒蟒的头颅冲天而起。腥热的蛇血洒在冰魄剑上，瞬间凝结成霜。韩立收剑而立，目光投向秘境更深处——那里，一道更加深邃的气息正在缓缓苏醒。他知道，这场轮回之路上的考验，才刚刚开始<span class="editor-cursor"></span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB VIEW · 大纲 ===== -->
+        <div class="tab-view" data-view="outline">
+          <div class="tv-header">
+            <h2 class="tv-header__title">三级大纲体系</h2>
+            <div class="seg-toggle" id="outlineSeg">
+              <button class="seg-btn is-active" type="button" data-seg="synopsis">小说总纲</button>
+              <button class="seg-btn" type="button" data-seg="volume">卷纲</button>
+              <button class="seg-btn" type="button" data-seg="chapter">章节蓝图</button>
+            </div>
+          </div>
+          <div class="tv-scroll ml-scroll">
+            <div class="tv-content">
+
+              <!-- 小说总纲 -->
+              <div class="tv-card">
+                <div class="outline-node__head">
+                  <span class="outline-emoji">📖</span>
+                  <span class="outline-node__title">小说总纲</span>
+                </div>
+                <div class="outline-field">
+                  <span class="outline-label">书名</span>
+                  <span class="outline-value outline-value--strong">轮回之道</span>
+                </div>
+                <div class="outline-field">
+                  <span class="outline-label">一句话简介</span>
+                  <span class="outline-value">韩立重生归来，凭借轮回之道系统，在修仙世界步步为营，改写前世命运</span>
+                </div>
+                <div class="outline-field">
+                  <span class="outline-label">主题</span>
+                  <div class="tag-row">
+                    <span class="rp-tag">修仙</span>
+                    <span class="rp-tag">重生</span>
+                    <span class="rp-tag">系统流</span>
+                    <span class="rp-tag">复仇</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 卷纲 -->
+              <div class="tv-card">
+                <div class="outline-node__head">
+                  <span class="outline-emoji">📚</span>
+                  <span class="outline-node__title">第一卷：秘境初现</span>
+                  <span class="status-pill status-pill--progress">进行中</span>
+                </div>
+                <div class="outline-field">
+                  <span class="outline-label">卷简介</span>
+                  <span class="outline-value">韩立在苍云宗外发现上古秘境入口...</span>
+                </div>
+                <div class="outline-field">
+                  <span class="outline-label">字数目标</span>
+                  <span class="outline-value">30万字</span>
+                </div>
+                <div class="outline-field">
+                  <span class="outline-label">进度</span>
+                  <span class="outline-value">3 / 30 章</span>
+                </div>
+                <div class="outline-progress">
+                  <div class="outline-progress__bar" style="width:10%"></div>
+                </div>
+              </div>
+
+              <!-- 章节蓝图 -->
+              <div class="outline-section-head">
+                <span class="outline-emoji">📝</span>
+                <span>章节蓝图</span>
+              </div>
+              <div class="ch-grid">
+                <div class="ch-card">
+                  <div class="ch-card__head">
+                    <span class="ch-card__num">第1章</span>
+                    <span class="ch-status ch-status--done">✓ 已完成</span>
+                  </div>
+                  <div class="ch-card__title">重生归来</div>
+                  <div class="ch-card__synopsis">韩立重生归来，轮回之道系统首次激活，初窥前世记忆碎片。</div>
+                  <div class="ch-card__meta">4406字</div>
+                </div>
+                <div class="ch-card">
+                  <div class="ch-card__head">
+                    <span class="ch-card__num">第2章</span>
+                    <span class="ch-status ch-status--done">✓ 已完成</span>
+                  </div>
+                  <div class="ch-card__title">初露峥嵘</div>
+                  <div class="ch-card__synopsis">韩立于苍云宗内首次展露实力，与宗门子弟正面交锋。</div>
+                  <div class="ch-card__meta">5093字</div>
+                </div>
+                <div class="ch-card ch-card--active">
+                  <div class="ch-card__head">
+                    <span class="ch-card__num">第3章</span>
+                    <span class="ch-status ch-status--writing">⏳ 写作中</span>
+                  </div>
+                  <div class="ch-card__title">幽谷异兽</div>
+                  <div class="ch-card__synopsis">韩立深入幽冥秘境，发现玄冥冰魄草，与守护妖兽寒蟒激战。</div>
+                  <div class="ch-card__meta">10039字</div>
+                </div>
+                <div class="ch-card">
+                  <div class="ch-card__head">
+                    <span class="ch-card__num">第4章</span>
+                    <span class="ch-status ch-status--todo">📋 待写</span>
+                  </div>
+                  <div class="ch-card__title">寒蟒之祸</div>
+                  <div class="ch-card__synopsis">冰魄草灵气引来更强妖兽，韩立陷入苦战，系统激活前世记忆。</div>
+                  <div class="ch-card__meta">0字</div>
+                </div>
+                <div class="ch-card">
+                  <div class="ch-card__head">
+                    <span class="ch-card__num">第5章</span>
+                    <span class="ch-status ch-status--todo">📋 待写</span>
+                  </div>
+                  <div class="ch-card__title">冰魄凝剑</div>
+                  <div class="ch-card__synopsis">韩立以轮回之力炼化冰魄草，凝成冰魄剑，斩杀寒蟒。</div>
+                  <div class="ch-card__meta">0字</div>
+                </div>
+                <div class="ch-card">
+                  <div class="ch-card__head">
+                    <span class="ch-card__num">第6章</span>
+                    <span class="ch-status ch-status--todo">📋 待写</span>
+                  </div>
+                  <div class="ch-card__title">深渊苏醒</div>
+                  <div class="ch-card__synopsis">秘境深处气息苏醒，韩立察觉更大危机，轮回之路考验刚刚开始。</div>
+                  <div class="ch-card__meta">0字</div>
+                </div>
+              </div>
+
+              <button class="tv-btn tv-btn--block tv-btn--dashed" type="button">+ 添加章节蓝图</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB VIEW · 故事画布 / 时间线 ===== -->
+        <div class="tab-view" data-view="timeline">
+          <div class="tv-header">
+            <h2 class="tv-header__title">故事画布 · 时间线</h2>
+            <div class="tl-toolbar">
+              <div class="tl-tool__group">
+                <span class="tl-tool__label">当前章标记</span>
+                <select class="tl-select" id="tlMarkSelect">
+                  <option value="">无</option>
+                  <option value="foreshadow">🔵 伏笔</option>
+                  <option value="climax">🔴 高潮</option>
+                  <option value="turn">🟣 转折</option>
+                </select>
+              </div>
+              <div class="tl-tool__group">
+                <span class="tl-tool__label">故事线</span>
+                <select class="tl-select" id="tlStorySelect">
+                  <option value="主线">主线</option>
+                  <option value="支线">支线</option>
+                </select>
+                <button class="tv-btn tl-mini" id="tlAddStory" type="button">+ 新线</button>
+              </div>
+              <button class="tv-btn tv-btn--primary tl-mini" id="tlImpactBtn" type="button">影响分析</button>
+              <button class="tv-btn tl-mini" id="tlRefresh" type="button">刷新布局</button>
+            </div>
+          </div>
+          <div class="tv-scroll ml-scroll">
+            <div class="tv-content">
+              <div class="tl-legend" id="tlLegend"></div>
+              <div class="tl-canvas" id="tlCanvas"></div>
+              <div class="tl-impact" id="tlImpact">
+                <div class="tl-impact__head">
+                  <span class="outline-emoji">🔍</span>
+                  <span>大纲影响分析</span>
+                  <span class="tl-impact__hint">调整「卷纲 / 总纲」时，下方章节与其高度相关，需注意设定一致性</span>
+                </div>
+                <div class="tl-impact__body" id="tlImpactBody"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB VIEW · 沉浸模式 ===== -->
+        <div class="tab-view" data-view="immersive" id="immersiveView">
+          <button class="immersive-exit" id="exitImmersive" type="button" title="退出沉浸模式">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            退出沉浸模式
+          </button>
+          <div class="immersive-scroll ml-scroll">
+            <div class="immersive-content">
+              <h1 class="immersive-title">第3章</h1>
+              <div class="immersive-scene">场景一</div>
+              <div class="immersive-editor" contenteditable="true" spellcheck="false">
+                <p>幽暗古老的秘境深处，浓郁的灵气如雾霭般弥漫，遮蔽了视线。参天古林的枝桠相互纠缠，形成一道道天然的屏障，脚下是腐朽的落叶和湿滑的苔藓，韩立身形鬼魅般穿梭其间，每一步都轻若无物，双眸却锐利如鹰，警惕地扫视着四周。</p>
+                <p>前方忽有异香扑鼻而来，那香气清冽如冰，又夹杂着一缕若有若无的甜腥。韩立脚步一顿，神识悄然外放，瞬间锁定了三十丈外一株通体幽蓝的奇草——正是传闻中只生于万年寒潭之畔的玄冥冰魄草。</p>
+                <p>「叮！检测到高阶灵材玄冥冰魄草，品阶：天阶下品。建议宿主谨慎采集，此草周围潜藏三阶妖兽寒蟒一条。」</p>
+                <p>韩立心头一凛，掌心悄然凝聚起一道淡金色的灵力护罩。他屏住呼吸，借着古木的遮掩缓缓靠近。就在指尖将触未触之际，身后枯叶堆猛然炸开，一道银白色的寒芒破空而至，正是一头丈许长的寒蟒，竖瞳中满是嗜血的红光。</p>
+                <p>「果然来了。」韩立低喝一声，身形未退反进，袖中飞出三道符箓，于半空化作炽烈的火墙挡下寒蟒的第一击。热浪与寒气相撞，发出刺耳的嘶鸣。</p>
+                <p>寒蟒吃痛，身躯一摆卷起漫天冰晶。韩立借着火墙的遮蔽，指尖掐诀，识海中那枚黑色轮回印记骤然亮起。一道无形的轮回之力顺着他的指尖注入玄冥冰魄草，那株奇草竟自行脱离泥土，悬浮于半空。</p>
+                <p>「叮！'轮回之道'系统能量积蓄完成，首次升级成功！当前轮回印记封印解除进度：12%。新技能解锁——'灵息敛踪'，可于三息内完全隐匿自身灵力波动。」</p>
+                <p>冰冷的机械音落下的刹那，寒蟒的第二次攻击已至。韩立嘴角勾起一抹冷笑，身形骤然虚化，仿佛融入了这片幽暗的森林。寒蟒的巨尾狠狠砸在他方才站立之处，将地面砸出一个数尺深坑，却只卷起一片残影。</p>
+                <p>「轮到我了。」少年的声音在寒蟒身后响起，掌中玄冥冰魄草的寒气已被他借轮回之力尽数炼化，化作一柄三尺长的冰魄剑，剑身流转着幽蓝的寒光。</p>
+                <p>一剑斩落，寒蟒的头颅冲天而起。腥热的蛇血洒在冰魄剑上，瞬间凝结成霜。韩立收剑而立，目光投向秘境更深处——那里，一道更加深邃的气息正在缓缓苏醒。他知道，这场轮回之路上的考验，才刚刚开始。</p>
+              </div>
+              <div class="immersive-foot">10039 字</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB VIEW · 设置 ===== -->
+        <div class="tab-view" data-view="settings">
+          <div class="tv-header">
+            <h2 class="tv-header__title">设置</h2>
+          </div>
+          <div class="tv-scroll ml-scroll">
+            <div class="tv-content tv-content--narrow">
+
+              <!-- 编辑器设置 -->
+              <div class="tv-card">
+                <h3 class="tv-card__title">编辑器设置</h3>
+
+                <div class="set-row">
+                  <div class="set-row__label">字体大小</div>
+                  <div class="seg-toggle" data-toggle-group="fontsize">
+                    <button class="seg-btn" type="button">14px</button>
+                    <button class="seg-btn is-active" type="button">16px</button>
+                    <button class="seg-btn" type="button">18px</button>
+                    <button class="seg-btn" type="button">20px</button>
+                  </div>
+                </div>
+
+                <div class="set-row">
+                  <div class="set-row__label">行高</div>
+                  <div class="seg-toggle" data-toggle-group="lineheight">
+                    <button class="seg-btn" type="button">1.6</button>
+                    <button class="seg-btn is-active" type="button">1.8</button>
+                    <button class="seg-btn" type="button">2.0</button>
+                  </div>
+                </div>
+
+                <div class="set-row">
+                  <div class="set-row__label">编辑器主题</div>
+                  <div class="seg-toggle" data-toggle-group="theme">
+                    <button class="seg-btn is-active" type="button">浅色</button>
+                    <button class="seg-btn" type="button">深色</button>
+                    <button class="seg-btn" type="button">跟随系统</button>
+                  </div>
+                </div>
+
+                <div class="set-row">
+                  <div class="set-row__label">字体</div>
+                  <div class="seg-toggle" data-toggle-group="fontfamily">
+                    <button class="seg-btn is-active" type="button">系统默认</button>
+                    <button class="seg-btn" type="button">宋体</button>
+                    <button class="seg-btn" type="button">黑体</button>
+                  </div>
+                </div>
+
+                <div class="set-row">
+                  <div class="set-row__label">段落间距</div>
+                  <div class="seg-toggle" data-toggle-group="paragraphSpacing">
+                    <button class="seg-btn" type="button">8px</button>
+                    <button class="seg-btn is-active" type="button">12px</button>
+                    <button class="seg-btn" type="button">18px</button>
+                  </div>
+                </div>
+
+                <div class="set-row">
+                  <div class="set-row__label">正文宽度</div>
+                  <div class="seg-toggle" data-toggle-group="contentWidth">
+                    <button class="seg-btn" type="button">640px</button>
+                    <button class="seg-btn is-active" type="button">720px</button>
+                    <button class="seg-btn" type="button">840px</button>
+                  </div>
+                </div>
+
+                <div class="set-row">
+                  <div class="set-row__label">阅读模式</div>
+                  <label class="switch"><input type="checkbox" data-setting="readingMode"><span class="switch__slider"></span></label>
+                </div>
+
+                <div class="set-row set-row--last">
+                  <span class="set-row__label">每日写作目标（字）</span>
+                  <input type="number" class="set-row__input" id="setDailyGoal" min="100" max="50000" step="100" value="2000">
+                </div>
+              </div>
+
+              <!-- AI 模型设置 -->
+              <div class="tv-card">
+                <h3 class="tv-card__title">AI 模型设置</h3>
+                <p id="modelAccessHint" class="model-access-hint">正在读取账户模型权限…</p>
+
+                <div class="set-row">
+                  <div class="set-row__label">默认模型</div>
+                  <select class="set-select" data-model-role="default" disabled>
+                    <option value="v4-flash" selected>V4-Flash（极速）</option>
+                    <option value="v4-pro">V4-Pro（深度推理）</option>
+                  </select>
+                </div>
+                <div class="set-row">
+                  <div class="set-row__label">续写模型</div>
+                  <select class="set-select" data-model-role="continuation" disabled>
+                    <option value="v4-flash" selected>V4-Flash（极速）</option>
+                    <option value="v4-pro">V4-Pro（深度推理）</option>
+                  </select>
+                </div>
+                <div class="set-row">
+                  <div class="set-row__label">润色模型</div>
+                  <select class="set-select" data-model-role="polish" disabled>
+                    <option value="v4-flash" selected>V4-Flash（极速）</option>
+                    <option value="v4-pro">V4-Pro（深度推理）</option>
+                  </select>
+                </div>
+                <div class="set-row">
+                  <div class="set-row__label">API Key 状态</div>
+                  <span class="status-pill status-pill--ok">已配置 ✓</span>
+                </div>
+                <div class="set-row set-row--last" id="thinkRowDs">
+                  <div class="set-row__label">思考模式（深度推理）</div>
+                  <label class="switch">
+                    <input type="checkbox" data-setting="think">
+                    <span class="switch__slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 自动保存 -->
+              <div class="tv-card">
+                <h3 class="tv-card__title">自动保存</h3>
+                <div class="set-row">
+                  <div class="set-row__label">自动保存</div>
+                  <label class="switch">
+                    <input type="checkbox" checked>
+                    <span class="switch__slider"></span>
+                  </label>
+                </div>
+                <div class="set-row set-row--last">
+                  <div class="set-row__label">间隔</div>
+                  <span class="set-value">30秒</span>
+                </div>
+              </div>
+
+              <!-- 导出设置 -->
+              <div class="tv-card">
+                <h3 class="tv-card__title">导出设置</h3>
+                <div class="set-row set-row--last">
+                  <div class="set-row__label">导出格式</div>
+                  <div class="seg-toggle" data-toggle-group="export">
+                    <button class="seg-btn is-active" type="button">TXT</button>
+                    <button class="seg-btn" type="button">Markdown</button>
+                    <button class="seg-btn" type="button">PDF</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB VIEW · AI辅助 ===== -->
+        <div class="tab-view" data-view="ai">
+          <div class="tv-header">
+            <h2 class="tv-header__title">AI 工具栏</h2>
+          </div>
+          <div class="tv-scroll ml-scroll">
+            <div class="tv-content tv-content--mid">
+
+              <!-- Quick actions -->
+              <div class="ai-action-grid">
+                <button class="ai-action" type="button" id="qaGenNext">
+                  <span class="ai-action__name">生成下一章</span>
+                  <span class="ai-action__desc">按蓝图与已有内容写下一章</span>
+                </button>
+                <button class="ai-action" type="button" id="qaStreamInsert">
+                  <span class="ai-action__name">AI续写</span>
+                  <span class="ai-action__desc">在光标处继续生成内容</span>
+                </button>
+                <button class="ai-action" type="button">
+                  <span class="ai-action__name">AI润色</span>
+                  <span class="ai-action__desc">优化选中文本的表达</span>
+                </button>
+                <button class="ai-action" type="button">
+                  <span class="ai-action__name">摘要扩写</span>
+                  <span class="ai-action__desc">将摘要扩写为完整场景</span>
+                </button>
+                <button class="ai-action" type="button">
+                  <span class="ai-action__name">文本扩写</span>
+                  <span class="ai-action__desc">扩展当前段落</span>
+                </button>
+                <button class="ai-action" type="button">
+                  <span class="ai-action__name">文本重写</span>
+                  <span class="ai-action__desc">用不同风格重写</span>
+                </button>
+                <button class="ai-action" type="button">
+                  <span class="ai-action__name">文本缩写</span>
+                  <span class="ai-action__desc">精简当前段落</span>
+                </button>
+              </div>
+
+              <!-- 写作技能 / 素材（与浮窗共用） -->
+              <div class="tv-card" style="margin-top:16px;">
+                <div class="set-row set-row--last" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <span style="font-size:13px;font-weight:600;">写作技能 / 素材</span>
+                  <span style="display:inline-flex;gap:6px;align-items:center;position:relative;">
+                    <button class="editor-icon-btn" id="skillBtn2" title="写作技能" aria-label="写作技能">🎯</button>
+                    <div class="skill-menu" id="skillMenu2" hidden></div>
+                    <button class="editor-icon-btn" id="loadFolderBtn2" title="载入本地技能/素材" aria-label="载入本地">📁</button>
+                    <button class="editor-ai__tag" id="localTag2" type="button" title="本地技能/素材状态">无技能</button>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Model selector -->
+              <div class="tv-card" style="margin-top:16px;">
+                <div class="set-row set-row--last" style="color:#888;font-size:12px;line-height:1.6;">
+                  模型与思考强度可在右侧 AI 面板底部切换；DeepSeek 支持思考开关，GPT 中转按当前模型展示官方推理级别。
+                </div>
+              </div>
+
+              <!-- Prompt input -->
+              <div class="tv-card" style="margin-top:16px;">
+                <div class="prompt-label">指令</div>
+                <textarea class="prompt-textarea" placeholder="输入自定义AI指令..."></textarea>
+                <div class="prompt-meta">
+                  <span class="prompt-meta__label">字数</span>
+                  <div class="seg-toggle seg-toggle--sm" data-toggle-group="wordcount">
+                    <button class="seg-btn" type="button">200</button>
+                    <button class="seg-btn is-active" type="button">400</button>
+                    <button class="seg-btn" type="button">600</button>
+                    <button class="seg-btn" type="button">1400</button>
+                  </div>
+                </div>
+                <button class="tv-btn tv-btn--primary tv-btn--block" type="button" style="margin-top:14px;">执行</button>
+              </div>
+
+              <!-- Recent calls -->
+              <div class="ai-recent">
+                <div class="ai-recent__title">最近调用</div>
+                <div class="ai-recent__item">
+                  <span class="ai-recent__op">AI续写</span>
+                  <span class="ai-recent__model">v4-pro</span>
+                  <span class="ai-recent__tokens">1280 tokens</span>
+                </div>
+                <div class="ai-recent__item">
+                  <span class="ai-recent__op">AI润色</span>
+                  <span class="ai-recent__model">v4-flash</span>
+                  <span class="ai-recent__tokens">760 tokens</span>
+                </div>
+                <div class="ai-recent__item">
+                  <span class="ai-recent__op">摘要扩写</span>
+                  <span class="ai-recent__model">v4-flash</span>
+                  <span class="ai-recent__tokens">2140 tokens</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB VIEW · 剧情推演 ===== -->
+        <div class="tab-view" data-view="plot">
+          <div class="tv-header">
+            <div>
+              <h2 class="tv-header__title">剧情推演</h2>
+              <div class="tv-header__sub">AI 基于当前小说的实时内容推演后续走向</div>
+            </div>
+          </div>
+          <div class="tv-scroll ml-scroll">
+            <div class="tv-content">
+
+              <!-- 当前上下文（实时渲染，见 editor.js renderPlotContext） -->
+              <div class="tv-card" id="plotCtxCard">
+                <h3 class="tv-card__title">当前上下文（实时）</h3>
+              </div>
+
+              <!-- 推演选项 -->
+              <div class="tv-card">
+                <h3 class="tv-card__title">推演设置</h3>
+                <div class="plot-model-current">
+                  <span class="plot-model-current__label">使用模型</span>
+                  <span class="plot-model-badge" id="plotCurrentModel">加载中…</span>
+                </div>
+                <p class="plot-model-hint">跟随右侧 AI 对话当前选择的模型，每个分支按正文写作的实际 Token 计费。</p>
+                <div class="set-row set-row--last" style="margin-top:14px;">
+                  <div class="set-row__label">推演选项 · 生成分支数</div>
+                  <div class="plot-slider-wrap">
+                    <input type="range" min="1" max="5" value="3" class="plot-slider" id="plotSlider">
+                    <span class="plot-slider__val" id="plotSliderVal">3 个</span>
+                  </div>
+                </div>
+              </div>
+
+              <button id="runPlotBtn" class="tv-btn tv-btn--primary tv-btn--block" type="button" style="margin-top:16px;">开始推演</button>
+
+              <!-- 推演结果 -->
+              <div class="outline-section-head plot-results-head" style="margin-top:24px;">
+                <span class="outline-emoji">🔮</span>
+                <span>推演结果</span>
+              </div>
+
+              <div class="plot-empty" id="plotEmpty">暂无推演结果</div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB VIEW · 聊天 ===== -->
+        <div class="tab-view" data-view="chat">
+          <div class="chat-head">
+            <span class="chat-head__title">
+              <span class="ai-badge">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+              </span>
+              AI 聊天
+            </span>
+            <span class="chat-head__meta">
+              <span class="chat-model-badge" id="chatModelBadge">v4-flash</span>
+              <span class="chat-tokens">10699 tokens</span>
+            </span>
+          </div>
+          <div class="chat-scroll ml-scroll">
+            <div class="chat-content">
+              <div class="chat-msg chat-msg--user">帮我设计第3章的剧情大纲</div>
+              <div class="chat-msg chat-msg--bot">章节标题建议：《幽谷异兽》或《轮回之瞳，洞息杀机》或《噬灵妖蛛》
+
+本章核心目标：
+• 展示金手指的新功能
+• 塑造危机感
+• 获得关键资源
+• 埋下新伏笔
+
+情节发展线：
+1. 【开端】系统指引，锁定目标
+2. 【发展】初遇危机，智斗妖兽（A方案：妖兽战 / B方案：陷阱局）
+3. 【高潮】夺取机缘，遭遇突变
+4. 【结尾】短暂交锋，留下悬念</div>
+              <div class="chat-msg chat-msg--bot">你觉得这个大纲方向如何？无论是战斗的设计，还是新出场的人物，我们都可以进一步讨论和细化。</div>
+            </div>
+          </div>
+          <form class="chat-inputbar" id="chatForm">
+            <textarea class="chat-input" id="chatInput" placeholder="输入消息..." rows="1"></textarea>
+            <button class="chat-send" type="submit" aria-label="发送">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </form>
+        </div>
+
+      </section>
+
+      <!-- RIGHT COLUMN · AI 助手面板 -->
+      <aside class="editor-right-panel" id="rightPanel" aria-label="AI助手">
+        <div class="rp-chat-column">
+          <!-- 简洁 Header：标题 + 副标题 + 积分 + 设置 -->
+          <div class="rp-header">
+            <div class="rp-header__main">
+              <div class="rp-header__title"><span id="aiRoleDisplay">默认智能体</span></div>
+              <div class="rp-header__sub" id="aiRoleSub">续写 · 润色 · 大纲 · 设定</div>
+            </div>
+            <div class="rp-header__right">
+              <span class="rp-credits" id="rpCredits" title="账户积分（SaaS 统一计费）">—</span>
+              <button class="rp-icon-btn" id="rpSettingsBtn" type="button" aria-label="设置" title="设置">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+              <button class="rp-icon-btn" id="rightPanelToggle" type="button" aria-label="收起面板" title="收起">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- 快速开始卡片区域 -->
+          <div class="rp-quick-start">
+            <div class="rp-quick-start__title">快速开始</div>
+            <div class="rp-quick-start__grid">
+              <button class="rp-qscard" type="button" id="qscardFullflow" style="--card-c:#f97316;" title="结合大纲与已写内容，生成下一章完整正文">
+                <div class="rp-qscard__name">✍️ 帮我写完这一章</div>
+                <div class="rp-qscard__desc">结合大纲与已有内容，生成下一章完整正文</div>
+              </button>
+              <button class="rp-qscard" type="button" id="qscardEarly" style="--card-c:#3b82f6;" title="构建初期人物关系、世界观与伏笔">
+                <div class="rp-qscard__name">🧱 梳理角色与设定</div>
+                <div class="rp-qscard__desc">构建初期人物关系、世界观与关键伏笔</div>
+              </button>
+              <button class="rp-qscard" type="button" id="qscardContinue" style="--card-c:#10b981;" title="顺着光标处文意，自然延展后续情节">
+                <div class="rp-qscard__name">✨ 续写当前段落</div>
+                <div class="rp-qscard__desc">顺着光标处文意，自然延展后续情节</div>
+              </button>
+            </div>
+            <details class="rp-more-cards">
+              <summary>更多创作指令</summary>
+              <div class="rp-more-cards__body">
+                <p class="rp-more-cards__hint">点击上方卡片快捷开始，或在下方输入框输入自定义指令</p>
+              </div>
+            </details>
+          </div>
+
+          <!-- 上下文预览（精简） -->
+          <div class="rp-ctx-preview" id="aiCtxPreview"></div>
+
+          <!-- ★ 任务时间线（AI 任务进度 / 断点续跑 / 成本显示） -->
+          <div class="rp-task-progress" id="aiTaskProgress" hidden></div>
+
+          <!-- 创作操作（折叠式，保留原有功能） -->
+          <details class="rp-more-actions" id="rpMoreActionsDetails">
+            <summary>创作操作</summary>
+            <div class="rp-toolbar">
+              <div class="rp-toolbar__row rp-toolbar__primary">
+                <button class="rp-btn rp-btn--primary" type="button" id="genNextChapterBtn" title="按大纲蓝图与已有内容，AI 生成下一章完整正文">生成下一章</button>
+                <button class="rp-btn rp-btn--primary" type="button" id="streamInsertBtn" title="流式直插：续写内容实时写入光标处">流式续写</button>
+                <button class="rp-btn rp-btn--ghost" type="button" id="streamInsertStop" style="display:none;" title="停止生成">停止</button>
+                <button class="rp-btn rp-btn--ghost" type="button" id="aiContinueGenBtn" title="继续生成上一条回复">继续</button>
+              </div>
+              <div class="rp-toolbar__row rp-toolbar__chips">
+                <div class="rp-chips" id="aiQuickCards">
+                  <span class="rp-chips-label">快捷</span><button class="rp-chip" type="button" data-action="continue">续写</button><button class="rp-chip" type="button" data-action="polish">润色</button><button class="rp-chip" type="button" data-action="expand">扩写</button><button class="rp-chip" type="button" data-action="rewrite">改写</button><button class="rp-chip" type="button" data-action="outline">大纲</button><button class="rp-chip" type="button" data-action="consistency">查错</button><button class="rp-chip" type="button" data-action="character">角色</button><button class="rp-chip" type="button" data-action="setting">设定</button>
+                </div>
+              </div>
+            </div>
+          </details>
+          <input type="file" id="folderInputR" webkitdirectory directory multiple hidden>
+          <input type="file" id="textFilesInputR" accept=".txt,.md,.markdown,.json,.csv,.yaml,.yml,.text,.log,.srt,.ass,.vtt,.xml,.toml,.html,.htm,text/plain,text/markdown,application/json" multiple hidden>
+
+          <!-- 会话历史 -->
+          <div class="rp-session-list" id="aiSessionListPanel" hidden>
+            <div class="rp-session-list__head">
+              <div class="rp-session-list__heading">
+                <span class="rp-session-list__label">会话历史</span>
+                <span class="rp-session-list__count" id="aiSessionCount" aria-live="polite">0 个会话</span>
+              </div>
+              <button class="rp-session-list__new" id="aiNewSessionInline" type="button" title="新建会话">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                <span>新建</span>
+              </button>
+            </div>
+            <div class="rp-session-list__body" id="aiSessionItems"></div>
+          </div>
+
+          <!-- 消息区 -->
+          <div class="rp-messages ml-scroll" id="aiChatMessages"></div>
+
+          <!-- 底部输入栏：简洁风格 -->
+          <div class="rp-input-area">
+            <div class="rp-input-toolbar">
+              <button class="rp-icon-sm" id="rpNewChatBtn" type="button" title="新建对话" aria-label="新建对话">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
+              <button class="rp-icon-sm" id="rpHistoryBtn" type="button" title="会话历史" aria-label="会话历史">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </button>
+              <button class="rp-icon-sm" id="skillBtnR" type="button" title="写作技能" aria-label="写作技能">🎯</button>
+              <div class="skill-menu" id="skillMenuR" hidden></div>
+              <button class="rp-icon-sm" id="loadFolderBtnR" type="button" title="载入本地技能/素材" aria-label="载入本地">📁</button>
+              <div class="rp-input-toolbar__spacer"></div>
+              <button class="rp-icon-sm" id="rpAccountBtn" type="button" aria-label="当前账户" title="当前账户">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.1 3-4.8 6.5-4.8s5.8 1.7 6.5 4.8"/></svg>
+              </button>
+              <button class="rp-icon-sm" id="rpShareBtn" type="button" aria-label="分享作品" title="分享作品">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.3M8.2 13.2l7.5 4.3"/></svg>
+              </button>
+            </div>
+            <form class="rp-inputbar" id="aiChatForm">
+              <textarea class="rp-input" id="aiChatInput" placeholder="生成一个让主角魅力爆发的战斗场景…" rows="1"></textarea>
+              <div class="rp-input-right">
+                <select class="rp-model-select" id="aiModelSelectInner" aria-label="模型选择">
+                  <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
+                </select>
+                <button class="rp-send" id="aiChatSend" type="submit" aria-label="发送" title="发送"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+              </div>
+            </form>
+            <div class="rp-input-footer">
+              <div class="rp-input-footer__left">
+                <select class="rp-role-select" id="aiRoleSelect" aria-label="智能体">
+                  <option value="supervisor">总监</option>
+                  <option value="blueprint">蓝图</option>
+                  <option value="generation" selected>生成</option>
+                  <option value="setting">设定</option>
+                  <option value="consistency">一致性</option>
+                  <option value="correction">校正</option>
+                  <option value="structure">结构</option>
+                </select>
+                <div class="rp-think-control" aria-label="思考强度"><span class="rp-think-label">思考强度</span><div class="rp-think-seg" id="aiThinkSeg" data-mode="deepseek"></div></div>
+              </div>
+              <div class="rp-input-footer__right">
+                <select id="aiOutputTarget" class="rp-target-select" aria-label="结果落点">
+                  <option value="chat">仅回复</option>
+                  <option value="body">写入正文（确认后）</option>
+                  <option value="setting">保存到设定集</option>
+                  <option value="outline">保存到章节蓝图</option>
+                  <option value="foreshadow">记录为伏笔</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 设置面板（隐藏，点击齿轮弹出） -->
+          <div class="rp-settings-drawer" id="rpSettingsDrawer" hidden>
+            <div class="rp-settings-drawer__head">
+              <span>设置</span>
+              <button class="rp-icon-btn" id="rpSettingsClose" type="button" aria-label="关闭设置">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="rp-settings-drawer__body">
+              <div class="rp-field"><span class="rp-field__label">仿写</span><select class="rp-select tl-select" id="aiStyleSelect"><option value="">—</option><option value="gufeng">古风</option><option value="youmo">幽默</option><option value="rexue">热血</option><option value="xuaning">悬疑</option><option value="xini">细腻</option><option value="baoli">爆裂</option></select></div>
+              <button class="rp-btn" type="button" id="aiStyleImitateBtn" title="按所选风格改写文本">仿写</button>
+              <hr class="rp-settings-hr">
+              <button class="rp-btn" type="button" id="aiSaveProfileBtn" title="把当前角色 + 风格保存为可复用自定义智能体">💾 保存为自定义智能体</button>
+              <button class="rp-text-btn" id="aiManageProfileBtn" type="button">管理自定义智能体</button>
+              <hr class="rp-settings-hr">
+              <button class="rp-text-btn" id="rpCopyBtn" type="button">复制全部</button>
+              <button class="rp-text-btn" id="rpClearBtn" type="button">清空对话</button>
+              <button class="rp-text-btn" id="aiNewSession" type="button">新建会话</button>
+              <button class="rp-text-btn" id="aiSessionList" type="button">会话历史</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右侧面板折叠后，用于重新展开的三段式窄列 -->
+      <div class="rp-reopen-rail" id="rpReopenRail" title="展开 AI 助手" role="button" tabindex="0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>AI 助手</span>
+      </div>
+
+      <!-- 窄屏打开 AI 抽屉的悬浮按钮；桌面端由右侧栏直接承载。 -->
+      <button class="editor-fab" id="aiFab" aria-label="AI助手" title="AI 聊天" hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+      </button>
+
+      <!-- AI Chat Panel (已合并到右侧面板，隐藏) -->
+      <section class="editor-ai" id="aiPanel" aria-label="AI 聊天" hidden>
+        <div class="editor-ai__head">
+          <span class="editor-ai__title">
+            <span class="ai-badge">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+            </span>
+            AI 聊天
+            <span class="editor-ai__tokens">10699 tokens</span>
+          </span>
+          <div class="editor-ai__head-actions">
+            <div class="skill-wrap">
+              <button class="editor-icon-btn" id="skillBtn" title="写作技能" aria-label="写作技能">🎯</button>
+              <div class="skill-menu" id="skillMenu" hidden></div>
+            </div>
+            <button class="editor-icon-btn" id="loadFolderBtn" title="载入本地技能/素材" aria-label="载入本地">📁</button>
+            <button class="editor-ai__tag" id="localTag" type="button" title="本地技能/素材状态">无技能</button>
+            <button class="editor-icon-btn" aria-label="新建对话" title="新建对话">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button class="editor-icon-btn" id="aiClose" aria-label="关闭" title="关闭">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+        </div>
+        <div class="editor-ai__messages ml-scroll" id="aiMessages">
+          <div class="ai-msg ai-msg--bot">
+            <strong>章节标题建议：</strong>《幽谷异兽》或《轮回之瞳，洞息杀机》
+          </div>
+          <div class="ai-msg ai-msg--bot">
+            <strong>本章核心目标：</strong>展示金手指的新功能、塑造危机感、获得关键资源、埋下新伏笔。
+          </div>
+          <div class="ai-msg ai-msg--bot">
+            <strong>情节发展线：</strong>开端 → 发展 → 高潮 → 结尾
+            <span class="ai-scheme"><span class="ai-scheme-label">A方案：</span>秘境探索 → 发现灵材 → 妖兽守护 → 轮回升级 → 反杀</span>
+            <span class="ai-scheme"><span class="ai-scheme-label">B方案：</span>误入禁地 → 遭遇强者 → 顿悟轮回 → 借力破局 → 隐患埋下</span>
+          </div>
+          <div class="ai-msg ai-msg--user">采用A方案，并把轮回印记升级的契机改为斩杀寒蟒之后</div>
+          <div class="ai-msg ai-msg--bot">已采纳。已按A方案重排第3章细纲，并将轮回印记的首次升级节点后置到寒蟒被斩杀、其精血浸染冰魄草之后，使升级逻辑更贴合"以战养战"的设定。可一键写入大纲。</div>
+        </div>
+        <form class="editor-ai__inputbar" id="aiForm">
+          <input class="editor-ai__input" id="aiInput" type="text" placeholder="输入消息..." autocomplete="off" />
+          <button class="editor-ai__send" type="submit" aria-label="发送">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </form>
+      </section>
+
+    </div>
+
+    <!-- Region · Bottom Status Bar -->
+    <footer class="editor-statusbar">
+      <div class="editor-statusbar__group">
+        <span class="editor-statusbar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          第3章 · 场景一
+        </span>
+        <span class="editor-statusbar__item">10039 字</span>
+        <div class="editor-statusbar__item statusbar__goal">
+          <span class="goal-text">今日 0 / 2000 字</span>
+          <div class="goal-bar"><div class="goal-bar__fill" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="editor-statusbar__group">
+        <span class="editor-statusbar__item save-status" id="saveStatus">
+          <span class="save-dot"></span>
+          <span class="save-text">已保存</span>
+        </span>
+        <span class="editor-statusbar__item cloud-status" id="cloudStatus" title="云端同步状态">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+          <span id="cloudStatusText">本地</span>
+        </span>
+        <button class="editor-statusbar__item sync-btn" id="syncBtn" type="button" title="从云端拉取我的小说（覆盖本地）" style="background:none;border:0;cursor:pointer;font:inherit;color:inherit;padding:0 4px;">⟳ 同步</button>
+        <span class="editor-statusbar__item credit-status" id="creditStatus" title="账户积分（SaaS 统一计费）">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+          <span id="creditText">—</span>
+        </span>
+        <div class="editor-statusbar__spacer"></div>
+        <span class="editor-statusbar__item">UTF-8</span>
+        <span class="editor-statusbar__item">简体中文</span>
+        <span class="editor-statusbar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span id="statusModelBadge">v4-flash</span>
+        </span>
+      </div>
+    </footer>
+
+    <!-- Mobile drawer backdrop -->
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    <!-- Hidden file input for library import -->
+    <input type="file" id="libFileInput" accept="application/json,.json" multiple style="display:none" />
+    <input type="file" id="libFolderInput" accept="application/json,.json" multiple webkitdirectory directory style="display:none" />
+    <input type="file" id="novelFileInput" accept=".txt,.md,.markdown,.text,text/plain,text/markdown" multiple style="display:none" />
+    <input type="file" id="novelFolderInput" accept=".txt,.md,.markdown,.text,text/plain,text/markdown" multiple webkitdirectory directory style="display:none" />
+    <div id="importProgress" class="ml-import-progress" hidden role="status" aria-live="polite">
+      <div class="ml-import-progress__top">
+        <strong class="ml-import-progress__title">正在导入</strong>
+        <span class="ml-import-progress__pct">0%</span>
+      </div>
+      <div class="ml-import-progress__track" role="progressbar" aria-label="导入进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="ml-import-progress__bar"></div>
+      </div>
+      <div class="ml-import-progress__detail"></div>
+    </div>
+
+  </main>
+
+  
+
+  <style id="molan-knowledge-css">
+    .kg-mini-actions{display:flex;gap:6px;margin:8px 0 2px;}
+    .kg-search-tools{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:6px;margin:8px 0 3px;}
+    .kg-search-tools input,.kg-search-tools select{min-width:0;width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);color:#e8e8e8;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:7px 8px;font:inherit;font-size:12px;outline:none;}
+    .kg-search-tools input::placeholder{color:#8e96a3;}
+    .kg-search-hint{color:#8e96a3;font-size:11px;line-height:1.5;margin:0 1px 6px;}
+    .kg-search-summary{color:#bfc6d1;font-size:11px;padding:4px 2px 2px;}
+    .kg-tree-group{margin:10px 0 0;min-width:0;}
+    .kg-tree-heading{color:#aeb7c5;font-size:11px;font-weight:600;letter-spacing:.02em;padding:5px 2px;border-bottom:1px solid rgba(255,255,255,.08);}
+    .kg-tree-row{display:flex;align-items:flex-start;gap:7px;min-width:0;box-sizing:border-box;padding:7px 3px 7px calc(3px + var(--kg-level,0) * 14px);border-bottom:1px solid rgba(255,255,255,.045);cursor:pointer;}
+    .kg-tree-row:hover{background:rgba(255,255,255,.055);}
+    .kg-tree-main{min-width:0;flex:1;}
+    .kg-tree-main[data-tree-toggle]{cursor:pointer;border-radius:4px;}
+    .kg-tree-main[data-tree-toggle]:focus-visible{outline:1px solid rgba(124,156,255,.75);outline-offset:2px;}
+    .kg-tree-name{color:#e6e8eb;font-size:12px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;}
+    .kg-tree-sub{color:#929aa7;font-size:10px;line-height:1.35;margin-top:2px;white-space:normal;overflow-wrap:anywhere;}
+    .kg-tree-type{color:#858e9d;font-size:10px;line-height:1.35;max-width:56px;flex:none;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .kg-mini-btn{flex:1;padding:6px 4px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#cfd3da;font-size:12px;cursor:pointer;}
+    .kg-mini-btn:hover{background:rgba(124,156,255,.16);border-color:rgba(124,156,255,.4);}
+    .kg-empty{color:#aeb4bd;font-size:12px;padding:6px 2px;}
+    .kg-card{display:flex;align-items:center;gap:8px;padding:8px 10px;margin:6px 0;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer;}
+    .kg-card:hover{background:rgba(255,255,255,.08);}
+    .kg-dot{width:9px;height:9px;border-radius:50%;flex:none;}
+    .kg-card__main{min-width:0;}
+    .kg-card__name{font-size:13px;color:#e6e8eb;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .kg-card__sub{font-size:11px;color:#d2d6de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .kg-form{padding:4px 2px;}
+    .kg-field{display:flex;align-items:center;gap:10px;margin:10px 0;}
+    .kg-field>span{width:48px;color:#d2d6de;font-size:13px;flex:none;font-weight:500;}
+    .kg-field input,.kg-field select,.kg-field textarea{flex:1;background:rgba(255,255,255,.05);color:#e8e8e8;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;}
+    .kg-field--col{flex-direction:column;align-items:stretch;}
+    .kg-field--col>span{width:auto;margin-bottom:4px;}
+    .kg-field textarea{min-height:70px;resize:vertical;line-height:1.6;}
+    .kg-sub{font-size:12px;color:#d2d6de;margin:12px 0 6px;font-weight:600;}
+    .kg-attr-row{display:flex;gap:6px;margin-bottom:6px;}
+    .kg-attr-row input{flex:1;background:rgba(255,255,255,.05);color:#e8e8e8;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:6px 8px;font-size:12px;outline:none;}
+    .kg-attr-del,.kg-rel-del,.kg-list-del{border:none;background:rgba(255,255,255,.06);color:#c98;width:26px;height:26px;border-radius:6px;cursor:pointer;flex:none;font-size:15px;}
+    .kg-attr-del:hover,.kg-rel-del:hover,.kg-list-del:hover{background:rgba(224,122,122,.3);color:#fff;}
+    .kg-add-attr{margin-top:2px;background:none;border:1px dashed rgba(255,255,255,.25);color:#d2d6de;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;}
+    .kg-rel-row{display:flex;align-items:center;gap:8px;font-size:12px;color:#e0e4ea;padding:4px 0;}
+    .kg-rel-label{color:#d2d6de;flex:1;}
+    .kg-rel-add{display:flex;gap:6px;margin-top:8px;}
+    .kg-rel-add select{flex:none;max-width:140px;background:rgba(255,255,255,.05);color:#e6e8eb;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:6px 8px;font-size:12px;outline:none;}
+    .kg-rel-add input{background:rgba(255,255,255,.05);color:#e6e8eb;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:6px 8px;font-size:12px;outline:none;}
+    .kg-rel-add button,.kg-add-attr{background:rgba(124,156,255,.16);border:1px solid rgba(124,156,255,.3);color:#cfd8ff;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;}
+    .kg-tabs{display:flex;gap:6px;margin:4px 0 12px;}
+    .kg-tab{padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:transparent;color:#9aa0a8;font-size:13px;cursor:pointer;}
+    .kg-tab.is-active{background:rgba(124,156,255,.2);border-color:rgba(124,156,255,.5);color:#fff;}
+    .kg-body{min-height:300px;max-height:60vh;overflow:auto;}
+    .kg-node:hover{stroke:#fff;stroke-width:2;}
+    .kg-list-sec{font-size:12px;color:#9aa0a8;margin:10px 0 4px;font-weight:600;}
+    .kg-list-row{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;}
+    .kg-list-row:hover{background:rgba(255,255,255,.04);}
+    .kg-list-main{min-width:0;flex:1;}
+    .kg-list-name{font-size:13px;color:#e6e8eb;font-weight:600;}
+    .kg-list-sub{font-size:11px;color:#9aa0a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .kg-hist-entity{margin:10px 0;}
+    .kg-hist-name{font-size:13px;font-weight:700;margin-bottom:4px;}
+    .kg-hist-row{display:flex;gap:10px;font-size:12px;padding:3px 0;color:#cfd3da;}
+    .kg-hist-ch{color:#9aa0a8;flex:none;width:120px;}
+    .kg-hist-sum{color:#cfd3da;}
+
+    /* 实体编辑弹窗（白底 .ml-modal）内 kg-* 文字/输入改为深色，避免浅色在白底看不见 */
+    .ml-modal .kg-field>span,.ml-modal .kg-sub,.ml-modal .kg-rel-label,.ml-modal .kg-empty,.ml-modal .kg-add-attr,
+    .ml-modal .kg-card__name,.ml-modal .kg-card__sub,.ml-modal .kg-list-name,.ml-modal .kg-list-sub,
+    .ml-modal .kg-list-sec,.ml-modal .kg-hist-name,.ml-modal .kg-hist-row,.ml-modal .kg-hist-ch,
+    .ml-modal .kg-hist-sum,.ml-modal .kg-rel-row,.ml-modal .kg-tab{color:#1f2937 !important;}
+    .ml-modal .kg-tab{color:#6b7280 !important;}
+    .ml-modal .kg-tab.is-active{color:#1d4ed8 !important;background:rgba(29,78,216,.1) !important;}
+    .ml-modal .kg-field input,.ml-modal .kg-field select,.ml-modal .kg-field textarea,
+    .ml-modal .kg-attr-row input,.ml-modal .kg-rel-add select,.ml-modal .kg-rel-add input{
+      background:#fff !important;color:#111827 !important;border:1px solid #d1d5db !important;
+    }
+    .ml-modal .kg-attr-del,.ml-modal .kg-rel-del,.ml-modal .kg-list-del{background:#f1f3f5 !important;color:#9b2c2c !important;}
+    .ml-modal .kg-add-attr,.ml-modal .kg-rel-add button{background:#eef2ff !important;border-color:#c7d2fe !important;color:#3730a3 !important;}
+    .ml-modal .kg-card{background:#f8fafc !important;border-color:#e5e7eb !important;}
+    .ml-modal .kg-mini-btn{background:#f1f3f5 !important;border-color:#e5e7eb !important;color:#374151 !important;}
+
+    /* ===== 设定集增强：统计条 / 多视图 / 折叠 / 标签状态 / 治理 ===== */
+    .kg-mini-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));}
+    .kg-mini-actions .kg-mini-btn{padding:5px 2px;font-size:11px;}
+    .kg-stats{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px;}
+    .kg-stats__item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#cfd3da;font-size:11px;padding:4px 9px;border-radius:14px;line-height:1.4;font-family:inherit;}
+    .kg-stats__item b{color:#7c9cff;font-weight:700;}
+    .kg-stats__item--warn b{color:#f0b35a;}
+    .kg-stats__item--btn{cursor:pointer;}
+    .kg-stats__item--btn:hover{border-color:rgba(124,156,255,.55);}
+    .kg-viewtabs{display:flex;gap:4px;margin:6px 0 2px;}
+    .kg-viewtab{flex:1;padding:5px 2px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:transparent;color:#9aa0a8;font-size:11px;cursor:pointer;text-align:center;font-family:inherit;}
+    .kg-viewtab:hover{color:#cfd3da;}
+    .kg-viewtab.is-active{background:rgba(124,156,255,.2);border-color:rgba(124,156,255,.45);color:#fff;}
+    .kg-expand{flex:none;width:16px;height:16px;border:none;background:transparent;color:#9aa0a8;font-size:10px;cursor:pointer;padding:0;line-height:1;margin-top:1px;border-radius:4px;}
+    .kg-expand:hover{background:rgba(255,255,255,.1);color:#fff;}
+    .kg-expand--empty{visibility:hidden;}
+    .kg-count{flex:none;min-width:18px;height:16px;padding:0 5px;border-radius:9px;background:rgba(124,156,255,.18);color:#aebcff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:2px;vertical-align:1px;}
+    .kg-status-chip{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;background:rgba(95,208,168,.14);color:#5fd0a8;font-size:10px;font-weight:600;vertical-align:1px;}
+    .kg-tag-chip{display:inline-block;margin:1px 3px 1px 0;padding:1px 7px;border-radius:9px;background:rgba(124,156,255,.13);color:#9fb4ff;font-size:10px;line-height:1.5;}
+    .kg-unused{color:#f0997b;font-weight:600;}
+    /* 设定集固定工具区，只有结果列表独立滚动，避免长列表把整个侧栏推成一条长页。 */
+    #sbSheji.sidebar-view.is-active{overflow:hidden;}
+    #sbSheji>.sidebar-view__pad{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden;box-sizing:border-box;}
+    #sbShejiBody{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden;}
+    #sbShejiBody>.kg-results-scroll{flex:1 1 0;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:3px;}
+    #sbShejiBody>.kg-results-scroll>.kg-scene-summary{padding-top:2px;}
+    #sbShejiBody>.kg-results-scroll>.kg-scene-summary textarea{box-sizing:border-box;max-height:96px;overflow:auto;}
+    .kg-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 6px;}
+    .kg-meta-grid input{background:rgba(255,255,255,.05);color:#e8e8e8;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;min-width:0;box-sizing:border-box;}
+    .kg-focusbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:#9aa0a8;}
+    .kg-focusbar b{color:#7c9cff;font-weight:700;}
+    .kg-focusbar select{flex:1;min-width:0;background:rgba(255,255,255,.05);color:#e6e8eb;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:6px 8px;font-size:12px;outline:none;font-family:inherit;}
+    .kg-focusbar button{background:rgba(124,156,255,.16);border:1px solid rgba(124,156,255,.3);color:#cfd8ff;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;}
+    .kg-dedup-group{margin:12px 0;}
+    .kg-dedup-head{font-size:12px;color:#6b7280;font-weight:600;margin-bottom:6px;}
+    .kg-dedup-rows{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:4px;}
+    .kg-dedup-row{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:12px;color:#1f2937;}
+    .kg-dedup-row+.kg-dedup-row{border-top:1px dashed #e2e5ea;}
+    .kg-dedup-row.is-keep .kg-dedup-name{color:#0f766e;}
+    .kg-dedup-name{font-weight:600;flex:none;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .kg-dedup-sub{color:#6b7280;font-size:11px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+    .kg-dedup-btn{flex:none;background:#fdece8;border:1px solid #f5c2b4;color:#9b3d1d;border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;font-family:inherit;}
+    .kg-dedup-btn:hover{background:#f8d8cf;}
+    .ml-modal .cs-row{background:#f8fafc !important;border-color:#e5e7eb !important;}
+    .ml-modal .cs-row__desc{color:#4b5563 !important;}
+    .ml-modal .cs-row__fix{color:#0f766e !important;}
+    .ml-modal .cs-summary{color:#b45309;}
+    .ml-modal .cs-loading,.ml-modal .cs-empty{color:#6b7280;}
+    .ml-modal .kg-focusbar select{background:#fff;color:#111827;border-color:#d1d5db;}
+    .ml-modal .kg-focusbar b{color:#1d4ed8;}
+    .ml-modal .kg-focusbar button{background:#eef2ff;border-color:#c7d2fe;color:#3730a3;}
+    .ml-modal .kg-meta-grid input{background:#fff;color:#111827;border-color:#d1d5db;}
+
+
+    /* ===== 故事画布 / 时间线 ===== */
+    .tl-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+    .tl-tool__group{display:flex;align-items:center;gap:6px;}
+    .tl-tool__label{font-size:12px;color:#9aa0a8;}
+    .tl-select{padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#e6e8eb;outline:none;cursor:pointer;}
+    .tl-mini{padding:6px 12px;font-size:12px;border-radius:7px;cursor:pointer;}
+    .tl-legend{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px;}
+    .tl-legend__chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;font-size:12px;color:#cfd3da;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);}
+    .tl-legend__dot{width:10px;height:10px;border-radius:3px;flex:none;}
+    .tl-canvas{overflow-x:auto;padding:8px 4px 18px;}
+    .tl-lane{display:flex;align-items:stretch;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.08);}
+    .tl-lane__label{position:sticky;left:0;z-index:3;flex:none;width:84px;align-self:center;padding:6px 10px;margin-right:10px;border-radius:8px;font-size:13px;font-weight:700;color:#0d0d0d;display:flex;align-items:center;justify-content:center;text-align:center;background:#7c9cff;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+    .tl-lane__track{display:flex;align-items:stretch;gap:14px;padding:0 8px;}
+    .tl-node{position:relative;width:104px;height:248px;flex:none;cursor:pointer;}
+    .tl-node:hover .tl-bar{filter:brightness(1.12);}
+    .tl-node.is-current .tl-bar{box-shadow:0 0 0 2px #fff, inset 0 0 0 1px rgba(255,255,255,.4);}
+    .tl-pin{position:absolute;top:2px;left:50%;transform:translateX(-50%);width:24px;height:24px;border-radius:50%;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:2;border:2px solid rgba(255,255,255,.85);}
+    .tl-bar-slot{position:absolute;left:0;right:0;bottom:46px;height:172px;display:flex;align-items:flex-end;justify-content:center;}
+    .tl-bar{width:40px;border-radius:9px 9px 0 0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);transition:filter .15s;position:relative;}
+    .tl-bar__peak{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:11px solid;opacity:.9;}
+    .tl-node__foot{position:absolute;bottom:0;left:0;right:0;text-align:center;}
+    .tl-node__num{font-size:11px;color:#9aa0a8;margin-bottom:2px;}
+    .tl-node__title{font-size:12px;color:#e6e8eb;font-weight:600;line-height:1.3;max-height:32px;overflow:hidden;}
+    .tl-axis{margin-top:4px;font-size:11px;color:#6b7280;text-align:center;}
+    .tl-impact{margin-top:22px;border-top:1px solid rgba(255,255,255,.1);padding-top:16px;}
+    .tl-impact__head{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:#e6e8eb;}
+    .tl-impact__hint{font-size:11px;color:#6b7280;font-weight:400;margin-left:4px;}
+    .tl-impact__body{margin-top:12px;display:flex;flex-direction:column;gap:8px;}
+    .tl-impact__row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);}
+    .tl-impact__row.is-active{border-color:rgba(124,156,255,.5);background:rgba(124,156,255,.1);}
+    .tl-impact__bar{flex:none;width:120px;height:8px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;}
+    .tl-impact__bar>i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#7c9cff,#5b9bff);}
+    .tl-impact__meta{flex:1;min-width:0;}
+    .tl-impact__ch{font-size:13px;font-weight:600;color:#e6e8eb;}
+    .tl-impact__share{font-size:11px;color:#9aa0a8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tl-impact__score{flex:none;font-size:13px;font-weight:700;color:#7c9cff;width:42px;text-align:right;}
+    html.light .tl-lane__label{color:#fff;}
+    html.light .tl-legend__chip,html.light .tl-tool__label,html.light .tl-node__num,html.light .tl-axis,html.light .tl-impact__hint{color:#5b6170;}
+    html.light .tl-node__title,html.light .tl-impact__ch{color:#1f2430;}
+    html.light .tl-node__foot .tl-node__title{color:#1f2430;}
+
+    /* 章节蓝图卡片：标记徽章 */
+    .ch-mark{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;color:#fff;font-size:11px;font-weight:800;flex:none;}
+
+    /* ===== AI 能力栏 ===== */
+    .ai-ability-bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:10px 12px;margin:10px 0;border-radius:10px;background:rgba(124,156,255,.06);border:1px solid rgba(124,156,255,.16);}
+    .ai-ability__group{display:flex;align-items:center;gap:6px;}
+    .ai-ability__label{font-size:12px;color:#6b7280;}
+    .ai-ability__select{padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid rgba(0,0,0,.14);background:#fff;color:#1f2430;outline:none;cursor:pointer;}
+    html.dark .ai-ability__select{background:rgba(255,255,255,.06);color:#e6e8eb;border-color:rgba(255,255,255,.14);}
+    .ai-ability__btn{padding:6px 12px;font-size:12px;border-radius:7px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#1f2430;cursor:pointer;}
+    html.dark .ai-ability__btn{background:rgba(255,255,255,.06);color:#e6e8eb;border-color:rgba(255,255,255,.14);}
+    .ai-ability__btn--primary{background:#7c9cff;color:#fff;border-color:#7c9cff;}
+    .ai-ability__btn.is-active{background:#ff6b5b;color:#fff;border-color:#ff6b5b;}
+
+    /* ===== 右栏技能/素材来源条 ===== */
+    .ai-source-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;margin:10px 0;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);}
+    html.light .ai-source-bar{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.08);}
+    .ai-source-bar .editor-icon-btn{width:30px;height:30px;font-size:15px;border-radius:7px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#1f2430;cursor:pointer;}
+    html.dark .ai-source-bar .editor-icon-btn{background:rgba(255,255,255,.06);color:#e6e8eb;border-color:rgba(255,255,255,.14);}
+    .ai-source-bar .editor-icon-btn:hover{background:#7c9cff;color:#fff;border-color:#7c9cff;}
+    .ai-source-bar__hint{font-size:11px;color:#9aa0a8;margin-left:auto;}
+    .ai-source-bar .editor-ai__tag{font-size:11px;}
+    html.light .ai-source-bar .editor-ai__tag{color:#1f2430;}
+
+    /* ===== 模型选择下拉（DeepSeek + GPT） ===== */
+    .model-access-hint{margin:0 0 12px;color:#71717a;font-size:12px;line-height:1.5;}
+    .rp-model-btn.is-locked{cursor:not-allowed;opacity:.72;}
+    .set-select:disabled{cursor:not-allowed;opacity:.58;}
+    .ai-model-menu{position:fixed;z-index:100;width:220px;max-height:70vh;overflow:auto;background:#fff;border:1px solid #e8e8e8;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:8px;}
+    .ai-model-menu[hidden]{display:none;}
+    .ai-model-group{margin-bottom:8px;}
+    .ai-model-group:last-child{margin-bottom:0;}
+    .ai-model-group__title{font-size:11px;color:#6b7280;padding:4px 8px;font-weight:600;}
+    .ai-model-option{display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;}
+    .ai-model-option:hover{background:#f4f4f5;}
+    .ai-model-option.is-active{background:#eef6ff;}
+    .ai-model-option.is-active .ai-model-option__name{color:#16a34a;}
+    .ai-model-option__name{font-size:13px;font-weight:600;color:#18181b;}
+    .ai-model-option__desc{font-size:11px;color:#6b7280;}
+    html.dark .ai-model-menu{background:#242427;border-color:#3a3a3e;}
+    html.dark .ai-model-option:hover{background:rgba(255,255,255,.08);}
+    html.dark .ai-model-option.is-active{background:rgba(124,156,255,.18);}
+    html.dark .ai-model-option.is-active .ai-model-option__name{color:#7c9cff;}
+    html.dark .ai-model-option__name{color:#e6e8eb;}
+
+    /* ===== 一致性校验 ===== */
+    .cs-loading,.cs-empty{padding:18px;text-align:center;color:#6b7280;font-size:13px;}
+    .cs-summary{font-size:13px;font-weight:600;margin-bottom:10px;color:#e07a5f;}
+    .cs-row{display:flex;gap:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);margin-bottom:8px;}
+    .cs-type{flex:none;width:46px;height:24px;border-radius:6px;font-size:11px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;}
+    .cs-type--conflict{background:#ff6b5b;} .cs-type--eatbook{background:#f0b35a;} .cs-type--miss{background:#5b9bff;}
+    .cs-row__main{min-width:0;flex:1;} .cs-row__entity{font-weight:700;font-size:13px;} .cs-row__desc{font-size:12px;color:#9aa0a8;margin-top:2px;} .cs-row__fix{font-size:12px;color:#5fd0a8;margin-top:4px;}
+
+    /* ===== 版本 DIFF ===== */
+    .diff-legend{display:flex;gap:12px;font-size:12px;margin-bottom:8px;}
+    .diff-legend .diff-add{color:#2da44e;} .diff-legend .diff-del{color:#d73a49;} .diff-legend .diff-eq{color:#6b7280;}
+    .diff-body{max-height:52vh;overflow:auto;border:1px solid rgba(0,0,0,.1);border-radius:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.7;}
+    html.dark .diff-body{border-color:rgba(255,255,255,.1);}
+    .diff-l{padding:2px 10px;white-space:pre-wrap;word-break:break-word;}
+    .diff-l.diff-add{background:rgba(45,164,78,.14);color:#1a7f37;}
+    .diff-l.diff-del{background:rgba(215,58,73,.12);color:#cf222e;text-decoration:line-through;}
+    .diff-l.diff-eq{color:#6b7280;}
+    html.dark .diff-l.diff-add{color:#7ee787;} html.dark .diff-l.diff-del{color:#ffa198;}
+
+    /* ===== 灵感卡片 / 模型多源 ===== */
+    .insp-head,.ms-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+    .insp-head .ml-modal__title,.ms-head .ml-modal__title{margin:0;}
+    .insp-head .ml-modal__hint,.ms-head .ml-modal__hint{margin:0;flex:1;}
+    .insp-list,.ms-list{display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow:auto;}
+    .insp-card,.ms-card{padding:10px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);}
+    html.light .insp-card,html.light .ms-card{background:#fafbfc;border-color:#e3e6ea;}
+    .insp-card__top,.ms-card__top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    .insp-title,.ms-name{flex:1;font-weight:600;border:none;background:transparent;font-size:14px;outline:none;border-bottom:1px dashed transparent;}
+    .insp-title:focus,.ms-name:focus{border-bottom-color:#7c9cff;}
+    .insp-card__tools,.ms-card__top .insp-toggle{display:flex;align-items:center;gap:6px;}
+    .insp-toggle{font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px;cursor:pointer;}
+    .insp-tag,.ms-card input.ms-base,.ms-card input.ms-key,.ms-card input.ms-model{width:100%;box-sizing:border-box;padding:6px 8px;font-size:12px;border-radius:6px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#1f2430;margin-top:6px;outline:none;}
+    html.dark .insp-tag,html.dark .ms-card input{background:rgba(255,255,255,.06);color:#e6e8eb;border-color:rgba(255,255,255,.14);}
+    .insp-content{width:100%;box-sizing:border-box;min-height:64px;resize:vertical;padding:8px;font-size:13px;border-radius:6px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#1f2430;outline:none;margin-top:6px;}
+    html.dark .insp-content{background:rgba(255,255,255,.06);color:#e6e8eb;border-color:rgba(255,255,255,.14);}
+    .insp-del{border:none;background:rgba(215,58,73,.12);color:#cf222e;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;}
+    .insp-del:hover{background:rgba(215,58,73,.22);}
+    .insp-empty{padding:24px;text-align:center;color:#6b7280;font-size:13px;}
+    .hist-row:hover{background:rgba(124,156,255,.1);}
+
+    /* 导入进度：固定在状态栏上方，避免长篇 AI 抽取时用户失去反馈 */
+    .ml-import-progress{position:fixed;left:50%;bottom:36px;transform:translateX(-50%);z-index:10001;width:min(620px,calc(100vw - 24px));box-sizing:border-box;padding:10px 12px 9px;background:rgba(255,255,255,.98);border:1px solid #dbe2ea;border-radius:10px;box-shadow:0 8px 28px rgba(15,23,42,.18);color:#1f2937;}
+    .ml-import-progress__top{display:flex;align-items:center;justify-content:space-between;gap:10px;line-height:1.3;font-size:12px;}
+    .ml-import-progress__title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ml-import-progress__pct{flex:none;color:#2563eb;font-variant-numeric:tabular-nums;}
+    .ml-import-progress__track{height:6px;margin-top:7px;overflow:hidden;border-radius:999px;background:#e5e7eb;}
+    .ml-import-progress__bar{height:100%;width:0;border-radius:inherit;background:#2563eb;transition:width .2s ease,background .2s ease;}
+    .ml-import-progress__detail{margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6b7280;font-size:11px;}
+    .ml-import-progress.is-done .ml-import-progress__pct{color:#16a34a;}
+    .ml-import-progress.is-done .ml-import-progress__bar{background:#16a34a;}
+    .ml-import-progress.is-error .ml-import-progress__pct{color:#dc2626;}
+    .ml-import-progress.is-error .ml-import-progress__bar{background:#dc2626;}
+    html.dark .ml-import-progress{background:rgba(36,36,39,.98);border-color:#3a3a3e;color:#e8e8e8;}
+    html.dark .ml-import-progress__track{background:#3a3a3e;}
+    html.dark .ml-import-progress__detail{color:#bfc4cc;}
+    @media (max-width:600px){.ml-import-progress{bottom:34px;padding:9px 10px 8px;border-radius:8px;}.ml-import-progress__detail{max-width:100%;}.kg-search-tools{grid-template-columns:minmax(0,1fr) 84px;}.kg-tree-row{padding-left:calc(3px + var(--kg-level,0) * 10px);}.kg-focusbar{align-items:stretch;flex-wrap:wrap;}.kg-focusbar>span,.kg-focusbar>select{flex:1 1 100%;}.kg-dedup-row{display:grid;grid-template-columns:auto minmax(0,1fr);}.kg-dedup-sub{grid-column:2;margin-left:0;max-width:none;white-space:normal;}.kg-dedup-btn{grid-column:2;justify-self:start;}}
+  </style>
+
+  <script src="./editor.js?v=reasoning-control-2"></script>
+  <script src="./account.js"></script>
+  <script src="./molan-shell.js"></script>
+
+    
+    
+    
+</body>
+</html>

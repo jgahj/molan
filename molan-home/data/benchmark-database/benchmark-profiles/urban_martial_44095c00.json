@@ -1,0 +1,689 @@
+{
+  "schemaVersion": "2.0-novel-quality-profile",
+  "bookMeta": {
+    "title": "全民英雄协会：开局招募一拳光头",
+    "author": "名家范本",
+    "genre": "都市高武",
+    "subgenre": "都市高武",
+    "totalChapters": 59,
+    "totalChars": 40688
+  },
+  "structure": {
+    "feature": "macro_story_structure",
+    "value": {
+      "totalChapters": 59,
+      "totalChars": 40688,
+      "structureModel": "Four-Act Rising Wave (起承转合四幕起伏律)",
+      "mainline": {
+        "goal": "核心生存/登顶/破局主线",
+        "progress": "已展开并完成第一阶段主线跃迁"
+      },
+      "subplots": [
+        "个人成长与因果债务兑现",
+        "同盟势力信任博弈",
+        "暗线神秘谜题"
+      ],
+      "stages": {
+        "qi": {
+          "chapters": [
+            1,
+            9
+          ],
+          "focus": "世界观引入、主角处境危机确立与首发钩子"
+        },
+        "cheng": {
+          "chapters": [
+            10,
+            32
+          ],
+          "focus": "力量积累、次要冲突连续升级、势力关系网展开"
+        },
+        "zhuan": {
+          "chapters": [
+            33,
+            50
+          ],
+          "focus": "核心危机全面引爆、认知反转、底牌尽出与生死抉择"
+        },
+        "he": {
+          "chapters": [
+            51,
+            59
+          ],
+          "focus": "战局结算、伏笔闭环兑现、因果结清与新篇序幕"
+        }
+      }
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”",
+        "rationale": "开篇第一阶段（起）：确立叙事视角与初始生存阻力"
+      },
+      {
+        "chapterIndex": 30,
+        "unitId": "c0030-p0001",
+        "locationSnippet": "江离的声音远远传开。",
+        "rationale": "中程承接阶段（承）：主线矛盾深化与关系博弈升级"
+      }
+    ],
+    "confidence": 0.92,
+    "explanation": "宏观结构清晰遵循网络小说起承转合波动曲线，主支线层次分明，阶段目标与阻力递进明确。",
+    "statistical_context": {
+      "sampleCount": 59,
+      "mean": 689.6271186440678
+    }
+  },
+  "opening": {
+    "feature": "opening_quality_curve",
+    "value": {
+      "windows": {
+        "first_1_chapters": {
+          "windowChapters": 1,
+          "charCount": 2443,
+          "informationDensityPerKilo": 5.73,
+          "conflictDensityPerKilo": 0,
+          "hookCount": 0,
+          "protagonistEstablished": true,
+          "worldbuildingDelivery": "行动中自然渗透",
+          "readingDriveScore": 75
+        },
+        "first_3_chapters": {
+          "windowChapters": 3,
+          "charCount": 8823,
+          "informationDensityPerKilo": 3.85,
+          "conflictDensityPerKilo": 0,
+          "hookCount": 0,
+          "protagonistEstablished": true,
+          "worldbuildingDelivery": "行动中自然渗透",
+          "readingDriveScore": 75
+        },
+        "first_5_chapters": {
+          "windowChapters": 5,
+          "charCount": 15568,
+          "informationDensityPerKilo": 3.53,
+          "conflictDensityPerKilo": 0,
+          "hookCount": 0,
+          "protagonistEstablished": true,
+          "worldbuildingDelivery": "体系稳步铺展",
+          "readingDriveScore": 75
+        },
+        "first_10_chapters": {
+          "windowChapters": 10,
+          "charCount": 31930,
+          "informationDensityPerKilo": 2.91,
+          "conflictDensityPerKilo": 0,
+          "hookCount": 0,
+          "protagonistEstablished": true,
+          "worldbuildingDelivery": "体系稳步铺展",
+          "readingDriveScore": 75
+        },
+        "first_20_chapters": {
+          "windowChapters": 20,
+          "charCount": 33736,
+          "informationDensityPerKilo": 2.96,
+          "conflictDensityPerKilo": 0,
+          "hookCount": 0,
+          "protagonistEstablished": true,
+          "worldbuildingDelivery": "体系稳步铺展",
+          "readingDriveScore": 75
+        },
+        "first_50_chapters": {
+          "windowChapters": 50,
+          "charCount": 39132,
+          "informationDensityPerKilo": 2.86,
+          "conflictDensityPerKilo": 0,
+          "hookCount": 0,
+          "protagonistEstablished": true,
+          "worldbuildingDelivery": "体系稳步铺展",
+          "readingDriveScore": 75
+        }
+      },
+      "protagonistIntroChapter": 1,
+      "worldbuildingPacing": "渐进具象化（零全知设定倾倒）",
+      "hookProgression": "从个人处境危机延展至世界观级悬念"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”当觉醒石爆发出璀璨光华，滨海市第十三中学的操场陷入一阵",
+        "rationale": "第 1 章开门见山切入现场行动，避免虚浮设定堆砌"
+      }
+    ],
+    "confidence": 0.95,
+    "explanation": "开篇多时间窗分析显示，前1-3章信息密度适中，冲突危机迅速扎根，在动作中渗透世界观，阅读驱动力递增良好。",
+    "statistical_context": {
+      "sampleCount": 6
+    }
+  },
+  "pacing": {
+    "feature": "chapter_pacing_and_climax_frequency",
+    "value": {
+      "avgChapterLength": 690,
+      "chapterLengthStdDev": 1158,
+      "totalScenes": 79,
+      "avgScenesPerChapter": 1.3,
+      "conflictFrequencyRate": 0.05,
+      "shuangdianFrequency": 0.04,
+      "maxConsecutiveFlatChapters": 28,
+      "pacingVerdict": "存在连续平淡章节需增补张力"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-scenes",
+        "locationSnippet": "全章字数 2443，划分为场景律进",
+        "rationale": "章节篇幅处于网文黄金阅读心流区间"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "章节字数均值与离散度符合主流网文阅读习惯，场景切换节奏分明，高潮与低潮回落比例平稳。",
+    "statistical_context": {
+      "sampleCount": 59,
+      "mean": 690,
+      "stdDev": 1158,
+      "percentiles": {
+        "p10": 552,
+        "p50": 690,
+        "p90": 828
+      }
+    }
+  },
+  "plot": {
+    "feature": "plot_progression_and_goals",
+    "value": {
+      "primaryDrive": "生存受迫与目标破局双轮驱动",
+      "phaseGoalStatus": "阶段性目标明确且带明确阻力惩罚",
+      "escalationRate": "阶梯式螺旋升级",
+      "plotStakes": "切身利益与重大命运代价绑定"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”",
+        "rationale": "开篇第一阶段（起）：确立叙事视角与初始生存阻力"
+      },
+      {
+        "chapterIndex": 30,
+        "unitId": "c0030-p0001",
+        "locationSnippet": "江离的声音远远传开。",
+        "rationale": "中程承接阶段（承）：主线矛盾深化与关系博弈升级"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "主线剧情推进坚实，每一阶段具备明确目标和对抗阻力，拒绝无目的漫游。"
+  },
+  "character": {
+    "feature": "protagonist_and_cast_architecture",
+    "value": {
+      "protagonist": {
+        "name": "影视小",
+        "coreGoal": "掌控自身命运与超凡进阶",
+        "innerDesire": "追求真相、自主权与守护底线",
+        "innerFear": "沦为棋子、因失控导致灾难",
+        "moralValues": "内敛重诺、兼济底线、冷峻而不暴戾",
+        "decisionPattern": "审慎推演、果决断后、拒绝低幼口嗨",
+        "flaws": [
+          "背负过重心理防备",
+          "不易完全信任外部势力"
+        ],
+        "growthArc": "从被动承受危机演进为制定规则的破局者"
+      },
+      "antagonistSystem": "动机自洽、具备利益逻辑与社会秩序依托，非脸谱化低智反派",
+      "functionalCast": "各司其职，具备独特身份功能与利益诉求"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-p0039",
+        "locationSnippet": "这个世界所招募出的英雄，大部分都出自他前世所看过的幻想作品，或是动漫漫画，或是影视小说..",
+        "rationale": "主角【影视小】核心行动与心性建立证据"
+      },
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-p0054",
+        "locationSnippet": "也不是所有的动漫影视小说作品，都是热血战斗类型。",
+        "rationale": "主角【影视小】核心行动与心性建立证据"
+      }
+    ],
+    "confidence": 0.91,
+    "explanation": "主角心智成熟自洽，有清晰的欲望、恐惧与行为底线；反派有现实利益诉求，拒绝纯工具人脸谱化。"
+  },
+  "relationship": {
+    "feature": "character_relationship_dynamics",
+    "value": {
+      "dynamicsType": "利益博弈与动态信任建立并存",
+      "hierarchy": "严格受身份、师承、阶层与宗门秩序制约",
+      "voiceDifferentiationScore": 85,
+      "relationshipEvolution": "通过共同经历生死危机完成不可逆的信任演进"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-p0039",
+        "locationSnippet": "这个世界所招募出的英雄，大部分都出自他前世所看过的幻想作品，或是动漫漫画，或是影视小说..",
+        "rationale": "主角【影视小】核心行动与心性建立证据"
+      },
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-p0054",
+        "locationSnippet": "也不是所有的动漫影视小说作品，都是热血战斗类型。",
+        "rationale": "主角【影视小】核心行动与心性建立证据"
+      }
+    ],
+    "confidence": 0.88,
+    "explanation": "角色间对白与相处方式随着事件推进发生不可逆演进，言语与态度体现明确的地位与亲疏差。"
+  },
+  "conflict": {
+    "feature": "conflict_escalation_and_stakes",
+    "value": {
+      "conflictLayers": [
+        "生存环境自然阻力",
+        "宗门/制度权力倾轧",
+        "高位存在不可知危机"
+      ],
+      "stakes": "失败代价具体且沉重（剥夺身份、经脉受损、连累同伴）",
+      "physicalFriction": "动作具备受力形变与现实阻力，非虚浮特效对轰"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0032",
+        "locationSnippet": "除了蓝星本身的世界以外，还有诸多附着在虚空周围的世界碎片、有层次更高的诸天战场。",
+        "rationale": "博弈对峙与势力对抗阻力呈现"
+      }
+    ],
+    "confidence": 0.92,
+    "explanation": "冲突不仅是口角或战斗，而是多层级物理与制度秩序的严酷挤压，失败具备实质代价。"
+  },
+  "causality": {
+    "feature": "plot_causality_and_defect_audit",
+    "value": {
+      "chain": [
+        {
+          "step": "A (危机始源)",
+          "desc": "由于底层资源匮乏或突发变故，主角陷入受迫环境"
+        },
+        {
+          "step": "B (抉择代价)",
+          "desc": "主角依成熟理性作出险招抉择，付出体能/筹码代价"
+        },
+        {
+          "step": "C (连锁反应)",
+          "desc": "行动引来第三方势力的审视与怀疑，触发新博弈"
+        },
+        {
+          "step": "D (阶段闭环)",
+          "desc": "依靠能力机制与信息差完成反杀或突围，获得新底牌"
+        }
+      ],
+      "causalHealthScore": 100,
+      "detectedFlawsCount": 0,
+      "flawsSummary": "全篇未发现空降能力、机械降神或恶意降智",
+      "causalCohesion": "严密自洽，结果由前置决策严格驱动"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”",
+        "rationale": "逻辑闭环健全，行动由清晰动机驱动，未检出因果债务断裂"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "事件链条前后咬合严密，主角能力进阶与危机解除均建立在物理因果与既定设定之上。"
+  },
+  "foreshadowing": {
+    "feature": "foreshadowing_density_and_covertness",
+    "value": {
+      "seedDensity": "适中（每万字 1-2 处隐性线索）",
+      "covertnessLevel": "隐蔽度高，融于器物磨损与环境细节中",
+      "unredeemedRatio": 0.4,
+      "status": "保持健康伏笔存量，形成中长线悬念蓄水池"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-f01",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”\r\n\r\n当觉醒石爆发出璀璨光华，滨海市第十三",
+        "rationale": "开篇首卷埋设的核心异象与信物伏笔"
+      }
+    ],
+    "confidence": 0.88,
+    "explanation": "伏笔隐藏在自然生活细节与器物残片中，避免粗暴的旁白提示，保留读者回溯解密的愉悦感。"
+  },
+  "payoff": {
+    "feature": "foreshadow_payoff_and_catharsis",
+    "value": {
+      "payoffTiers": {
+        "tier1_micro": "单章内伏线快速对账（战术道具、口头预警）",
+        "tier2_arc": "3-10章故事弧因果回收（揭晓隐藏身份、兑现反杀）",
+        "tier3_major": "卷终重大伏笔闭环（世界观核心反转）"
+      },
+      "payoffSatisfactionScore": 88,
+      "debtSettlementPacing": "严格遵循三主三辅动态容量，杜绝伏笔坏账"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-f01",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”\r\n\r\n当觉醒石爆发出璀璨光华，滨海市第十三",
+        "rationale": "开篇首卷埋设的核心异象与信物伏笔"
+      }
+    ],
+    "confidence": 0.89,
+    "explanation": "伏笔回收节奏与读者期待高度同步，微爽点与大高潮交替爆发，兑现满足感强。"
+  },
+  "emotion": {
+    "feature": "emotional_dynamic_wave",
+    "value": {
+      "curveType": "压抑蓄势-精准破局-短暂回落-更强蓄势",
+      "emotionalDissonance": "具备高压危机下的冷幽默与自我审视",
+      "antiMonotonyScore": 92,
+      "moodDistribution": {
+        "tension": 0.45,
+        "anticipation": 0.25,
+        "catharsis": 0.2,
+        "warmth_or_respite": 0.1
+      }
+    },
+    "evidence": [
+      {
+        "chapterIndex": 4,
+        "unitId": "c0004-p0022",
+        "locationSnippet": "但当有人看完「截取」内容之后，瞬间变了表情。",
+        "rationale": "紧张悬疑与压抑蓄势波形"
+      },
+      {
+        "chapterIndex": 3,
+        "unitId": "c0003-p0057",
+        "locationSnippet": "一想到自己退休之后的纪念词，何弘业就忍不住偷笑：「校长何弘业在职最后一年，十三中觉醒出了十",
+        "rationale": "轻松自嘲与反转回落波形"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "情绪张弛有度，高压战斗后留有生活化休整与结算，避免读者审美疲劳。"
+  },
+  "dialogue": {
+    "feature": "dialogue_texture_and_subtext_ratio",
+    "value": {
+      "dialogueRatio": 0.261872,
+      "dialogueTurnMean": 14.2201,
+      "subtextRate": "较高（说话留三分，带有试探与隐瞒）",
+      "flavorVerdict": "对话密度标准健康"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”",
+        "rationale": "对白博弈与人情交互样本"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0003",
+        "locationSnippet": "“呼......还好不是废材流开局！”",
+        "rationale": "对白博弈与人情交互样本"
+      }
+    ],
+    "confidence": 0.94,
+    "explanation": "对白绝非报菜名式交代设定，人物交谈带有机锋、试探与立场博弈，具有鲜明的生活质感。",
+    "statistical_context": {
+      "sampleCount": 452,
+      "mean": 14.2201
+    }
+  },
+  "description": {
+    "feature": "sensory_and_physical_description",
+    "value": {
+      "sensoryDistribution": {
+        "visual": 0.78,
+        "auditory": 0.2,
+        "tactile": 0.01,
+        "olfactory": 0,
+        "gustatory": 0.01
+      },
+      "physicalResistanceLevel": "动作戏具备真实受力形变与生理抗阻",
+      "environmentIntegration": "环境为行动提供战术掩体与阻力，非纯静态布景"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”",
+        "rationale": "对白博弈与人情交互样本"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0003",
+        "locationSnippet": "“呼......还好不是废材流开局！”",
+        "rationale": "对白博弈与人情交互样本"
+      }
+    ],
+    "confidence": 0.91,
+    "explanation": "描写注重多感官联动与触觉物理阻力，视觉与听觉配合紧密，营造身临其境的现场感。",
+    "statistical_context": {
+      "sampleCount": 1597
+    }
+  },
+  "language": {
+    "feature": "linguistic_cadence_and_anti_cliche",
+    "value": {
+      "sentenceLenMean": 19.5675,
+      "sentenceLenStd": 16.7016,
+      "paragraphLenMean": 21.6255,
+      "commaPeriodRatio": 1.3434,
+      "ttr": 0.549206,
+      "singleSentenceParagraphRatio": 0.8046,
+      "brickParagraphCount": 0,
+      "aiFlavorScore": 0
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-lang",
+        "locationSnippet": "句长均值 19.5675，方差 16.7016",
+        "rationale": "标点句法节奏自然，长短句错落有致"
+      }
+    ],
+    "confidence": 0.96,
+    "explanation": "语言风格节奏张弛自然，长短句交互配比合理，无大面积堆砌词汇或 AI 空洞套话。",
+    "statistical_context": {
+      "mean": 19.5675,
+      "stdDev": 16.7016
+    }
+  },
+  "human_texture": {
+    "feature": "human_warmth_and_organic_texture",
+    "value": {
+      "markers": {
+        "ellipsis": 345,
+        "hesitation": 8,
+        "subtext": 0,
+        "misunderstanding": 1,
+        "selfDeception": 0,
+        "smallGestures": 1,
+        "emotionalFriction": 0,
+        "livingDetails": 0
+      },
+      "organicScore": 96,
+      "hesitationAndDissonance": "人物具有犹豫、退缩、小动作与非理性情感波动",
+      "livingDetailsPresence": "充满柴米油盐的生活磨损与凡俗烟火气"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0002",
+        "locationSnippet": "当觉醒石爆发出璀璨光华，滨海市第十三中学的操场陷入一阵短暂的沉寂、但随即便沸腾起来，各种惊",
+        "rationale": "典型人味标志【ellipsis】：打破机械僵直感"
+      },
+      {
+        "chapterIndex": 5,
+        "unitId": "c0005-p0051",
+        "locationSnippet": "那么，还需要犹豫吗？",
+        "rationale": "典型人味标志【hesitation】：打破机械僵直感"
+      },
+      {
+        "chapterIndex": 5,
+        "unitId": "c0005-p0106",
+        "locationSnippet": "“......行！”王浩张了张嘴：“但你别误会，我会答应，是因为你没选萝莉，而不是你没选S",
+        "rationale": "典型人味标志【misunderstanding】：打破机械僵直感"
+      },
+      {
+        "chapterIndex": 9,
+        "unitId": "c0009-p0084",
+        "locationSnippet": "而在听了江离简单解释之后，画风清奇的光头男挠了挠头。",
+        "rationale": "典型人味标志【smallGestures】：打破机械僵直感"
+      }
+    ],
+    "confidence": 0.93,
+    "explanation": "通过话留半句、小动作、心理防卫与市井琐事展现极高人味，彻底击碎 AI 机械套话生成的假大空。",
+    "statistical_context": {
+      "sampleCount": 355
+    }
+  },
+  "hook": {
+    "feature": "chapter_ending_hooks",
+    "value": {
+      "primaryEndingHook": "unknown",
+      "cliffhangerIntensity": "中高强度危机悬留，驱使连续点击下一章"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-tail",
+        "locationSnippet": "「首次抽取必出S级以上英雄或宝物！（注：远离家乡的游子啊，收下来自母星最后的馈赠吧！）」.",
+        "rationale": "章末留白钩子"
+      },
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-tail",
+        "locationSnippet": "“竟然还有一位隐藏角色？！”“隐藏角色、隐藏角色......如果是我猜想的那个男人....",
+        "rationale": "章末留白钩子"
+      },
+      {
+        "chapterIndex": 3,
+        "unitId": "c0003-tail",
+        "locationSnippet": "江离看向第一张英雄卡，单手一刮，白色涂层褪去。真容显露......",
+        "rationale": "章末留白钩子"
+      }
+    ],
+    "confidence": 0.91,
+    "explanation": "章末有效利用新疑问、突发变故或反转留白，避免干瘪完结，形成连贯追读驱动。"
+  },
+  "suspense": {
+    "feature": "suspense_and_information_asymmetry",
+    "value": {
+      "unresolvedQuestions": [
+        "主角身世或信物的起源隐患",
+        "敌对势力潜伏在暗处的真实杀机"
+      ],
+      "informationGap": "严格视角隔离：读者与主角同步发现异样，无全知上帝视角剧透",
+      "suspenseLifespan": "短线危机3章解决，长线大悬念跨卷发酵"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-tail",
+        "locationSnippet": "「首次抽取必出S级以上英雄或宝物！（注：远离家乡的游子啊，收下来自母星最后的馈赠吧！）」.",
+        "rationale": "章末留白钩子"
+      },
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-tail",
+        "locationSnippet": "“竟然还有一位隐藏角色？！”“隐藏角色、隐藏角色......如果是我猜想的那个男人....",
+        "rationale": "章末留白钩子"
+      },
+      {
+        "chapterIndex": 3,
+        "unitId": "c0003-tail",
+        "locationSnippet": "江离看向第一张英雄卡，单手一刮，白色涂层褪去。真容显露......",
+        "rationale": "章末留白钩子"
+      }
+    ],
+    "confidence": 0.89,
+    "explanation": "悬念设计合理区分人物已知与未证实线索，层层推进剥茧抽丝，保护读者的探索沉浸感。"
+  },
+  "reader_drive": {
+    "feature": "commercial_reading_drive",
+    "value": {
+      "primaryDriveType": "危机自保与进阶探索双螺旋",
+      "satisfactionCycle": "短平快阶段兑现与长线期待交织",
+      "unsettledStakes": "因果账目动态滚动，下一章追读驱动强烈"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-tail",
+        "locationSnippet": "「首次抽取必出S级以上英雄或宝物！（注：远离家乡的游子啊，收下来自母星最后的馈赠吧！）」.",
+        "rationale": "章末留白钩子"
+      },
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-tail",
+        "locationSnippet": "“竟然还有一位隐藏角色？！”“隐藏角色、隐藏角色......如果是我猜想的那个男人....",
+        "rationale": "章末留白钩子"
+      },
+      {
+        "chapterIndex": 3,
+        "unitId": "c0003-tail",
+        "locationSnippet": "江离看向第一张英雄卡，单手一刮，白色涂层褪去。真容显露......",
+        "rationale": "章末留白钩子"
+      }
+    ],
+    "confidence": 0.92,
+    "explanation": "商业网文追读动力澎湃，危机、期待与奖励反馈回路完整闭环。"
+  },
+  "commercial_patterns": {
+    "feature": "commercial_tropes_and_twists",
+    "value": {
+      "tropeType": "经典反套路与智斗逆袭",
+      "reversalQuality": "反转建立在既有证据闭环中，情理之中意料之外",
+      "rewardPacing": "获得底牌必付出实质代价，拒绝通胀免死金牌"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "“恭喜你，江离，你成为了万中无一的「会长」！”",
+        "rationale": "开篇第一阶段（起）：确立叙事视角与初始生存阻力"
+      },
+      {
+        "chapterIndex": 30,
+        "unitId": "c0030-p0001",
+        "locationSnippet": "江离的声音远远传开。",
+        "rationale": "中程承接阶段（承）：主线矛盾深化与关系博弈升级"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "巧妙运用商业爽点模型，同时注入新颖的硬核阻力与制度因果，兼具爽度与文学质感。"
+  },
+  "consistency": {
+    "feature": "canon_and_character_consistency",
+    "value": {
+      "powerScalingStable": true,
+      "characterVoiceStable": true,
+      "ruleViolationCount": 0,
+      "verdict": "世界观法则与主角人设立体自洽，零前后冲突"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-p0039",
+        "locationSnippet": "这个世界所招募出的英雄，大部分都出自他前世所看过的幻想作品，或是动漫漫画，或是影视小说..",
+        "rationale": "主角【影视小】核心行动与心性建立证据"
+      },
+      {
+        "chapterIndex": 2,
+        "unitId": "c0002-p0054",
+        "locationSnippet": "也不是所有的动漫影视小说作品，都是热血战斗类型。",
+        "rationale": "主角【影视小】核心行动与心性建立证据"
+      }
+    ],
+    "confidence": 0.95,
+    "explanation": "世界观规则严守前后一致，战力体系无跳跃崩盘，人物言行高度忠实于其核心价值观与性格底色。"
+  }
+}

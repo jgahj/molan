@@ -1,0 +1,5 @@
+data/character-material-raw-v3.1/samples.jsonl filter=lfs diff=lfs merge=lfs -text
+data/character-material-v3.1-rebuild/candidate-pool.jsonl filter=lfs diff=lfs merge=lfs -text
+data/character-material-v3.1-rebuild/rich-intermediate.json filter=lfs diff=lfs merge=lfs -text
+data/character-material-v3.1-rebuild/safe-intermediate.json filter=lfs diff=lfs merge=lfs -text
+lib/character-material/index.json filter=lfs diff=lfs merge=lfs -text

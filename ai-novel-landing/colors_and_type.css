@@ -1,0 +1,103 @@
+/* ===================== AI 小说创作平台 · 设计风格 ===================== */
+/* 基于截图还原：极简黑白、现代 SaaS、中式文学雅致 */
+
+:root {
+  /* 色彩系统 */
+  --ml-ink: #0a0a0a;            /* 主文字 / 主按钮 */
+  --ml-ink-2: #1a1a1a;          /* 次级深色 */
+  --ml-paper: #ffffff;          /* 纯白背景 */
+  --ml-paper-2: #fafafa;        /* 次白 / 卡片底 */
+  --ml-paper-3: #f5f5f5;        /* 浅灰底 */
+  --ml-line: #e8e8e8;           /* 分割线 */
+  --ml-line-2: #e5e5e5;         /* 卡片描边 */
+  --ml-gray: #666666;           /* 次级文字 */
+  --ml-gray-2: #999999;         /* 辅助文字 */
+  --ml-gray-3: #b3b3b3;         /* 占位/弱化 */
+  --ml-accent: #111111;         /* 强调黑 */
+  --ml-success: #16a34a;        /* 成功绿 */
+  --ml-success-bg: #f0fdf4;     /* 成功绿浅底 */
+
+  /* 状态色（仅用于真实状态/校验指示） */
+  --ml-success: #16a34a;          /* 校验通过绿 */
+  --ml-success-bg: #f0fdf4;       /* 浅绿底 */
+
+  /* 字体系统 */
+  --ml-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ml-font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --ml-font-mono: "SFMono-Regular", "Consolas", monospace;
+
+  /* 圆角 */
+  --ml-radius-sm: 6px;
+  --ml-radius-md: 8px;
+  --ml-radius-lg: 12px;
+  --ml-radius-xl: 16px;
+  --ml-radius-full: 9999px;
+
+  /* 阴影 */
+  --ml-shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --ml-shadow-md: 0 4px 16px rgba(0,0,0,.06);
+  --ml-shadow-lg: 0 12px 40px rgba(0,0,0,.08);
+  --ml-shadow-card: 0 4px 24px rgba(0,0,0,.05);
+
+  /* 间距节奏 */
+  --ml-space-1: 4px;
+  --ml-space-2: 8px;
+  --ml-space-3: 12px;
+  --ml-space-4: 16px;
+  --ml-space-5: 24px;
+  --ml-space-6: 32px;
+  --ml-space-7: 48px;
+  --ml-space-8: 64px;
+
+  /* 语义别名（供 fill-html-head.mjs 映射与 Tailwind 语义类使用） */
+  --ml-background: var(--ml-paper);
+  --ml-foreground: var(--ml-ink);
+  --ml-card: var(--ml-paper);
+  --ml-card-foreground: var(--ml-ink);
+  --ml-primary: var(--ml-ink);
+  --ml-primary-foreground: var(--ml-paper);
+  --ml-secondary: var(--ml-paper-3);
+  --ml-secondary-foreground: var(--ml-ink);
+  --ml-muted: var(--ml-paper-2);
+  --ml-muted-foreground: var(--ml-gray);
+  --ml-accent-foreground: var(--ml-ink);
+  --ml-border: var(--ml-line-2);
+  --ml-input: var(--ml-line-2);
+  --ml-ring: var(--ml-ink);
+}
+
+/* 字号刻度 */
+.ml-text-xs { font-size: 11px; line-height: 1.5; }
+.ml-text-sm { font-size: 13px; line-height: 1.6; }
+.ml-text-base { font-size: 14px; line-height: 1.7; }
+.ml-text-md { font-size: 15px; line-height: 1.7; }
+.ml-text-lg { font-size: 17px; line-height: 1.6; }
+.ml-text-xl { font-size: 20px; line-height: 1.5; }
+.ml-text-2xl { font-size: 24px; line-height: 1.4; }
+.ml-text-3xl { font-size: 32px; line-height: 1.3; }
+.ml-text-4xl { font-size: 44px; line-height: 1.25; }
+.ml-text-5xl { font-size: 56px; line-height: 1.2; }
+.ml-text-6xl { font-size: 68px; line-height: 1.15; }
+
+/* 字重 */
+.ml-font-normal { font-weight: 400; }
+.ml-font-medium { font-weight: 500; }
+.ml-font-semibold { font-weight: 600; }
+.ml-font-bold { font-weight: 700; }
+
+/* 字体族 */
+.ml-font-sans { font-family: var(--ml-font-sans); }
+.ml-font-serif { font-family: var(--ml-font-serif); }
+.ml-font-mono { font-family: var(--ml-font-mono); }
+
+/* 文字颜色 */
+.ml-text-ink { color: var(--ml-ink); }
+.ml-text-gray { color: var(--ml-gray); }
+.ml-text-gray-2 { color: var(--ml-gray-2); }
+.ml-text-gray-3 { color: var(--ml-gray-3); }
+
+/* 背景色 */
+.ml-bg-paper { background: var(--ml-paper); }
+.ml-bg-paper-2 { background: var(--ml-paper-2); }
+.ml-bg-paper-3 { background: var(--ml-paper-3); }
+.ml-bg-ink { background: var(--ml-ink); }

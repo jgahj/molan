@@ -1,0 +1,4 @@
+interface:
+  display_name: "小说文风提取与转化"
+  short_description: "从样文、纠错和改稿中提取、校准并跨模型应用小说文风"
+  default_prompt: "使用 $extract-transform-fiction-style 分析我的小说样文，建立可移植的文风档案。"

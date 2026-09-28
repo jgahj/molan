@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7f8f6">
+  <title>我的小说 · 墨阑</title>
+  <link rel="stylesheet" href="./account.css">
+  <link rel="stylesheet" href="./novels.css">
+  <link rel="stylesheet" href="./molan-ui.css">
+  <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="novels-page">
+  <header class="novels-topbar">
+    <a class="novels-brand" href="../index.html" aria-label="返回墨阑首页">
+      <span class="novels-brand__mark">墨</span>
+      <span>墨阑<span class="novels-brand__sub">AI 小说</span></span>
+    </a>
+    <nav class="novels-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a class="is-active" href="./novels.html" aria-current="page">我的小说</a>
+      <a href="./dissect.html">拆书</a>
+      <a href="./skills.html">开放 Skill</a>
+    </nav>
+    <div class="novels-topbar__actions">
+      <button class="novels-icon-btn" id="refreshBtn" type="button" title="刷新作品库" aria-label="刷新作品库">
+        <i data-lucide="refresh-cw"></i>
+      </button>
+      <button class="novels-account" data-molan-account type="button" aria-label="登录">登录</button>
+    </div>
+  </header>
+
+  <main class="novels-shell">
+    <section class="novels-heading" aria-labelledby="libraryTitle">
+      <div>
+        <div class="novels-eyebrow">WORKSPACE</div>
+        <h1 id="libraryTitle">我的小说</h1>
+        <p class="novels-heading__meta" id="libraryMeta">正在读取作品库…</p>
+      </div>
+      <button class="novels-primary-btn" id="createNovelBtn" type="button">
+        <i data-lucide="plus"></i>
+        <span>创建小说</span>
+      </button>
+    </section>
+
+    <section class="novels-toolbar" aria-label="作品筛选">
+      <label class="novels-search">
+        <i data-lucide="search"></i>
+        <input id="searchInput" type="search" placeholder="搜索标题或简介" autocomplete="off">
+      </label>
+      <div class="novels-toolbar__controls">
+        <label class="novels-select-wrap">
+          <span class="sr-only">状态</span>
+          <select id="statusFilter" aria-label="按状态筛选">
+            <option value="all">全部状态</option>
+            <option value="draft">未开始</option>
+            <option value="writing">创作中</option>
+            <option value="completed">已完成</option>
+          </select>
+          <i data-lucide="chevron-down"></i>
+        </label>
+        <label class="novels-select-wrap">
+          <span class="sr-only">排序</span>
+          <select id="sortSelect" aria-label="排序">
+            <option value="updated">最近编辑</option>
+            <option value="created">创建时间</option>
+            <option value="title">标题</option>
+            <option value="words">字数</option>
+          </select>
+          <i data-lucide="chevron-down"></i>
+        </label>
+        <label class="novels-select-wrap novels-group-select">
+          <span class="sr-only">分组</span>
+          <select id="groupSelect" aria-label="分组方式">
+            <option value="none">不分组</option>
+            <option value="status">按状态分组</option>
+            <option value="time">按更新时间分组</option>
+          </select>
+          <i data-lucide="chevron-down"></i>
+        </label>
+        <div class="novels-view-toggle" role="group" aria-label="视图模式">
+          <button type="button" class="is-active" data-view="grid" aria-label="网格视图" aria-pressed="true" title="网格视图"><i data-lucide="layout-grid"></i></button>
+          <button type="button" data-view="list" aria-label="列表视图" aria-pressed="false" title="列表视图"><i data-lucide="list"></i></button>
+        </div>
+      </div>
+    </section>
+
+    <div class="novels-statusline">
+      <span id="resultMeta">—</span>
+      <span class="novels-statusline__sync" id="syncMeta"></span>
+    </div>
+
+    <section id="loadingState" class="novels-loading" aria-live="polite">
+      <span class="novels-spinner" aria-hidden="true"></span>
+      <span>正在加载作品</span>
+    </section>
+    <section id="novelResults" class="novel-results" aria-live="polite"></section>
+    <section id="emptyState" class="novels-empty" hidden>
+      <div class="novels-empty__icon"><i data-lucide="book-open"></i></div>
+      <h2 id="emptyTitle">还没有找到小说</h2>
+      <p id="emptyText">创建你的第一部作品，写下一个故事的开头。</p>
+      <button class="novels-secondary-btn" id="emptyCreateBtn" type="button"><i data-lucide="plus"></i>创建小说</button>
+    </section>
+  </main>
+
+  <div class="novels-dialog" id="novelDialog" hidden aria-hidden="true">
+    <section class="novels-dialog__card" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <header class="novels-dialog__head">
+        <div>
+          <div class="novels-eyebrow">NEW PROJECT</div>
+          <h2 id="dialogTitle">创建小说</h2>
+        </div>
+        <button class="novels-dialog__close" id="dialogClose" type="button" aria-label="关闭"><i data-lucide="x"></i></button>
+      </header>
+      <form id="novelForm" class="novels-dialog__form">
+        <label>
+          <span>小说名称</span>
+          <input id="novelTitleInput" name="title" maxlength="80" placeholder="例如：逆天重生：从废物到至尊" required>
+        </label>
+        <label>
+          <span>一句话简介 <em>可选</em></span>
+          <textarea id="novelDescriptionInput" name="description" maxlength="500" rows="4" placeholder="写下故事的核心冲突或你想探索的主题"></textarea>
+        </label>
+        <label id="novelWorkspaceField">
+          <span>保存到工作区</span>
+          <select id="novelWorkspaceSelect" name="workspaceId"></select>
+        </label>
+        <p class="novels-dialog__hint" id="dialogHint">创建后会进入编辑器，你可以继续补充大纲、人物和设定。</p>
+        <div class="novels-dialog__actions">
+          <button class="novels-secondary-btn" id="dialogCancel" type="button">取消</button>
+          <button class="novels-primary-btn" type="submit"><i data-lucide="arrow-right"></i><span id="dialogSubmitText">进入编辑器</span></button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="novelsToast" class="novels-toast" role="status" aria-live="polite"></div>
+  <script src="./account.js"></script>
+  <script src="./novels.js"></script>
+  <script src="./molan-shell.js"></script>
+</body>
+</html>

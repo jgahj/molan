@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>墨阑管理后台</title>
+  <link rel="stylesheet" href="./admin.css">
+  <link rel="stylesheet" href="./molan-ui.css">
+</head>
+<body>
+  <div class="admin-shell" id="adminApp" hidden>
+    <aside class="admin-sidebar">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">墨</div>
+        <div><strong>墨阑</strong><span>AI 小说后台</span></div>
+        <button class="icon-btn sidebar-toggle" id="sidebarToggle" type="button" aria-label="收起侧栏" title="收起侧栏"><span class="ui-icon" data-icon="chevron-left" aria-hidden="true"></span></button>
+      </div>
+      <div class="sidebar-search" aria-label="后台导航搜索"><span class="ui-icon" data-icon="search" aria-hidden="true"></span><input id="navSearch" type="search" placeholder="搜索页面"><kbd>/</kbd></div>
+      <p class="nav-label">管理中心</p>
+      <nav class="admin-nav" id="adminNav">
+        <button class="nav-item is-active" type="button" data-view="overview"><span class="nav-icon" data-icon="layout-dashboard" aria-hidden="true"></span><span>总览</span></button>
+        <button class="nav-item" type="button" data-view="users"><span class="nav-icon" data-icon="users" aria-hidden="true"></span><span>用户管理</span><span class="nav-count" id="navUserCount">0</span></button>
+        <button class="nav-item" type="button" data-view="models"><span class="nav-icon" data-icon="sparkles" aria-hidden="true"></span><span>模型配置</span></button>
+        <button class="nav-item" type="button" data-view="skills"><span class="nav-icon" data-icon="sparkles" aria-hidden="true"></span><span>全局 Skill</span><span class="nav-count" id="navSkillCount">0</span></button>
+        <button class="nav-item" type="button" data-view="character-material"><span class="nav-icon" data-icon="shield-check" aria-hidden="true"></span><span>人物素材审批</span><span class="nav-count" id="navMaterialAuditCount">待审</span></button>
+        <button class="nav-item" type="button" data-view="data"><span class="nav-icon" data-icon="database" aria-hidden="true"></span><span>数据中心</span></button>
+        <button class="nav-item" type="button" data-view="audit"><span class="nav-icon" data-icon="clock" aria-hidden="true"></span><span>操作记录</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="admin-profile"><div class="avatar" id="adminAvatar">管</div><div><strong id="adminName">管理员</strong><span id="adminEmail">—</span></div></div>
+        <button class="logout-btn" id="logoutBtn" type="button"><span>↪</span>退出后台</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-header">
+        <div class="mobile-brand"><div class="brand-mark">墨</div><strong>墨阑管理后台</strong><button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="打开后台导航"><span class="ui-icon" data-icon="menu" aria-hidden="true"></span></button></div>
+        <div class="header-copy"><p class="eyebrow">ADMIN CONSOLE</p><h1 id="pageTitle">总览</h1><p id="pageSubtitle">查看平台账户、模型用量与 Skill 状态。</p></div>
+        <div class="header-actions"><span class="live-status"><i></i>系统运行中</span><button class="outline-btn" id="refreshBtn" type="button"><span class="button-icon" data-icon="refresh" aria-hidden="true"></span>刷新数据</button></div>
+      </header>
+
+      <div class="view-stack">
+        <section class="admin-view is-active" id="view-overview" data-title="总览" data-subtitle="查看平台账户、模型用量与 Skill 状态。">
+          <div class="metric-grid">
+            <article class="metric-card"><div class="metric-top"><span>用户总数</span><span class="metric-icon violet"><span class="ui-icon" data-icon="users" aria-hidden="true"></span></span></div><strong id="metricUsers">—</strong><small id="metricUsersHint">—</small></article>
+            <article class="metric-card"><div class="metric-top"><span>VIP 用户</span><span class="metric-icon yellow"><span class="ui-icon" data-icon="sparkles" aria-hidden="true"></span></span></div><strong id="metricVip">—</strong><small id="metricVipHint">按当前积分倍率计费</small></article>
+            <article class="metric-card"><div class="metric-top"><span>累计 Token</span><span class="metric-icon blue"><span class="ui-icon" data-icon="chart" aria-hidden="true"></span></span></div><strong id="metricTokens">—</strong><small id="metricTokensHint">— 次模型请求</small></article>
+            <article class="metric-card"><div class="metric-top"><span>累计积分消耗</span><span class="metric-icon green"><span class="ui-icon" data-icon="coins" aria-hidden="true"></span></span></div><strong id="metricCredits">—</strong><small id="metricCreditsHint">以实际账本为准</small></article>
+          </div>
+
+          <div class="overview-grid">
+            <article class="panel usage-panel">
+              <div class="panel-heading"><div><h2>平台用量</h2><p>Token 与积分的整体消耗情况</p></div><span class="period-label">累计</span></div>
+              <div class="usage-figure"><div class="usage-donut" id="usageDonut"><div><strong id="cacheRate">0%</strong><span>缓存命中</span></div></div><div class="usage-legend"><div><i class="dot purple"></i><span>输入 Token</span><strong id="inputTokens">—</strong></div><div><i class="dot cyan"></i><span>输出 Token</span><strong id="outputTokens">—</strong></div><div><i class="dot mint"></i><span>精确计量请求</span><strong id="preciseRequests">—</strong></div></div></div>
+              <div class="bar-chart" id="usageBars" aria-label="Token 用量图示"><span style="height:34%"></span><span style="height:48%"></span><span style="height:42%"></span><span style="height:63%"></span><span style="height:52%"></span><span style="height:78%"></span><span style="height:67%"></span><span style="height:90%"></span><span style="height:71%"></span><span style="height:84%"></span><span style="height:74%"></span><span style="height:96%"></span></div>
+            </article>
+            <article class="panel role-panel">
+              <div class="panel-heading"><div><h2>账户分布</h2><p>等级决定积分消耗倍率</p></div><span class="panel-kicker">当前</span></div>
+              <div class="role-total"><strong id="roleTotal">—</strong><span>个账户</span></div>
+              <div class="role-track" id="roleTrack"><span class="role-segment admin"></span><span class="role-segment vip"></span><span class="role-segment normal"></span></div>
+              <div class="role-legend"><div><span><i class="role-dot admin"></i>管理员</span><strong id="roleAdmin">—</strong><small>无限积分</small></div><div><span><i class="role-dot vip"></i>VIP 用户</span><strong id="roleVip">—</strong><small>1× 消耗</small></div><div><span><i class="role-dot normal"></i>普通用户</span><strong id="roleNormal">—</strong><small>2× 消耗</small></div></div>
+            </article>
+          </div>
+
+          <div class="lower-grid">
+            <article class="panel quick-panel"><div class="panel-heading"><div><h2>快捷管理</h2><p>常用的后台操作入口</p></div></div><div class="quick-actions"><button class="quick-action" type="button" data-view="users"><span class="quick-icon violet"><span class="ui-icon" data-icon="users" aria-hidden="true"></span></span><span><strong>管理用户</strong><small>调整等级与积分</small></span><b><span class="ui-icon" data-icon="arrow-up-right" aria-hidden="true"></span></b></button><button class="quick-action" type="button" data-view="skills"><span class="quick-icon blue"><span class="ui-icon" data-icon="sparkles" aria-hidden="true"></span></span><span><strong>编辑全局 Skill</strong><small>同步到创作与仿写</small></span><b><span class="ui-icon" data-icon="arrow-up-right" aria-hidden="true"></span></b></button><button class="quick-action" type="button" data-view="character-material"><span class="quick-icon violet"><span class="ui-icon" data-icon="shield-check" aria-hidden="true"></span></span><span><strong>审批人物素材</strong><small>发布 strong 原文样本</small></span><b><span class="ui-icon" data-icon="arrow-up-right" aria-hidden="true"></span></b></button></div></article>
+            <article class="panel activity-panel"><div class="panel-heading"><div><h2>最近操作</h2><p>管理员变更记录</p></div><button class="text-btn" type="button" data-view="audit">查看全部 →</button></div><div class="activity-list" id="overviewAudit"><div class="empty-state">暂无操作记录</div></div></article>
+          </div>
+        </section>
+
+        <section class="admin-view" id="view-users" data-title="用户管理" data-subtitle="查看账户等级、积分余额与精确 Token 使用量。">
+          <div class="section-toolbar"><div class="toolbar-search"><span class="ui-icon" data-icon="search" aria-hidden="true"></span><input id="userSearch" type="search" placeholder="搜索邮箱或用户名称"></div><select id="roleFilter" aria-label="筛选用户等级"><option value="all">全部等级</option><option value="admin">管理员</option><option value="vip">VIP 用户</option><option value="normal">普通用户</option></select><span class="toolbar-result" id="userResultCount">—</span></div>
+          <article class="panel table-panel"><div class="table-scroll"><table class="user-table"><thead><tr><th>用户</th><th>等级</th><th>积分余额</th><th>Token 使用量</th><th>积分消耗</th><th>注册时间</th><th></th></tr></thead><tbody id="userTableBody"></tbody></table></div><div class="empty-state" id="userEmpty" hidden>没有匹配的用户</div><div class="user-pagination" id="userPagination" hidden></div></article>
+          <div class="info-note"><span>i</span><p>普通用户按当前模型基础消耗的 <strong>2 倍</strong>计费，VIP 用户按 <strong>1 倍</strong>计费，管理员不消耗积分。用户邮箱为账户唯一标识，后台不可修改。</p></div>
+        </section>
+
+        <section class="admin-view" id="view-models" data-title="模型配置" data-subtitle="设置普通用户默认模型与各模型积分费率。">
+          <div class="models-layout">
+            <article class="panel model-policy-panel">
+              <div class="panel-heading"><div><h2>普通用户默认模型</h2><p>该设置只影响普通用户，不会覆盖 VIP 用户自己的选择。</p></div><span class="editor-state">平台策略</span></div>
+              <label class="model-policy-field">默认模型<select id="defaultModelSelect"></select></label>
+              <div class="info-note"><span>i</span><p>普通用户不能自行切换模型；VIP 用户和管理员仍可在自己的创作空间中独立选择。模型密钥不会下发到浏览器。</p></div>
+              <div class="form-actions"><button class="primary-btn" id="saveModelPolicyBtn" type="button"><span class="button-icon" data-icon="check" aria-hidden="true"></span>保存模型策略</button></div>
+            </article>
+            <article class="panel model-list-panel"><div class="panel-heading"><div><h2>平台模型</h2><p>调整每 1,000 Token 对应的基础积分费率，统一保存后立即用于新请求。</p></div><div class="model-list-actions"><span class="period-label" id="modelCountLabel">—</span><button class="primary-btn" id="saveModelRatesBtn" type="button"><span class="button-icon" data-icon="check" aria-hidden="true"></span>保存全部倍率</button></div></div><div class="model-list" id="modelList"><div class="empty-state">正在加载模型</div></div></article>
+          </div>
+        </section>
+
+        <section class="admin-view" id="view-skills" data-title="全局 Skill" data-subtitle="创建并维护会自动同步到创作与仿写入口的 Skill。">
+          <div class="skills-layout"><article class="panel skill-list-panel"><div class="panel-heading"><div><h2>Skill 库</h2><p>启用中的全局 Skill 会自动加入 AI 上下文</p></div><button class="primary-btn" id="newSkillBtn" type="button"><span class="button-icon" data-icon="plus" aria-hidden="true"></span>新建 Skill</button></div><div class="skill-list" id="skillList"></div></article><article class="panel skill-editor-panel"><div class="panel-heading"><div><h2 id="skillEditorTitle">新建全局 Skill</h2><p id="skillEditorHint">将写作规范同步到多个创作入口</p></div><span class="editor-state" id="skillEditorState">新建</span></div><form id="skillForm"><input type="hidden" id="skillId"><label>Skill 名称<input id="skillName" type="text" maxlength="120" placeholder="例如：古风玄幻叙事规范" required></label><label>描述<input id="skillDescription" type="text" maxlength="500" placeholder="简要说明这个 Skill 的用途"></label><label class="skill-instruction-field"><span class="field-label-row"><span>指令内容</span><small id="skillInstructionCount">0 / 200,000</small></span><textarea id="skillInstruction" rows="12" maxlength="200000" placeholder="输入需要长期遵守的创作规则、文风和约束..." required></textarea></label><fieldset><legend>适用入口</legend><div class="target-grid"><label><input type="checkbox" name="target" value="all" checked>全部入口</label><label><input type="checkbox" name="target" value="generate">正文生成</label><label><input type="checkbox" name="target" value="continue">续写</label><label><input type="checkbox" name="target" value="rewrite">改写</label><label><input type="checkbox" name="target" value="polish">润色</label><label><input type="checkbox" name="target" value="chat">AI 对话</label><label><input type="checkbox" name="target" value="extract">设定抽取</label></div></fieldset><label class="switch-row"><span><strong>启用 Skill</strong><small>启用后对匹配入口自动生效</small></span><input id="skillEnabled" type="checkbox" checked><i class="switch-ui"></i></label><div class="form-actions"><button class="ghost-btn" id="resetSkillBtn" type="button">取消</button><button class="primary-btn" type="submit"><span class="button-icon" data-icon="check" aria-hidden="true"></span>保存 Skill</button></div></form></article></div>
+        </section>
+
+        <section class="admin-view" id="view-character-material" data-title="人物素材审批" data-subtitle="审核匿名化人物描写样本，决定是否启用 strong 模式。">
+          <article class="panel material-audit-panel"><div class="panel-heading"><div><h2>strong 原文样本审批</h2><p>平台会先逐条复核样本并剔除问题内容；每次引用前仍由当前模型再次检查语境和文本错误。</p></div><span class="editor-state" id="materialAuditState">读取中</span></div><div class="material-audit-summary" id="materialAuditSummary"></div><div class="info-note"><span>i</span><p>已剔除样本不计入发布集残留率；普通 auto 模式不受 strong 样本审批影响。发布后无需重复人工审核。</p></div><div class="form-actions material-audit-actions"><button class="ghost-btn" id="materialAuditMarkAllBtn" type="button">全部标记已检查</button><button class="ghost-btn" id="materialAuditClearBtn" type="button">清除标记</button><button class="ghost-btn" id="materialAuditSaveBtn" type="button">保存抽检结果</button><button class="primary-btn" id="materialAuditApproveBtn" type="button">复核通过并发布 strong</button><button class="ghost-btn data-danger-btn" id="materialAuditRevokeBtn" type="button" hidden>撤销 strong 发布</button></div></article>
+          <article class="panel"><div class="panel-heading"><div><h2>抽检清单</h2><p id="materialAuditListHint">来源仅保留内部哈希，不会传给模型。</p></div><button class="outline-btn" id="materialAuditRefreshBtn" type="button"><span class="button-icon" data-icon="refresh" aria-hidden="true"></span>刷新清单</button></div><div class="material-audit-list" id="materialAuditList"><div class="empty-state">正在读取抽检清单</div></div></article>
+        </section>
+
+        <section class="admin-view" id="view-data" data-title="数据中心" data-subtitle="查看和维护作品、账户、用户 Skill、Token 记录与拆书任务。">
+          <div class="section-toolbar data-toolbar">
+            <label class="data-type-field">数据类型<select id="adminDataType"><option value="novels">作品</option><option value="accounts">账户</option><option value="user-skills">用户 Skill</option><option value="global-skills">全局 Skill</option><option value="open-skills">开放 Skill</option><option value="builtin-skills">内置 Skill</option><option value="token-usage">Token 记录</option><option value="dissections">拆书任务</option></select></label>
+            <div class="toolbar-search"><span class="ui-icon" data-icon="search" aria-hidden="true"></span><input id="adminDataSearch" type="search" placeholder="搜索标题、邮箱、Skill 或记录 ID"></div>
+            <button class="outline-btn" id="adminDataRefreshBtn" type="button"><span class="button-icon" data-icon="refresh" aria-hidden="true"></span>刷新</button><span class="toolbar-result" id="adminDataResultCount">—</span>
+          </div>
+          <div class="data-layout">
+            <article class="panel data-list-panel"><div class="panel-heading"><div><h2 id="adminDataListTitle">作品数据</h2><p>列表仅显示摘要，选择记录后加载完整内容。</p></div><span class="period-label" id="adminDataPageLabel">—</span></div><div class="data-table-scroll"><table class="data-table"><thead><tr><th>名称 / ID</th><th>所属账户</th><th>状态</th><th>大小</th><th>更新时间</th><th></th></tr></thead><tbody id="adminDataTableBody"></tbody></table></div><div class="empty-state" id="adminDataEmpty" hidden>暂无匹配数据</div><div class="data-pagination" id="adminDataPagination" hidden></div></article>
+            <article class="panel data-editor-panel"><div class="panel-heading"><div><h2 id="adminDataEditorTitle">选择一条记录</h2><p id="adminDataEditorHint">管理员可以编辑可写数据；内置 Skill 源文件保持只读。</p></div><span class="editor-state" id="adminDataEditorState">未选择</span></div><div class="data-record-meta" id="adminDataRecordMeta">从左侧列表选择记录</div><div class="data-change-summary" id="adminDataChangeSummary" aria-live="polite" hidden></div><textarea id="adminDataEditor" class="data-json-editor" spellcheck="false" placeholder="选择记录后显示 JSON 数据" disabled></textarea><div class="form-actions data-editor-actions"><button class="ghost-btn" id="adminDataResetBtn" type="button" disabled>撤销修改</button><button class="ghost-btn" id="adminDataCloneBtn" type="button" disabled>复制为全局 Skill</button><button class="ghost-btn data-danger-btn" id="adminDataDeleteBtn" type="button" disabled>删除记录</button><button class="primary-btn" id="adminDataSaveBtn" type="button" disabled><span class="button-icon" data-icon="check" aria-hidden="true"></span>保存数据</button></div></article>
+          </div>
+          <div class="info-note"><span>i</span><p>管理员数据中心会记录每次保存和删除。密码哈希、会话令牌、模型密钥等安全凭据永不开放编辑；内置 Skill 可查看，但需复制为全局 Skill 后修改。</p></div>
+        </section>
+
+        <section class="admin-view" id="view-audit" data-title="操作记录" data-subtitle="记录用户和全局 Skill 的后台变更。">
+          <article class="panel audit-panel"><div class="panel-heading"><div><h2>管理员操作记录</h2><p>用于追踪账户与 Skill 的重要变更</p></div><button class="outline-btn" id="refreshAuditBtn" type="button"><span class="button-icon" data-icon="refresh" aria-hidden="true"></span>刷新记录</button></div><div class="audit-list" id="auditList"></div></article>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div class="loading-screen" id="loadingScreen"><div class="loading-mark">墨</div><strong>正在载入管理后台</strong><span id="loadingText">验证管理员权限...</span></div>
+  <div class="toast" id="toast" role="status"></div>
+  <dialog class="confirm-dialog" id="adminConfirmDialog"><form method="dialog"><div class="dialog-head"><div><p class="eyebrow">CONFIRM ACTION</p><h2 id="adminConfirmTitle">确认操作</h2></div><button class="icon-btn" id="adminConfirmClose" value="cancel" type="submit" aria-label="关闭"><span class="ui-icon" data-icon="x" aria-hidden="true"></span></button></div><p class="confirm-message" id="adminConfirmMessage"></p><div class="form-actions"><button class="ghost-btn" id="adminConfirmCancel" value="cancel" type="submit">取消</button><button class="primary-btn" id="adminConfirmAccept" value="default" type="submit">确认</button></div></form></dialog>
+  <dialog class="user-dialog" id="userDialog"><form method="dialog" id="userForm"><div class="dialog-head"><div><p class="eyebrow">ACCOUNT SETTINGS</p><h2>编辑用户</h2></div><button class="icon-btn" value="cancel" type="submit" aria-label="关闭"><span class="ui-icon" data-icon="x" aria-hidden="true"></span></button></div><p class="dialog-email" id="dialogEmail">—</p><label>用户名称<input id="editUserName" type="text" maxlength="24" required></label><label>用户等级<select id="editUserRole"><option value="normal">普通用户 · 2× 消耗</option><option value="vip">VIP 用户 · 1× 消耗</option><option value="admin">管理员 · 无限积分</option></select></label><label>积分余额<input id="editUserCredits" type="number" min="0" step="0.01"><small class="field-hint">管理员的积分余额不参与扣费。</small></label><div class="form-actions"><button class="ghost-btn" value="cancel" type="submit">取消</button><button class="primary-btn" id="saveUserBtn" value="default" type="submit"><span class="button-icon" data-icon="check" aria-hidden="true"></span>保存修改</button></div></form></dialog>
+  <script src="./admin.js"></script>
+  <script src="./molan-shell.js"></script>
+</body>
+</html>

@@ -1,0 +1,4616 @@
+[
+  {
+    "benchmark_id": "BM_L2_XUANHUAN_东方仙侠",
+    "level": "Level2_Subgenre",
+    "genre": "玄幻修真",
+    "subgenre": "东方仙侠",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "东方仙侠题材标准节奏",
+    "world_type": "宗族谱系代际传递与灵田亩产岁贡的残酷经济账，以血脉为纽带抵抗天道与强宗剥削",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "宗族田产红契、年终岁贡抵扣、后辈筑基名额、祠堂香火与宗族存续",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "灵田亩产被大斗刮尖、老辈修士灵脉衰竭暗伤、宗族戒律与宗祠序齿的等级森严",
+    "taboos": "严禁无脑装逼打脸、严禁孤家寡人杀人夺宝、严禁使用纯书面普通话剥离乡土质感",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 26.83,
+      "sentenceLenStd": 17.15,
+      "paragraphLenMean": 27.8,
+      "dialogueRatio": 0.1823,
+      "dialogueTurnMean": 17.91,
+      "commaPeriodRatio": 2.2,
+      "ttr": 0.5416,
+      "similePerKilo": 1.21,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "不努力就会成为病娇仙子的玩物",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/不努力就会成为病娇仙子的玩物.txt"
+      },
+      {
+        "title": "不是，让我一个剑修去联姻？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/不是，让我一个剑修去联姻？.txt"
+      },
+      {
+        "title": "什么叫宗门团建，但奖品是我？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/什么叫宗门团建，但奖品是我？.txt"
+      },
+      {
+        "title": "从聊斋开始做金乌",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/从聊斋开始做金乌.txt"
+      },
+      {
+        "title": "修仙：从觉醒极品灵根开始",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/修仙：从觉醒极品灵根开始.txt"
+      },
+      {
+        "title": "出身太阳的我，横推万古！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/出身太阳的我，横推万古！.txt"
+      },
+      {
+        "title": "刚出江湖，被清冷仙子养成了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/刚出江湖，被清冷仙子养成了.txt"
+      },
+      {
+        "title": "刚进宗门，就睡出个绝美师尊老婆",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/刚进宗门，就睡出个绝美师尊老婆.txt"
+      },
+      {
+        "title": "同学们选武侠仙侠，我选洪荒世界",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/同学们选武侠仙侠，我选洪荒世界.txt"
+      },
+      {
+        "title": "女尊：但是西天取经",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/东方仙侠/女尊：但是西天取经.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/东方仙侠/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_XUANHUAN_仙侠",
+    "level": "Level2_Subgenre",
+    "genre": "玄幻修真",
+    "subgenre": "仙侠",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "仙侠题材标准节奏",
+    "world_type": "底层散修在资源垄断下的谨慎藏拙与生计精算，靠专业辨药鉴宝能力在宗门与坊市夹缝求存",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "下品灵石黑砂纯度、延寿丹药残次品、坊市摊位地税、保命心魔誓约束",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "万宝阁验封钳查验黑砂成色、法术消耗三成灵力导致虚脱、破损法器维修高昂成本",
+    "taboos": "严禁主动惹事强出风头、严禁轻信同门道友、严禁动辄越阶瞬杀毫无代价",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 31.89,
+      "sentenceLenStd": 36.76,
+      "paragraphLenMean": 38.23,
+      "dialogueRatio": 0.2089,
+      "dialogueTurnMean": 24.44,
+      "commaPeriodRatio": 2.71,
+      "ttr": 0.1586,
+      "similePerKilo": 1.19,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "临圣 - 卖报小郎君",
+        "author": "卖报小郎君",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/临圣 - 卖报小郎君.txt"
+      },
+      {
+        "title": "仙府！ - 满船轻梦",
+        "author": "满船轻梦",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/仙府！ - 满船轻梦.txt"
+      },
+      {
+        "title": "仙道尽头 - 怕辣的红椒",
+        "author": "怕辣的红椒",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/仙道尽头 - 怕辣的红椒.txt"
+      },
+      {
+        "title": "光阴之外 - 耳根",
+        "author": "耳根",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/光阴之外 - 耳根.txt"
+      },
+      {
+        "title": "凡人修仙传 - 忘语",
+        "author": "忘语",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/凡人修仙传 - 忘语.txt"
+      },
+      {
+        "title": "凡人修仙：阴阳道果 - 榴莲拌肥肠",
+        "author": "榴莲拌肥肠",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/凡人修仙：阴阳道果 - 榴莲拌肥肠.txt"
+      },
+      {
+        "title": "凡人：穿越温天仁 - 君丨兮",
+        "author": "君丨兮",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/凡人：穿越温天仁 - 君丨兮.txt"
+      },
+      {
+        "title": "大奉打更人 - 卖报小郎君",
+        "author": "卖报小郎君",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/大奉打更人 - 卖报小郎君.txt"
+      },
+      {
+        "title": "妄界天魔 - 无妄之兵",
+        "author": "无妄之兵",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/妄界天魔 - 无妄之兵.txt"
+      },
+      {
+        "title": "山海提灯 - 跃千愁",
+        "author": "跃千愁",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/仙侠/山海提灯 - 跃千愁.txt"
+      }
+    ],
+    "sample_count": 25,
+    "similarity_reason": "基于 资源库/小说原本/仙侠/ 及指纹库共 25 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_XUANHUAN_传统玄幻",
+    "level": "Level2_Subgenre",
+    "genre": "玄幻修真",
+    "subgenre": "传统玄幻",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "传统玄幻题材标准节奏",
+    "world_type": "肉身气血极限锤炼与武道宗门秩序，通过扎实的筋骨碰撞与寸劲爆发打破阶级固化",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "宗门内门考评席位、洗髓药液配额、家族矿脉分红、武道神兵所有权",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "丹毒淤积经脉闭塞、重铜砂袋磨破胯骨、发力支点破坏导致的肌肉拉伤撕裂",
+    "taboos": "严禁游戏化跳字升级、严禁空泛形容词堆砌、严禁脱离物理受力的玄学对轰",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 27.6,
+      "sentenceLenStd": 18.29,
+      "paragraphLenMean": 29.26,
+      "dialogueRatio": 0.1808,
+      "dialogueTurnMean": 19.82,
+      "commaPeriodRatio": 2.46,
+      "ttr": 0.5216,
+      "similePerKilo": 1.11,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "丹田被废，白玉玲珑塔助我起飞",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/丹田被废，白玉玲珑塔助我起飞.txt"
+      },
+      {
+        "title": "什么？夺舍完你才告诉我她是女的",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/什么？夺舍完你才告诉我她是女的.txt"
+      },
+      {
+        "title": "仙子请坐",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/仙子请坐.txt"
+      },
+      {
+        "title": "反派家主：开局砍掉女主双臂",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/反派家主：开局砍掉女主双臂.txt"
+      },
+      {
+        "title": "坏了！道侣比我重生更早！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/坏了！道侣比我重生更早！.txt"
+      },
+      {
+        "title": "天帝之路，我的天赋无人可敌",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/天帝之路，我的天赋无人可敌.txt"
+      },
+      {
+        "title": "天降玄碑：我建立不朽仙族！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/天降玄碑：我建立不朽仙族！.txt"
+      },
+      {
+        "title": "扑克封妖：我有六十四张斩魔令",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/扑克封妖：我有六十四张斩魔令.txt"
+      },
+      {
+        "title": "本少主才不要变成女生讨好圣女",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/本少主才不要变成女生讨好圣女.txt"
+      },
+      {
+        "title": "武道长生，不死的我终将无敌",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/传统玄幻/武道长生，不死的我终将无敌.txt"
+      }
+    ],
+    "sample_count": 16,
+    "similarity_reason": "基于 资源库/小说原本/传统玄幻/ 及指纹库共 16 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_MODERN_ROMANCE_体育",
+    "level": "Level2_Subgenre",
+    "genre": "现代言情",
+    "subgenre": "体育",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "体育题材标准节奏",
+    "world_type": "人体运动生理极限对抗与战术板精密执行，秒表毫秒必争与伤病职业生涯博弈",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "奥运选拔积分、商业赞助代言合约、职业俱乐部首发席位、国家纪录破局",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "乳酸堆积导致的双腿僵硬、跟腱滑囊炎刺痛、风阻与体脂率的苛刻控制",
+    "taboos": "严禁违背运动生理学的无脑开挂、严禁脱离团队战术的个人英雄主义狂吹",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 30.08,
+      "sentenceLenStd": 21.79,
+      "paragraphLenMean": 42.46,
+      "dialogueRatio": 0.1361,
+      "dialogueTurnMean": 22.34,
+      "commaPeriodRatio": 2.13,
+      "ttr": 0.2588,
+      "similePerKilo": 1.28,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "什么叫进攻型后腰啊 - 懒惰的咕噜大王",
+        "author": "懒惰的咕噜大王",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/什么叫进攻型后腰啊 - 懒惰的咕噜大王.txt"
+      },
+      {
+        "title": "从大学球探开始 - 肉末大茄子",
+        "author": "肉末大茄子",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/从大学球探开始 - 肉末大茄子.txt"
+      },
+      {
+        "title": "从米兰开始的体坛神医 - 醉登太白楼",
+        "author": "醉登太白楼",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/从米兰开始的体坛神医 - 醉登太白楼.txt"
+      },
+      {
+        "title": "伯乐教练：从让守门员踢中锋开始 - 大力士爱吃土豆",
+        "author": "大力士爱吃土豆",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/伯乐教练：从让守门员踢中锋开始 - 大力士爱吃土豆.txt"
+      },
+      {
+        "title": "全世界都知道他要内切 - 子夜橙",
+        "author": "子夜橙",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/全世界都知道他要内切 - 子夜橙.txt"
+      },
+      {
+        "title": "喧嚣未及之处 - 沉默的爱",
+        "author": "沉默的爱",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/喧嚣未及之处 - 沉默的爱.txt"
+      },
+      {
+        "title": "大师补习班 - 金印",
+        "author": "金印",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/大师补习班 - 金印.txt"
+      },
+      {
+        "title": "成为主教练后，我开摆了 - 葬爱叶良辰",
+        "author": "葬爱叶良辰",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/成为主教练后，我开摆了 - 葬爱叶良辰.txt"
+      },
+      {
+        "title": "我打篮球的，你给我足球系统？ - 长夜火不眠",
+        "author": "长夜火不眠",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/我打篮球的，你给我足球系统？ - 长夜火不眠.txt"
+      },
+      {
+        "title": "我都打了三年NBA，系统才来？ - 海绵派小星",
+        "author": "海绵派小星",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/体育/我都打了三年NBA，系统才来？ - 海绵派小星.txt"
+      }
+    ],
+    "sample_count": 21,
+    "similarity_reason": "基于 资源库/小说原本/体育/ 及指纹库共 21 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_HISTORY_军事",
+    "level": "Level2_Subgenre",
+    "genre": "历史古代",
+    "subgenre": "军事",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "军事题材标准节奏",
+    "world_type": "现代化热兵器步坦协同与战术射击，利用射击诸元、掩体几何学与后勤补给压制敌阵",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "高地制空权、战役突破口打通、战损比控制、阵地防御条令达成",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "导气孔积碳卡壳、枪管过热红透、热成像传感器电池耗尽、战壕烂泥漫过脚踝",
+    "taboos": "严禁抗日神剧式手撕鬼子、严禁无限弹药扫射、严禁无视后坐力与跳弹破片杀伤",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 33.76,
+      "sentenceLenStd": 37.59,
+      "paragraphLenMean": 43.99,
+      "dialogueRatio": 0.198,
+      "dialogueTurnMean": 24.01,
+      "commaPeriodRatio": 2.52,
+      "ttr": 0.2359,
+      "similePerKilo": 1,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "东方既白 - 猪头七",
+        "author": "猪头七",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/东方既白 - 猪头七.txt"
+      },
+      {
+        "title": "亮剑：从兵工厂打造一个工业帝国 - 不散烟火",
+        "author": "不散烟火",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/亮剑：从兵工厂打造一个工业帝国 - 不散烟火.txt"
+      },
+      {
+        "title": "亮剑：从晋西北到长津湖百战百胜 - 别让我更新啊",
+        "author": "别让我更新啊",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/亮剑：从晋西北到长津湖百战百胜 - 别让我更新啊.txt"
+      },
+      {
+        "title": "人在俄乌当佣兵，杀敌就能爆属性 - KID大魔王",
+        "author": "KID大魔王",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/人在俄乌当佣兵，杀敌就能爆属性 - KID大魔王.txt"
+      },
+      {
+        "title": "军工镇乱世，从罪子到开国帝君 - 梦揽山河",
+        "author": "梦揽山河",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/军工镇乱世，从罪子到开国帝君 - 梦揽山河.txt"
+      },
+      {
+        "title": "怕死抗什么日 - 老左老左",
+        "author": "老左老左",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/怕死抗什么日 - 老左老左.txt"
+      },
+      {
+        "title": "我的兄弟叫顺溜之逆命 - 发呆的骆驼",
+        "author": "发呆的骆驼",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/我的兄弟叫顺溜之逆命 - 发呆的骆驼.txt"
+      },
+      {
+        "title": "我的谍战岁月 - 猪头七",
+        "author": "猪头七",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/我的谍战岁月 - 猪头七.txt"
+      },
+      {
+        "title": "战锤40K：我替死人继续战斗 - 王孙桃",
+        "author": "王孙桃",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/战锤40K：我替死人继续战斗 - 王孙桃.txt"
+      },
+      {
+        "title": "抗战之我是一个工业人 - 松果体",
+        "author": "松果体",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/军事/抗战之我是一个工业人 - 松果体.txt"
+      }
+    ],
+    "sample_count": 22,
+    "similarity_reason": "基于 资源库/小说原本/军事/ 及指纹库共 22 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_动漫衍生",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "动漫衍生",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "动漫衍生题材标准节奏",
+    "world_type": "二次元经典世界线收束与同调，利用认知反差与跨体系能力融合重构悲剧命运",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "伙伴生死命运逆转、跨界道具合成点数、原著关键战役剧情偏移度",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "魔力回路过载灼痛、查克拉经络痉挛、因果律反噬、世界线变动率修正压力",
+    "taboos": "严禁破坏原著核心人设基调、严禁生硬堆砌网络烂梗、严禁力量体系瞬间战力崩溃",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 26.21,
+      "sentenceLenStd": 16.7,
+      "paragraphLenMean": 27.62,
+      "dialogueRatio": 0.1814,
+      "dialogueTurnMean": 18.97,
+      "commaPeriodRatio": 1.81,
+      "ttr": 0.5006,
+      "similePerKilo": 1.43,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "Re0：开局扮演龙神吓哭夏乌拉",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/Re0：开局扮演龙神吓哭夏乌拉.txt"
+      },
+      {
+        "title": "一人：我，无敌了，你随意！！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/一人：我，无敌了，你随意！！.txt"
+      },
+      {
+        "title": "一人：继承不良帅，拥兵三百万！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/一人：继承不良帅，拥兵三百万！.txt"
+      },
+      {
+        "title": "一人：蜀山掌教，一剑开天门！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/一人：蜀山掌教，一剑开天门！.txt"
+      },
+      {
+        "title": "动物城：开局被大先生捡到",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/动物城：开局被大先生捡到.txt"
+      },
+      {
+        "title": "原神：破产之后只能加入愚人众了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/原神：破产之后只能加入愚人众了.txt"
+      },
+      {
+        "title": "叫你拍特摄，你真去当奥特曼了？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/叫你拍特摄，你真去当奥特曼了？.txt"
+      },
+      {
+        "title": "名柯：我有三角洲召唤系统",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/名柯：我有三角洲召唤系统.txt"
+      },
+      {
+        "title": "咒回：特级的我去死灭打宿傩了！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/咒回：特级的我去死灭打宿傩了！.txt"
+      },
+      {
+        "title": "型月中的假奥托",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/动漫衍生/型月中的假奥托.txt"
+      }
+    ],
+    "sample_count": 23,
+    "similarity_reason": "基于 资源库/小说原本/动漫衍生/ 及指纹库共 23 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_HISTORY_历史",
+    "level": "Level2_Subgenre",
+    "genre": "历史古代",
+    "subgenre": "历史",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "历史题材标准节奏",
+    "world_type": "大历史军团征伐与天下经天纬地大政，常平仓折耗与万人军阵旗语调度的宏观博弈",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "军屯百万石粮食结余、通商榷关税收、朝堂封驳权与天下士族民心归属",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "漕运逆水纤夫血痕、铅钱掺伪七成二的市场排斥、阴雨天火药受潮失效",
+    "taboos": "严禁现代科技无损瞬推、严禁皇帝当街杀人无文官反制、严禁无视后勤空谈战功",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 33.54,
+      "sentenceLenStd": 23.77,
+      "paragraphLenMean": 45.55,
+      "dialogueRatio": 0.1961,
+      "dialogueTurnMean": 25.49,
+      "commaPeriodRatio": 2.77,
+      "ttr": 0.2163,
+      "similePerKilo": 0.78,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "北望江山 - 孤独麦客",
+        "author": "孤独麦客",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/北望江山 - 孤独麦客.txt"
+      },
+      {
+        "title": "大唐：开局为李二献上避坑指南 - 沉默的脑袋",
+        "author": "沉默的脑袋",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/大唐：开局为李二献上避坑指南 - 沉默的脑袋.txt"
+      },
+      {
+        "title": "大明第一国舅 - 黑胖的老鼠",
+        "author": "黑胖的老鼠",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/大明第一国舅 - 黑胖的老鼠.txt"
+      },
+      {
+        "title": "大明黑帆 - 庆历泗年春",
+        "author": "庆历泗年春",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/大明黑帆 - 庆历泗年春.txt"
+      },
+      {
+        "title": "夺嫡在嘉靖朝 - 夜星月语",
+        "author": "夜星月语",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/夺嫡在嘉靖朝 - 夜星月语.txt"
+      },
+      {
+        "title": "尸祸一六四四 - 稚嫩小菠萝",
+        "author": "稚嫩小菠萝",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/尸祸一六四四 - 稚嫩小菠萝.txt"
+      },
+      {
+        "title": "崇祯每天领国运，建奴不过山海关 - 闲观尘事",
+        "author": "闲观尘事",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/崇祯每天领国运，建奴不过山海关 - 闲观尘事.txt"
+      },
+      {
+        "title": "廓晋 - 榴弹怕水",
+        "author": "榴弹怕水",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/廓晋 - 榴弹怕水.txt"
+      },
+      {
+        "title": "日本战国：功名十字路 - 吉良上总介",
+        "author": "吉良上总介",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/日本战国：功名十字路 - 吉良上总介.txt"
+      },
+      {
+        "title": "朕乃汉太宗 - 林悦南兮",
+        "author": "林悦南兮",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史/朕乃汉太宗 - 林悦南兮.txt"
+      }
+    ],
+    "sample_count": 22,
+    "similarity_reason": "基于 资源库/小说原本/历史/ 及指纹库共 22 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_HISTORY_历史古代",
+    "level": "Level2_Subgenre",
+    "genre": "历史古代",
+    "subgenre": "历史古代",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "历史古代题材标准节奏",
+    "world_type": "封建王朝官僚生态与吏部考成法博弈，师爷幕友借案做局与督抚总督权谋平衡",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "吏部三年大考优等、盐引榷商提成、免死铁券信度、宗族入仕资格",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "公堂对牌缺角核验、顶戴孔雀翎受潮规制、冰敬碳敬规约、文书朱批封驳程序",
+    "taboos": "严禁主角当街辱骂高官无代价、严禁无视宗法人情与阶级规矩",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 24.34,
+      "sentenceLenStd": 15.37,
+      "paragraphLenMean": 25.41,
+      "dialogueRatio": 0.2084,
+      "dialogueTurnMean": 16.96,
+      "commaPeriodRatio": 1.98,
+      "ttr": 0.5084,
+      "similePerKilo": 1.05,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "冒姓琅琊",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/冒姓琅琊.txt"
+      },
+      {
+        "title": "刚死遁，疯批女帝发兵十万抢亲",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/刚死遁，疯批女帝发兵十万抢亲.txt"
+      },
+      {
+        "title": "哈哈哈，大明",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/哈哈哈，大明.txt"
+      },
+      {
+        "title": "大唐长生者，但开局在玄武门？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/大唐长生者，但开局在玄武门？.txt"
+      },
+      {
+        "title": "大唐：开局死囚，我遇见了李承乾",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/大唐：开局死囚，我遇见了李承乾.txt"
+      },
+      {
+        "title": "太宗之后，再造大唐",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/太宗之后，再造大唐.txt"
+      },
+      {
+        "title": "开局带许褚转投吕布，曹操哭麻了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/开局带许褚转投吕布，曹操哭麻了.txt"
+      },
+      {
+        "title": "明末：自曝穿越后，魏忠贤哭了！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/明末：自曝穿越后，魏忠贤哭了！.txt"
+      },
+      {
+        "title": "朱标私生子，老朱逼我当皇帝！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/朱标私生子，老朱逼我当皇帝！.txt"
+      },
+      {
+        "title": "科举不易，九族文盲出了个读书人",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/历史古代/科举不易，九族文盲出了个读书人.txt"
+      }
+    ],
+    "sample_count": 14,
+    "similarity_reason": "基于 资源库/小说原本/历史古代/ 及指纹库共 14 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.78
+  },
+  {
+    "benchmark_id": "BM_L2_HISTORY_历史脑洞",
+    "level": "Level2_Subgenre",
+    "genre": "历史古代",
+    "subgenre": "历史脑洞",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "历史脑洞题材标准节奏",
+    "world_type": "现代工科技术下沉至古代社会的工业化改制，用土法水泥与米尼步枪打破游牧骑兵骑射",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "钢铁产量日达万斤、独立工农兵团建立、海外香料贸易路线垄断",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "翻砂铸造气孔沙眼报废、硫酸硝石原料纯度杂质、封建行会匠人保守抗拒",
+    "taboos": "严禁一天手搓核弹、严禁无视原材料运输与劳动力组织成本的机械降神",
+    "opening_mode_target": "具体场景动作切入",
+    "metrics_target": {
+      "sentenceLenMean": 21.5,
+      "sentenceLenStd": 13.64,
+      "paragraphLenMean": 26.08,
+      "dialogueRatio": 0.2087,
+      "dialogueTurnMean": 18.54,
+      "commaPeriodRatio": 2.03,
+      "ttr": 0.7008,
+      "similePerKilo": 1.14,
+      "chapterChars": [
+        2109,
+        2585
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "一心求死，反倒成为千古一帝？",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\一心求死，反倒成为千古一帝？.txt"
+      },
+      {
+        "title": "三国：开局项羽模板，你当谋士？",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\三国：开局项羽模板，你当谋士？.txt"
+      },
+      {
+        "title": "三国：我用边角料，吊打刘关张",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\三国：我用边角料，吊打刘关张.txt"
+      },
+      {
+        "title": "兽娘：从被高冷蛇女捡回部落开始",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\兽娘：从被高冷蛇女捡回部落开始.txt"
+      },
+      {
+        "title": "别人夺嫡偷偷来，我家皇帝下圣旨",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\别人夺嫡偷偷来，我家皇帝下圣旨.txt"
+      },
+      {
+        "title": "在大唐当丞相？豆包：我来助你！",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\在大唐当丞相？豆包：我来助你！.txt"
+      },
+      {
+        "title": "大唐：开局七岁闺女讨嫁妆",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\大唐：开局七岁闺女讨嫁妆.txt"
+      },
+      {
+        "title": "大唐：我穿越后每天获得一项能力",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\大唐：我穿越后每天获得一项能力.txt"
+      },
+      {
+        "title": "大唐：李世民求我造反",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\大唐：李世民求我造反.txt"
+      },
+      {
+        "title": "大唐：李承乾扮猪吃老虎",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\历史脑洞\\大唐：李承乾扮猪吃老虎.txt"
+      }
+    ],
+    "sample_count": 19,
+    "similarity_reason": "基于 资源库/小说原本/历史脑洞/ 及指纹库共 19 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_ANCIENT_ROMANCE_古言脑洞",
+    "level": "Level2_Subgenre",
+    "genre": "古言世情",
+    "subgenre": "古言脑洞",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "古言脑洞题材标准节奏",
+    "world_type": "微型金手指与古代严苛律法碰撞下的底层经商逆袭，以物换物与专利配方破局",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "赎买自由身户籍、县城商铺房契、官牙中人抽成免除、商会话语权",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "路引户籍核查验身、地方税卡层层剥皮、古代保质期短导致货品霉变",
+    "taboos": "严禁无视古代女人不能抛头露面的世俗阻力、严禁王爷世子无脑跪舔送家产",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 28.15,
+      "sentenceLenStd": 18.61,
+      "paragraphLenMean": 29.42,
+      "dialogueRatio": 0.191,
+      "dialogueTurnMean": 18.56,
+      "commaPeriodRatio": 2.12,
+      "ttr": 0.5536,
+      "similePerKilo": 1.34,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "亲生不如亲自生：父皇捧我当女帝",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/亲生不如亲自生：父皇捧我当女帝.txt"
+      },
+      {
+        "title": "天幕曝光，朕的四哥是征北大将军",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/天幕曝光，朕的四哥是征北大将军.txt"
+      },
+      {
+        "title": "女尊：夫郎，他们？玩物罢了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/女尊：夫郎，他们？玩物罢了.txt"
+      },
+      {
+        "title": "女扮男装，农家子的科举青云路",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/女扮男装，农家子的科举青云路.txt"
+      },
+      {
+        "title": "女配？我爹是皇帝，你最好也是哦",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/女配？我爹是皇帝，你最好也是哦.txt"
+      },
+      {
+        "title": "奸臣她不想当万人迷",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/奸臣她不想当万人迷.txt"
+      },
+      {
+        "title": "媚骨生香多位王爷诸侯皆裙下臣",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/媚骨生香多位王爷诸侯皆裙下臣.txt"
+      },
+      {
+        "title": "嫡长女略懂拳脚",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/嫡长女略懂拳脚.txt"
+      },
+      {
+        "title": "我在乱世靠换装系统装神女",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/我在乱世靠换装系统装神女.txt"
+      },
+      {
+        "title": "扶贫大秦：天幕盘点我是千古女相",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古言脑洞/扶贫大秦：天幕盘点我是千古女相.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/古言脑洞/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_ANCIENT_ROMANCE_古风世情",
+    "level": "Level2_Subgenre",
+    "genre": "古言世情",
+    "subgenre": "古风世情",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "古风世情题材标准节奏",
+    "world_type": "深宅高门闺阁礼数与姻亲宗族资源配置，借长辈寿宴与月例分发杀人不见血",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "掌家对牌钥匙、嫡母私房嫁妆田庄、御赐贡缎分配权、家族姻亲名誉",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "请安步态姿势不可超规、言辞话留三分不敢明说、内库对牌出入登记苛刻",
+    "taboos": "严禁现代爽文式泼妇掌掴长辈、严禁无视嫡庶尊卑的降智争风吃醋",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 28.17,
+      "sentenceLenStd": 17.72,
+      "paragraphLenMean": 31.27,
+      "dialogueRatio": 0.2156,
+      "dialogueTurnMean": 18.39,
+      "commaPeriodRatio": 2.15,
+      "ttr": 0.5118,
+      "similePerKilo": 1.21,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "公主，不可以",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/公主，不可以.txt"
+      },
+      {
+        "title": "女扮男装上朝后，死对头暗恋成疾",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/女扮男装上朝后，死对头暗恋成疾.txt"
+      },
+      {
+        "title": "宅斗文女配脱离剧情，跑去江湖后",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/宅斗文女配脱离剧情，跑去江湖后.txt"
+      },
+      {
+        "title": "少卿大人，今天被亲了吗",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/少卿大人，今天被亲了吗.txt"
+      },
+      {
+        "title": "忠臣之女回京，满朝哭唧唧追着宠",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/忠臣之女回京，满朝哭唧唧追着宠.txt"
+      },
+      {
+        "title": "惹金枝",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/惹金枝.txt"
+      },
+      {
+        "title": "我都中状元了，你说我是公主？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/我都中状元了，你说我是公主？.txt"
+      },
+      {
+        "title": "掌上娇娇",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/掌上娇娇.txt"
+      },
+      {
+        "title": "攀高枝",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/攀高枝.txt"
+      },
+      {
+        "title": "朝堂比格，抱皇帝大腿当团宠",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/古风世情/朝堂比格，抱皇帝大腿当团宠.txt"
+      }
+    ],
+    "sample_count": 24,
+    "similarity_reason": "基于 资源库/小说原本/古风世情/ 及指纹库共 24 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_奇幻",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "奇幻",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "奇幻题材标准节奏",
+    "world_type": "剑与魔法世界中的文明开拓与超凡序列进阶，古老遗迹勘探与异端裁判所周旋",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "古代矮人秘银矿脉、法师议会席位投票、领地拓荒贵族纹章受封",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "符文水晶充能衰减、皮甲链甲摩擦声响、圣水对恶魔腐蚀的有限耐受度",
+    "taboos": "严禁中国古风修仙用语窜入西幻、严禁无魔力代谢的无限禁咒狂轰",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 32.32,
+      "sentenceLenStd": 21.98,
+      "paragraphLenMean": 38.55,
+      "dialogueRatio": 0.1766,
+      "dialogueTurnMean": 20.81,
+      "commaPeriodRatio": 2.13,
+      "ttr": 0.1719,
+      "similePerKilo": 1.66,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "三体之我是杨间，第五面壁者 - 无根祛仙",
+        "author": "无根祛仙",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/三体之我是杨间，第五面壁者 - 无根祛仙.txt"
+      },
+      {
+        "title": "以皇帝特权改变这个世界 - 就吃芹菜",
+        "author": "就吃芹菜",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/以皇帝特权改变这个世界 - 就吃芹菜.txt"
+      },
+      {
+        "title": "冒牌领主 - 盲候",
+        "author": "盲候",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/冒牌领主 - 盲候.txt"
+      },
+      {
+        "title": "哥布林重度依赖 - 絮理",
+        "author": "絮理",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/哥布林重度依赖 - 絮理.txt"
+      },
+      {
+        "title": "天启预报 - 风月",
+        "author": "风月",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/天启预报 - 风月.txt"
+      },
+      {
+        "title": "帝皇在上 - 滚不开",
+        "author": "滚不开",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/帝皇在上 - 滚不开.txt"
+      },
+      {
+        "title": "幽魂骑士王的地下城工程 - 深海鱼缸",
+        "author": "深海鱼缸",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/幽魂骑士王的地下城工程 - 深海鱼缸.txt"
+      },
+      {
+        "title": "我有一本任务日志 - 底栖咸鱼",
+        "author": "底栖咸鱼",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/我有一本任务日志 - 底栖咸鱼.txt"
+      },
+      {
+        "title": "我的设定在你之上！ - 东山余雨",
+        "author": "东山余雨",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/我的设定在你之上！ - 东山余雨.txt"
+      },
+      {
+        "title": "放开那个女巫 - 二目",
+        "author": "二目",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/奇幻/放开那个女巫 - 二目.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/奇幻/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_SUSPENSE_女频悬疑",
+    "level": "Level2_Subgenre",
+    "genre": "悬疑惊悚",
+    "subgenre": "女频悬疑",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "女频悬疑题材标准节奏",
+    "world_type": "女性细腻视角下的密室心理压迫与亲密关系背叛取证，在极致窒息感中反杀逃生",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "关键物证录音云端备份、遗嘱继承权自保、心理精神控制的彻底挣脱",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "体能劣势下的以弱胜强、猫眼盲区与门锁转动声的感官放大、手机低电量危机",
+    "taboos": "严禁女主遇到危险只能等男主从天而降拯救、严禁圣母心泛滥原谅施暴者",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 33.69,
+      "sentenceLenStd": 25.89,
+      "paragraphLenMean": 29.44,
+      "dialogueRatio": 0.2155,
+      "dialogueTurnMean": 18.05,
+      "commaPeriodRatio": 4.64,
+      "ttr": 0.4982,
+      "similePerKilo": 1.51,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "【盗墓：穿进沙海居然万人迷】",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/【盗墓：穿进沙海居然万人迷】.txt"
+      },
+      {
+        "title": "三七穿越盗墓世界",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/三七穿越盗墓世界.txt"
+      },
+      {
+        "title": "九门月下逢",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/九门月下逢.txt"
+      },
+      {
+        "title": "假千金偷命格，全家跪求回头",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/假千金偷命格，全家跪求回头.txt"
+      },
+      {
+        "title": "全网围观，病弱学妹戏耍刑侦王牌",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/全网围观，病弱学妹戏耍刑侦王牌.txt"
+      },
+      {
+        "title": "国运战场：我是张家大小姐",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/国运战场：我是张家大小姐.txt"
+      },
+      {
+        "title": "外行？她靠读心让悬案接连告破",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/外行？她靠读心让悬案接连告破.txt"
+      },
+      {
+        "title": "心理解剖者",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/心理解剖者.txt"
+      },
+      {
+        "title": "我办案暴躁点怎么了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/我办案暴躁点怎么了.txt"
+      },
+      {
+        "title": "法医大佬的通灵小娇娇",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频悬疑/法医大佬的通灵小娇娇.txt"
+      }
+    ],
+    "sample_count": 23,
+    "similarity_reason": "基于 资源库/小说原本/女频悬疑/ 及指纹库共 23 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_女频衍生",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "女频衍生",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "女频衍生题材标准节奏",
+    "world_type": "影视穿书救赎与反套路逆袭，通过对原著执念人物的心理重塑改变崩坏世界线",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "命运偏离度达到100%获取自由身、逆天改命救下白月光原著角色",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "系统好感度严格扣除机制、崩坏惩罚电击痛苦、必须符合当前配角身份人设",
+    "taboos": "严禁脑残恋爱脑、严禁无脑恶毒女配降智送人头、严禁女主无逻辑万人迷",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 34.51,
+      "sentenceLenStd": 25.57,
+      "paragraphLenMean": 33.29,
+      "dialogueRatio": 0.207,
+      "dialogueTurnMean": 21.22,
+      "commaPeriodRatio": 2.38,
+      "ttr": 0.5038,
+      "similePerKilo": 1.12,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "HP：菲林斯在霍格沃兹",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/HP：菲林斯在霍格沃兹.txt"
+      },
+      {
+        "title": "什么？我不是天才爱豆吗？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/什么？我不是天才爱豆吗？.txt"
+      },
+      {
+        "title": "今天迪戈里先生活了吗",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/今天迪戈里先生活了吗.txt"
+      },
+      {
+        "title": "依萍重生：书桓滚开！杜飞别乱来",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/依萍重生：书桓滚开！杜飞别乱来.txt"
+      },
+      {
+        "title": "前半生之罗子君重生归来",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/前半生之罗子君重生归来.txt"
+      },
+      {
+        "title": "南部档案：重生后全演上了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/南部档案：重生后全演上了.txt"
+      },
+      {
+        "title": "哪吒三太子的追妻日常",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/哪吒三太子的追妻日常.txt"
+      },
+      {
+        "title": "天幕观影斩神：开局曝光林七夜",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/天幕观影斩神：开局曝光林七夜.txt"
+      },
+      {
+        "title": "宜修换嫁年羹尧，摆烂躺赢了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/宜修换嫁年羹尧，摆烂躺赢了.txt"
+      },
+      {
+        "title": "小欢喜：和区长儿子谈恋爱",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/女频衍生/小欢喜：和区长儿子谈恋爱.txt"
+      }
+    ],
+    "sample_count": 28,
+    "similarity_reason": "基于 资源库/小说原本/女频衍生/ 及指纹库共 28 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_ANCIENT_ROMANCE_宫斗宅斗",
+    "level": "Level2_Subgenre",
+    "genre": "古言世情",
+    "subgenre": "宫斗宅斗",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "宫斗宅斗题材标准节奏",
+    "world_type": "后宅权力天平与朝堂父兄官运共振，通过阴司暗账与子嗣传承展开漫长代际博弈",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "主母正妻地位巩固、庶子过继宗祠立嗣、外家抄家连坐豁免",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "药渣验毒留痕、贴身丫鬟被发卖背叛、老太太与老爷的官声羽毛制约",
+    "taboos": "严禁动辄下毒当场被抓、严禁无视古代家族荣辱与共的自毁式泄愤",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 26.86,
+      "sentenceLenStd": 16.79,
+      "paragraphLenMean": 27.94,
+      "dialogueRatio": 0.188,
+      "dialogueTurnMean": 18.33,
+      "commaPeriodRatio": 1.89,
+      "ttr": 0.5046,
+      "similePerKilo": 1.12,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "侯府忘恩义？摄政王撑腰，不原谅",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/侯府忘恩义？摄政王撑腰，不原谅.txt"
+      },
+      {
+        "title": "入宫即高位，我是陛下表妹我怕谁",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/入宫即高位，我是陛下表妹我怕谁.txt"
+      },
+      {
+        "title": "勾了禁欲太子？刚觉醒，被亲哭！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/勾了禁欲太子？刚觉醒，被亲哭！.txt"
+      },
+      {
+        "title": "勾太傅，人前不熟人后如做了夫妻",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/勾太傅，人前不熟人后如做了夫妻.txt"
+      },
+      {
+        "title": "和白莲争啥，转嫁并肩王不香吗？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/和白莲争啥，转嫁并肩王不香吗？.txt"
+      },
+      {
+        "title": "哀家不想听",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/哀家不想听.txt"
+      },
+      {
+        "title": "嘉音县主重生记",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/嘉音县主重生记.txt"
+      },
+      {
+        "title": "囚禁男主？嫁人跑路后被他亲哭",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/囚禁男主？嫁人跑路后被他亲哭.txt"
+      },
+      {
+        "title": "大龄通房升职日常",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/大龄通房升职日常.txt"
+      },
+      {
+        "title": "帐中香：病娇九千岁他又来爬床了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/宫斗宅斗/帐中香：病娇九千岁他又来爬床了.txt"
+      }
+    ],
+    "sample_count": 18,
+    "similarity_reason": "基于 资源库/小说原本/宫斗宅斗/ 及指纹库共 18 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_ANCIENT_ROMANCE_年代",
+    "level": "Level2_Subgenre",
+    "genre": "古言世情",
+    "subgenre": "年代",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "年代题材标准节奏",
+    "world_type": "七八十年代军婚随军与海岛海垦拓荒，军用粮票布票、筒子楼邻里人情与部队保密守则",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "随军家属转正招工名额、海岛盐碱地亩产丰收、先进模范家庭红旗",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "海岛狂风暴雨吹坏菜畦、部队探亲介绍信严格审查、供销社限量布匹指标",
+    "taboos": "严禁浮夸买卖违背年代历史真实、严禁军官男主违纪滥用特权、严禁娇纵作精悬浮",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 25.58,
+      "sentenceLenStd": 15.72,
+      "paragraphLenMean": 27.57,
+      "dialogueRatio": 0.2143,
+      "dialogueTurnMean": 19.32,
+      "commaPeriodRatio": 1.82,
+      "ttr": 0.4853,
+      "similePerKilo": 1.07,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "七零年代病佳人把偏执男哄迷糊了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/七零年代病佳人把偏执男哄迷糊了.txt"
+      },
+      {
+        "title": "七零：小狐狸崽在线找爹",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/七零：小狐狸崽在线找爹.txt"
+      },
+      {
+        "title": "丰腴美人穿成恶毒女配后，发疯了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/丰腴美人穿成恶毒女配后，发疯了.txt"
+      },
+      {
+        "title": "先婚后爱：大小姐被糙汉狠狠宠爱",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/先婚后爱：大小姐被糙汉狠狠宠爱.txt"
+      },
+      {
+        "title": "八零军婚：陆首长被前妻踢出门了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/八零军婚：陆首长被前妻踢出门了.txt"
+      },
+      {
+        "title": "刚安顿好新家一睁眼身处1969",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/刚安顿好新家一睁眼身处1969.txt"
+      },
+      {
+        "title": "惊！下乡的女知青竟是顶级雇佣兵",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/惊！下乡的女知青竟是顶级雇佣兵.txt"
+      },
+      {
+        "title": "打工路上的临时夫妻",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/打工路上的临时夫妻.txt"
+      },
+      {
+        "title": "拿继妹照片相亲，冷面军官掐腰宠",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/拿继妹照片相亲，冷面军官掐腰宠.txt"
+      },
+      {
+        "title": "撕毁婚约后，年上首长失控被亲哭",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/年代/撕毁婚约后，年上首长失控被亲哭.txt"
+      }
+    ],
+    "sample_count": 18,
+    "similarity_reason": "基于 资源库/小说原本/年代/ 及指纹库共 18 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_MODERN_ROMANCE_快穿",
+    "level": "Level2_Subgenre",
+    "genre": "现代言情",
+    "subgenre": "快穿",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "快穿题材标准节奏",
+    "world_type": "跨位面专业任务者的理性解题与因果清账，严格计算积分回报与情绪剥离保护",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "S级位面完成评价、灵魂本源力量淬炼、脱离主神契约的自由度点数",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "位面脱离倒计时压迫、原身残留情感肌肉记忆反噬、商城积分严格收支",
+    "taboos": "严禁在任务世界流连忘返搞虐恋情深、严禁把复杂世界降智为粗糙打脸工具",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 24.55,
+      "sentenceLenStd": 16.47,
+      "paragraphLenMean": 25.04,
+      "dialogueRatio": 0.1638,
+      "dialogueTurnMean": 14.12,
+      "commaPeriodRatio": 1.55,
+      "ttr": 0.4885,
+      "similePerKilo": 1.49,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "全员阴湿男鬼？其实她是故意的",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/全员阴湿男鬼？其实她是故意的.txt"
+      },
+      {
+        "title": "加载负面BUFF后成了万人迷",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/加载负面BUFF后成了万人迷.txt"
+      },
+      {
+        "title": "娇软小漂亮天生就要被男人觊觎",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/娇软小漂亮天生就要被男人觊觎.txt"
+      },
+      {
+        "title": "开局穿渣男？笑话！软饭我吃定了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/开局穿渣男？笑话！软饭我吃定了.txt"
+      },
+      {
+        "title": "心机勾引快穿：女主心上人归我了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/心机勾引快穿：女主心上人归我了.txt"
+      },
+      {
+        "title": "快穿之人渣的宠妻洗白攻略",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/快穿之人渣的宠妻洗白攻略.txt"
+      },
+      {
+        "title": "快穿：反派黑化暂停，我是你爹",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/快穿：反派黑化暂停，我是你爹.txt"
+      },
+      {
+        "title": "快穿：恶毒女配？男主都给她当狗",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/快穿：恶毒女配？男主都给她当狗.txt"
+      },
+      {
+        "title": "快穿：恶狗又疯又坏总缠着不放",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/快穿：恶狗又疯又坏总缠着不放.txt"
+      },
+      {
+        "title": "快穿：所有人都知道我是好人",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/快穿/快穿：所有人都知道我是好人.txt"
+      }
+    ],
+    "sample_count": 14,
+    "similarity_reason": "基于 资源库/小说原本/快穿/ 及指纹库共 14 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.78
+  },
+  {
+    "benchmark_id": "BM_L2_SUSPENSE_悬疑灵异",
+    "level": "Level2_Subgenre",
+    "genre": "悬疑惊悚",
+    "subgenre": "悬疑灵异",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "悬疑灵异题材标准节奏",
+    "world_type": "民间行当门道禁忌（捞尸、缝尸、扎纸）与水流死相法医级勘验，凶案背后尽是世道悲凉",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "冤死者入土为安因果闭环、二十四枚水鬼铜钱退赔、老街行当世代传承名节",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "生麻绳泡水粗粝割手、黄河回水湾泥沙水浸线、天黑起雾不得下水的行规约束",
+    "taboos": "严禁跳脸式无脑鬼怪吓人、严禁把恐怖写成玄幻修仙开大招、严禁违背法医学常识",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 31.32,
+      "sentenceLenStd": 24.24,
+      "paragraphLenMean": 33.98,
+      "dialogueRatio": 0.2216,
+      "dialogueTurnMean": 21.07,
+      "commaPeriodRatio": 5.47,
+      "ttr": 0.3441,
+      "similePerKilo": 1.6,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "一个民间阴阳先生的真实经历",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/一个民间阴阳先生的真实经历.txt"
+      },
+      {
+        "title": "三界物流公司 - 飞飞圆",
+        "author": "飞飞圆",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/三界物流公司 - 飞飞圆.txt"
+      },
+      {
+        "title": "不死的我速通灵异游戏 - 去码头整点儿薯条",
+        "author": "去码头整点儿薯条",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/不死的我速通灵异游戏 - 去码头整点儿薯条.txt"
+      },
+      {
+        "title": "乡野道人",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/乡野道人.txt"
+      },
+      {
+        "title": "什么？任婷婷是我娃娃亲！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/什么？任婷婷是我娃娃亲！.txt"
+      },
+      {
+        "title": "噩梦使徒 - 温柔劝睡师",
+        "author": "温柔劝睡师",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/噩梦使徒 - 温柔劝睡师.txt"
+      },
+      {
+        "title": "天官赐邪 - 幻梦猎人",
+        "author": "幻梦猎人",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/天官赐邪 - 幻梦猎人.txt"
+      },
+      {
+        "title": "完美犯罪？在我的眼里全是破绽！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/完美犯罪？在我的眼里全是破绽！.txt"
+      },
+      {
+        "title": "怪谈游戏设计师 - 我会修空调",
+        "author": "我会修空调",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/怪谈游戏设计师 - 我会修空调.txt"
+      },
+      {
+        "title": "悬疑凶案：公安局长重案手记",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/悬疑灵异/悬疑凶案：公安局长重案手记.txt"
+      }
+    ],
+    "sample_count": 37,
+    "similarity_reason": "基于 资源库/小说原本/悬疑灵异/ 及指纹库共 37 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_SUSPENSE_悬疑脑洞",
+    "level": "Level2_Subgenre",
+    "genre": "悬疑惊悚",
+    "subgenre": "悬疑脑洞",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "悬疑脑洞题材标准节奏",
+    "world_type": "封闭规则怪谈空间的逻辑漏洞推演与理智生存，从自相矛盾的血字守则中寻找活路",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "下一站安全下车豁免、剪角车票的规则保护权、通关专属规则道具保留",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "列车广播变调倒计时、污染指数上升导致的感官扭曲、不能睁眼的生理抵抗",
+    "taboos": "严禁直接武力莽穿规则空间、严禁规则漏洞全靠作者拍脑袋胡编而无前后逻辑",
+    "opening_mode_target": "具体场景动作切入",
+    "metrics_target": {
+      "sentenceLenMean": 21.76,
+      "sentenceLenStd": 14.24,
+      "paragraphLenMean": 26.04,
+      "dialogueRatio": 0.1676,
+      "dialogueTurnMean": 17.09,
+      "commaPeriodRatio": 1.92,
+      "ttr": 0.7035,
+      "similePerKilo": 1.72,
+      "chapterChars": [
+        2127,
+        2712
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "不要在无限流里招惹精神病！",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\不要在无限流里招惹精神病！.txt"
+      },
+      {
+        "title": "乙女游戏哪来的面板和血条啊喂？",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\乙女游戏哪来的面板和血条啊喂？.txt"
+      },
+      {
+        "title": "九叔的绝代师弟",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\九叔的绝代师弟.txt"
+      },
+      {
+        "title": "九叔：我三岁，怎么会是道门魁首",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\九叔：我三岁，怎么会是道门魁首.txt"
+      },
+      {
+        "title": "九叔：我有一个蓝星直播间",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\九叔：我有一个蓝星直播间.txt"
+      },
+      {
+        "title": "九叔：末法时代？我直接挂机修仙",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\九叔：末法时代？我直接挂机修仙.txt"
+      },
+      {
+        "title": "你好诡异Boss，我是来打工的",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\你好诡异Boss，我是来打工的.txt"
+      },
+      {
+        "title": "全民恐怖求生：我觉醒加点序列！",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\全民恐怖求生：我觉醒加点序列！.txt"
+      },
+      {
+        "title": "全民躲猫猫：疯批美人她满级天眼",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\全民躲猫猫：疯批美人她满级天眼.txt"
+      },
+      {
+        "title": "全球死考：刚下刑场你让我去考试",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\悬疑脑洞\\全球死考：刚下刑场你让我去考试.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/悬疑脑洞/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_URBAN_MARTIAL_战神赘婿",
+    "level": "Level2_Subgenre",
+    "genre": "都市高武",
+    "subgenre": "战神赘婿",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "战神赘婿题材标准节奏",
+    "world_type": "边境统帅卸甲隐锋入赘豪门的人性观察，在岳家白眼与商界轻视中以国士权势暗中翻盘",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "百亿产业过桥救市、家族宗祠族谱单开一页、战部最高荣耀勋章当众授衔",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "特级战备档案封存条例、不连累家族的身份保密铁律、敬酒受辱时的隐忍克制",
+    "taboos": "严禁一味挨打毫无反制手段的窝囊废、严禁动辄当街灭门毫无现代法理约束",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 24.78,
+      "sentenceLenStd": 16.44,
+      "paragraphLenMean": 31.48,
+      "dialogueRatio": 0.2549,
+      "dialogueTurnMean": 19.21,
+      "commaPeriodRatio": 2.17,
+      "ttr": 0.4748,
+      "similePerKilo": 1.35,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "上门女婿也风流",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/上门女婿也风流.txt"
+      },
+      {
+        "title": "从小间谍到佣兵之王",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/从小间谍到佣兵之王.txt"
+      },
+      {
+        "title": "从零开始，打造华夏首支特种部队",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/从零开始，打造华夏首支特种部队.txt"
+      },
+      {
+        "title": "兵痞向东",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/兵痞向东.txt"
+      },
+      {
+        "title": "到底谁教你这么当新兵的？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/到底谁教你这么当新兵的？.txt"
+      },
+      {
+        "title": "废物赘婿：原来是隐藏大佬",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/废物赘婿：原来是隐藏大佬.txt"
+      },
+      {
+        "title": "弹痕无名：龙影归来",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/弹痕无名：龙影归来.txt"
+      },
+      {
+        "title": "我们自地狱来，只为高喊三声乌拉",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/我们自地狱来，只为高喊三声乌拉.txt"
+      },
+      {
+        "title": "我儿明明是纨绔，咋成帝国之虎了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/我儿明明是纨绔，咋成帝国之虎了.txt"
+      },
+      {
+        "title": "我抢了短剧受气男主的重生！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/战神赘婿/我抢了短剧受气男主的重生！.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/战神赘婿/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_HISTORY_抗战谍战",
+    "level": "Level2_Subgenre",
+    "genre": "历史古代",
+    "subgenre": "抗战谍战",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "抗战谍战题材标准节奏",
+    "world_type": "隐蔽战线密电破译与海派市井身份伪装，以特高课巡捕房为舞台的生死情报暗战",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "前线战役战略密码本获取、潜伏同志安全转移路线、日寇细菌战情报截获",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "发报机石蜡纸打底防透音、特高课侦听车逼近两百米、黄包车夫盘查身份证件",
+    "taboos": "严禁把谍战写成单枪匹马枪战片、严禁敌人全员智商欠费、严禁轻佻对待牺牲",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 28.36,
+      "sentenceLenStd": 18.57,
+      "paragraphLenMean": 31.09,
+      "dialogueRatio": 0.214,
+      "dialogueTurnMean": 22.78,
+      "commaPeriodRatio": 2.06,
+      "ttr": 0.4949,
+      "similePerKilo": 1,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "一战：我成了白毛德皇的治国轮椅",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/一战：我成了白毛德皇的治国轮椅.txt"
+      },
+      {
+        "title": "东北往事•关东娘们儿与土匪",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/东北往事•关东娘们儿与土匪.txt"
+      },
+      {
+        "title": "亮剑：军校毕业，我给老李当参谋",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/亮剑：军校毕业，我给老李当参谋.txt"
+      },
+      {
+        "title": "亮剑：李云龙十四岁入黄埔一期",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/亮剑：李云龙十四岁入黄埔一期.txt"
+      },
+      {
+        "title": "从今天开始当军阀",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/从今天开始当军阀.txt"
+      },
+      {
+        "title": "你管这叫警察？重炮都架租界口了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/你管这叫警察？重炮都架租界口了.txt"
+      },
+      {
+        "title": "军阀：老爹听劝，从旅长杀成大帅",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/军阀：老爹听劝，从旅长杀成大帅.txt"
+      },
+      {
+        "title": "四合院：李云龙上司，傻柱亲叔叔",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/四合院：李云龙上司，傻柱亲叔叔.txt"
+      },
+      {
+        "title": "天幕：开局放二战但是虚构史学",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/天幕：开局放二战但是虚构史学.txt"
+      },
+      {
+        "title": "孤兵1938",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/抗战谍战/孤兵1938.txt"
+      }
+    ],
+    "sample_count": 21,
+    "similarity_reason": "基于 资源库/小说原本/抗战谍战/ 及指纹库共 21 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_SCIFI_APOCALYPSE_星光璀璨",
+    "level": "Level2_Subgenre",
+    "genre": "科幻末世",
+    "subgenre": "星光璀璨",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "星光璀璨题材标准节奏",
+    "world_type": "名利场顶级演艺博弈与影视资本撕扯，以过硬声台形表实力打破资本流量垄断",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "国际三大电影节影帝影后奖杯、自主厂牌独立制片权、百亿院线分账红利",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "冬天拍夏戏含冰块防哈气、对赌分成协议的苛刻票房条款、狗仔长焦镜头围堵",
+    "taboos": "严禁无脑水军洗白、严禁无演技全靠金手指演戏、严禁脱离影视行业制作规程",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 30.2,
+      "sentenceLenStd": 23.08,
+      "paragraphLenMean": 29.2,
+      "dialogueRatio": 0.1623,
+      "dialogueTurnMean": 18.79,
+      "commaPeriodRatio": 2.44,
+      "ttr": 0.5102,
+      "similePerKilo": 1.17,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "一曲大风吹，吹塌了半个华语乐坛",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/一曲大风吹，吹塌了半个华语乐坛.txt"
+      },
+      {
+        "title": "万人迷神颜顶流只想演炮灰",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/万人迷神颜顶流只想演炮灰.txt"
+      },
+      {
+        "title": "上娃综后，财迷崽崽萌翻全场",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/上娃综后，财迷崽崽萌翻全场.txt"
+      },
+      {
+        "title": "停播三年，从复播开始惊艳全网",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/停播三年，从复播开始惊艳全网.txt"
+      },
+      {
+        "title": "偶像之路，每颗泡泡都在让我变美",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/偶像之路，每颗泡泡都在让我变美.txt"
+      },
+      {
+        "title": "全能顶流女星重生，卷疯娱乐圈",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/全能顶流女星重生，卷疯娱乐圈.txt"
+      },
+      {
+        "title": "团播圈的小透明，神豪们的心尖宠",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/团播圈的小透明，神豪们的心尖宠.txt"
+      },
+      {
+        "title": "女穿男后我爆红全网",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/女穿男后我爆红全网.txt"
+      },
+      {
+        "title": "女装直播后，榜一大哥大姐杀疯了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/女装直播后，榜一大哥大姐杀疯了.txt"
+      },
+      {
+        "title": "小可怜被偷人生，顶级豪门来团宠",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/星光璀璨/小可怜被偷人生，顶级豪门来团宠.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/星光璀璨/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_XUANHUAN_武侠",
+    "level": "Level2_Subgenre",
+    "genre": "玄幻修真",
+    "subgenre": "武侠",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "武侠题材标准节奏",
+    "world_type": "传统国术沉肩坠肘暗劲打透与江湖门派风骨，在官府鹰犬与绿林道切口中求一诺千金",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "门派掌门铁剑令传承、武林盟主誓约公议、为故人报仇雪恨的血战兑现",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "硬木桩练拳骨节破皮结痂、下盘扎马肌肉酸痛抽搐、刀剑切开皮肉的真实痛楚",
+    "taboos": "严禁内力化为激光对轰的神仙打架、严禁主角动辄屠戮满门毫无侠义操守",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 32.41,
+      "sentenceLenStd": 21.04,
+      "paragraphLenMean": 39.45,
+      "dialogueRatio": 0.2063,
+      "dialogueTurnMean": 22.2,
+      "commaPeriodRatio": 2.58,
+      "ttr": 0.2571,
+      "similePerKilo": 1.32,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "人在峨眉，开局获取金色词条 - 黑白大团子",
+        "author": "黑白大团子",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/人在峨眉，开局获取金色词条 - 黑白大团子.txt"
+      },
+      {
+        "title": "倚天崆峒掌派人 - 风约云留",
+        "author": "风约云留",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/倚天崆峒掌派人 - 风约云留.txt"
+      },
+      {
+        "title": "冒官锦衣，从满级太玄经开始 - 洛上公子",
+        "author": "洛上公子",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/冒官锦衣，从满级太玄经开始 - 洛上公子.txt"
+      },
+      {
+        "title": "剑出大唐 - 一片苏叶",
+        "author": "一片苏叶",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/剑出大唐 - 一片苏叶.txt"
+      },
+      {
+        "title": "大宋为王十三年，方知是天龙 - 幽燕倦客",
+        "author": "幽燕倦客",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/大宋为王十三年，方知是天龙 - 幽燕倦客.txt"
+      },
+      {
+        "title": "家师郭靖 - 笔尖的梦想乡",
+        "author": "笔尖的梦想乡",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/家师郭靖 - 笔尖的梦想乡.txt"
+      },
+      {
+        "title": "开局护送未亡人，获金刚不坏 - 小忍超可爱",
+        "author": "小忍超可爱",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/开局护送未亡人，获金刚不坏 - 小忍超可爱.txt"
+      },
+      {
+        "title": "开局相亲女神捕，获独孤九剑 - 今日问道",
+        "author": "今日问道",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/开局相亲女神捕，获独孤九剑 - 今日问道.txt"
+      },
+      {
+        "title": "归蜀：无墙之城 - 陈犟",
+        "author": "陈犟",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/归蜀：无墙之城 - 陈犟.txt"
+      },
+      {
+        "title": "我在武侠世界当王爷 - 西瓜吃葡萄",
+        "author": "西瓜吃葡萄",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/武侠/我在武侠世界当王爷 - 西瓜吃葡萄.txt"
+      }
+    ],
+    "sample_count": 24,
+    "similarity_reason": "基于 资源库/小说原本/武侠/ 及指纹库共 24 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_ANCIENT_ROMANCE_民国言情",
+    "level": "Level2_Subgenre",
+    "genre": "古言世情",
+    "subgenre": "民国言情",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "民国言情题材标准节奏",
+    "world_type": "乱世军阀割据与海派公馆深情，在山河破碎与军政府通电风暴中相濡以沫",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "南下列车最后两张客票、家族实业资产安全转移、护送爱人穿过封锁线",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "军靴马刺磕地声响、汇丰银行本票真伪鉴别、空袭警报下拉响的防空警笛",
+    "taboos": "严禁国家危难关头只谈卿卿我我、严禁军阀无视前线战事只为女主冲冠一怒",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 26.8,
+      "sentenceLenStd": 17.49,
+      "paragraphLenMean": 31.04,
+      "dialogueRatio": 0.1873,
+      "dialogueTurnMean": 17.37,
+      "commaPeriodRatio": 2.06,
+      "ttr": 0.4917,
+      "similePerKilo": 1.03,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "九门：疑是玉人来",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/九门：疑是玉人来.txt"
+      },
+      {
+        "title": "作大死！怂包强制爱了暴戾督军",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/作大死！怂包强制爱了暴戾督军.txt"
+      },
+      {
+        "title": "南部档案：师姐老想退休了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/南部档案：师姐老想退休了.txt"
+      },
+      {
+        "title": "夫人离婚后，军阀大佬一夜白头",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/夫人离婚后，军阀大佬一夜白头.txt"
+      },
+      {
+        "title": "小农女逃荒搬空地主鬼子库房",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/小农女逃荒搬空地主鬼子库房.txt"
+      },
+      {
+        "title": "少帅霸妻，强扭的瓜不甜也得甜",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/少帅霸妻，强扭的瓜不甜也得甜.txt"
+      },
+      {
+        "title": "带着拼夕夕在40",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/带着拼夕夕在40.txt"
+      },
+      {
+        "title": "我在老九门打工那些年",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/我在老九门打工那些年.txt"
+      },
+      {
+        "title": "挚欢",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/挚欢.txt"
+      },
+      {
+        "title": "民国爱情：烟雨长安渡",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/民国言情/民国爱情：烟雨长安渡.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/民国言情/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_XUANHUAN_测试",
+    "level": "Level2_Subgenre",
+    "genre": "玄幻修真",
+    "subgenre": "测试",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "测试题材标准节奏",
+    "world_type": "传统玄幻武道基准测试",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "基准单元测试通过",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "丹田火热、负重铜砂袋磨破胯骨皮肉",
+    "taboos": "严禁违规调用",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 34.21,
+      "sentenceLenStd": 23.68,
+      "paragraphLenMean": 35.85,
+      "dialogueRatio": 0.2313,
+      "dialogueTurnMean": 20.75,
+      "commaPeriodRatio": 2.74,
+      "ttr": 0.1278,
+      "similePerKilo": 1.18,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "夜无疆",
+        "author": "辰东",
+        "ranking": "畅销榜 No.1",
+        "filePath": "小说原本/测试/夜无疆.txt"
+      },
+      {
+        "title": "诡秘之主",
+        "author": "爱潜水的乌贼",
+        "ranking": "畅销榜 No.2",
+        "filePath": "小说原本/测试/诡秘之主.txt"
+      },
+      {
+        "title": "青山",
+        "author": "会说话的肘子",
+        "ranking": "畅销榜 No.3",
+        "filePath": "小说原本/测试/青山.txt"
+      }
+    ],
+    "sample_count": 3,
+    "similarity_reason": "基于 资源库/小说原本/测试/ 及指纹库共 3 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.6
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_游戏",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "游戏",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "游戏题材标准节奏",
+    "world_type": "第四天灾玩家降临与硬核机械图纸铸造，NPC军火商靠0.008mm公差割玩家韭菜",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "全服首杀公会悬赏金、海蓝币汇率收割、阵营主线战争主导权",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "车床切削铁屑烫手、护甲耐久度断崖式下跌、高斯步枪蓄电池瞬间清零",
+    "taboos": "严禁玩家如同单机弱智NPC毫无网络骚操作、严禁数据面板无限崩坏失去参考意义",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 31.22,
+      "sentenceLenStd": 21.62,
+      "paragraphLenMean": 38.6,
+      "dialogueRatio": 0.1633,
+      "dialogueTurnMean": 20.14,
+      "commaPeriodRatio": 2.22,
+      "ttr": 0.2342,
+      "similePerKilo": 1.29,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "CS：坏了，真让他成Goat了 - 地精咖啡",
+        "author": "地精咖啡",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/CS：坏了，真让他成Goat了 - 地精咖啡.txt"
+      },
+      {
+        "title": "LOL，我的虎扑评分不会低 - 捣浆糊大王",
+        "author": "捣浆糊大王",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/LOL，我的虎扑评分不会低 - 捣浆糊大王.txt"
+      },
+      {
+        "title": "LOL：刚打职业，你说联盟凉了 - 微波炉热可乐",
+        "author": "微波炉热可乐",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/LOL：刚打职业，你说联盟凉了 - 微波炉热可乐.txt"
+      },
+      {
+        "title": "伊塔之柱 - 绯炎",
+        "author": "绯炎",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/伊塔之柱 - 绯炎.txt"
+      },
+      {
+        "title": "你这辈子就是让游戏给害了！ - 起点灵感大王",
+        "author": "起点灵感大王",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/你这辈子就是让游戏给害了！ - 起点灵感大王.txt"
+      },
+      {
+        "title": "全民求生：我有一艘幽灵船 - 归尘爱归土",
+        "author": "归尘爱归土",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/全民求生：我有一艘幽灵船 - 归尘爱归土.txt"
+      },
+      {
+        "title": "全民海岛求生：我靠海图执掌万海 - 枕边栀香",
+        "author": "枕边栀香",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/全民海岛求生：我靠海图执掌万海 - 枕边栀香.txt"
+      },
+      {
+        "title": "全职高手 - 蝴蝶蓝",
+        "author": "蝴蝶蓝",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/全职高手 - 蝴蝶蓝.txt"
+      },
+      {
+        "title": "全职高手之三少爷的剑 - 枝头芍药",
+        "author": "枝头芍药",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/全职高手之三少爷的剑 - 枝头芍药.txt"
+      },
+      {
+        "title": "全职高手：被迫夺冠的驱魔师 - 画啦啦",
+        "author": "画啦啦",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏/全职高手：被迫夺冠的驱魔师 - 画啦啦.txt"
+      }
+    ],
+    "sample_count": 27,
+    "similarity_reason": "基于 资源库/小说原本/游戏/ 及指纹库共 27 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_游戏体育",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "游戏体育",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "游戏体育题材标准节奏",
+    "world_type": "MOBA电竞职业联赛的毫秒级反应与BP战术博弈，手腕腱鞘炎与冠军戒指的执念",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "世界总决赛召唤师奖杯、千万级商业签字费、为赛区夺得第一赛区荣耀",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "APM手速极限下滑、手汗导致鼠标防滑垫脱胶、决胜局心率飙升的缺氧窒息",
+    "taboos": "严禁脱离游戏比赛实际机制胡编乱造、严禁把职业比赛写成个人无脑虐菜",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 25.81,
+      "sentenceLenStd": 19.1,
+      "paragraphLenMean": 24.8,
+      "dialogueRatio": 0.163,
+      "dialogueTurnMean": 17.21,
+      "commaPeriodRatio": 1.85,
+      "ttr": 0.4693,
+      "similePerKilo": 0.99,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "NBA：交易系统助我游牧成神",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/NBA：交易系统助我游牧成神.txt"
+      },
+      {
+        "title": "万人嫌反派炮灰成了早逝白月光",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/万人嫌反派炮灰成了早逝白月光.txt"
+      },
+      {
+        "title": "三角洲：FPS暴君降临",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/三角洲：FPS暴君降临.txt"
+      },
+      {
+        "title": "入主湖人助科比，开局先抢圣保罗",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/入主湖人助科比，开局先抢圣保罗.txt"
+      },
+      {
+        "title": "全息游戏当神偷，偷完他的偷你的",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/全息游戏当神偷，偷完他的偷你的.txt"
+      },
+      {
+        "title": "全民大航海，我开局一条幽灵船",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/全民大航海，我开局一条幽灵船.txt"
+      },
+      {
+        "title": "全民求生：开局一间茅草棚",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/全民求生：开局一间茅草棚.txt"
+      },
+      {
+        "title": "全民海洋求生：我的命中百分百",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/全民海洋求生：我的命中百分百.txt"
+      },
+      {
+        "title": "全民网游：我看广告解锁无限奖励",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/全民网游：我看广告解锁无限奖励.txt"
+      },
+      {
+        "title": "全球公路求生，幸运龙崽躺赢啦",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/游戏体育/全球公路求生，幸运龙崽躺赢啦.txt"
+      }
+    ],
+    "sample_count": 30,
+    "similarity_reason": "基于 资源库/小说原本/游戏体育/ 及指纹库共 30 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_XUANHUAN_玄幻",
+    "level": "Level2_Subgenre",
+    "genre": "玄幻修真",
+    "subgenre": "玄幻",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "玄幻题材标准节奏",
+    "world_type": "重型工业探索与破冰巨舰远洋深潜，用灵纹度盘与灵光测距镜解析不可名状大荒古迹",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "上古文明能量核心回收、巨舰深潜生存安全返航、破译太古法则符文",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "水密隔舱防浪气压咬合紧固、重型绞盘缆绳极限受拉、甲板严寒结冰湿滑",
+    "taboos": "严禁市井地痞胡同嘴碎、严禁把重工业远征写成过家家逛街",
+    "opening_mode_target": "具体场景动作切入",
+    "metrics_target": {
+      "sentenceLenMean": 26.97,
+      "sentenceLenStd": 17.97,
+      "paragraphLenMean": 33.46,
+      "dialogueRatio": 0.2428,
+      "dialogueTurnMean": 21.48,
+      "commaPeriodRatio": 2.37,
+      "ttr": 0.6675,
+      "similePerKilo": 1.25,
+      "chapterChars": [
+        2526,
+        3423
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "一世之尊 - 爱潜水的乌贼",
+        "author": "爱潜水的乌贼",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\一世之尊 - 爱潜水的乌贼.txt"
+      },
+      {
+        "title": "万像归墟 - 叉刀",
+        "author": "叉刀",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\万像归墟 - 叉刀.txt"
+      },
+      {
+        "title": "万生痴魔 - 沙拉古斯",
+        "author": "沙拉古斯",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\万生痴魔 - 沙拉古斯.txt"
+      },
+      {
+        "title": "从伏虎桩开始成为武圣 - 努力的言念",
+        "author": "努力的言念",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\从伏虎桩开始成为武圣 - 努力的言念.txt"
+      },
+      {
+        "title": "从效法万妖开始成就真仙 - 陆月十九",
+        "author": "陆月十九",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\从效法万妖开始成就真仙 - 陆月十九.txt"
+      },
+      {
+        "title": "从水猴子开始成神 - 甲壳蚁",
+        "author": "甲壳蚁",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\从水猴子开始成神 - 甲壳蚁.txt"
+      },
+      {
+        "title": "仙朝鹰犬 - 平层",
+        "author": "平层",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\仙朝鹰犬 - 平层.txt"
+      },
+      {
+        "title": "元始法则 - 飞天鱼",
+        "author": "飞天鱼",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\元始法则 - 飞天鱼.txt"
+      },
+      {
+        "title": "剑烛大荒 - 爱潜水的乌贼",
+        "author": "爱潜水的乌贼",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\剑烛大荒 - 爱潜水的乌贼.txt"
+      },
+      {
+        "title": "匹夫原罪 - 庐州青石",
+        "author": "庐州青石",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\玄幻\\匹夫原罪 - 庐州青石.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/玄幻/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_XUANHUAN_玄幻脑洞",
+    "level": "Level2_Subgenre",
+    "genre": "玄幻修真",
+    "subgenre": "玄幻脑洞",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "玄幻脑洞题材标准节奏",
+    "world_type": "概念认知覆写与高维度信息态干涉，主角以程序员/科研逻辑重构修真底层规则",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "世界底层逻辑覆写权、概念规则专利封锁、跨纬度因果闭环达成",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "算力超载脑神经刺痛流鼻血、悖论反噬引发的逻辑死循环、观测者视界坍缩",
+    "taboos": "严禁逻辑前后矛盾无法自圆其说、严禁设定无限膨胀脱离读者理解范畴",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 25.12,
+      "sentenceLenStd": 16.49,
+      "paragraphLenMean": 25.76,
+      "dialogueRatio": 0.1514,
+      "dialogueTurnMean": 17.69,
+      "commaPeriodRatio": 1.95,
+      "ttr": 0.51,
+      "similePerKilo": 1.14,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "不对劲，我穿越的都是里世界",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/不对劲，我穿越的都是里世界.txt"
+      },
+      {
+        "title": "代管截教，瞎编功法的我万倍返还",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/代管截教，瞎编功法的我万倍返还.txt"
+      },
+      {
+        "title": "同学们都选阐教，我选截教杀疯了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/同学们都选阐教，我选截教杀疯了.txt"
+      },
+      {
+        "title": "师尊嫌我肮脏？反手退师帖送上",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/师尊嫌我肮脏？反手退师帖送上.txt"
+      },
+      {
+        "title": "开局寿尽准帝，竟被蝼蚁打上门",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/开局寿尽准帝，竟被蝼蚁打上门.txt"
+      },
+      {
+        "title": "开局模拟被打爆，金丹爆星什么鬼",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/开局模拟被打爆，金丹爆星什么鬼.txt"
+      },
+      {
+        "title": "开局流落皇子，可我已经人间无敌",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/开局流落皇子，可我已经人间无敌.txt"
+      },
+      {
+        "title": "我根骨平庸，但分身都是绝世天才",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/我根骨平庸，但分身都是绝世天才.txt"
+      },
+      {
+        "title": "我都成烛龙了，人类怎么才诞生？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/我都成烛龙了，人类怎么才诞生？.txt"
+      },
+      {
+        "title": "文字武侠：开局破庙夜会帮主夫人",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻脑洞/文字武侠：开局破庙夜会帮主夫人.txt"
+      }
+    ],
+    "sample_count": 16,
+    "similarity_reason": "基于 资源库/小说原本/玄幻脑洞/ 及指纹库共 16 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_ANCIENT_ROMANCE_玄幻言情",
+    "level": "Level2_Subgenre",
+    "genre": "古言世情",
+    "subgenre": "玄幻言情",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "玄幻言情题材标准节奏",
+    "world_type": "三生石刻情劫与神魔两界宿命纠缠，以苍生大义为棋盘、以本命心头血为红线",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "双双渡劫圆满保全六界生灵、命魂玉牒永结同心契、前尘恩怨一剑两断",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "九重天阶诛仙台万刃穿心、本命灵契撕裂的反噬剧痛、寒毒蚀骨长夜难熬",
+    "taboos": "严禁为了谈恋爱杀戮无辜三界苍生、严禁男主屠女主满门还能毫无芥蒂大团圆",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 26.35,
+      "sentenceLenStd": 17.28,
+      "paragraphLenMean": 29.42,
+      "dialogueRatio": 0.1628,
+      "dialogueTurnMean": 17.17,
+      "commaPeriodRatio": 1.81,
+      "ttr": 0.4949,
+      "similePerKilo": 1.7,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "8小时修仙，老娘卷哭全世界",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/8小时修仙，老娘卷哭全世界.txt"
+      },
+      {
+        "title": "全班穿越洪荒，唯有我登阶成圣",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/全班穿越洪荒，唯有我登阶成圣.txt"
+      },
+      {
+        "title": "剑宗小魔童，三岁半超凶",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/剑宗小魔童，三岁半超凶.txt"
+      },
+      {
+        "title": "天才剑修说他就喜欢恶毒女配",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/天才剑修说他就喜欢恶毒女配.txt"
+      },
+      {
+        "title": "天才辅灵师在异世大陆挖疯了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/天才辅灵师在异世大陆挖疯了.txt"
+      },
+      {
+        "title": "天道曝光我日记，男神们不对劲了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/天道曝光我日记，男神们不对劲了.txt"
+      },
+      {
+        "title": "当我同时绑定好孕系统和天命系统",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/当我同时绑定好孕系统和天命系统.txt"
+      },
+      {
+        "title": "恶役女配她只想活命",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/恶役女配她只想活命.txt"
+      },
+      {
+        "title": "我在修仙界搞内卷",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/我在修仙界搞内卷.txt"
+      },
+      {
+        "title": "我靠摆烂拯救了全宗门",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/玄幻言情/我靠摆烂拯救了全宗门.txt"
+      }
+    ],
+    "sample_count": 19,
+    "similarity_reason": "基于 资源库/小说原本/玄幻言情/ 及指纹库共 19 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_URBAN_MARTIAL_现实",
+    "level": "Level2_Subgenre",
+    "genre": "都市高武",
+    "subgenre": "现实",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "现实题材标准节奏",
+    "world_type": "大国重工业与戈壁军垦拓荒，东方红拖拉机履带卡泥与水利修渠引水的集体奉献史诗",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "万亩盐碱地变产粮绿洲、兵团水利大坝顺利合龙、国家工业急需特种橡胶提炼",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "戈壁风沙刮脸细石入骨、扳手脱手砸伤手背血肉模糊、三年自然灾害口粮紧缩",
+    "taboos": "严禁历史虚无主义歪曲先辈奉献、严禁轻浮戏谑集体英雄主义精神",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 32.73,
+      "sentenceLenStd": 22.46,
+      "paragraphLenMean": 40.45,
+      "dialogueRatio": 0.3027,
+      "dialogueTurnMean": 26.3,
+      "commaPeriodRatio": 2.85,
+      "ttr": 0.1473,
+      "similePerKilo": 0.96,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "大国军垦 - 大强67",
+        "author": "大强67",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/大国军垦 - 大强67.txt"
+      },
+      {
+        "title": "奔腾年代——向南向北 - 眉师娘",
+        "author": "眉师娘",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/奔腾年代——向南向北 - 眉师娘.txt"
+      },
+      {
+        "title": "宋锦花丝传 - 墨韵忠戎",
+        "author": "墨韵忠戎",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/宋锦花丝传 - 墨韵忠戎.txt"
+      },
+      {
+        "title": "律师本色 - 雪映红梅",
+        "author": "雪映红梅",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/律师本色 - 雪映红梅.txt"
+      },
+      {
+        "title": "我为国家修文物 - 十三闲客",
+        "author": "十三闲客",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/我为国家修文物 - 十三闲客.txt"
+      },
+      {
+        "title": "我的1979 - 争斤论两花花帽",
+        "author": "争斤论两花花帽",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/我的1979 - 争斤论两花花帽.txt"
+      },
+      {
+        "title": "清明十二年 - 笑泯恩仇呀",
+        "author": "笑泯恩仇呀",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/清明十二年 - 笑泯恩仇呀.txt"
+      },
+      {
+        "title": "王牌律师 - 雪映红梅",
+        "author": "雪映红梅",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/王牌律师 - 雪映红梅.txt"
+      },
+      {
+        "title": "秘战无声 - 长风",
+        "author": "长风",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/秘战无声 - 长风.txt"
+      },
+      {
+        "title": "老兵新警 - 卓牧闲",
+        "author": "卓牧闲",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现实/老兵新警 - 卓牧闲.txt"
+      }
+    ],
+    "sample_count": 14,
+    "similarity_reason": "基于 资源库/小说原本/现实/ 及指纹库共 14 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.78
+  },
+  {
+    "benchmark_id": "BM_L2_MODERN_ROMANCE_现言脑洞",
+    "level": "Level2_Subgenre",
+    "genre": "现代言情",
+    "subgenre": "现言脑洞",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "现言脑洞题材标准节奏",
+    "world_type": "都市生活流异能与平凡社畜的奇妙反差，金手指巧妙解决租房、就医与打工痛点",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "提前还清三十年房贷、为患病母亲赚足手术费、摆脱黑心老板剥削",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "异能冷却时间强制限制、空间存货受制于保质期、地铁早高峰拥挤阻滞",
+    "taboos": "严禁暴富之后脱离生活地气疯狂炫富、严禁金手指威力过大变成末日毁灭",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 26.11,
+      "sentenceLenStd": 17.3,
+      "paragraphLenMean": 28.25,
+      "dialogueRatio": 0.1558,
+      "dialogueTurnMean": 16.07,
+      "commaPeriodRatio": 1.8,
+      "ttr": 0.5066,
+      "similePerKilo": 1.48,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "C级向导？全星际哨兵都不够她治",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/C级向导？全星际哨兵都不够她治.txt"
+      },
+      {
+        "title": "亲妈带娃眼泪汪汪",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/亲妈带娃眼泪汪汪.txt"
+      },
+      {
+        "title": "你女朋友是我老婆，我不可怜吗？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/你女朋友是我老婆，我不可怜吗？.txt"
+      },
+      {
+        "title": "同学聚会听人吹牛，我快赚麻了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/同学聚会听人吹牛，我快赚麻了.txt"
+      },
+      {
+        "title": "唯一人类在兽世，当养成虚拟偶像",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/唯一人类在兽世，当养成虚拟偶像.txt"
+      },
+      {
+        "title": "婚长欲浓",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/婚长欲浓.txt"
+      },
+      {
+        "title": "小炮灰变美后，抢了财阀太子爷",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/小炮灰变美后，抢了财阀太子爷.txt"
+      },
+      {
+        "title": "恶毒女二被男主错认成女主后",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/恶毒女二被男主错认成女主后.txt"
+      },
+      {
+        "title": "我不过作作妖，怎么就成了白月光",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/我不过作作妖，怎么就成了白月光.txt"
+      },
+      {
+        "title": "投喂古代小人国，我被当成神明了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/现言脑洞/投喂古代小人国，我被当成神明了.txt"
+      }
+    ],
+    "sample_count": 22,
+    "similarity_reason": "基于 资源库/小说原本/现言脑洞/ 及指纹库共 22 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_男频衍生",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "男频衍生",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "男频衍生题材标准节奏",
+    "world_type": "综漫与无限流主神空间的理性破局，以老牌读者洞察力反向收割主神协议漏洞",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "全队无损生还评价、SS级空间兑换支线剧情、自创规则武装成型",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "主神抹杀警报红字倒数、跨世界属性兼容衰减、原著天道意志警惕排斥",
+    "taboos": "严禁纯粹复述原著剧情水字数、严禁掠夺原著女性角色毫无感情逻辑",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 33.27,
+      "sentenceLenStd": 25.07,
+      "paragraphLenMean": 34.75,
+      "dialogueRatio": 0.221,
+      "dialogueTurnMean": 24.53,
+      "commaPeriodRatio": 4.45,
+      "ttr": 0.4943,
+      "similePerKilo": 0.91,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "三体：我还以为是全知域呢！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/三体：我还以为是全知域呢！.txt"
+      },
+      {
+        "title": "名义，汉东第一拳王，汉东王来了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/名义，汉东第一拳王，汉东王来了.txt"
+      },
+      {
+        "title": "名义：从接替老刘开始",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/名义：从接替老刘开始.txt"
+      },
+      {
+        "title": "名义：我避开祁同伟几十年",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/名义：我避开祁同伟几十年.txt"
+      },
+      {
+        "title": "名义：梁璐逼婚？家父赵蒙生",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/名义：梁璐逼婚？家父赵蒙生.txt"
+      },
+      {
+        "title": "名义：汉东棋局，由我来打破！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/名义：汉东棋局，由我来打破！.txt"
+      },
+      {
+        "title": "名义：调任汉东，我只打高端局",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/名义：调任汉东，我只打高端局.txt"
+      },
+      {
+        "title": "四合院综影：背景通天版本T0",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/四合院综影：背景通天版本T0.txt"
+      },
+      {
+        "title": "四合院，傻柱重生1952",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/四合院，傻柱重生1952.txt"
+      },
+      {
+        "title": "四合院：从亮剑到人民的名义",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/男频衍生/四合院：从亮剑到人民的名义.txt"
+      }
+    ],
+    "sample_count": 21,
+    "similarity_reason": "基于 资源库/小说原本/男频衍生/ 及指纹库共 21 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_MODERN_ROMANCE_种田",
+    "level": "Level2_Subgenre",
+    "genre": "现代言情",
+    "subgenre": "种田",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "种田题材标准节奏",
+    "world_type": "古言经商与农家种田（丫鬟反籍带回两孩），凭路引赎身、开荒立红契、织布磨油自立门户",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "官府准允自立女户户籍、十亩荒山免税红契到手、油坊与布庄营生红利",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "春耕赤脚冰凉泥浆冻青脚趾、土坯灶房烟熏眼流泪、里正与乡绅吃拿卡要",
+    "taboos": "严禁丫鬟刚出府就遇到微服私访王爷、严禁不事劳作从天而降万两黄金",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 28.78,
+      "sentenceLenStd": 18.31,
+      "paragraphLenMean": 31.64,
+      "dialogueRatio": 0.2265,
+      "dialogueTurnMean": 23.24,
+      "commaPeriodRatio": 2.4,
+      "ttr": 0.4863,
+      "similePerKilo": 0.95,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "丫鬟反籍，带回两孩子",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/丫鬟反籍，带回两孩子.txt"
+      },
+      {
+        "title": "分家，继母渣爹跪求我回家",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/分家，继母渣爹跪求我回家.txt"
+      },
+      {
+        "title": "发配边关，罪妻开荒养出战神",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/发配边关，罪妻开荒养出战神.txt"
+      },
+      {
+        "title": "夫君战死五年归来：我携婆家出族",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/夫君战死五年归来：我携婆家出族.txt"
+      },
+      {
+        "title": "女穿男：穿成换嫁文里的对照组",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/女穿男：穿成换嫁文里的对照组.txt"
+      },
+      {
+        "title": "好惨！成了霸道糙汉的生理性喜欢",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/好惨！成了霸道糙汉的生理性喜欢.txt"
+      },
+      {
+        "title": "家徒四壁我养活两个兽世哥哥",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/家徒四壁我养活两个兽世哥哥.txt"
+      },
+      {
+        "title": "愚孝爹逼别演了，我娘弟开荒暴富",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/愚孝爹逼别演了，我娘弟开荒暴富.txt"
+      },
+      {
+        "title": "敦煌乱择，拾得杂户美娇娥",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/敦煌乱择，拾得杂户美娇娥.txt"
+      },
+      {
+        "title": "断亲后，三岁萌娃带弟搬空全家",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/种田/断亲后，三岁萌娃带弟搬空全家.txt"
+      }
+    ],
+    "sample_count": 21,
+    "similarity_reason": "基于 资源库/小说原本/种田/ 及指纹库共 21 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_SCIFI_APOCALYPSE_科幻",
+    "level": "Level2_Subgenre",
+    "genre": "科幻末世",
+    "subgenre": "科幻",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "科幻题材标准节奏",
+    "world_type": "魔导工业基建与深空理性去魅，用流水线车间、排污管网与卫星监控打破封建神权神话",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "领地魔网全域通电、领民扫盲工业化率达80%、人造卫星阵列成功入轨",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "导轨开槽0.5mm公差要求、水泥回转窑耐火砖烧蚀、轨道卫星热红外衰减",
+    "taboos": "严禁把科技写成念咒瞬发魔法、严禁无视基础工业体系直接造高达",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 36.33,
+      "sentenceLenStd": 26.98,
+      "paragraphLenMean": 43.1,
+      "dialogueRatio": 0.2028,
+      "dialogueTurnMean": 23.05,
+      "commaPeriodRatio": 2.41,
+      "ttr": 0.1874,
+      "similePerKilo": 1.38,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "三塔游戏 - 更从心",
+        "author": "更从心",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/三塔游戏 - 更从心.txt"
+      },
+      {
+        "title": "吃货与造物主谈恋爱 - 城堡K",
+        "author": "城堡K",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/吃货与造物主谈恋爱 - 城堡K.txt"
+      },
+      {
+        "title": "吞噬星空 - 我吃西红柿",
+        "author": "我吃西红柿",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/吞噬星空 - 我吃西红柿.txt"
+      },
+      {
+        "title": "吞噬星空2起源大陆 - 我吃西红柿",
+        "author": "我吃西红柿",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/吞噬星空2起源大陆 - 我吃西红柿.txt"
+      },
+      {
+        "title": "堑壕大栓与魔法 - 咸嘉湖灵感大王",
+        "author": "咸嘉湖灵感大王",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/堑壕大栓与魔法 - 咸嘉湖灵感大王.txt"
+      },
+      {
+        "title": "废土边境检查官 - 斤斤斤",
+        "author": "斤斤斤",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/废土边境检查官 - 斤斤斤.txt"
+      },
+      {
+        "title": "异常生物见闻录 - 远瞳",
+        "author": "远瞳",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/异常生物见闻录 - 远瞳.txt"
+      },
+      {
+        "title": "异度旅社 - 远瞳",
+        "author": "远瞳",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/异度旅社 - 远瞳.txt"
+      },
+      {
+        "title": "急急如律令 - 黑山老鬼",
+        "author": "黑山老鬼",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/急急如律令 - 黑山老鬼.txt"
+      },
+      {
+        "title": "我家地下室连异界 - 万念聚辉",
+        "author": "万念聚辉",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/科幻/我家地下室连异界 - 万念聚辉.txt"
+      }
+    ],
+    "sample_count": 23,
+    "similarity_reason": "基于 资源库/小说原本/科幻/ 及指纹库共 23 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_SCIFI_APOCALYPSE_科幻末世",
+    "level": "Level2_Subgenre",
+    "genre": "科幻末世",
+    "subgenre": "科幻末世",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "科幻末世题材标准节奏",
+    "world_type": "废土避难所工业复苏与资源铁律，在辐射粉尘与畸变兽潮下用螺栓、车床手搓军工",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "避难所反应堆重启动能、地下水源净化系统过滤成功、抵御第一波严冬寒潮",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "防毒面具滤罐剩余27分钟、差速器齿轮0.05mm间隙卡死、外骨骼电池见底",
+    "taboos": "严禁末日里食物饮水无限挥霍、严禁圣母心收留隐患流民导致团灭",
+    "opening_mode_target": "具体场景动作切入",
+    "metrics_target": {
+      "sentenceLenMean": 22.87,
+      "sentenceLenStd": 14.95,
+      "paragraphLenMean": 26.55,
+      "dialogueRatio": 0.1126,
+      "dialogueTurnMean": 16.96,
+      "commaPeriodRatio": 1.99,
+      "ttr": 0.6887,
+      "similePerKilo": 1.53,
+      "chapterChars": [
+        2094,
+        2728
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "全星际都知道我们小队很有钱",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\全星际都知道我们小队很有钱.txt"
+      },
+      {
+        "title": "全民抽卡求生，每天一张传说卡",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\全民抽卡求生，每天一张传说卡.txt"
+      },
+      {
+        "title": "公路求生：开局觉醒修罗序列",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\公路求生：开局觉醒修罗序列.txt"
+      },
+      {
+        "title": "公路求生：重生觉醒空间序列",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\公路求生：重生觉醒空间序列.txt"
+      },
+      {
+        "title": "列车求生，我每天获得永久增益",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\列车求生，我每天获得永久增益.txt"
+      },
+      {
+        "title": "十日末世降临，我能推演人类未来",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\十日末世降临，我能推演人类未来.txt"
+      },
+      {
+        "title": "吞噬进化：从破旧机器人开始",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\吞噬进化：从破旧机器人开始.txt"
+      },
+      {
+        "title": "小丧尸被读心，怎么就成团宠了？",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\小丧尸被读心，怎么就成团宠了？.txt"
+      },
+      {
+        "title": "小队全员兽化，菟丝花夹缝难逃",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\小队全员兽化，菟丝花夹缝难逃.txt"
+      },
+      {
+        "title": "尸潮求生：我的手枪能发射核弹",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\科幻末世\\尸潮求生：我的手枪能发射核弹.txt"
+      }
+    ],
+    "sample_count": 18,
+    "similarity_reason": "基于 资源库/小说原本/科幻末世/ 及指纹库共 18 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_MODERN_ROMANCE_职场婚恋",
+    "level": "Level2_Subgenre",
+    "genre": "现代言情",
+    "subgenre": "职场婚恋",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "职场婚恋题材标准节奏",
+    "world_type": "陆家嘴投行对赌协议与境外SPV穿透法理尽调，在高压职场防御铠甲下触碰真实真心",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "百亿企业IPO招股书过审、对赌兜底豁免协议签署、势均力敌的情感契约确立",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "凌晨三点打车排队99+暴雨打湿风衣、胃痛吞服止痛药、合规底线红线警报",
+    "taboos": "严禁职场过家家只顾谈恋爱、严禁靠霸道总裁一句话违法违规免除责任",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 28.04,
+      "sentenceLenStd": 18.82,
+      "paragraphLenMean": 32.75,
+      "dialogueRatio": 0.1926,
+      "dialogueTurnMean": 19.1,
+      "commaPeriodRatio": 2.22,
+      "ttr": 0.4821,
+      "similePerKilo": 1.71,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "全网骂我杀人犯时，我在守国门",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/全网骂我杀人犯时，我在守国门.txt"
+      },
+      {
+        "title": "唐晶重生，改写前半生",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/唐晶重生，改写前半生.txt"
+      },
+      {
+        "title": "大佬的生理性沉沦",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/大佬的生理性沉沦.txt"
+      },
+      {
+        "title": "女人的算计",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/女人的算计.txt"
+      },
+      {
+        "title": "宋医生，新婚请指教",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/宋医生，新婚请指教.txt"
+      },
+      {
+        "title": "恶毒女友提分手，太子爷他疯批了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/恶毒女友提分手，太子爷他疯批了.txt"
+      },
+      {
+        "title": "揣崽穿到六年前，大佬老公忙疯了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/揣崽穿到六年前，大佬老公忙疯了.txt"
+      },
+      {
+        "title": "晚年底牌",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/晚年底牌.txt"
+      },
+      {
+        "title": "机关女人",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/机关女人.txt"
+      },
+      {
+        "title": "松萝离枝",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/职场婚恋/松萝离枝.txt"
+      }
+    ],
+    "sample_count": 19,
+    "similarity_reason": "基于 资源库/小说原本/职场婚恋/ 及指纹库共 19 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_西方奇幻",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "西方奇幻",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "西方奇幻题材标准节奏",
+    "world_type": "维多利亚蒸汽克苏鲁与魔药扮演法，在三便士碎银生活流与不可名状低语中守卫人性锚点",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "高序列晋升主材料集齐、教会非凡武器使用许可、保全贝克兰德雾气下的平民友人",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "半便士找零滑落破口袋缝隙、硬面包泡红茶下咽困难、魔药反噬导致的耳鸣异化",
+    "taboos": "严禁粗俗方言破坏古典译文质感、严禁把克苏鲁古神当经验怪刷",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 27.87,
+      "sentenceLenStd": 18.76,
+      "paragraphLenMean": 26.65,
+      "dialogueRatio": 0.1648,
+      "dialogueTurnMean": 17.99,
+      "commaPeriodRatio": 1.86,
+      "ttr": 0.5086,
+      "similePerKilo": 1.52,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "人在诡异，靠第四天灾登顶至高",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/人在诡异，靠第四天灾登顶至高.txt"
+      },
+      {
+        "title": "从词条开始的奇幻冒险",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/从词条开始的奇幻冒险.txt"
+      },
+      {
+        "title": "开局被魅魔收养，异世界尽情攻略",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/开局被魅魔收养，异世界尽情攻略.txt"
+      },
+      {
+        "title": "异世界：我的数值无上限",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/异世界：我的数值无上限.txt"
+      },
+      {
+        "title": "必死反派的学院地下城生存指南",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/必死反派的学院地下城生存指南.txt"
+      },
+      {
+        "title": "怪物图鉴：从哥布林血脉开始",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/怪物图鉴：从哥布林血脉开始.txt"
+      },
+      {
+        "title": "恶役领主只想洗白上岸",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/恶役领主只想洗白上岸.txt"
+      },
+      {
+        "title": "据帝国幼态法，与精灵恋爱，电刑",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/据帝国幼态法，与精灵恋爱，电刑.txt"
+      },
+      {
+        "title": "混成勇者，你告诉我魔王军是华夏",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/混成勇者，你告诉我魔王军是华夏.txt"
+      },
+      {
+        "title": "穿越异界，我居然成了绝美母亲？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/西方奇幻/穿越异界，我居然成了绝美母亲？.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/西方奇幻/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_诸天无限",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "诸天无限",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "诸天无限题材标准节奏",
+    "world_type": "轮回乐园纯粹利益算计与近战刀术，摒弃一切无谓道德包袱与嘴炮，刀刀见肉绝不留活口",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "乐园高额灵魂结晶结算、属性点精准分配加点、清剿违规者专属宝箱",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "长刀刺入喉骨卡顿、斩龙闪耐久跌破临界点、肋骨骨折带来的剧烈呼吸刺痛",
+    "taboos": "严禁圣母心泛滥救助敌对契约者、严禁战斗中长篇大论嘴遁解说",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 32.61,
+      "sentenceLenStd": 22.98,
+      "paragraphLenMean": 36.55,
+      "dialogueRatio": 0.1578,
+      "dialogueTurnMean": 21.45,
+      "commaPeriodRatio": 4.95,
+      "ttr": 0.2527,
+      "similePerKilo": 1.13,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "人在漫威编剧本，说我幕后黑手？ - 阳下杨",
+        "author": "阳下杨",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/人在漫威编剧本，说我幕后黑手？ - 阳下杨.txt"
+      },
+      {
+        "title": "人在诸天，随时起飞 - 霜夜寒凉",
+        "author": "霜夜寒凉",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/人在诸天，随时起飞 - 霜夜寒凉.txt"
+      },
+      {
+        "title": "同时穿越，怎么都是小丑？ - 老吗喽",
+        "author": "老吗喽",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/同时穿越，怎么都是小丑？ - 老吗喽.txt"
+      },
+      {
+        "title": "同时穿越：全员杂鱼？ - 废宅名",
+        "author": "废宅名",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/同时穿越：全员杂鱼？ - 废宅名.txt"
+      },
+      {
+        "title": "同时穿越：大爱诸天 - 天元启星",
+        "author": "天元启星",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/同时穿越：大爱诸天 - 天元启星.txt"
+      },
+      {
+        "title": "吞噬星空：从情报开始万倍结算 - 油鱼子",
+        "author": "油鱼子",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/吞噬星空：从情报开始万倍结算 - 油鱼子.txt"
+      },
+      {
+        "title": "吞噬星空：我用合成器合成源世界 - 极诣者",
+        "author": "极诣者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/吞噬星空：我用合成器合成源世界 - 极诣者.txt"
+      },
+      {
+        "title": "吞噬星空：收徒万倍返还 - 新乙",
+        "author": "新乙",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/吞噬星空：收徒万倍返还 - 新乙.txt"
+      },
+      {
+        "title": "我名黄天，苍天已死什么鬼？ - 玉庭君",
+        "author": "玉庭君",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/我名黄天，苍天已死什么鬼？ - 玉庭君.txt"
+      },
+      {
+        "title": "我的天赋又升级了！ - 黑心的大白",
+        "author": "黑心的大白",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/诸天无限/我的天赋又升级了！ - 黑心的大白.txt"
+      }
+    ],
+    "sample_count": 26,
+    "similarity_reason": "基于 资源库/小说原本/诸天无限/ 及指纹库共 26 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_MODERN_ROMANCE_豪门总裁",
+    "level": "Level2_Subgenre",
+    "genre": "现代言情",
+    "subgenre": "豪门总裁",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "豪门总裁题材标准节奏",
+    "world_type": "顶级财阀家族信托与商界股权博弈，高位者在清醒算计与商业尽调中展开势均力敌较量",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "集团董事会绝对控制权、海外并购反垄断审查过关、解除联姻后的体面解脱",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "股权质押逼公平仓线、法务团队严格责任排查、雨夜湿滑码头皮鞋受损",
+    "taboos": "严禁红眼给命的土味降智油腻霸总、严禁女主柔弱无脑任人霸凌践踏",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 25.01,
+      "sentenceLenStd": 15.86,
+      "paragraphLenMean": 24.72,
+      "dialogueRatio": 0.1713,
+      "dialogueTurnMean": 14.64,
+      "commaPeriodRatio": 1.79,
+      "ttr": 0.5172,
+      "similePerKilo": 1.32,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "京圈太子爷：宝宝勾心又勾身呢",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/京圈太子爷：宝宝勾心又勾身呢.txt"
+      },
+      {
+        "title": "人前禁欲，夜里沉溺",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/人前禁欲，夜里沉溺.txt"
+      },
+      {
+        "title": "卡他失忆哄离婚，病娇又又失控了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/卡他失忆哄离婚，病娇又又失控了.txt"
+      },
+      {
+        "title": "原创乙女向短篇",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/原创乙女向短篇.txt"
+      },
+      {
+        "title": "囚锁娇颜，疯批四爷强取豪夺",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/囚锁娇颜，疯批四爷强取豪夺.txt"
+      },
+      {
+        "title": "学不乖？再跑关起来",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/学不乖？再跑关起来.txt"
+      },
+      {
+        "title": "御心难逃",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/御心难逃.txt"
+      },
+      {
+        "title": "恶毒女配学乖后，阴湿大佬上瘾了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/恶毒女配学乖后，阴湿大佬上瘾了.txt"
+      },
+      {
+        "title": "惊！阴鸷太子爷的炮灰老婆重生了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/惊！阴鸷太子爷的炮灰老婆重生了.txt"
+      },
+      {
+        "title": "春夜溺吻",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/豪门总裁/春夜溺吻.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/豪门总裁/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_WESTERN_FANTASY_轻小说",
+    "level": "Level2_Subgenre",
+    "genre": "西方奇幻",
+    "subgenre": "轻小说",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "轻小说题材标准节奏",
+    "world_type": "东京1991平成泡沫破裂与银行职员职场空气学，在不良债权催收与居酒屋残局中敏锐立足",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "数十亿日元坏账抵押物成功处置、免于被发配地方支行、开辟新兴资产回收窗口",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "日式读空气（空気を読む）压力、湿透雨伞玄关滴答声、土下座道歉的尊严摩擦",
+    "taboos": "严禁脱离日本社会人际尊卑与职场潜规则、严禁无视泡沫经济时代破产沉重底色",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 29.85,
+      "sentenceLenStd": 21.52,
+      "paragraphLenMean": 33.63,
+      "dialogueRatio": 0.1742,
+      "dialogueTurnMean": 20.88,
+      "commaPeriodRatio": 2.18,
+      "ttr": 0.1856,
+      "similePerKilo": 1.55,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "万古神帝：从996社畜到万古第 - 远玄",
+        "author": "远玄",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/万古神帝：从996社畜到万古第 - 远玄.txt"
+      },
+      {
+        "title": "下班，然后变成魔法少女 - 弧盐",
+        "author": "弧盐",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/下班，然后变成魔法少女 - 弧盐.txt"
+      },
+      {
+        "title": "东京1991，从银行职员开始 - 今日手缚苍龙",
+        "author": "今日手缚苍龙",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/东京1991，从银行职员开始 - 今日手缚苍龙.txt"
+      },
+      {
+        "title": "东京：崇华的我竟成了日娱之王 - 96捞鱼费舍尔",
+        "author": "96捞鱼费舍尔",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/东京：崇华的我竟成了日娱之王 - 96捞鱼费舍尔.txt"
+      },
+      {
+        "title": "人在无耻之徒，我成为芝加哥神探 - 我要两杯冰美式",
+        "author": "我要两杯冰美式",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/人在无耻之徒，我成为芝加哥神探 - 我要两杯冰美式.txt"
+      },
+      {
+        "title": "从魔法少女开始独断万古 - 绿茶藨子",
+        "author": "绿茶藨子",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/从魔法少女开始独断万古 - 绿茶藨子.txt"
+      },
+      {
+        "title": "以一龙之力打倒整个世界！ - 唐宋元明氢",
+        "author": "唐宋元明氢",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/以一龙之力打倒整个世界！ - 唐宋元明氢.txt"
+      },
+      {
+        "title": "全职法师：魂穿莫凡，完美开局 - 缱绻生香",
+        "author": "缱绻生香",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/全职法师：魂穿莫凡，完美开局 - 缱绻生香.txt"
+      },
+      {
+        "title": "冬日重现 - 雪梨炖茶",
+        "author": "雪梨炖茶",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/冬日重现 - 雪梨炖茶.txt"
+      },
+      {
+        "title": "同时穿越：继承万界遗产 - 透明鸽子",
+        "author": "透明鸽子",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/轻小说/同时穿越：继承万界遗产 - 透明鸽子.txt"
+      }
+    ],
+    "sample_count": 24,
+    "similarity_reason": "基于 资源库/小说原本/轻小说/ 及指纹库共 24 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_URBAN_MARTIAL_都市",
+    "level": "Level2_Subgenre",
+    "genre": "都市高武",
+    "subgenre": "都市",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "都市题材标准节奏",
+    "world_type": "现实法理与基层体制调研扫黑风暴，在常委会公文圈阅、汇报座次与刑侦勘验中破除关系网",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "涉黑保护伞连根拔起、专案组向省委督导组交出铁证、还地方百姓朗朗乾坤",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "老破警车减震弹簧乱响、雨夜城中村烂泥灌胶鞋、线人保密取证程序严密闭环",
+    "taboos": "严禁体制干部满嘴江湖黑话、严禁无视法定侦办规程搞私刑动武",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 29.44,
+      "sentenceLenStd": 22.03,
+      "paragraphLenMean": 32.46,
+      "dialogueRatio": 0.1922,
+      "dialogueTurnMean": 21.01,
+      "commaPeriodRatio": 2.32,
+      "ttr": 0.1645,
+      "similePerKilo": 0.96,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "1984：从破产川菜馆开始 - 轻语江湖",
+        "author": "轻语江湖",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/1984：从破产川菜馆开始 - 轻语江湖.txt"
+      },
+      {
+        "title": "人在美利坚：我的叔叔堂吉诃德 - 喜欢吃圣代",
+        "author": "喜欢吃圣代",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/人在美利坚：我的叔叔堂吉诃德 - 喜欢吃圣代.txt"
+      },
+      {
+        "title": "以神通之名 - 猪心虾仁",
+        "author": "猪心虾仁",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/以神通之名 - 猪心虾仁.txt"
+      },
+      {
+        "title": "半岛余生：Tara给别人可惜了 - 辣白粥",
+        "author": "辣白粥",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/半岛余生：Tara给别人可惜了 - 辣白粥.txt"
+      },
+      {
+        "title": "华娱情报王 - 胖一点",
+        "author": "胖一点",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/华娱情报王 - 胖一点.txt"
+      },
+      {
+        "title": "华娱：从08考北电开始 - 彭蠡的鱼",
+        "author": "彭蠡的鱼",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/华娱：从08考北电开始 - 彭蠡的鱼.txt"
+      },
+      {
+        "title": "华娱：天仙护你一生 - 零下75",
+        "author": "零下75",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/华娱：天仙护你一生 - 零下75.txt"
+      },
+      {
+        "title": "华娱：重生了，还逼我做渣男啊 - 跳水蛙蛙",
+        "author": "跳水蛙蛙",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/华娱：重生了，还逼我做渣男啊 - 跳水蛙蛙.txt"
+      },
+      {
+        "title": "天才只是我的门槛！ - 碳烤竹笋",
+        "author": "碳烤竹笋",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/天才只是我的门槛！ - 碳烤竹笋.txt"
+      },
+      {
+        "title": "完美人生，从改变时间线开始 - 不是老狗",
+        "author": "不是老狗",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市/完美人生，从改变时间线开始 - 不是老狗.txt"
+      }
+    ],
+    "sample_count": 24,
+    "similarity_reason": "基于 资源库/小说原本/都市/ 及指纹库共 24 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_XUANHUAN_都市修真",
+    "level": "Level2_Subgenre",
+    "genre": "玄幻修真",
+    "subgenre": "都市修真",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "都市修真题材标准节奏",
+    "world_type": "现代都市电网改装与城中村抠搜隐士修真，借五菱宏光聚灵阵与质谱仪测药性接地气生存",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "合法气功协会执照获批、特勤局编外顾问高额月薪、城中村老屋灵脉保全",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "高压电偷漏电费被供电局排查、排气管喷黑烟机油糊脸、房东砸门催收水费",
+    "taboos": "严禁动辄都市核爆引发国家军事介入、严禁高高在上毫无现代生活自理能力",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 25.34,
+      "sentenceLenStd": 17,
+      "paragraphLenMean": 26.49,
+      "dialogueRatio": 0.1953,
+      "dialogueTurnMean": 35.75,
+      "commaPeriodRatio": 2.21,
+      "ttr": 0.5006,
+      "similePerKilo": 1.34,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "一梦百年，我成为了道家天师",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/一梦百年，我成为了道家天师.txt"
+      },
+      {
+        "title": "乡村女人找老公",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/乡村女人找老公.txt"
+      },
+      {
+        "title": "从修仙回到都市，坏消息修为没了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/从修仙回到都市，坏消息修为没了.txt"
+      },
+      {
+        "title": "僵约：我是况天佑他大哥",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/僵约：我是况天佑他大哥.txt"
+      },
+      {
+        "title": "国术：每日结算，从黄包车夫开始",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/国术：每日结算，从黄包车夫开始.txt"
+      },
+      {
+        "title": "地球不允许我这么牛逼的存在！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/地球不允许我这么牛逼的存在！.txt"
+      },
+      {
+        "title": "夜夜深夜，征服！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/夜夜深夜，征服！.txt"
+      },
+      {
+        "title": "带着渡劫修为，重回高中时代",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/带着渡劫修为，重回高中时代.txt"
+      },
+      {
+        "title": "文字修仙：开局看广降临合欢宗！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/文字修仙：开局看广降临合欢宗！.txt"
+      },
+      {
+        "title": "日夜，征服",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市修真/日夜，征服.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/都市修真/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_URBAN_MARTIAL_都市日常",
+    "level": "Level2_Subgenre",
+    "genre": "都市高武",
+    "subgenre": "都市日常",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "都市日常题材标准节奏",
+    "world_type": "市井小民柴米油盐与二手房菜市场烟火流，在人情冷暖、学区房与邻里琐碎中见人间真味",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "家人病痛康复安宁、小家庭存款突破十万大关、邻里纠纷圆满化解欢聚一堂",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "小电驴迎风电量骤降、老楼六层爬楼喘粗气、菜摊抹零三毛钱的反复拉扯",
+    "taboos": "严禁突然冒出修仙大能破坏日常氛围、严禁贩卖焦虑让读者生理不适",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 26.57,
+      "sentenceLenStd": 21.07,
+      "paragraphLenMean": 27.63,
+      "dialogueRatio": 0.1919,
+      "dialogueTurnMean": 16.23,
+      "commaPeriodRatio": 2.38,
+      "ttr": 0.4922,
+      "similePerKilo": 1.36,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "不娶还敢撩？再跑就把你关起来",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/不娶还敢撩？再跑就把你关起来.txt"
+      },
+      {
+        "title": "中了8千万，我却回了村",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/中了8千万，我却回了村.txt"
+      },
+      {
+        "title": "公安局长之扫黑风暴",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/公安局长之扫黑风暴.txt"
+      },
+      {
+        "title": "分手当天，我调任她老家当镇长",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/分手当天，我调任她老家当镇长.txt"
+      },
+      {
+        "title": "原神：我的小屋住满愚人众执行官",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/原神：我的小屋住满愚人众执行官.txt"
+      },
+      {
+        "title": "反派老婆破产后，她们都盯上我？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/反派老婆破产后，她们都盯上我？.txt"
+      },
+      {
+        "title": "在校高冷女教授，回家找我要亲亲",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/在校高冷女教授，回家找我要亲亲.txt"
+      },
+      {
+        "title": "女多男少，开局被瓦学妹喊爸爸",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/女多男少，开局被瓦学妹喊爸爸.txt"
+      },
+      {
+        "title": "女尊，独自抚养妹妹们的正太哥哥",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/女尊，独自抚养妹妹们的正太哥哥.txt"
+      },
+      {
+        "title": "姐姐，轻点撩",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市日常/姐姐，轻点撩.txt"
+      }
+    ],
+    "sample_count": 17,
+    "similarity_reason": "基于 资源库/小说原本/都市日常/ 及指纹库共 17 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_URBAN_MARTIAL_都市种田",
+    "level": "Level2_Subgenre",
+    "genre": "都市高武",
+    "subgenre": "都市种田",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "都市种田题材标准节奏",
+    "world_type": "两界倒爷商战（1988倒爷），利用双轨制物价剪刀差、火车皮配额批条在边贸赚取第一桶金",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "十节火车皮苏联重型机床运抵、外汇券无损结算、建立自主合资轻工实业",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "绿皮车厢煤烟呛喉、点钞机反复卡钞发烫、寒风中数厚沓大团结手指冻僵",
+    "taboos": "严禁脱离80年代末计划经济与配额历史背景、严禁买卖违禁国家特级物资毁人设",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 25.08,
+      "sentenceLenStd": 16.34,
+      "paragraphLenMean": 26.93,
+      "dialogueRatio": 0.2149,
+      "dialogueTurnMean": 19.98,
+      "commaPeriodRatio": 1.85,
+      "ttr": 0.4917,
+      "similePerKilo": 0.8,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "1995：从被抓到出轨开始",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/1995：从被抓到出轨开始.txt"
+      },
+      {
+        "title": "下乡？下什么乡？我那是回老家！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/下乡？下什么乡？我那是回老家！.txt"
+      },
+      {
+        "title": "两界倒爷：从1988到2025",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/两界倒爷：从1988到2025.txt"
+      },
+      {
+        "title": "儿子制霸山林：我在后头谋猎捡肉",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/儿子制霸山林：我在后头谋猎捡肉.txt"
+      },
+      {
+        "title": "全员悍匪：你管这叫正经公司？",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/全员悍匪：你管这叫正经公司？.txt"
+      },
+      {
+        "title": "北美大地主，开局奖励绝色女管家",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/北美大地主，开局奖励绝色女管家.txt"
+      },
+      {
+        "title": "回村赶海，我能看见渔货词条！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/回村赶海，我能看见渔货词条！.txt"
+      },
+      {
+        "title": "基因融合：开局种出抗寒榴莲",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/基因融合：开局种出抗寒榴莲.txt"
+      },
+      {
+        "title": "年代1982：从建筑小工开始",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/年代1982：从建筑小工开始.txt"
+      },
+      {
+        "title": "年代赶山：打猎娶媳妇养大姨子",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市种田/年代赶山：打猎娶媳妇养大姨子.txt"
+      }
+    ],
+    "sample_count": 21,
+    "similarity_reason": "基于 资源库/小说原本/都市种田/ 及指纹库共 21 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_URBAN_MARTIAL_都市脑洞",
+    "level": "Level2_Subgenre",
+    "genre": "都市高武",
+    "subgenre": "都市脑洞",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "都市脑洞题材标准节奏",
+    "world_type": "信息差降维套现与互联网算法商战，在灰度测试Bug与资本并购阻击战中高智商绝杀",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "风投A轮千万美元溢价领投、核心算法专利国际授权、用户数突破亿级大关",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "服务器宕机警报震动手机发烫、48小时高强度盯盘胃痛恶心、竞品抄袭侵权官司",
+    "taboos": "严禁逻辑幼稚如同小学生过家家商战、严禁靠黑客超能力违法胡作非为",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 24.34,
+      "sentenceLenStd": 15.47,
+      "paragraphLenMean": 24.88,
+      "dialogueRatio": 0.1765,
+      "dialogueTurnMean": 17.3,
+      "commaPeriodRatio": 1.69,
+      "ttr": 0.5138,
+      "similePerKilo": 1.15,
+      "chapterChars": [
+        2125,
+        2875
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "人在向往：何老师是我老舅",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/人在向往：何老师是我老舅.txt"
+      },
+      {
+        "title": "变身顶美，有颜真能为所欲为",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/变身顶美，有颜真能为所欲为.txt"
+      },
+      {
+        "title": "只想躺平开民宿，咋就活成顶流了",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/只想躺平开民宿，咋就活成顶流了.txt"
+      },
+      {
+        "title": "同归于尽后，宿敌跟我回到现实！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/同归于尽后，宿敌跟我回到现实！.txt"
+      },
+      {
+        "title": "女多男少，开局分配辅导员老婆",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/女多男少，开局分配辅导员老婆.txt"
+      },
+      {
+        "title": "女装：听劝扮演知更鸟，美哭全网",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/女装：听劝扮演知更鸟，美哭全网.txt"
+      },
+      {
+        "title": "学习一秒一块钱，室友你女神怎么",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/学习一秒一块钱，室友你女神怎么.txt"
+      },
+      {
+        "title": "实习教出金牌班，家长要换班主任",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/实习教出金牌班，家长要换班主任.txt"
+      },
+      {
+        "title": "屠城就能回蓝星？兄弟你早说啊！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/屠城就能回蓝星？兄弟你早说啊！.txt"
+      },
+      {
+        "title": "归国留洋水货？叫我芯片之父！",
+        "author": "原著作者",
+        "ranking": "指纹库样本",
+        "filePath": "小说原本/都市脑洞/归国留洋水货？叫我芯片之父！.txt"
+      }
+    ],
+    "sample_count": 22,
+    "similarity_reason": "基于 资源库/小说原本/都市脑洞/ 及指纹库共 22 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  },
+  {
+    "benchmark_id": "BM_L2_URBAN_MARTIAL_都市高武",
+    "level": "Level2_Subgenre",
+    "genre": "都市高武",
+    "subgenre": "都市高武",
+    "audience": "male",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "都市高武题材标准节奏",
+    "world_type": "官方特勤执照考核与防卫过当法理判定，合金防暴盾受力与现代城市监控网下的硬核攻防",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "三级特勤执照无保留下发、化解暴恐超凡危机获得立功嘉奖、市民伤亡零记录",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "钨钢定魂针穿刺阻力、监控死角排查计算、肌肉过载撕裂后的冰敷治疗",
+    "taboos": "严禁底层混混式满嘴脏话、严禁把现代特警写成目无法纪的街头暴徒",
+    "opening_mode_target": "对白/场景交织切入",
+    "metrics_target": {
+      "sentenceLenMean": 20.37,
+      "sentenceLenStd": 13.19,
+      "paragraphLenMean": 22.41,
+      "dialogueRatio": 0.2302,
+      "dialogueTurnMean": 16.64,
+      "commaPeriodRatio": 1.75,
+      "ttr": 0.705,
+      "similePerKilo": 1.07,
+      "chapterChars": [
+        2136,
+        2458
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "一堆华丽的技能里出现了一个劲大",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\一堆华丽的技能里出现了一个劲大.txt"
+      },
+      {
+        "title": "全民地仙：开局紫金葫芦辟福地",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\全民地仙：开局紫金葫芦辟福地.txt"
+      },
+      {
+        "title": "全民神祇：别人修仙道，我立魔道",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\全民神祇：别人修仙道，我立魔道.txt"
+      },
+      {
+        "title": "全民英雄协会：开局招募一拳光头",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\全民英雄协会：开局招募一拳光头.txt"
+      },
+      {
+        "title": "全民领主：每日一个阿斯塔特",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\全民领主：每日一个阿斯塔特.txt"
+      },
+      {
+        "title": "全民：转职炎法，解锁肉鸽系统",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\全民：转职炎法，解锁肉鸽系统.txt"
+      },
+      {
+        "title": "努力就变强的我，被重生者曝光了",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\努力就变强的我，被重生者曝光了.txt"
+      },
+      {
+        "title": "国运求生，我靠情报系统养活国家",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\国运求生，我靠情报系统养活国家.txt"
+      },
+      {
+        "title": "天物觉醒：我能刻印一切",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\天物觉醒：我能刻印一切.txt"
+      },
+      {
+        "title": "娘胎觉醒转职，出生绑定四神兽！",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\都市高武\\娘胎觉醒转职，出生绑定四神兽！.txt"
+      }
+    ],
+    "sample_count": 17,
+    "similarity_reason": "基于 资源库/小说原本/都市高武/ 及指纹库共 17 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.88
+  },
+  {
+    "benchmark_id": "BM_L2_MODERN_ROMANCE_青春甜宠",
+    "level": "Level2_Subgenre",
+    "genre": "现代言情",
+    "subgenre": "青春甜宠",
+    "audience": "female",
+    "structure": "网文标准三区段推进 (第1-3章破题立境 -> 4-10章首个大爆点 -> 后续循环上升)",
+    "narrative_type": "第三人称限制视角",
+    "pacing_type": "青春甜宠题材标准节奏",
+    "world_type": "校园清澈心动与高考并肩奋斗，在草稿纸折痕、自行车后座与橘子汽水中沉淀纯粹深情",
+    "protagonist_type": "题材代表性主角原型",
+    "core_conflict": "双双考入同一所名牌大学、藏在毕业同学录最后一页的真心告白兑现",
+    "golden_finger_type": "题材常见机理与能力支撑",
+    "friction_constraints": "烈日下校服汗湿贴背、理科综合卷最后一道压轴题计算草稿、心跳过速耳廓发烫",
+    "taboos": "严禁人工添加工业糖精人工接吻、严禁无脑误会堕胎退学狗血剧本",
+    "opening_mode_target": "具体场景动作切入",
+    "metrics_target": {
+      "sentenceLenMean": 21.38,
+      "sentenceLenStd": 13.13,
+      "paragraphLenMean": 24.01,
+      "dialogueRatio": 0.1749,
+      "dialogueTurnMean": 14.42,
+      "commaPeriodRatio": 1.58,
+      "ttr": 0.7401,
+      "similePerKilo": 1.88,
+      "chapterChars": [
+        1982,
+        2351
+      ]
+    },
+    "sample_books": [
+      {
+        "title": "F4里最病弱的那个，被团宠了",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\F4里最病弱的那个，被团宠了.txt"
+      },
+      {
+        "title": "亲一下就软！",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\亲一下就软！.txt"
+      },
+      {
+        "title": "厌世农村妹也要被少爷强制爱吗？",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\厌世农村妹也要被少爷强制爱吗？.txt"
+      },
+      {
+        "title": "坏兄妹",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\坏兄妹.txt"
+      },
+      {
+        "title": "夏夜有染",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\夏夜有染.txt"
+      },
+      {
+        "title": "大反派的作精女友觉醒后，更作了",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\大反派的作精女友觉醒后，更作了.txt"
+      },
+      {
+        "title": "大小姐雇我替她和太子爷网恋",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\大小姐雇我替她和太子爷网恋.txt"
+      },
+      {
+        "title": "宝宝乖，再亲一口好不好",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\宝宝乖，再亲一口好不好.txt"
+      },
+      {
+        "title": "宝宝，选我好不好",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\宝宝，选我好不好.txt"
+      },
+      {
+        "title": "宝贝，别对我心软",
+        "author": "原著作者",
+        "ranking": "语料典范样本",
+        "filePath": "资源库\\小说原本\\青春甜宠\\宝贝，别对我心软.txt"
+      }
+    ],
+    "sample_count": 20,
+    "similarity_reason": "基于 资源库/小说原本/青春甜宠/ 及指纹库共 20 部样本统计提炼，代表同题材原著客观分布。",
+    "excluded_books": [],
+    "confidence": 0.95
+  }
+]

@@ -1,0 +1,4 @@
+interface:
+  display_name: "通用高张力小说写作"
+  short_description: "以「逻辑先于文风」方法论创作任意类型中文高张力章节，并强制规避用户纠错库问题"
+  default_prompt: "Use $write-high-tension-fiction to write or revise a chapter of the user's novel while preserving their canon, character incentives, real leverage, costs, continuity, and tracked foreshadowing, and strictly avoiding every issue logged in their correction library (default C:\\Users\\lyh\\Desktop\\小说\\纠错库.md)."

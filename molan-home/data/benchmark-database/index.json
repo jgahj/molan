@@ -1,0 +1,966 @@
+{
+  "schemaVersion": "molan-benchmark-database-v1",
+  "generatedAt": "2026-09-22T12:01:34.445Z",
+  "totalBenchmarks": 65,
+  "countsByLevel": {
+    "Level1_Family": 8,
+    "Level2_Subgenre": 48,
+    "Level4_Pacing": 9
+  },
+  "byGenre": {
+    "玄幻修真": [
+      "BM_L4_FANREN_CAUTIOUS",
+      "BM_L4_XUANJIAN_CLAN",
+      "BM_L2_XUANHUAN_东方仙侠",
+      "BM_L2_XUANHUAN_仙侠",
+      "BM_L2_XUANHUAN_传统玄幻",
+      "BM_L2_XUANHUAN_武侠",
+      "BM_L2_XUANHUAN_测试",
+      "BM_L2_XUANHUAN_玄幻",
+      "BM_L2_XUANHUAN_玄幻脑洞",
+      "BM_L2_XUANHUAN_都市修真",
+      "BM_L1_FAMILY_XUANHUAN"
+    ],
+    "都市高武": [
+      "BM_L4_URBAN_MARTIAL_GRIND",
+      "BM_L2_URBAN_MARTIAL_战神赘婿",
+      "BM_L2_URBAN_MARTIAL_现实",
+      "BM_L2_URBAN_MARTIAL_都市",
+      "BM_L2_URBAN_MARTIAL_都市日常",
+      "BM_L2_URBAN_MARTIAL_都市种田",
+      "BM_L2_URBAN_MARTIAL_都市脑洞",
+      "BM_L2_URBAN_MARTIAL_都市高武",
+      "BM_L1_FAMILY_URBAN_MARTIAL"
+    ],
+    "悬疑惊悚": [
+      "BM_L4_SUSPENSE_RULE_HORROR",
+      "BM_L4_SUSPENSE_FOLKLORE",
+      "BM_L2_SUSPENSE_女频悬疑",
+      "BM_L2_SUSPENSE_悬疑灵异",
+      "BM_L2_SUSPENSE_悬疑脑洞",
+      "BM_L1_FAMILY_SUSPENSE"
+    ],
+    "科幻末世": [
+      "BM_L4_SCIFI_WASTELAND_SHELTER",
+      "BM_L2_SCIFI_APOCALYPSE_星光璀璨",
+      "BM_L2_SCIFI_APOCALYPSE_科幻",
+      "BM_L2_SCIFI_APOCALYPSE_科幻末世",
+      "BM_L1_FAMILY_SCIFI_APOCALYPSE"
+    ],
+    "西方奇幻": [
+      "BM_L4_WESTERN_SEQUENCE_MYSTERY",
+      "BM_L2_WESTERN_FANTASY_动漫衍生",
+      "BM_L2_WESTERN_FANTASY_奇幻",
+      "BM_L2_WESTERN_FANTASY_女频衍生",
+      "BM_L2_WESTERN_FANTASY_游戏",
+      "BM_L2_WESTERN_FANTASY_游戏体育",
+      "BM_L2_WESTERN_FANTASY_男频衍生",
+      "BM_L2_WESTERN_FANTASY_西方奇幻",
+      "BM_L2_WESTERN_FANTASY_诸天无限",
+      "BM_L2_WESTERN_FANTASY_轻小说",
+      "BM_L1_FAMILY_WESTERN_FANTASY"
+    ],
+    "历史古代": [
+      "BM_L4_HISTORY_SPY_CODE",
+      "BM_L2_HISTORY_军事",
+      "BM_L2_HISTORY_历史",
+      "BM_L2_HISTORY_历史古代",
+      "BM_L2_HISTORY_历史脑洞",
+      "BM_L2_HISTORY_抗战谍战",
+      "BM_L1_FAMILY_HISTORY"
+    ],
+    "古言世情": [
+      "BM_L4_ANCIENT_ROMANCE_MANSION",
+      "BM_L2_ANCIENT_ROMANCE_古言脑洞",
+      "BM_L2_ANCIENT_ROMANCE_古风世情",
+      "BM_L2_ANCIENT_ROMANCE_宫斗宅斗",
+      "BM_L2_ANCIENT_ROMANCE_年代",
+      "BM_L2_ANCIENT_ROMANCE_民国言情",
+      "BM_L2_ANCIENT_ROMANCE_玄幻言情",
+      "BM_L1_FAMILY_ANCIENT_ROMANCE"
+    ],
+    "现代言情": [
+      "BM_L2_MODERN_ROMANCE_体育",
+      "BM_L2_MODERN_ROMANCE_快穿",
+      "BM_L2_MODERN_ROMANCE_现言脑洞",
+      "BM_L2_MODERN_ROMANCE_种田",
+      "BM_L2_MODERN_ROMANCE_职场婚恋",
+      "BM_L2_MODERN_ROMANCE_豪门总裁",
+      "BM_L2_MODERN_ROMANCE_青春甜宠",
+      "BM_L1_FAMILY_MODERN_ROMANCE"
+    ]
+  },
+  "bySubgenre": {
+    "东方仙侠 · 凡人谨慎修仙流": [
+      "BM_L4_FANREN_CAUTIOUS"
+    ],
+    "传统玄幻 · 宗族谱系族运流": [
+      "BM_L4_XUANJIAN_CLAN"
+    ],
+    "都市高武 · 官方规制与实战体检流": [
+      "BM_L4_URBAN_MARTIAL_GRIND"
+    ],
+    "悬疑脑洞 · 空间规则怪谈求生流": [
+      "BM_L4_SUSPENSE_RULE_HORROR"
+    ],
+    "悬疑灵异 · 民俗禁忌与行业行规流": [
+      "BM_L4_SUSPENSE_FOLKLORE"
+    ],
+    "科幻末世 · 废土避难所重工业复苏流": [
+      "BM_L4_SCIFI_WASTELAND_SHELTER"
+    ],
+    "西方奇幻 · 维多利亚蒸汽魔药序列流": [
+      "BM_L4_WESTERN_SEQUENCE_MYSTERY"
+    ],
+    "抗战谍战 · 隐蔽战线密电破译与潜伏流": [
+      "BM_L4_HISTORY_SPY_CODE"
+    ],
+    "古风世情 · 宅门月例账目与内宅生存流": [
+      "BM_L4_ANCIENT_ROMANCE_MANSION"
+    ],
+    "东方仙侠": [
+      "BM_L2_XUANHUAN_东方仙侠"
+    ],
+    "仙侠": [
+      "BM_L2_XUANHUAN_仙侠"
+    ],
+    "传统玄幻": [
+      "BM_L2_XUANHUAN_传统玄幻"
+    ],
+    "体育": [
+      "BM_L2_MODERN_ROMANCE_体育"
+    ],
+    "军事": [
+      "BM_L2_HISTORY_军事"
+    ],
+    "动漫衍生": [
+      "BM_L2_WESTERN_FANTASY_动漫衍生"
+    ],
+    "历史": [
+      "BM_L2_HISTORY_历史"
+    ],
+    "历史古代": [
+      "BM_L2_HISTORY_历史古代"
+    ],
+    "历史脑洞": [
+      "BM_L2_HISTORY_历史脑洞"
+    ],
+    "古言脑洞": [
+      "BM_L2_ANCIENT_ROMANCE_古言脑洞"
+    ],
+    "古风世情": [
+      "BM_L2_ANCIENT_ROMANCE_古风世情"
+    ],
+    "奇幻": [
+      "BM_L2_WESTERN_FANTASY_奇幻"
+    ],
+    "女频悬疑": [
+      "BM_L2_SUSPENSE_女频悬疑"
+    ],
+    "女频衍生": [
+      "BM_L2_WESTERN_FANTASY_女频衍生"
+    ],
+    "宫斗宅斗": [
+      "BM_L2_ANCIENT_ROMANCE_宫斗宅斗"
+    ],
+    "年代": [
+      "BM_L2_ANCIENT_ROMANCE_年代"
+    ],
+    "快穿": [
+      "BM_L2_MODERN_ROMANCE_快穿"
+    ],
+    "悬疑灵异": [
+      "BM_L2_SUSPENSE_悬疑灵异"
+    ],
+    "悬疑脑洞": [
+      "BM_L2_SUSPENSE_悬疑脑洞"
+    ],
+    "战神赘婿": [
+      "BM_L2_URBAN_MARTIAL_战神赘婿"
+    ],
+    "抗战谍战": [
+      "BM_L2_HISTORY_抗战谍战"
+    ],
+    "星光璀璨": [
+      "BM_L2_SCIFI_APOCALYPSE_星光璀璨"
+    ],
+    "武侠": [
+      "BM_L2_XUANHUAN_武侠"
+    ],
+    "民国言情": [
+      "BM_L2_ANCIENT_ROMANCE_民国言情"
+    ],
+    "测试": [
+      "BM_L2_XUANHUAN_测试"
+    ],
+    "游戏": [
+      "BM_L2_WESTERN_FANTASY_游戏"
+    ],
+    "游戏体育": [
+      "BM_L2_WESTERN_FANTASY_游戏体育"
+    ],
+    "玄幻": [
+      "BM_L2_XUANHUAN_玄幻"
+    ],
+    "玄幻脑洞": [
+      "BM_L2_XUANHUAN_玄幻脑洞"
+    ],
+    "玄幻言情": [
+      "BM_L2_ANCIENT_ROMANCE_玄幻言情"
+    ],
+    "现实": [
+      "BM_L2_URBAN_MARTIAL_现实"
+    ],
+    "现言脑洞": [
+      "BM_L2_MODERN_ROMANCE_现言脑洞"
+    ],
+    "男频衍生": [
+      "BM_L2_WESTERN_FANTASY_男频衍生"
+    ],
+    "种田": [
+      "BM_L2_MODERN_ROMANCE_种田"
+    ],
+    "科幻": [
+      "BM_L2_SCIFI_APOCALYPSE_科幻"
+    ],
+    "科幻末世": [
+      "BM_L2_SCIFI_APOCALYPSE_科幻末世"
+    ],
+    "职场婚恋": [
+      "BM_L2_MODERN_ROMANCE_职场婚恋"
+    ],
+    "西方奇幻": [
+      "BM_L2_WESTERN_FANTASY_西方奇幻"
+    ],
+    "诸天无限": [
+      "BM_L2_WESTERN_FANTASY_诸天无限"
+    ],
+    "豪门总裁": [
+      "BM_L2_MODERN_ROMANCE_豪门总裁"
+    ],
+    "轻小说": [
+      "BM_L2_WESTERN_FANTASY_轻小说"
+    ],
+    "都市": [
+      "BM_L2_URBAN_MARTIAL_都市"
+    ],
+    "都市修真": [
+      "BM_L2_XUANHUAN_都市修真"
+    ],
+    "都市日常": [
+      "BM_L2_URBAN_MARTIAL_都市日常"
+    ],
+    "都市种田": [
+      "BM_L2_URBAN_MARTIAL_都市种田"
+    ],
+    "都市脑洞": [
+      "BM_L2_URBAN_MARTIAL_都市脑洞"
+    ],
+    "都市高武": [
+      "BM_L2_URBAN_MARTIAL_都市高武"
+    ],
+    "青春甜宠": [
+      "BM_L2_MODERN_ROMANCE_青春甜宠"
+    ],
+    "玄幻 / 传统玄幻 / 玄幻脑洞 / 东方仙侠 / 仙侠 / 都市修真 / 武侠 / 测试": [
+      "BM_L1_FAMILY_XUANHUAN"
+    ],
+    "都市高武 / 都市 / 都市脑洞 / 都市日常 / 都市种田 / 战神赘婿 / 现实": [
+      "BM_L1_FAMILY_URBAN_MARTIAL"
+    ],
+    "科幻 / 科幻末世 / 星光璀璨": [
+      "BM_L1_FAMILY_SCIFI_APOCALYPSE"
+    ],
+    "悬疑灵异 / 悬疑脑洞 / 女频悬疑": [
+      "BM_L1_FAMILY_SUSPENSE"
+    ],
+    "历史 / 历史古代 / 历史脑洞 / 抗战谍战 / 军事": [
+      "BM_L1_FAMILY_HISTORY"
+    ],
+    "奇幻 / 西方奇幻 / 诸天无限 / 游戏 / 游戏体育 / 轻小说 / 动漫衍生 / 男频衍生 / 女频衍生": [
+      "BM_L1_FAMILY_WESTERN_FANTASY"
+    ],
+    "古言脑洞 / 古风世情 / 宫斗宅斗 / 民国言情 / 年代 / 玄幻言情": [
+      "BM_L1_FAMILY_ANCIENT_ROMANCE"
+    ],
+    "青春甜宠 / 豪门总裁 / 现言脑洞 / 职场婚恋 / 种田 / 快穿 / 体育": [
+      "BM_L1_FAMILY_MODERN_ROMANCE"
+    ]
+  },
+  "byProtagonistType": {
+    "冷静理智型 / 谨慎藏拙": [
+      "BM_L4_FANREN_CAUTIOUS"
+    ],
+    "智谋传承型 / 牺牲奉献型": [
+      "BM_L4_XUANJIAN_CLAN"
+    ],
+    "冷静理智型 / 坚毅自律": [
+      "BM_L4_URBAN_MARTIAL_GRIND"
+    ],
+    "高智敏锐型 / 极度冷静": [
+      "BM_L4_SUSPENSE_RULE_HORROR"
+    ],
+    "市侩圆滑型 / 坚守行规": [
+      "BM_L4_SUSPENSE_FOLKLORE"
+    ],
+    "冷静理智型 / 领袖心智": [
+      "BM_L4_SCIFI_WASTELAND_SHELTER"
+    ],
+    "谨慎探索型 / 守护心智": [
+      "BM_L4_WESTERN_SEQUENCE_MYSTERY"
+    ],
+    "伪装大师 / 坚毅铁血": [
+      "BM_L4_HISTORY_SPY_CODE"
+    ],
+    "聪慧内敛 / 守拙藏锋": [
+      "BM_L4_ANCIENT_ROMANCE_MANSION"
+    ],
+    "题材代表性主角原型": [
+      "BM_L2_XUANHUAN_东方仙侠",
+      "BM_L2_XUANHUAN_仙侠",
+      "BM_L2_XUANHUAN_传统玄幻",
+      "BM_L2_MODERN_ROMANCE_体育",
+      "BM_L2_HISTORY_军事",
+      "BM_L2_WESTERN_FANTASY_动漫衍生",
+      "BM_L2_HISTORY_历史",
+      "BM_L2_HISTORY_历史古代",
+      "BM_L2_HISTORY_历史脑洞",
+      "BM_L2_ANCIENT_ROMANCE_古言脑洞",
+      "BM_L2_ANCIENT_ROMANCE_古风世情",
+      "BM_L2_WESTERN_FANTASY_奇幻",
+      "BM_L2_SUSPENSE_女频悬疑",
+      "BM_L2_WESTERN_FANTASY_女频衍生",
+      "BM_L2_ANCIENT_ROMANCE_宫斗宅斗",
+      "BM_L2_ANCIENT_ROMANCE_年代",
+      "BM_L2_MODERN_ROMANCE_快穿",
+      "BM_L2_SUSPENSE_悬疑灵异",
+      "BM_L2_SUSPENSE_悬疑脑洞",
+      "BM_L2_URBAN_MARTIAL_战神赘婿",
+      "BM_L2_HISTORY_抗战谍战",
+      "BM_L2_SCIFI_APOCALYPSE_星光璀璨",
+      "BM_L2_XUANHUAN_武侠",
+      "BM_L2_ANCIENT_ROMANCE_民国言情",
+      "BM_L2_XUANHUAN_测试",
+      "BM_L2_WESTERN_FANTASY_游戏",
+      "BM_L2_WESTERN_FANTASY_游戏体育",
+      "BM_L2_XUANHUAN_玄幻",
+      "BM_L2_XUANHUAN_玄幻脑洞",
+      "BM_L2_ANCIENT_ROMANCE_玄幻言情",
+      "BM_L2_URBAN_MARTIAL_现实",
+      "BM_L2_MODERN_ROMANCE_现言脑洞",
+      "BM_L2_WESTERN_FANTASY_男频衍生",
+      "BM_L2_MODERN_ROMANCE_种田",
+      "BM_L2_SCIFI_APOCALYPSE_科幻",
+      "BM_L2_SCIFI_APOCALYPSE_科幻末世",
+      "BM_L2_MODERN_ROMANCE_职场婚恋",
+      "BM_L2_WESTERN_FANTASY_西方奇幻",
+      "BM_L2_WESTERN_FANTASY_诸天无限",
+      "BM_L2_MODERN_ROMANCE_豪门总裁",
+      "BM_L2_WESTERN_FANTASY_轻小说",
+      "BM_L2_URBAN_MARTIAL_都市",
+      "BM_L2_XUANHUAN_都市修真",
+      "BM_L2_URBAN_MARTIAL_都市日常",
+      "BM_L2_URBAN_MARTIAL_都市种田",
+      "BM_L2_URBAN_MARTIAL_都市脑洞",
+      "BM_L2_URBAN_MARTIAL_都市高武",
+      "BM_L2_MODERN_ROMANCE_青春甜宠"
+    ],
+    "母类通用原型": [
+      "BM_L1_FAMILY_XUANHUAN",
+      "BM_L1_FAMILY_URBAN_MARTIAL",
+      "BM_L1_FAMILY_SCIFI_APOCALYPSE",
+      "BM_L1_FAMILY_SUSPENSE",
+      "BM_L1_FAMILY_HISTORY",
+      "BM_L1_FAMILY_WESTERN_FANTASY",
+      "BM_L1_FAMILY_ANCIENT_ROMANCE",
+      "BM_L1_FAMILY_MODERN_ROMANCE"
+    ]
+  },
+  "benchmarksSummary": [
+    {
+      "id": "BM_L4_FANREN_CAUTIOUS",
+      "level": "Level4_Pacing",
+      "genre": "玄幻修真",
+      "subgenre": "东方仙侠 · 凡人谨慎修仙流",
+      "protagonist_type": "冷静理智型 / 谨慎藏拙",
+      "sample_count": 3,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L4_XUANJIAN_CLAN",
+      "level": "Level4_Pacing",
+      "genre": "玄幻修真",
+      "subgenre": "传统玄幻 · 宗族谱系族运流",
+      "protagonist_type": "智谋传承型 / 牺牲奉献型",
+      "sample_count": 2,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L4_URBAN_MARTIAL_GRIND",
+      "level": "Level4_Pacing",
+      "genre": "都市高武",
+      "subgenre": "都市高武 · 官方规制与实战体检流",
+      "protagonist_type": "冷静理智型 / 坚毅自律",
+      "sample_count": 2,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L4_SUSPENSE_RULE_HORROR",
+      "level": "Level4_Pacing",
+      "genre": "悬疑惊悚",
+      "subgenre": "悬疑脑洞 · 空间规则怪谈求生流",
+      "protagonist_type": "高智敏锐型 / 极度冷静",
+      "sample_count": 2,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L4_SUSPENSE_FOLKLORE",
+      "level": "Level4_Pacing",
+      "genre": "悬疑惊悚",
+      "subgenre": "悬疑灵异 · 民俗禁忌与行业行规流",
+      "protagonist_type": "市侩圆滑型 / 坚守行规",
+      "sample_count": 2,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L4_SCIFI_WASTELAND_SHELTER",
+      "level": "Level4_Pacing",
+      "genre": "科幻末世",
+      "subgenre": "科幻末世 · 废土避难所重工业复苏流",
+      "protagonist_type": "冷静理智型 / 领袖心智",
+      "sample_count": 2,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L4_WESTERN_SEQUENCE_MYSTERY",
+      "level": "Level4_Pacing",
+      "genre": "西方奇幻",
+      "subgenre": "西方奇幻 · 维多利亚蒸汽魔药序列流",
+      "protagonist_type": "谨慎探索型 / 守护心智",
+      "sample_count": 2,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L4_HISTORY_SPY_CODE",
+      "level": "Level4_Pacing",
+      "genre": "历史古代",
+      "subgenre": "抗战谍战 · 隐蔽战线密电破译与潜伏流",
+      "protagonist_type": "伪装大师 / 坚毅铁血",
+      "sample_count": 2,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L4_ANCIENT_ROMANCE_MANSION",
+      "level": "Level4_Pacing",
+      "genre": "古言世情",
+      "subgenre": "古风世情 · 宅门月例账目与内宅生存流",
+      "protagonist_type": "聪慧内敛 / 守拙藏锋",
+      "sample_count": 2,
+      "confidence": 0.96
+    },
+    {
+      "id": "BM_L2_XUANHUAN_东方仙侠",
+      "level": "Level2_Subgenre",
+      "genre": "玄幻修真",
+      "subgenre": "东方仙侠",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_XUANHUAN_仙侠",
+      "level": "Level2_Subgenre",
+      "genre": "玄幻修真",
+      "subgenre": "仙侠",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 25,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_XUANHUAN_传统玄幻",
+      "level": "Level2_Subgenre",
+      "genre": "玄幻修真",
+      "subgenre": "传统玄幻",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 16,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_MODERN_ROMANCE_体育",
+      "level": "Level2_Subgenre",
+      "genre": "现代言情",
+      "subgenre": "体育",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 21,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_HISTORY_军事",
+      "level": "Level2_Subgenre",
+      "genre": "历史古代",
+      "subgenre": "军事",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 22,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_动漫衍生",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "动漫衍生",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 23,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_HISTORY_历史",
+      "level": "Level2_Subgenre",
+      "genre": "历史古代",
+      "subgenre": "历史",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 22,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_HISTORY_历史古代",
+      "level": "Level2_Subgenre",
+      "genre": "历史古代",
+      "subgenre": "历史古代",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 14,
+      "confidence": 0.78
+    },
+    {
+      "id": "BM_L2_HISTORY_历史脑洞",
+      "level": "Level2_Subgenre",
+      "genre": "历史古代",
+      "subgenre": "历史脑洞",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 19,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_ANCIENT_ROMANCE_古言脑洞",
+      "level": "Level2_Subgenre",
+      "genre": "古言世情",
+      "subgenre": "古言脑洞",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_ANCIENT_ROMANCE_古风世情",
+      "level": "Level2_Subgenre",
+      "genre": "古言世情",
+      "subgenre": "古风世情",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 24,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_奇幻",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "奇幻",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_SUSPENSE_女频悬疑",
+      "level": "Level2_Subgenre",
+      "genre": "悬疑惊悚",
+      "subgenre": "女频悬疑",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 23,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_女频衍生",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "女频衍生",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 28,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_ANCIENT_ROMANCE_宫斗宅斗",
+      "level": "Level2_Subgenre",
+      "genre": "古言世情",
+      "subgenre": "宫斗宅斗",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 18,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_ANCIENT_ROMANCE_年代",
+      "level": "Level2_Subgenre",
+      "genre": "古言世情",
+      "subgenre": "年代",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 18,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_MODERN_ROMANCE_快穿",
+      "level": "Level2_Subgenre",
+      "genre": "现代言情",
+      "subgenre": "快穿",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 14,
+      "confidence": 0.78
+    },
+    {
+      "id": "BM_L2_SUSPENSE_悬疑灵异",
+      "level": "Level2_Subgenre",
+      "genre": "悬疑惊悚",
+      "subgenre": "悬疑灵异",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 37,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_SUSPENSE_悬疑脑洞",
+      "level": "Level2_Subgenre",
+      "genre": "悬疑惊悚",
+      "subgenre": "悬疑脑洞",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_URBAN_MARTIAL_战神赘婿",
+      "level": "Level2_Subgenre",
+      "genre": "都市高武",
+      "subgenre": "战神赘婿",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_HISTORY_抗战谍战",
+      "level": "Level2_Subgenre",
+      "genre": "历史古代",
+      "subgenre": "抗战谍战",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 21,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_SCIFI_APOCALYPSE_星光璀璨",
+      "level": "Level2_Subgenre",
+      "genre": "科幻末世",
+      "subgenre": "星光璀璨",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_XUANHUAN_武侠",
+      "level": "Level2_Subgenre",
+      "genre": "玄幻修真",
+      "subgenre": "武侠",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 24,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_ANCIENT_ROMANCE_民国言情",
+      "level": "Level2_Subgenre",
+      "genre": "古言世情",
+      "subgenre": "民国言情",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_XUANHUAN_测试",
+      "level": "Level2_Subgenre",
+      "genre": "玄幻修真",
+      "subgenre": "测试",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 3,
+      "confidence": 0.6
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_游戏",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "游戏",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 27,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_游戏体育",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "游戏体育",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 30,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_XUANHUAN_玄幻",
+      "level": "Level2_Subgenre",
+      "genre": "玄幻修真",
+      "subgenre": "玄幻",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_XUANHUAN_玄幻脑洞",
+      "level": "Level2_Subgenre",
+      "genre": "玄幻修真",
+      "subgenre": "玄幻脑洞",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 16,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_ANCIENT_ROMANCE_玄幻言情",
+      "level": "Level2_Subgenre",
+      "genre": "古言世情",
+      "subgenre": "玄幻言情",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 19,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_URBAN_MARTIAL_现实",
+      "level": "Level2_Subgenre",
+      "genre": "都市高武",
+      "subgenre": "现实",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 14,
+      "confidence": 0.78
+    },
+    {
+      "id": "BM_L2_MODERN_ROMANCE_现言脑洞",
+      "level": "Level2_Subgenre",
+      "genre": "现代言情",
+      "subgenre": "现言脑洞",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 22,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_男频衍生",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "男频衍生",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 21,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_MODERN_ROMANCE_种田",
+      "level": "Level2_Subgenre",
+      "genre": "现代言情",
+      "subgenre": "种田",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 21,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_SCIFI_APOCALYPSE_科幻",
+      "level": "Level2_Subgenre",
+      "genre": "科幻末世",
+      "subgenre": "科幻",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 23,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_SCIFI_APOCALYPSE_科幻末世",
+      "level": "Level2_Subgenre",
+      "genre": "科幻末世",
+      "subgenre": "科幻末世",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 18,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_MODERN_ROMANCE_职场婚恋",
+      "level": "Level2_Subgenre",
+      "genre": "现代言情",
+      "subgenre": "职场婚恋",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 19,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_西方奇幻",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "西方奇幻",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_诸天无限",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "诸天无限",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 26,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_MODERN_ROMANCE_豪门总裁",
+      "level": "Level2_Subgenre",
+      "genre": "现代言情",
+      "subgenre": "豪门总裁",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_WESTERN_FANTASY_轻小说",
+      "level": "Level2_Subgenre",
+      "genre": "西方奇幻",
+      "subgenre": "轻小说",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 24,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_URBAN_MARTIAL_都市",
+      "level": "Level2_Subgenre",
+      "genre": "都市高武",
+      "subgenre": "都市",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 24,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_XUANHUAN_都市修真",
+      "level": "Level2_Subgenre",
+      "genre": "玄幻修真",
+      "subgenre": "都市修真",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_URBAN_MARTIAL_都市日常",
+      "level": "Level2_Subgenre",
+      "genre": "都市高武",
+      "subgenre": "都市日常",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 17,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_URBAN_MARTIAL_都市种田",
+      "level": "Level2_Subgenre",
+      "genre": "都市高武",
+      "subgenre": "都市种田",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 21,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_URBAN_MARTIAL_都市脑洞",
+      "level": "Level2_Subgenre",
+      "genre": "都市高武",
+      "subgenre": "都市脑洞",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 22,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L2_URBAN_MARTIAL_都市高武",
+      "level": "Level2_Subgenre",
+      "genre": "都市高武",
+      "subgenre": "都市高武",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 17,
+      "confidence": 0.88
+    },
+    {
+      "id": "BM_L2_MODERN_ROMANCE_青春甜宠",
+      "level": "Level2_Subgenre",
+      "genre": "现代言情",
+      "subgenre": "青春甜宠",
+      "protagonist_type": "题材代表性主角原型",
+      "sample_count": 20,
+      "confidence": 0.95
+    },
+    {
+      "id": "BM_L1_FAMILY_XUANHUAN",
+      "level": "Level1_Family",
+      "genre": "玄幻修真",
+      "subgenre": "玄幻 / 传统玄幻 / 玄幻脑洞 / 东方仙侠 / 仙侠 / 都市修真 / 武侠 / 测试",
+      "protagonist_type": "母类通用原型",
+      "sample_count": 144,
+      "confidence": 0.92
+    },
+    {
+      "id": "BM_L1_FAMILY_URBAN_MARTIAL",
+      "level": "Level1_Family",
+      "genre": "都市高武",
+      "subgenre": "都市高武 / 都市 / 都市脑洞 / 都市日常 / 都市种田 / 战神赘婿 / 现实",
+      "protagonist_type": "母类通用原型",
+      "sample_count": 135,
+      "confidence": 0.92
+    },
+    {
+      "id": "BM_L1_FAMILY_SCIFI_APOCALYPSE",
+      "level": "Level1_Family",
+      "genre": "科幻末世",
+      "subgenre": "科幻 / 科幻末世 / 星光璀璨",
+      "protagonist_type": "母类通用原型",
+      "sample_count": 61,
+      "confidence": 0.92
+    },
+    {
+      "id": "BM_L1_FAMILY_SUSPENSE",
+      "level": "Level1_Family",
+      "genre": "悬疑惊悚",
+      "subgenre": "悬疑灵异 / 悬疑脑洞 / 女频悬疑",
+      "protagonist_type": "母类通用原型",
+      "sample_count": 80,
+      "confidence": 0.92
+    },
+    {
+      "id": "BM_L1_FAMILY_HISTORY",
+      "level": "Level1_Family",
+      "genre": "历史古代",
+      "subgenre": "历史 / 历史古代 / 历史脑洞 / 抗战谍战 / 军事",
+      "protagonist_type": "母类通用原型",
+      "sample_count": 98,
+      "confidence": 0.92
+    },
+    {
+      "id": "BM_L1_FAMILY_WESTERN_FANTASY",
+      "level": "Level1_Family",
+      "genre": "西方奇幻",
+      "subgenre": "奇幻 / 西方奇幻 / 诸天无限 / 游戏 / 游戏体育 / 轻小说 / 动漫衍生 / 男频衍生 / 女频衍生",
+      "protagonist_type": "母类通用原型",
+      "sample_count": 219,
+      "confidence": 0.92
+    },
+    {
+      "id": "BM_L1_FAMILY_ANCIENT_ROMANCE",
+      "level": "Level1_Family",
+      "genre": "古言世情",
+      "subgenre": "古言脑洞 / 古风世情 / 宫斗宅斗 / 民国言情 / 年代 / 玄幻言情",
+      "protagonist_type": "母类通用原型",
+      "sample_count": 119,
+      "confidence": 0.92
+    },
+    {
+      "id": "BM_L1_FAMILY_MODERN_ROMANCE",
+      "level": "Level1_Family",
+      "genre": "现代言情",
+      "subgenre": "青春甜宠 / 豪门总裁 / 现言脑洞 / 职场婚恋 / 种田 / 快穿 / 体育",
+      "protagonist_type": "母类通用原型",
+      "sample_count": 137,
+      "confidence": 0.92
+    }
+  ]
+}

@@ -1,0 +1,1957 @@
+{
+  "schemaVersion": "ai-flavor-lexicon-1",
+  "version": "ai-flavor-lexicon-v1-2026-08-30",
+  "generatedAt": "2026-08-30T13:43:24.251Z",
+  "corpus": {
+    "root": "资源库/小说原本",
+    "bucketCount": 48,
+    "bookCount": 48,
+    "totalChars": 22071266,
+    "perBucketQuota": 1,
+    "samplingNote": "语料库实际题材桶数较多，按“抽样总量约 40 本”优先，自适应为每桶 1 本；全库只读，未向资源库写入任何文件。",
+    "books": [
+      {
+        "bucket": "东方仙侠",
+        "file": "刚进宗门，就睡出个绝美师尊老婆.txt",
+        "chars": 36776
+      },
+      {
+        "bucket": "仙侠",
+        "file": "我的职业可以无限提升 - 苍穹旧客.txt",
+        "chars": 437613
+      },
+      {
+        "bucket": "传统玄幻",
+        "file": "扑克封妖：我有六十四张斩魔令.txt",
+        "chars": 38051
+      },
+      {
+        "bucket": "体育",
+        "file": "拳无敌 - 东王一.txt",
+        "chars": 586897
+      },
+      {
+        "bucket": "军事",
+        "file": "抗战：带着军火库横扫日寇 - 技术一哥wx.txt",
+        "chars": 215722
+      },
+      {
+        "bucket": "动漫衍生",
+        "file": "名柯：我有三角洲召唤系统.txt",
+        "chars": 35683
+      },
+      {
+        "bucket": "历史",
+        "file": "朕即天命：从西域征服世界 - 东天门.txt",
+        "chars": 1160928
+      },
+      {
+        "bucket": "历史古代",
+        "file": "大唐：开局死囚，我遇见了李承乾.txt",
+        "chars": 39197
+      },
+      {
+        "bucket": "历史脑洞",
+        "file": "天幕洛神赋，曹家父子社死.txt",
+        "chars": 41564
+      },
+      {
+        "bucket": "古言脑洞",
+        "file": "媚骨生香多位王爷诸侯皆裙下臣.txt",
+        "chars": 37540
+      },
+      {
+        "bucket": "古风世情",
+        "file": "枭雄的软肋.txt",
+        "chars": 77656
+      },
+      {
+        "bucket": "奇幻",
+        "file": "放开那个女巫 - 二目.txt",
+        "chars": 3433530
+      },
+      {
+        "bucket": "女频悬疑",
+        "file": "盗墓：开棺挖到黑爷的小福晋.txt",
+        "chars": 43534
+      },
+      {
+        "bucket": "女频衍生",
+        "file": "斩神：无所谓，我会念台词.txt",
+        "chars": 41613
+      },
+      {
+        "bucket": "宫斗宅斗",
+        "file": "嘉音县主重生记.txt",
+        "chars": 46406
+      },
+      {
+        "bucket": "年代",
+        "file": "打工路上的临时夫妻.txt",
+        "chars": 39374
+      },
+      {
+        "bucket": "快穿",
+        "file": "快穿：反派黑化暂停，我是你爹.txt",
+        "chars": 36390
+      },
+      {
+        "bucket": "悬疑灵异",
+        "file": "盗墓笔记 - 南派三叔.txt",
+        "chars": 1477303
+      },
+      {
+        "bucket": "悬疑脑洞",
+        "file": "盗墓：吴家走丢的小姑娘回来了.txt",
+        "chars": 37847
+      },
+      {
+        "bucket": "战神赘婿",
+        "file": "报告苏总，您找的赘婿是龙神殿主.txt",
+        "chars": 34777
+      },
+      {
+        "bucket": "抗战谍战",
+        "file": "四合院：李云龙上司，傻柱亲叔叔.txt",
+        "chars": 41631
+      },
+      {
+        "bucket": "星光璀璨",
+        "file": "女装直播后，榜一大哥大姐杀疯了.txt",
+        "chars": 38683
+      },
+      {
+        "bucket": "武侠",
+        "file": "拔剑 - 流浪的蛤蟆.txt",
+        "chars": 263279
+      },
+      {
+        "bucket": "民国言情",
+        "file": "我在老九门打工那些年.txt",
+        "chars": 36530
+      },
+      {
+        "bucket": "测试",
+        "file": "诡秘之主.txt",
+        "chars": 4556353
+      },
+      {
+        "bucket": "游戏",
+        "file": "怪物世界 - 一刀斩斩斩.txt",
+        "chars": 239506
+      },
+      {
+        "bucket": "游戏体育",
+        "file": "求生游戏：请叫我诚信商人.txt",
+        "chars": 71324
+      },
+      {
+        "bucket": "玄幻",
+        "file": "天师怎么成了妖魔！ - 迪希霸.txt",
+        "chars": 429995
+      },
+      {
+        "bucket": "玄幻脑洞",
+        "file": "开局流落皇子，可我已经人间无敌.txt",
+        "chars": 41651
+      },
+      {
+        "bucket": "玄幻言情",
+        "file": "抽卡召旧族，炮灰她掀了修真界.txt",
+        "chars": 43106
+      },
+      {
+        "bucket": "现实",
+        "file": "清明十二年 - 笑泯恩仇呀.txt",
+        "chars": 264188
+      },
+      {
+        "bucket": "现言脑洞",
+        "file": "画像师上交国家，全网通缉犯慌了.txt",
+        "chars": 44310
+      },
+      {
+        "bucket": "男频衍生",
+        "file": "四合院：从红二十五开始进步.txt",
+        "chars": 34360
+      },
+      {
+        "bucket": "种田",
+        "file": "末世大佬携带空间穿成首辅恶毒妻.txt",
+        "chars": 37107
+      },
+      {
+        "bucket": "科幻",
+        "file": "无尽乐园 - 火龙果大亨.txt",
+        "chars": 872160
+      },
+      {
+        "bucket": "科幻末世",
+        "file": "末世选择：开局一亿只美洲大蠊.txt",
+        "chars": 34701
+      },
+      {
+        "bucket": "职场婚恋",
+        "file": "晚年底牌.txt",
+        "chars": 30149
+      },
+      {
+        "bucket": "西方奇幻",
+        "file": "据帝国幼态法，与精灵恋爱，电刑.txt",
+        "chars": 45250
+      },
+      {
+        "bucket": "诸天无限",
+        "file": "永噩长夜 - zhttty.txt",
+        "chars": 4657484
+      },
+      {
+        "bucket": "豪门总裁",
+        "file": "春夜难渡.txt",
+        "chars": 44961
+      },
+      {
+        "bucket": "轻小说",
+        "file": "姐姐，我也要一起当女仆吗？ - 电子熊猫.txt",
+        "chars": 742861
+      },
+      {
+        "bucket": "都市",
+        "file": "我的学习群里全是真大佬 - 胖胖的小橘.txt",
+        "chars": 1398294
+      },
+      {
+        "bucket": "都市修真",
+        "file": "灵气复苏，开局成为化神真君.txt",
+        "chars": 37476
+      },
+      {
+        "bucket": "都市日常",
+        "file": "女尊，独自抚养妹妹们的正太哥哥.txt",
+        "chars": 30479
+      },
+      {
+        "bucket": "都市种田",
+        "file": "赶海：代娶丰腴美人，娇宠俏媳妇.txt",
+        "chars": 36137
+      },
+      {
+        "bucket": "都市脑洞",
+        "file": "我老婆有白月光？她怎么不知道.txt",
+        "chars": 35036
+      },
+      {
+        "bucket": "都市高武",
+        "file": "娘胎觉醒转职，出生绑定四神兽！.txt",
+        "chars": 33826
+      },
+      {
+        "bucket": "青春甜宠",
+        "file": "强扭的校草太酸涩，重生她不要了.txt",
+        "chars": 32028
+      }
+    ]
+  },
+  "thresholds": {
+    "unit": "每百万字频率（PMF）",
+    "blockBelowPmf": 5,
+    "watchBelowPmf": 30,
+    "discardAbovePmf": 30
+  },
+  "stats": {
+    "manualCandidates": 183,
+    "correctionPolicyTerms": 105,
+    "entryCount": 273,
+    "blockCount": 254,
+    "watchCount": 19,
+    "discardedManualCount": 11
+  },
+  "entries": [
+    {
+      "term": "一柄出鞘的刀",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "世界仿佛安静了下来",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "从齿缝里挤出",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "令人叹为观止",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "令人心安",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "仿佛在诉说着",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "仿佛过了一个世纪",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "像一头被逼到绝境的疯狗",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "像一潭死水",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "像谈天气",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "冷冽的气息",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "力量是真实的",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "化作冰冷的凝重",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "双腿还能用",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "唯一真相",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "在回应着他决心",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "声淡如水",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "声音平静如水",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "声音淡得像一阵风",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如散落的棋子",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如牛皮糖",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如野火",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如钉子钉进心头",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如铁箍",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如长河",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "寒星般的眸子",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "属于他的传奇",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "心脏猛地一缩",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "心里已经有了决定",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "指尖冰冷",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "无声地诉说着",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "是哥最大牵挂",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "没有人敢说话",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "注定不平凡",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "泪如断线的珠子",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "目光沉静如渊",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "目若寒星",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "眉如刀削",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "瞳孔猛地一缩",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "空气骤然安静",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "而在此时",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "语气平得像在谈天气",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "需要指出的是",
+      "corpusPmf": 0,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "久久不能平静",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "冰冷的语气",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "命运的齿轮开始转动",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "哄笑一片",
+      "corpusPmf": 0.05,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如断线风筝",
+      "corpusPmf": 0.05,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如重锤",
+      "corpusPmf": 0.05,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "山雨欲来",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "强大的气场",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "拉开了序幕",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "指节泛白",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "新的篇章",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "更大的风暴",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "气氛凝固",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "骇然失色",
+      "corpusPmf": 0.05,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "一抹精光",
+      "corpusPmf": 0.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "从某种意义上说",
+      "corpusPmf": 0.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "似有深意",
+      "corpusPmf": 0.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "值得注意的是",
+      "corpusPmf": 0.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如萤火",
+      "corpusPmf": 0.09,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如鸿毛",
+      "corpusPmf": 0.09,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "彰显出",
+      "corpusPmf": 0.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "时间仿佛静止",
+      "corpusPmf": 0.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眸光一闪",
+      "corpusPmf": 0.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "空气仿佛凝固",
+      "corpusPmf": 0.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "值得一提的是",
+      "corpusPmf": 0.14,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如熊",
+      "corpusPmf": 0.14,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "月光如水",
+      "corpusPmf": 0.14,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "目光如刀",
+      "corpusPmf": 0.14,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "睫毛颤了颤",
+      "corpusPmf": 0.14,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "神情复杂",
+      "corpusPmf": 0.14,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "身形一僵",
+      "corpusPmf": 0.14,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "铁证如山",
+      "corpusPmf": 0.14,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一切都变了",
+      "corpusPmf": 0.18,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "不可抑制地",
+      "corpusPmf": 0.18,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "后背发凉",
+      "corpusPmf": 0.18,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "呼吸一滞",
+      "corpusPmf": 0.18,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "头皮一阵发麻",
+      "corpusPmf": 0.18,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如惊雷",
+      "corpusPmf": 0.18,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "电光石火之间",
+      "corpusPmf": 0.18,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "综上所述",
+      "corpusPmf": 0.18,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "说时迟那时快",
+      "corpusPmf": 0.18,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "不禁让人",
+      "corpusPmf": 0.23,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "在这个.*的时代",
+      "corpusPmf": 0.23,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "心猛地一沉",
+      "corpusPmf": 0.23,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "深深地看了一眼",
+      "corpusPmf": 0.23,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "缓缓勾起",
+      "corpusPmf": 0.23,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "语气凝重",
+      "corpusPmf": 0.23,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "锐利的目光",
+      "corpusPmf": 0.23,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如林",
+      "corpusPmf": 0.27,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "思绪万千",
+      "corpusPmf": 0.27,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "指尖摩挲",
+      "corpusPmf": 0.27,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "浅浅一笑",
+      "corpusPmf": 0.27,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "让人捉摸不透",
+      "corpusPmf": 0.27,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "身体一僵",
+      "corpusPmf": 0.27,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如暴雨",
+      "corpusPmf": 0.32,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "无形的威压",
+      "corpusPmf": 0.32,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "目光复杂",
+      "corpusPmf": 0.32,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眼神深邃",
+      "corpusPmf": 0.32,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "落针可闻",
+      "corpusPmf": 0.32,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "让人不由得",
+      "corpusPmf": 0.32,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "像一阵风",
+      "corpusPmf": 0.36,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "冰冷的目光",
+      "corpusPmf": 0.36,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "冷汗涔涔",
+      "corpusPmf": 0.36,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眸光闪烁",
+      "corpusPmf": 0.36,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "脑海里回荡",
+      "corpusPmf": 0.36,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "随着.*的发展",
+      "corpusPmf": 0.36,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "面沉如水",
+      "corpusPmf": 0.36,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "深邃的眼眸",
+      "corpusPmf": 0.41,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "瞳孔骤缩",
+      "corpusPmf": 0.41,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "从这一刻起",
+      "corpusPmf": 0.45,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "令人心悸",
+      "corpusPmf": 0.5,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "微微勾起",
+      "corpusPmf": 0.5,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "意义非凡",
+      "corpusPmf": 0.5,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "百感交集",
+      "corpusPmf": 0.5,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "复杂的情绪",
+      "corpusPmf": 0.54,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "定定地看着",
+      "corpusPmf": 0.54,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眼眸深邃",
+      "corpusPmf": 0.54,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "脸色骤变",
+      "corpusPmf": 0.54,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "嘴角上扬",
+      "corpusPmf": 0.59,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "心中一凛",
+      "corpusPmf": 0.59,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "暗流涌动",
+      "corpusPmf": 0.59,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眸中闪过",
+      "corpusPmf": 0.59,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如鬼魅",
+      "corpusPmf": 0.63,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "心潮澎湃",
+      "corpusPmf": 0.63,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眉头微蹙",
+      "corpusPmf": 0.63,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "神色凝重",
+      "corpusPmf": 0.63,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "竟然发现",
+      "corpusPmf": 0.63,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一言难尽",
+      "corpusPmf": 0.68,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如泰山",
+      "corpusPmf": 0.68,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如遭雷击",
+      "corpusPmf": 0.68,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "淡淡的笑意",
+      "corpusPmf": 0.68,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眼神复杂",
+      "corpusPmf": 0.68,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "骤然间",
+      "corpusPmf": 0.68,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一抹笑意",
+      "corpusPmf": 0.72,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "嘴角微微上扬",
+      "corpusPmf": 0.72,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "脑海中浮现",
+      "corpusPmf": 0.77,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "脑海中闪过",
+      "corpusPmf": 0.77,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "大脑一片空白",
+      "corpusPmf": 0.82,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "难以名状",
+      "corpusPmf": 0.82,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "死一般的",
+      "corpusPmf": 0.86,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "五味杂陈",
+      "corpusPmf": 0.91,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "微微地",
+      "corpusPmf": 0.91,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "太恐怖了",
+      "corpusPmf": 0.95,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如渊",
+      "corpusPmf": 0.95,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "揉了揉眉心",
+      "corpusPmf": 0.95,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眼底掠过",
+      "corpusPmf": 0.95,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "面色凝重",
+      "corpusPmf": 0.95,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如死灰",
+      "corpusPmf": 1.04,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "已经证明",
+      "corpusPmf": 1.04,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "神色复杂",
+      "corpusPmf": 1.04,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "不可否认",
+      "corpusPmf": 1.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "死一般",
+      "corpusPmf": 1.09,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "蓦地",
+      "corpusPmf": 1.09,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "令人窒息",
+      "corpusPmf": 1.13,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "简而言之",
+      "corpusPmf": 1.13,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "霎时间",
+      "corpusPmf": 1.13,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如纸",
+      "corpusPmf": 1.18,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "显然就是",
+      "corpusPmf": 1.18,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "倏然",
+      "corpusPmf": 1.22,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "灵魂深处",
+      "corpusPmf": 1.22,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "由此可见",
+      "corpusPmf": 1.22,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "飘忽不定",
+      "corpusPmf": 1.22,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "眼底闪过",
+      "corpusPmf": 1.27,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "淡淡说道",
+      "corpusPmf": 1.31,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如雷霆",
+      "corpusPmf": 1.36,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "相视一笑",
+      "corpusPmf": 1.36,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "体现出",
+      "corpusPmf": 1.4,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "心头一紧",
+      "corpusPmf": 1.45,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "恍若",
+      "corpusPmf": 1.45,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "声音里带着",
+      "corpusPmf": 1.5,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "众所周知",
+      "corpusPmf": 1.54,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "心里咯噔一下",
+      "corpusPmf": 1.68,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "倒吸一口凉气",
+      "corpusPmf": 1.72,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "脚步一顿",
+      "corpusPmf": 1.72,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "高深莫测",
+      "corpusPmf": 1.72,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如风",
+      "corpusPmf": 1.77,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "总而言之",
+      "corpusPmf": 1.9,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "显而易见",
+      "corpusPmf": 1.9,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "无与伦比",
+      "corpusPmf": 1.95,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "一眨不眨",
+      "corpusPmf": 1.99,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "独一无二",
+      "corpusPmf": 1.99,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "缓缓开口",
+      "corpusPmf": 2.08,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "四目相对",
+      "corpusPmf": 2.17,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如电",
+      "corpusPmf": 2.22,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如刀",
+      "corpusPmf": 2.31,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "眉头紧锁",
+      "corpusPmf": 2.4,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "嘴角勾起",
+      "corpusPmf": 2.45,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "幽深的",
+      "corpusPmf": 2.45,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "直勾勾",
+      "corpusPmf": 2.54,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "微微颔首",
+      "corpusPmf": 2.58,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "淡淡道",
+      "corpusPmf": 2.63,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "内心深处",
+      "corpusPmf": 2.67,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "毋庸置疑",
+      "corpusPmf": 2.76,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "灵光一闪",
+      "corpusPmf": 2.76,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "不寒而栗",
+      "corpusPmf": 2.81,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "事实证明",
+      "corpusPmf": 2.81,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "在某种程度上",
+      "corpusPmf": 2.85,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "勾起一抹",
+      "corpusPmf": 2.95,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "意味深长",
+      "corpusPmf": 3.08,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "淡淡地",
+      "corpusPmf": 3.22,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "似笑非笑",
+      "corpusPmf": 3.26,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如雨",
+      "corpusPmf": 3.31,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "情不自禁地",
+      "corpusPmf": 3.35,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "更重要的是",
+      "corpusPmf": 3.35,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "不仅如此",
+      "corpusPmf": 3.44,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "眼前一亮",
+      "corpusPmf": 3.53,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "语气里带着",
+      "corpusPmf": 3.53,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "哑然",
+      "corpusPmf": 3.62,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "终于明白",
+      "corpusPmf": 3.76,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "如雷",
+      "corpusPmf": 4.21,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "微微一怔",
+      "corpusPmf": 4.35,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "猛然间",
+      "corpusPmf": 4.39,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "缓缓说道",
+      "corpusPmf": 4.39,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "深邃的",
+      "corpusPmf": 4.71,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "唇角",
+      "corpusPmf": 4.8,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "顷刻间",
+      "corpusPmf": 4.8,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "头皮发麻",
+      "corpusPmf": 4.85,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "弧度",
+      "corpusPmf": 4.94,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "缓缓地",
+      "corpusPmf": 4.98,
+      "source": "manual",
+      "recommendation": "block"
+    },
+    {
+      "term": "如水",
+      "corpusPmf": 5.12,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "写满",
+      "corpusPmf": 5.17,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "轻轻地",
+      "corpusPmf": 7.02,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "无疑是",
+      "corpusPmf": 8.88,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "死寂",
+      "corpusPmf": 9.79,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "平静地",
+      "corpusPmf": 11.19,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "必然是",
+      "corpusPmf": 12.32,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一缕",
+      "corpusPmf": 13.77,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一定是",
+      "corpusPmf": 18.76,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "绝对是",
+      "corpusPmf": 19.53,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "笑意",
+      "corpusPmf": 28.95,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一抹",
+      "corpusPmf": 30.58,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "充满了",
+      "corpusPmf": 30.58,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "满是",
+      "corpusPmf": 31.35,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一股",
+      "corpusPmf": 100.08,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一丝",
+      "corpusPmf": 105.75,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "一种",
+      "corpusPmf": 231.3,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "深深地",
+      "corpusPmf": 5.07,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "戛然而止",
+      "corpusPmf": 5.39,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "不由自主地",
+      "corpusPmf": 7.7,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "毛骨悚然",
+      "corpusPmf": 7.7,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "难以言喻",
+      "corpusPmf": 7.93,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "带着几分",
+      "corpusPmf": 8.16,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "好似",
+      "corpusPmf": 9.29,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "微微一笑",
+      "corpusPmf": 10.1,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "宛若",
+      "corpusPmf": 10.15,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "展现出",
+      "corpusPmf": 10.83,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "刹那间",
+      "corpusPmf": 11.06,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "下意识地",
+      "corpusPmf": 12.55,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "不得不说",
+      "corpusPmf": 13,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "换句话说",
+      "corpusPmf": 14.95,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "话音刚落",
+      "corpusPmf": 15.72,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "宛如",
+      "corpusPmf": 15.77,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "骤然",
+      "corpusPmf": 22.7,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "回过神来",
+      "corpusPmf": 24.38,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "陡然",
+      "corpusPmf": 24.69,
+      "source": "manual",
+      "recommendation": "watch"
+    },
+    {
+      "term": "震得脚底发木",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "震得虎口发麻",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "震得耳膜生疼",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "喉头一甜",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "气血翻涌",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "震得双腿发颤",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "发出一声轻微的呻吟",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "将冷寂撕扯开来",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "喉咙发紧",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "咽喉发紧",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "指节发白",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "心跳漏了一拍",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "下颌紧绷",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "后颈发凉",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "手心冷汗",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "手心冒冷汗",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "手心里满是冷汗",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "牙关紧咬",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "在这一刻显得格外",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "无不在昭示着",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "带着一种不容置疑的",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "试图去寻找",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    },
+    {
+      "term": "不得不承认的是",
+      "corpusPmf": 0,
+      "source": "correction-policy",
+      "recommendation": "block"
+    }
+  ]
+}

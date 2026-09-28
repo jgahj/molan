@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 小说创作平台首页</title>
+    <!-- 引入毛笔书法字体：马善政 + 站酷小薇，用于水墨风标题 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <style id="theme-vars">
+/* ===================== AI 小说创作平台 · 设计风格 ===================== */
+/* 基于截图还原：极简黑白、现代 SaaS、中式文学雅致 */
+
+:root {
+  /* 色彩系统 */
+  --ml-ink: #0a0a0a;            /* 主文字 / 主按钮 */
+  --ml-ink-2: #1a1a1a;          /* 次级深色 */
+  --ml-paper: #ffffff;          /* 纯白背景 */
+  --ml-paper-2: #fafafa;        /* 次白 / 卡片底 */
+  --ml-paper-3: #f5f5f5;        /* 浅灰底 */
+  --ml-line: #e8e8e8;           /* 分割线 */
+  --ml-line-2: #e5e5e5;         /* 卡片描边 */
+  --ml-gray: #666666;           /* 次级文字 */
+  --ml-gray-2: #999999;         /* 辅助文字 */
+  --ml-gray-3: #b3b3b3;         /* 占位/弱化 */
+  --ml-accent: #111111;         /* 强调黑 */
+  --ml-success: #16a34a;        /* 成功绿 */
+  --ml-success-bg: #f0fdf4;     /* 成功绿浅底 */
+
+  /* 字体系统 */
+  --ml-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ml-font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --ml-font-mono: "SFMono-Regular", "Consolas", monospace;
+
+  /* 圆角 */
+  --ml-radius-sm: 6px;
+  --ml-radius-md: 8px;
+  --ml-radius-lg: 12px;
+  --ml-radius-xl: 16px;
+  --ml-radius-full: 9999px;
+
+  /* 阴影 */
+  --ml-shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --ml-shadow-md: 0 4px 16px rgba(0,0,0,.06);
+  --ml-shadow-lg: 0 12px 40px rgba(0,0,0,.08);
+  --ml-shadow-card: 0 4px 24px rgba(0,0,0,.05);
+
+  /* 间距节奏 */
+  --ml-space-1: 4px;
+  --ml-space-2: 8px;
+  --ml-space-3: 12px;
+  --ml-space-4: 16px;
+  --ml-space-5: 24px;
+  --ml-space-6: 32px;
+  --ml-space-7: 48px;
+  --ml-space-8: 64px;
+
+  /* 语义别名（供 fill-html-head.mjs 映射与 Tailwind 语义类使用） */
+  --ml-background: var(--ml-paper);
+  --ml-foreground: var(--ml-ink);
+  --ml-card: var(--ml-paper);
+  --ml-card-foreground: var(--ml-ink);
+  --ml-primary: var(--ml-ink);
+  --ml-primary-foreground: var(--ml-paper);
+  --ml-secondary: var(--ml-paper-3);
+  --ml-secondary-foreground: var(--ml-ink);
+  --ml-muted: var(--ml-paper-2);
+  --ml-muted-foreground: var(--ml-gray);
+  --ml-accent-foreground: var(--ml-ink);
+  --ml-border: var(--ml-line-2);
+  --ml-input: var(--ml-line-2);
+  --ml-ring: var(--ml-ink);
+}
+
+/* 字号刻度 */
+.ml-text-xs { font-size: 11px; line-height: 1.5; }
+.ml-text-sm { font-size: 13px; line-height: 1.6; }
+.ml-text-base { font-size: 14px; line-height: 1.7; }
+.ml-text-md { font-size: 15px; line-height: 1.7; }
+.ml-text-lg { font-size: 17px; line-height: 1.6; }
+.ml-text-xl { font-size: 20px; line-height: 1.5; }
+.ml-text-2xl { font-size: 24px; line-height: 1.4; }
+.ml-text-3xl { font-size: 32px; line-height: 1.3; }
+.ml-text-4xl { font-size: 44px; line-height: 1.25; }
+.ml-text-5xl { font-size: 56px; line-height: 1.2; }
+.ml-text-6xl { font-size: 68px; line-height: 1.15; }
+
+/* 字重 */
+.ml-font-normal { font-weight: 400; }
+.ml-font-medium { font-weight: 500; }
+.ml-font-semibold { font-weight: 600; }
+.ml-font-bold { font-weight: 700; }
+
+/* 字体族 */
+.ml-font-sans { font-family: var(--ml-font-sans); }
+.ml-font-serif { font-family: var(--ml-font-serif); }
+.ml-font-mono { font-family: var(--ml-font-mono); }
+
+/* 文字颜色 */
+.ml-text-ink { color: var(--ml-ink); }
+.ml-text-gray { color: var(--ml-gray); }
+.ml-text-gray-2 { color: var(--ml-gray-2); }
+.ml-text-gray-3 { color: var(--ml-gray-3); }
+
+/* 背景色 */
+.ml-bg-paper { background: var(--ml-paper); }
+.ml-bg-paper-2 { background: var(--ml-paper-2); }
+.ml-bg-paper-3 { background: var(--ml-paper-3); }
+.ml-bg-ink { background: var(--ml-ink); }
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--ml-background);
+    --color-foreground: var(--ml-foreground);
+    --color-card: var(--ml-card);
+    --color-card-foreground: var(--ml-card-foreground);
+    --color-primary: var(--ml-primary);
+    --color-primary-foreground: var(--ml-primary-foreground);
+    --color-secondary: var(--ml-secondary);
+    --color-secondary-foreground: var(--ml-secondary-foreground);
+    --color-muted: var(--ml-muted);
+    --color-muted-foreground: var(--ml-muted-foreground);
+    --color-accent: var(--ml-accent);
+    --color-accent-foreground: var(--ml-accent-foreground);
+    --color-border: var(--ml-border);
+    --color-input: var(--ml-input);
+    --color-ring: var(--ml-ring);
+    --radius-sm: var(--ml-radius-sm);
+    --radius-md: var(--ml-radius-md);
+    --radius-lg: var(--ml-radius-lg);
+    --radius-xl: var(--ml-radius-xl);
+  }
+  @layer base {
+    body { background: var(--ml-background); color: var(--ml-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--ml-background); }
+      .text-background { color: var(--ml-background); }
+      .border-background { border-color: var(--ml-background); }
+      .ring-background { --tw-ring-color: var(--ml-background); }
+      .bg-foreground { background-color: var(--ml-foreground); }
+      .text-foreground { color: var(--ml-foreground); }
+      .border-foreground { border-color: var(--ml-foreground); }
+      .ring-foreground { --tw-ring-color: var(--ml-foreground); }
+      .bg-card { background-color: var(--ml-card); }
+      .text-card { color: var(--ml-card); }
+      .border-card { border-color: var(--ml-card); }
+      .ring-card { --tw-ring-color: var(--ml-card); }
+      .bg-card-foreground { background-color: var(--ml-card-foreground); }
+      .text-card-foreground { color: var(--ml-card-foreground); }
+      .border-card-foreground { border-color: var(--ml-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--ml-card-foreground); }
+      .bg-primary { background-color: var(--ml-primary); }
+      .text-primary { color: var(--ml-primary); }
+      .border-primary { border-color: var(--ml-primary); }
+      .ring-primary { --tw-ring-color: var(--ml-primary); }
+      .bg-primary-foreground { background-color: var(--ml-primary-foreground); }
+      .text-primary-foreground { color: var(--ml-primary-foreground); }
+      .border-primary-foreground { border-color: var(--ml-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--ml-primary-foreground); }
+      .bg-secondary { background-color: var(--ml-secondary); }
+      .text-secondary { color: var(--ml-secondary); }
+      .border-secondary { border-color: var(--ml-secondary); }
+      .ring-secondary { --tw-ring-color: var(--ml-secondary); }
+      .bg-secondary-foreground { background-color: var(--ml-secondary-foreground); }
+      .text-secondary-foreground { color: var(--ml-secondary-foreground); }
+      .border-secondary-foreground { border-color: var(--ml-secondary-foreground); }
+      .ring-secondary-foreground { --tw-ring-color: var(--ml-secondary-foreground); }
+      .bg-muted { background-color: var(--ml-muted); }
+      .text-muted { color: var(--ml-muted); }
+      .border-muted { border-color: var(--ml-muted); }
+      .ring-muted { --tw-ring-color: var(--ml-muted); }
+      .bg-muted-foreground { background-color: var(--ml-muted-foreground); }
+      .text-muted-foreground { color: var(--ml-muted-foreground); }
+      .border-muted-foreground { border-color: var(--ml-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--ml-muted-foreground); }
+      .bg-accent { background-color: var(--ml-accent); }
+      .text-accent { color: var(--ml-accent); }
+      .border-accent { border-color: var(--ml-accent); }
+      .ring-accent { --tw-ring-color: var(--ml-accent); }
+      .bg-accent-foreground { background-color: var(--ml-accent-foreground); }
+      .text-accent-foreground { color: var(--ml-accent-foreground); }
+      .border-accent-foreground { border-color: var(--ml-accent-foreground); }
+      .ring-accent-foreground { --tw-ring-color: var(--ml-accent-foreground); }
+      .bg-border { background-color: var(--ml-border); }
+      .text-border { color: var(--ml-border); }
+      .border-border { border-color: var(--ml-border); }
+      .ring-border { --tw-ring-color: var(--ml-border); }
+      .bg-input { background-color: var(--ml-input); }
+      .text-input { color: var(--ml-input); }
+      .border-input { border-color: var(--ml-input); }
+      .ring-input { --tw-ring-color: var(--ml-input); }
+      .bg-ring { background-color: var(--ml-ring); }
+      .text-ring { color: var(--ml-ring); }
+      .border-ring { border-color: var(--ml-ring); }
+      .ring-ring { --tw-ring-color: var(--ml-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+
+        <!-- ============ 顶部导航栏 (vc-01) ============ -->
+        <header class="sticky top-0 z-50 w-full bg-[var(--ml-paper)]/90 backdrop-blur-md border-b border-[var(--ml-line)]">
+            <nav class="mx-auto max-w-[1200px] px-6 h-16 flex items-center justify-between">
+                <!-- 左侧 Logo + 导航项 -->
+                <div class="flex items-center gap-8">
+                    <!-- 黑色方形圆角 Logo，内含白色"笔/Z"字符 -->
+                    <a href="#" class="flex items-center gap-2 shrink-0" aria-label="墨阑首页">
+                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-[8px] bg-[var(--ml-ink)] text-[var(--ml-paper)]">
+                            <!-- 笔触字符，内联 SVG -->
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                                <path d="M2 2l7.586 7.586"></path>
+                                <circle cx="11" cy="11" r="2"></circle>
+                            </svg>
+                        </span>
+                        <span class="ml-text-lg ml-font-semibold ml-text-ink">墨阑</span>
+                    </a>
+                    <!-- 导航项水平排列 -->
+                    <ul class="hidden md:flex items-center gap-6">
+                        <li><a href="#" class="inline-flex items-center gap-1 ml-text-base ml-text-gray hover:text-[var(--ml-ink)] transition-colors">产品功能
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </a></li>
+                        <li><a href="#" class="ml-text-base ml-text-gray hover:text-[var(--ml-ink)] transition-colors">首页</a></li>
+                        <li><a href="#" class="ml-text-base ml-text-gray hover:text-[var(--ml-ink)] transition-colors">订阅</a></li>
+                        <li><a href="#" class="ml-text-base ml-text-gray hover:text-[var(--ml-ink)] transition-colors">知识库</a></li>
+                        <li><a href="#" class="inline-flex items-center gap-1 ml-text-base ml-text-gray hover:text-[var(--ml-ink)] transition-colors">免费工具
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </a></li>
+                        <li><a href="#" class="ml-text-base ml-text-gray hover:text-[var(--ml-ink)] transition-colors">文档</a></li>
+                        <li><a href="#" class="ml-text-base ml-text-gray hover:text-[var(--ml-ink)] transition-colors">博客</a></li>
+                    </ul>
+                </div>
+                <!-- 右侧操作区 -->
+                <div class="flex items-center gap-4">
+                    <!-- 主题切换图标 -->
+                    <button class="w-8 h-8 inline-flex items-center justify-center rounded-full text-[var(--ml-gray)] hover:text-[var(--ml-ink)] hover:bg-[var(--ml-paper-3)] transition-colors" aria-label="切换主题">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+                    </button>
+                    <!-- 语言切换 -->
+                    <button class="w-8 h-8 inline-flex items-center justify-center rounded-full text-[var(--ml-gray)] hover:text-[var(--ml-ink)] hover:bg-[var(--ml-paper-3)] transition-colors text-[13px]" aria-label="切换语言">中</button>
+                    <!-- 登录（文字链接样式，带右箭头） -->
+                    <a href="#" class="hidden sm:inline-flex items-center gap-1 ml-text-base ml-text-gray hover:text-[var(--ml-ink)] transition-colors">登录
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
+                    <!-- 黑色实心圆角按钮：开始创作 -->
+                    <a href="#" class="inline-flex items-center px-4 h-9 rounded-[8px] bg-[var(--ml-ink)] text-[var(--ml-paper)] ml-text-sm ml-font-medium hover:bg-[var(--ml-ink-2)] transition-colors">开始创作</a>
+                </div>
+            </nav>
+        </header>
+
+        <!-- ============ 公告药丸标签 (vc-02) ============ -->
+        <div class="mx-auto max-w-[1200px] px-6 pt-4">
+            <div class="flex justify-start">
+                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--ml-paper-3)] ml-text-xs ml-text-gray">
+                    <!-- info 圆形图标 -->
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    AI 引擎 V4.0 全新上线
+                </span>
+            </div>
+        </div>
+
+        <!-- ============ Hero 区域：左右分栏 (vc-03 / vc-04 / vc-05) ============ -->
+        <section class="mx-auto max-w-[1200px] px-6 pt-6 pb-10 lg:pt-8 lg:pb-12">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10 items-center">
+                <!-- 左侧：水墨毛笔风大标题 + 副标题 -->
+                <div class="order-2 lg:order-1">
+                    <!-- 主标题：使用毛笔书法字体 + 水墨晕染效果 -->
+                    <h1 class="ml-ink-title ml-text-ink" style="font-family:'Ma Shan Zheng','ZCOOL XiaoWei','Noto Serif SC','Songti SC',serif;font-size:clamp(48px,7vw,78px);line-height:1.05;text-wrap:balance;word-break:keep-all;overflow-wrap:break-word;letter-spacing:4px;">落笔生花，<br>一字千金。</h1>
+                    <!-- 水墨装饰线 -->
+                    <div class="mt-4 mb-4 w-24 h-1 rounded-full" style="background:linear-gradient(90deg,var(--ml-ink) 0%,rgba(10,10,10,.35) 70%,transparent 100%);"></div>
+                    <p class="ml-text-sm ml-text-gray" style="line-height:1.65;max-width:420px;">基于多智能体协作的高级小说创作平台。从设定推演到正文生成，将您的灵感化为传世之作。以书香之韵，驭现代之智。</p>
+                </div>
+                <!-- 右侧：三张浮动卡片错落排列（小-大-小） -->
+                <div class="order-1 lg:order-2 relative h-[420px] sm:h-[460px] lg:h-[420px] ml-float-stage" aria-hidden="false">
+                    <!-- 卡片1：世界观设定生成（小，左上） -->
+                    <div class="ml-float-card absolute top-0 left-0 sm:left-4 w-[180px] sm:w-[200px] bg-[var(--ml-paper)] rounded-[10px] p-2.5" style="box-shadow:var(--ml-shadow-card);transform:rotate(-3deg);">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <h3 class="ml-text-xs ml-font-semibold ml-text-ink truncate">世界观设定生成</h3>
+                        </div>
+                        <!-- 带勾圆形绿色图标 + 标签 -->
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style="font-size:10px;background:var(--ml-success-bg);color:var(--ml-success);">
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            已完成一致性校验
+                        </span>
+                        <p class="mt-1.5 ml-text-xs ml-text-gray-2 line-clamp-2">基于设定自动推演时间线、势力关系与地理图谱。</p>
+                    </div>
+
+                    <!-- 卡片2：统计仪表盘卡片（大，居中偏右） -->
+                    <div class="ml-float-card absolute top-24 sm:top-28 left-16 sm:left-20 w-[240px] sm:w-[280px] bg-[var(--ml-paper)] rounded-[12px] p-4" style="box-shadow:var(--ml-shadow-card);transform:rotate(1deg);z-index:2;">
+                        <div class="flex items-center justify-between">
+                            <span class="ml-text-xs ml-text-gray-2 truncate">今日已生成字数</span>
+                            <!-- 上升箭头图标 -->
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ml-ink);" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                        </div>
+                        <!-- 大数字 125,430字 -->
+                        <div class="mt-1.5 ml-text-ink ml-font-bold whitespace-nowrap" style="font-size:26px;line-height:1.2;">125,430字</div>
+                        <!-- 简易柱状图：7 根 div 条形，高度递增 (vc-09) -->
+                        <div class="mt-3 flex items-end gap-1 h-10">
+                            <div style="width:10px;height:30%;background:var(--ml-ink);border-radius:2px;"></div>
+                            <div style="width:10px;height:45%;background:var(--ml-ink);border-radius:2px;"></div>
+                            <div style="width:10px;height:40%;background:var(--ml-ink);border-radius:2px;"></div>
+                            <div style="width:10px;height:60%;background:var(--ml-ink);border-radius:2px;"></div>
+                            <div style="width:10px;height:75%;background:var(--ml-ink);border-radius:2px;"></div>
+                            <div style="width:10px;height:70%;background:var(--ml-ink);border-radius:2px;"></div>
+                            <div style="width:10px;height:90%;background:var(--ml-ink);border-radius:2px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 卡片3：文本生成预览卡片（小，右下） -->
+                    <div class="ml-float-card absolute bottom-0 right-0 sm:right-4 w-[190px] sm:w-[210px] bg-[var(--ml-paper)] rounded-[10px] p-2.5" style="box-shadow:var(--ml-shadow-card);transform:rotate(2deg);">
+                        <p class="ml-font-serif ml-text-ink line-clamp-2" style="font-size:12px;line-height:1.6;color:var(--ml-ink-2);">他拔剑的那一刻，漫天风雪似乎都停滞了。这不是剑意，是...</p>
+                        <!-- 两个 pill 标签：润色完成 / 剧情高潮 (vc-10) -->
+                        <div class="mt-2 flex items-center gap-1.5">
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[var(--ml-paper-3)]" style="font-size:10px;color:var(--ml-gray);">润色完成</span>
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[var(--ml-paper-3)]" style="font-size:10px;color:var(--ml-gray);">剧情高潮</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 聊天式输入框区域 (vc-06) ============ -->
+        <section class="mx-auto max-w-[1200px] px-6 pb-6">
+            <!-- 白色圆角描边输入框 -->
+            <div class="bg-[var(--ml-paper)] rounded-[14px] border border-[var(--ml-line-2)] p-3 sm:p-4" style="box-shadow:var(--ml-shadow-sm);">
+                <!-- 顶部功能行：左图标组 + 右 pill 标签 (vc-12) -->
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <!-- 用户图标 -->
+                        <button class="w-6 h-6 inline-flex items-center justify-center text-[var(--ml-gray-2)] hover:text-[var(--ml-ink)] transition-colors" aria-label="用户">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        </button>
+                        <!-- 分享图标 -->
+                        <button class="w-6 h-6 inline-flex items-center justify-center text-[var(--ml-gray-2)] hover:text-[var(--ml-ink)] transition-colors" aria-label="分享">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                        </button>
+                        <!-- 火花/星图标 -->
+                        <button class="w-6 h-6 inline-flex items-center justify-center text-[var(--ml-gray-2)] hover:text-[var(--ml-ink)] transition-colors" aria-label="灵感">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"></path></svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--ml-paper-3)] ml-text-xs ml-text-gray whitespace-nowrap">技能模式·动态装载</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--ml-paper-3)] ml-text-xs ml-text-gray whitespace-nowrap">高级</span>
+                    </div>
+                </div>
+                <!-- 中间占位文字 -->
+                <div class="py-3">
+                    <p class="ml-text-sm" style="color:var(--ml-gray-3);">帮我构思一个悬疑推理的开头...</p>
+                </div>
+                <!-- 底部分隔线 + 智能体选择器 + 发送按钮 -->
+                <div class="pt-2 border-t border-[var(--ml-line)] flex items-center justify-between gap-3">
+                    <!-- 左侧：智能体标签 + claude-3.5-sonnet 下拉选择器样式 -->
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="ml-text-xs ml-text-gray-2 whitespace-nowrap shrink-0">智能体</span>
+                        <button class="inline-flex items-center gap-1 px-2 h-6 rounded-[5px] border border-[var(--ml-line-2)] bg-[var(--ml-paper)] ml-text-xs ml-text-ink hover:bg-[var(--ml-paper-3)] transition-colors min-w-0">
+                            <span class="truncate">claude-3.5-sonnet</span>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
+                    </div>
+                    <!-- 右侧：圆形黑色发送按钮（内含向上箭头） -->
+                    <button class="shrink-0 w-8 h-8 rounded-full bg-[var(--ml-ink)] text-[var(--ml-paper)] inline-flex items-center justify-center hover:bg-[var(--ml-ink-2)] transition-colors" aria-label="发送">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 底部 CTA 按钮组 (vc-07) ============ -->
+        <section class="mx-auto max-w-[1200px] px-6 pb-10">
+            <div class="flex flex-wrap items-center gap-2.5">
+                <!-- 黑色药丸按钮：+ 快速创建小说 -->
+                <a href="#" class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[var(--ml-ink)] text-[var(--ml-paper)] ml-text-sm ml-font-medium hover:bg-[var(--ml-ink-2)] transition-colors whitespace-nowrap">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    快速创建小说
+                </a>
+                <!-- 黑色药丸按钮：免费注册 -->
+                <a href="#" class="inline-flex items-center px-5 py-2.5 rounded-full bg-[var(--ml-ink)] text-[var(--ml-paper)] ml-text-sm ml-font-medium hover:bg-[var(--ml-ink-2)] transition-colors whitespace-nowrap">免费注册</a>
+                <!-- 白色描边按钮：我的小说 -->
+                <a href="#" class="inline-flex items-center px-5 py-2.5 rounded-full bg-transparent border border-[var(--ml-line-2)] text-[var(--ml-ink)] ml-text-sm ml-font-medium hover:bg-[var(--ml-paper-3)] transition-colors whitespace-nowrap">我的小说</a>
+                <!-- 白色描边按钮：导入小说 -->
+                <a href="#" class="inline-flex items-center px-5 py-2.5 rounded-full bg-transparent border border-[var(--ml-line-2)] text-[var(--ml-ink)] ml-text-sm ml-font-medium hover:bg-[var(--ml-paper-3)] transition-colors whitespace-nowrap">导入小说</a>
+            </div>
+        </section>
+
+        <!-- ============ 页脚 (vc-08 整体留白与层次) ============ -->
+        <footer class="border-t border-[var(--ml-line)]">
+            <div class="mx-auto max-w-[1200px] px-6 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-[5px] bg-[var(--ml-ink)] text-[var(--ml-paper)]">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+                    </span>
+                    <span class="ml-text-xs ml-text-gray">墨阑 · 以书香之韵，驭现代之智</span>
+                </div>
+                <div class="flex items-center gap-4 ml-text-xs ml-text-gray-2">
+                    <a href="#" class="hover:text-[var(--ml-ink)] transition-colors">关于我们</a>
+                    <a href="#" class="hover:text-[var(--ml-ink)] transition-colors">服务条款</a>
+                    <a href="#" class="hover:text-[var(--ml-ink)] transition-colors">隐私政策</a>
+                    <span>© 2026 墨阑</span>
+                </div>
+            </div>
+        </footer>
+
+        <!-- ============ 自定义样式：水墨标题 + 浮动卡片错落感与动画（置于 body 末尾，不在 head） ============ -->
+        <style>
+            /* 水墨毛笔标题：多层 text-shadow 模拟飞白与晕染 */
+            .ml-ink-title {
+                position: relative;
+                color: var(--ml-ink);
+                text-shadow:
+                    0 0 1px rgba(10,10,10,.25),
+                    1px 1px 0 rgba(10,10,10,.08),
+                    -1px -1px 0 rgba(10,10,10,.06),
+                    0 2px 8px rgba(10,10,10,.12);
+                -webkit-text-stroke: 0.3px rgba(10,10,10,.15);
+            }
+            /* 为标题增加淡墨背景晕染装饰 */
+            .ml-ink-title::after {
+                content: '';
+                position: absolute;
+                left: -8px;
+                bottom: -6px;
+                width: 70%;
+                height: 18px;
+                background: radial-gradient(ellipse at center, rgba(10,10,10,.10) 0%, transparent 70%);
+                filter: blur(8px);
+                pointer-events: none;
+                z-index: -1;
+            }
+            /* 浮动卡片轻微上下浮动动画 */
+            .ml-float-card { transition: transform .3s ease, box-shadow .3s ease; }
+            .ml-float-card:hover { box-shadow: var(--ml-shadow-lg); }
+            .ml-float-stage > .ml-float-card:nth-child(1) { animation: ml-float 6s ease-in-out infinite; }
+            .ml-float-stage > .ml-float-card:nth-child(2) { animation: ml-float 7s ease-in-out infinite .8s; }
+            .ml-float-stage > .ml-float-card:nth-child(3) { animation: ml-float 8s ease-in-out infinite 1.6s; }
+            @keyframes ml-float {
+                0%, 100% { translate: 0 0; }
+                50% { translate: 0 -6px; }
+            }
+            /* 尊重用户的减少动态偏好 */
+            @media (prefers-reduced-motion: reduce) {
+                .ml-float-stage > .ml-float-card { animation: none; }
+                * { transition: none !important; }
+            }
+            /* 移动端：浮动卡片改为静态堆叠，避免溢出 */
+            @media (max-width: 1023px) {
+                .ml-float-stage { position: relative; height: auto; display: flex; flex-direction: column; gap: 16px; padding: 8px 0; }
+                .ml-float-card { position: static !important; transform: none !important; width: 100% !important; animation: none !important; }
+            }
+        </style>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

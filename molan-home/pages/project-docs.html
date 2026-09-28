@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="alternate icon" href="../favicon.ico">
+  <title>作品资料中心 · 墨阑</title>
+  <link rel="stylesheet" href="./project-docs.css">
+</head>
+<body>
+  <header class="docs-topbar">
+    <a id="backEditor" href="../index.html#editor">返回编辑器</a>
+    <div>
+      <span class="docs-eyebrow">PROJECT DOCUMENTS</span>
+      <h1 id="projectTitle">作品资料中心</h1>
+    </div>
+    <div class="docs-actions">
+      <a id="storyWorkbench" href="./story-workbench.html">故事记忆与文风</a>
+      <button id="exportBtn" type="button">导出整包</button>
+      <label class="docs-button">
+        导入恢复
+        <input id="restoreInput" type="file" accept="application/json,.json">
+      </label>
+    </div>
+  </header>
+
+  <main class="docs-shell">
+    <nav class="docs-nav" aria-label="资料分区">
+      <button class="is-active" data-zone="base">基础定位</button>
+      <button data-zone="world">世界观</button>
+      <button data-zone="characters">人物与关系</button>
+      <button data-zone="outline">总卷章纲</button>
+      <button data-zone="materials">专项素材</button>
+      <button data-zone="management">写作管理</button>
+      <button data-zone="publication">发布与后期</button>
+    </nav>
+
+    <section class="docs-panel" data-panel="base">
+      <div class="docs-panel__head">
+        <div>
+          <span class="docs-eyebrow">A · POSITIONING</span>
+          <h2>基础定位</h2>
+        </div>
+        <span id="revisionBadge" class="docs-revision">版本读取中</span>
+      </div>
+      <form id="baseForm" class="base-grid">
+        <label>书名<input name="title" maxlength="200"></label>
+        <label>副标题<input name="subtitle" maxlength="200"></label>
+        <label>笔名<input name="penName" maxlength="120"></label>
+        <label>复合题材<input name="genre" maxlength="200" placeholder="例如：都市悬疑·成长"></label>
+        <label>主题/立意<textarea name="theme" rows="3"></textarea></label>
+        <label>作品基调<textarea name="tone" rows="3"></textarea></label>
+        <label>目标读者<textarea name="targetReader" rows="3"></textarea></label>
+        <label>核心卖点与开篇钩子<textarea name="sellingPoints" rows="3"></textarea></label>
+        <label>完结规划<textarea name="completionPlan" rows="3"></textarea></label>
+        <label>一句话简介<textarea name="shortSynopsis" rows="3"></textarea></label>
+        <label class="base-grid__wide">长简介/宣传文案<textarea name="longSynopsis" rows="5"></textarea></label>
+        <label>目标总字数<input name="targetWordCount" type="number" min="0" step="1000"></label>
+        <label>预计章节数<input name="targetChapterCount" type="number" min="0"></label>
+        <div class="base-grid__wide docs-form-actions">
+          <button class="primary" type="submit">保存基础定位</button>
+          <span id="baseStatus" class="docs-status"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="docs-panel" data-panel="resources" hidden>
+      <div class="docs-panel__head">
+        <div>
+          <span id="resourceEyebrow" class="docs-eyebrow">STRUCTURED RESOURCES</span>
+          <h2 id="resourceTitle">资料维护</h2>
+        </div>
+        <button id="newResourceBtn" class="primary" type="button">新建资料</button>
+      </div>
+      <div class="resource-toolbar">
+        <label>全套资料<select id="requirementSelect" aria-label="选择资料项目"></select></label>
+        <label>资料类型<select id="kindSelect"></select></label>
+        <input id="resourceSearch" type="search" placeholder="搜索 ID 或内容">
+        <span id="resourceStatus" class="docs-status"></span>
+      </div>
+      <div id="resourceList" class="resource-list"></div>
+    </section>
+  </main>
+
+  <div id="resourceDialog" class="docs-dialog" hidden>
+    <form id="resourceForm" class="docs-dialog__card">
+      <div class="docs-dialog__head">
+        <div>
+          <span class="docs-eyebrow">VERSIONED RESOURCE</span>
+          <h2 id="resourceDialogTitle">新建资料</h2>
+        </div>
+        <button id="resourceCloseBtn" type="button" class="icon-button" aria-label="关闭">×</button>
+      </div>
+      <label>稳定 ID<input id="resourceId" required maxlength="256"></label>
+      <div id="structuredFields" class="structured-fields"></div>
+      <label>JSON 资料负载<textarea id="resourcePayload" rows="18" spellcheck="false" required></textarea></label>
+      <p class="docs-hint">常用字段可直接编辑；未建模字段继续保留在 JSON 中。资料保存使用当前 revision/ETag，可填写 references、sourceRefs、continuityId 等关联字段。</p>
+      <section id="resourceHistoryPanel" class="resource-history" hidden>
+        <h3>历史版本</h3>
+        <div id="resourceHistoryList"></div>
+      </section>
+      <div class="docs-form-actions">
+        <button id="resourceDeleteBtn" class="danger" type="button" hidden>归档资料</button>
+        <span id="resourceFormStatus" class="docs-status"></span>
+        <button class="primary" type="submit">保存资料</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="docsToast" class="docs-toast" role="status" aria-live="polite"></div>
+  <script src="../lib/project-material-schema.js"></script>
+  <script src="./project-docs.js"></script>
+</body>
+</html>

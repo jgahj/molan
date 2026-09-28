@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/fiction-style-profile.schema.json",
+  "title": "Portable Fiction Style Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "metadata",
+    "parameters",
+    "style_profile",
+    "canon_constraints",
+    "craft_constraints",
+    "evidence_ledger",
+    "evaluation_cases"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "name", "version", "language", "created_at", "updated_at"],
+      "properties": {
+        "profile_id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "language": {"type": "string", "minLength": 2},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "description": {"type": "string"},
+        "change_log": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["version", "date", "summary"],
+            "properties": {
+              "version": {"type": "string"},
+              "date": {"type": "string"},
+              "summary": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "$ref": "#/$defs/parameters"
+    },
+    "style_profile": {
+      "type": "object",
+      "description": "Transferable prose behavior grouped by feature axis.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"$ref": "#/$defs/trait"}
+      }
+    },
+    "canon_constraints": {
+      "type": "array",
+      "description": "Project-specific facts, excluded from portable style rules.",
+      "items": {"$ref": "#/$defs/constraint"}
+    },
+    "craft_constraints": {
+      "type": "array",
+      "description": "Accepted general storytelling rules.",
+      "items": {"$ref": "#/$defs/constraint"}
+    },
+    "task_constraints": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/constraint"},
+      "default": []
+    },
+    "evidence_ledger": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/evidence"}
+    },
+    "evaluation_cases": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/evaluationCase"}
+    },
+    "genre": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary": {"type": "string"},
+        "secondary": {"type": "string"},
+        "tags": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "sellingPoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["point"],
+        "properties": {
+          "point": {"type": "string"},
+          "evidenceRefs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "sentenceFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "avgSentenceLen": {"type": "number"},
+        "shortLongRatio": {"type": "string"},
+        "dialogueRatio": {"type": "number"},
+        "descriptionRatio": {"type": "number"},
+        "actionRatio": {"type": "number"},
+        "psychologyRatio": {"type": "number"},
+        "highFreqPatterns": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "reusableTemplates": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "openingTemplate": {"type": "array"},
+        "sceneTemplate": {"type": ["string", "array"]},
+        "conflictEscalationTemplate": {"type": ["string", "array"]},
+        "goldenFingerTemplate": {"type": "object"},
+        "avoidList": {"type": "array"}
+      }
+    },
+    "emotion": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "emotionCurve": {"type": "array"},
+        "tensionPeaks": {"type": "array"},
+        "coolPoints": {"type": "array"},
+        "sellingPointTypes": {"type": "array"},
+        "emotionClosure": {"type": "object"}
+      }
+    },
+    "conflictStats": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "types": {"type": "array"},
+        "total": {"type": "number"}
+      }
+    },
+    "logicFlaws": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["issue"],
+        "properties": {
+          "issue": {"type": "string"},
+          "position": {"type": "string"},
+          "suggestion": {"type": "string"},
+          "confidence": {"type": "number"}
+        }
+      }
+    },
+    "chapterIndex": {
+      "type": "array",
+      "items": {"type": "object"}
+    }
+  },
+  "$defs": {
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["identify", "analyze", "define", "calibrate", "apply", "dissect", "export"]},
+        "interaction_depth": {"enum": ["quick", "standard", "deep"]},
+        "style_strength": {"type": "integer", "minimum": 0, "maximum": 100},
+        "preserve_plot": {"type": "boolean"},
+        "preserve_pov": {"type": "boolean"},
+        "preserve_terms": {"type": "boolean"},
+        "preserve_length": {"enum": ["strict", "flexible", "free"]},
+        "dialogue_density": {"$ref": "#/$defs/density"},
+        "exposition_density": {"$ref": "#/$defs/density"},
+        "thought_explicitness": {"$ref": "#/$defs/density"},
+        "rhythm_variation": {"$ref": "#/$defs/density"},
+        "description_density": {"$ref": "#/$defs/density"},
+        "de_ai_strength": {"type": "integer", "minimum": 0, "maximum": 100},
+        "evidence_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+        "uncertainty_policy": {"enum": ["ask", "preserve", "conservative"]},
+        "output_bundle": {"enum": ["markdown", "json", "prompt", "full"]}
+      }
+    },
+    "density": {
+      "oneOf": [
+        {"enum": ["inherit", "low", "medium", "high"]},
+        {"type": "integer", "minimum": 0, "maximum": 100}
+      ]
+    },
+    "trait": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature_id",
+        "rule",
+        "rule_type",
+        "scope",
+        "exceptions",
+        "evidence_refs",
+        "evidence_count",
+        "confidence",
+        "priority",
+        "status"
+      ],
+      "properties": {
+        "feature_id": {"type": "string", "minLength": 1},
+        "rule": {"type": "string", "minLength": 1},
+        "rule_type": {"enum": ["hard_rule", "preference", "tendency", "avoidance", "open_choice"]},
+        "scope": {"type": "array", "items": {"type": "string"}},
+        "exceptions": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_count": {"type": "integer", "minimum": 0},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "priority": {"type": "integer", "minimum": 0, "maximum": 100},
+        "status": {"enum": ["candidate", "confirmed", "hard_rule", "conflicted", "retired", "unknown"]},
+        "rationale": {"type": "string"},
+        "positive_example": {"type": "string"},
+        "counterexample": {"type": "string"}
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["constraint_id", "text", "status"],
+      "properties": {
+        "constraint_id": {"type": "string", "minLength": 1},
+        "text": {"type": "string", "minLength": 1},
+        "status": {"enum": ["active", "conflicted", "retired"]},
+        "source_ref": {"type": "string"},
+        "scope": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "source_type", "observation", "inferred_rule", "confidence", "status"],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1},
+        "source_type": {"enum": ["explicit_correction", "user_final_edit", "accepted_rewrite", "repeated_sample", "single_sample", "general_advice"]},
+        "source_locator": {"type": "string"},
+        "original_fragment": {"type": "string"},
+        "revised_fragment": {"type": "string"},
+        "observation": {"type": "string", "minLength": 1},
+        "inferred_rule": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string"},
+        "feature_axes": {"type": "array", "items": {"type": "string"}},
+        "scope": {"type": "array", "items": {"type": "string"}},
+        "exceptions": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "status": {"enum": ["candidate", "confirmed", "hard_rule", "conflicted", "retired"]}
+      }
+    },
+    "evaluationCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "purpose", "rules_under_test", "expected_behaviors", "failure_indicators"],
+      "properties": {
+        "case_id": {"type": "string", "minLength": 1},
+        "purpose": {"type": "string", "minLength": 1},
+        "input": {"type": "string"},
+        "parameters": {"$ref": "#/$defs/parameters"},
+        "rules_under_test": {"type": "array", "items": {"type": "string"}},
+        "expected_behaviors": {"type": "array", "items": {"type": "string"}},
+        "failure_indicators": {"type": "array", "items": {"type": "string"}},
+        "reference_output": {"type": "string"}
+      }
+    }
+  }
+}

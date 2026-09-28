@@ -1,0 +1,18 @@
+{
+  "bookId": "cb_tiandiweizhang",
+  "debts": [
+    {
+      "id": "debt_1789472157420_tianzhai1",
+      "originChapter": 1,
+      "type": "payoff",
+      "debtCategory": "high_stakes",
+      "seed": "沈衡以十年寿元为契预支一缕天地纯灵逆斩强敌，欠天地十年寿，利息三缕灵，到期三日后。",
+      "immediateCost": "预支十年寿元，经脉因天道纯灵冲刷受重创，被灵衡司升起三道追查符光通缉逃亡。",
+      "status": "active",
+      "maturationChapter": 2,
+      "payoffTier": 1,
+      "suggestedPayoffAction": "三日内须寻得三缕纯净天地灵气偿还天债，否则寿元剧烈衰竭且引来天道反噬。",
+      "recordedAt": 1789472157420
+    }
+  ]
+}

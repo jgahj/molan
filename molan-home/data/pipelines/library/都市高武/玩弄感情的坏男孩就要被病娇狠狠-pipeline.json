@@ -1,0 +1,134 @@
+{
+  "$schema": "https://molan.ai/schemas/pipeline-v1.json",
+  "pipelineId": "pipeline-38b1dfd413accbdf-v1",
+  "version": "1.0.0",
+  "meta": {
+    "name": "《玩弄感情的坏男孩就要被病娇狠狠》9月10日标杆叙事引擎：都市日常特化流",
+    "genre": "都市高武 / 都市日常",
+    "sourceNovel": {
+      "title": "玩弄感情的坏男孩就要被病娇狠狠",
+      "author": "名家精选",
+      "bookId": "38b1dfd413accbdf",
+      "category": "都市日常",
+      "family": "都市高武",
+      "totalChapters": 88,
+      "samplePointers": {
+        "firstChapter": "第1章 网恋两年半，就为了奔现那天删了她！",
+        "midChapter": "第45章 哥哥，我恨你，我们分手吧，我遇到了比你更好的人",
+        "lastChapter": "第88章 别人都知道了，到时候你怎么嫁人？（评分加更）"
+      }
+    },
+    "coreDrive": "市井小民柴米油盐与二手房菜市场烟火流，在人情冷暖、学区房与邻里琐碎中见人间真味 ➔ 当众破局导致身份或底牌暴露、与敌对势力结下不可调和的死仇、被正式卷入更高层级的城市风暴"
+  },
+  "macroRhythm": {
+    "openingPacingModel": {
+      "targetChapterWordCount": [
+        2500,
+        3500
+      ],
+      "goldFiveChaptersBlueprint": [
+        {
+          "chapterIndex": 1,
+          "titlePattern": "【第1章 网恋两年半，就为了奔现那天删了她！ ➔ 严酷物理阻力 ➔ 突发危机破绽】",
+          "emotionIntensity": 4,
+          "tensionCurve": "日常微观生计(3) ➔ 规制摩擦与代价试探(5) ➔ 异象或危机制高点(7) ➔ 警报断章(8)",
+          "narrativeMission": "确立主角身份、生存环境真实阻力（小电驴迎风电量骤降、老楼六层爬楼喘粗气、菜摊抹零三毛钱的反复拉扯）；引出核心动机（在都市官方秩序、宗武行会或防务考核中确立合法资历，化解突发险情并护持身边之人）；章末以即时危险强力留钩。",
+          "hookType": "生存倒计时或核心底牌受迫暴露威胁"
+        },
+        {
+          "chapterIndex": 2,
+          "titlePattern": "【突围受挫 ➔ 严酷物理损伤 ➔ 果断反制破局】",
+          "emotionIntensity": 7,
+          "tensionCurve": "险境封堵(7) ➔ 器械/武力受损(8) ➔ 抓住关键破绽(8) ➔ 惨胜制敌见血(9)",
+          "narrativeMission": "写实展开第一场生死搏杀或利益碰撞；展现身体受创与物资消耗；绝无空灵闪避，全写物理重量与借力换位。",
+          "hookType": "线索外泄或敌对势力二阶段更大压迫"
+        },
+        {
+          "chapterIndex": 3,
+          "titlePattern": "【盟友入局 ➔ 隐秘利益账本 ➔ 势力裂隙初显】",
+          "emotionIntensity": 6,
+          "tensionCurve": "伤口处理与物资清点(5) ➔ 关键盟友带战略物资入场(7) ➔ 利益分配分歧(7) ➔ 外部围网逼近(8)",
+          "narrativeMission": "揭开危机背后的体制或利益网（城市治安监控网的覆盖死角、对手背后的资本派系与更高层级的防务演练暗线）；确立与盟友的理性合作契约；章末倒计时逼近。",
+          "hookType": "因果揭晓与不可逆抉择"
+        },
+        {
+          "chapterIndex": 4,
+          "titlePattern": "【防线撕裂 ➔ 底牌极限出鞘 ➔ 决定性战役】",
+          "emotionIntensity": 9,
+          "tensionCurve": "外部重压逼临绝境(8) ➔ 孤立无援(9) ➔ 动用隐秘传承/技术绝杀(10) ➔ 震撼破局(8)",
+          "narrativeMission": "第一卷最高潮之战；主角在所有人面前兑现不可替代的生存与战斗价值；彻底打破原有压迫平衡。",
+          "hookType": "阶段性大捷 + 更高阶势力目光投射"
+        },
+        {
+          "chapterIndex": 5,
+          "titlePattern": "【结算战果 ➔ 规则初立 ➔ 新天地大幕展开】",
+          "emotionIntensity": 7,
+          "tensionCurve": "战后重组秩序(6) ➔ 结算核心权益（${mech.settlementStakes}）(8) ➔ 确立新地位(7) ➔ 遥望下一重险峰(8)",
+          "narrativeMission": "第一卷圆满闭环；兑现利益凭证；确立不可动摇的话语权；引出更宏大世界观主线。",
+          "hookType": "世界观主线大幕拉开"
+        }
+      ]
+    },
+    "macroProgressionLaws": {
+      "crisisDualTrack": "【外部恶劣生存压力】 + 【内部利益与组织制度摩擦（小电驴迎风电量骤降、老楼六层爬楼喘粗气、菜摊抹零三毛钱的反复拉扯）】，双轨交织。",
+      "physicalWeightLaw": "严格遵循客观世界物理规律与生理耐受极限。失血必虚脱、受冻必僵硬、器械受压必形变。严禁无代价自愈。"
+    }
+  },
+  "narrativeSlots": {
+    "protagonistSlot": {
+      "archetypeRole": "深谙都市日常现实规则、沉静果决的求生与破局者",
+      "coreTraits": "目光清亮敏锐、作风雷厉克制、做事从不逞口舌之快、身负重担却不宣泄负面情绪",
+      "voiceSpec": {
+        "samples": [
+          "多余的废话留给能活下来的人说，先把眼前的死局解了。",
+          "既然规矩是用来压人的，那就按我的账目重新立规矩。"
+        ],
+        "taboos": [
+          "严禁突然冒出修仙大能破坏日常氛围、严禁贩卖焦虑让读者生理不适",
+          "绝不说教与中二叫嚣",
+          "不在生死关头冷笑讥讽"
+        ]
+      },
+      "tellSpec": {
+        "anxious": "指尖微扣掌心伤痕，呼吸减缓至平时一半观察破绽",
+        "focused": "肌肉微紧重心沉于足下，眼神不怒自威凝视关键枢纽",
+        "grief": "背对众人整理残破衣物或擦拭器械，默不作声"
+      }
+    }
+  },
+  "causalDebt": {
+    "trackerRules": [
+      "每一次动用底牌或非常规手段破局，必在下一章承担资源亏空或引来审查。",
+      "击杀或得罪对手必留下物理痕迹与社会关系牵连。"
+    ]
+  },
+  "writingSkillSpec": {
+    "styleToneId": "write-high-tension-fiction",
+    "fewShotExemplars": [
+      {
+        "sceneType": "opening_atmospheric_friction",
+        "annotation": "开篇客观环境物态阻力与行动切入",
+        "text": "那可是夏安眠啊，不仅是班长，严厉程度甚至堪比升华班的第二班主任，升华班全班600＋的成绩也有她的一份功劳。"
+      },
+      {
+        "sceneType": "interpersonal_dialogue_tension",
+        "annotation": "克制对白博弈与利益试探",
+        "text": "在“失眠熊”的世界里，对面是一个叫“宁归”的男孩，也是这个学校的的，喜欢篮球，父母的感情不好，所以他对感情格外认真。"
+      }
+    ]
+  },
+  "styleDirectives": {
+    "prohibitedWords": [
+      "眼神一凝",
+      "倒吸一口凉气",
+      "嘴角勾起一抹弧度",
+      "深吸一口气",
+      "恐怖如斯",
+      "眸中闪过一丝异色"
+    ],
+    "encouragedPatterns": [
+      "客观物态、公差参数、生理受挫的精准描写",
+      "成年人克制、专业、充满潜台词的对白交锋"
+    ]
+  }
+}

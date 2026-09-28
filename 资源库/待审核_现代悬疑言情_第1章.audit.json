@@ -1,0 +1,175 @@
+{
+  "schemaVersion": "character-material-generation-audit-1",
+  "status": "manual-review-pending",
+  "generatedAt": "2026-08-30T19:43:00+08:00",
+  "generationMethod": "model-generated-with-runtime-material-context",
+  "sourcePolicy": "runtime-index-from-original-local-corpus-only",
+  "legacyInputsUsed": false,
+  "contextAnalysis": {
+    "scene": "雨夜，顾沉家客厅与玄关",
+    "relationship": "暧昧关系中的互相保护与不完全信任",
+    "emotion": [
+      "怀疑",
+      "克制",
+      "失望",
+      "紧张",
+      "牵挂"
+    ],
+    "intent": "林晚用快递单、旧档案、登记表和腕带旁敲侧击，确认顾沉是否主动隐瞒；顾沉回避核心问题并保护证据",
+    "subtext": "林晚真正追问的是顾沉是否信任她；顾沉真正防备的是她被推到证人或嫌疑人的位置",
+    "characterState": {
+      "林晚": "发现顾沉掌握父亲旧案的更多线索，表面照常关心，实际逐项验证他的说法",
+      "顾沉": "掌握周成的录音和B-17线索，愿意保护林晚，却仍把关键决定留在自己手里"
+    },
+    "dimension": [
+      "expression",
+      "action",
+      "dialogue"
+    ],
+    "archetype": "温柔内敛型",
+    "viewpoint": "贴近林晚的第三人称限知",
+    "goal": "林晚在不直接争吵的情况下确认顾沉是否主动隐瞒，并取得至少一项可验证证据",
+    "opposition": "顾沉的回避、证据链的不完整、旧库房的时间窗口和即将到来的陌生人",
+    "stakes": "林晚若确认顾沉有意隐瞒，两人的信任会受损；若错过时间窗口，周成的证词和旧案线索可能同时失去",
+    "timeLimit": "23:40旧记录对应的氧气站时间，以及凌晨一点周成的手术",
+    "irreversibleChange": "林晚确认顾沉至少隐瞒了三天，并从B-17腕带获得将父亲与地下区域联系起来的新线索",
+    "chapterHook": "陌生男人持取消手术通知单出现，周成的手术被取消"
+  },
+  "index": {
+    "path": "C:\\Users\\lyh\\Desktop\\小说专属网页\\molan-home\\lib\\character-material\\index.json",
+    "version": "character-material-raw-v3.1-1",
+    "published": true,
+    "rawTextRuntime": true,
+    "generalSampleCount": 78329,
+    "matureSampleCount": 0
+  },
+  "request": {
+    "mode": "strong",
+    "enabled": true,
+    "proseTask": true,
+    "archetypes": [],
+    "dimensions": [
+      "expression",
+      "action",
+      "dialogue"
+    ],
+    "genre": "悬疑",
+    "scene": "试探",
+    "relationship": "暧昧对象",
+    "emotionalState": [
+      "紧张",
+      "失望",
+      "压抑"
+    ],
+    "intent": "隐瞒",
+    "humanTextureSignals": [
+      "withholding",
+      "avoidance",
+      "topic_shift"
+    ],
+    "query": "林晚到顾沉家，发现顾沉隐瞒周成手术和关键证据，她要确认他是否说谎并争取证据与离开时间"
+  },
+  "material": {
+    "retrievalAudit": {
+      "enabled": true,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "strong",
+      "downgradeReason": "",
+      "scene": "试探",
+      "relationship": "暧昧对象",
+      "emotionalState": [
+        "紧张",
+        "失望",
+        "压抑"
+      ],
+      "intent": "隐瞒",
+      "sampleCount": 1,
+      "ruleCount": 1,
+      "profileAvailable": false,
+      "profileFallback": true,
+      "contextFallback": false,
+      "sampleSources": [
+        "7cedd62be2ddac89"
+      ]
+    },
+    "selectedSampleIds": [
+      "raw-1297b77a996b666d"
+    ],
+    "approvedSampleIds": [
+      "raw-1297b77a996b666d"
+    ],
+    "sampleReview": [
+      {
+        "id": "raw-1297b77a996b666d",
+        "pass": true,
+        "reason": "样本通过停顿、旁敲侧击和表面问题承载真实意图；只用于学习行为机制，不复用原文表达。"
+      }
+    ],
+    "sourceTextCopiedIntoChapter": false
+  },
+  "generation": {
+    "characterCount": 2804,
+    "hanCharacterCount": 2292,
+    "targetRange": [
+      2600,
+      3200
+    ],
+    "lengthPass": true,
+    "correctionAudit": {
+      "version": "universal-v2-2026-08-21",
+      "enabled": true,
+      "status": "passed",
+      "findingCount": 0,
+      "matchedRuleIds": []
+    },
+    "materialOverlap": {
+      "checkedSampleCount": 1,
+      "overlapFragments": [],
+      "leakedTerms": [],
+      "blocked": false
+    }
+  },
+  "generationReview": {
+    "hardErrors": {
+      "pass": true,
+      "issues": []
+    },
+    "characterAuthenticity": {
+      "score": 8,
+      "issues": [
+        "林晚用具体物件和略答、回避、重复确认逐步试探，行为目标清楚。",
+        "顾沉的隐瞒有证人保护和程序风险作为动机，没有无筹码强行压服林晚。"
+      ]
+    },
+    "aiFlavor": {
+      "score": 4,
+      "issues": [
+        "对话保留了打断、拒答和未完成的信息交换，未出现连续的模板化总结。",
+        "证据递进较集中，仍保留悬疑类型的编排感，留待人工审核。"
+      ]
+    },
+    "literaryQuality": {
+      "score": 8,
+      "issues": [
+        "雨夜、客厅、玄关和旧物件形成连续空间，证据链能改变人物下一步选择。",
+        "章末通知单带来立即的证人风险和关系压力。"
+      ]
+    },
+    "overallPass": true,
+    "revisionNeeded": false,
+    "summary": "时间线、动机、证据强度、空间行动和人物关系变化基本自洽；主要质量判断仍交由用户进行最终阅读审核。"
+  },
+  "manualReview": {
+    "required": true,
+    "reviewed": false,
+    "reason": "用户要求自动完成流程后人工审核完整章节。",
+    "reviewScope": [
+      "自然度",
+      "人物个体性",
+      "对白与潜台词",
+      "行为合理性",
+      "整体可读性"
+    ]
+  }
+}

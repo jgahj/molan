@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "correction-hits-1",
+  "totalRequests": 126,
+  "passedRequests": 27,
+  "rules": {
+    "R-45-chapter-length-standard": {
+      "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+      "severity": "high",
+      "hits": 79,
+      "requests": 79,
+      "editorOnlyHits": 0,
+      "lastText": "# 神手谷的考验\n\n神手谷的偏厢房常年关着半扇窗，屋里没有多少阳光，药材的气味却积得很厚。苦参、黄精、蛇涎草混在一起，沉",
+      "lastAt": 1790159342806
+    },
+    "R-08-formulaic-reasoning": {
+      "label": "工整二分或完整心理链",
+      "severity": "medium",
+      "hits": 48,
+      "requests": 28,
+      "editorOnlyHits": 0,
+      "lastText": "不是杀伐神意，而是",
+      "lastAt": 1790145556847
+    },
+    "R-15-redundant-transition": {
+      "label": "无功能转场或能力复述",
+      "severity": "low",
+      "hits": 8,
+      "requests": 7,
+      "editorOnlyHits": 0,
+      "lastText": "终于明白",
+      "lastAt": 1790093675185
+    },
+    "R-12-decorative-quantity": {
+      "label": "装饰性数量词",
+      "severity": "medium",
+      "hits": 2,
+      "requests": 2,
+      "editorOnlyHits": 0,
+      "lastText": "一股冷意",
+      "lastAt": 1790090545377
+    },
+    "L-derived-check": {
+      "label": "纠错库派生检查项",
+      "severity": "medium",
+      "hits": 4,
+      "requests": 4,
+      "editorOnlyHits": 0,
+      "lastText": "收回去",
+      "lastAt": 1790093361156
+    },
+    "R-13-artificial-body-subject": {
+      "label": "局部替代人物主体",
+      "severity": "low",
+      "hits": 7,
+      "requests": 6,
+      "editorOnlyHits": 0,
+      "lastText": "目光越过堂中几人，落在",
+      "lastAt": 1790093511781
+    },
+    "R-38-game-meter-ticking": {
+      "label": "战斗中机械数值打卡/跳字",
+      "severity": "high",
+      "hits": 1,
+      "requests": 1,
+      "editorOnlyHits": 0,
+      "lastText": "力量从印记中散开，停在离气海最近的一",
+      "lastAt": 1789401422075
+    },
+    "L-blacklist-22": {
+      "label": "纠错库黑名单：用户纠正重点近义变体",
+      "severity": "high",
+      "hits": 2,
+      "requests": 2,
+      "editorOnlyHits": 0,
+      "lastText": "正面刻着",
+      "lastAt": 1790090724766
+    },
+    "R-06-postposed-state": {
+      "label": "状态后置表达不自然",
+      "severity": "medium",
+      "hits": 1,
+      "requests": 1,
+      "editorOnlyHits": 0,
+      "lastText": "说得很轻",
+      "lastAt": 1790090724766
+    },
+    "L-registered-case": {
+      "label": "纠错库已登记原句",
+      "severity": "medium",
+      "hits": 3,
+      "requests": 3,
+      "editorOnlyHits": 0,
+      "lastText": "他终于明白",
+      "lastAt": 1790093675185
+    },
+    "R-27-turn-taking-brawl": {
+      "label": "动作戏回合制点名排队",
+      "severity": "high",
+      "hits": 1,
+      "requests": 1,
+      "editorOnlyHits": 0,
+      "lastText": "第二名士卒已经拔刀",
+      "lastAt": 1790090952557
+    },
+    "R-39-staccato-subject-monotony": {
+      "label": "主角名连续主语发报机句式",
+      "severity": "medium",
+      "hits": 1,
+      "requests": 1,
+      "editorOnlyHits": 0,
+      "lastText": "比如某地山体滑坡。\n\n比如某地发现新物种。\n\n比如某位老干部因病去世。",
+      "lastAt": 1790092482523
+    },
+    "R-16-lip-corner": {
+      "label": "不自然用词“唇角”应改“嘴角”",
+      "severity": "low",
+      "hits": 1,
+      "requests": 1,
+      "editorOnlyHits": 0,
+      "lastText": "唇角",
+      "lastAt": 1790092941249
+    },
+    "R-05-formulaic-metaphor": {
+      "label": "高风险套话比喻",
+      "severity": "high",
+      "hits": 1,
+      "requests": 1,
+      "editorOnlyHits": 0,
+      "lastText": "如雨",
+      "lastAt": 1790148429416
+    }
+  },
+  "updatedAt": 1790159342806
+}

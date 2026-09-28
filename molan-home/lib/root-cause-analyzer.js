@@ -1,0 +1,609 @@
+'use strict';
+
+/**
+ * root-cause-analyzer.js
+ * ---------------------------------------------------------------------------
+ * 小说生成系统根因分析器 (Novel Generation System Root Cause Analyzer)
+ *
+ * 核心设计原则：
+ * 1. 绝不流于表面问题修补，专注于追踪“为什么会产生这个问题”；
+ * 2. 严格遵循 6 层根因追踪链：
+ *    现象 (Phenomenon)
+ *      ↓
+ *    直接原因 (Direct Cause)
+ *      ↓
+ *    系统原因 (System Cause)
+ *      ↓
+ *    流程原因 (Process Cause)
+ *      ↓
+ *    数据原因 (Data Cause)
+ *      ↓
+ *    架构原因 (Architectural Cause)
+ * 3. 严格遵循 17 类根因分类规范体系；
+ * 4. 关键裁决：严密甄别“内容本身的问题”与“生成系统导致的问题”，并给出
+ *    “该缺陷应该修改小说，还是修改生成系统”的终局结论；
+ * 5. 纯审不改原则：只分析根因与输出报告，不擅自修改小说正文。
+ * ---------------------------------------------------------------------------
+ */
+
+const fs = require('node:fs');
+const path = require('node:path');
+const { buildRootCauseVector } = require('./quality-vectors');
+
+const HISTORICAL_SAMPLE_ID = 'yueyuan-2026-09-10';
+
+// 17 类标准根因分类体系
+const ROOT_CAUSE_CATEGORIES = Object.freeze({
+  DATA: '1. 数据问题',
+  BENCHMARK: '2. Benchmark问题',
+  STORY_BIBLE: '3. Story Bible问题',
+  PLANNER: '4. Planner问题',
+  SCENE_PLANNER: '5. Scene Planner问题',
+  WRITER: '6. Writer问题',
+  PROMPT: '7. Prompt问题',
+  MEMORY: '8. Memory问题',
+  STATE: '9. State问题',
+  CHARACTER: '10. Character问题',
+  EMOTION: '11. Emotion问题',
+  CAUSAL_DEBT: '12. Causal Debt问题',
+  REVISION: '13. Revision问题',
+  EVALUATOR: '14. Evaluator问题',
+  AI_FLAVOR: '15. AI Flavor问题',
+  MODEL_CAPABILITY: '16. 模型能力问题',
+  SYSTEM_ARCHITECTURE: '17. 系统架构问题'
+});
+
+/**
+ * 加载根因分析所需的系统与评测数据资产
+ */
+function loadRootCauseInputs(options = {}) {
+  const baseDir = path.resolve(__dirname, '..');
+  const sampleId = options.sampleId || null;
+
+  // 1. 缺陷清单 (Defect Registry)
+  const defectJsonPath = options.defectRegistryPath ||
+    path.join(baseDir, 'data/evaluation-input/defect-registry/月圆夜前的布局-defects.json');
+  let defectRegistry = null;
+  if (fs.existsSync(defectJsonPath)) {
+    try {
+      defectRegistry = JSON.parse(fs.readFileSync(defectJsonPath, 'utf8'));
+    } catch (_) {}
+  }
+
+  // 若缺陷注册表不存在，则尝试动态调用 defect-detector
+  if (!defectRegistry) {
+    try {
+      const { detectNovelQualityDefects } = require('./defect-detector');
+      defectRegistry = detectNovelQualityDefects({ sample_id: sampleId });
+    } catch (_) {}
+  }
+
+  // 2. 生成过程资产 (Generation Records & Scripts)
+  const genDir = path.join(baseDir, 'generated/月圆夜前的布局-20260910');
+  const generationRecord = fs.existsSync(path.join(genDir, '生成记录.json'))
+    ? JSON.parse(fs.readFileSync(path.join(genDir, '生成记录.json'), 'utf8'))
+    : null;
+  const revisionFailureRecord = fs.existsSync(path.join(genDir, '修订失败记录.json'))
+    ? JSON.parse(fs.readFileSync(path.join(genDir, '修订失败记录.json'), 'utf8'))
+    : null;
+  const finalCheckRecord = fs.existsSync(path.join(genDir, '定稿校验.json'))
+    ? JSON.parse(fs.readFileSync(path.join(genDir, '定稿校验.json'), 'utf8'))
+    : null;
+  const proofreadNote = fs.existsSync(path.join(genDir, '校对说明.md'))
+    ? fs.readFileSync(path.join(genDir, '校对说明.md'), 'utf8')
+    : '';
+  const promptContent = fs.existsSync(path.join(genDir, '提示词.md'))
+    ? fs.readFileSync(path.join(genDir, '提示词.md'), 'utf8')
+    : '';
+  const generateScript = fs.existsSync(path.join(genDir, 'generate.mjs'))
+    ? fs.readFileSync(path.join(genDir, 'generate.mjs'), 'utf8')
+    : '';
+  const finalChapterText = fs.existsSync(path.join(genDir, '月圆夜前的布局-定稿.md'))
+    ? fs.readFileSync(path.join(genDir, '月圆夜前的布局-定稿.md'), 'utf8')
+    : '';
+
+  // 3. 项目核心基础设施可用性探测
+  const systemInspection = {
+    hasMemorySystem: fs.existsSync(path.join(baseDir, 'lib/memory-system.js')),
+    hasCharacterMaterial: fs.existsSync(path.join(baseDir, 'lib/character-material.js')),
+    hasCharacterContext: fs.existsSync(path.join(baseDir, 'lib/character-material-context.cjs')),
+    hasCausalDebtTracker: fs.existsSync(path.join(baseDir, 'lib/causal-debt-tracker.js')),
+    hasGenreNarrativeAudit: fs.existsSync(path.join(baseDir, 'lib/genre-narrative-audit.js')),
+    hasAiFlavorDetector: fs.existsSync(path.join(baseDir, 'lib/ai-flavor-detector.js')),
+    hasStyleDetector: fs.existsSync(path.join(baseDir, 'lib/style-detector.js')),
+    // 检查一次性生成脚本是否挂载了上述系统模块
+    scriptMountsMemory: generateScript.includes('memory-system'),
+    scriptMountsCharacterContext: generateScript.includes('character-material'),
+    scriptMountsCausalDebt: generateScript.includes('causal-debt'),
+    scriptMountsGenreAudit: generateScript.includes('genre-narrative-audit'),
+    scriptUsesScenePlanner: generateScript.includes('scene-planner') || generateScript.includes('ScenePlanner')
+  };
+
+  return {
+    sample_id: sampleId,
+    defectRegistry,
+    generationRecord,
+    revisionFailureRecord,
+    finalCheckRecord,
+    proofreadNote,
+    promptContent,
+    generateScript,
+    finalChapterText,
+    systemInspection
+  };
+}
+
+/**
+ * 对每一个检出缺陷进行 6 层深度根因追踪分析
+ */
+function analyzeRootCauses(inputs = {}) {
+  const {
+    defectRegistry,
+    generationRecord,
+    revisionFailureRecord,
+    finalCheckRecord,
+    proofreadNote,
+    promptContent,
+    generateScript,
+    systemInspection
+  } = inputs;
+
+  const defects = defectRegistry?.defects || [];
+  const rootCauses = [];
+
+  if (inputs.sample_id !== HISTORICAL_SAMPLE_ID) {
+    const unresolved = defects.filter(item => item && String(item.severity || '').toUpperCase() !== 'E')
+      .map(item => item.defect_id || null);
+    return {
+      status: 'NEEDS_MORE_DATA',
+      meta: {
+        sampleId: inputs.sample_id || null,
+        novelTitle: null,
+        generatedAt: new Date().toISOString(),
+        coverageStatus: 'UNSUPPORTED_SAMPLE',
+        totalDefectsAnalyzed: 0,
+        unresolvedDefectIds: unresolved,
+        systemicAttributionRatio: null
+      },
+      rootCauses,
+      root_cause_vector: buildRootCauseVector({ status: 'partial', rootCauses }),
+      stylisticOrigins: [],
+      categoryDistribution: {},
+      unmappedDefectIds: unresolved,
+      overallVerdict: null
+    };
+  }
+
+  for (const defect of defects) {
+    const id = defect.defect_id;
+    let analysis = null;
+
+    if (id === 'DEF-PIPE-001') {
+      analysis = {
+        defect_id: id,
+        symptom: '全自动生成与修订管线在流式处理中被 aborted，次轮修订发生上游截断（1394字残卷），未能全自动闭环交付。',
+        direct_cause: '客户端 generate.mjs 脚本对上游 SSE 流式协议中的计费事件 (molan_billing) 与正文 JSON 发生解析碰撞；次轮修订遇到上游 usage_unavailable 瞬态错误，而客户端脚本未实现自动指数退避重试直接中断。',
+        root_cause: '缺乏基于状态机驱动的异步任务编排与容错中间件，将复杂的“长文本生成-流式解耦-多步增量重构”直接压成脆弱的一次性同步脚本。',
+        cause_chain: {
+          phenomenon: '首稿修订过程产生 aborted 记录，二次修订仅产出 1394 字符残卷，依赖当前助手做纯文本定向校对兜底。',
+          direct_cause: 'parseLunaStream 接收缓冲区将服务端非正文控制帧（计费事件与心跳）混杂在 SSE data 中解析；遭遇上游网络抖动时无自动重试机制。',
+          system_cause: '生成服务层与客户端脚本之间缺乏可靠的协议多路复用（Multiplexing）契约，缺乏传输层断点重试及会话幂等容错保证。',
+          process_cause: '修订流程采用“全量重写（Full Regeneration）”而非“定向增量补丁（Diff-based Patching）”，在已接近上下文上限（2448字原稿+要求）时一次性重写极易触发超时与 token 突发熔断。',
+          data_cause: '流式数据包未划分 control_frame 与 content_frame，上游计费数据混杂写入正文数据流通道。',
+          architectural_cause: '系统架构缺陷：缺少独立的生成管线协调器（Pipeline Coordinator）与基于状态机的重试/回滚策略，生产脚本与服务端未解耦。'
+        },
+        affected_module: [
+          'Pipeline Coordinator (生成管线调度器)',
+          'Stream Parser (SSE 流式协议解析层)',
+          'Revision Engine (增量修订引擎)'
+        ],
+        root_cause_categories: [
+          ROOT_CAUSE_CATEGORIES.SYSTEM_ARCHITECTURE,
+          ROOT_CAUSE_CATEGORIES.REVISION,
+          ROOT_CAUSE_CATEGORIES.MODEL_CAPABILITY
+        ],
+        evidence: '修订失败记录.json 状态为 "aborted"，错误为 "流式计费事件插入正文JSON导致解析中断"；luna-final-original.txt 仅 1394 字符。',
+        confidence: 0.98,
+        fixability: 'high',
+        recommended_fix_type: 'system_refactor',
+        problem_attribution: {
+          classification: '生成系统导致的问题',
+          is_content_problem: false,
+          is_system_problem: true,
+          systemic_percentage: 100,
+          final_verdict: '修改生成系统',
+          verdict_rationale: '小说正文本身不需要也不应该为网络传输中断或解析崩溃负责。若不修改生成系统的流式解耦与自动重试机制，后续任何小说的全自动生产均会面临相同概率的中断与残卷风险。'
+        }
+      };
+    } else if (id === 'DEF-PACING-001') {
+      analysis = {
+        defect_id: id,
+        symptom: '场景4（神殿母女谈心）到场景5（殿后赠宝）跨越 3 天时间跨度，正文直接使用“三日后，张若尘主动来到云琉神殿”生硬硬切，缺乏时空过渡桥梁。',
+        direct_cause: '文本在该处缺乏 1~2 句承上启下的环境动向或主角心理过渡桥梁，造成瞬间叙事心流顿挫。',
+        root_cause: '系统架构中缺失独立的 Scene Planner（分场景规划器）与转场过渡契约（Transition Contract）；Prompt 直接将 7 个大纲剧情节点平铺喂给 Writer，导致模型为了压缩篇幅只能使用最粗暴的时间跳跃词。',
+        cause_chain: {
+          phenomenon: '正文第 78 段到 79 段直接以孤立词“三日后”跳跃到新场景，前后场景缺少时空呼吸感。',
+          direct_cause: '模型在单步生成中必须兼顾全局字数（2300-2450字）与 7 大剧情节点，被迫压缩过渡描写，选择字数最省但体验生硬的硬切。',
+          system_cause: 'Scene Planner（场景规划器）模块缺位。大纲节点没有被编译为带有“进入条件、环境锚点、时间位移铺垫、退出条件”的细化场景契约。',
+          process_cause: '工作流采用了“一阶段端到端文本生成”而非“大纲 -> 场景切片与转场设计 -> 逐场景写作与缝合”，将宏观时空推进的责任全部推给单次 LLM 推理。',
+          data_cause: 'Prompt 提示词中未包含场景间的环境状态、时间演进刻度与时空过渡指令。',
+          architectural_cause: '架构缺少分层编排：系统缺少 Chapter Planner 与 Scene Planner 的解耦设计，没有转场缓冲机制（Transition Buffer）。'
+        },
+        affected_module: [
+          'Scene Planner (分场景规划器)',
+          'Prompt Assembly (提示词组装引擎)',
+          'Narrative Transition Guard (叙事转场门禁)'
+        ],
+        root_cause_categories: [
+          ROOT_CAUSE_CATEGORIES.SCENE_PLANNER,
+          ROOT_CAUSE_CATEGORIES.PLANNER,
+          ROOT_CAUSE_CATEGORIES.PROMPT,
+          ROOT_CAUSE_CATEGORIES.SYSTEM_ARCHITECTURE
+        ],
+        evidence: '提示词.md 节点 5 与节点 6 之间无任何过渡桥梁指导；generate.mjs 完全未引入场景规划切片逻辑，单次生成 7 大事件。',
+        confidence: 0.94,
+        fixability: 'high',
+        recommended_fix_type: 'module_implementation',
+        problem_attribution: {
+          classification: '生成系统导致的问题',
+          is_content_problem: false,
+          is_system_problem: true,
+          systemic_percentage: 95,
+          final_verdict: '修改生成系统',
+          verdict_rationale: '单次手动修改小说正文只能解决这处“三日后”，但下一章、下一本书遇到跨日转场时，模型依然会产生相同硬切。唯有在生成系统中引入 Scene Planner 并在转场点强制生成环境/心境过渡句，方能从根本上杜绝该问题。'
+        }
+      };
+    } else if (id === 'DEF-PACING-002') {
+      analysis = {
+        defect_id: id,
+        symptom: '全篇在 2,487 纯汉字内塞入 15 个转场和 7 个核心大事件，平均场景仅 218 字符，节奏拉满紧绷，完全缺乏 10~15% 的休整留白与从容呼吸感。',
+        direct_cause: '单章容量被强行压缩：大纲包含了 7 个重大剧情转折（踢门、救火、神威、设宴结拜、母女识破、借石刻助悟、揭秘蚩刑天），目标字数却硬性卡死在 2300-2450 字。',
+        root_cause: 'Planner（大纲规划器）缺乏单章戏剧容量门禁（Event Capacity Gate），大纲规划与目标字数配比失调；Prompt 注入“严格不得写成长篇，宁可压缩重复惹事场面，不可遗漏后半段”，引发模型的截断焦虑，导致文字被极度高压压缩。',
+        cause_chain: {
+          phenomenon: '单章场景密度高达 4.5 场景/千字（名家 Benchmark 仅为 1.1），读者阅读心流全程绷紧无放松回落。',
+          direct_cause: 'Writer 模型在每个事件上只能分配 300~350 字符，根本没有物理字数空间用于展开战后闲笔、环境通感或发呆留白。',
+          system_cause: 'Planner 缺乏“剧情承载力模型（Plot Carrying Capacity Model）”，未对单个章节能够承载的戏剧转折上限（正常为 2~3 个）做硬性约束。',
+          process_cause: '生成前缺乏大纲容量预审流程，将足以写 2~3 章（约 5,000~6,000 字）的情节体量粗暴地塞入单章生产任务。',
+          data_cause: '提示词中的容量指令冲突：既要求覆盖全部 7 大剧情节点与两层反转，又要求总字数不超过 3000 字符。',
+          architectural_cause: '系统缺乏宏观剧情调度器（Macro-Arc Dispatcher）：系统应具备根据事件复杂度自动决策“单章承载 vs 自动分章”的动态规划能力。'
+        },
+        affected_module: [
+          'Planner (剧情大纲规划器)',
+          'Prompt Engineer (提示词约束引擎)',
+          'Genre Capacity Gate (流派容量门禁)'
+        ],
+        root_cause_categories: [
+          ROOT_CAUSE_CATEGORIES.PLANNER,
+          ROOT_CAUSE_CATEGORIES.PROMPT,
+          ROOT_CAUSE_CATEGORIES.BENCHMARK
+        ],
+        evidence: '提示词.md 明确要求“正文目标2300—2450个汉字...严格不得写成长篇，宁可压缩重复惹事场面，不可遗漏后半段”，直接迫使模型采用极简快进模式。',
+        confidence: 0.95,
+        fixability: 'medium',
+        recommended_fix_type: 'pipeline_patch',
+        problem_attribution: {
+          classification: '生成系统导致的问题',
+          is_content_problem: false,
+          is_system_problem: true,
+          systemic_percentage: 90,
+          final_verdict: '修改生成系统',
+          verdict_rationale: '在已有小说正文中硬插几百字泡茶闲聊会破坏当前章节已形成的利落紧凑感；必须在生成系统 Planner 层面建立容量门禁：单章大纲事件严格控制在 2~3 个，多余事件自动规划为下一章，从源头确保张弛有度。'
+        }
+      };
+    } else if (id === 'DEF-CHAR-001') {
+      analysis = {
+        defect_id: id,
+        symptom: '主角张若尘全篇处于算无遗策、无懈可击的高智掌控态，面对神灵施压无生理后怕，面对母女博弈毫无尴尬自嘲，心理防御完全封闭，人物呈现单向度的冷酷谋略家。',
+        direct_cause: '正文言行与心理活动完全由“智斗布局”单一目标驱动，缺少真实生活化微弱点（如后背出汗、肉痛借宝、自嘲、对前途未卜的隐秘顾虑）。',
+        root_cause: '系统的 Character State（人物状态机）与 Emotion State（情绪状态机）未接入生成管线。虽然项目中已有完善的 character-material-context.cjs（含 16 种情绪白名单与 38 种人味质感信号），但生成脚本完全处于孤岛状态，只将张若尘定义为“俗世神话，十界之战胜者”。',
+        cause_chain: {
+          phenomenon: '张若尘在所有场景对白从容机敏，缺乏吃瘪、窘迫或自嘲等生动人性缝隙，读者共情深度受限。',
+          direct_cause: 'Writer 模型在生成时直接将提示词中的“俗世神话”与“轻松中带算计”强化为绝对无懈可击的完美装逼人设。',
+          system_cause: 'Character State 与 Emotion State 模块未激活。系统未能动态追踪并向 LLM 注入主角在面临神尊神威与凶险死局时的实时情绪波动（如“防备”、“心虚”、“嘴硬”）。',
+          process_cause: 'Prompt 编制阶段直接使用静态标签堆砌角色，没有调用 character-material.js 提取人物动态人味信号（如 hesitation, pause, self_correction, save_face）。',
+          data_cause: 'Story Bible 中的角色卡为静态设定（境界、胜绩），缺乏动态心智卡片（Dynamic Mentality Profile），未定义角色的潜在弱点与应激反应。',
+          architectural_cause: '架构割裂：长篇记忆与人物材质库（character-material.js）未与核心生成流水线（generate.mjs）打通，基础设施沦为摆设。'
+        },
+        affected_module: [
+          'Character State Machine (人物状态机)',
+          'Emotion State Engine (情绪状态引擎)',
+          'Story Bible (角色心智档案库)',
+          'Prompt Assembly (提示词组装引擎)'
+        ],
+        root_cause_categories: [
+          ROOT_CAUSE_CATEGORIES.CHARACTER,
+          ROOT_CAUSE_CATEGORIES.EMOTION,
+          ROOT_CAUSE_CATEGORIES.STORY_BIBLE,
+          ROOT_CAUSE_CATEGORIES.SYSTEM_ARCHITECTURE
+        ],
+        evidence: 'character-material-context.cjs 包含 EMOTIONAL_STATE_WHITELIST 与 HUMAN_TEXTURE_SIGNAL_WHITELIST，但 generate.mjs 0 处引用，提示词仅有一句“主要人物：张若尘（俗世神话...）”。',
+        confidence: 0.93,
+        fixability: 'high',
+        recommended_fix_type: 'module_integration',
+        problem_attribution: {
+          classification: '生成系统导致的问题',
+          is_content_problem: false,
+          is_system_problem: true,
+          systemic_percentage: 92,
+          final_verdict: '修改生成系统',
+          verdict_rationale: '在生成系统中打通 character-material 与 Emotion State 管道，在每次调用 Writer 时自动从白名单中注入 1~2 个情绪波动和人味微弱点信号，即可从底层彻底解决 AI 写人容易陷入“绝对高智冰冷工具人”的顽疾。'
+        }
+      };
+    } else if (id === 'DEF-DESC-001') {
+      analysis = {
+        defect_id: id,
+        symptom: '场景1魔窟门前神灵大手突袭，全篇唯一的实质神威压迫仅用了两句话带过，缺乏重力形变、骨骼微鸣、圣气受窒等让读者屏息的物理阻力细节。',
+        direct_cause: 'Writer 在生成高潮冲突时，偏重视觉与剧情推进，未调用触觉（受力、重力、疼痛、肌肉抗阻）感官词汇。',
+        root_cause: 'Narrative Audit（叙事门禁）与 Evaluator（评测器）在生成流程中缺位。项目中已有的 genre-narrative-audit.js 中的 evaluateClimaxShockGate 明确定义了 physicalDamagePatterns（骨裂、焦糊、震颤、崩碎、吐血、寸步未移），但本次生成完全绕过了门禁检测。',
+        cause_chain: {
+          phenomenon: '神灵神威描写仅有“神威压在肩头，他竟连第二步也迈不出去”，两句话后直接被姑射静解围，受力抗阻感浅。',
+          direct_cause: 'Writer 模型在快节奏动作叙事中倾向于采用概括性动词，默认忽略微观生理受力与环境形变。',
+          system_cause: '系统的质检与门禁机制（genre-narrative-audit.js）未形成闭环：既未作为前置 Prompt 指令注入，也未作为后置验收门禁对文本进行质检拦截。',
+          process_cause: '生产后仅执行了基础确定性校验（定稿校验.json 只核对了字数与关键词），缺乏感官多模态叙事深度审计。',
+          data_cause: '提示词中对“神灵出手”仅写了“从神灵手中救回张若尘”，未提供物理受力或体感压迫的特定感知锚点（Sensory Anchor）。',
+          architectural_cause: '架构缺少反馈回路（Feedback Loop）：Evaluator/Audit 仅作为事后独立脚本存在，没有嵌入生成流水线作为自动返修的触发条件。'
+        },
+        affected_module: [
+          'Genre Narrative Audit (流派叙事门禁)',
+          'Evaluator (多模态感官评测器)',
+          'Writer Prompt Injector (描写指令注入器)'
+        ],
+        root_cause_categories: [
+          ROOT_CAUSE_CATEGORIES.EVALUATOR,
+          ROOT_CAUSE_CATEGORIES.WRITER,
+          ROOT_CAUSE_CATEGORIES.SYSTEM_ARCHITECTURE
+        ],
+        evidence: 'genre-narrative-audit.js 第 30 行定义了 physicalDamagePatterns，但在 generate.mjs 中未接入任何叙事门禁检测。',
+        confidence: 0.92,
+        fixability: 'high',
+        recommended_fix_type: 'pipeline_patch',
+        problem_attribution: {
+          classification: '生成系统导致的问题',
+          is_content_problem: false,
+          is_system_problem: true,
+          systemic_percentage: 88,
+          final_verdict: '修改生成系统',
+          verdict_rationale: '单次改写小说正文只能给这一处神灵大手补上骨鸣与风压；但在生成系统中将 evaluateClimaxShockGate 设为玄幻战斗场景的硬性门禁，才能确保后续所有神灵对抗与高潮交锋都稳定具备拳拳到肉的沉浸式物理受力。'
+        }
+      };
+    } else if (id === 'DEF-CONSIST-001') {
+      analysis = {
+        defect_id: id,
+        symptom: '初稿生成时模型曾将地姥（老祖宗）与姑射云琉（母神）代际混淆（曾出现“地姥女婿”），且存在黑晶放回与两手空空的前后表述冲突；虽然定稿已修复，但在全自动管线中构成了设定滑移风险。',
+        direct_cause: '大语言模型在面对多角色复杂亲属树与道具状态机时，长程注意力机制对自然语言代词产生漂移混淆。',
+        root_cause: 'Story Bible 与 Memory 系统的实体关系图谱（Knowledge Graph）未被结构化注入。项目中 memory-system.js 具备 memory_propositions（命题表），但生成脚本直接用自然语言混杂书写人名关系，导致模型解析歧义。',
+        cause_chain: {
+          phenomenon: '首稿出现亲属称谓错代与道具持有状态自相矛盾，由人工在修订要求与校对说明中指出并修复。',
+          direct_cause: '提示词以扁平段落形式罗列：“地姥为老祖宗，姑射云琉为云琉神殿之主... 姑射静（天阁目，被指婚给张若尘）... 姑射云琉（姑射静母神）”，代词与从属关系密集交织。',
+          system_cause: '长篇记忆系统（Memory System）未对生成端提供结构化的只读实体关系快照（Entity Graph Snapshot）。',
+          process_cause: '生成前缺乏实体一致性前置检查，生成后缺乏实体三元组对账校验。',
+          data_cause: 'Story Bible 角色设定采用自然语言叙述，而非确定性的结构化 JSON Schema（缺乏明确的 parent_of, ancestor_of 实体边）。',
+          architectural_cause: '架构问题：Memory 系统（SQLite）与 Writer Prompt 组装解耦过度，知识库未能自动化编译为防混淆 Prompt 约束。'
+        },
+        affected_module: [
+          'Story Bible (设定资料库)',
+          'Memory System (实体知识图谱)',
+          'Consistency Validator (一致性校验器)'
+        ],
+        root_cause_categories: [
+          ROOT_CAUSE_CATEGORIES.STORY_BIBLE,
+          ROOT_CAUSE_CATEGORIES.MEMORY,
+          ROOT_CAUSE_CATEGORIES.MODEL_CAPABILITY,
+          ROOT_CAUSE_CATEGORIES.SYSTEM_ARCHITECTURE
+        ],
+        evidence: '修订要求.md 条目 3、4 记录了首稿出现的“把自己说成地姥的女婿亲属错误”与“黑晶放回矛盾”；提示词.md 中人物关系为非结构化文本。',
+        confidence: 0.96,
+        fixability: 'high',
+        recommended_fix_type: 'data_schema_upgrade',
+        problem_attribution: {
+          classification: '生成系统导致的问题',
+          is_content_problem: false,
+          is_system_problem: true,
+          systemic_percentage: 95,
+          final_verdict: '修改生成系统',
+          verdict_rationale: '终稿小说中该缺陷已被定稿校对完全修正；但要保证生成系统未来面对十万字、百万字复杂世家宗门图谱不吃设定，必须在系统层将 Story Bible 升级为结构化关系树并加入一致性前置校验。'
+        }
+      };
+    }
+
+    if (analysis) {
+      rootCauses.push(analysis);
+    }
+  }
+
+  // 针对 4 项 E 类非缺陷的系统性根因溯源
+  const stylisticOrigins = [
+    {
+      defect_id: 'NON-DEF-001',
+      feature: '对白占比 42.0%（高于Benchmark 18.4%）',
+      system_origin: '提示词中显式注入“对话带刺，轻松中带算计，少写作者替人物总结”，直接诱导模型采用现代敏捷机锋对话推动戏剧，属于系统 Prompt 意图与风格预设的精准落地。',
+      action_verdict: '小说与系统均严禁“修复”，保留此现代网文优势。'
+    },
+    {
+      defect_id: 'NON-DEF-002',
+      feature: '开篇第 3 段直接踢门引发动作冲突',
+      system_origin: '提示词大纲节点 1 明确规定开篇即“逼问修士认不认识他，强闯魔窟”，模型忠实执行了高留存的开门见山破题指令。',
+      action_verdict: '小说与系统均严禁“修复”，保留黄金吸睛开篇。'
+    },
+    {
+      defect_id: 'NON-DEF-003',
+      feature: '92% 净推进信息比与 1% 极低注水率',
+      system_origin: '提示词强制约束“正文目标2300—2450个汉字...宁可压缩重复惹事场面，不可遗漏后半段”，系统严格的字数上限反向倒逼出极高密度的信息压缩率。',
+      action_verdict: '小说与系统均严禁“修复”，杜绝人为注水。'
+    },
+    {
+      defect_id: 'NON-DEF-004',
+      feature: '章末异样轻笑断章钩子',
+      system_origin: '提示词明确要求“结尾仍停在月圆夜之前，以一个与蚩刑天会面有关的具体异样留下悬念，不写完会面或渡劫”，Writer 完美落实了商业断章规则。',
+      action_verdict: '小说与系统均严禁“修复”，保护追读转化率。'
+    }
+  ];
+
+  // 统计归因分类分布
+  const categoryCount = {};
+  for (const rc of rootCauses) {
+    for (const cat of rc.root_cause_categories) {
+      categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+    }
+  }
+
+  // 统计内容 vs 系统分布
+  const totalDefects = rootCauses.length;
+  const systemCausedCount = rootCauses.filter(r => r.problem_attribution.is_system_problem).length;
+  const contentCausedCount = rootCauses.filter(r => r.problem_attribution.is_content_problem).length;
+  const analyzedIds = new Set(rootCauses.map(item => item.defect_id));
+  const unmappedDefectIds = defects
+    .filter(item => item && String(item.severity || '').toUpperCase() !== 'E')
+    .filter(item => !item.defect_id || !analyzedIds.has(item.defect_id))
+    .map(item => item.defect_id || null);
+  const coverageComplete = totalDefects > 0 && unmappedDefectIds.length === 0;
+  const overallVerdict = coverageComplete ? {
+    targetToFix: '生成系统 (Generation System)',
+    shouldModifyNovel: false,
+    shouldModifySystem: true,
+    executive_summary: '本历史样例已映射缺陷的根因归于生成系统架构与调用流程；此结论不外推到其他样本。'
+  } : null;
+
+  return {
+    status: coverageComplete ? 'ANALYZED' : 'NEEDS_MORE_DATA',
+    meta: {
+      sampleId: HISTORICAL_SAMPLE_ID,
+      novelTitle: '月圆夜前的布局',
+      generatedAt: new Date().toISOString(),
+      totalDefectsAnalyzed: totalDefects,
+      systemCausedDefects: systemCausedCount,
+      contentCausedDefects: contentCausedCount,
+      coverageStatus: coverageComplete ? 'COMPLETE' : 'PARTIAL',
+      unresolvedDefectIds: unmappedDefectIds,
+      systemicAttributionRatio: coverageComplete ? systemCausedCount / totalDefects : null
+    },
+    rootCauses,
+    root_cause_vector: buildRootCauseVector({
+      status: 'partial',
+      rootCauses
+    }),
+    stylisticOrigins,
+    categoryDistribution: categoryCount,
+    unmappedDefectIds,
+    overallVerdict
+  };
+}
+
+/**
+ * 格式化输出 Markdown 版根因分析白皮书
+ */
+function generateRootCauseReportMarkdown(reportData) {
+  const { meta, rootCauses, stylisticOrigins, categoryDistribution, overallVerdict } = reportData;
+
+  if (!overallVerdict) {
+    return [
+      '# 根因分析报告',
+      '',
+      `- 状态：${reportData.status || 'NEEDS_MORE_DATA'}`,
+      `- 样本编号：${meta.sampleId || 'UNKNOWN'}`,
+      `- 覆盖状态：${meta.coverageStatus || 'UNKNOWN'}`,
+      `- 已分析缺陷：${meta.totalDefectsAnalyzed || 0}`,
+      `- 未映射缺陷：${(reportData.unmappedDefectIds || []).join('、') || '无可用编号'}`
+    ].join('\n');
+  }
+
+  const lines = [
+    '# 《月圆夜前的布局》小说生成系统根因分析白皮书 (RootCauseReport)',
+    '',
+    '> [!IMPORTANT] 根因分析核心公理',
+    '> 1. **绝不流于表面修修补补**：跳出“增加冲突/改几个字”的机械思维，追踪“系统为何如此生成”；',
+    '> 2. **严守 6 层因果链追踪**：`现象 → 直接原因 → 系统原因 → 流程原因 → 数据原因 → 架构原因`；',
+    '> 3. **终局裁决划分**：明确区分“内容本身的问题”与“生成系统导致的问题”，回答“修改小说还是修改系统”。',
+    '',
+    `- **分析标的**: 《月圆夜前的布局》全链路生产系统`,
+    `- **分析时间**: ${meta.generatedAt}`,
+    `- **检出分析缺陷数**: **${meta.totalDefectsAnalyzed} 项**`,
+    `- **归因结论**: **生成系统导致的问题占比 ${Math.round(meta.systemicAttributionRatio * 100)}%** (${meta.systemCausedDefects}/${meta.totalDefectsAnalyzed})`,
+    `- **终局裁决**: **【${overallVerdict.targetToFix}】（${overallVerdict.shouldModifySystem ? '必须全面修改生成系统' : '修改小说'}）**`,
+    '',
+    '---',
+    '',
+    '## 📊 一、 根因分类分布统计（17 类标准根因体系）',
+    '',
+    '| 根因标准分类 | 关联缺陷命中数 | 涉及主要缺陷 ID | 核心涉及模块与机制 |',
+    '| :--- | :---: | :--- | :--- |'
+  ];
+
+  for (const [cat, count] of Object.entries(categoryDistribution)) {
+    const matched = rootCauses
+      .filter(r => r.root_cause_categories.includes(cat))
+      .map(r => `\`${r.defect_id}\``)
+      .join(', ');
+    lines.push(`| **${cat}** | **${count}** | ${matched} | 系统底层设计与调用链缺失 |`);
+  }
+
+  lines.push('', '---', '', '## ⚖️ 二、 核心终局裁决：修改小说 vs 修改生成系统', '');
+  lines.push(`> [!CAUTION] 架构师权威裁决
+> **${overallVerdict.executive_summary}**
+> 
+> 如果我们选择**“修改小说”**：
+> 只能修补当前这 2,487 个字，耗费人工且毫无复利；当下一次点击“生成下一章”时，因 Scene Planner 缺失、Character Material 孤岛化、Audit 旁路与大纲单步硬塞依然存在，**所有缺陷将 100% 概率再度复发**！
+>
+> 如果我们选择**“修改生成系统”**：
+> 补齐 Scene Planner 转场契约、打通人物材质与情绪状态机、接入战斗物理抗阻门禁、实现流式事件解耦与幂等增量重试，**未来千万字的小说生成都将获得确定性的出版级质量飞跃**！`);
+
+  lines.push('', '---', '', '## 🔍 三、 逐项缺陷 6 层深度根因追踪详录', '');
+
+  for (const rc of rootCauses) {
+    const chain = rc.cause_chain;
+    lines.push(`### [${rc.defect_id}] ${rc.symptom.slice(0, 42)}...`);
+    lines.push(`- **缺陷编号**: \`${rc.defect_id}\``);
+    lines.push(`- **表面现象**: ${rc.symptom}`);
+    lines.push(`- **直接原因**: ${rc.direct_cause}`);
+    lines.push(`- **根本原因 (Root Cause)**: **${rc.root_cause}**`);
+    lines.push(`- **归因分类**: ${rc.root_cause_categories.join(' | ')}`);
+    lines.push(`- **受影响模块**: ${rc.affected_module.join('、')}`);
+    lines.push(`- **确切代码/数据证据**: > ${rc.evidence}`);
+    lines.push(`- **置信度**: \`${rc.confidence}\` | **修复可行性**: \`${rc.fixability}\` | **修复类型建议**: \`${rc.recommended_fix_type}\``);
+    lines.push('');
+    lines.push('#### 🔬 6 层因果链深度追踪');
+    lines.push('```mermaid');
+    lines.push('flowchart TD');
+    lines.push(`  L1["1. 现象 (Phenomenon): ${chain.phenomenon.slice(0, 30)}..."]`);
+    lines.push(`  L2["2. 直接原因 (Direct Cause): ${chain.direct_cause.slice(0, 30)}..."]`);
+    lines.push(`  L3["3. 系统原因 (System Cause): ${chain.system_cause.slice(0, 30)}..."]`);
+    lines.push(`  L4["4. 流程原因 (Process Cause): ${chain.process_cause.slice(0, 30)}..."]`);
+    lines.push(`  L5["5. 数据原因 (Data Cause): ${chain.data_cause.slice(0, 30)}..."]`);
+    lines.push(`  L6["6. 架构原因 (Architectural Cause): ${chain.architectural_cause.slice(0, 30)}..."]`);
+    lines.push('  L1 --> L2 --> L3 --> L4 --> L5 --> L6');
+    lines.push('```');
+    lines.push('');
+    lines.push(`1. **现象 (Phenomenon)**: ${chain.phenomenon}`);
+    lines.push(`2. **直接原因 (Direct Cause)**: ${chain.direct_cause}`);
+    lines.push(`3. **系统原因 (System Cause)**: ${chain.system_cause}`);
+    lines.push(`4. **流程原因 (Process Cause)**: ${chain.process_cause}`);
+    lines.push(`5. **数据原因 (Data Cause)**: ${chain.data_cause}`);
+    lines.push(`6. **架构原因 (Architectural Cause)**: ${chain.architectural_cause}`);
+    lines.push('');
+    lines.push('#### 🎯 问题属性与裁决定位');
+    lines.push(`- **问题性质**: **【${rc.problem_attribution.classification}】** (系统根因占比: ${rc.problem_attribution.systemic_percentage}%)`);
+    lines.push(`- **最终修改建议**: **【${rc.problem_attribution.final_verdict}】**`);
+    lines.push(`- **裁决论证理由**: ${rc.problem_attribution.verdict_rationale}`);
+    lines.push('', '---', '');
+  }
+
+  lines.push('## 🛡️ 四、 E 类“非缺陷”（风格差异优势）系统生成源起剖析', '');
+  lines.push('> 说明：以下特征虽然与传统 Benchmark 存在显著差异，但系系统意图与现代网文快节奏商业设计的精准落地，严禁作为缺陷进行“修复”。', '');
+
+  for (const st of stylisticOrigins) {
+    lines.push(`### [${st.defect_id}] ${st.feature}`);
+    lines.push(`- **系统生成源起**: ${st.system_origin}`);
+    lines.push(`- **终局执行方针**: **${st.action_verdict}**`);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+module.exports = {
+  HISTORICAL_SAMPLE_ID,
+  ROOT_CAUSE_CATEGORIES,
+  loadRootCauseInputs,
+  analyzeRootCauses,
+  generateRootCauseReportMarkdown
+};

@@ -1,0 +1,145 @@
+{
+  "generatedAt": "2026-08-30T15:17:37.201Z",
+  "script": "bare-vs-full",
+  "fixture": "C:\\Users\\lyh\\Desktop\\小说专属网页\\molan-home\\scripts\\eval\\fixtures\\golden.jsonl",
+  "genre": "仙侠",
+  "fingerprintProfile": {
+    "genre": "仙侠",
+    "matchedBucket": "东方仙侠、仙侠",
+    "bookCount": 6
+  },
+  "baseUrl": "http://127.0.0.1:3000",
+  "aiFlavorPassThreshold": 40,
+  "taskCount": 1,
+  "tasks": [
+    {
+      "sampleId": "contract-001",
+      "task": "contract",
+      "instruction": "第一章大纲：废柴少年陆沉在宗门大比前夜意外唤醒体内沉眠的龙魂，决定暗中苦修三招剑式，却不知执法长老已布下禁制要当场揭穿他的秘密。\n\n请根据以上内容写出一段连贯的小说正文（400-600字），只输出正文本身，不要解释，不要使用 Markdown。",
+      "configurations": [
+        {
+          "id": "bare",
+          "label": "裸请求",
+          "description": "stage='single'，不带 characterMaterial、不带 skill（最小注入路径）",
+          "httpStatus": 200,
+          "elapsedMs": 15838,
+          "text": "青岚宗后山的石阶上，陆沉抱着一捆劈柴，走得比平日更慢。\n\n明日便是宗门大比，杂役院已经传遍了消息：他若再输给外门弟子，就会被逐出山门。\n\n陆沉停在断崖边，抬手擦去额角的汗。三年前，他引气入体失败，丹田至今没有半点灵力。有人说他经脉尽废，也有人说他只是懒散。只有他自己知道，每次夜深人静时，胸口都会传来沉闷的搏动。\n\n今夜，那搏动突然变得清晰。\n\n陆沉刚盘膝坐下，胸骨下方骤然发热。皮肤上浮出细密的金色纹路，热意顺着经脉冲向四肢。他咬紧牙关，手掌撑住地面，指节被碎石割破，血珠落在青苔上。\n\n一声低沉的龙吟在识海中响起。\n\n陆沉眼前一黑，随后看见一条盘踞在灰雾中的金龙。它闭着双眼，颈下钉着九枚乌黑铁钉，其中三枚已经裂开。\n\n陌生的剑招随之涌入脑海。\n\n第一招，截脉。第二招，回锋。第三招，沉岳。\n\n没有口诀，也没有解释，只有出剑的方向、落点和呼吸节奏。陆沉捡起一根枯枝，照着记忆挥出。第一遍，他的手腕被震得发麻；第二遍，枯枝折断；第三遍，他脚下的碎石被剑势震开，露出一道半尺长的痕迹。\n\n陆沉盯着那道痕迹，立即收起灵力。\n\n后山入口处，悬着一枚执法堂的铜铃。铃面无风自转，远处的石壁上，几道暗红符线逐渐亮起。\n\n山门另一侧，执法长老韩岳收回手指，桌上的玉盘映出陆沉方才出剑的影像。\n\n“明日大比，禁制会封住所有弟子的气息。”韩岳对身旁弟子说道，“他若没有修为，剑痕从何而来？”\n\n玉盘中，陆沉正将断枝藏进袖口。\n\n韩岳看着那道影像，吩咐道：“把锁元阵的阵眼移到演武台下。我要他在众目睽睽之下，自己露出破绽。”",
+          "usage": {
+            "promptTokens": 1966,
+            "completionTokens": 734,
+            "totalTokens": 2700
+          },
+          "requestId": "req_48403e468111cc615ff0a8dcc940d984",
+          "error": null,
+          "aiFlavor": {
+            "score": 28,
+            "passed": true,
+            "metrics": {
+              "sentenceStdRatio": 0.6249,
+              "ttrRatio": 1.8053,
+              "paragraphUniformity": 0.6421,
+              "lexiconBlockPerKilo": 0,
+              "lexiconWatchPerKilo": 1
+            },
+            "details": {
+              "blockHits": [],
+              "watchHits": [
+                {
+                  "term": "骤然",
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "legacy-full",
+          "label": "旧全量注入",
+          "description": "stage='writing' 且显式 twoPassHumanize=false（旧单遍注入路径：纠错库 + skill + 素材）",
+          "httpStatus": 200,
+          "elapsedMs": 15382,
+          "text": "宗门大比前夜，陆沉被一盆冷水泼醒。\n\n执事弟子站在破屋门口，捏着鼻子催他去后山挑水。陆沉没有争辩，抱起木桶走出院子，等那人离开视线，才把右手按在胸口。\n\n那里的灼痛已经持续了半个时辰。\n\n他修炼十年，气海始终只有一缕散乱灵气，连外门最基础的引气诀都运转不全。今晚那缕灵气却自行沉入胸骨，撞开了一道他从未察觉的裂缝。\n\n低沉的龙吟贴着骨缝响起。\n\n陆沉跪在雪地里，指节被自己攥得发白。青黑色纹路从胸口爬上脖颈，灼热顺着经脉冲入丹田。紧接着，一段陌生记忆落进脑中：石阶、断剑、三次出手。\n\n第一式，截脉。\n\n第二式，回锋。\n\n第三式，镇岳。\n\n没有招名解释，也没有完整传承，只有三个动作，以及每一式落下时，体内灵气该如何经过手腕、肘关节和剑尖。\n\n陆沉捡起院墙旁的柴刀，照着记忆劈出第一式。刀锋擦过枯树，树皮裂开，右臂却像被铁钩扯住，五根手指失去知觉。他咬住牙，换左手继续。\n\n一夜之内，他只练成了三次。\n\n天色发白时，陆沉把柴刀藏回草垛，拎起木桶下山。胸口的龙纹已经消退，丹田里多出一缕凝实的灵力，细得不足以支撑第四次出剑。\n\n广场上，执法长老沈衡正检查比试台。\n\n他袖中捏着一枚黑色骨针，针尾连着台面下的禁制。只要陆沉运转那道新生灵力，骨针便会锁定气息，并将异常投映到宗门石碑上。\n\n沈衡抬眼看向人群中的陆沉，手指在袖中轻敲了一下。\n\n“明日大比，所有弟子不得隐藏修为。违者，逐出宗门。”\n\n陆沉停在石阶下，望着那座比试台，左手悄悄压住仍在发麻的右腕。他没有回答，只把登记用的木牌递了出去。\n\n木牌背面，多出了一道细细的黑痕。",
+          "usage": {
+            "promptTokens": 13354,
+            "completionTokens": 728,
+            "totalTokens": 14082
+          },
+          "requestId": "req_c63ae7a03f5cca8eb03adf7adcda7a78",
+          "error": null,
+          "aiFlavor": {
+            "score": 41,
+            "passed": false,
+            "metrics": {
+              "sentenceStdRatio": 0.6444,
+              "ttrRatio": 1.7905,
+              "paragraphUniformity": 0.6785,
+              "lexiconBlockPerKilo": 2,
+              "lexiconWatchPerKilo": 0
+            },
+            "details": {
+              "blockHits": [
+                {
+                  "term": "一缕",
+                  "count": 2
+                }
+              ],
+              "watchHits": []
+            }
+          }
+        },
+        {
+          "id": "two-pass",
+          "label": "两遍去 AI 味",
+          "description": "stage='writing' + twoPassHumanize=true + characterMaterial enabled",
+          "httpStatus": 200,
+          "elapsedMs": 31521,
+          "text": "宗门大比前夜，陆沉被一盆冷水泼醒。\n\n值夜弟子嫌他占着后山石阶，抬脚踹在他肋下。陆沉捂住旧伤，等那几人走远，才弯腰从泥水里捡起那柄断了半截的木剑。\n\n三年前经脉受损后，他连引气入体都做不到。宗门里的人见了他，大多绕开便走。\n\n今晚却有些不同。\n\n木剑握入掌心，陆沉胸口忽然传出沉闷的震动。震感没有经过耳朵，直接落进骨头里，右手五指随之发麻。石阶下的积水泛起细纹，朝四周一圈圈散开。\n\n陆沉低头按住胸口。\n\n第二次震动传来，一点暗金光芒从心口浮出。光芒中缠着一条残缺的龙影，鳞片剥落大半，双眼却睁得清楚，隔着血肉看着他。\n\n“你还活着？”\n\n龙影没有回应，张口朝他的经脉吐出灼热气息。\n\n陆沉喉间立刻泛起腥甜，左肩的旧伤重新裂开，鲜血沿着袖口滴落，沾湿剑柄。几息后，堵塞多年的经脉被强行撑开一道缝隙。灵气从缝隙中通过，血肉随即传来细密的刮痛。\n\n他咬紧牙关，记下那股灵气经过的路线。\n\n十三息后，龙魂的影子开始变淡，沉回他的胸口。陆沉靠着石壁喘息，低头看向手里的木剑。\n\n明日的大比，他不能暴露龙魂。\n\n双方境界的差距依旧存在，而他体内这点灵气，最多只能支撑三剑。\n\n第一剑截腕，第二剑封喉，第三剑断势。\n\n三剑过后，无论胜负，经脉都会再次撕裂。\n\n可他必须拿到外门弟子名额。只有进入藏经楼，他才有机会查清三年前经脉受损的真相。\n\n陆沉撑着石壁站起身，在雨里练出第一剑。\n\n与此同时，演武场中央，一枚埋在地底的黑铁钉亮起细光。执法长老顾衡收回手掌，看着擂台上尚未散尽的禁制纹路。\n\n“明日只要他运转灵气，龙魂的气息就会留下。”\n\n顾衡把一纸名册压进袖中。\n\n陆沉的名字旁，已经写好了四个字：当场验脉。",
+          "usage": {
+            "promptTokens": 3159,
+            "completionTokens": 765,
+            "totalTokens": 3924
+          },
+          "requestId": "req_1c6b1935b3e77bfbf0caed02d4764054",
+          "error": null,
+          "aiFlavor": {
+            "score": 30,
+            "passed": true,
+            "metrics": {
+              "sentenceStdRatio": 0.4367,
+              "ttrRatio": 1.7758,
+              "paragraphUniformity": 0.6586,
+              "lexiconBlockPerKilo": 0,
+              "lexiconWatchPerKilo": 0
+            },
+            "details": {
+              "blockHits": [],
+              "watchHits": []
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "aiFlavorMeanScore": {
+      "bare": 28,
+      "legacy-full": 41,
+      "two-pass": 30
+    },
+    "meanElapsedMs": {
+      "bare": 15838,
+      "legacy-full": 15382,
+      "two-pass": 31521
+    },
+    "meanTotalTokens": {
+      "bare": 2700,
+      "legacy-full": 14082,
+      "two-pass": 3924
+    },
+    "ranking": [
+      "bare",
+      "two-pass",
+      "legacy-full"
+    ]
+  }
+}

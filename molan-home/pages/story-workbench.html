@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="alternate icon" href="../favicon.ico">
+  <title>故事记忆与文风工作台 · 墨阑</title>
+  <link rel="stylesheet" href="./project-docs.css">
+  <link rel="stylesheet" href="./story-workbench.css">
+</head>
+<body>
+  <header class="docs-topbar">
+    <a id="editorLink" href="../index.html#editor">返回编辑器</a>
+    <div><span class="docs-eyebrow">STORY MEMORY</span><h1 id="title">故事记忆与文风工作台</h1></div>
+    <div class="docs-actions"><a id="materialsLink" href="./project-docs.html">七类创作资料</a><button id="refresh" type="button">刷新状态</button></div>
+  </header>
+  <main class="workbench">
+    <p id="status" role="status" aria-live="polite">正在读取作品…</p>
+    <nav class="workbench-tabs" aria-label="工作台分区">
+      <button data-tab="draft" aria-selected="true">正文与确认</button>
+      <button data-tab="memory">事实与认知</button>
+      <button data-tab="planning">计划、伏笔与时间</button>
+      <button data-tab="styles">文风工作台</button>
+      <button data-tab="operations">影响与运行</button>
+    </nav>
+    <section data-panel="draft" class="docs-panel">
+      <h2>版本化正文与记忆确认</h2>
+      <p>候选保存不会覆盖正式稿。提取只产生待核对线索，不会自动把对白、梦境或计划确立为事实。</p>
+      <details>
+        <summary>使用正式记忆和作品文风生成候选</summary>
+        <label>本次创作任务<textarea id="generationPrompt" rows="3"></textarea></label>
+        <div class="form-grid">
+          <label>模型 ID（留空使用账户默认模型）<input id="generationModel"></label>
+          <label>全部生成、审稿和修订的调用上限<input id="generationMaxCalls" type="number" min="1" max="10" value="4"></label>
+          <label>题材<input id="generationGenre" placeholder="例如：玄幻"></label>
+          <label>目标字数<input id="generationWords" type="number" min="1200" max="8000" value="2500"></label>
+        </div>
+        <p>此操作可能消耗账户额度。刷新仅查询已接受任务，不会自动重发；结果未知时必须先核对。</p>
+        <div class="docs-actions"><button id="generate" data-write>开始生成（消耗额度）</button><button id="resumeGeneration">查询上次任务</button><button id="cancelGeneration" data-write>请求停止后续调用</button><button id="loadGenerated">载入生成结果为候选</button></div>
+        <pre id="generationStatus"></pre>
+      </details>
+      <label>章节 / 场景<select id="chapter"></select></label>
+      <div class="draft-columns">
+        <label>当前已保存正文<pre id="original" tabindex="0"></pre></label>
+        <label>候选正文<textarea id="draft" rows="16" spellcheck="false"></textarea></label>
+      </div>
+      <div class="docs-actions">
+        <button id="saveDraft" class="primary" data-write>保存候选版本</button>
+        <button id="copyDraft">复制候选稿</button>
+        <button id="extract" data-write>从已保存候选提取</button>
+        <button id="audit">检查候选文风</button>
+      </div>
+      <p id="draftStatus"></p>
+      <details id="rewriteConstraints">
+        <summary>改写约束审查</summary>
+        <div class="form-grid">
+          <label>必须保留的命题（每行一条）<textarea id="rewriteLockedPropositions" rows="3"></textarea></label>
+          <label>必须保留的事件顺序（每行一条）<textarea id="rewriteLockedEvents" rows="3"></textarea></label>
+          <label>禁止提前揭露（每行一条）<textarea id="rewriteForbiddenAnswers" rows="3"></textarea></label>
+          <label>必须保留的伏笔（每行一条）<textarea id="rewriteLockedForeshadows" rows="3"></textarea></label>
+        </div>
+        <button id="checkRewrite" type="button" data-write>审查已保存候选</button>
+        <pre id="rewriteReport"></pre>
+      </details>
+      <div id="extraction"></div>
+      <details><summary>查看待提交操作（可编辑，保存后将绑定候选版本）</summary><textarea id="operationsInput" rows="10" spellcheck="false">[]</textarea></details>
+      <button id="createChangeset" class="primary" data-write>建立待确认变更集</button>
+      <h3>待确认与已提交记录</h3>
+      <div id="changesets"></div>
+      <div id="review" hidden>
+        <h3>本次确认内容</h3>
+        <pre id="reviewContent"></pre>
+        <label class="checkbox-label"><input id="authorConfirm" type="checkbox">我已核对候选正文及全部记忆操作，确认允许其正式生效</label>
+        <div class="docs-actions">
+          <button id="approve" data-write>确认变更</button>
+          <button id="reject" data-write>拒绝变更</button>
+          <button id="commit" class="primary" data-write>正式采纳正文与记忆</button>
+        </div>
+      </div>
+    </section>
+    <section data-panel="memory" class="docs-panel" hidden>
+      <h2>事实、声称与人物认知</h2>
+      <div class="docs-actions"><select id="memoryType" aria-label="记忆类型"><option value="facts">正式事实</option><option value="evidence">原文声称与证据</option><option value="cognition">人物认知</option><option value="disclosures">披露策略</option></select><button id="loadMemory">查询</button></div>
+      <div id="memoryList"></div>
+      <h3>添加待确认记录</h3>
+      <form id="memoryForm">
+        <label>操作类别<select id="memoryOperation"><option value="INSERT_COGNITION">人物认知</option><option value="SET_DISCLOSURE">披露策略</option><option value="INSERT_FACT">作者事实裁决</option></select></label>
+        <label>命题 ID<input id="propositionId" required></label>
+        <label>人物 ID（认知必填）<input id="holderId"></label>
+        <div class="form-grid">
+          <label>私下态度<select id="attitude"><option value="knows">知道</option><option value="believes">相信</option><option value="suspects">怀疑</option><option value="disbelieves">不相信</option><option value="undecided">暂不判断</option></select></label>
+          <label>对外表现<select id="publicStance"><option value="admit">承认</option><option value="deny">否认</option><option value="conceal">隐瞒</option><option value="feign_knowledge">假装知道</option><option value="feign_ignorance">假装不知道</option></select></label>
+          <label>披露策略<select id="disclosure"><option value="hide">必须隐藏</option><option value="imply">只可暗示</option><option value="allow">允许披露</option></select></label>
+          <label>事实裁决<select id="verdict"><option value="undetermined">未确定</option><option value="true">成立</option><option value="false">不成立</option></select></label>
+        </div>
+        <label>获准线索（每行一条）<textarea id="clues" rows="3"></textarea></label>
+        <label>确认依据 / 理由<textarea id="decisionReason" rows="2" required></textarea></label>
+        <button type="submit" data-write>添加到待提交操作</button>
+      </form>
+      <h3>当前合法写作上下文</h3>
+      <div class="form-grid"><label>视角人物 ID<input id="povId"></label><label>故事时间<input id="storyTime" placeholder="与记录的时间表示一致"></label><label>输入预算<input id="contextBudget" type="number" value="8000" min="1"></label></div>
+      <button id="assemble" data-write>装配并保存来源清单</button>
+      <pre id="context"></pre>
+    </section>
+    <section data-panel="planning" class="docs-panel" hidden>
+      <h2>计划、伏笔、承诺与时间</h2>
+      <div class="docs-actions"><select id="planningType" aria-label="记录类型"><option value="plans">计划</option><option value="foreshadows">伏笔</option><option value="commitments">条件承诺</option><option value="events">已发生事件</option><option value="timeline">时间关系</option></select><button id="loadPlanning">查询</button></div>
+      <div id="planningList"></div>
+      <form id="planningForm">
+        <label>新增类别<select id="planningOperation"><option value="UPSERT_PLAN">计划</option><option value="UPSERT_FORESHADOW">伏笔</option><option value="INSERT_EVENT">事件</option><option value="UPSERT_COMMITMENT">条件承诺</option><option value="TEMPORAL_RELATION">时间关系</option></select></label>
+        <label>稳定 ID（留空自动生成；修改记录时填写原 ID）<input id="recordId"></label>
+        <label>原记录版本（新增留空）<input id="recordRevision" type="number" min="1"></label>
+        <label>标题 / 事件描述<input id="recordTitle"></label>
+        <label>内容 / 承诺履行内容<textarea id="recordContent" rows="3"></textarea></label>
+        <div class="form-grid">
+          <label>状态<select id="recordStatus"><option value="">使用类别初始状态</option><option value="active">进行中</option><option value="completed">计划已实现</option><option value="planted">已埋设</option><option value="reinforced">已强化</option><option value="pending_payoff">待回收</option><option value="resolved">已回收</option><option value="triggered">条件已满足</option><option value="fulfilled">承诺已履行</option><option value="abandoned">放弃</option></select></label>
+          <label>实际事件 ID<input id="realizationEvent"></label>
+          <label>承诺者 ID / 前事件 ID<input id="sourceEntity"></label>
+          <label>受益者 ID / 后事件 ID<input id="targetEntity"></label>
+          <label>发生时间<input id="eventTime"></label>
+          <label>时间关系<select id="relationType"><option value="before">早于</option><option value="after">晚于</option><option value="simultaneous">同时</option><option value="overlaps">重叠</option><option value="contains">包含</option><option value="unknown">未知</option></select></label>
+        </div>
+        <label>触发条件 / 回收条件<textarea id="condition" rows="2"></textarea></label>
+        <label>实际证据 ID（每行一条）<textarea id="recordEvidence" rows="2"></textarea></label>
+        <label>条件满足的证据 ID（每行一条，与履行证据分开）<textarea id="conditionEvidence" rows="2"></textarea></label>
+        <button type="submit" data-write>添加到待提交操作</button>
+      </form>
+    </section>
+    <section data-panel="styles" class="docs-panel" hidden>
+      <h2>文风资产与版本</h2>
+      <p>确定性检查和规则提示不等同于完整语义审稿；润色仍需作者核对剧情与披露边界。</p>
+      <div id="styleList"></div>
+      <form id="styleForm">
+        <input id="styleId" type="hidden"><input id="styleRevision" type="hidden">
+        <label>配置名称<input id="styleName" required></label>
+        <div class="form-grid">
+          <label>作用层级<select id="styleLevel"><option value="novel_narrative">作品叙述</option><option value="character_voice">角色语言</option><option value="scene_mode">场景模式</option><option value="author_preference">作者偏好（当前作品）</option><option value="task_temporary">本次任务</option></select></label>
+          <label>人物 ID / 任务 ID<input id="styleTarget"></label>
+          <label>场景模式<input id="styleScene"></label>
+        </div>
+        <label>硬规则（每行一条）<textarea id="styleRules" rows="3"></textarea></label>
+        <label>正向样本（每行一个）<textarea id="stylePositive" rows="3"></textarea></label>
+        <label>反向样本及问题（每行一个）<textarea id="styleNegative" rows="3"></textarea></label>
+        <label>禁用表达（每行一个）<textarea id="styleForbidden" rows="2"></textarea></label>
+        <div class="docs-actions"><button type="submit" data-write>保存新文风版本</button><button id="newStyle" type="button">新建配置</button></div>
+      </form>
+      <h3>实际输出报告</h3><pre id="auditReport"></pre>
+    </section>
+    <section data-panel="operations" class="docs-panel" hidden>
+      <h2>修改影响与运行同步</h2>
+      <p>确定来源失效和可能影响分别处理；不会自动改写其他章节。</p>
+      <div class="form-grid impact-controls">
+        <label>修改对象<select id="impactType"><option value="fact">事实</option><option value="chapter">章节</option><option value="entity">人物/实体</option></select></label>
+        <label>对象 ID<input id="impactTarget" autocomplete="off"></label>
+        <label>创作分支<input id="impactBranch" value="main" autocomplete="off"></label>
+      </div>
+      <button id="analyzeImpact" type="button">分析修改影响</button>
+      <pre id="impactAnalysisReport"></pre>
+      <div id="impactAnalysisResults"></div>
+      <h3>已记录的来源失效</h3>
+      <button id="process" data-write>处理待同步投影 / 安全重试</button>
+      <pre id="projectionReport"></pre>
+      <div id="impactList"></div>
+      <h3>操作记录与补偿撤销</h3><div id="operationList"></div>
+      <h3>持久阶段事件</h3><pre id="events"></pre>
+    </section>
+  </main>
+  <script src="./story-workbench.js"></script>
+</body>
+</html>

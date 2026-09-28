@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "genre": "科幻末世",
+  "familyId": "disaster_exploration",
+  "summary": "两本为抽卡/序列公路求生而非硬科幻工程范本，可参考提示落实、资源计划和能力限制，不强制统一工业说明书。",
+  "policy": {
+    "enforcement": "advisory-only",
+    "nameOverlap": "共姓、辈分字和一般共享汉字本身不构成硬门禁；仅在具体辨识困难时提示复核。",
+    "opening": "宏观、微观、对白均可按当前叙事任务选择，不统一强制任何开篇尺度或器物清单。",
+    "ending": "关键词未命中为unknown；ease需有上下文证据，不据结尾词自动通过或拒稿。",
+    "metrics": "同口径描述性分布，不设置文学质量、字数、对白长度或词频硬门禁。",
+    "review": "仅定点摘段已评；整章、后文及人工复核pending。",
+    "legacyCards": "旧卡缺原文定位，旧固定targetMetrics和自造范句均已撤下；未将未读作品印象迁移为已证实事实。"
+  },
+  "targetMetrics": {},
+  "baselineRef": "../genre-baselines/科幻末世.json",
+  "evidenceRef": "../genre-evidence/科幻末世.json",
+  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "writingDirectives": [
+    {
+      "key": "warning_becomes_event",
+      "rule": "把提示落实为可观察事件",
+      "detail": "界面或警报可以在后续场景出现具体对象，区分提示、已验证事件和新问题。",
+      "scope": "游戏化求生、灾难警报或初入环境。",
+      "limits": "不要求使用界面；局部对应不等于规则全部严密或科学可行。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "科幻末世:00f45a0381daae3b",
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p2",
+            "ch1:p67",
+            "ch1:p132",
+            "ch1:p133"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "resource_changes_plan",
+      "rule": "让资源和负荷改变估算",
+      "detail": "把存量、食量变化和疲劳接到角色对持续时间及行动的判断，而非孤立陈列数字。",
+      "scope": "逃生、补给和旅途。",
+      "limits": "角色估算不是真实热量核算，清单不证明质量；无需强加工程参数。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "科幻末世:702bb83d770690ee",
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p5",
+            "ch1:p6",
+            "ch1:p84",
+            "ch1:p85",
+            "ch1:p86"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "information_action",
+      "rule": "允许信息关系推动章节",
+      "detail": "关注某人等信息动作可以形成后续查询和互动条件，不必每章都用打斗升级收束。",
+      "scope": "共享频道、陌生人交流。",
+      "limits": "动机和后文兑现仍待核验；没有危险词不能推定ease。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "科幻末世:00f45a0381daae3b",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p107",
+            "ch3:p108",
+            "ch3:p109"
+          ]
+        }
+      ]
+    }
+  ],
+  "positivePatterns": [],
+  "negativePatterns": [],
+  "decisionCards": [
+    {
+      "sourceTitle": "全民抽卡求生，每天一张传说卡",
+      "topic": "前三章局部信息与行动变化",
+      "application": "开头把手机异常当作游戏广告，中段列出抽卡类别，末尾重新想起怪物遍地的提示并确认怪物到来；界面信息转成眼前威胁。 街边怪物冲出把上一章警报具象化，中段以内气攻击处理丧尸，末尾红色界面再给未知内容；物理敌人与界面事件交替推进。 开头界面给出进阶挑战选项，末尾落实为关注特定用户并接收发言提醒；章节推进也可以落在信息关系动作，而不只升级或打斗。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "科幻末世:00f45a0381daae3b",
+      "sourceSha256": "00f45a0381daae3bf725c2af0de5a6d0d185bab599df8bad98334bb30daca921",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p2",
+            "ch1:p67",
+            "ch1:p132",
+            "ch1:p133"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p2",
+            "ch2:p70",
+            "ch2:p136",
+            "ch2:p138"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p107",
+            "ch3:p108",
+            "ch3:p109"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    },
+    {
+      "sourceTitle": "公路求生：开局觉醒修罗序列",
+      "topic": "前三章局部信息与行动变化",
+      "application": "骑车疲劳将逃生落到身体负荷，末尾检查背包并因食量增加修正还能撑一周的估计；物资清单与持续时间判断相连。 开头角色正在分配食物即遭遇孩子要泡面的哭闹，末段又以获得序列首件物品为发展目标；资源安排会与他人需求和能力计划相遇。 开头明确强化身体仍不能免疫骑行后的困意，末尾取出带异样圆珠的铜盘；既保留能力限制，也引入待解释的新物件。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "科幻末世:702bb83d770690ee",
+      "sourceSha256": "702bb83d770690eebdb1774afed9ef4a19fb23bebeefbbc00ddb3c0aef65b5ef",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p5",
+            "ch1:p6",
+            "ch1:p84",
+            "ch1:p85",
+            "ch1:p86"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p1",
+            "ch2:p2",
+            "ch2:p105"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p80"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    }
+  ]
+}

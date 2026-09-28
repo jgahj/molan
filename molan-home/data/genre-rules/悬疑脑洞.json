@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 2,
+  "genre": "悬疑脑洞",
+  "familyId": "disaster_exploration",
+  "summary": "样本偏直播无限流和茅山冒险，可参考知情差、局部揭示及应答选择，不限定为同一种规则怪谈或民俗考据。",
+  "policy": {
+    "enforcement": "advisory-only",
+    "nameOverlap": "共姓、辈分字和一般共享汉字本身不构成硬门禁；仅在具体辨识困难时提示复核。",
+    "opening": "宏观、微观、对白均可按当前叙事任务选择，不统一强制任何开篇尺度或器物清单。",
+    "ending": "关键词未命中为unknown；ease需有上下文证据，不据结尾词自动通过或拒稿。",
+    "metrics": "同口径描述性分布，不设置文学质量、字数、对白长度或词频硬门禁。",
+    "review": "仅定点摘段已评；整章、后文及人工复核pending。",
+    "legacyCards": "旧卡缺原文定位，旧固定targetMetrics和自造范句均已撤下；未将未读作品印象迁移为已证实事实。"
+  },
+  "targetMetrics": {},
+  "baselineRef": "../genre-baselines/悬疑脑洞.json",
+  "evidenceRef": "../genre-evidence/悬疑脑洞.json",
+  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "writingDirectives": [
+    {
+      "key": "knowledge_gap",
+      "rule": "比较视角间的知情与情绪差",
+      "detail": "可对照观众预期与人物现场行为，让读者看见不同的信息掌握和危险判断。",
+      "scope": "直播、旁观、有限视角。",
+      "limits": "先核验旁观者是否可靠，不把角色恶意当叙事认可。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "悬疑脑洞:8972a87a24a78690",
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p1",
+            "ch2:p2",
+            "ch2:p110",
+            "ch2:p111",
+            "ch2:p112"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "local_answer",
+      "rule": "回答局部对象再保留新未知",
+      "detail": "可先把黑影落实为具体物件，再将人物推进新的观察位置，区分已解答与未解答。",
+      "scope": "连续章的空间异常或追踪。",
+      "limits": "局部回答不等于推理闭环或后文兑现已完成。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "悬疑脑洞:8972a87a24a78690",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p96",
+            "ch3:p98"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "dangerous_interaction",
+      "rule": "从识别异常转向如何应答",
+      "detail": "即使读者已经知道对方异常，也可将压力放到角色怎样回应以及回应代价。",
+      "scope": "讨封、契约和规则交互。",
+      "limits": "讨封后果尚未核验；不强求绝对冷静、民俗或冷幽默。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "悬疑脑洞:531bafdaeb68d392",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p32",
+            "ch3:p60",
+            "ch3:p61",
+            "ch3:p62"
+          ]
+        }
+      ]
+    }
+  ],
+  "positivePatterns": [],
+  "negativePatterns": [],
+  "decisionCards": [
+    {
+      "sourceTitle": "不要在无限流里招惹精神病！",
+      "topic": "前三章局部信息与行动变化",
+      "application": "病号服与机械表将陌生处境落到身上物件，末尾观众下注死法把外部观看转成对人物的敌意压力；悬念还来自谁在看她。 开头并列局外赌死法和局内喝完汤，形成知情与情绪差；结尾灯暗、天花板黑影、视线下移逐步缩小未知位置。 开头明确木偶从客厅移到床上方，回答上一章黑影的对象；末尾转到浓雾街道并停步前望，局部回答后又保留新对象。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "悬疑脑洞:8972a87a24a78690",
+      "sourceSha256": "8972a87a24a786901e3a9d63cee0118479e7a29a5485ba3f3defd000aa7bc0b7",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p1",
+            "ch1:p2",
+            "ch1:p73",
+            "ch1:p74"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p1",
+            "ch2:p2",
+            "ch2:p110",
+            "ch2:p111",
+            "ch2:p112"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p96",
+            "ch3:p98"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    },
+    {
+      "sourceTitle": "九叔的绝代师弟",
+      "topic": "前三章局部信息与行动变化",
+      "application": "民国山林暴雨提供处境，末段明确将被带上茅山、剑纹变亮，人物随后入睡；安置结果与物件余异可以同时存在。 开头直接跨过十八年并铺陈山崖修炼景象，末尾师父让惹祸时报师兄名号引出孙猴子自嘲；时间概述和师徒玩笑并不互斥。 中段已让读者看到老翁皮相下的妖气，末尾再问像不像人；问题从识别异常转成如何应答，危险焦点是交互选择。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "悬疑脑洞:531bafdaeb68d392",
+      "sourceSha256": "531bafdaeb68d392f1826c8704911cf198835e8d04ed7cde2c7531a25abbf9fc",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p1",
+            "ch1:p2",
+            "ch1:p89",
+            "ch1:p91"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p1",
+            "ch2:p75",
+            "ch2:p76",
+            "ch2:p77"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p32",
+            "ch3:p60",
+            "ch3:p61",
+            "ch3:p62"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    }
+  ]
+}

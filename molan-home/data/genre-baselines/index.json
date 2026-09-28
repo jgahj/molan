@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+  "generatedAt": "2026-09-15T14:29:30.002Z",
+  "genres": [
+    {
+      "genre": "玄幻",
+      "status": "ready",
+      "bookCount": 20,
+      "reason": ""
+    },
+    {
+      "genre": "都市高武",
+      "status": "ready",
+      "bookCount": 17,
+      "reason": ""
+    },
+    {
+      "genre": "悬疑脑洞",
+      "status": "ready",
+      "bookCount": 20,
+      "reason": ""
+    },
+    {
+      "genre": "青春甜宠",
+      "status": "ready",
+      "bookCount": 20,
+      "reason": ""
+    },
+    {
+      "genre": "历史脑洞",
+      "status": "ready",
+      "bookCount": 19,
+      "reason": ""
+    },
+    {
+      "genre": "科幻末世",
+      "status": "ready",
+      "bookCount": 18,
+      "reason": ""
+    }
+  ]
+}

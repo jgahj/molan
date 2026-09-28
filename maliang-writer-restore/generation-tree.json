@@ -1,0 +1,15 @@
+{
+  "root": "shared",
+  "nodes": [
+    { "id": "shared", "type": "shared-fragment", "status": "generated", "output": "partials/shared-head.html" },
+    { "id": "page-index", "type": "page", "status": "planned", "output": "pages/index.html", "parent": "shared" },
+    { "id": "page-features", "type": "page", "status": "planned", "output": "pages/features.html", "parent": "shared" },
+    { "id": "page-pricing", "type": "page", "status": "planned", "output": "pages/pricing.html", "parent": "shared" },
+    { "id": "page-docs", "type": "page", "status": "planned", "output": "pages/docs.html", "parent": "shared" },
+    { "id": "page-blog", "type": "page", "status": "planned", "output": "pages/blog.html", "parent": "shared" },
+    { "id": "page-tools", "type": "page", "status": "planned", "output": "pages/tools.html", "parent": "shared" },
+    { "id": "page-about", "type": "page", "status": "planned", "output": "pages/about.html", "parent": "shared" },
+    { "id": "page-contact", "type": "page", "status": "planned", "output": "pages/contact.html", "parent": "shared" },
+    { "id": "page-login", "type": "page", "status": "planned", "output": "pages/login.html", "parent": "shared" }
+  ]
+}

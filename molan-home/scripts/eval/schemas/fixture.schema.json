@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "墨阑评测 fixture 单条样本",
+  "type": "object",
+  "required": ["sampleId", "task"],
+  "properties": {
+    "sampleId": { "type": "string" },
+    "task": { "enum": ["unit", "claim", "evidence", "entity_state", "foreshadow", "contract", "originality", "continuity"] },
+    "inputRefs": { "type": "array", "items": { "type": "string" } },
+    "expected": {
+      "type": "object",
+      "properties": {
+        "answer": { "type": "object" },
+        "evidenceRefs": { "type": "array", "items": { "type": "string" } },
+        "severity": { "enum": ["blocking", "warning", "info"] },
+        "planned": { "type": "number" },
+        "claimCount": { "type": "number" },
+        "importantClaimCount": { "type": "number" },
+        "risky": { "type": "boolean" },
+        "shouldFail": { "type": "boolean" }
+      }
+    },
+    "actual": { "type": "object" },
+    "annotation": {
+      "type": "object",
+      "properties": {
+        "annotatorId": { "type": "string" },
+        "status": { "enum": ["verified", "draft"] },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

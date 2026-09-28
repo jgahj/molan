@@ -1,0 +1,134 @@
+{
+  "$schema": "https://molan.ai/schemas/pipeline-v1.json",
+  "pipelineId": "pipeline-eac0910574745efd-v1",
+  "version": "1.0.0",
+  "meta": {
+    "name": "《洪荒：我先证混元，鸿钧傻眼了》9月10日标杆叙事引擎：玄幻脑洞特化流",
+    "genre": "玄幻修真 / 玄幻脑洞",
+    "sourceNovel": {
+      "title": "洪荒：我先证混元，鸿钧傻眼了",
+      "author": "名家精选",
+      "bookId": "eac0910574745efd",
+      "category": "玄幻脑洞",
+      "family": "玄幻修真",
+      "totalChapters": 107,
+      "samplePointers": {
+        "firstChapter": "第1章 穿越仙杏,大罗化形",
+        "midChapter": "第54章 三族退场,朔钧讲道？",
+        "lastChapter": "第107章 元始酸了,老子收徒"
+      }
+    },
+    "coreDrive": "概念认知覆写与高维度信息态干涉，主角以程序员/科研逻辑重构修真底层规则 ➔ 日常安宁秩序被超凡突变彻底粉碎、隐秘身份暴露、踏上无法回头的长生死斗之路"
+  },
+  "macroRhythm": {
+    "openingPacingModel": {
+      "targetChapterWordCount": [
+        2500,
+        3500
+      ],
+      "goldFiveChaptersBlueprint": [
+        {
+          "chapterIndex": 1,
+          "titlePattern": "【第1章 穿越仙杏,大罗化形 ➔ 严酷物理阻力 ➔ 突发危机破绽】",
+          "emotionIntensity": 4,
+          "tensionCurve": "日常微观生计(3) ➔ 规制摩擦与代价试探(5) ➔ 异象或危机制高点(7) ➔ 警报断章(8)",
+          "narrativeMission": "确立主角身份、生存环境真实阻力（算力超载脑神经刺痛流鼻血、悖论反噬引发的逻辑死循环、观测者视界坍缩）；引出核心动机（在宗门法度、世俗秩序与朝堂暗流中争夺修行资源、保全身家性命或探寻隐秘身世）；章末以即时危险强力留钩。",
+          "hookType": "生存倒计时或核心底牌受迫暴露威胁"
+        },
+        {
+          "chapterIndex": 2,
+          "titlePattern": "【突围受挫 ➔ 严酷物理损伤 ➔ 果断反制破局】",
+          "emotionIntensity": 7,
+          "tensionCurve": "险境封堵(7) ➔ 器械/武力受损(8) ➔ 抓住关键破绽(8) ➔ 惨胜制敌见血(9)",
+          "narrativeMission": "写实展开第一场生死搏杀或利益碰撞；展现身体受创与物资消耗；绝无空灵闪避，全写物理重量与借力换位。",
+          "hookType": "线索外泄或敌对势力二阶段更大压迫"
+        },
+        {
+          "chapterIndex": 3,
+          "titlePattern": "【盟友入局 ➔ 隐秘利益账本 ➔ 势力裂隙初显】",
+          "emotionIntensity": 6,
+          "tensionCurve": "伤口处理与物资清点(5) ➔ 关键盟友带战略物资入场(7) ➔ 利益分配分歧(7) ➔ 外部围网逼近(8)",
+          "narrativeMission": "揭开危机背后的体制或利益网（看似寻常的公文差事或同门谈笑背后，早已被不可名状的大网或派系清剿所笼罩）；确立与盟友的理性合作契约；章末倒计时逼近。",
+          "hookType": "因果揭晓与不可逆抉择"
+        },
+        {
+          "chapterIndex": 4,
+          "titlePattern": "【防线撕裂 ➔ 底牌极限出鞘 ➔ 决定性战役】",
+          "emotionIntensity": 9,
+          "tensionCurve": "外部重压逼临绝境(8) ➔ 孤立无援(9) ➔ 动用隐秘传承/技术绝杀(10) ➔ 震撼破局(8)",
+          "narrativeMission": "第一卷最高潮之战；主角在所有人面前兑现不可替代的生存与战斗价值；彻底打破原有压迫平衡。",
+          "hookType": "阶段性大捷 + 更高阶势力目光投射"
+        },
+        {
+          "chapterIndex": 5,
+          "titlePattern": "【结算战果 ➔ 规则初立 ➔ 新天地大幕展开】",
+          "emotionIntensity": 7,
+          "tensionCurve": "战后重组秩序(6) ➔ 结算核心权益（${mech.settlementStakes}）(8) ➔ 确立新地位(7) ➔ 遥望下一重险峰(8)",
+          "narrativeMission": "第一卷圆满闭环；兑现利益凭证；确立不可动摇的话语权；引出更宏大世界观主线。",
+          "hookType": "世界观主线大幕拉开"
+        }
+      ]
+    },
+    "macroProgressionLaws": {
+      "crisisDualTrack": "【外部恶劣生存压力】 + 【内部利益与组织制度摩擦（算力超载脑神经刺痛流鼻血、悖论反噬引发的逻辑死循环、观测者视界坍缩）】，双轨交织。",
+      "physicalWeightLaw": "严格遵循客观世界物理规律与生理耐受极限。失血必虚脱、受冻必僵硬、器械受压必形变。严禁无代价自愈。"
+    }
+  },
+  "narrativeSlots": {
+    "protagonistSlot": {
+      "archetypeRole": "深谙玄幻脑洞现实规则、沉静果决的求生与破局者",
+      "coreTraits": "目光清亮敏锐、作风雷厉克制、做事从不逞口舌之快、身负重担却不宣泄负面情绪",
+      "voiceSpec": {
+        "samples": [
+          "多余的废话留给能活下来的人说，先把眼前的死局解了。",
+          "既然规矩是用来压人的，那就按我的账目重新立规矩。"
+        ],
+        "taboos": [
+          "严禁逻辑前后矛盾无法自圆其说、严禁设定无限膨胀脱离读者理解范畴",
+          "绝不说教与中二叫嚣",
+          "不在生死关头冷笑讥讽"
+        ]
+      },
+      "tellSpec": {
+        "anxious": "指尖微扣掌心伤痕，呼吸减缓至平时一半观察破绽",
+        "focused": "肌肉微紧重心沉于足下，眼神不怒自威凝视关键枢纽",
+        "grief": "背对众人整理残破衣物或擦拭器械，默不作声"
+      }
+    }
+  },
+  "causalDebt": {
+    "trackerRules": [
+      "每一次动用底牌或非常规手段破局，必在下一章承担资源亏空或引来审查。",
+      "击杀或得罪对手必留下物理痕迹与社会关系牵连。"
+    ]
+  },
+  "writingSkillSpec": {
+    "styleToneId": "write-high-tension-fiction",
+    "fewShotExemplars": [
+      {
+        "sceneType": "opening_atmospheric_friction",
+        "annotation": "开篇客观环境物态阻力与行动切入",
+        "text": "就在王朔钧仍处于惊恐时，脑海里瞬间多了无数画面，王朔钧把这些拼凑起来，得知了自己如今的处境，“原来这里是盘古开辟的洪荒世界，此地为终南山，此时正是开天后的凶兽量劫开始不久，我现在的本体是极品先天灵根仙杏，一生只结两枚果子，蕴含风雷法则。”"
+      },
+      {
+        "sceneType": "interpersonal_dialogue_tension",
+        "annotation": "克制对白博弈与利益试探",
+        "text": "就在王朔钧仍处于惊恐时，脑海里瞬间多了无数画面，王朔钧把这些拼凑起来，得知了自己如今的处境，“原来这里是盘古开辟的洪荒世界，此地为终南山，此时正是开天后的凶兽量劫开始不久，我现在的本体是极品先天灵根仙杏，一生只结两枚果子，蕴含风雷法则。”"
+      }
+    ]
+  },
+  "styleDirectives": {
+    "prohibitedWords": [
+      "眼神一凝",
+      "倒吸一口凉气",
+      "嘴角勾起一抹弧度",
+      "深吸一口气",
+      "恐怖如斯",
+      "眸中闪过一丝异色"
+    ],
+    "encouragedPatterns": [
+      "客观物态、公差参数、生理受挫的精准描写",
+      "成年人克制、专业、充满潜台词的对白交锋"
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "data": [
+    {
+      "id": "page-index",
+      "title": "首页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785249600000,
+      "canvasData": {
+        "x": 48,
+        "y": 48,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/index.html",
+        "interactions": []
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": false,
+    "deviceType": "desktop",
+    "projectName": "AI 小说创作平台首页",
+    "visualEditorEnabled": false
+  }
+}

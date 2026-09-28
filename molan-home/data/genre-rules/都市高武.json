@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "genre": "都市高武",
+  "familyId": "urban_modern",
+  "summary": "校园测评与全民地仙样本可参考现场任务、能力反差和披露选择；不是统一的执照、工业或成人职场范本。",
+  "policy": {
+    "enforcement": "advisory-only",
+    "nameOverlap": "共姓、辈分字和一般共享汉字本身不构成硬门禁；仅在具体辨识困难时提示复核。",
+    "opening": "宏观、微观、对白均可按当前叙事任务选择，不统一强制任何开篇尺度或器物清单。",
+    "ending": "关键词未命中为unknown；ease需有上下文证据，不据结尾词自动通过或拒稿。",
+    "metrics": "同口径描述性分布，不设置文学质量、字数、对白长度或词频硬门禁。",
+    "review": "仅定点摘段已评；整章、后文及人工复核pending。",
+    "legacyCards": "旧卡缺原文定位，旧固定targetMetrics和自造范句均已撤下；未将未读作品印象迁移为已证实事实。"
+  },
+  "targetMetrics": {},
+  "baselineRef": "../genre-baselines/都市高武.json",
+  "evidenceRef": "../genre-evidence/都市高武.json",
+  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "writingDirectives": [
+    {
+      "key": "situated_task",
+      "rule": "用当前流程承载设定",
+      "detail": "可通过点名、等待和测评让人物接触规则，使世界设定与眼前要做的事相连。",
+      "scope": "学校、组织测试或入门流程。",
+      "limits": "不强加特勤执照或法理背景，也不排斥宏观概述。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "都市高武:fd6ee3e7131ce99f",
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p1",
+            "ch1:p2",
+            "ch1:p89"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "expectation_contrast",
+      "rule": "先给比较尺度再展示落差",
+      "detail": "人物对稀有能力的预期，可与能力命名或表现形成反差，制造不同语体的碰撞。",
+      "scope": "测评揭晓、能力初显、喜剧升级。",
+      "limits": "颜色和面板是可选设定，非质量门禁；反差效果需读正文判断。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "都市高武:35360561a5f413da",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p78",
+            "ch3:p79"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "disclosure_choice",
+      "rule": "让能力带来信息选择",
+      "detail": "可追问人物向谁公开能力，以及隐瞒与展示各自的动机和可能后果。",
+      "scope": "能力秘密与社会关系相关的场景。",
+      "limits": "不要求一律藏拙；当前只证实选择存在，后果待核验。",
+      "enforcement": "advisory",
+      "evidenceRefs": [
+        {
+          "bookId": "都市高武:fd6ee3e7131ce99f",
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p98",
+            "ch3:p99",
+            "ch3:p100"
+          ]
+        }
+      ]
+    }
+  ],
+  "positivePatterns": [],
+  "negativePatterns": [],
+  "decisionCards": [
+    {
+      "sourceTitle": "一堆华丽的技能里出现了一个劲大",
+      "topic": "前三章局部信息与行动变化",
+      "application": "开头以要不要霸凌权贵后代的对白及同伴制止引出危险社会关系；末尾败者反问力气为何这么大，把能力差距交给遭遇者反应。 黄色测评光芒与未来成就被人物明确关联，末尾更显眼的金光引发惊呼；先建比较尺度再给异常结果，形成即时比较。 开头围观者强调金色稀有，末尾能力条目却用劲大及直白解释命名；华丽期待与朴素命名的语体反差提供喜剧空间。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "都市高武:35360561a5f413da",
+      "sourceSha256": "35360561a5f413da6d6c5a5a36cccb6f1b0c291d72f20246050891332ec39f1b",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p1",
+            "ch1:p2",
+            "ch1:p78",
+            "ch1:p79"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p43",
+            "ch2:p84",
+            "ch2:p85"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p1",
+            "ch3:p2",
+            "ch3:p78",
+            "ch3:p79"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    },
+    {
+      "sourceTitle": "全民地仙：开局紫金葫芦辟福地",
+      "topic": "前三章局部信息与行动变化",
+      "application": "点名辟地成功、催楚桓准备和不让全班等待构成课堂流程压力；异常设定借角色眼前要做的事进入，而非先要求宏观世界史。 同契以名称和能力词条呈现，后段稚嫩声音称妈妈、楚桓纠正姓名，使抽象能力环境插入具体误认互动。 章末面板明确提供自己可见和他人可见两种模式，楚桓选择不公开；能力获得后立刻出现信息披露选择，而非只列属性。",
+      "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
+      "evidenceBookId": "都市高武:fd6ee3e7131ce99f",
+      "sourceSha256": "fd6ee3e7131ce99faa83de89c4f483edae038624f10d2e5d0738254a2f4f5ac0",
+      "evidenceRefs": [
+        {
+          "chapterId": "ch1",
+          "paragraphIds": [
+            "ch1:p1",
+            "ch1:p2",
+            "ch1:p89"
+          ]
+        },
+        {
+          "chapterId": "ch2",
+          "paragraphIds": [
+            "ch2:p40",
+            "ch2:p41",
+            "ch2:p42",
+            "ch2:p82",
+            "ch2:p84"
+          ]
+        },
+        {
+          "chapterId": "ch3",
+          "paragraphIds": [
+            "ch3:p98",
+            "ch3:p99",
+            "ch3:p100"
+          ]
+        }
+      ],
+      "reviewStatus": "excerpt-reviewed-human-pending"
+    }
+  ]
+}
