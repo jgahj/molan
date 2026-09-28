@@ -239,6 +239,7 @@ const GENRE_ALIASES = Object.freeze({
 function normalizeGenre(genre) {
   if (typeof genre !== 'string') return '';
   const trimmed = genre.trim();
+  if (!trimmed) return '';
   if (GENRES.includes(trimmed)) return trimmed;
   const lower = trimmed.toLowerCase();
   if (GENRE_ALIASES[trimmed]) return GENRE_ALIASES[trimmed];

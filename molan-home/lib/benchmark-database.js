@@ -201,24 +201,37 @@ function findComparableBenchmark(criteria = {}, dbDir = DEFAULT_DB_DIR) {
 }
 
 /**
- * 将同类可比 Benchmark 转换为注入给起草模型的正面节奏目标块（≤300 字）
+ * 将同类可比 Benchmark 转换为注入给起草模型的样本统计观察块（≤300 字）
  */
 function buildComparablePromptTarget(benchmark) {
   if (!benchmark || !benchmark.metrics_target) return '';
   const m = benchmark.metrics_target;
   const lines = [
-    `【同类可比基准锚点（基于 ${benchmark.sample_count} 本《${benchmark.subgenre}》权威范本对齐）】`,
-    `- 【篇幅硬预算】：单章严格控制在 ${m.chapterChars?.[0] || 2125}～${m.chapterChars?.[1] || 2875} 字区间，到点利落收网，严禁漫无边际注水。`,
-    `- 【言语节奏与对白拉扯】：单轮对话目标 ${Math.round(m.dialogueTurnMean || 20)} 字左右（对白总占比约 ${Math.round((m.dialogueRatio || 0.22) * 100)}%），严禁机械单字或无营养快问快答。`,
-    `- 【句长与呼吸感】：句长均值约 ${Math.round(m.sentenceLenMean || 25)} 字，注重骈散结合与长短句交错，拒绝发报机碎短句。`,
-    `- 【感官具象描写】：千字明喻出现率维持在约 ${m.similePerKilo || 1.2} 次，多用受力、形变、温差等物理写实描写增强现场视觉感。`
+    `【同类可比基准锚点（${benchmark.sample_count || 0} 本《${benchmark.subgenre}》样本观察；仅作参考，不构成目标或门禁）】`
   ];
 
+  const chapterChars = m.chapterChars;
+  if (Array.isArray(chapterChars) && chapterChars.length === 2 && chapterChars.every(Number.isFinite)) {
+    lines.push(`- 样本章长范围约 ${chapterChars[0]}～${chapterChars[1]} 字；实际篇幅以本章合同和用户目标为准。`);
+  }
+  if (Number.isFinite(m.dialogueRatio) || Number.isFinite(m.dialogueTurnMean)) {
+    const parts = [];
+    if (Number.isFinite(m.dialogueRatio)) parts.push(`对白占比约 ${Math.round(m.dialogueRatio * 100)}%`);
+    if (Number.isFinite(m.dialogueTurnMean)) parts.push(`单轮对白均值约 ${Math.round(m.dialogueTurnMean)} 字`);
+    lines.push(`- 样本对白统计：${parts.join('，')}；按角色表达目的取舍，不规定统一对白长度。`);
+  }
+  if (Number.isFinite(m.sentenceLenMean)) {
+    lines.push(`- 样本句长均值约 ${Math.round(m.sentenceLenMean)} 字，仅供节奏观察。`);
+  }
+  if (Number.isFinite(m.similePerKilo)) {
+    lines.push(`- 样本明喻约 ${m.similePerKilo} 次/千字；不要求复用特定修辞或描写方式。`);
+  }
+
   if (benchmark.friction_constraints) {
-    lines.push(`- 【题材物理阻力】：${benchmark.friction_constraints}`);
+    lines.push(`- 样本物理阻力观察（先按当前作品设定判断是否适用）：${benchmark.friction_constraints}`);
   }
   if (benchmark.taboos) {
-    lines.push(`- 【流派避坑禁忌】：${benchmark.taboos}`);
+    lines.push(`- 样本避坑观察（不覆盖用户已确认的创作约束）：${benchmark.taboos}`);
   }
 
   return lines.join('\n');
