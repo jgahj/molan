@@ -527,10 +527,14 @@ function createSqliteQualityLoopStore(db) {
   return { beginRun, settleRun, getByIdempotencyKey };
 }
 
+const { createGenerationArtifact, executeClosedEvolutionLoop } = require('./benchmark-evolution-loop');
+
 module.exports = {
   QUALITY_LOOP_SCHEMA,
   runQualityLoop,
   createSqliteQualityLoopStore,
   validateCorpus,
-  buildTaskPlan
+  buildTaskPlan,
+  createGenerationArtifact,
+  executeClosedEvolutionLoop
 };
