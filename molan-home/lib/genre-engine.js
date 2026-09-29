@@ -63,6 +63,12 @@ const GENRE_FAMILIES = {
     title: '现代言情母类',
     subcategories: ['豪门总裁', '现言脑洞', '青春甜宠', '职场婚恋', '快穿', '种田', '体育'],
     defaultRoute: 'urban_emotion'
+  },
+  '通用现实': {
+    id: 'universal',
+    title: '通用现实与戏剧母类',
+    subcategories: ['通用', '剧情', '现实', '文学', '无题材', '其他'],
+    defaultRoute: 'neutral_dramatic'
   }
 };
 
@@ -115,6 +121,12 @@ const EPISTEMIC_PRESETS = {
     charactersConceal: '对前任合伙人违规操作的知情与内心不愿暴露的软弱病痛',
     blindSpots: '对方看似苛刻的尽调条款实则是为替自己挡掉恶意收购陷阱',
     irreversibleChange: '商业底线被共同守住、防备铠甲卸下与势均力敌的情感契约确立'
+  },
+  'universal': {
+    charactersDesire: '在当前局面与人际关系中推进核心目标，化解阻力并保护关键利益',
+    charactersConceal: '未言明的真实意图、关键隐患或关键筹码',
+    blindSpots: '局面的潜在变数、他人的真实底牌或未察觉的信息差',
+    irreversibleChange: '行动导致立场明确、局面不可逆转或关系结构发生重组'
   }
 };
 
@@ -127,7 +139,8 @@ const FRICTION_PRESETS = {
   'history': '受潮发烂的黄册存根、火耗银两成色夹生、公堂水火棍的沉闷顿地声、磨损的红头官印',
   'western_fantasy': '蒸汽机车喷出的刺鼻煤烟、怀表齿轮的滞涩发条、沾满机油的旧报纸、魔药试管里的银斑沉淀',
   'ancient_romance': '素银发簪刮蹭瓷盘的尖锐声、半温半凉的龙井茶沫、打湿裙摆的阶前青苔、账册翻动的油墨味',
-  'modern_romance': '深夜便利店打折便当的微波炉蜂鸣、暴雨中排队99+的网约车软件、高跟鞋磨破脚跟的刺痛、打印机卡纸警报'
+  'modern_romance': '深夜便利店打折便当的微波炉蜂鸣、暴雨中排队99+的网约车软件、高跟鞋磨破脚跟的刺痛、打印机卡纸警报',
+  'universal': '时间紧迫感、资源与信息不足、身体疲惫与人际沟通的误解与隔阂'
 };
 
 /** 各母类代表路线与叙事机理（全面对标《元始法则》物理硬度与叙事动力学） */
@@ -870,9 +883,15 @@ function getFamilyDefaultDialect(familyId) {
       mundaneHumor: '高压都市白领的黑色自嘲与真实脆弱。',
       microEconomics: '合租房租金、打车费、对赌期权违约代价。',
       asymmetry: '非对称节奏：日常博弈细腻拉扯，情感共振在瞬间爆发。'
+    },
+    universal: {
+      vernacular: '自然流畅的情境对白与动作呈现：克制沉稳，重在潜台词与真实交锋。',
+      mundaneHumor: '真实人物在困境中的克制幽默与真实反思。',
+      microEconomics: '行动成本、时间压力、信息差与关键取舍。',
+      asymmetry: '非对称节奏：意图隐匿于日常对白中，关键抉择处引发局面质变。'
     }
   };
-  return defaults[familyId] || defaults['xuanhuan'];
+  return defaults[familyId] || defaults['universal'] || defaults['xuanhuan'];
 }
 
 const SCENE_FUNCTIONS = [
@@ -899,7 +918,7 @@ function compact(value) {
 /** 智能推断小说题材归属的母类 */
 function resolveFamilyForGenre(genre) {
   const text = String(genre || '').trim();
-  if (!text) return GENRE_FAMILIES['玄幻修真'];
+  if (!text || text.toLowerCase() === 'auto' || text === '通用') return GENRE_FAMILIES['通用现实'];
   for (const [familyName, meta] of Object.entries(GENRE_FAMILIES)) {
     if (text === familyName || text.includes(familyName) || familyName.includes(text)) {
       return meta;
@@ -910,7 +929,7 @@ function resolveFamilyForGenre(genre) {
       }
     }
   }
-  return GENRE_FAMILIES['玄幻修真'];
+  return GENRE_FAMILIES['通用现实'];
 }
 
 /** 获取题材支持的所有路线 */
@@ -923,8 +942,12 @@ function listRoutesForGenre(genre) {
     }
   }
   if (!routes.length) {
-    routes.push({ id: 'yuanshi', ...NARRATIVE_ROUTES['yuanshi'] });
-    routes.push({ id: 'jianzhu', ...NARRATIVE_ROUTES['jianzhu'] });
+    if (family.id === 'universal' && NARRATIVE_ROUTES['neutral_dramatic']) {
+      routes.push({ id: 'neutral_dramatic', ...NARRATIVE_ROUTES['neutral_dramatic'] });
+    } else {
+      routes.push({ id: 'yuanshi', ...NARRATIVE_ROUTES['yuanshi'] });
+      routes.push({ id: 'jianzhu', ...NARRATIVE_ROUTES['jianzhu'] });
+    }
   }
   return routes;
 }
@@ -1464,13 +1487,71 @@ function labelSceneFunctions(sceneText) {
   })).filter(item => item.hits > 0).sort((a, b) => b.hits - a.hits).slice(0, 3);
 }
 
+const AI_FLAVOR_PATTERNS = [
+  // 躯体化神经痉挛套话
+  { regex: /(?:喉咙|咽喉)发紧/g, type: 'somatization', hint: '建议替换为呼吸粗重或现场感动作描写' },
+  { regex: /(?:指节|指头|指尖|骨节|指骨)(?:泛白|发白)/g, type: 'somatization', hint: '建议替换为手指用力或实际持物动作' },
+  { regex: /心跳漏了一拍/g, type: 'somatization', hint: '建议替换为心头一沉或停顿动作' },
+  { regex: /呼吸(?:一滞|骤停)/g, type: 'somatization', hint: '建议替换为屏住呼吸' },
+  { regex: /下颌紧绷/g, type: 'somatization', hint: '建议替换为面色紧绷' },
+  { regex: /后颈(?:发凉|一凉)/g, type: 'somatization', hint: '建议替换为后背发凉' },
+  { regex: /手心(?:全是冷汗|满是冷汗|冒冷汗|冷汗)/g, type: 'somatization', hint: '建议替换为掌心黏湿' },
+  { regex: /牙关紧咬/g, type: 'somatization', hint: '建议替换为咬紧牙关' },
+  { regex: /(?:指腹|指肚|拇指|大拇指)反复?摩挲/g, type: 'somatization', hint: '建议替换为手指抚过' },
+  { regex: /食指轻叩(?:桌面|桌案)/g, type: 'somatization', hint: '建议替换为手指按在桌上' },
+  { regex: /指尖(?:骤然)?(?:一顿|悬在半空|僵在半空)/g, type: 'somatization', hint: '建议替换为动作微顿' },
+  { regex: /掐(?:进|入)掌心/g, type: 'somatization', hint: '建议替换为攥紧拳头' },
+  { regex: /按揉发胀的太阳穴/g, type: 'somatization', hint: '建议替换为揉了揉眉心' },
+  { regex: /后槽牙咬得咯咯作响/g, type: 'somatization', hint: '建议替换为紧咬着牙' },
+  { regex: /喉结上下滚动/g, type: 'somatization', hint: '建议替换为移开视线' },
+  { regex: /倒吸一口凉气/g, type: 'somatization', hint: '建议替换为暗吸一口气' },
+  { regex: /嘴角勾起一抹(?:玩味的)?弧度/g, type: 'somatization', hint: '建议替换为眼神微动' },
+
+  // 隐性翻译腔与句式僵化
+  { regex: /在这一刻显得格外/g, type: 'translationese', hint: '建议简化为更自然的叙事表达' },
+  { regex: /无不在昭示着/g, type: 'translationese', hint: '建议替换为无不显露出' },
+  { regex: /带着一种不容置疑的/g, type: 'translationese', hint: '建议替换为带着不容置疑的' },
+  { regex: /试图去寻找/g, type: 'translationese', hint: '建议简化为试图寻找' },
+  { regex: /不得不承认的是/g, type: 'translationese', hint: '建议替换为平心而论' }
+];
+
+/**
+ * 结构化检测 AI 味模式，非破坏性返回命中证据与定位信息。
+ * @param {string} text 待检测文本
+ * @returns {Array<{ phrase: string, category: string, index: number, quote: string, fixHint: string }>}
+ */
+function detectAiFlavorFindings(text) {
+  if (typeof text !== 'string' || !text) return [];
+  const findings = [];
+  for (const { regex, type, hint } of AI_FLAVOR_PATTERNS) {
+    const rx = new RegExp(regex.source, 'g');
+    let match;
+    while ((match = rx.exec(text)) !== null) {
+      const start = Math.max(0, match.index - 15);
+      const end = Math.min(text.length, match.index + match[0].length + 15);
+      findings.push({
+        phrase: match[0],
+        category: type,
+        index: match.index,
+        quote: text.slice(start, end).trim(),
+        fixHint: hint
+      });
+    }
+  }
+  return findings;
+}
+
 /**
  * 净化真实 AI 味（躯体化神经反射套话与隐性翻译腔），同时严格保护商业中二招式与玄幻宏大奇观描写
  * @param {string} text 待净化文本
+ * @param {object} [options] 配置选项
  * @returns {string} 净化后的文本
  */
-function sanitizeAiFlavor(text) {
+function sanitizeAiFlavor(text, options = {}) {
   if (typeof text !== 'string' || !text) return '';
+  if (options.force !== true && process.env.MOLAN_AI_FLAVOR_REWRITE === 'false') {
+    return text;
+  }
   let result = text;
 
   // 1. 净化躯体化神经痉挛套话（替换为实打实的物理状态、动作或沉稳描写）
@@ -1526,6 +1607,7 @@ module.exports = {
   AUTHOR_PERSONA_PRESETS,
   matchDynamicSceneSlice,
   inferRouteFromQuery,
+  detectAiFlavorFindings,
   sanitizeAiFlavor,
   CausalDebtTracker,
   defaultTracker,

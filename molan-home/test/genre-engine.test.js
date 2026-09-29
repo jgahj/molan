@@ -16,7 +16,7 @@ test('48题材到8大母类的智能归属推断', () => {
   assert.equal(engine.resolveFamilyForGenre('古风世情').id, 'ancient_romance');
   assert.equal(engine.resolveFamilyForGenre('豪门总裁').id, 'modern_romance');
   assert.equal(engine.resolveFamilyForGenre('传统玄幻').id, 'xuanhuan');
-  assert.equal(engine.resolveFamilyForGenre('未知冷门题材').id, 'xuanhuan'); // 兜底
+  assert.equal(engine.resolveFamilyForGenre('未知冷门题材').id, 'universal'); // 兜底到通用戏剧，不再强制玄幻
 });
 
 test('各题材叙事路线与核心机理完整性', () => {

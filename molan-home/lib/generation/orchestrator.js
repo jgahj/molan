@@ -179,7 +179,12 @@ function createGenerationOrchestrator(options = {}) {
 
     try {
       assertActive();
-      if (current.state === 'created') current = await move(scope, id, 'request_validated', { message: '请求已验证' });
+      if (current.state === 'created') {
+        current = await move(scope, id, 'request_validated', { message: '请求已验证' });
+      } else if (current.state === 'paused') {
+        const resumeState = current.result && current.result.resumeCursor ? current.result.resumeCursor : 'request_validated';
+        current = await move(scope, id, resumeState, { message: `从暂停点恢复: ${resumeState}` });
+      }
 
       let genre = request.genre && request.genre !== 'auto' ? { status: 'resolved', confidence: 1, genre: request.genre } : null;
       if (!genre && runDependencies.resolveGenre) genre = await runDependencies.resolveGenre(request);
@@ -386,7 +391,7 @@ function createGenerationOrchestrator(options = {}) {
         current = await move(scope, id, 'quality_audit', { message: '正在生成质量向量' });
         assertActive();
         quality = pipeline
-          ? { passed: semantic.passed, qualityVector: pipeline.audit && pipeline.audit.qualityVector || null, benchmarkStatus: pipeline.status }
+          ? { passed: semantic.passed, qualityVector: pipeline.qualityVector || (pipeline.quality && pipeline.quality.qualityVector) || (pipeline.audit && pipeline.audit.qualityVector) || null, benchmarkStatus: pipeline.status }
           : runDependencies.qualityAudit ? await runDependencies.qualityAudit({ draft, request, contract, genre, style, signal: controller.signal }) : {
           qualityVector: { language: { value: Math.min(1, draft.length / Math.max(Number(contract.wordBudget.targetChars) || draft.length, 1)), confidence: 0.35, source: 'heuristic', evidence: [] } },
           passed: true
