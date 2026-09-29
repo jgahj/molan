@@ -271,8 +271,20 @@ function compileStyleBundle(profiles, sceneContext = {}) {
     }
   }
 
+  const uniqueHardRules = Array.from(new Set(hardRules));
+  const deterministicPayload = JSON.stringify({
+    hardRules: uniqueHardRules,
+    softPreferences,
+    voiceConstraints,
+    positiveSamples,
+    checkRules
+  });
+  const hash = crypto.createHash('sha256').update(deterministicPayload, 'utf8').digest('hex');
+
   return {
-    hardRules: Array.from(new Set(hardRules)),
+    version: 'style-bundle-v1',
+    hash,
+    hardRules: uniqueHardRules,
     softPreferences,
     voiceConstraints,
     positiveSamples,
