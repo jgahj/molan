@@ -260,6 +260,24 @@ const STYLE_ARCHETYPES = {
   }
 };
 
+const { STYLE_DNA, ARCHETYPE_TO_STYLE_DNA, resolveStyleDNA } = require('./style/style-dna');
+
+// 统一文风适配：每个 StyleArchetype 严格绑定唯一的规范 StyleDNA
+for (const [id, def] of Object.entries(STYLE_ARCHETYPES)) {
+  const dnaKey = ARCHETYPE_TO_STYLE_DNA[id] || '日常';
+  def.styleDnaKey = dnaKey;
+  def.styleDna = STYLE_DNA[dnaKey];
+}
+
+function getArchetypeStyleDNA(archetypeId) {
+  const def = STYLE_ARCHETYPES[archetypeId];
+  if (def && def.styleDna) return def.styleDna;
+  const resolved = resolveStyleDNA({ archetypeId });
+  return resolved.status === 'resolved' ? resolved.dna : null;
+}
+
 module.exports = {
-  STYLE_ARCHETYPES
+  STYLE_ARCHETYPES,
+  getArchetypeStyleDNA
 };
+
