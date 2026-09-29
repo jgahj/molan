@@ -9,6 +9,7 @@
     "audit:features": "node scripts/audit-features.mjs",
     "audit:golden": "node scripts/audit-golden-suite.mjs",
     "baseline:build": "node scripts/build-generation-baseline.mjs --write",
+    "baseline:record": "node scripts/record-baseline.mjs",
     "soak:run": "node --experimental-sqlite --no-warnings scripts/run-soak-test.mjs",
     "test:slow": "node -e \"process.env.MOLAN_SLOW_TESTS='1';process.exit(require('node:child_process').spawnSync(process.execPath,['--experimental-sqlite','--no-warnings','--test','test/v31-stage0.test.mjs'],{stdio:'inherit',env:process.env}).status||0)\"",
     "db:pg:check": "node scripts/migrate-postgres.mjs --check",

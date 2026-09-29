@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "golden-result-v1",
+  "commit": "4baa230ad2d0b9b68b71e3d2be3583f8957b82d7",
+  "branch": "main",
+  "timestamp": "2026-09-29T13:48:51.113Z",
+  "valid": true,
+  "status": "PASS",
+  "taskCount": 80,
+  "genreCounts": {
+    "玄幻": 10,
+    "都市": 10,
+    "悬疑": 10,
+    "言情": 10,
+    "历史": 10,
+    "科幻": 10,
+    "西幻": 10,
+    "轻小说": 10
+  },
+  "failures": [],
+  "fixtureStatus": "test_fixture",
+  "dataStatus": "inputs_only"
+}

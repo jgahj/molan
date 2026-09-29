@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "feature-result-v1",
+  "commit": "4baa230ad2d0b9b68b71e3d2be3583f8957b82d7",
+  "branch": "main",
+  "timestamp": "2026-09-29T13:48:51.113Z",
+  "gate": "PASS",
+  "status": "PASS",
+  "contracts": 8,
+  "failedContracts": 0,
+  "unknownMarkers": 0,
+  "unmappedControls": 0,
+  "interactiveControls": {
+    "total": 1688,
+    "mapped": 965,
+    "needsReview": 0,
+    "outOfScope": 723
+  },
+  "results": [
+    {
+      "featureId": "AI_GENERATE",
+      "displayName": "AI章节生成",
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "featureId": "AI_STOP",
+      "displayName": "停止生成",
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "featureId": "AI_AUDIT",
+      "displayName": "章节审计",
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "featureId": "AI_COMMIT",
+      "displayName": "提交章节",
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "featureId": "NOVEL_EXPORT",
+      "displayName": "小说导出",
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "featureId": "GLOBAL_SEARCH",
+      "displayName": "全书搜索",
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "featureId": "GOLDEN_INPUTS",
+      "displayName": "黄金回放输入集",
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "featureId": "QUALITY_LOOP",
+      "displayName": "质量演化闭环",
+      "status": "PASS",
+      "missing": []
+    }
+  ]
+}

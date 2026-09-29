@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "test-result-v1",
+  "commit": "4baa230ad2d0b9b68b71e3d2be3583f8957b82d7",
+  "branch": "main",
+  "timestamp": "2026-09-29T13:48:51.113Z",
+  "status": "PASS",
+  "exitCode": 0,
+  "totalTests": 1107,
+  "passed": 1103,
+  "failed": 0,
+  "cancelled": 0,
+  "skipped": 4,
+  "durationMs": 9153.5039
+}
