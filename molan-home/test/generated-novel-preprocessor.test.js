@@ -155,6 +155,7 @@ test('AI生成小说预处理引擎：23维 GeneratedNovelProfile 标准契约�
 
   // 机器比对报告正常生成
   assert.ok(profile.quality_vector, '生成档案应提供质量向量');
-  assert.equal(profile.quality_vector.schemaVersion, 'quality-vector-v1');
+  assert.equal(profile.quality_vector.schemaVersion, 'quality-vector-v2');
+  assert.equal(Object.keys(profile.quality_vector.values).length, 19);
   assert.equal(Object.hasOwn(profile, 'benchmark_comparison'), false, '预处理不应执行 Benchmark 比较');
 });

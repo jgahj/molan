@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "quality-regression-policy-v1",
+  "categories": [
+    "Engineering",
+    "Literary",
+    "Genre",
+    "Style",
+    "Humanity",
+    "Originality",
+    "Performance",
+    "Cost"
+  ],
+  "targetMetricMinimumRelativeImprovement": 0.05,
+  "guards": [
+    { "metric": "continuity", "direction": "higher", "maxDecline": 0, "category": "Literary" },
+    { "metric": "originality", "direction": "higher", "maxDecline": 0, "category": "Originality" },
+    { "metric": "genreFit", "direction": "higher", "maxDecline": 2, "category": "Genre" },
+    { "metric": "styleFit", "direction": "higher", "maxDecline": 2, "category": "Style" },
+    { "metric": "stability", "direction": "higher", "maxDecline": 0, "category": "Engineering" },
+    { "metric": "cost", "direction": "lower", "maxIncreaseRatio": 0.15, "category": "Cost" }
+  ]
+}

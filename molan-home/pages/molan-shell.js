@@ -2,6 +2,14 @@
   'use strict';
 
   var body = document.body;
+  if (document.head && !document.querySelector('link[data-molan-design-tokens]')) {
+    var tokenSource = document.currentScript && document.currentScript.src;
+    var tokenLink = document.createElement('link');
+    tokenLink.rel = 'stylesheet';
+    tokenLink.href = tokenSource ? new URL('./tokens.css', tokenSource).href : './tokens.css';
+    tokenLink.setAttribute('data-molan-design-tokens', '');
+    document.head.prepend(tokenLink);
+  }
   if (!body || body.classList.contains('login-page') || body.classList.contains('admin-login-page') || document.getElementById('adminApp')) return;
 
   var file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
@@ -131,7 +139,7 @@
 
   function updateAccount() {
     var user = readUser();
-    document.querySelectorAll('[data-shell-account]').forEach(function (node) {
+    document.querySelectorAll('[data-shell-account], [data-molan-account]').forEach(function (node) {
       var avatar = node.querySelector('[data-shell-avatar]');
       if (!avatar && node.classList.contains('molan-shell-account')) avatar = node;
       if (node.classList.contains('molan-shell-account')) {
@@ -164,7 +172,7 @@
     if (menu) menu.addEventListener('click', function () { frame.classList.toggle('is-nav-open'); });
     var scrim = frame.querySelector('.molan-shell-scrim');
     if (scrim) scrim.addEventListener('click', close);
-    document.querySelectorAll('[data-shell-account]').forEach(function (node) {
+    document.querySelectorAll('[data-shell-account], [data-molan-account]').forEach(function (node) {
       node.addEventListener('click', function () {
         var user = readUser();
         if (user && window.MolanAccount && typeof window.MolanAccount.open === 'function') window.MolanAccount.open();

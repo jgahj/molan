@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { Pool } = require('pg');
 const { readConfig } = require('../lib/postgres-repository.js');
+const { createPostgresBackup } = require('../lib/postgres-backup.js');
 
 const migrationsDirectory = path.resolve(import.meta.dirname, '..', 'db', 'migrations');
 
@@ -101,6 +102,15 @@ async function main() {
   const pending = [];
   try {
     let appliedMap = await readAppliedMigrations(client);
+    const pendingMigrations = migrations.filter(migration => !appliedMap.has(migration.version));
+    if (argumentsValue.apply && pendingMigrations.length) {
+      const backup = await createPostgresBackup({
+        config: settings.config,
+        backupDirectory: process.env.MOLAN_PG_BACKUP_DIR,
+        kind: 'migration'
+      });
+      process.stdout.write(JSON.stringify({ backup: backup.outputPath, sha256: backup.manifest.sha256 }) + '\n');
+    }
     for (const migration of migrations) {
       const current = appliedMap.get(migration.version);
       if (current) {

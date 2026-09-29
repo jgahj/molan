@@ -15,6 +15,13 @@ const scope = require('./genre-rule-scope');
 const { sanitizeSystemForUpstream } = require('./ip-continuation-adapter');
 const { sanitizeAiFlavor } = require('./genre-engine');
 const benchmarkDatabase = require('./benchmark-database');
+const { auditDraft } = require('./generation/deterministic-audit');
+const { assembleContext } = require('./generation/context');
+const { buildGenerationManifest, hashValue } = require('./generation/manifest');
+const { resolveGenre } = require('./genre/resolver');
+const { buildGenreProfile } = require('./genre/profile');
+const { compileStyleBundle } = require('./style/style-bundle');
+const scenePlanner = require('./scene-planner');
 
 const DEFAULT_BASELINE_DIR = path.join(__dirname, '..', 'data', 'genre-baselines');
 const MAX_REVISION_ROUNDS = 2;
@@ -164,10 +171,12 @@ async function evidenceAudit(deps, auth, params = {}) {
   try { correction = require('../correction-policy').scanUniversalCorrectionRisks(text, { genre, limit: 40 }); } catch (_) { correction = null; }
   let modelIssues = { issues: [], dropped: [], acceptedCount: 0, droppedCount: 0 };
   const incompleteReasons = [];
-  const context = JSON.stringify({ plan: params.planText || '', contract: params.contract || {}, ledger: params.factLedger || { byEntity: params.byEntity || {} }, previousEnding: params.previousEnding || '', continuity: params.continuity || {}, memoryContext: params.memoryContext || null });
+  const context = String(params.compiledContextText || JSON.stringify({ plan: params.planText || '', contract: params.contract || {}, ledger: params.factLedger || { byEntity: params.byEntity || {} }, previousEnding: params.previousEnding || '', continuity: params.continuity || {}, memoryContext: params.memoryContext || null }));
   let parsed = null;
   let stageChange = '';
   let summary = '';
+  let stateDelta = { timeline: [], relations: [], characters: [], world: [] };
+  let outlineImpact = { status: 'unplanned', addressed: [], deferred: [], unresolved: [] };
   let usage = null;
   const minChars = Number(params.minChars) || Math.max(300, Math.floor((targetWords || 2500) * 0.7));
   if (hard.chars < minChars) incompleteReasons.push('content_too_short');
@@ -195,6 +204,12 @@ async function evidenceAudit(deps, auth, params = {}) {
         for (const dimension of review.REVIEW_DIMENSIONS) if (!parsed.coverage || parsed.coverage[dimension] !== 'checked') incompleteReasons.push('coverage_' + dimension);
         const delta = parsed.factLedgerDelta;
         if (!delta || !['newRules', 'newPromises', 'updates'].every(key => Array.isArray(delta[key])) || !delta.byEntity || typeof delta.byEntity !== 'object' || Array.isArray(delta.byEntity) || Object.values(delta.byEntity).some(values => !Array.isArray(values))) incompleteReasons.push('invalid_ledger_schema');
+        const verifiedState = verifiedStateDelta(text, parsed.stateDelta);
+        stateDelta = verifiedState.delta;
+        if (verifiedState.invalidCount) incompleteReasons.push('unverified_state_delta');
+        const verifiedOutline = verifiedOutlineImpact(text, parsed.outlineImpact, params);
+        outlineImpact = verifiedOutline.impact;
+        if (verifiedOutline.invalidCount) incompleteReasons.push('unverified_outline_impact');
         const committed = params.factLedger || {};
         const facts = [...(committed.rules || []), ...(committed.promises || []), ...Object.values(committed.byEntity || {}).filter(Array.isArray).flat()];
         for (const update of delta && Array.isArray(delta.updates) ? delta.updates : []) {
@@ -244,6 +259,8 @@ async function evidenceAudit(deps, auth, params = {}) {
     coveredChars: parsed ? text.length : 0, humanReviewStatus: 'pending',
     factLedgerDelta: ledger.delta,
     invalidLedgerEvidence: ledger.invalidEvidence,
+    stateDelta,
+    outlineImpact,
     issues,
     droppedIssues: modelIssues.dropped,
     stageChange, noStageChange, stageChangeRequired, summary,
@@ -282,6 +299,10 @@ async function auditReviseLoop(deps, auth, params = {}) {
   const rounds = [];
   const calls = [];
   const tracked = trackedDependencies(deps, calls);
+  let deterministicAudit = deterministicAuditFor(text, params);
+  if (!deterministicAudit.passed) {
+    return { text, audit: deterministicAudit, deterministicAudit, rounds, calls, usage: aggregateUsage(calls), status: 'needs_review', humanReviewStatus: 'pending' };
+  }
   let audit = deps.initialAudit && deps.initialAudit.contentHash === review.textHash(text) ? deps.initialAudit : await evidenceAudit(tracked, auth, { ...params, text });
   const requested = Number(params.maxRounds ?? MAX_REVISION_ROUNDS);
   const maxRounds = Number.isFinite(requested) ? Math.max(0, Math.min(MAX_REVISION_ROUNDS, Math.floor(requested))) : MAX_REVISION_ROUNDS;
@@ -295,14 +316,20 @@ async function auditReviseLoop(deps, auth, params = {}) {
       rounds.push({ round, accepted: false, review: revision.review, issuesBefore: before.issues.length });
       break;
     }
+    const candidateDeterministicAudit = deterministicAuditFor(revision.revisedText, params);
+    if (!candidateDeterministicAudit.passed) {
+      rounds.push({ round, accepted: false, reason: 'deterministic_gate_failed', deterministicAudit: candidateDeterministicAudit, usage: revision.usage });
+      break;
+    }
     const candidate = await evidenceAudit(tracked, auth, { ...params, text: revision.revisedText });
     const accepted = candidate.status !== 'incomplete' && auditPenalty(candidate) < auditPenalty(before);
     rounds.push({ round, accepted, review: revision.review, issuesBefore: before.issues.length, issuesAfter: candidate.issues.length, candidateAudit: candidate, usage: revision.usage });
     if (!accepted) break;
     text = revision.revisedText;
     audit = candidate;
+    deterministicAudit = candidateDeterministicAudit;
   }
-  return { text, audit, rounds, calls, usage: aggregateUsage(calls), status: audit.passed ? 'passed' : 'needs_review', humanReviewStatus: 'pending' };
+  return { text, audit, deterministicAudit, rounds, calls, usage: aggregateUsage(calls), status: audit.passed ? 'passed' : 'needs_review', humanReviewStatus: 'pending' };
 }
 
 function hasUsage(usage) {
@@ -349,6 +376,89 @@ function verifiedLedgerDelta(text, source) {
   return { delta, invalidCount, invalidEvidence };
 }
 
+function verifiedStateDelta(text, source) {
+  const empty = { timeline: [], relations: [], characters: [], world: [] };
+  let invalidCount = 0;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return { delta: empty, invalidCount: 1 };
+  const normalize = (key, requireEntity) => {
+    if (!Array.isArray(source[key])) { invalidCount += 1; return []; }
+    return source[key].slice(0, 64).flatMap(item => {
+      const quote = String(item && item.quote || '').trim();
+      const location = review.locateQuote(text, quote, item && item.paragraphIndex);
+      const label = String(item && (item.entity || item.text) || '').trim().slice(0, 240);
+      const description = String(item && item.text || '').trim().slice(0, 500);
+      if (!location || !location.found || !description || (requireEntity && (!label || !quote.includes(label)))) {
+        invalidCount += 1;
+        return [];
+      }
+      const entry = { text: description, quote, paragraphIndex: location.paragraphIndex };
+      if (requireEntity) entry.entity = label;
+      if (key === 'timeline') {
+        entry.location = String(item.location || '').trim().slice(0, 160);
+        entry.participants = Array.isArray(item.participants)
+          ? item.participants.map(value => String(value || '').trim()).filter(Boolean).slice(0, 12) : [];
+      }
+      if (key === 'characters') {
+        const lifeStatus = String(item.lifeStatus || 'unknown');
+        entry.lifeStatus = ['alive', 'dead', 'unknown'].includes(lifeStatus) ? lifeStatus : 'unknown';
+        entry.location = String(item.location || '').trim().slice(0, 160);
+      }
+      return [entry];
+    });
+  };
+  const delta = {
+    timeline: normalize('timeline', false),
+    relations: normalize('relations', true),
+    characters: normalize('characters', true),
+    world: normalize('world', true)
+  };
+  return { delta, invalidCount };
+}
+
+function outlineTargets(params = {}) {
+  const contract = params.contract && typeof params.contract === 'object' ? params.contract
+    : params.chapterContract && typeof params.chapterContract === 'object' ? params.chapterContract : {};
+  const targets = [String(params.planText || '').trim(), String(contract.chapterGoal || contract.goal || '').trim()];
+  for (const scene of Array.isArray(contract.scenes) ? contract.scenes : []) {
+    targets.push(String(scene && scene.purpose || '').trim(), String(scene && scene.goal || '').trim());
+    targets.push(...(Array.isArray(scene && scene.mustAdvance) ? scene.mustAdvance.map(String) : []));
+  }
+  return [...new Set(targets.map(value => value.trim()).filter(value => value.length >= 4 && value.length <= 500))];
+}
+
+function verifiedOutlineImpact(text, source, params = {}) {
+  const targets = outlineTargets(params);
+  const empty = { status: 'unplanned', addressed: [], deferred: [], unresolved: [] };
+  if (!source || typeof source !== 'object' || Array.isArray(source) ||
+      !Array.isArray(source.addressed) || !Array.isArray(source.deferred)) {
+    return { impact: empty, invalidCount: 1 };
+  }
+  const invalidStatus = !['aligned', 'partial', 'diverged', 'unplanned'].includes(String(source.status || ''));
+  let invalidCount = invalidStatus ? 1 : 0;
+  const verify = values => values.slice(0, 64).flatMap(item => {
+    const beat = String(item && item.text || '').trim();
+    const quote = String(item && item.quote || '').trim();
+    const location = review.locateQuote(text, quote, item && item.paragraphIndex);
+    if (!targets.some(target => target.includes(beat)) || beat.length < 4 || !location || !location.found) {
+      invalidCount += 1;
+      return [];
+    }
+    return [{ text: beat, quote, paragraphIndex: location.paragraphIndex }];
+  });
+  const addressed = verify(source.addressed);
+  const deferred = verify(source.deferred);
+  if (!targets.length) {
+    if (String(source.status) !== 'unplanned' || addressed.length || deferred.length) invalidCount += 1;
+    return { impact: empty, invalidCount };
+  }
+  const covered = new Set([...addressed, ...deferred].map(item => item.text));
+  const unresolved = targets.filter(target => ![...covered].some(item => target.includes(item) || item.includes(target)));
+  const status = deferred.length || unresolved.length
+    ? addressed.length ? 'partial' : 'diverged'
+    : 'aligned';
+  return { impact: { status, addressed, deferred, unresolved }, invalidCount };
+}
+
 function trackedDependencies(deps, calls) {
   return { ...deps, callModel: async (auth, options) => {
     const record = { stage: options.jsonMode ? 'review_or_revision' : 'draft', modelId: options.modelId || null, parameters: { temperature: options.temperature ?? 0.3, maxTokens: options.maxTokens ?? 2000, topP: options.topP ?? null, seed: options.seed ?? null, modelVersion: options.modelVersion ?? options.modelId ?? null }, parameterSource: 'pipeline-request; provider overrides not independently verified', requestHash: review.textHash(JSON.stringify(options)), startedAt: new Date().toISOString(), status: 'started', usage: null };
@@ -376,18 +486,207 @@ function auditPenalty(audit) {
   return (audit.stageChangeRequired && audit.noStageChange ? 1000 : 0) + audit.issues.reduce((total, item) => total + ({ blocker: 10000, high: 1000, medium: 100, low: 1 }[item.severity] || 1), 0);
 }
 
+/** 按章节合同执行确定性长度、重复段落和空稿门禁，不使用题材统一字数线。 */
+function deterministicAuditFor(text, params = {}) {
+  const contract = params.contract && typeof params.contract === 'object'
+    ? params.contract
+    : params.chapterContract && typeof params.chapterContract === 'object' ? params.chapterContract : {};
+  const budget = contract.wordBudget && typeof contract.wordBudget === 'object'
+    ? contract.wordBudget
+    : params.genreBudgetProfile && typeof params.genreBudgetProfile === 'object' ? params.genreBudgetProfile : {};
+  const target = Number(budget.targetChars) || Number(params.targetChars) || Number(params.targetWords) || 0;
+  let minChars = Number(budget.minChars) || Number(params.minChars) || 0;
+  let maxChars = Number(budget.maxChars) || Number(params.maxChars) || 0;
+  if (target > 0) {
+    if (!minChars) minChars = Math.ceil(target * 0.85);
+    if (!maxChars) maxChars = Math.floor(target * 1.15);
+  }
+  return auditDraft({ text, minChars, maxChars, strictLength: minChars > 0 || maxChars > 0 });
+}
+
+/** 将服务端已验证的状态冲突挡在 Writer 调用之前。 */
+function preGenerationBlockers(params = {}) {
+  const guard = params.preGenerationGuard || params.preGenerationCheck;
+  if (!guard || guard.passed !== false) return [];
+  const source = Array.isArray(guard.blockers) ? guard.blockers
+    : Array.isArray(guard.issues) ? guard.issues
+      : Array.isArray(guard.findings) ? guard.findings : [];
+  const issues = source.map((item, index) => ({
+    issueId: String(item && item.issueId || `guard_${index + 1}`),
+    category: String(item && (item.category || item.type) || 'state'),
+    severity: 'blocker',
+    quote: String(item && item.quote || ''),
+    quoteHash: String(item && item.quoteHash || ''),
+    sourceFactId: String(item && (item.sourceFactId || item.factId) || ''),
+    problem: String(item && (item.problem || item.message || item.description) || '生成前状态校验未通过'),
+    fixHint: String(item && (item.fixHint || item.fix) || ''),
+    status: 'verified'
+  }));
+  if (!issues.length) issues.push({
+    issueId: 'guard_1', category: 'state', severity: 'blocker', quote: '', quoteHash: '', sourceFactId: '',
+    problem: String(guard.reason || '生成前状态校验未通过'), fixHint: '', status: 'verified'
+  });
+  return issues;
+}
+
+/** 只将合同涉及的人物状态和当前有效账目放入硬状态区。 */
+function selectHardState(params, contract) {
+  if (params.hardState && typeof params.hardState === 'object') return params.hardState;
+  const ledger = params.factLedger && typeof params.factLedger === 'object' ? params.factLedger : {};
+  const requested = [...(Array.isArray(params.characters) ? params.characters : []), ...(Array.isArray(contract.characters) ? contract.characters : [])]
+    .map(item => typeof item === 'string' ? item : String(item && (item.name || item.id) || ''))
+    .filter(Boolean);
+  const byEntity = ledger.byEntity && typeof ledger.byEntity === 'object' ? ledger.byEntity : {};
+  const selectedByEntity = {};
+  if (requested.length) {
+    for (const [name, facts] of Object.entries(byEntity)) {
+      if (requested.includes(name)) selectedByEntity[name] = Array.isArray(facts) ? facts.slice(-30) : facts;
+    }
+  }
+  const selected = {};
+  if (Object.keys(selectedByEntity).length) selected.byEntity = selectedByEntity;
+  for (const key of ['rules', 'promises']) {
+    if (Array.isArray(ledger[key]) && ledger[key].length) selected[key] = ledger[key].slice(-40);
+  }
+  return Object.keys(selected).length ? selected : null;
+}
+
+/** 将现有六类题材映射到题材画像键，不把题材规则混入文风选择。 */
+function genreProfileKey(genre) {
+  return ({
+    '玄幻': '玄幻', '都市高武': '都市', '悬疑脑洞': '悬疑',
+    '历史脑洞': '历史', '青春甜宠': '言情', '科幻末世': '科幻'
+  })[String(genre || '')] || String(genre || '');
+}
+
+/** 从已有角色声音字段编译可用于风格包的标准人物与关系契约。 */
+function styleBundleVoices(params, contract) {
+  const characters = [...(Array.isArray(params.characters) ? params.characters : []), ...(Array.isArray(contract.characters) ? contract.characters : [])];
+  const voices = characters.filter(item => item && typeof item === 'object').map(character => {
+    const voice = character.voice_contract || character.voiceContract || character.voice || {};
+    return {
+      characterId: String(character.id || character.name || ''),
+      speech: { sentenceLength: voice.turnLengthPref || voice.turn_length_pref || voice.sentenceLengthPreference || 'varied' },
+      verbalHabits: voice.styleHabits || voice.style_habits || voice.verbalHabits || voice.verbal_habits || [],
+      taboos: voice.tabooWords || voice.taboo_words || voice.tabooPhrases || voice.taboo_phrases || []
+    };
+  });
+  return {
+    characterVoices: Array.isArray(params.characterVoices) ? params.characterVoices : voices,
+    relationshipVoices: Array.isArray(params.relationshipVoices) ? params.relationshipVoices : []
+  };
+}
+
+/** 按作者明确选择生成 Style Bundle；缺失风格时不注入虚构默认风格。 */
+function buildPipelineStyleBundle(params, contract, genreProfile) {
+  const selected = params.styleDNA || params.styleProfile || params.style || params.stylePreset;
+  if (!selected) return null;
+  const style = typeof selected === 'string' ? { style: selected } : selected;
+  const voices = styleBundleVoices(params, contract);
+  const result = compileStyleBundle({
+    style,
+    genreProfile: genreProfile || {},
+    narrativeProfile: params.narrativeProfile || {},
+    characterVoices: voices.characterVoices,
+    relationshipVoices: voices.relationshipVoices,
+    sceneProfile: params.sceneProfile || {},
+    commercialProfile: params.commercialProfile || {}
+  });
+  return result.status === 'resolved' ? result : null;
+}
+
 async function generateChapter(deps, auth, params = {}) {
   const calls = [];
   const tracked = trackedDependencies(deps, calls);
-  const effectiveGenre = inferGenre(params.genre, [params.prompt, params.contract && params.contract.goal, params.writingSystem].join(' '));
+  const blockers = preGenerationBlockers(params);
+  if (blockers.length) {
+    const audit = { passed: false, status: 'blocked', contentHash: review.textHash(''), charCount: 0, issues: blockers, unverifiedCount: 0, blockerCount: blockers.length, phase: 'pre_generation_guard' };
+    return { text: '', status: 'needs_review', audit, calls, usage: aggregateUsage(calls), humanReviewStatus: 'pending' };
+  }
+  let contract = params.contract && typeof params.contract === 'object' ? params.contract
+    : params.chapterContract && typeof params.chapterContract === 'object' ? params.chapterContract : {};
+  const inferredGenre = inferGenre(params.genre, [params.prompt, contract.chapterGoal || contract.goal, params.writingSystem].join(' '));
+  const detectedGenre = resolveGenre({ genre: params.genre, subgenre: params.subgenre, title: params.novelTitle, userInstruction: params.prompt, prompt: params.prompt, messages: params.messages });
+  const resolverGenreMap = { '玄幻': '玄幻', '都市': '都市高武', '悬疑': '悬疑脑洞', '历史': '历史脑洞', '言情': '青春甜宠', '科幻': '科幻末世' };
+  const effectiveGenre = inferredGenre || (detectedGenre.status === 'resolved' ? resolverGenreMap[detectedGenre.genre] || detectedGenre.genre : null);
+  const genreResolution = inferredGenre
+    ? { status: 'resolved', confidence: 1, genre: genreProfileKey(inferredGenre), subgenre: String(params.subgenre || ''), source: 'existing_genre_evidence' }
+    : detectedGenre;
   const runtime = genreRuntime(effectiveGenre);
   const baseline = loadGenreBaseline(effectiveGenre);
   const generationReasoningEffort = params.reasoningEffort || (/^gpt-6-luna$/i.test(String(params.modelId || '')) ? 'medium' : undefined);
   const comparableRange = baseline?.comparableBenchmark?.metrics_target?.chapterChars;
   const genreTarget = Number(baseline?.structureBaseline?.chapterCharsMean)
     || (Array.isArray(comparableRange) && comparableRange.length === 2 ? (Number(comparableRange[0]) + Number(comparableRange[1])) / 2 : 0);
-  const targetWords = Math.max(1200, Math.min(8000, Math.round(Number(params.targetWords) || genreTarget || 2500)));
-  const context = JSON.stringify({ contract: params.contract || {}, factLedger: params.factLedger || {}, previousEnding: params.previousEnding || '', continuity: params.continuity || {}, memoryContext: params.memoryContext || null });
+  const contractBudget = contract.wordBudget && typeof contract.wordBudget === 'object' ? contract.wordBudget : {};
+  const profileKey = genreProfileKey(effectiveGenre || (genreResolution.status === 'resolved' ? genreResolution.genre : ''));
+  const profileTarget = Math.max(1200, Math.min(8000, Number(contractBudget.targetChars) || Number(params.targetChars) || Number(params.targetWords) || genreTarget || 2800));
+  const genreProfileCandidate = buildGenreProfile({
+    genre: profileKey, subgenre: params.subgenre || genreResolution.subgenre,
+    targetChars: profileTarget, pov: contract.pov, tone: params.tone || params.style
+  });
+  const genreProfile = genreProfileCandidate.status === 'resolved' ? genreProfileCandidate : null;
+  const genreBudgetProfile = contractBudget.minChars || contractBudget.maxChars || contractBudget.targetChars
+    ? contractBudget
+    : genreProfile && genreProfile.budgetProfile;
+  const targetWords = Math.max(1200, Math.min(8000, Math.round(Number(params.targetWords) || genreTarget || genreProfile?.budgetProfile.targetChars || 2500)));
+  let scenePlan = null;
+  if (!Array.isArray(contract.scenes) || !contract.scenes.length) {
+    const outlineNodes = Array.isArray(params.outlineNodes) ? params.outlineNodes
+      : Array.isArray(params.chapterOutline) ? params.chapterOutline : [];
+    if (outlineNodes.length) {
+      scenePlan = scenePlanner.planScenes(outlineNodes, { targetWordCount: targetWords, genreProfile });
+      contract = { ...contract, scenes: scenePlan.scenes };
+    }
+  }
+  const sceneDirectiveBlock = scenePlan ? scenePlanner.compileSceneDirectives(scenePlan) : '';
+  const styleBundle = buildPipelineStyleBundle(params, contract, genreProfile);
+  const isLargeContextModel = /gpt-6|deepseek|claude|gemini|v4|v3/i.test(String(params.modelId || ''));
+  const maxSystemBudget = isLargeContextModel ? 64000 : 32000;
+  const maxContextBudget = isLargeContextModel ? 48000 : 32000;
+  const maxPromptBudget = isLargeContextModel ? 24000 : 16000;
+  let compiledContext;
+  try {
+    compiledContext = assembleContext({
+      sceneContract: Object.keys(contract).length ? contract : null,
+      hardState: selectHardState(params, contract),
+      povKnowledge: contract.allowedKnowledge || contract.forbiddenKnowledge ? {
+        allowed: contract.allowedKnowledge || [], forbidden: contract.forbiddenKnowledge || []
+      } : null,
+      immediateTimeline: params.immediateTimeline || params.timeline || params.previousEnding || null,
+      activeCausalDebt: params.activeCausalDebts || params.causalDebts || (params.continuity && params.continuity.causalDebts) || null,
+      characters: params.characters || contract.characters || null,
+      location: params.currentLocation || params.location || (params.continuity && params.continuity.location) || null,
+      worldRules: params.worldRules || (params.continuity && params.continuity.worldRules) || null,
+      relationships: params.relationships || (params.continuity && params.continuity.relationships) || null,
+      volumeState: params.volumeState || null,
+      recentChapters: params.recentChapters || params.recentText || null,
+      foreshadows: params.foreshadows || null,
+      distantPlot: params.planText || null,
+      historicalFacts: params.memoryContext || null
+    }, { maxChars: maxContextBudget, outputReserve: Math.ceil(targetWords * 1.5) });
+  } catch (error) {
+    if (error && error.code === 'CONTEXT_OVERFLOW') {
+      throw Object.assign(new Error('必要的章节合同或硬状态超过上下文预算，未静默裁剪'), { code: 'context_budget_exceeded', cause: error });
+    }
+    throw error;
+  }
+  const context = compiledContext.text;
+  const contextPlan = compiledContext.contextPlan;
+  const auditParams = {
+    ...params,
+    contract,
+    chapterContract: contract,
+    genreResolution,
+    genreProfile,
+    genreBudgetProfile,
+    scenePlan,
+    expectPayoff: params.expectPayoff === true || (Array.isArray(contract.requiredPayoff) && contract.requiredPayoff.length > 0),
+    factLedger: selectHardState(params, contract) || {},
+    knownEntities: collectKnownEntities(params),
+    compiledContextText: context,
+    contextPlan
+  };
   const runtimeBlock = runtime.writingBlock || '';
   const baselineBlock = buildBaselineTargetBlock(baseline);
   const extraBlocks = [];
@@ -397,11 +696,12 @@ async function generateChapter(deps, auth, params = {}) {
   if (baselineBlock && (!params.writingSystem || !params.writingSystem.includes(baselineBlock.slice(0, 30)))) {
     extraBlocks.push(baselineBlock);
   }
+  if (genreProfile) extraBlocks.push('【GENRE PROFILE】\n' + JSON.stringify(genreProfile));
+  if (styleBundle && styleBundle.prompt && (!params.writingSystem || !params.writingSystem.includes(styleBundle.prompt.slice(0, 40)))) {
+    extraBlocks.push(styleBundle.prompt);
+  }
+  if (sceneDirectiveBlock) extraBlocks.push(sceneDirectiveBlock);
   let system = sanitizeSystemForUpstream(params.control === true ? String(params.controlSystem || '') : [params.writingSystem || '只写原创中文小说正文，不输出提纲或说明。先落实当下人物目标、行动阻力、认知边界和局面变化。', ...extraBlocks].filter(Boolean).join('\n\n'));
-  const isLargeContextModel = /gpt-6|deepseek|claude|gemini|v4|v3/i.test(String(params.modelId || ''));
-  const maxSystemBudget = isLargeContextModel ? 64000 : 32000;
-  const maxContextBudget = isLargeContextModel ? 48000 : 32000;
-  const maxPromptBudget = isLargeContextModel ? 24000 : 16000;
   if (!system.trim() || context.length > maxContextBudget || system.length > maxSystemBudget || String(params.prompt || '').length > maxPromptBudget) {
     if (system.length > maxSystemBudget && system.length <= maxSystemBudget * 1.15) {
       system = system.replace(/\n{3,}/g, '\n\n').trim();
@@ -416,7 +716,7 @@ async function generateChapter(deps, auth, params = {}) {
     proseTask: true,
     novelId: params.novelId || '',
     genre: effectiveGenre,
-    characters: Array.isArray(params.characters) ? params.characters : Array.isArray(params.contract?.characters) ? params.contract.characters : Array.isArray(params.continuity?.characters) ? params.continuity.characters : []
+    characters: Array.isArray(params.characters) ? params.characters : Array.isArray(contract.characters) ? contract.characters : Array.isArray(params.continuity?.characters) ? params.continuity.characters : []
   };
   const isReasoning = Boolean(generationReasoningEffort && generationReasoningEffort !== 'none');
   const maxTokensClamped = (isReasoning || /^gpt-6-luna$/i.test(String(params.modelId || '')))
@@ -444,14 +744,22 @@ async function generateChapter(deps, auth, params = {}) {
     });
   } catch (error) {
     console.error('[generateChapter draft error]:', error && error.stack || error);
-    return { text: '', status: 'needs_review', audit: { passed: false, status: 'incomplete', incompleteReasons: ['draft_call_failed_or_unknown'] }, calls, usage: aggregateUsage(calls), humanReviewStatus: 'pending' };
+    return { text: '', status: 'needs_review', audit: { passed: false, status: 'incomplete', incompleteReasons: ['draft_call_failed_or_unknown'] }, calls, usage: aggregateUsage(calls), contextPlan, humanReviewStatus: 'pending' };
   }
   const rawText = String(draft && draft.text || '').trim();
   const text = sanitizeAiFlavor(rawText);
-  if (!text || !hasUsage(draft && draft.usage)) return { text, status: 'needs_review', audit: { passed: false, status: 'incomplete', incompleteReasons: ['draft_or_usage_missing'] }, calls, usage: aggregateUsage(calls) };
+  const initialDeterministicAudit = deterministicAuditFor(text, { ...params, targetWords, genreBudgetProfile });
+  if (!text || !hasUsage(draft && draft.usage)) {
+    const audit = { ...initialDeterministicAudit, passed: false, status: 'incomplete', incompleteReasons: [!text ? 'draft_missing' : 'usage_missing'] };
+    return { text, status: 'needs_review', audit, deterministicAudit: initialDeterministicAudit, calls, usage: aggregateUsage(calls), contextPlan, humanReviewStatus: 'pending' };
+  }
+  if (!initialDeterministicAudit.passed) {
+    return { text, status: 'needs_review', audit: { ...initialDeterministicAudit, phase: 'deterministic_audit' }, deterministicAudit: initialDeterministicAudit, calls, usage: aggregateUsage(calls), contextPlan, humanReviewStatus: 'pending' };
+  }
   let selectedText = text;
-  let selectedAudit = await evidenceAudit(tracked, auth, { ...params, text, targetWords });
-  const candidates = [{ contentHash: review.textHash(text), audit: selectedAudit }];
+  let selectedAudit = await evidenceAudit(tracked, auth, { ...auditParams, text, targetWords });
+  let selectedDeterministicAudit = initialDeterministicAudit;
+  const candidates = [{ contentHash: review.textHash(text), audit: selectedAudit, deterministicAudit: selectedDeterministicAudit }];
   if (params.control !== true && selectedAudit.status !== 'incomplete' && !selectedAudit.passed) {
     let alternative;
     try {
@@ -472,22 +780,46 @@ async function generateChapter(deps, auth, params = {}) {
         jsonMode: false
       });
     } catch (_) {
-      return { text: selectedText, status: 'needs_review', audit: { ...selectedAudit, passed: false, status: 'incomplete', incompleteReasons: ['alternative_call_failed_or_unknown'] }, candidates, calls, usage: aggregateUsage(calls), humanReviewStatus: 'pending' };
+      return { text: selectedText, status: 'needs_review', audit: { ...selectedAudit, passed: false, status: 'incomplete', incompleteReasons: ['alternative_call_failed_or_unknown'] }, candidates, calls, usage: aggregateUsage(calls), contextPlan, humanReviewStatus: 'pending' };
     }
     if (hasUsage(alternative && alternative.usage) && String(alternative.text || '').trim()) {
       const alternativeText = sanitizeAiFlavor(alternative.text.trim());
-      const alternativeAudit = await evidenceAudit(tracked, auth, { ...params, text: alternativeText, targetWords });
-      candidates.push({ contentHash: review.textHash(alternativeText), audit: alternativeAudit });
-      if (auditPenalty(alternativeAudit) < auditPenalty(selectedAudit)) {
-        selectedText = alternativeText;
-        selectedAudit = alternativeAudit;
+      const alternativeDeterministicAudit = deterministicAuditFor(alternativeText, { ...params, targetWords, genreBudgetProfile });
+      if (alternativeDeterministicAudit.passed) {
+        const alternativeAudit = await evidenceAudit(tracked, auth, { ...auditParams, text: alternativeText, targetWords });
+        candidates.push({ contentHash: review.textHash(alternativeText), audit: alternativeAudit, deterministicAudit: alternativeDeterministicAudit });
+        if (auditPenalty(alternativeAudit) < auditPenalty(selectedAudit)) {
+          selectedText = alternativeText;
+          selectedAudit = alternativeAudit;
+          selectedDeterministicAudit = alternativeDeterministicAudit;
+        }
       }
     }
   }
-  const result = await auditReviseLoop({ ...deps, initialAudit: selectedAudit }, auth, { ...params, text: selectedText, targetWords, maxRounds: params.control === true ? 0 : params.maxRounds });
+  const result = await auditReviseLoop({ ...deps, initialAudit: selectedAudit }, auth, { ...auditParams, text: selectedText, targetWords, maxRounds: params.control === true ? 0 : params.maxRounds });
   const allCalls = [...calls, ...result.calls];
   const totalUsage = aggregateUsage(allCalls);
-  return { ...result, status: result.audit.passed && totalUsage.complete ? 'passed' : 'needs_review', calls: allCalls, candidates, selectedHash: selectedAudit.contentHash, usage: totalUsage, protocol: 'benchmark-local-v2', effectiveGenre, genreAssetStatus: runtime.status };
+  const manifest = buildGenerationManifest({
+    generationId: params.generationId || params.runId,
+    projectId: params.projectId || params.novelId,
+    branchId: params.branchId,
+    chapterId: params.chapterId || contract.chapterId,
+    codeVersion: params.codeVersion,
+    pipelineVersion: 'benchmark-local-v2',
+    genreEngineVersion: params.genreProfileVersion || 'genre-resolver-1',
+    styleVersion: params.styleVersion || styleBundle?.bundleId || contract.styleBundleId,
+    benchmarkVersion: params.benchmarkVersion,
+    modelId: params.modelId,
+    providerModel: totalUsage.calls.find(call => call.providerModel)?.providerModel,
+    promptVersion: params.promptVersion,
+    storyBibleVersion: params.storyBibleVersion,
+    stateVersion: params.stateVersion || params.baseRevision,
+    contextHash: contextPlan.contextHash,
+    contractHash: hashValue(contract),
+    promptHash: review.textHash(system + '\n' + chapterPrompt),
+    outputHash: review.textHash(result.text)
+  });
+  return { ...result, deterministicAudit: result.deterministicAudit || selectedDeterministicAudit, contextPlan, manifest, genreResolution, genreProfile, styleBundle, scenePlan, status: result.audit.passed && totalUsage.complete ? 'passed' : 'needs_review', calls: allCalls, candidates, selectedHash: selectedAudit.contentHash, usage: totalUsage, protocol: 'benchmark-local-v2', effectiveGenre, genreAssetStatus: runtime.status };
 }
 
-module.exports = { DEFAULT_BASELINE_DIR, MAX_REVISION_ROUNDS, loadGenreBaseline, buildBaselineTargetBlock, collectKnownEntities, evidenceAudit, localRevise, auditReviseLoop, generateChapter, verifiedLedgerDelta, hasUsage, aggregateUsage, auditPenalty, genreRuntime, resolveGenreFamily: scope.resolveGenreFamily, benchmarkDatabase };
+module.exports = { DEFAULT_BASELINE_DIR, MAX_REVISION_ROUNDS, loadGenreBaseline, buildBaselineTargetBlock, collectKnownEntities, evidenceAudit, localRevise, auditReviseLoop, generateChapter, verifiedLedgerDelta, verifiedStateDelta, verifiedOutlineImpact, outlineTargets, hasUsage, aggregateUsage, auditPenalty, deterministicAuditFor, preGenerationBlockers, genreRuntime, resolveGenreFamily: scope.resolveGenreFamily, benchmarkDatabase };

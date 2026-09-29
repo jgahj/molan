@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "generation-source-baseline-v1",
+  "sourceRef": "ac483e3",
+  "sourceCommit": "ac483e39359445d6fb6c2ba5d86410a7a6f6abae",
+  "generatedAt": "2026-09-28T21:22:31.997Z",
+  "algorithm": "sha256",
+  "files": {
+    "code": {
+      "server.js": "d6debc3fc6d7c3e89768710f01f6cd7af1922b76ba32ec1499c4cfcd45ed0dc6",
+      "completion-editor.js": "32273f409ad8fabb1d4ecdc1ff840f8ba03c379dabf0160ef7257075e85fc837",
+      "completion-library.js": "d3971459e4fcd39ceffb77a7f87a0f230e08711380ca102d4864d40e1339db3e",
+      "lib/generation-pipeline-coordinator.js": "c0ae21e59d3ef23135c1bd5231776ed1abc2a54d839eed25e78437b61260fdd6",
+      "lib/pipeline-coordinator.js": "846bbccc530adabde0566021ca5b7603d45e93423e550d38bd02cd1cc603c7bc"
+    },
+    "prompt": {
+      "completion-editor.js": "32273f409ad8fabb1d4ecdc1ff840f8ba03c379dabf0160ef7257075e85fc837",
+      "server.js": "d6debc3fc6d7c3e89768710f01f6cd7af1922b76ba32ec1499c4cfcd45ed0dc6",
+      "lib/genre-engine.js": "48fa200033da3b83a9c2f9fcb80e232056ba12fc22b3476d6b73d73ff612e4f0",
+      "lib/style-system.js": "4a00eb6cff73702d55ad2c3b32b2d74b1613f4eaa515b0620647b864503bf776",
+      "lib/causal-debt-tracker.js": "cf99d7d47326398cc423475d78e1a29e0caf7cf613fa20fdb3360b37efb69be8",
+      "lib/evidence-review.js": "632976344dc046669ed26e4a4cbabf8dbf7407d602d30333cbd0787a1f54e4e3"
+    },
+    "schema": {
+      "db/migrations/0038_luna_worker_actual_cost.sql": "dfec5f307fcf3826337d1a9dd77aef988124dc21f74409fbc39d8fb51ddb251d"
+    },
+    "style": {
+      "lib/style-system.js": "4a00eb6cff73702d55ad2c3b32b2d74b1613f4eaa515b0620647b864503bf776",
+      "lib/style-fingerprint.js": "8f492481cd3caf165725635ce9d23fb027dcd8ce23b21d182f0f11f26db5fa26",
+      "data/style-fingerprints.json": "30a15ca4d0ded462d967be924c5949f2fa812b2086faa44f1388c586501b74f3"
+    },
+    "ui": {
+      "index.html": "ef0d6f8ecf92ccf5be7b806ebe1eff70cf6376de4b30c733a572fdaa0b68fcbf",
+      "completion-editor.js": "32273f409ad8fabb1d4ecdc1ff840f8ba03c379dabf0160ef7257075e85fc837",
+      "pages/editor.html": "7bbb0d3388d32b280f37de4911e9cee19990734640b8dd2a90666aa851cb5317",
+      "pages/editor.js": "40b046754d952a0d34ad783fc202ceee00d4c3313621b78f84aa004f0222707a",
+      "pages/molan-shell.js": "0df44d13497715921610ac8555c689a56bab1d64783cb27baee8949f61b3311c",
+      "pages/molan-ui.css": "d7bd73146146b5895617c4472744a1b16428fa649badc02aa2a291d6b62b415a",
+      "pages/styles.css": "aa52d92b30fa8c92593dad4b0d5b10824d068d68dc14319fbfbe332b6595eb17"
+    }
+  },
+  "missing": [],
+  "notPresentAtBaseline": [
+    "pages/tokens.css"
+  ],
+  "protectedDataRead": false,
+  "uiManifest": {
+    "schemaVersion": "ui-source-baseline-v1",
+    "sourceRef": "ac483e3",
+    "sourceCommit": "ac483e39359445d6fb6c2ba5d86410a7a6f6abae",
+    "generatedAt": "2026-09-28T21:22:31.997Z",
+    "algorithm": "sha256",
+    "files": {
+      "index.html": "ef0d6f8ecf92ccf5be7b806ebe1eff70cf6376de4b30c733a572fdaa0b68fcbf",
+      "completion-editor.js": "32273f409ad8fabb1d4ecdc1ff840f8ba03c379dabf0160ef7257075e85fc837",
+      "pages/editor.html": "7bbb0d3388d32b280f37de4911e9cee19990734640b8dd2a90666aa851cb5317",
+      "pages/editor.js": "40b046754d952a0d34ad783fc202ceee00d4c3313621b78f84aa004f0222707a",
+      "pages/molan-shell.js": "0df44d13497715921610ac8555c689a56bab1d64783cb27baee8949f61b3311c",
+      "pages/molan-ui.css": "d7bd73146146b5895617c4472744a1b16428fa649badc02aa2a291d6b62b415a",
+      "pages/styles.css": "aa52d92b30fa8c92593dad4b0d5b10824d068d68dc14319fbfbe332b6595eb17"
+    },
+    "notPresentAtBaseline": [
+      "pages/tokens.css"
+    ]
+  }
+}

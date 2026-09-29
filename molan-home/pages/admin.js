@@ -886,7 +886,7 @@
   all('#skillForm input, #skillForm textarea').forEach(function (input) { input.addEventListener('input', updateSkillFormState); input.addEventListener('change', updateSkillFormState); });
   var confirmDialog = $('adminConfirmDialog');
   if (confirmDialog) {
-    confirmDialog.querySelector('form').addEventListener('submit', function (event) { event.preventDefault(); closeConfirm(event.submitter && event.submitter.value !== 'cancel'); });
+    confirmDialog.querySelector('#adminConfirmForm').addEventListener('submit', function (event) { event.preventDefault(); closeConfirm(event.submitter && event.submitter.value !== 'cancel'); });
     confirmDialog.addEventListener('cancel', function (event) { event.preventDefault(); closeConfirm(false); });
   }
   $('logoutBtn').addEventListener('click', function () { api('/api/admin/auth/logout', { method: 'POST', body: '{}' }).catch(function () {}).finally(function () { try { localStorage.removeItem('molan_admin_token'); localStorage.removeItem('molan_admin_user'); } catch (_) {} location.href = './admin-login.html'; }); });

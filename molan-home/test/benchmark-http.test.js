@@ -18,12 +18,36 @@ test('本地生成HTTP管线具备用量、审稿、幂等和失败边界', asyn
     const body = JSON.parse(raw);
     upstreamMessages.push(body.messages);
     upstreamCalls++;
-    const audit = { issues: [], coverage: Object.fromEntries(['state', 'knowledge', 'payoff', 'relation', 'reasoning', 'redundancy', 'continuity'].map(dimension => [dimension, 'checked'])), stageChange: '清点交付货物', summary: '模拟审稿结果，非真人评审', factLedgerDelta: { newRules: [], newPromises: [], byEntity: {}, updates: [] } };
+    const audit = { issues: [], coverage: Object.fromEntries(['state', 'knowledge', 'payoff', 'relation', 'reasoning', 'redundancy', 'continuity'].map(dimension => [dimension, 'checked'])), stageChange: '清点交付货物', summary: '模拟审稿结果，非真人评审', factLedgerDelta: { newRules: [], newPromises: [], byEntity: {}, updates: [] }, stateDelta: { timeline: [], relations: [], characters: [], world: [] }, outlineImpact: { status: 'unplanned', addressed: [], deferred: [] } };
     const output = JSON.stringify(body.messages).includes('证据驱动的小说审稿人') ? JSON.stringify(audit) : text;
     response.writeHead(200, { 'Content-Type': 'text/event-stream' });
     response.end('data: ' + JSON.stringify({ choices: [{ delta: { content: output }, finish_reason: 'stop' }], usage: { prompt_tokens: 500, completion_tokens: 800, total_tokens: 1300 } }) + '\n\ndata: [DONE]\n\n');
   });
   const upstreamPort = await listen(mock);
+  // 本测试的 Provider 固定为本地 HTTP mock；公网 HTTPS 与 SSRF 规则由 provider-url-guard 单测覆盖。
+  const providerUrlGuard = require('../lib/provider-url-guard');
+  const originalValidateProviderTarget = providerUrlGuard.validateProviderTarget;
+  providerUrlGuard.validateProviderTarget = async value => {
+    const url = new URL(value);
+    assert.equal(url.protocol, 'http:');
+    assert.equal(url.hostname, '127.0.0.1');
+    assert.equal(Number(url.port), upstreamPort);
+    return {
+      url,
+      hostname: '127.0.0.1',
+      port: upstreamPort,
+      addresses: [{ address: '127.0.0.1', family: 4 }],
+      lookup: (_hostname, _options, callback) => callback(null, '127.0.0.1', 4)
+    };
+  };
+  const https = require('node:https');
+  const originalHttpsRequest = https.request;
+  https.request = function (options, ...args) {
+    if (options && options.hostname === '127.0.0.1' && Number(options.port) === upstreamPort) {
+      return http.request(options, ...args);
+    }
+    return originalHttpsRequest.call(this, options, ...args);
+  };
   const probe = http.createServer();
   const port = await listen(probe);
   await new Promise(resolve => probe.close(resolve));
@@ -105,6 +129,8 @@ test('本地生成HTTP管线具备用量、审稿、幂等和失败边界', asyn
     assert.equal(publicResult.usage.skillAudit.correctionPolicy.version, require('../correction-policy').UNIVERSAL_CORRECTION_POLICY_VERSION);
   } finally {
     database.close();
+    providerUrlGuard.validateProviderTarget = originalValidateProviderTarget;
+    https.request = originalHttpsRequest;
     app.server.closeAllConnections();
     mock.closeAllConnections();
     await Promise.all([new Promise(resolve => app.server.close(resolve)), new Promise(resolve => mock.close(resolve))]);

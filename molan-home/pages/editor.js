@@ -6841,6 +6841,21 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
     const sidebarTabs = $('sidebarTabs');
     if (sidebarTabs) sidebarTabs.onclick = e => { const b = e.target.closest('.sidebar-tab'); if (!b) return; switchSidebarTab(b.dataset.tab); };
 
+    const sidebarHeaderActions = q('.sidebar-header__actions');
+    if (sidebarHeaderActions) sidebarHeaderActions.addEventListener('click', event => {
+      const button = event.target.closest('.sidebar-icon-btn');
+      if (!button) return;
+      const action = button.getAttribute('aria-label');
+      if (action === '搜索章节') {
+        switchSidebarTab('search');
+        const searchInput = $('srSearch');
+        if (searchInput) { searchInput.focus(); searchInput.select(); }
+      } else if (action === '更多操作' && moreBtn) {
+        event.stopPropagation();
+        moreBtn.click();
+      }
+    });
+
     // 卷折叠
     const vol1 = $('vol1'); if (vol1) vol1.onclick = function (e) { if (e.target.closest('.ch-caret')) return; this.classList.toggle('is-collapsed'); };
 
@@ -6884,15 +6899,21 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
     const emptyCreateChapter = $('emptyCreateChapter');
     if (emptyCreateChapter) emptyCreateChapter.onclick = createChapter;
 
-    // 侧栏工具：添加场景（Act）
-    qa('.sidebar-toolbar .toolbar__btn').forEach(btn => {
-      const t = btn.textContent.trim();
-      if (t.includes('添加Act') || t.includes('筛选') || t.includes('选项')) {
-        btn.onclick = () => {
-          if (t.includes('添加Act')) addScene();
-          else toast(t + '（演示）');
-        };
-      } else if (t.includes('编辑大纲') || t.includes('大纲设置')) { btn.onclick = () => switchTab('outline'); }
+    // 侧栏工具：添加场景、打开搜索和设置。
+    const sidebarToolbar = q('.sidebar-toolbar');
+    if (sidebarToolbar) sidebarToolbar.addEventListener('click', event => {
+      const button = event.target.closest('.toolbar__btn');
+      if (!button) return;
+      const label = button.textContent.trim();
+      if (label.includes('添加Act')) addScene();
+      else if (label.includes('编辑大纲') || label.includes('大纲设置')) switchTab('outline');
+      else if (label.includes('筛选')) {
+        switchSidebarTab('search');
+        const scope = $('srScope');
+        if (scope) scope.value = 'all';
+        const searchInput = $('srSearch');
+        if (searchInput) { searchInput.focus(); searchInput.select(); }
+      } else if (label.includes('选项')) switchTab('settings');
     });
 
     // 编辑器输入 → 自动保存 + 字数

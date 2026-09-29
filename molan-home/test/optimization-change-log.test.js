@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const logJsonPath = path.resolve(process.cwd(), 'molan-home/data/evaluation-input/optimization-plans/optimization-change-log.json');
-const logMdPath = path.resolve(process.cwd(), 'molan-home/data/evaluation-input/optimization-plans/optimization-change-log.md');
+const logJsonPath = path.resolve(__dirname, '../data/evaluation-input/optimization-plans/optimization-change-log.json');
+const logMdPath = path.resolve(__dirname, '../data/evaluation-input/optimization-plans/optimization-change-log.md');
 
 test('OptimizationChangeLog：变更日志 JSON 与 Markdown 资产存在性', () => {
   assert.ok(fs.existsSync(logJsonPath), 'optimization-change-log.json 必须存在');

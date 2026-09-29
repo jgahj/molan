@@ -1,0 +1,7 @@
+{
+  "manifestVersion": 1,
+  "genreEngineVersion": "genre-1",
+  "baselineCatalog": "data/genre-baselines/index.json",
+  "genreRules": "data/genre-rules/",
+  "defaultGenre": null
+}

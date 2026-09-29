@@ -1582,6 +1582,14 @@
       switchTab('pane-studio');
     }
 
+    document.querySelectorAll('.archetype-apply-btn').forEach(button => {
+      button.addEventListener('click', event => {
+        event.stopPropagation();
+        const title = button.closest('.archetype-card')?.querySelector('.archetype-title');
+        if (title) applyArchetypeToStudio(title.textContent.trim());
+      });
+    });
+
     // -------------------------------------------------------------
     // 手动/自动文风改变处理
     // -------------------------------------------------------------

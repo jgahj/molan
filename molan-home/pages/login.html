@@ -129,7 +129,7 @@
             <button class="login-provider" type="button"><i data-lucide="code-2"></i>使用 GitHub 登录</button>
           </div>
           <div class="login-divider"><span>或使用邮箱登录</span></div>
-          <form class="login-form" onsubmit="event.preventDefault();" aria-label="登录表单">
+          <form id="loginForm" class="login-form" onsubmit="event.preventDefault();" aria-label="登录表单">
             <p class="login-tip" aria-live="polite"></p>
             <div class="login-field-wrap">
               <label class="sr-only" for="email">邮箱地址</label>
@@ -149,7 +149,7 @@
             <span class="login-links__sep">|</span>
             <a href="javascript:void(0)" class="login-register">创建新账号</a>
           </div>
-          <p class="login-terms">继续即表示你同意<a href="javascript:void(0)">服务条款</a>与<a href="javascript:void(0)">隐私政策</a></p>
+          <p class="login-terms">继续即表示你同意<a class="login-terms-tos" href="javascript:void(0)">服务条款</a>与<a class="login-terms-privacy" href="javascript:void(0)">隐私政策</a></p>
         </div>
       </div>
       <div class="login-art-panel">

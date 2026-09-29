@@ -234,7 +234,7 @@
   /* 登录页逻辑 */
   function initLoginPage() {
     if (PAGE !== 'login.html') return;
-    var form = $('form');
+    var form = $('#loginForm') || $('form');
     var emailInput = $('#email');
     var pwdInput = $('#password');
     if (!form || !emailInput || !pwdInput) return;
@@ -263,7 +263,7 @@
     /* 找到各按钮（按文本匹配，避免改动设计稿结构） */
     var buttons = $all('button');
     var submitBtn = form.querySelector('button[type="submit"]');
-    var codeBtn = null, forgotBtn = document.querySelector('.login-forgot'), registerLink = null;
+    var codeBtn = null, forgotBtn = document.querySelector('.login-forgot'), registerLink = document.querySelector('.login-register');
     buttons.forEach(function (b) {
       var t = (b.textContent || '').replace(/\s+/g, '');
       if (/验证码/.test(t) && b.type !== 'submit') codeBtn = b;
@@ -271,7 +271,7 @@
     });
     $all('a,button').forEach(function (el) {
       var t = (el.textContent || '').replace(/\s+/g, '');
-      if (/^注册|立即注册|免费注册|创建(?:新)?账号/.test(t)) registerLink = el;
+      if (!registerLink && /^注册|立即注册|免费注册|创建(?:新)?账号/.test(t)) registerLink = el;
     });
 
     /* 状态提示条 */
@@ -289,7 +289,7 @@
     codeWrap.style.display = 'none';
     codeWrap.innerHTML = '<div style="display:flex;gap:8px;">' +
       '<input type="text" id="ml-code" placeholder="6 位验证码" maxlength="6" class="w-full px-4 py-3 bg-white border border-[#e5e5e5] rounded-xl text-sm text-[#0a0a0a] placeholder:text-[#b3b3b3] focus:outline-none focus:border-[#0a0a0a] transition-colors" style="flex:1;">' +
-      '<button type="button" id="ml-send-code" class="px-4 py-3 border border-[#e5e5e5] rounded-xl text-sm text-[#0a0a0a] hover:bg-[#fafafa] transition-colors" style="white-space:nowrap;">获取验证码</button></div>' +
+      '<button type="button" id="ml-send-code" disabled title="邮箱验证码登录暂未开放" class="px-4 py-3 border border-[#e5e5e5] rounded-xl text-sm text-[#0a0a0a] hover:bg-[#fafafa] transition-colors" style="white-space:nowrap;">暂未开放</button></div>' +
       '<p id="ml-code-tip" style="font-size:12px;color:#16a34a;margin-top:6px;min-height:16px;"></p>';
     pwdInput.closest('div').parentNode.insertBefore(codeWrap, pwdInput.closest('div').nextSibling);
 
@@ -357,13 +357,13 @@
     });
 
     /* 第三方登录（本地环境未接入 OAuth，给出明确反馈并引导） */
+    $all('.login-provider').forEach(function (b) {
+      b.addEventListener('click', function () {
+        toast('本地环境暂未接入第三方 OAuth，请使用邮箱登录 / 注册');
+      });
+    });
     buttons.forEach(function (b) {
       var t = (b.textContent || '').replace(/\s+/g, '');
-      if (/Google|GitHub/i.test(t)) {
-        b.addEventListener('click', function () {
-          toast('本地环境暂未接入第三方 OAuth，请使用邮箱登录 / 注册');
-        });
-      }
       if (/其他选项|显示其他/.test(t)) {
         b.addEventListener('click', function () { setMode('code'); });
       }
@@ -905,6 +905,12 @@
 
   /* ===================== 8. 其余页面补齐 ===================== */
   function initMisc() {
+    $all('a.login-terms-tos').forEach(function (a) {
+      a.addEventListener('click', function (event) { event.preventDefault(); openLegal('tos'); });
+    });
+    $all('a.login-terms-privacy').forEach(function (a) {
+      a.addEventListener('click', function (event) { event.preventDefault(); openLegal('privacy'); });
+    });
     /* features 页 / pricing 页 CTA 按钮（文本包含「开始」「免费」「立即」的死链按钮） */
     $all('a[href="#"]').forEach(function (a) {
       var t = (a.textContent || '').replace(/\s+/g, '');

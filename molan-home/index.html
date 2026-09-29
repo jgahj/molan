@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="alternate icon" href="./favicon.ico">
+  <link rel="stylesheet" href="./pages/tokens.css">
   <title>墨阑 · 本地创作工作台</title>
   <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
   <style>
@@ -530,12 +531,14 @@
     .docs-nav a { display: block; padding: 8px; border-radius: 5px; color: var(--muted); text-decoration: none; font-size: 11px; }
     .docs-nav a:hover, .docs-nav a.active { color: var(--ink); background: var(--canvas); }
     .docs-nav a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+    .docs-section[hidden] { display: none; }
     .article { padding: 27px clamp(20px, 5vw, 58px); }
     .article h2 { margin: 0 0 10px; font-family: var(--serif); font-size: 27px; }
     .article h3 { margin: 28px 0 8px; font-family: var(--serif); font-size: 18px; }
     .article p, .article li { color: var(--ink-soft); font-size: 13px; line-height: 1.9; }
     .article ol { padding-left: 22px; }
     .account-grid { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 14px; }
+    .account-panels { min-width: 0; }
     .account-nav { padding: 13px; }
     .account-nav button { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); text-align: left; font-size: 11px; }
     .account-nav button.active, .account-nav button:hover { color: var(--ink); background: var(--canvas); }
@@ -921,7 +924,16 @@
     }
 
     function skillsPage() {
-      return shell('skills', `<div class="skills-layout"><section class="panel"><div class="skill-toolbar"><div class="skill-tabs"><button class="skill-tab active">发现 Skill</button><button class="skill-tab">我的 Skill</button><button class="skill-tab">已下载</button></div><span class="badge blue">公开 128 个</span></div><div class="skill-grid"><article class="skill-card"><div class="skill-card-head"><span class="skill-mark">${icon('feather')}</span><div><h3>高张力玄幻推进</h3><div class="author">by 墨阑官方</div></div></div><p>强化对话冲突、证据链和章末钩子，适合长篇玄幻连载。</p><div class="skill-foot"><span>下载 1,284 次</span><button class="button" data-toast="已添加到当前作品。">使用</button></div></article><article class="skill-card"><div class="skill-card-head"><span class="skill-mark" style="background:#5e6872">${icon('shield-alert')}</span><div><h3>规则怪谈悬疑</h3><div class="author">by 欢乐谷写作组</div></div></div><p>维护规则权威、违规代价与公平线索，避免无依据的强行反转。</p><div class="skill-foot"><span>下载 902 次</span><button class="button" data-toast="已添加到当前作品。">使用</button></div></article><article class="skill-card"><div class="skill-card-head"><span class="skill-mark" style="background:#8a684c">${icon('message-square')}</span><div><h3>自然对白校准</h3><div class="author">by 林间书房</div></div></div><p>减少解释性对白，让人物习惯、关系和立场通过交流自然显露。</p><div class="skill-foot"><span>下载 678 次</span><button class="button" data-toast="已添加到当前作品。">使用</button></div></article><article class="skill-card"><div class="skill-card-head"><span class="skill-mark" style="background:#4d6581">${icon('scan-text')}</span><div><h3>样文拆解通用包</h3><div class="author">by 墨阑社区</div></div></div><p>从正文、人物卡和章节结构中提取可迁移规则，隔离项目专属设定。</p><div class="skill-foot"><span>下载 512 次</span><button class="button" data-toast="已添加到当前作品。">使用</button></div></article></div></section><aside class="panel"><div class="panel-heading"><div><h2>我的 Skill</h2><p>登录后跨作品同步</p></div><button class="icon-button" data-toast="已刷新 Skill。" aria-label="刷新">${icon('refresh-cw')}</button></div><div class="panel-body"><div class="private-list"><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}我的玄幻写作规则<span class="link-count">绑定 2 本</span></button><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}用户纠错偏好<span class="link-count">绑定 1 本</span></button><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}对白自然化<span class="link-count">未绑定</span></button></div><div class="divider"></div><button class="button primary" style="width:100%" data-toast="创建 Skill 编辑器预览。">${icon('plus')}创建我的 Skill</button><button class="button" style="width:100%;margin-top:7px" data-toast="上传到开放区前需要确认版权。">${icon('upload')}上传到开放区</button></div></aside></div>`, 'skills-page');
+      const cards = [
+        { title: '高张力玄幻推进', author: '墨阑官方', icon: 'feather', description: '强化对话冲突、证据链和章末钩子，适合长篇玄幻连载。', downloads: '1,284', collection: 'discover', downloaded: true },
+        { title: '规则怪谈悬疑', author: '欢乐谷写作组', icon: 'shield-alert', color: '#5e6872', description: '维护规则权威、违规代价与公平线索，避免无依据的强行反转。', downloads: '902', collection: 'discover', downloaded: true },
+        { title: '自然对白校准', author: '林间书房', icon: 'message-square', color: '#8a684c', description: '减少解释性对白，让人物习惯、关系和立场通过交流自然显露。', downloads: '678', collection: 'discover' },
+        { title: '样文拆解通用包', author: '墨阑社区', icon: 'scan-text', color: '#4d6581', description: '从正文、人物卡和章节结构中提取可迁移规则，隔离项目专属设定。', downloads: '512', collection: 'discover' },
+        { title: '我的玄幻写作规则', author: '我的 Skill', icon: 'sparkles', description: '绑定 2 本作品，包含已确认的叙事节奏和人物视角约定。', collection: 'mine' },
+        { title: '用户纠错偏好', author: '我的 Skill', icon: 'sparkles', description: '绑定 1 本作品，保存已接受的改写偏好与避错要求。', collection: 'mine' },
+        { title: '对白自然化', author: '我的 Skill', icon: 'sparkles', description: '尚未绑定作品，可在编辑器中选择后应用。', collection: 'mine' }
+      ].map((skill) => `<article class="skill-card" data-skill-collection="${skill.collection}" data-skill-downloaded="${Boolean(skill.downloaded)}" data-search="${skill.title} ${skill.author} ${skill.description}"><div class="skill-card-head"><span class="skill-mark"${skill.color ? ` style="background:${skill.color}"` : ''}>${icon(skill.icon)}</span><div><h3>${skill.title}</h3><div class="author">by ${skill.author}</div></div></div><p>${skill.description}</p><div class="skill-foot"><span>${skill.downloads ? `下载 ${skill.downloads} 次` : '私人 Skill'}</span><button class="button" data-toast="已添加到当前作品。">${skill.collection === 'mine' ? '编辑' : '使用'}</button></div></article>`).join('');
+      return shell('skills', `<div class="skills-layout"><section class="panel"><div class="skill-toolbar"><div class="skill-tabs" role="tablist" aria-label="Skill 分类"><button class="skill-tab active" type="button" role="tab" aria-selected="true" data-skill-tab="discover">发现 Skill</button><button class="skill-tab" type="button" role="tab" aria-selected="false" data-skill-tab="mine">我的 Skill</button><button class="skill-tab" type="button" role="tab" aria-selected="false" data-skill-tab="downloaded">已下载</button></div><span class="badge blue">公开 128 个</span></div><div class="skill-grid">${cards}<div class="empty" data-skill-empty style="grid-column:1/-1" hidden><h3>没有匹配的 Skill</h3><p>更换分类或搜索词后再试。</p></div></div></section><aside class="panel"><div class="panel-heading"><div><h2>我的 Skill</h2><p>登录后跨作品同步</p></div><button class="icon-button" data-toast="已刷新 Skill。" aria-label="刷新">${icon('refresh-cw')}</button></div><div class="panel-body"><div class="private-list"><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}我的玄幻写作规则<span class="link-count">绑定 2 本</span></button><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}用户纠错偏好<span class="link-count">绑定 1 本</span></button><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}对白自然化<span class="link-count">未绑定</span></button></div><div class="divider"></div><button class="button primary" style="width:100%" data-toast="创建 Skill 编辑器预览。">${icon('plus')}创建我的 Skill</button><button class="button" style="width:100%;margin-top:7px" data-toast="上传到开放区前需要确认版权。">${icon('upload')}上传到开放区</button></div></aside></div>`, 'skills-page');
     }
 
     function toolsPage() {
@@ -933,11 +945,36 @@
     }
 
     function docsPage() {
-      return shell('docs', `<div class="docs-layout"><nav class="panel docs-nav"><a class="active" href="#">第一次使用</a><a href="#">创建一本小说</a><a href="#">导入正文和设定</a><a href="#">使用 AI 编辑器</a><a href="#">整理知识库</a><a href="#">拆书与 Skill</a><a href="#">积分和任务</a></nav><article class="panel article"><div class="eyebrow">START HERE</div><h2>从第一本小说开始</h2><p>墨阑把长篇写作拆成几个可以反复使用的环节：建立作品、整理设定、规划章节、生成正文和回看修改。你不需要一次填写完整世界观，先把当前场景需要的信息交给 AI 即可。</p><h3>1. 创建作品</h3><ol><li>在“我的小说”点击“新建小说”，填写标题和一句话简介。</li><li>进入编辑器后，从总纲、卷纲或第一章开始。</li><li>模型、Skill 和积分显示在 AI 助手附近，生成前会展示预估消耗。</li></ol><h3>2. 导入已有内容</h3><p>可以同时选择多个文件或文件夹。系统先展示文件清单与预计积分，确认后才开始抽取；导入和抽取任务会显示进度，可暂停、重试和查看结果。</p><div class="notice">${icon('lightbulb')}<span><strong>建议：</strong>先导入正文，再补充人物卡、地图和设定集。抽取结果进入知识库，不会直接污染正文。</span></div><h3>3. 让 AI 只使用相关上下文</h3><p>编辑器会根据当前章节、场景、人物、地点、物品和伏笔召回上下文。发送前可以在“上下文”标签中检查实际会发送的内容。</p></article></div>`, 'docs-page');
+      const topics = [
+        ['first-use', '第一次使用', '从第一本小说开始', '墨阑把长篇写作拆成几个可以反复使用的环节：建立作品、整理设定、规划章节、生成正文和回看修改。先完成当前场景需要的信息即可。'],
+        ['create-novel', '创建一本小说', '建立作品档案', '在“我的小说”点击“新建小说”，填写标题、类型和一句话简介。进入编辑器后，可以从总纲、卷纲或第一章开始，作品信息会保存在当前账户。'],
+        ['import-content', '导入正文和设定', '导入已有内容', '可以选择多个文件或文件夹。系统会先展示文件清单与预计积分，确认后再解析和抽取；结果进入资源中心与知识库，不会直接覆盖正文。'],
+        ['editor', '使用 AI 编辑器', '在章节中协作', '编辑器会根据当前章节、场景、人物、地点、物品和伏笔召回上下文。发送前可在“上下文”标签检查内容，生成结果先进入对话区，再由你确认写入位置。'],
+        ['knowledge', '整理知识库', '维护故事事实', '按人物、地点、势力、物品等类型查看设定。通过搜索和别名找到实体，修改事实后保存到当前作品，生成时只召回与当前章节相关的资料。'],
+        ['skills', '拆书与 Skill', '提取可复用方法', '拆书任务会分析视角、句式节奏、冲突密度和对白。确认后可保存为 Skill，并绑定到指定作品；项目专属设定不会混入可迁移规则。'],
+        ['billing', '积分和任务', '查看任务与用量', '生成、导入、拆书和检测任务会显示进度与实际消耗。前往“积分与套餐”查看使用记录、任务费用和账户余额。']
+      ];
+      const nav = topics.map(([id, label], index) => `<a class="${index === 0 ? 'active' : ''}" href="#docs-${id}" data-doc-topic="${id}"${index === 0 ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+      const panels = topics.map(([id, , title, copy], index) => `<section id="docs-${id}" class="docs-section" data-doc-topic-panel="${id}"${index ? ' hidden' : ''}><h2>${title}</h2><p>${copy}</p>${id === 'first-use' ? `<ol><li>创建或打开一本小说。</li><li>补充当前章节所需的设定和大纲。</li><li>在编辑器中检查上下文后开始协作。</li></ol>` : ''}${id === 'import-content' ? `<div class="notice">${icon('lightbulb')}<span><strong>建议：</strong>先导入正文，再补充人物卡、地图和设定集。</span></div>` : ''}${id === 'billing' ? `<button class="button" data-page="billing">打开积分与套餐</button>` : ''}</section>`).join('');
+      return shell('docs', `<div class="docs-layout"><nav class="panel docs-nav" aria-label="教程目录">${nav}</nav><article class="panel article" aria-live="polite"><div class="eyebrow">DOCUMENTATION</div><div class="docs-sections">${panels}</div></article></div>`, 'docs-page');
+    }
+
+    function readAccountPreferences() {
+      const defaults = { genre: '玄幻', pov: 'third-limited', tone: '克制' };
+      try {
+        const saved = JSON.parse(localStorage.getItem('molan_account_preferences') || 'null');
+        if (!saved || typeof saved !== 'object') return defaults;
+        return {
+          genre: ['玄幻', '都市', '悬疑', '科幻', '历史'].includes(saved.genre) ? saved.genre : defaults.genre,
+          pov: ['third-limited', 'first-person', 'third-omniscient'].includes(saved.pov) ? saved.pov : defaults.pov,
+          tone: ['克制', '热血', '轻快', '冷峻'].includes(saved.tone) ? saved.tone : defaults.tone
+        };
+      } catch (_) { return defaults; }
     }
 
     function accountPage() {
-      return shell('account', `<div class="account-grid"><nav class="panel account-nav"><button class="active">${icon('user-round')}个人资料</button><button>${icon('sliders-horizontal')}创作偏好</button><button>${icon('shield-check')}登录安全</button><button>${icon('history')}使用记录</button></nav><section class="panel"><div class="panel-heading"><div><h2>个人资料</h2><p>未设置头像时保持空白，不自动生成。</p></div><span class="badge green">已登录</span></div><div class="panel-body"><div class="profile-form"><div><span class="big-avatar">${icon('user-round')}</span><button class="button" style="width:100%;margin-top:9px" data-toast="头像选择预览。">更换头像</button></div><div class="form-grid"><div class="field"><label for="accountEmail">登录邮箱</label><input id="accountEmail" value="user@example.com" disabled><small>邮箱用于账户隔离和任务记录归属。</small></div><div class="field"><label for="displayName">显示名称</label><input id="displayName" value="创作者" placeholder="设置一个显示名称"></div><div class="field"><label for="accountBio">个人简介</label><textarea id="accountBio" placeholder="介绍你的创作方向"></textarea></div><div class="field"><label for="defaultModel">默认模型</label><select id="defaultModel"><option>DeepSeek V3</option><option>GPT-4.1</option></select><small>普通用户由平台控制模型选择；VIP 和管理员可在权限范围内选择。</small></div></div></div></div></section></div>`, 'account-page');
+      const preferences = readAccountPreferences();
+      return shell('account', `<div class="account-grid"><nav class="panel account-nav" role="tablist" aria-label="账户设置"><button class="active" type="button" role="tab" aria-selected="true" data-account-tab="profile">${icon('user-round')}个人资料</button><button type="button" role="tab" aria-selected="false" data-account-tab="preferences">${icon('sliders-horizontal')}创作偏好</button><button type="button" role="tab" aria-selected="false" data-account-tab="security">${icon('shield-check')}登录安全</button><button type="button" role="tab" aria-selected="false" data-account-tab="usage">${icon('history')}使用记录</button></nav><div class="account-panels"><section class="panel" data-account-panel="profile"><div class="panel-heading"><div><h2>个人资料</h2><p>未设置头像时保持空白，不自动生成。</p></div><span class="badge green">已登录</span></div><div class="panel-body"><div class="profile-form"><div><span class="big-avatar">${icon('user-round')}</span><button class="button" style="width:100%;margin-top:9px" data-toast="头像选择预览。">更换头像</button></div><div class="form-grid"><div class="field"><label for="accountEmail">登录邮箱</label><input id="accountEmail" value="user@example.com" disabled><small>邮箱用于账户隔离和任务记录归属。</small></div><div class="field"><label for="displayName">显示名称</label><input id="displayName" value="创作者" placeholder="设置一个显示名称"></div><div class="field"><label for="accountBio">个人简介</label><textarea id="accountBio" placeholder="介绍你的创作方向"></textarea></div><div class="field"><label for="defaultModel">默认模型</label><select id="defaultModel"><option>DeepSeek V3</option><option>GPT-4.1</option></select><small>普通用户由平台控制模型选择；VIP 和管理员可在权限范围内选择。</small></div></div></div></div></section><section class="panel" data-account-panel="preferences" hidden><div class="panel-heading"><div><h2>创作偏好</h2><p>保存在此浏览器，可随时调整。</p></div></div><div class="panel-body"><div class="form-grid"><div class="field"><label for="accountGenre">默认题材</label><select id="accountGenre"><option${preferences.genre === '玄幻' ? ' selected' : ''}>玄幻</option><option${preferences.genre === '都市' ? ' selected' : ''}>都市</option><option${preferences.genre === '悬疑' ? ' selected' : ''}>悬疑</option><option${preferences.genre === '科幻' ? ' selected' : ''}>科幻</option><option${preferences.genre === '历史' ? ' selected' : ''}>历史</option></select></div><div class="field"><label for="accountPov">默认叙事视角</label><select id="accountPov"><option value="third-limited"${preferences.pov === 'third-limited' ? ' selected' : ''}>第三人称限知</option><option value="first-person"${preferences.pov === 'first-person' ? ' selected' : ''}>第一人称</option><option value="third-omniscient"${preferences.pov === 'third-omniscient' ? ' selected' : ''}>第三人称全知</option></select></div><div class="field"><label for="accountTone">默认文风</label><select id="accountTone"><option${preferences.tone === '克制' ? ' selected' : ''}>克制</option><option${preferences.tone === '热血' ? ' selected' : ''}>热血</option><option${preferences.tone === '轻快' ? ' selected' : ''}>轻快</option><option${preferences.tone === '冷峻' ? ' selected' : ''}>冷峻</option></select></div></div><button class="button primary" type="button" data-save-account-preferences>${icon('save')}保存创作偏好</button></div></section><section class="panel" data-account-panel="security" hidden><div class="panel-heading"><div><h2>登录安全</h2><p>管理当前浏览器中的账户会话。</p></div><span class="badge gray" data-account-session>未登录</span></div><div class="panel-body"><p class="section-note">“记住我”决定登录凭据在关闭浏览器后是否保留。退出后，此浏览器会清除当前账户会话。</p><button class="button danger" type="button" data-account-logout>${icon('log-out')}退出当前账户</button></div></section><section class="panel" data-account-panel="usage" hidden><div class="panel-heading"><div><h2>使用记录</h2><p>查看当前账户的任务用量和费用。</p></div></div><div class="panel-body"><p class="section-note">生成、导入、拆书和检测任务的用量统一记录在积分与套餐页面。</p><button class="button" type="button" data-page="billing">${icon('history')}查看积分与任务记录</button></div></section></div></div>`, 'account-page');
     }
 
     function featuresPage() {
@@ -949,7 +986,7 @@
     }
 
     function loginPage() {
-      return shell('login', `<div class="user-login"><section class="user-login-copy"><div><div style="display:flex;align-items:center;gap:9px"><span class="brand-mark">墨</span><strong style="font-family:var(--serif);font-size:16px">墨阑</strong></div><h2>让每一个故事，都有自己的工作台。</h2><p>保存你的作品、设定和 Skill，在任意设备继续创作。登录后，所有 AI 任务和积分记录都会归属于当前账户。</p><div class="login-signal"><span></span>你的作品数据按账户独立保存</div></div><div class="metric-foot">墨阑 · 以书香之韵，驭现代之智</div></section><section class="user-login-form"><div class="user-login-inner"><div class="login-tabs"><button class="login-tab active">登录</button><button class="login-tab">注册</button></div><h1>欢迎回来</h1><p>登录后继续最近编辑的小说和 AI 任务。</p><div class="form-grid"><div class="field"><label for="userEmail">邮箱</label><input id="userEmail" type="email" placeholder="you@example.com"></div><div class="field"><label for="userPassword">密码</label><input id="userPassword" type="password" placeholder="请输入密码"></div></div><div class="login-links"><label class="check"><input type="checkbox"> 记住我</label><a href="#" data-toast="找回密码流程预览。">忘记密码？</a></div><button class="button primary" style="width:100%;margin-top:21px" data-page="overview">登录并进入工作台 ${icon('arrow-right')}</button><div class="notice" style="margin-top:18px">${icon('info')}<span>本地服务模式：登录或注册后，作品和任务会保存到当前本地后端。</span></div></div></section></div>`, 'login-page');
+      return shell('login', `<div class="user-login"><section class="user-login-copy"><div><div style="display:flex;align-items:center;gap:9px"><span class="brand-mark">墨</span><strong style="font-family:var(--serif);font-size:16px">墨阑</strong></div><h2>让每一个故事，都有自己的工作台。</h2><p>保存你的作品、设定和 Skill，在任意设备继续创作。登录后，所有 AI 任务和积分记录都会归属于当前账户。</p><div class="login-signal"><span></span>你的作品数据按账户独立保存</div></div><div class="metric-foot">墨阑 · 以书香之韵，驭现代之智</div></section><section class="user-login-form"><div class="user-login-inner"><div class="login-tabs"><button class="login-tab active">登录</button><button class="login-tab">注册</button></div><h1>欢迎回来</h1><p>登录后继续最近编辑的小说和 AI 任务。</p><div class="form-grid"><div class="field"><label for="userEmail">邮箱</label><input id="userEmail" type="email" placeholder="you@example.com"></div><div class="field"><label for="userPassword">密码</label><input id="userPassword" type="password" placeholder="请输入密码"></div></div><div class="login-links"><label class="check"><input id="rememberUser" type="checkbox"> 记住我</label><a href="#" data-toast="找回密码流程预览。">忘记密码？</a></div><button class="button primary" style="width:100%;margin-top:21px" data-page="overview">登录并进入工作台 ${icon('arrow-right')}</button><div class="notice" style="margin-top:18px">${icon('info')}<span>本地服务模式：登录或注册后，作品和任务会保存到当前本地后端。</span></div></div></section></div>`, 'login-page');
     }
 
     function adminLoginPage() {
@@ -1013,6 +1050,7 @@
     const backendState = {
       token: readStoredToken(),
       user: readStoredUser(),
+      rememberMe: readStoredRememberMe(),
       models: [],
       modelAccess: { role: 'guest', canChooseModel: false, defaultModel: '' },
       novels: [],
@@ -1039,13 +1077,22 @@
 
     const BACKEND_BASE = (location.protocol === 'file:' || location.protocol === 'about:') ? 'http://127.0.0.1:3000' : '';
 
+    function readStoredRememberMe() {
+      try {
+        const saved = localStorage.getItem('ml_remember_me');
+        if (saved === '1') return true;
+        if (saved === '0') return false;
+        return Boolean(localStorage.getItem('ml_token'));
+      } catch (_) { return true; }
+    }
+
     function readStoredToken() {
-      try { return localStorage.getItem('ml_token') || ''; } catch (_) { return ''; }
+      try { return (readStoredRememberMe() ? localStorage : sessionStorage).getItem('ml_token') || ''; } catch (_) { return ''; }
     }
 
     function readStoredUser() {
       try {
-        const user = JSON.parse(localStorage.getItem('ml_user') || 'null');
+        const user = JSON.parse((readStoredRememberMe() ? localStorage : sessionStorage).getItem('ml_user') || 'null');
         return user && user.email ? user : null;
       } catch (_) { return null; }
     }
@@ -1063,10 +1110,14 @@
 
     function persistBackendAuth() {
       try {
-        if (backendState.token) localStorage.setItem('ml_token', backendState.token);
-        else localStorage.removeItem('ml_token');
-        if (backendState.user) localStorage.setItem('ml_user', JSON.stringify(backendState.user));
-        else localStorage.removeItem('ml_user');
+        localStorage.setItem('ml_remember_me', backendState.rememberMe ? '1' : '0');
+        localStorage.removeItem('ml_token');
+        localStorage.removeItem('ml_user');
+        sessionStorage.removeItem('ml_token');
+        sessionStorage.removeItem('ml_user');
+        const storage = backendState.rememberMe ? localStorage : sessionStorage;
+        if (backendState.token) storage.setItem('ml_token', backendState.token);
+        if (backendState.user) storage.setItem('ml_user', JSON.stringify(backendState.user));
       } catch (_) {}
     }
 
@@ -1111,6 +1162,7 @@
       backendState.sessionVersion += 1;
       backendState.token = nextToken;
       backendState.user = nextUser;
+      backendState.rememberMe = readStoredRememberMe();
       resetBackendRemoteState();
       return true;
     }
@@ -1519,12 +1571,27 @@
     function renderBackendSkillCards() {
       const grid = stage.querySelector('.skill-grid');
       if (!grid || !backendState.skillsLoaded) return;
-      const skills = backendState.skills.length ? backendState.skills : backendState.privateSkills.filter(skill => skill && skill.source === 'builtin');
-      if (!skills.length) {
-        grid.innerHTML = '<div class="empty"><div class="empty-icon">—</div><h3>当前没有可用 Skill</h3><p>公开 Skill 或内置 Skill 加载后会显示在这里。</p></div>';
+      const publicSkills = backendState.skills;
+      const privateSkills = backendState.privateSkills;
+      if (!publicSkills.length && !privateSkills.length) {
+        grid.innerHTML = '<div class="empty"><div class="empty-icon">—</div><h3>当前没有可用 Skill</h3><p>公开 Skill 或账户 Skill 加载后会显示在这里。</p></div>';
         return;
       }
-      grid.innerHTML = skills.map((skill, index) => `<article class="skill-card"><div class="skill-card-head"><span class="skill-mark" style="background:${['#394d63', '#5e6872', '#8a684c', '#4d6581'][index % 4]}">${icon(index % 2 ? 'shield-alert' : 'feather')}</span><div><h3>${escapeBackendHtml(skill.name)}</h3><div class="author">by ${escapeBackendHtml(skill.author || (skill.source === 'builtin' ? '墨阑内置' : '墨阑作者'))}</div></div></div><p>${escapeBackendHtml(skill.description || '暂无简介')}</p><div class="skill-foot"><span>${skill.source === 'builtin' ? '内置 Skill' : `下载 ${Number(skill.downloads) || 0} 次`}</span><button class="button" ${skill.source === 'builtin' ? '' : `data-backend-skill="${escapeBackendHtml(skill.id)}"`}>使用</button></div></article>`).join('');
+      const installedIds = new Set(privateSkills.map(skill => String(skill && skill.id || '')));
+      const publicCards = publicSkills.map((skill, index) => {
+        const isDownloaded = installedIds.has(String(skill.id || ''));
+        const name = escapeBackendHtml(skill.name);
+        const description = escapeBackendHtml(skill.description || '暂无简介');
+        const search = escapeBackendHtml(`${skill.name || ''} ${skill.author || ''} ${skill.description || ''}`);
+        return `<article class="skill-card" data-skill-collection="discover" data-skill-downloaded="${isDownloaded}" data-search="${search}"><div class="skill-card-head"><span class="skill-mark" style="background:${['#394d63', '#5e6872', '#8a684c', '#4d6581'][index % 4]}">${icon(index % 2 ? 'shield-alert' : 'feather')}</span><div><h3>${name}</h3><div class="author">by ${escapeBackendHtml(skill.author || '墨阑作者')}</div></div></div><p>${description}</p><div class="skill-foot"><span>下载 ${Number(skill.downloads) || 0} 次</span><button class="button" ${isDownloaded ? 'disabled' : `data-backend-skill="${escapeBackendHtml(skill.id)}"`}>${isDownloaded ? '已下载' : '使用'}</button></div></article>`;
+      });
+      const privateCards = privateSkills.map((skill, index) => {
+        const name = escapeBackendHtml(skill.name);
+        const description = escapeBackendHtml(skill.description || '暂无简介');
+        const search = escapeBackendHtml(`${skill.name || ''} ${skill.description || ''}`);
+        return `<article class="skill-card" data-skill-collection="mine" data-skill-downloaded="true" data-search="${search}"><div class="skill-card-head"><span class="skill-mark" style="background:${['#394d63', '#5e6872', '#8a684c', '#4d6581'][index % 4]}">${icon('sparkles')}</span><div><h3>${name}</h3><div class="author">by 我的 Skill</div></div></div><p>${description}</p><div class="skill-foot"><span>已添加到账户</span><button class="button" data-toast="已打开 Skill 详情。">查看</button></div></article>`;
+      });
+      grid.innerHTML = [...publicCards, ...privateCards].join('') + '<div class="empty" data-skill-empty style="grid-column:1/-1" hidden><h3>没有匹配的 Skill</h3><p>更换分类或搜索词后再试。</p></div>';
     }
 
     function renderWorkspaceResources() {
@@ -1850,9 +1917,6 @@
         renderBackendSkillCards();
         const count = stage.querySelector('.skill-toolbar .badge');
         if (count && backendState.skillsLoaded) count.textContent = `公开 ${backendState.skills.length} 个`;
-        if (backendState.skillsLoaded && !backendState.skills.length) {
-          stage.querySelectorAll('.skill-card .skill-foot > span').forEach(node => { node.textContent = '内置 Skill'; });
-        }
         if (backendState.privateSkills.length) {
           const privateList = stage.querySelector('.private-list');
           if (privateList) privateList.innerHTML = backendState.privateSkills.slice(0, 5).map(skill => `<button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}${escapeBackendHtml(skill.name)}<span class="link-count">账户 Skill</span></button>`).join('');
@@ -3271,6 +3335,23 @@
     }
 
 
+    function applySkillFilters() {
+      if (currentPage !== 'skills') return;
+      const selectedTab = stage.querySelector('.skill-tab.active')?.dataset.skillTab || 'discover';
+      const query = (stage.querySelector('.search-box input')?.value || '').trim().toLowerCase();
+      let visible = 0;
+      stage.querySelectorAll('.skill-card[data-skill-collection]').forEach((card) => {
+        const matchesTab = selectedTab === 'downloaded'
+          ? card.dataset.skillDownloaded === 'true'
+          : card.dataset.skillCollection === selectedTab;
+        const matchesQuery = !query || (card.dataset.search || card.textContent).toLowerCase().includes(query);
+        card.hidden = !(matchesTab && matchesQuery);
+        if (!card.hidden) visible += 1;
+      });
+      const empty = stage.querySelector('[data-skill-empty]');
+      if (empty) empty.hidden = visible > 0;
+    }
+
     function bindPageEvents() {
       applyNovelState();
       stage.querySelectorAll('[data-page]').forEach((node) => node.addEventListener('click', (event) => {
@@ -3346,9 +3427,15 @@
         group?.querySelectorAll(':scope > button').forEach((item) => { item.classList.remove('active'); item.setAttribute('aria-selected', 'false'); });
         button.classList.add('active');
         button.setAttribute('aria-selected', 'true');
+        if (button.matches('.skill-tab')) applySkillFilters();
+        if (button.matches('[data-account-tab]')) {
+          const activePanel = button.dataset.accountTab;
+          stage.querySelectorAll('[data-account-panel]').forEach((panel) => { panel.hidden = panel.dataset.accountPanel !== activePanel; });
+        }
       }));
 
       stage.querySelectorAll('.search-box input, .tree-search').forEach((input) => input.addEventListener('input', (event) => {
+        if (currentPage === 'skills') { applySkillFilters(); return; }
         const query = event.target.value.trim().toLowerCase();
         const selector = currentPage === 'skills' ? '.skill-card' : currentPage === 'knowledge' ? '.entity-row, .tree-node' : currentPage === 'resources' ? '.data-table tbody tr' : '.novel-row';
         stage.querySelectorAll(selector).forEach((node) => {
@@ -3370,6 +3457,14 @@
         const tabs = stage.querySelectorAll('.login-tab');
         tabs[0]?.addEventListener('click', () => updateBackendAuthMode('login'));
         tabs[1]?.addEventListener('click', () => updateBackendAuthMode('register'));
+        const rememberInput = stage.querySelector('#rememberUser');
+        if (rememberInput) {
+          rememberInput.checked = backendState.rememberMe;
+          rememberInput.addEventListener('change', () => {
+            backendState.rememberMe = rememberInput.checked;
+            persistBackendAuth();
+          });
+        }
         stage.querySelector('#userPassword')?.addEventListener('keydown', (event) => {
           if (event.key === 'Enter') {
             event.preventDefault();
@@ -3689,7 +3784,48 @@
         });
       }
 
-      if (currentPage === 'docs') stage.querySelectorAll('.docs-nav a').forEach((link) => link.addEventListener('click', (event) => { event.preventDefault(); stage.querySelectorAll('.docs-nav a').forEach((item) => item.classList.remove('active')); link.classList.add('active'); showToast(`教程章节：${link.textContent.trim()}`); }));
+      if (currentPage === 'skills') applySkillFilters();
+
+      if (currentPage === 'account') {
+        const sessionBadge = stage.querySelector('[data-account-session]');
+        const logoutButton = stage.querySelector('[data-account-logout]');
+        if (sessionBadge) {
+          sessionBadge.textContent = backendState.token ? '已登录' : '未登录';
+          sessionBadge.classList.toggle('green', Boolean(backendState.token));
+        }
+        if (logoutButton) logoutButton.disabled = !backendState.token;
+        stage.querySelector('[data-save-account-preferences]')?.addEventListener('click', () => {
+          const preferences = {
+            genre: stage.querySelector('#accountGenre')?.value || '玄幻',
+            pov: stage.querySelector('#accountPov')?.value || 'third-limited',
+            tone: stage.querySelector('#accountTone')?.value || '克制'
+          };
+          try {
+            localStorage.setItem('molan_account_preferences', JSON.stringify(preferences));
+            showToast('创作偏好已保存');
+          } catch (_) { showToast('保存失败，请检查浏览器存储空间'); }
+        });
+        logoutButton?.addEventListener('click', async () => {
+          if (!backendState.token) return;
+          try { await backendRequest('/api/auth/logout', { method: 'POST' }); } catch (_) {}
+          clearBackendAuth();
+          window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
+          renderPage('overview');
+          showToast('已退出当前账户');
+        });
+      }
+
+      if (currentPage === 'docs') stage.querySelectorAll('.docs-nav a[data-doc-topic]').forEach((link) => link.addEventListener('click', (event) => {
+        event.preventDefault();
+        const activeTopic = link.dataset.docTopic;
+        stage.querySelectorAll('.docs-nav a[data-doc-topic]').forEach((item) => {
+          const active = item === link;
+          item.classList.toggle('active', active);
+          if (active) item.setAttribute('aria-current', 'page');
+          else item.removeAttribute('aria-current');
+        });
+        stage.querySelectorAll('[data-doc-topic-panel]').forEach((panel) => { panel.hidden = panel.dataset.docTopicPanel !== activeTopic; });
+      }));
     }
     function openModal(seed = {}) {
       document.getElementById('modalTitle').textContent = '创建小说';
@@ -3760,7 +3896,7 @@
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && document.getElementById('modalBackdrop').classList.contains('open')) closeModal(); });
     let backendAuthSyncTimer = 0;
     window.addEventListener('storage', event => {
-      if (!event || !['ml_token', 'ml_user'].includes(event.key)) return;
+      if (!event || !['ml_token', 'ml_user', 'ml_remember_me'].includes(event.key)) return;
       window.clearTimeout(backendAuthSyncTimer);
       backendAuthSyncTimer = window.setTimeout(() => {
         if (!syncBackendAuthFromStorage()) return;

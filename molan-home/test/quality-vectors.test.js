@@ -18,14 +18,49 @@ test('quality vector preserves explicit scores and marks absent dimensions unkno
     language: { value: { aiFlavorScore: 22 }, confidence: 0.7, evidence: [] }
   });
 
-  assert.equal(vector.schemaVersion, 'quality-vector-v1');
+  assert.equal(vector.schemaVersion, 'quality-vector-v2');
+  assert.equal(vector.legacySchemaVersion, 'quality-vector-v1');
   assert.equal(vector.values.plot, 73);
   assert.equal(vector.dimensions.plot.status, 'measured');
   assert.equal(vector.values.ai_flavor, 22);
   assert.equal(vector.dimensions.ai_flavor.direction, 'lower_is_better');
   assert.equal(vector.values.originality, null);
   assert.equal(vector.dimensions.originality.status, 'unknown');
+  assert.equal(vector.dimensions.plot.source, 'heuristic');
+  assert.deepEqual(vector.dimensions.plot.evidence, [{ reference: 'ev-1', location: 'ch-1' }]);
+  assert.equal(vector.values.genre_fit, null);
+  assert.equal(vector.values.style_fit, null);
   assert.equal(Object.keys(vector.values).length, QUALITY_DIMENSIONS.length);
+});
+
+test('quality vector handles profiles with no optional dimensions', () => {
+  const vector = buildQualityVector();
+  assert.equal(vector.values.opening, null);
+  assert.equal(vector.values.ai_flavor, null);
+  assert.equal(vector.dimensions.ai_flavor.source, null);
+});
+
+test('quality vector keeps literary quality, genre fit, style fit, and originality independent', () => {
+  const vector = buildQualityVector({
+    originality: { value: 0.91, confidence: 0.8, source: 'human', evidence: [{ id: 'orig-1' }] },
+    genre_fit: { value: 0.73, confidence: 0.7, source: 'model', evidence: [{ id: 'genre-1' }] },
+    style_fit: { value: 0.64, confidence: 0.6, source: 'deterministic', evidence: [{ id: 'style-1' }] },
+    plot: { value: 0.82, confidence: 0.9, source: 'heuristic', evidence: [{ id: 'plot-1' }] }
+  });
+
+  assert.equal(vector.values.originality, 0.91);
+  assert.equal(vector.values.genre_fit, 0.73);
+  assert.equal(vector.values.style_fit, 0.64);
+  assert.equal(vector.values.plot, 0.82);
+  assert.ok(vector.axes.quality.includes('plot'));
+  assert.equal(vector.axes.quality.includes('ai_flavor'), false);
+  assert.deepEqual(vector.axes.originality, ['originality']);
+  assert.deepEqual(vector.axes.genre_fit, ['genre_fit']);
+  assert.deepEqual(vector.axes.style_fit, ['style_fit']);
+  assert.equal(vector.dimensions.genre_fit.source, 'model');
+  assert.equal(vector.dimensions.style_fit.source, 'deterministic');
+  assert.notEqual(vector.values.genre_fit, vector.values.plot);
+  assert.equal(vector.legacy_values.hook, null);
 });
 
 test('defect vector distinguishes undetected from explicitly clear dimensions', () => {

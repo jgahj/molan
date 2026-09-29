@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
+const providerUrlGuard = require('./lib/provider-url-guard');
 const { createLab: createXuanhuanLab, authenticateCloud: authenticateXuanhuanCloud } = require('./lib/xuanhuan-lab');
 let xuanhuanLab = null;
 const { createReadingLab } = require('./lib/xuanhuan-reading');
@@ -46,7 +47,14 @@ const {
 } = require('./lib/character-material');
 const { resolveFingerprintProfile, buildRhythmTargetBlock } = require('./lib/style-fingerprint');
 const benchmarkPipeline = require('./lib/benchmark-pipeline');
+const { generationV2Enabled, generationV2Status } = require('./lib/generation/feature-flag');
+const generationRunContext = require('./lib/generation/run-context');
+const generationManifest = require('./lib/generation/manifest');
+const generationScenePatch = require('./lib/generation/scene-patch');
+const { createGenerationOrchestrator } = require('./lib/generation/orchestrator');
+const { GenerationError } = require('./lib/generation/errors');
 const projectPackage = require('./lib/project-package');
+const novelExport = require('./lib/export');
 const { computeAiFlavorScore, buildHumanizeLexiconBlock } = require('./lib/ai-flavor-detector');
 const { adaptIpContinuationMessages, sanitizeSystemForUpstream } = require('./lib/ip-continuation-adapter');
 const { detectNovelStyle } = require('./lib/style-detector');
@@ -61,6 +69,7 @@ const postgresRepository = postgresData.createPostgresRepository();
 const { runGenreNarrativeAudits } = require('./lib/genre-narrative-audit');
 const postgresMemoryBridge = require('./lib/postgres-memory-bridge').createPostgresMemoryBridge(postgresRepository);
 const POSTGRES_MODE = postgresRepository.enabled;
+let generationOrchestrator = null;
 let postgresHealth = POSTGRES_MODE
   ? { enabled: true, available: false, status: 'starting' }
   : { enabled: false, available: false, status: 'disabled' };
@@ -1120,9 +1129,18 @@ function planCreditReservation(user, modelId, messages, requestedMaxTokens) {
 const PROXY_URL = String(process.env.MOLAN_PROXY || '').trim();
 
 function openUpstream(targetURL, proxyURL, reqOptions, cb) {
-  const u = new URL(targetURL);
-  const isHttps = u.protocol === 'https:';
-  const port = u.port ? Number(u.port) : (isHttps ? 443 : 80);
+  providerUrlGuard.validateProviderTarget(targetURL)
+    .then(validated => openValidatedUpstream(validated, proxyURL, reqOptions, cb))
+    .catch(error => cb(error));
+}
+
+function openValidatedUpstream(validatedTarget, proxyURL, reqOptions, cb) {
+  const u = validatedTarget.url;
+  const isHttps = true;
+  const port = validatedTarget.port;
+  const tlsServername = require('node:net').isIP(validatedTarget.hostname) ? undefined : validatedTarget.hostname;
+  const connectAddress = validatedTarget.addresses[0].address;
+  const connectHost = validatedTarget.addresses[0].family === 6 ? `[${connectAddress}]` : connectAddress;
   const configureRequest = request => {
     let connected = false;
     const connectTimer = setTimeout(() => request.destroy(new Error('上游连接超时')), UPSTREAM_CONNECT_TIMEOUT_MS);
@@ -1141,10 +1159,11 @@ function openUpstream(targetURL, proxyURL, reqOptions, cb) {
   };
 
   if (!proxyURL) {
-    const transport = isHttps ? https : http;
-    const upstream = configureRequest(transport.request({
+    const upstream = configureRequest(https.request({
       method: reqOptions.method || 'POST',
-      hostname: u.hostname, port,
+      hostname: validatedTarget.hostname, port,
+      lookup: validatedTarget.lookup,
+      ...(tlsServername ? { servername: tlsServername } : {}),
       path: u.pathname + (u.search || ''),
       headers: reqOptions.headers
     }, reqOptions.onResponse));
@@ -1169,7 +1188,7 @@ function openUpstream(targetURL, proxyURL, reqOptions, cb) {
     method: 'CONNECT',
     host: p.hostname,
     port: proxyPort,
-    path: u.hostname + ':' + port,
+    path: connectHost + ':' + port,
     headers: connectHeaders
   });
   connectReq.setTimeout(UPSTREAM_CONNECT_TIMEOUT_MS, () => connectReq.destroy(new Error('代理连接超时')));
@@ -1181,7 +1200,7 @@ function openUpstream(targetURL, proxyURL, reqOptions, cb) {
     }
     if (head && head.length) socket.unshift(head);
     if (isHttps) {
-      const tlsSocket = tls.connect({ socket, servername: u.hostname, timeout: UPSTREAM_CONNECT_TIMEOUT_MS });
+      const tlsSocket = tls.connect({ socket, ...(tlsServername ? { servername: tlsServername } : {}), timeout: UPSTREAM_CONNECT_TIMEOUT_MS });
       tlsSocket.setTimeout(UPSTREAM_CONNECT_TIMEOUT_MS, () => tlsSocket.destroy(new Error('TLS 连接超时')));
       tlsSocket.once('secureConnect', () => {
         tlsSocket.removeAllListeners('timeout');
@@ -1192,7 +1211,8 @@ function openUpstream(targetURL, proxyURL, reqOptions, cb) {
         }
         const upstream = configureRequest(https.request({
           method: reqOptions.method || 'POST',
-          hostname: u.hostname, port,
+          hostname: validatedTarget.hostname, port,
+          ...(tlsServername ? { servername: tlsServername } : {}),
           path: u.pathname + (u.search || ''),
           headers: reqOptions.headers,
           createConnection: () => tlsSocket
@@ -1268,6 +1288,10 @@ const PUBLIC_ROOT_FILES = new Set([
   '/llms.txt',
   '/assets/login-writing-room.png',
   '/lib/project-material-schema.js',
+  '/lib/client/local-wal.js',
+  '/lib/client/search-index.js',
+  '/lib/client/search-worker.js',
+  '/lib/client/generation-runs.js',
   '/completion-library.js',
   '/completion-editor.js',
   '/completion-import.js',
@@ -1275,6 +1299,10 @@ const PUBLIC_ROOT_FILES = new Set([
   '/completion-admin.js',
   '/workspace-completion.js'
 ]);
+
+function isPublicStaticPath(normalizedPath) {
+  return PUBLIC_ROOT_FILES.has(normalizedPath) || normalizedPath === '/pages' || normalizedPath.startsWith('/pages/');
+}
 const STATIC_CACHE_MAX_BYTES = envPositiveInt('MOLAN_STATIC_CACHE_BYTES', 5 * 1024 * 1024, 0, 64 * 1024 * 1024);
 const staticFileCache = new Map();
 let staticFileCacheBytes = 0;
@@ -1358,8 +1386,7 @@ function serveStatic(req, res) {
   // 带 ?v= 版本参数的静态资源视为不可变，可长缓存；HTML 始终协商缓存。
   const versioned = /[?&]v=/.test(String(req.url || ''));
   const normalized = path.posix.normalize('/' + urlPath.replace(/^\/+/, ''));
-  const isPublicPage = normalized === '/pages' || normalized.startsWith('/pages/');
-  if (!PUBLIC_ROOT_FILES.has(normalized) && !isPublicPage) {
+  if (!isPublicStaticPath(normalized)) {
     res.writeHead(404, responseCors(res)); res.end('Not Found'); return;
   }
   const filePath = path.resolve(PUBLIC_DIR, '.' + normalized);
@@ -1925,7 +1952,7 @@ const chatStateCleanup = setInterval(() => {
   }
 }, 5 * 60 * 1000).unref();
 
-function handleChat(req, res) {
+function handleChat(req, res, legacyGenerationHandoff = null) {
   // SaaS：必须登录，积分绑定到具体用户（未登录拒绝）
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录后再使用 AI 功能' });
@@ -1973,6 +2000,17 @@ function handleChat(req, res) {
         return json(res, 404, { error: '项目不存在或当前账户无权发起生成' });
       }
       chatScope = { workspaceId: access.workspace_id, projectId: access.project_id };
+    }
+    const internalRouteAuthorized = Boolean(INTERNAL_MODEL_ROUTE_KEY) &&
+      String(req.headers[INTERNAL_MODEL_ROUTE_HEADER] || '') === INTERNAL_MODEL_ROUTE_KEY;
+    const explicitChapterWriting = input.creationMode === true || String(input.stage || '').trim().toLowerCase() === 'writing';
+    if (!internalRouteAuthorized && input.editorOnly !== true && explicitChapterWriting &&
+        generationV2Enabled(process.env, auth.user.userId || projectScope.stableUserId(auth.user.email))) {
+      releaseSlot();
+      if (typeof legacyGenerationHandoff !== 'function') {
+        return json(res, 503, { error: 'Generation V2 写章入口不可用', code: 'generation_v2_unavailable' });
+      }
+      return await legacyGenerationHandoff(req, res, auth, input);
     }
     const benchmarkProtocol = input.benchmarkProtocol === 'benchmark-local-v2' && req.headers[INTERNAL_MODEL_ROUTE_HEADER] === INTERNAL_MODEL_ROUTE_KEY;
     const editorOnly = input.editorOnly === true;
@@ -7554,12 +7592,14 @@ function initDB(options = {}) {
       timeline_json TEXT NOT NULL DEFAULT '[]',
       open_foreshadows_json TEXT NOT NULL DEFAULT '[]',
       recent_facts_json TEXT NOT NULL DEFAULT '[]',
+      outline_impact_json TEXT NOT NULL DEFAULT '{}',
       content_ref TEXT NOT NULL DEFAULT '',
       content_hash TEXT NOT NULL DEFAULT '',
       audit_status TEXT NOT NULL DEFAULT 'draft',
       created_at INTEGER NOT NULL DEFAULT 0
     )`);
     const creationSnapshotColumns = db.prepare('PRAGMA table_info(creation_state_snapshots)').all().map(row => row.name);
+    if (!creationSnapshotColumns.includes('outline_impact_json')) db.exec("ALTER TABLE creation_state_snapshots ADD COLUMN outline_impact_json TEXT NOT NULL DEFAULT '{}'");
     if (!creationSnapshotColumns.includes('actor_user_id')) db.exec("ALTER TABLE creation_state_snapshots ADD COLUMN actor_user_id TEXT NOT NULL DEFAULT ''");
     if (!creationSnapshotColumns.includes('workspace_id')) db.exec("ALTER TABLE creation_state_snapshots ADD COLUMN workspace_id TEXT NOT NULL DEFAULT ''");
     if (!creationSnapshotColumns.includes('project_id')) db.exec("ALTER TABLE creation_state_snapshots ADD COLUMN project_id TEXT NOT NULL DEFAULT ''");
@@ -13401,6 +13441,7 @@ function loadCreationSnapshots(bookId, upTo) {
         characterStates: safeJsonParse(row.character_states_json), relationshipStates: safeJsonParse(row.relationship_states_json),
         worldStates: safeJsonParse(row.world_states_json), timeline: safeJsonParse(row.timeline_json),
         openForeshadows: safeJsonParse(row.open_foreshadows_json), recentFacts: safeJsonParse(row.recent_facts_json),
+        outlineImpact: safeJsonParse(row.outline_impact_json),
         contentHash: row.content_hash, auditStatus: row.audit_status, createdAt: row.created_at
       }));
   } catch (_) { return []; }
@@ -16923,6 +16964,129 @@ async function handlePostgresNovelRestore(req, res, id) {
   json(res, 200, await postgresRepository.restoreProject(postgresActor(auth), id));
 }
 
+/** 严格解析导出文档序号范围；范围为 1-based 且包含两端。 */
+function parseNovelExportRange(req) {
+  const params = new URL(req.url, 'http://localhost').searchParams;
+  const parsed = { fromChapter: null, toChapter: null, hasRange: false };
+  for (const key of ['fromChapter', 'toChapter']) {
+    const values = params.getAll(key);
+    if (values.length > 1) return { ok: false };
+    if (!values.length) continue;
+    const value = values[0];
+    if (!/^[1-9][0-9]*$/.test(value)) return { ok: false };
+    const number = Number(value);
+    if (!Number.isSafeInteger(number) || number < 1) return { ok: false };
+    parsed[key] = number;
+    parsed.hasRange = true;
+  }
+  if (parsed.fromChapter !== null && parsed.toChapter !== null && parsed.fromChapter > parsed.toChapter) {
+    return { ok: false };
+  }
+  return { ok: true, range: parsed };
+}
+
+/** 合并编辑器正文与 PG 已提交章节，再渲染可下载文档。 */
+function sendNovelExport(res, id, sourceState, committedChapters, format, range) {
+  const normalizedFormat = String(format || '').trim().toLowerCase();
+  const extensions = { txt: 'txt', epub: 'epub', docx: 'docx' };
+  if (!Object.prototype.hasOwnProperty.call(extensions, normalizedFormat)) {
+    return json(res, 400, { error: '导出格式仅支持 TXT、EPUB、DOCX', code: 'export_format_invalid' });
+  }
+  const state = sourceState && typeof sourceState === 'object' && !Array.isArray(sourceState) ? sourceState : {};
+  const committed = new Map((Array.isArray(committedChapters) ? committedChapters : []).map(chapter => [Number(chapter.chapterNo), chapter]));
+  const sourceChapters = Array.isArray(state.chapters)
+    ? state.chapters
+    : (Array.isArray(state.volumes) ? state.volumes.flatMap(volume =>
+      (Array.isArray(volume && volume.chapters) ? volume.chapters : []).map(chapter => ({ ...chapter, volumeTitle: chapter.volumeTitle || volume.title || '' }))
+    ) : []);
+  const chapters = [];
+  const represented = new Set();
+  sourceChapters.forEach((chapter, index) => {
+    const chapterNo = Number(chapter && (chapter.number || chapter.chapterNo || chapter.chapterIndex)) || index + 1;
+    const committedChapter = committed.get(chapterNo);
+    represented.add(chapterNo);
+    chapters.push(committedChapter
+      ? { ...chapter, chapterNo, content: committedChapter.content }
+      : { ...chapter, chapterNo });
+  });
+  for (const chapter of committed.values()) {
+    if (!represented.has(Number(chapter.chapterNo))) {
+      chapters.push({ chapterNo: Number(chapter.chapterNo), title: `第${Number(chapter.chapterNo)}章`, content: String(chapter.content || '') });
+    }
+  }
+  chapters.sort((left, right) => {
+    const leftNo = Number(left.number || left.chapterNo || left.chapterIndex) || 0;
+    const rightNo = Number(right.number || right.chapterNo || right.chapterIndex) || 0;
+    return leftNo - rightNo;
+  });
+  const exportInput = {
+    ...state,
+    id: state.id || id,
+    title: state.title || '未命名小说',
+    chapters
+  };
+  let document;
+  let body;
+  try {
+    document = novelExport.buildExportDocument(exportInput);
+    if (!document.chapters.length && !range.hasRange) {
+      return json(res, 409, { error: '没有可读取的章节正文，已阻止导出', code: 'export_content_blocked', blocked: true });
+    }
+    const fromChapter = range.fromChapter || 1;
+    const toChapter = range.toChapter || document.chapters.length;
+    if (fromChapter > document.chapters.length || toChapter > document.chapters.length || fromChapter > toChapter) {
+      return json(res, 400, { error: '章节范围超出导出文档边界', code: 'export_range_invalid' });
+    }
+    const selectedChapters = document.chapters.slice(fromChapter - 1, toChapter);
+    if (!selectedChapters.length || selectedChapters.every(chapter => !chapter.content.trim())) {
+      return json(res, 409, { error: '选定范围没有可读取的章节正文，已阻止导出', code: 'export_content_blocked', blocked: true });
+    }
+    body = novelExport.exportBook({ ...document, chapters: selectedChapters }, normalizedFormat);
+  } catch (error) {
+    return json(res, 422, { error: error && error.message || '小说导出失败', code: 'export_build_failed' });
+  }
+  const baseName = String(document.title || id).replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim().slice(0, 100) || id;
+  const filename = `${baseName}.${extensions[normalizedFormat]}`;
+  const fallbackName = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_') || `novel.${extensions[normalizedFormat]}`;
+  const contentTypes = {
+    txt: 'text/plain; charset=utf-8',
+    epub: 'application/epub+zip',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  };
+  res.writeHead(200, {
+    'Content-Type': contentTypes[normalizedFormat],
+    'Content-Disposition': `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    'Content-Length': body.length,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+    ...responseCors(res)
+  });
+  return res.end(body);
+}
+
+/** PG 模式下按导出 capability 读取项目状态和已提交正文。 */
+async function handlePostgresNovelExport(req, res, id) {
+  const auth = getAuthUser(req);
+  if (!auth) return json(res, 401, { error: '未登录' });
+  const userId = postgresActor(auth);
+  const profile = await postgresRepository.getProfile(userId, id);
+  if (!profile || !projectScope.canAccess(profile.access, projectScope.PROJECT_ROLES, 'export')) {
+    return json(res, 404, { error: '小说不存在或无权导出' });
+  }
+  const parsedRange = parseNovelExportRange(req);
+  if (!parsedRange.ok) return json(res, 400, { error: '章节范围必须是有效的正整数区间', code: 'export_range_invalid' });
+  let committedChapters;
+  try {
+    committedChapters = await postgresRepository.listExportableChapters(userId, id, profile.access.workspace_id);
+  } catch (error) {
+    if (error && error.code === 'export_forbidden') return json(res, 404, { error: '小说不存在或无权导出' });
+    return json(res, 409, { error: '无法读取已提交章节正文，已阻止导出', code: 'export_content_blocked', blocked: true });
+  }
+  const state = sanitizeNovelStateForStorage(profile.state || {});
+  const format = new URL(req.url, 'http://localhost').searchParams.get('format');
+  return sendNovelExport(res, id, { ...state, title: profile.title || state.title }, committedChapters, format, parsedRange.range);
+}
+
 /** PG 模式下导出项目 state、结构化资料和历史，所有内容先按当前权限读取。 */
 async function handlePostgresPackageExport(req, res, id) {
   const auth = getAuthUser(req);
@@ -17916,6 +18080,25 @@ function handleNovelPackageExport(req, res, id) {
   }
 }
 
+/** GET /api/novels/:id/export?format=txt|epub|docx —— 下载小说正文。 */
+function handleNovelExport(req, res, id) {
+  const auth = getAuthUser(req);
+  if (!auth) return json(res, 401, { error: '未登录' });
+  if (!requireSqliteForPublic(req, res)) return;
+  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
+  const access = projectScope.getNovelAccess(db, id, auth.user.userId);
+  if (!projectScope.canAccess(access, projectScope.PROJECT_ROLES, 'export')) return json(res, 404, { error: '小说不存在或无权导出' });
+  const parsedRange = parseNovelExportRange(req);
+  if (!parsedRange.ok) return json(res, 400, { error: '章节范围必须是有效的正整数区间', code: 'export_range_invalid' });
+  const row = db.prepare('SELECT state_json FROM novels WHERE id = ? AND workspace_id = ? AND project_id = ?').get(id, access.workspace_id, access.project_id);
+  if (!row) return json(res, 404, { error: '小说不存在或无权导出' });
+  let state;
+  try { state = JSON.parse(row.state_json || '{}'); }
+  catch (_) { return json(res, 409, { error: '作品正文无法读取，已阻止导出', code: 'export_content_blocked', blocked: true }); }
+  const format = new URL(req.url, 'http://localhost').searchParams.get('format');
+  return sendNovelExport(res, id, state, [], format, parsedRange.range);
+}
+
 /** 将资料包中的结构化资源按稳定ID恢复到当前项目，调用者负责包校验和外层事务。 */
 function restoreProjectResourceSnapshot(scope, assets, actorId) {
   const resources = assets && typeof assets === 'object' && Array.isArray(assets.projectResources)
@@ -18499,6 +18682,871 @@ function handleLocalStyleSamples(req, res, params) {
  * POST /api/benchmark/audit             证据审稿（quote 逐字回查 + 确定性硬约束 + 题材纠错）
  * POST /api/benchmark/revise-loop       审稿→局部修订→复核闭环（≤2 轮，未过保留 needs_review）
  */
+function generationRunStore() {
+  return POSTGRES_MODE
+    ? require('./lib/generation/postgres-store').createPostgresGenerationStore(postgresRepository)
+    : require('./lib/generation/sqlite-store');
+}
+
+function generationRunOrchestrator() {
+  if (generationOrchestrator) return generationOrchestrator;
+  const store = generationRunStore();
+  generationOrchestrator = createGenerationOrchestrator({
+    store,
+    db: POSTGRES_MODE ? postgresRepository : db,
+    dependenciesForRun(executionContext, request) {
+      const auth = executionContext.auth;
+      const user = executionContext.user;
+      const runId = String(executionContext.generationId || '');
+      const projectId = String(executionContext.projectId || request.projectId || '');
+      const workspaceId = String(executionContext.workspaceId || '');
+      const actorUserId = String(executionContext.actorUserId || auth && auth.user && (auth.user.userId || projectScope.stableUserId(auth.user.email)) || '');
+      const story = request.storyContext && typeof request.storyContext === 'object' ? request.storyContext : {};
+      let pipelineResult = null;
+      return {
+        resolveGenre: value => ({ status: 'resolved', confidence: value.genre && value.genre !== 'auto' ? 1 : 0, genre: value.genre || 'auto' }),
+        resolveStyle: value => {
+          const style = value.style || story.styleDNA || story.styleProfile || '';
+          return style ? { status: 'resolved', style, source: 'explicit' } : { status: 'needs_choice', style: '', candidates: [] };
+        },
+        loadAuthoritativeContext: async ({ request: runRequest, contract }) => loadAuthoritativeGenerationContext({
+          actorUserId, projectId, workspaceId, request: runRequest, contract
+        }),
+        preGenerationGuard: async ({ request: runRequest, contract, snapshotHash }) => {
+          const latest = await loadAuthoritativeGenerationContext({ actorUserId, projectId, workspaceId, request: runRequest, contract });
+          if (!latest.ok) return { passed: false, snapshotHash: '', blockers: [{ issueId: 'authoritative_context_unavailable', problem: '无法重新读取项目状态或创作圣经' }] };
+          if (String(latest.snapshotHash) !== String(snapshotHash || '')) {
+            return { passed: false, snapshotHash: latest.snapshotHash, blockers: [{ issueId: 'state_snapshot_changed', problem: '生成准备期间作品状态发生变化，请重新读取后发起任务' }] };
+          }
+          const known = new Set((latest.storyContext.characters || []).map(character => String(character && (character.name || character.id) || '')).filter(Boolean));
+          const declared = [...(Array.isArray(contract.characters) ? contract.characters : []), contract.viewpointCharacter].map(String).filter(Boolean);
+          const unknown = known.size ? declared.filter(name => !known.has(name)) : [];
+          return {
+            passed: unknown.length === 0,
+            snapshotHash: latest.snapshotHash,
+            blockers: unknown.map(name => ({ issueId: 'unknown_contract_character', problem: `章节合同中的人物「${name}」不在服务端创作圣经中` }))
+          };
+        },
+        planScenes: async ({ request: runRequest, contract }) => {
+          const chapter = runRequest.storyContext && runRequest.storyContext.chapterContext || {};
+          const outlineNodes = Array.isArray(chapter.scenePlan) && chapter.scenePlan.length
+            ? chapter.scenePlan
+            : [chapter.goal || contract.chapterGoal];
+          return require('./scene-planner').planScenes(outlineNodes, {
+            targetWordCount: Number(runRequest.targetWords || contract.wordBudget.targetChars) || 2400
+          });
+        },
+        writer: async ({ request: runRequest, scenePlan, scenes, signal, onProgress }) => {
+          const contract = runRequest.chapterContract || runRequest.contract || {
+            chapterId: runRequest.chapterId, goal: runRequest.userInstruction || runRequest.prompt
+          };
+          if (typeof onProgress === 'function') onProgress({ stage: 'writing', message: '正在调用生成与审计管线' });
+          try {
+            const sceneDirectives = scenePlan && require('./scene-planner').compileSceneDirectives(scenePlan) || '';
+            const authoritativeOutline = runRequest.storyContext && runRequest.storyContext.chapterContext && runRequest.storyContext.chapterContext.scenePlan;
+            pipelineResult = await benchmarkPipeline.generateChapter({
+              callModel: (_auth, options) => {
+                if (signal.aborted) throw signal.reason || new Error('生成已取消');
+                return callMolanChat(String(executionContext.authorization || ''), user, {
+                  ...options,
+                  modelId: runRequest.modelId,
+                  projectId,
+                  workspaceId,
+                  recordId: runId,
+                  workflowId: runId,
+                  controller: { signal },
+                  requireComplete: true
+                });
+              }
+            }, auth, {
+              ...story,
+              generationId: runId,
+              runId,
+              generationV2: true,
+              projectId,
+              workspaceId,
+              novelId: runRequest.novelId || projectId,
+              chapterId: runRequest.chapterId,
+              modelId: runRequest.modelId,
+              reviseModelId: runRequest.reviseModelId,
+              genre: runRequest.genre || 'auto',
+              subgenre: runRequest.subgenre,
+              style: runRequest.style || story.styleDNA || story.styleProfile,
+              contract,
+              chapterContract: contract,
+              prompt: runRequest.prompt || runRequest.userInstruction,
+              writingSystem: [runRequest.writingSystem || '', sceneDirectives].filter(Boolean).join('\n\n'),
+              scenePlan: scenePlan || null,
+              outlineNodes: Array.isArray(authoritativeOutline) && authoritativeOutline.length
+                ? authoritativeOutline
+                : [runRequest.storyContext && runRequest.storyContext.chapterContext && runRequest.storyContext.chapterContext.goal || contract.chapterGoal],
+              hardState: runRequest.storyContext && runRequest.storyContext.hardState,
+              relationships: runRequest.storyContext && runRequest.storyContext.continuity && runRequest.storyContext.continuity.relationships,
+              worldRules: runRequest.storyContext && runRequest.storyContext.continuity && runRequest.storyContext.continuity.worldRules,
+              timeline: runRequest.storyContext && runRequest.storyContext.timeline,
+              foreshadows: runRequest.storyContext && runRequest.storyContext.foreshadows,
+              activeCausalDebts: runRequest.storyContext && runRequest.storyContext.activeCausalDebts,
+              control: runRequest.control,
+              controlSystem: runRequest.controlSystem,
+              reasoningEffort: runRequest.modelParams && runRequest.modelParams.reasoningEffort,
+              temperature: runRequest.modelParams && runRequest.modelParams.temperature,
+              topP: runRequest.modelParams && runRequest.modelParams.topP,
+              seed: runRequest.modelParams && runRequest.modelParams.seed,
+              targetWords: runRequest.targetWords,
+              maxRounds: runRequest.maxRounds,
+              characters: runRequest.characters.length ? runRequest.characters : story.characters,
+              factLedger: runRequest.factLedger || story.factLedger,
+              continuity: runRequest.continuity || story.continuity,
+              previousEnding: runRequest.previousEnding || story.previousEnding,
+              planText: runRequest.planText || story.planText,
+              baseRevision: story.baseRevision,
+              stateVersion: story.stateVersion,
+              storyBibleVersion: story.storyBibleVersion
+            });
+          } catch (error) {
+            if (error && error.code === 'context_budget_exceeded') {
+              throw Object.assign(new Error(error.message || '上下文超过预算'), { code: 'CONTEXT_OVERFLOW', status: 413 });
+            }
+            throw error;
+          }
+
+          const calls = Array.isArray(pipelineResult && pipelineResult.calls) ? pipelineResult.calls : [];
+          if (calls.some(call => !call || ['failed_or_unknown', 'usage_missing'].includes(String(call.status || '')))) {
+            throw Object.assign(new Error('模型调用结果或用量未知；请查询任务状态，不要自动重试'), {
+              code: 'PROVIDER_UNKNOWN', status: 502, unknown: true, generationCalls: calls
+            });
+          }
+          const text = String(pipelineResult && pipelineResult.text || '').trim();
+          if (!text) throw Object.assign(new Error('生成管线没有产出正文'), { code: 'MODEL_EMPTY', status: 502 });
+          const usage = pipelineResult.usage || {};
+          const evidence = {
+            authoritative: true,
+            status: String(pipelineResult.status || 'needs_review'),
+            audit: pipelineResult.audit || null,
+            deterministicAudit: pipelineResult.deterministicAudit || null,
+            contextPlan: pipelineResult.contextPlan || null,
+            manifest: pipelineResult.manifest || null,
+            usage: {
+              totalTokens: Number(usage.totalTokens) || 0,
+              creditCost: Number(usage.creditCost) || 0,
+              callCount: Number(usage.callCount) || calls.length,
+              complete: usage.complete === true
+            },
+            calls: calls.map(call => ({
+              stage: String(call && call.stage || ''), modelId: String(call && call.modelId || ''),
+              providerModel: String(call && call.providerModel || ''), status: String(call && call.status || ''),
+              requestHash: String(call && call.requestHash || ''), outputHash: String(call && call.outputHash || ''),
+              startedAt: call && call.startedAt || null, finishedAt: call && call.finishedAt || null,
+              usage: call && call.usage ? {
+                requestId: String(call.usage.requestId || ''),
+                promptTokens: Number(call.usage.promptTokens ?? call.usage.prompt_tokens) || 0,
+                completionTokens: Number(call.usage.completionTokens ?? call.usage.completion_tokens) || 0,
+                reasoningTokens: Number(call.usage.reasoningTokens ?? call.usage.reasoning_tokens) || 0,
+                cachedTokens: Number(call.usage.cachedTokens ?? call.usage.cached_tokens ?? call.usage.cachedInputTokens) || 0,
+                totalTokens: Number(call.usage.totalTokens ?? call.usage.total_tokens) || 0,
+                creditCost: Number(call.usage.creditCost) || 0,
+                reservedCost: Number(call.usage.reservedCost) || 0,
+                billingStatus: String(call.usage.billingStatus || ''),
+                usageSource: String(call.usage.usageSource || ''),
+                status: String(call.usage.status || '')
+              } : null
+            })),
+            candidates: (Array.isArray(pipelineResult.candidates) ? pipelineResult.candidates : []).map(candidate => ({
+              contentHash: String(candidate && candidate.contentHash || ''),
+              audit: candidate && candidate.audit || null,
+              deterministicAudit: candidate && candidate.deterministicAudit || null
+            })),
+            selectedHash: String(pipelineResult.selectedHash || ''),
+            rounds: (Array.isArray(pipelineResult.rounds) ? pipelineResult.rounds : []).map(round => ({
+              round: Number(round && round.round) || 0,
+              accepted: round && round.accepted === true,
+              reason: String(round && round.reason || '')
+            })),
+            effectiveGenre: String(pipelineResult.effectiveGenre || ''),
+            genreAssetStatus: String(pipelineResult.genreAssetStatus || '')
+          };
+          return {
+            text,
+            usage: { totalTokens: usage.totalTokens, creditCost: usage.creditCost, callCount: usage.callCount, complete: usage.complete },
+            providerRequestId: calls.map(call => call && call.usage && call.usage.requestId).filter(Boolean).join(',').slice(0, 240),
+            pipeline: evidence
+          };
+        },
+        revise: async ({ request: runRequest, issue, window, round }) => {
+          const revision = await callMolanChat(String(executionContext.authorization || ''), user, {
+            modelId: runRequest.reviseModelId || runRequest.modelId,
+            projectId, workspaceId, recordId: runId, workflowId: runId,
+            stage: 'revision', jsonMode: true, requireComplete: true,
+            maxTokens: 1800, temperature: 0.25, timeoutMs: 120000,
+            system: '你是局部修订编辑。只返回严格 JSON：{"quote":"给定原句","replacement":"修订后的目标句","preservedFacts":["原文明确包含且必须保留的事实短语"]}。不得改写窗口外内容，不得增加窗口外没有依据的事实，不得改变人物身份、关系、地点、时间、数字或已发生事件。',
+            userPrompt: JSON.stringify({ round: Number(round) + 1, issue: { category: issue.category, severity: issue.severity, problem: issue.problem, fixHint: issue.fixHint }, replacementWindow: window })
+          });
+          const value = revision && revision.json;
+          if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.replacement !== 'string' || !Array.isArray(value.preservedFacts)) {
+            throw new GenerationError('AUDIT_BLOCKED', '局部修订模型没有返回有效的 JSON 补丁', { status: 502 });
+          }
+          return { quote: String(value.quote || ''), replacement: value.replacement, preservedFacts: value.preservedFacts.map(String).slice(0, 32), usage: revision.usage || null };
+        },
+        reaudit: async ({ request: runRequest, contract, draft }) => {
+          const context = JSON.stringify({ storyContext: runRequest.storyContext || {}, chapterContract: contract || {} });
+          const result = await benchmarkPipeline.auditReviseLoop({
+            callModel: (_auditAuth, modelOptions) => callMolanChat(String(executionContext.authorization || ''), user, {
+              ...modelOptions, modelId: runRequest.modelId, projectId, workspaceId,
+              recordId: runId, workflowId: runId, stage: 'semantic_audit', requireComplete: true
+            })
+          }, auth, {
+            text: draft, context, genre: runRequest.genre, contract, chapterContract: contract,
+            factLedger: runRequest.factLedger || runRequest.storyContext && runRequest.storyContext.factLedger,
+            continuity: runRequest.continuity || runRequest.storyContext && runRequest.storyContext.continuity,
+            previousEnding: runRequest.previousEnding || runRequest.storyContext && runRequest.storyContext.previousEnding,
+            characters: runRequest.characters.length ? runRequest.characters : runRequest.storyContext && runRequest.storyContext.characters,
+            targetWords: runRequest.targetWords, maxRounds: 0, modelId: runRequest.modelId
+          });
+          return { audit: result.audit, deterministicAudit: result.deterministicAudit, passed: result.status === 'passed', usage: result.usage };
+        },
+        commit: POSTGRES_MODE ? async ({ run, request: runRequest, payload, text }) => {
+          const bookId = String(runRequest.creationBookId || '').trim();
+          if (!bookId) throw new GenerationError('STATE_CONFLICT', '生成请求缺少 creationBookId，不能写入正式章节', { status: 409 });
+          const commitInput = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+          const detail = commitInput.payload && typeof commitInput.payload === 'object' && !Array.isArray(commitInput.payload) ? commitInput.payload : {};
+          if (commitInput.projectId && String(commitInput.projectId) !== String(run.projectId)) {
+            throw new GenerationError('STATE_CONFLICT', '提交项目与生成任务不一致', { status: 409 });
+          }
+          if ((typeof commitInput.content === 'string' && commitInput.content !== text) ||
+              (typeof detail.content === 'string' && detail.content !== text)) {
+            throw new GenerationError('STATE_CONFLICT', '提交正文与 payload.content 不一致', { status: 409 });
+          }
+          const contractValue = run.result && run.result.contract || {};
+          const chapterMatch = String(runRequest.chapterId || '').match(/(\d+)/);
+          const chapterNo = Math.max(1, Number(contractValue.chapterNo || chapterMatch && chapterMatch[1]) || 1);
+          const expectedProjectRevision = Number(commitInput.expectedRevision);
+          if (!Number.isInteger(expectedProjectRevision) || expectedProjectRevision < 1) {
+            throw new GenerationError('STATE_CONFLICT', '提交必须提供已读取的 expectedRevision', { status: 409 });
+          }
+          const expectedStateVersion = commitInput.baseStateVersion ?? (runRequest.storyContext && (runRequest.storyContext.stateVersion ?? runRequest.storyContext.baseRevision));
+          if (!Number.isInteger(Number(expectedStateVersion)) || Number(expectedStateVersion) < 0) {
+            throw new GenerationError('STATE_CONFLICT', '提交必须提供已读取的 baseStateVersion', { status: 409 });
+          }
+          if (Number(expectedProjectRevision) !== Number(runRequest.storyContext && runRequest.storyContext.baseRevision) ||
+              Number(expectedStateVersion) !== Number(runRequest.storyContext && runRequest.storyContext.stateVersion)) {
+            throw new GenerationError('STATE_CONFLICT', '提交版本与服务端生成时读取的故事状态不一致，请重新生成', { status: 409 });
+          }
+          const knownBaseHash = String(runRequest.storyContext && (runRequest.storyContext.baseHash || runRequest.storyContext.contentHash) || '');
+          if (commitInput.baseHash && knownBaseHash && String(commitInput.baseHash) !== knownBaseHash) {
+            throw new GenerationError('STATE_CONFLICT', '提交基线正文已变化，请重新读取后提交', { status: 409 });
+          }
+          const creation = await postgresRepository.getCreationState(postgresActor(auth), bookId, 0);
+          if (!creation || !creation.book || String(creation.book.projectId) !== String(run.projectId) ||
+              String(creation.book.workspaceId) !== String(run.workspaceId) ||
+              Number(creation.book.currentStateVersion) !== Number(expectedStateVersion)) {
+            throw new GenerationError('STATE_CONFLICT', '创作书状态已变化或不属于本次项目，请重新读取后提交', { status: 409 });
+          }
+          const previousSnapshot = (Array.isArray(creation.snapshots) ? creation.snapshots : [])
+            .filter(snapshot => Number(snapshot && snapshot.stateVersion) <= Number(expectedStateVersion))
+            .sort((a, b) => Number(b && b.stateVersion) - Number(a && a.stateVersion))[0] || {};
+          const projection = require('./lib/generation/commit-projection').deriveGenerationCommitProjection({
+            result: run.result, text, previousSnapshot, chapterNo
+          });
+          const contentHash = generationManifest.hashValue(text);
+          const audit = await postgresRepository.createChapterAudit({
+            userId: postgresActor(auth), bookId, chapterNo, content: text, contentHash,
+            auditId: `audit_generation_${run.id}`
+          });
+          const receipt = await postgresRepository.commitChapter({
+            userId: postgresActor(auth), bookId, chapterNo, content: text, contentHash,
+            auditId: audit.auditId, baseStateVersion: Number(expectedStateVersion), expectedProjectRevision,
+            actualCost: Math.max(0, Number(run.actualCostMinor) || 0) / 100,
+            contentRef: `manuscript:${bookId}:chapter:${chapterNo}`,
+            projection
+          });
+          return { committed: receipt && receipt.ok === true, ...receipt, auditId: audit.auditId };
+        } : async ({ run, request: runRequest, payload, text }) => {
+          const actorUserId = String(auth.user.userId || projectScope.stableUserId(auth.user.email));
+          const access = projectScope.getNovelAccess(db, projectId, actorUserId);
+          if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) {
+            throw new GenerationError('STATE_CONFLICT', '当前账户无权提交此项目章节', { status: 403 });
+          }
+          const memoryWorkflow = require('./lib/memory-workflow');
+          return require('./lib/generation/sqlite-commit').commitSqliteChapter(db, {
+            run, request: runRequest, payload, text, projectAccess: access, actorUserId,
+            userEmail: auth.user.email, recordDebts: recordChapterCausalDebts,
+            calcWordCount, sanitizeNovelState: sanitizeNovelStateForStorage,
+            maxNovelStateBytes: MAX_NOVEL_STATE_BYTES,
+            guardNovelWrite: (novelId, revision) => memoryWorkflow.guardNovelWrite(db, novelId, revision),
+            invalidateChangedSources: novelId => memoryWorkflow.invalidateChangedSources(db, novelId)
+          });
+        },
+        getManifest: () => pipelineResult && pipelineResult.manifest || null
+      };
+    },
+    onError: (error, runId) => console.error('[Generation V2 worker]', runId, error && error.code || error)
+  });
+  return generationOrchestrator;
+}
+
+function generationRequestAuth(req) {
+  return CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req);
+}
+
+function generationRunError(res, error) {
+  if (res.headersSent || res.writableEnded) return;
+  const rawCode = String(error && error.code || 'generation_failed');
+  const status = Number(error && error.status) || (rawCode === 'idempotency_conflict' ? 409 : 500);
+  const idempotencyConflict = rawCode === 'idempotency_conflict';
+  json(res, status, {
+    ok: false,
+    error: idempotencyConflict ? '该 Idempotency-Key 已用于其他请求' : String(error && error.message || '生成任务操作失败'),
+    code: idempotencyConflict ? 'IDEMPOTENCY_KEY_REUSED' : rawCode
+  });
+}
+
+function generationSseEvent(res, event) {
+  if (res.destroyed || res.writableEnded) return false;
+  const sequence = Number(event && event.sequence) || 0;
+  const name = String(event && event.state || 'progress').replace(/[^a-z0-9_-]/gi, '_');
+  const payload = JSON.stringify(event || {});
+  return res.write(`id: ${sequence}\nevent: ${name}\ndata: ${payload}\n\n`);
+}
+
+/** 轮询持久事件表并以 SSE 下发，Last-Event-ID/after 可恢复断线游标。 */
+async function streamGenerationEvents(req, res, store, database, scope, initialCursor) {
+  res.writeHead(200, {
+    ...responseCors(res),
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.write('retry: 1000\n\n');
+  let cursor = initialCursor;
+  let disconnected = false;
+  let lastHeartbeat = Date.now();
+  const onClose = () => { disconnected = true; };
+  res.once('close', onClose);
+  try {
+    while (!disconnected && !res.writableEnded) {
+      const events = await store.listEvents(database, { ...scope, generationId: scope.id, after: cursor, limit: 500 });
+      for (const event of events) {
+        if (disconnected || res.writableEnded) break;
+        generationSseEvent(res, event);
+        cursor = Number(event.sequence) || cursor;
+      }
+      if (disconnected || res.writableEnded) break;
+      const run = await store.getRun(database, { ...scope, id: scope.id });
+      if (!run || ['committed', 'cancelled', 'failed', 'provider_unknown', 'rejected'].includes(String(run.state))) break;
+      if (Date.now() - lastHeartbeat >= 15000) {
+        res.write(`: heartbeat ${Date.now()}\n\n`);
+        lastHeartbeat = Date.now();
+      }
+      await new Promise(resolve => {
+        const timer = setTimeout(done, 500);
+        function done() {
+          clearTimeout(timer);
+          res.removeListener('close', done);
+          resolve();
+        }
+        res.once('close', done);
+      });
+    }
+  } finally {
+    res.removeListener('close', onClose);
+    if (!res.destroyed && !res.writableEnded) res.end();
+  }
+}
+
+async function generationProjectAccess(actorUserId, projectId, workspaceId = '') {
+  if (POSTGRES_MODE) return postgresRepository.getProjectAccess(actorUserId, projectId, workspaceId);
+  const access = projectScope.getNovelAccess(db, projectId, actorUserId);
+  if (access && workspaceId && String(access.workspace_id) !== String(workspaceId)) return null;
+  return access;
+}
+
+function generationChatChunk(runId, content = '', state = '', metadata = {}) {
+  return `data: ${JSON.stringify({
+    id: String(runId), object: 'chat.completion.chunk',
+    choices: [{ index: 0, delta: content ? { content } : {}, finish_reason: null }],
+    generationId: String(runId), generationState: String(state || ''), ...metadata
+  })}\n\n`;
+}
+
+async function streamLegacyGenerationChat(req, res, created, scope) {
+  const store = generationRunStore();
+  const database = POSTGRES_MODE ? postgresRepository : db;
+  const runId = String(created.run && created.run.id || '');
+  res.writeHead(200, {
+    ...responseCors(res),
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+    'X-Molan-Generation-Id': runId
+  });
+  res.write(generationChatChunk(runId, '', created.run && created.run.state, { idempotent: created.idempotent === true }));
+  let disconnected = false;
+  let lastHeartbeat = Date.now();
+  const onClose = () => { disconnected = true; };
+  res.once('close', onClose);
+  try {
+    let run = created.run;
+    while (!disconnected && !res.writableEnded && run && !['waiting_author', 'needs_human', 'committed', 'cancelled', 'failed', 'provider_unknown', 'rejected'].includes(String(run.state))) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (disconnected || res.writableEnded) break;
+      run = await store.getRun(database, { ...scope, id: runId });
+      if (Date.now() - lastHeartbeat >= 15000 && !disconnected && !res.writableEnded) {
+        res.write(': generation heartbeat\n\n');
+        lastHeartbeat = Date.now();
+      }
+    }
+    if (disconnected || res.writableEnded || !run) return;
+    const content = String(run.result && run.result.draft || '');
+    for (let index = 0; index < content.length; index += 240) {
+      if (disconnected || res.writableEnded) return;
+      res.write(generationChatChunk(runId, content.slice(index, index + 240), run.state));
+    }
+    res.write(generationChatChunk(runId, '', run.state, {
+      generationResult: { state: run.state, outputHash: String(run.result && run.result.outputHash || ''), errorCode: String(run.errorCode || '') }
+    }));
+    res.write('data: [DONE]\n\n');
+  } catch (error) {
+    if (!res.destroyed && !res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ error: { message: String(error && error.message || 'Generation Run 状态读取失败'), code: String(error && error.code || 'generation_failed') }, generationId: runId })}\n\n`);
+      res.write('data: [DONE]\n\n');
+    }
+  } finally {
+    res.removeListener('close', onClose);
+    if (!res.destroyed && !res.writableEnded) res.end();
+  }
+}
+
+async function handleLegacyGenerationChat(req, res, auth, input) {
+  const actorUserId = String(auth.user.userId || projectScope.stableUserId(auth.user.email));
+  const key = String(req.headers['idempotency-key'] || input.idempotencyKey || input.requestId || '').trim();
+  if (!key) return json(res, 428, { error: '正式章节生成必须提供稳定的 Idempotency-Key', code: 'IDEMPOTENCY_KEY_REQUIRED' });
+  const projectId = String(input.projectId || input.novelId || '').trim();
+  if (!projectId) return json(res, 422, { error: '正式章节生成必须提供 projectId', code: 'CONTRACT_INVALID' });
+  try {
+    const access = await generationProjectAccess(actorUserId, projectId, String(input.workspaceId || ''));
+    if (!access || !projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) {
+      return json(res, 404, { error: '项目不存在或当前账户无权发起生成', code: 'forbidden' });
+    }
+    const userMessages = Array.isArray(input.messages) ? input.messages.filter(message => message && message.role === 'user') : [];
+    const prompt = String(input.prompt || input.userInstruction || userMessages.map(message => String(message.content || '')).join('\n')).slice(0, 30000);
+    const modelId = resolveModelForUser(auth.user, input.modelId || input.model || currentDefaultModel());
+    const normalized = generationRunContext.normalizeGenerationRequest({
+      ...input, projectId, novelId: input.novelId || projectId, modelId, prompt, userInstruction: input.userInstruction || prompt,
+      idempotencyKey: key
+    });
+    const request = normalized.request;
+    const workspaceId = String(access.workspace_id || '');
+    const id = crypto.randomUUID();
+    const manifest = generationManifest.buildGenerationManifest({
+      generationId: id, projectId, chapterId: request.chapterId, modelId,
+      promptHash: generationManifest.hashValue({ writingSystem: request.writingSystem, prompt: request.prompt })
+    });
+    const created = await generationRunOrchestrator().create({
+      id, actorUserId, workspaceId, projectId, chapterId: request.chapterId,
+      pipelineVersion: 'generation-v2.1', idempotencyKey: normalized.idempotencyKey,
+      requestHash: generationRunContext.requestHash(request), request, manifest, modelId
+    }, { auth, user: auth.user, authorization: String(req.headers.authorization || ''), actorUserId, projectId, workspaceId });
+    const scope = { actorUserId, projectId, workspaceId };
+    return await streamLegacyGenerationChat(req, res, created, scope);
+  } catch (error) {
+    return generationRunError(res, error);
+  }
+}
+
+function generationChapterNo(request, contract, book) {
+  const match = String(request && request.chapterId || '').match(/(\d+)/);
+  return Math.max(1, Number(contract && contract.chapterNo || match && match[1] || Number(book && book.currentChapterNo || book && book.current_chapter_no) + 1) || 1);
+}
+
+function generationPreviousEnding(state, chapterNo) {
+  const chapters = (Array.isArray(state && state.volumes) ? state.volumes : []).flatMap(volume =>
+    (Array.isArray(volume && volume.chapters) ? volume.chapters : []).map(chapter => ({ ...chapter, volumeTitle: chapter.volumeTitle || volume.title || '' }))
+  );
+  const chapterNumber = chapter => Number(chapter && (chapter.number || chapter.chapterNo || chapter.chapterIndex))
+    || Number(String(chapter && (chapter.id || chapter.chapterId || chapter.title) || '').match(/(\d+)/)?.[1]) || 0;
+  const previous = chapters.find(chapter => chapterNumber(chapter) === chapterNo - 1)
+    || chapters.filter(chapter => chapterNumber(chapter) > 0 && chapterNumber(chapter) < chapterNo).sort((a, b) => chapterNumber(b) - chapterNumber(a))[0];
+  if (!previous) return '';
+  const content = Array.isArray(previous.scenes)
+    ? previous.scenes.map(scene => typeof scene === 'string' ? scene : String(scene && (scene.content || scene.text) || '')).join('\n')
+    : String(previous.content || previous.text || '');
+  return content.slice(-2400);
+}
+
+function generationFactLedger(snapshot) {
+  const recent = Array.isArray(snapshot && snapshot.recentFacts) ? snapshot.recentFacts : [];
+  const ledger = { rules: [], promises: [], updates: [], byEntity: {} };
+  for (const fact of recent) {
+    if (!fact || typeof fact !== 'object') continue;
+    const type = String(fact.sourceType || fact.type || '');
+    if (type === 'rule') ledger.rules.push(fact);
+    else if (type === 'promise') ledger.promises.push(fact);
+    else if (type === 'update') ledger.updates.push(fact);
+    else if (type === 'entity' && fact.entity) {
+      const entity = String(fact.entity);
+      if (!ledger.byEntity[entity]) ledger.byEntity[entity] = [];
+      ledger.byEntity[entity].push(fact);
+    }
+  }
+  return ledger;
+}
+
+/** 只从项目权限、创作圣经、持久化快照和作品正文读取生成上下文。 */
+async function loadAuthoritativeGenerationContext(input = {}) {
+  const request = input.request || {};
+  const actorUserId = String(input.actorUserId || '');
+  const projectId = String(input.projectId || request.projectId || '');
+  const workspaceId = String(input.workspaceId || '');
+  const bookId = String(request.creationBookId || '');
+  if (!actorUserId || !projectId || !bookId) return { ok: false, reason: 'generation_scope_incomplete' };
+  const access = await generationProjectAccess(actorUserId, projectId, workspaceId);
+  if (!access || !projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) return { ok: false, reason: 'generation_scope_forbidden' };
+
+  let book;
+  let bible;
+  let snapshots;
+  let novelState = {};
+  let projectRevision = 0;
+  if (POSTGRES_MODE) {
+    const creation = await postgresRepository.getCreationState(actorUserId, bookId, 0);
+    if (!creation || !creation.book || String(creation.book.projectId) !== projectId || String(creation.book.workspaceId) !== workspaceId) {
+      return { ok: false, reason: 'creation_book_missing' };
+    }
+    const profile = await postgresRepository.getProfile(actorUserId, projectId, workspaceId);
+    if (!profile) return { ok: false, reason: 'project_state_missing' };
+    book = creation.book;
+    bible = creation.bible;
+    snapshots = Array.isArray(creation.snapshots) ? creation.snapshots : [];
+    novelState = profile.state && typeof profile.state === 'object' ? profile.state : {};
+    projectRevision = Number(profile.revision) || Number(access.revision) || 0;
+  } else {
+    const row = db.prepare(`SELECT * FROM creation_books
+      WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(bookId, workspaceId, projectId);
+    if (!row) return { ok: false, reason: 'creation_book_missing' };
+    const storedBible = loadCurrentBiblePayload(bookId);
+    if (!storedBible) return { ok: false, reason: 'creation_bible_missing' };
+    const novelId = String(request.novelId || projectId);
+    const novel = db.prepare(`SELECT state_json, revision FROM novels
+      WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(novelId, workspaceId, projectId);
+    if (!novel) return { ok: false, reason: 'project_state_missing' };
+    book = row;
+    bible = { bibleId: storedBible.bibleId, version: storedBible.version, payload: storedBible.payload };
+    snapshots = loadCreationSnapshots(bookId, 0);
+    try { novelState = sanitizeNovelStateForStorage(JSON.parse(String(novel.state_json || '{}'))); }
+    catch (_) { return { ok: false, reason: 'project_state_invalid' }; }
+    projectRevision = Number(novel.revision) || 0;
+  }
+
+  const stateVersion = Math.max(0, Number(book.currentStateVersion ?? book.current_state_version) || 0);
+  const chapterNo = generationChapterNo(request, input.contract, book);
+  const previous = snapshots.filter(snapshot => Number(snapshot && snapshot.stateVersion) <= stateVersion)
+    .sort((a, b) => Number(b && b.stateVersion) - Number(a && a.stateVersion))[0] || {};
+  const biblePayload = bible && bible.payload && typeof bible.payload === 'object' ? bible.payload : {};
+  const chapterContext = creationChapterContext(biblePayload, chapterNo);
+  const factLedger = generationFactLedger(previous);
+  const characters = [...chapterContext.characters, ...chapterContext.characterLibrary];
+  const knownNames = new Set(characters.map(character => String(character && (character.name || character.id) || '')).filter(Boolean));
+  const characterStates = previous.characterStates && typeof previous.characterStates === 'object' ? previous.characterStates : {};
+  for (const [name, state] of Object.entries(characterStates)) {
+    if (!knownNames.has(name)) characters.push({ name, ...(state && typeof state === 'object' ? state : { state }) });
+  }
+  const stateSummary = {
+    chapterNo, stateVersion, baseRevision: projectRevision, storyBibleVersion: Number(bible && bible.version) || 0,
+    characterStates, relationshipStates: previous.relationshipStates || {}, worldStates: previous.worldStates || {},
+    timeline: Array.isArray(previous.timeline) ? previous.timeline : [],
+    openForeshadows: Array.isArray(previous.openForeshadows) ? previous.openForeshadows : [],
+    recentFacts: Array.isArray(previous.recentFacts) ? previous.recentFacts : []
+  };
+  let baseHash = String(previous.contentHash || '');
+  if (request.sceneId) {
+    const located = require('./lib/generation/scene-patch').locateScene(novelState, request.chapterId, request.sceneId);
+    if (!located) return { ok: false, reason: 'generation_scene_missing' };
+    baseHash = require('./lib/generation/scene-patch').hashSceneText(located.scene.content == null ? '' : located.scene.content);
+  }
+  const snapshotHash = generationManifest.hashValue({
+    projectId, workspaceId, bookId, projectRevision, stateVersion,
+    bibleVersion: Number(bible && bible.version) || 0, previous: previous.id || previous.stateVersion || 0,
+    stateSummary
+  });
+  const storyContext = {
+    ...stateSummary,
+    baseStateVersion: stateVersion,
+    baseHash,
+    contentHash: String(previous.contentHash || ''),
+    previousEnding: generationPreviousEnding(novelState, chapterNo),
+    chapterContext,
+    chapterPlan: chapterContext,
+    characters,
+    factLedger,
+    continuity: {
+      characters, characterStates, relationships: previous.relationshipStates || {},
+      worldStates: previous.worldStates || {}, worldRules: chapterContext.rules,
+      timeline: stateSummary.timeline, openForeshadows: stateSummary.openForeshadows
+    },
+    hardState: { factLedger, characterStates, relationshipStates: previous.relationshipStates || {}, worldStates: previous.worldStates || {} },
+    foreshadows: stateSummary.openForeshadows,
+    activeCausalDebts: factLedger.promises,
+    planText: JSON.stringify(chapterContext).slice(0, 12000)
+  };
+  return { ok: true, storyContext, snapshotHash, projectRevision, stateVersion, chapterNo, chapterContext, novelState };
+}
+
+function scenePatchError(res, error) {
+  if (res.headersSent || res.writableEnded) return;
+  const code = String(error && error.code || 'scene_patch_failed');
+  const status = Number(error && error.status) || (code === 'revision_conflict' || code === 'base_hash_conflict' ? 409 : 500);
+  json(res, status, { ok: false, error: String(error && error.message || '场景保存失败'), code });
+}
+
+function validateScenePatchBody(body) {
+  const chapterId = String(body && body.chapterId || '').trim();
+  const revision = Number(body && body.revision);
+  const baseHash = String(body && body.baseHash || '').trim().toLowerCase();
+  if (!chapterId || chapterId.length > 160) throw Object.assign(new Error('chapterId 无效'), { code: 'CONTRACT_INVALID', status: 422 });
+  if (!Number.isInteger(revision) || revision < 0) throw Object.assign(new Error('场景差量必须提供有效 revision'), { code: 'revision_required', status: 428 });
+  if (!/^[a-f0-9]{64}$/.test(baseHash)) throw Object.assign(new Error('场景差量必须提供 SHA-256 baseHash'), { code: 'base_hash_required', status: 428 });
+  return { chapterId, revision, baseHash, operations: body && body.operations };
+}
+
+/** 对单个场景正文应用基于 revision 与正文摘要的差量补丁。 */
+async function handleNovelScenePatch(req, res, novelIdValue, sceneIdValue) {
+  const auth = getAuthUser(req);
+  if (!auth) return json(res, 401, { ok: false, error: '未登录', code: 'unauthorized' });
+  if (!requireSqliteForPublic(req, res)) return;
+  const novelId = decodePathParam(novelIdValue);
+  const sceneId = decodePathParam(sceneIdValue);
+  if (!/^n_[A-Za-z0-9]{1,30}$/.test(novelId)) return json(res, 400, { ok: false, error: '小说 id 非法', code: 'invalid_novel_id' });
+  if (!sceneId || sceneId.length > 160) return json(res, 400, { ok: false, error: 'sceneId 无效', code: 'invalid_scene_id' });
+  try {
+    const body = await readBody(req, generationScenePatch.MAX_SCENE_PATCH_BYTES + 8192);
+    const patch = validateScenePatchBody(body);
+    let state;
+    let currentRevision;
+    let access;
+
+    if (POSTGRES_MODE) {
+      const saved = await postgresRepository.patchProfileScene({
+        userId: postgresActor(auth), projectId: novelId, chapterId: patch.chapterId,
+        sceneId, expectedRevision: patch.revision, baseHash: patch.baseHash,
+        operations: patch.operations, maxStateBytes: MAX_NOVEL_STATE_BYTES
+      });
+      return json(res, 200, { ok: true, ...saved, chapterId: patch.chapterId, sceneId });
+    }
+
+    if (!dbReady()) return json(res, 503, { ok: false, error: '云端存储不可用', code: 'storage_unavailable' });
+    let transaction = false;
+    try {
+      db.exec('BEGIN IMMEDIATE');
+      transaction = true;
+      access = projectScope.getNovelAccess(db, novelId, auth.user.userId);
+      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) {
+        db.exec('ROLLBACK');
+        transaction = false;
+        return json(res, 404, { ok: false, error: '小说不存在或无权访问', code: 'project_not_found' });
+      }
+      const row = db.prepare(`SELECT state_json, revision FROM novels
+        WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(novelId, access.workspace_id, access.project_id);
+      if (!row) {
+        db.exec('ROLLBACK');
+        transaction = false;
+        return json(res, 404, { ok: false, error: '小说不存在或无权访问', code: 'project_not_found' });
+      }
+      currentRevision = Number(row.revision) || 0;
+      if (currentRevision !== patch.revision) {
+        db.exec('ROLLBACK');
+        transaction = false;
+        return json(res, 409, { ok: false, error: '小说 revision 已变化，请重新读取', code: 'revision_conflict', revision: currentRevision });
+      }
+      require('./lib/memory-workflow').guardNovelWrite(db, novelId, patch.revision);
+      try { state = sanitizeNovelStateForStorage(JSON.parse(String(row.state_json || '{}'))); }
+      catch (_) { throw Object.assign(new Error('state_json 解析失败'), { code: 'invalid_state', status: 500 }); }
+      const located = generationScenePatch.locateScene(state, patch.chapterId, sceneId);
+      if (!located) {
+        db.exec('ROLLBACK');
+        transaction = false;
+        return json(res, 404, { ok: false, error: '指定章节或场景不存在', code: 'scene_not_found' });
+      }
+      const currentText = String(located.scene.content == null ? '' : located.scene.content);
+      if (generationScenePatch.hashSceneText(currentText) !== patch.baseHash) {
+        db.exec('ROLLBACK');
+        transaction = false;
+        return json(res, 409, { ok: false, error: '场景正文已变化，请重新读取后合并', code: 'base_hash_conflict', revision: currentRevision });
+      }
+      located.scene.content = generationScenePatch.applySceneOperations(currentText, patch.operations);
+      state = sanitizeNovelStateForStorage(state);
+      const stateJson = JSON.stringify(state);
+      if (Buffer.byteLength(stateJson, 'utf8') > MAX_NOVEL_STATE_BYTES) {
+        db.exec('ROLLBACK');
+        transaction = false;
+        return json(res, 413, { ok: false, error: '单本小说数据过大', code: 'state_too_large' });
+      }
+      const now = Date.now();
+      const result = db.prepare(`UPDATE novels SET state_json = ?, word_count = ?, updated_at = ?,
+        revision = revision + 1, owner_user_id = ?
+        WHERE id = ? AND workspace_id = ? AND project_id = ? AND revision = ?`)
+        .run(stateJson, calcWordCount(state), now, auth.user.userId, novelId,
+          access.workspace_id, access.project_id, patch.revision);
+      if (Number(result.changes || 0) !== 1) {
+        db.exec('ROLLBACK');
+        transaction = false;
+        return json(res, 409, { ok: false, error: '小说 revision 已变化，请重新读取', code: 'revision_conflict' });
+      }
+      db.prepare('UPDATE novel_projects SET updated_at = ? WHERE workspace_id = ? AND project_id = ?')
+        .run(now, access.workspace_id, access.project_id);
+      require('./lib/memory-workflow').invalidateChangedSources(db, novelId);
+      db.exec('COMMIT');
+      transaction = false;
+      return json(res, 200, {
+        ok: true, chapterId: patch.chapterId, sceneId, revision: patch.revision + 1,
+        contentHash: generationScenePatch.hashSceneText(located.scene.content)
+      });
+    } catch (error) {
+      if (transaction) { try { db.exec('ROLLBACK'); } catch (_) {} }
+      throw error;
+    }
+  } catch (error) {
+    return scenePatchError(res, error);
+  }
+}
+
+async function handleGenerationRuns(req, res, u) {
+  const auth = generationRequestAuth(req);
+  if (!auth) return json(res, 401, { ok: false, error: '未登录', code: 'unauthorized' });
+  const actorUserId = postgresActor(auth);
+  const rootPath = '/api/generation-runs';
+  if (req.method === 'GET' && u === `${rootPath}/capabilities`) {
+    const sqliteStore = require('./lib/generation/sqlite-store');
+    const commit = POSTGRES_MODE
+      ? typeof postgresRepository.commitChapter === 'function'
+      : dbReady() && ['creation_books', 'creation_state_snapshots', 'creation_chapter_audits', 'benchmark_commit_receipts', 'project_resources', 'novels']
+        .every(name => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name)));
+    const generationStatus = generationV2Status(generationV2Enabled(process.env, actorUserId));
+    return json(res, 200, {
+      ...generationStatus,
+      commit,
+      pauseResume: !POSTGRES_MODE && typeof sqliteStore.requestPause === 'function' && typeof sqliteStore.resumeRun === 'function',
+      recovery: !POSTGRES_MODE && typeof sqliteStore.recoverExpiredRuns === 'function',
+      storageMode: POSTGRES_MODE ? 'postgres' : 'sqlite'
+    });
+  }
+  if (!generationV2Enabled(process.env, actorUserId)) return json(res, 404, { ok: false, error: 'Generation V2 未启用', code: 'generation_v2_disabled' });
+  if (!requireSqliteForPublic(req, res)) return;
+  const base = u.match(/^\/api\/generation-runs\/([^/]+)$/);
+  const events = u.match(/^\/api\/generation-runs\/([^/]+)\/events$/);
+  const cancel = u.match(/^\/api\/generation-runs\/([^/]+)\/cancel$/);
+  const pause = u.match(/^\/api\/generation-runs\/([^/]+)\/pause$/);
+  const resume = u.match(/^\/api\/generation-runs\/([^/]+)\/resume$/);
+  const revision = u.match(/^\/api\/generation-runs\/([^/]+)\/revision$/);
+  const commit = u.match(/^\/api\/generation-runs\/([^/]+)\/commit$/);
+  try {
+    const orchestrator = generationRunOrchestrator();
+    const store = generationRunStore();
+    const database = POSTGRES_MODE ? postgresRepository : db;
+    if (typeof orchestrator.recover === 'function') await orchestrator.recover();
+    if (req.method === 'POST' && u === rootPath) {
+      const body = await readBody(req, 2 * 1024 * 1024 + 4096);
+      const key = String(req.headers['idempotency-key'] || body.idempotencyKey || body.requestId || '').trim();
+      const requestedModel = String(body.modelId || body.model || '').trim();
+      const modelId = resolveModelForUser(auth.user, requestedModel || currentDefaultModel());
+      if (requestedModel === 'gpt-6-luna' && modelId !== requestedModel) return json(res, 503, { ok: false, error: '平台模型目录未配置 gpt-6-luna，已停止请求以避免回退到其他模型', code: 'model_unavailable' });
+      const normalized = generationRunContext.normalizeGenerationRequest({ ...body, modelId, idempotencyKey: key });
+      const request = normalized.request;
+      const access = await generationProjectAccess(actorUserId, request.projectId, String(body.workspaceId || ''));
+      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) return json(res, 403, { ok: false, error: '当前账户无权在该项目生成正文', code: 'forbidden' });
+      const workspaceId = String(access.workspace_id || '');
+      const id = crypto.randomUUID();
+      const manifest = generationManifest.buildGenerationManifest({
+        generationId: id, projectId: request.projectId, chapterId: request.chapterId,
+        modelId, promptHash: generationManifest.hashValue({ writingSystem: request.writingSystem, prompt: request.prompt })
+      });
+      const created = await orchestrator.create({
+        id, actorUserId, workspaceId, projectId: request.projectId, chapterId: request.chapterId,
+        pipelineVersion: 'generation-v2.1', idempotencyKey: normalized.idempotencyKey,
+        requestHash: generationRunContext.requestHash(request), request, manifest, modelId
+      }, { auth, user: auth.user, authorization: String(req.headers.authorization || ''), projectId: request.projectId, workspaceId });
+      return json(res, created.idempotent ? 200 : 202, { ok: true, idempotent: created.idempotent, run: created.run });
+    }
+
+    if (!base && !events && !cancel && !pause && !resume && !revision && !commit) return json(res, 404, { ok: false, error: 'Not Found' });
+    const id = decodePathParam((events || cancel || pause || resume || revision || commit || base)[1]);
+    const run = await store.getRunById(database, { id, actorUserId });
+    if (!run) return json(res, 404, { ok: false, error: '生成任务不存在或无权访问', code: 'RUN_NOT_FOUND' });
+    const access = await generationProjectAccess(actorUserId, run.projectId, run.workspaceId);
+    if (!access || !projectScope.canAccess(access, projectScope.PROJECT_ROLES)) return json(res, 404, { ok: false, error: '生成任务不存在或无权访问', code: 'RUN_NOT_FOUND' });
+    const scope = { id: run.id, actorUserId, projectId: run.projectId, workspaceId: run.workspaceId };
+    if (req.method === 'GET' && events) {
+      const params = new URL(req.url, 'http://molan.local').searchParams;
+      const afterRaw = params.get('after');
+      const limitRaw = params.get('limit');
+      const lastEventId = String(req.headers['last-event-id'] || '').trim();
+      const cursorRaw = lastEventId || afterRaw;
+      const after = cursorRaw == null || cursorRaw === '' ? 0 : Number(cursorRaw);
+      const requestedLimit = limitRaw == null || limitRaw === '' ? 100 : Number(limitRaw);
+      if (!Number.isSafeInteger(after) || after < 0) return json(res, 400, { ok: false, error: 'after 参数无效', code: 'invalid_cursor' });
+      if (!Number.isInteger(requestedLimit) || requestedLimit < 1) return json(res, 400, { ok: false, error: 'limit 参数无效', code: 'invalid_limit' });
+      const limit = Math.min(500, requestedLimit);
+      if (String(req.headers.accept || '').toLowerCase().includes('text/event-stream')) {
+        return streamGenerationEvents(req, res, store, database, scope, after);
+      }
+      const list = await store.listEvents(database, { ...scope, generationId: run.id, after, limit });
+      return json(res, 200, { ok: true, events: list, hasMore: list.length === limit });
+    }
+    if (req.method === 'GET' && base) {
+      const stages = await store.listStages(database, { ...scope, generationId: run.id });
+      return json(res, 200, { ok: true, run, stages });
+    }
+    if (req.method === 'POST' && cancel) {
+      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权取消此任务', code: 'forbidden' });
+      return json(res, 200, { ok: true, run: await orchestrator.cancel(scope) });
+    }
+    if (req.method === 'POST' && pause) {
+      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权暂停此任务', code: 'forbidden' });
+      return json(res, 200, { ok: true, run: await orchestrator.pause(scope) });
+    }
+    if (req.method === 'POST' && resume) {
+      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权恢复此任务', code: 'forbidden' });
+      const resumed = await orchestrator.resume(scope, {
+        auth, user: auth.user, authorization: String(req.headers.authorization || ''),
+        projectId: run.projectId, workspaceId: run.workspaceId, generationId: run.id
+      });
+      return json(res, 202, { ok: true, run: resumed.run, resumed: true });
+    }
+    if (req.method === 'POST' && revision) {
+      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权修订此任务', code: 'forbidden' });
+      const body = await readBody(req, 256 * 1024 + 4096);
+      const revised = await orchestrator.revise({
+        ...scope,
+        issueId: body.issueId,
+        quote: body.quote,
+        replacementWindow: body.replacementWindow,
+        replacement: body.replacement,
+        preservedFacts: body.preservedFacts,
+        outputHash: body.outputHash
+      }, {
+        auth, user: auth.user, authorization: String(req.headers.authorization || ''),
+        projectId: run.projectId, workspaceId: run.workspaceId, generationId: run.id
+      });
+      return json(res, 200, { ok: true, run: revised.run, revision: revised.revision, idempotent: revised.idempotent });
+    }
+    if (req.method === 'POST' && commit) {
+      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权提交此任务', code: 'forbidden' });
+      const body = await readBody(req, 1024 * 1024 + 4096);
+      const outputHash = String(body.outputHash || body.payload && body.payload.outputHash || '');
+      const text = String(body.text ?? (body.payload && (body.payload.content || body.payload.text)) ?? '');
+      const committed = await orchestrator.commit({ ...scope, outputHash, text, payload: body }, {
+        auth, user: auth.user, authorization: String(req.headers.authorization || ''),
+        projectId: run.projectId, workspaceId: run.workspaceId, generationId: run.id
+      });
+      return json(res, 200, { ok: true, run: committed.run, receipt: committed.receipt, idempotent: committed.idempotent });
+    }
+    return json(res, 405, { ok: false, error: 'Method Not Allowed' });
+  } catch (error) {
+    return generationRunError(res, error);
+  }
+}
+
 async function handleBenchmark(req, res, u) {
   if (req.method === 'GET' && u === '/api/benchmark/capabilities') return json(res, 200, { protocol: 'benchmark-local-v2', localStorage: !CLOUD_API_BASE, cloudProxy: !!CLOUD_API_BASE, maxRevisionRounds: 2, humanReviewRequired: true });
   const isReadOnlyOrCompute = (req.method === 'GET') || u === '/api/benchmark/audit' || u === '/api/benchmark/baseline';
@@ -18760,6 +19808,9 @@ function handleLocalStyleBaseline(req, res, params) {
   if (req.method === 'GET' && u === '/api/local-style/samples') return handleLocalStyleSamples(req, res, new URL(req.url, 'http://molan.local').searchParams);
   if (req.method === 'GET' && u === '/api/local-style/baseline') return handleLocalStyleBaseline(req, res, new URL(req.url, 'http://molan.local').searchParams);
   if (u.startsWith('/api/benchmark/')) return handleBenchmark(req, res, u);
+  if (u === '/api/generation-runs' || u.startsWith('/api/generation-runs/')) {
+    return handleGenerationRuns(req, res, u).catch(error => generationRunError(res, error));
+  }
   if (shouldProxyCloudRequest(req)) return handleCloudProxy(req, res);
   if (req.method === 'POST' && u === '/api/style/detect') return handleStyleDetect(req, res);
   if (req.method === 'POST' && u === '/api/chapter/health-check') return handleChapterHealthCheck(req, res);
@@ -18774,7 +19825,7 @@ function handleLocalStyleBaseline(req, res, params) {
   if (req.method === 'GET'  && causalDebtMatch) return handleCausalDebtsGet(req, res, causalDebtMatch[1]);
   if (POSTGRES_MODE && req.method === 'POST' && causalDebtMatch) return handlePostgresCausalDebtCreate(req, res, causalDebtMatch[1]).catch(error => respondPostgresError(res, error));
   if (req.method === 'POST' && causalDebtMatch) return handleCausalDebtCreate(req, res, causalDebtMatch[1]);
-  if (req.method === 'POST' && u === '/api/chat') return handleChat(req, res);
+  if (req.method === 'POST' && u === '/api/chat') return handleChat(req, res, handleLegacyGenerationChat);
   if (req.method === 'GET'  && u === '/api/models') return handleModels(req, res);
   if (req.method === 'POST' && u === '/api/billing/estimate') return handleBillingEstimate(req, res);
   if (req.method === 'POST' && u === '/api/billing/topup') return handleBillingTopup(req, res);
@@ -18911,6 +19962,8 @@ function handleLocalStyleBaseline(req, res, params) {
   if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/import-characters$/))) return handlePostgresNovelImportCharacters(req, res, m[1]).catch(error => respondPostgresError(res, error));
   if (req.method === 'POST'   && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)\/import-characters$/))) return handleNovelImportCharacters(req, res, m[1]);
   if (req.method === 'GET'    && (m = u.match(/^\/api\/shared\/dissection\/([A-Za-z0-9]+)$/))) return handleSharedDissectionGet(req, res, m[1]);
+  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/export$/))) return handlePostgresNovelExport(req, res, m[1]).catch(error => respondPostgresError(res, error));
+  if (req.method === 'GET' && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)\/export$/))) return handleNovelExport(req, res, m[1]);
   if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/package$/))) return handlePostgresPackageExport(req, res, m[1]).catch(error => respondPostgresError(res, error));
   if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/package\/import$/))) return handlePostgresPackageImport(req, res, m[1]).catch(error => respondPostgresError(res, error));
   if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/package\/restore$/))) return handlePostgresPackageRestore(req, res, m[1]).catch(error => respondPostgresError(res, error));
@@ -18930,6 +19983,9 @@ function handleLocalStyleBaseline(req, res, params) {
   if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects\/(n_[A-Za-z0-9_]+)\/members$/))) return handlePostgresNovelMembers(req, res, m[1], m[2]).catch(error => respondPostgresError(res, error));
   if (POSTGRES_MODE && ['POST', 'PATCH', 'DELETE'].includes(req.method) && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects\/(n_[A-Za-z0-9_]+)\/members$/))) return handlePostgresNovelMembers(req, res, m[1], m[2]).catch(error => respondPostgresError(res, error));
   if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)$/))) return handlePostgresNovelGet(req, res, m[1]).catch(error => respondPostgresError(res, error));
+  if (req.method === 'PATCH' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/scenes\/([^/]+)$/))) {
+    return handleNovelScenePatch(req, res, m[1], m[2]);
+  }
   if (POSTGRES_MODE && req.method === 'PUT' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)$/))) return handlePostgresNovelSave(req, res, m[1]).catch(error => respondPostgresError(res, error));
   if (POSTGRES_MODE && req.method === 'DELETE' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)$/))) return handlePostgresNovelDelete(req, res, m[1]).catch(error => respondPostgresError(res, error));
   if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/restore$/))) return handlePostgresNovelRestore(req, res, m[1]).catch(error => respondPostgresError(res, error));
@@ -19301,5 +20357,5 @@ module.exports = {
   extractSkillBlocks,
   CONTRACT_CLICHE_BLOCKLIST,
   // 仅测试钩子：纯函数（不碰 DB / 不调模型）
-  __test: { buildDissectionUnits, dissectionUnitHeader, splitUnitParts, dissectionChapterTitle, buildDissectionChunks, normalizePipelineEventType, pipelineBatchCharsFor, emptyDissectionResult, normalizeEntityName, normalizeDissectionUnitId, attachPipelineCoverage, legacyPipelineCharacterAggregation, normalizePipelineAggregationResult, normalizeLegacyPipelineRecord, pipelineAggregationMissingFields, pipelineTextChunks, samplePipelineCharacterAppearances, dissectionTransferJson, deterministicContractValidation, checkForbiddenTerms, normalizeCreationPlan, creationPlanTargets, creationPlanCoverage, creationPlanRules, creationPlanProjection, creationPlanHasContent, creationPlanIssue, reviewCreationPlan, normalizeCreationPlanReviewModel, mergeCreationPlanReview, normalizeCreationPlanPatchPath, applyCreationPlanPatches, creationOriginalityGate, characterNameOverlapIssues, creationBibleSeedValidation, computeEventChainLCS, computeRoleCombinationJaccard, computeMapTopologySimilarity, computeRetentionCompliance, mergeCreationVolumes, mergeCreationChapterPlan, normalizeCreationExpansionChapter, normalizeCreationChapterPlanRhythm }
+  __test: { isPublicStaticPath, buildDissectionUnits, dissectionUnitHeader, splitUnitParts, dissectionChapterTitle, buildDissectionChunks, normalizePipelineEventType, pipelineBatchCharsFor, emptyDissectionResult, normalizeEntityName, normalizeDissectionUnitId, attachPipelineCoverage, legacyPipelineCharacterAggregation, normalizePipelineAggregationResult, normalizeLegacyPipelineRecord, pipelineAggregationMissingFields, pipelineTextChunks, samplePipelineCharacterAppearances, dissectionTransferJson, deterministicContractValidation, checkForbiddenTerms, normalizeCreationPlan, creationPlanTargets, creationPlanCoverage, creationPlanRules, creationPlanProjection, creationPlanHasContent, creationPlanIssue, reviewCreationPlan, normalizeCreationPlanReviewModel, mergeCreationPlanReview, normalizeCreationPlanPatchPath, applyCreationPlanPatches, creationOriginalityGate, characterNameOverlapIssues, creationBibleSeedValidation, computeEventChainLCS, computeRoleCombinationJaccard, computeMapTopologySimilarity, computeRetentionCompliance, mergeCreationVolumes, mergeCreationChapterPlan, normalizeCreationExpansionChapter, normalizeCreationChapterPlanRhythm }
 };

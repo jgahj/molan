@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "optimization-experiment-policy-v1",
+  "minimumPairedTasks": 80,
+  "minimumTargetRelativeImprovement": 0.05,
+  "maximumContinuityDecline": 0,
+  "maximumAiFlavorIncrease": 0,
+  "maximumGenreFitDecline": 2,
+  "maximumStyleFitDecline": 2,
+  "maximumCostIncreaseRatio": 0.15
+}

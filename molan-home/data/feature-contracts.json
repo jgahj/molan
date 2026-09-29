@@ -1,0 +1,162 @@
+{
+  "AI_GENERATE": {
+    "displayName": "AI章节生成",
+    "ui": true,
+    "api": true,
+    "backend": true,
+    "persistence": true,
+    "streaming": true,
+    "cancel": true,
+    "retry": true,
+    "audit": true,
+    "billing": true,
+    "test": true,
+    "required": ["ui", "api", "backend", "persistence", "streaming", "cancel", "retry", "audit", "billing", "test"],
+    "evidence": {
+      "ui": { "file": "completion-editor.js", "includes": "data-feature=\"AI_GENERATE\" data-action=\"ai-generate\"" },
+      "api": { "file": "lib/client/generation-runs.js", "includes": "request('/api/generation-runs', {" },
+      "backend": { "file": "server.js", "includes": "const rootPath = '/api/generation-runs';" },
+      "persistence": { "file": "lib/generation/sqlite-store.js", "includes": "INSERT INTO generation_runs" },
+      "streaming": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/events')" },
+      "cancel": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/cancel')" },
+      "retry": { "file": "completion-editor.js", "includes": "void sendEditorAI(retryText, { resumeIndex: idx });" },
+      "audit": { "file": "lib/generation/orchestrator.js", "includes": "current = await move(scope, id, 'deterministic_audit'" },
+      "billing": { "file": "server.js", "includes": "creditCost: Number(call.usage.creditCost) || 0" },
+      "test": { "file": "test/generation-runs-client.test.js", "includes": "Generation Run create sends a stable idempotency key in header and request body" }
+    }
+  },
+  "AI_STOP": {
+    "displayName": "停止生成",
+    "ui": true,
+    "api": true,
+    "backend": true,
+    "persistence": true,
+    "streaming": false,
+    "cancel": true,
+    "retry": false,
+    "audit": false,
+    "billing": false,
+    "test": true,
+    "required": ["ui", "api", "backend", "persistence", "cancel", "test"],
+    "evidence": {
+      "ui": { "file": "completion-editor.js", "includes": "data-feature=\"AI_STOP\" data-action=\"ai-stop\"" },
+      "api": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/cancel')" },
+      "backend": { "file": "server.js", "includes": "if (req.method === 'POST' && cancel)" },
+      "persistence": { "file": "lib/generation/sqlite-store.js", "includes": "cancel_requested = CASE WHEN ? = 'cancel_requested' THEN 1 ELSE cancel_requested END" },
+      "cancel": { "file": "lib/generation/orchestrator.js", "includes": "async function cancel(input)" },
+      "test": { "file": "test/generation-runs-client.test.js", "includes": "revision, cancellation, and commit use distinct run routes" }
+    }
+  },
+  "AI_AUDIT": {
+    "displayName": "章节审计",
+    "ui": true,
+    "api": true,
+    "backend": true,
+    "persistence": true,
+    "streaming": false,
+    "cancel": false,
+    "retry": false,
+    "audit": true,
+    "billing": false,
+    "test": true,
+    "required": ["ui", "api", "backend", "persistence", "audit", "test"],
+    "evidence": {
+      "ui": { "file": "completion-editor.js", "includes": "data-feature=\"AI_AUDIT\" data-action=\"audit-revise\"" },
+      "api": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/revision')" },
+      "backend": { "file": "server.js", "includes": "orchestrator.revise({" },
+      "persistence": { "file": "lib/generation/sqlite-store.js", "includes": "INSERT INTO generation_stage_runs" },
+      "audit": { "file": "lib/generation/orchestrator.js", "includes": "current = await move(scope, id, 'semantic_audit'" },
+      "test": { "file": "test/generation-sqlite-commit.test.js", "includes": "SQLite generation commit atomically writes scene, manuscript, snapshot, budget, audit and receipt" }
+    }
+  },
+  "AI_COMMIT": {
+    "displayName": "提交章节",
+    "ui": true,
+    "api": true,
+    "backend": true,
+    "persistence": true,
+    "streaming": false,
+    "cancel": false,
+    "retry": false,
+    "audit": true,
+    "billing": false,
+    "test": true,
+    "required": ["ui", "api", "backend", "persistence", "audit", "test"],
+    "evidence": {
+      "ui": { "file": "completion-editor.js", "includes": "data-feature=\"AI_COMMIT\" data-action=\"ai-commit\"" },
+      "api": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/commit')" },
+      "backend": { "file": "server.js", "includes": "if (req.method === 'POST' && commit)" },
+      "persistence": { "file": "lib/generation/sqlite-commit.js", "includes": "db.exec('BEGIN IMMEDIATE')" },
+      "audit": { "file": "lib/generation/sqlite-commit.js", "includes": "deterministic.passed === true && semantic.passed === true" },
+      "test": { "file": "test/generation-sqlite-commit.test.js", "includes": "SQLite generation commit atomically writes scene, manuscript, snapshot, budget, audit and receipt" }
+    }
+  },
+  "NOVEL_EXPORT": {
+    "displayName": "小说导出",
+    "ui": true,
+    "txt": true,
+    "epub": true,
+    "docx": true,
+    "chapter_range": true,
+    "permission": true,
+    "test": true,
+    "required": ["ui", "txt", "epub", "docx", "chapter_range", "permission", "test"],
+    "evidence": {
+      "ui": { "file": "completion-editor.js", "includes": "data-feature=\"NOVEL_EXPORT\" data-action=\"novel-export\"" },
+      "txt": { "file": "server.js", "includes": "txt: 'txt'" },
+      "epub": { "file": "server.js", "includes": "epub: 'epub'" },
+      "docx": { "file": "server.js", "includes": "docx: 'docx'" },
+      "chapter_range": { "file": "completion-editor.js", "includes": "params.set('fromChapter', String(fromChapter));" },
+      "permission": { "file": "server.js", "includes": "if (!auth) return json(res, 401, { error: '未登录' });" },
+      "test": { "file": "test/export-engine.test.js", "includes": "DOCX contains a valid Word package with escaped ordered chapter content" }
+    }
+  },
+  "GLOBAL_SEARCH": {
+    "displayName": "全书搜索",
+    "ui": true,
+    "worker": true,
+    "inverted_index": true,
+    "offsets": true,
+    "chapter_scene_navigation": true,
+    "test": true,
+    "required": ["ui", "worker", "inverted_index", "offsets", "chapter_scene_navigation", "test"],
+    "evidence": {
+      "ui": { "file": "completion-editor.js", "includes": "'<option value=\"book\"'" },
+      "worker": { "file": "lib/client/search-worker.js", "includes": "importScripts('./search-index.js');" },
+      "inverted_index": { "file": "lib/client/search-index.js", "includes": "const postings = new Map();" },
+      "offsets": { "file": "lib/client/search-index.js", "includes": "const start = sourceOffset(haystack, found, false);" },
+      "chapter_scene_navigation": { "file": "completion-editor.js", "includes": "selectEditorSearchRange(editor, Number(match.start), Number(match.end))" },
+      "test": { "file": "test/search-index.test.js", "includes": "倒排搜索返回章节、场景、版本和原文偏移" }
+    }
+  },
+  "GOLDEN_INPUTS": {
+    "displayName": "黄金回放输入集",
+    "fixed_inputs": true,
+    "replay_manifest": true,
+    "test": true,
+    "required": ["fixed_inputs", "replay_manifest", "test"],
+    "evidence": {
+      "fixed_inputs": { "file": "lib/evolution/golden-suite.js", "includes": "const CHALLENGES = Object.freeze([" },
+      "replay_manifest": { "file": "lib/evolution/golden-suite.js", "includes": "buildReplayManifest({" },
+      "test": { "file": "test/golden-suite.test.js", "includes": "golden input suite fixes ten replayable tasks" }
+    }
+  },
+  "QUALITY_LOOP": {
+    "displayName": "质量演化闭环",
+    "paired_replay": true,
+    "root_cause": true,
+    "shadow": true,
+    "regression": true,
+    "persistence": true,
+    "test": true,
+    "required": ["paired_replay", "root_cause", "shadow", "regression", "persistence", "test"],
+    "evidence": {
+      "paired_replay": { "file": "lib/evolution/quality-loop.js", "includes": "replayManifestHash: plan.replayManifest.manifestHash" },
+      "root_cause": { "file": "lib/evolution/quality-loop.js", "includes": "analyzeQualityRootCauses({ defects })" },
+      "shadow": { "file": "lib/evolution/quality-loop.js", "includes": "runShadowEvaluation({" },
+      "regression": { "file": "lib/evolution/quality-loop.js", "includes": "evaluateRegressionGate({" },
+      "persistence": { "file": "lib/evolution/quality-loop.js", "includes": "BEGIN IMMEDIATE" },
+      "test": { "file": "test/quality-loop.test.js", "includes": "SQLite settlements survive reopening the database" }
+    }
+  }
+}

@@ -10,12 +10,12 @@ const {
   evaluateExperimentRun
 } = require('../lib/experiment-controller');
 
-const planJsonPath = path.resolve(process.cwd(), 'molan-home/data/evaluation-input/experiments/experiment-plan-scene-pacing.json');
+const planJsonPath = path.resolve(__dirname, '../data/evaluation-input/experiments/experiment-plan-scene-pacing.json');
 const experimentPlan = JSON.parse(fs.readFileSync(planJsonPath, 'utf8'));
 
 test('Experiment Controller：实验计划 JSON/Markdown 资产完备性', () => {
   assert.ok(fs.existsSync(planJsonPath), 'experiment-plan-scene-pacing.json 必须存在');
-  const mdPath = path.resolve(process.cwd(), 'molan-home/data/evaluation-input/experiments/experiment-plan-scene-pacing.md');
+  const mdPath = path.resolve(__dirname, '../data/evaluation-input/experiments/experiment-plan-scene-pacing.md');
   assert.ok(fs.existsSync(mdPath), 'experiment-plan-scene-pacing.md 必须存在');
 });
 
@@ -92,4 +92,3 @@ test('Experiment Controller：副作用与回滚熔断保护断言', () => {
   assert.equal(report.verdict === 'REJECTED' || report.verdict === 'ROLLBACK', true);
   assert.equal(report.triggeredSideEffect, true);
 });
-
