@@ -42,8 +42,8 @@ class NovelGenerateRegistry {
   getNovelGenerateSpec(bookIdOrTitle, overrideContext = {}) {
     const novelEntry = this.novelMap.get(bookIdOrTitle);
     const title = novelEntry ? novelEntry.bookTitle : String(bookIdOrTitle || '未命名小说');
-    const category = novelEntry ? novelEntry.category : (overrideContext.category || '玄幻');
-    const family = novelEntry ? novelEntry.family : (overrideContext.family || '玄幻修真');
+    const category = novelEntry ? novelEntry.category : (overrideContext.category || '通用');
+    const family = novelEntry ? novelEntry.family : (overrideContext.family || '通用现实');
 
     // 结合大纲和书名智能识别文风大类
     const queryInput = overrideContext.queryText || overrideContext.prompt || overrideContext.outline || title;
@@ -72,10 +72,10 @@ class NovelGenerateRegistry {
    * 根据题材子类与文风获取通用 Generate 规范
    */
   getGenreGenerateSpec(family, subcategory, styleArchetypeKey) {
-    const archetype = STYLE_ARCHETYPES[styleArchetypeKey] || STYLE_ARCHETYPES.epic_grandeur;
+    const archetype = STYLE_ARCHETYPES[styleArchetypeKey] || STYLE_ARCHETYPES.workplace_inversion || Object.values(STYLE_ARCHETYPES)[0];
     return {
-      family: family || '玄幻修真',
-      subcategory: subcategory || '玄幻',
+      family: family || '通用现实',
+      subcategory: subcategory || '通用',
       styleArchetype: archetype.id,
       styleArchetypeDef: archetype,
       tone: archetype.tone,

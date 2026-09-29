@@ -251,7 +251,7 @@ function parseRealGeneratedChapter(dataOrPath) {
 
   const novelText = data.content;
   const bookTitle = data.bookTitle || '未命名作品';
-  const genre = data.genre || '玄幻';
+  const genre = data.genre || '通用';
   const stage = data.stage || 'early';
   const variant = data.variant || 'detailed';
   const model = data.model || data.usage?.modelId || 'gpt-5.6-luna';
@@ -792,7 +792,7 @@ function generateGeneratedNovelProfile(packageOrDir, options = {}) {
   const bookTitle = options.title || pkg.title || '月圆夜前的布局';
   const author = options.author || (pkg.generationParameters?.requestedModel ? `AI (${pkg.generationParameters.requestedModel})` : 'AI生成助手 (gpt-5.6-luna)');
   const isYueyuan = bookTitle === '月圆夜前的布局';
-  const chosenGenre = options.genre || pkg.genre || '玄幻';
+  const chosenGenre = options.genre || pkg.genre || (isYueyuan ? '玄幻' : '通用');
 
   const genreMetaMap = {
     '玄幻': {
@@ -854,10 +854,30 @@ function generateGeneratedNovelProfile(packageOrDir, options = {}) {
       tone: '心动拉扯与细腻情绪',
       powerSystem: '亲密关系与社会身份',
       subgenreKeywords: ['眼神', '心跳', '呼吸', '耳垂', '指尖', '微红']
+    },
+    '通用': {
+      primaryGenre: '通用',
+      subgenre: '现实质感与叙事推进',
+      level1Family: 'universal_realism',
+      level2Subgenre: 'universal_dramatic',
+      targetAudience: '通用',
+      tone: '凝练扎实与戏剧拉扯',
+      powerSystem: '现实阻力与人际博弈',
+      subgenreKeywords: ['选择', '筹码', '意图', '矛盾', '线索', '变数']
+    },
+    'universal': {
+      primaryGenre: '通用',
+      subgenre: '现实质感与叙事推进',
+      level1Family: 'universal_realism',
+      level2Subgenre: 'universal_dramatic',
+      targetAudience: '通用',
+      tone: '凝练扎实与戏剧拉扯',
+      powerSystem: '现实阻力与人际博弈',
+      subgenreKeywords: ['选择', '筹码', '意图', '矛盾', '线索', '变数']
     }
   };
 
-  const gMeta = genreMetaMap[chosenGenre] || genreMetaMap['玄幻'];
+  const gMeta = genreMetaMap[chosenGenre] || genreMetaMap['通用'] || genreMetaMap['玄幻'];
 
   // 1. 调用 Benchmark 基础特征提取器（确保算法绝对同构）
   const baseProfile = extractNovelQualityProfile(novelText, {

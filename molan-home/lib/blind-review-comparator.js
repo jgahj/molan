@@ -767,13 +767,13 @@ function compareNovelQualityBlind(generatedProfile, benchmarkProfile, genreBasel
     inputA: {
       title: bMeta.title || '一世之尊',
       author: bMeta.author || '爱潜水的乌贼',
-      genre: bMeta.genre || '玄幻修真',
+      genre: bMeta.genre || '通用现实',
       type: 'Benchmark名家范本集合'
     },
     inputB: {
       title: gMeta.title || '月圆夜前的布局',
       author: gMeta.author || 'AI生成助手 (gpt-5.6-luna)',
-      genre: gMeta.genre || '玄幻修真',
+      genre: gMeta.genre || '通用现实',
       type: 'AI生成小说待评测样本'
     },
     dimensions,
