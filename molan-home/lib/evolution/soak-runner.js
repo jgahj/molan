@@ -197,9 +197,9 @@ async function runSoakTask(options = {}) {
               signal: runSignal
             });
           } catch (error) {
-            state.execution_status = error && ['PROVIDER_UNKNOWN', 'USAGE_UNKNOWN'].includes(error.code) ? 'provider_unknown' : 'interrupted';
+            state.execution_status = error && (error.unknown === true || ['PROVIDER_UNKNOWN', 'USAGE_UNKNOWN', 'MODEL_TIMEOUT'].includes(error.code)) ? 'provider_unknown' : 'interrupted';
             if (state.execution_status === 'provider_unknown') state.unknown_chapter_index = chapterIndex;
-            state.last_error_code = state.execution_status === 'provider_unknown' ? error.code : String(error && error.code || 'GENERATION_FAILED');
+            state.last_error_code = state.execution_status === 'provider_unknown' ? (error.code || 'PROVIDER_UNKNOWN') : String(error && error.code || 'GENERATION_FAILED');
             await persist();
             break;
           }

@@ -1,6 +1,6 @@
 'use strict';
 
-const SOAK_MILESTONES = [3, 10, 20, 50, 100];
+const SOAK_MILESTONES = [3, 10, 20, 50, 100, 200];
 const SOAK_CHECKPOINT_METRICS = [
   'continuityErrors', 'relationshipDrift', 'characterDrift', 'powerDrift', 'timelineErrors',
   'orphanedForeshadows', 'causalDebtAge', 'styleDrift', 'aiFlavorDrift', 'dialogueDrift',
@@ -8,7 +8,7 @@ const SOAK_CHECKPOINT_METRICS = [
 ];
 
 function buildSoakPlan({ taskId, replayManifest, milestone = 100 } = {}) {
-  if (!SOAK_MILESTONES.includes(milestone)) throw new TypeError('soak milestone 必须为 3、10、20、50 或 100 章');
+  if (!SOAK_MILESTONES.includes(milestone)) throw new TypeError('soak milestone 必须为 3、10、20、50、100 或 200 章');
   if (!replayManifest || replayManifest.schemaVersion !== 'generation-replay-manifest-v1' || !isReference(replayManifest.manifestHash)) {
     throw new TypeError('soak task 必须绑定固定的 Replay Manifest');
   }
