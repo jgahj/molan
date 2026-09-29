@@ -13,7 +13,7 @@ const metrics = require('./benchmark-metrics');
 const review = require('./evidence-review');
 const scope = require('./genre-rule-scope');
 const { sanitizeSystemForUpstream } = require('./ip-continuation-adapter');
-const { sanitizeAiFlavor } = require('./genre-engine');
+const { sanitizeAiFlavor, detectAiFlavorFindings } = require('./genre-engine');
 const benchmarkDatabase = require('./benchmark-database');
 const { auditDraft } = require('./generation/deterministic-audit');
 const { assembleContext } = require('./generation/context');
@@ -747,8 +747,23 @@ async function generateChapter(deps, auth, params = {}) {
     return { text: '', status: 'needs_review', audit: { passed: false, status: 'incomplete', incompleteReasons: ['draft_call_failed_or_unknown'] }, calls, usage: aggregateUsage(calls), contextPlan, humanReviewStatus: 'pending' };
   }
   const rawText = String(draft && draft.text || '').trim();
-  const text = sanitizeAiFlavor(rawText);
+  const shouldRewriteAiFlavor = process.env.MOLAN_AI_FLAVOR_REWRITE === 'true';
+  const text = shouldRewriteAiFlavor ? sanitizeAiFlavor(rawText, { force: true }) : rawText;
   const initialDeterministicAudit = deterministicAuditFor(text, { ...params, targetWords, genreBudgetProfile });
+  const aiFindings = detectAiFlavorFindings(rawText);
+  if (aiFindings.length && initialDeterministicAudit && Array.isArray(initialDeterministicAudit.issues)) {
+    for (const finding of aiFindings) {
+      initialDeterministicAudit.issues.push({
+        issueId: `ai_flavor_${finding.index}`,
+        category: 'language',
+        severity: 'medium',
+        quote: finding.quote,
+        problem: `检测到典型 AI 套路用语「${finding.phrase}」`,
+        fixHint: finding.fixHint,
+        status: 'verified'
+      });
+    }
+  }
   if (!text || !hasUsage(draft && draft.usage)) {
     const audit = { ...initialDeterministicAudit, passed: false, status: 'incomplete', incompleteReasons: [!text ? 'draft_missing' : 'usage_missing'] };
     return { text, status: 'needs_review', audit, deterministicAudit: initialDeterministicAudit, calls, usage: aggregateUsage(calls), contextPlan, humanReviewStatus: 'pending' };
@@ -783,7 +798,8 @@ async function generateChapter(deps, auth, params = {}) {
       return { text: selectedText, status: 'needs_review', audit: { ...selectedAudit, passed: false, status: 'incomplete', incompleteReasons: ['alternative_call_failed_or_unknown'] }, candidates, calls, usage: aggregateUsage(calls), contextPlan, humanReviewStatus: 'pending' };
     }
     if (hasUsage(alternative && alternative.usage) && String(alternative.text || '').trim()) {
-      const alternativeText = sanitizeAiFlavor(alternative.text.trim());
+      const rawAlt = alternative.text.trim();
+      const alternativeText = shouldRewriteAiFlavor ? sanitizeAiFlavor(rawAlt, { force: true }) : rawAlt;
       const alternativeDeterministicAudit = deterministicAuditFor(alternativeText, { ...params, targetWords, genreBudgetProfile });
       if (alternativeDeterministicAudit.passed) {
         const alternativeAudit = await evidenceAudit(tracked, auth, { ...auditParams, text: alternativeText, targetWords });

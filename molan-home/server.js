@@ -47,6 +47,8 @@ const {
 } = require('./lib/character-material');
 const { resolveFingerprintProfile, buildRhythmTargetBlock } = require('./lib/style-fingerprint');
 const benchmarkPipeline = require('./lib/benchmark-pipeline');
+const contentEngine = require('./lib/generation/content-engine');
+const { resolveGenre: canonicalResolveGenre } = require('./lib/genre/resolver');
 const { applyAuthSessionInvalidation, sessionEventUserId } = require('./lib/auth-session-events');
 const { generationV2Enabled, generationV2Status } = require('./lib/generation/feature-flag');
 const generationRunContext = require('./lib/generation/run-context');
@@ -18789,7 +18791,18 @@ function generationRunOrchestrator() {
       let pipelineResult = null;
       let writerCallNo = 0;
       return {
-        resolveGenre: value => ({ status: 'resolved', confidence: value.genre && value.genre !== 'auto' ? 1 : 0, genre: value.genre || 'auto' }),
+        resolveGenre: value => {
+          if (value && value.genre && value.genre !== 'auto') {
+            return { status: 'resolved', confidence: 1, genre: value.genre, subgenre: value.subgenre || '' };
+          }
+          return canonicalResolveGenre({
+            genre: value && value.genre,
+            subgenre: value && value.subgenre,
+            title: story.title || request.novelTitle,
+            userInstruction: request.userInstruction || request.prompt,
+            prompt: request.prompt
+          });
+        },
         resolveStyle: value => {
           const style = value.style || story.styleDNA || story.styleProfile || '';
           return style ? { status: 'resolved', style, source: 'explicit' } : { status: 'needs_choice', style: '', candidates: [] };
@@ -18821,15 +18834,13 @@ function generationRunOrchestrator() {
             targetWordCount: Number(runRequest.targetWords || contract.wordBudget.targetChars) || 2400
           });
         },
-        writer: async ({ request: runRequest, scenePlan, scenes, signal, onProgress }) => {
-          const contract = runRequest.chapterContract || runRequest.contract || {
+        writer: async ({ request: runRequest, contract: passedContract, scenePlan, scenes, signal, onProgress, context: passedContext, contextPlan: passedContextPlan, genre: passedGenre, style: passedStyle }) => {
+          const contract = runRequest.chapterContract || runRequest.contract || passedContract || {
             chapterId: runRequest.chapterId, goal: runRequest.userInstruction || runRequest.prompt
           };
           if (typeof onProgress === 'function') onProgress({ stage: 'writing', message: '正在调用生成与审计管线' });
           try {
-            const sceneDirectives = scenePlan && require('./scene-planner').compileSceneDirectives(scenePlan) || '';
-            const authoritativeOutline = runRequest.storyContext && runRequest.storyContext.chapterContext && runRequest.storyContext.chapterContext.scenePlan;
-            pipelineResult = await benchmarkPipeline.generateChapter({
+            pipelineResult = await contentEngine.generateDraft({
               callModel: (_auth, options) => {
                 if (signal.aborted) throw signal.reason || new Error('生成已取消');
                 const stage = String(options.stage || 'writer');
@@ -18846,54 +18857,29 @@ function generationRunOrchestrator() {
                   controller: { signal },
                   requireComplete: true
                 });
-              }
-            }, auth, {
-              ...story,
-              generationId: runId,
-              runId,
-              generationV2: true,
-              projectId,
-              workspaceId,
-              novelId: runRequest.novelId || projectId,
-              chapterId: runRequest.chapterId,
-              modelId: runRequest.modelId,
-              reviseModelId: runRequest.reviseModelId,
-              genre: runRequest.genre || 'auto',
-              subgenre: runRequest.subgenre,
-              style: runRequest.style || story.styleDNA || story.styleProfile,
+              },
+              auth,
+              request: {
+                ...runRequest,
+                generationId: runId,
+                runId,
+                projectId,
+                workspaceId,
+                novelId: runRequest.novelId || projectId,
+                chapterId: runRequest.chapterId
+              },
               contract,
-              chapterContract: contract,
-              prompt: runRequest.prompt || runRequest.userInstruction,
-              writingSystem: [runRequest.writingSystem || '', sceneDirectives].filter(Boolean).join('\n\n'),
               scenePlan: scenePlan || null,
-              outlineNodes: Array.isArray(authoritativeOutline) && authoritativeOutline.length
-                ? authoritativeOutline
-                : [runRequest.storyContext && runRequest.storyContext.chapterContext && runRequest.storyContext.chapterContext.goal || contract.chapterGoal],
-              hardState: runRequest.storyContext && runRequest.storyContext.hardState,
-              relationships: runRequest.storyContext && runRequest.storyContext.continuity && runRequest.storyContext.continuity.relationships,
-              worldRules: runRequest.storyContext && runRequest.storyContext.continuity && runRequest.storyContext.continuity.worldRules,
-              timeline: runRequest.storyContext && runRequest.storyContext.timeline,
-              foreshadows: runRequest.storyContext && runRequest.storyContext.foreshadows,
-              activeCausalDebts: runRequest.storyContext && runRequest.storyContext.activeCausalDebts,
-              control: runRequest.control,
-              controlSystem: runRequest.controlSystem,
-              reasoningEffort: runRequest.modelParams && runRequest.modelParams.reasoningEffort,
-              temperature: runRequest.modelParams && runRequest.modelParams.temperature,
-              topP: runRequest.modelParams && runRequest.modelParams.topP,
-              seed: runRequest.modelParams && runRequest.modelParams.seed,
-              targetWords: runRequest.targetWords,
-              maxRounds: runRequest.maxRounds,
-              characters: runRequest.characters.length ? runRequest.characters : story.characters,
-              factLedger: runRequest.factLedger || story.factLedger,
-              continuity: runRequest.continuity || story.continuity,
-              previousEnding: runRequest.previousEnding || story.previousEnding,
-              planText: runRequest.planText || story.planText,
-              baseRevision: story.baseRevision,
-              stateVersion: story.stateVersion,
-              storyBibleVersion: story.storyBibleVersion
+              scenes: scenes || [],
+              context: typeof passedContext === 'string' && passedContext ? passedContext : (runRequest.storyContext && runRequest.storyContext.planText) || '',
+              contextPlan: passedContextPlan || null,
+              genre: passedGenre || runRequest.genre || 'universal',
+              style: passedStyle || runRequest.style || story.styleDNA || story.styleProfile || '',
+              signal,
+              onProgress
             });
           } catch (error) {
-            if (error && error.code === 'context_budget_exceeded') {
+            if (error && (error.code === 'context_budget_exceeded' || error.code === 'CONTEXT_OVERFLOW')) {
               throw Object.assign(new Error(error.message || '上下文超过预算'), { code: 'CONTEXT_OVERFLOW', status: 413 });
             }
             throw error;
@@ -18905,22 +18891,17 @@ function generationRunOrchestrator() {
               code: 'PROVIDER_UNKNOWN', status: 502, unknown: true, generationCalls: calls
             });
           }
-          const text = String(pipelineResult && pipelineResult.text || '').trim();
+          const text = String(pipelineResult && (pipelineResult.text || pipelineResult.draft) || '').trim();
           if (!text) throw Object.assign(new Error('生成管线没有产出正文'), { code: 'MODEL_EMPTY', status: 502 });
           const usage = pipelineResult.usage || {};
-          const evidence = {
+          const evidence = pipelineResult.pipeline || {
             authoritative: true,
             status: String(pipelineResult.status || 'needs_review'),
-            audit: pipelineResult.audit || null,
+            audit: pipelineResult.semanticAudit && pipelineResult.semanticAudit.audit || pipelineResult.audit || null,
             deterministicAudit: pipelineResult.deterministicAudit || null,
             contextPlan: pipelineResult.contextPlan || null,
             manifest: pipelineResult.manifest || null,
-            usage: {
-              totalTokens: Number(usage.totalTokens) || 0,
-              creditCost: Number(usage.creditCost) || 0,
-              callCount: Number(usage.callCount) || calls.length,
-              complete: usage.complete === true
-            },
+            usage,
             calls: calls.map(call => ({
               stage: String(call && call.stage || ''), modelId: String(call && call.modelId || ''),
               providerModel: String(call && call.providerModel || ''), status: String(call && call.status || ''),
@@ -18940,19 +18921,12 @@ function generationRunOrchestrator() {
                 status: String(call.usage.status || '')
               } : null
             })),
-            candidates: (Array.isArray(pipelineResult.candidates) ? pipelineResult.candidates : []).map(candidate => ({
-              contentHash: String(candidate && candidate.contentHash || ''),
-              audit: candidate && candidate.audit || null,
-              deterministicAudit: candidate && candidate.deterministicAudit || null
-            })),
-            selectedHash: String(pipelineResult.selectedHash || ''),
-            rounds: (Array.isArray(pipelineResult.rounds) ? pipelineResult.rounds : []).map(round => ({
-              round: Number(round && round.round) || 0,
-              accepted: round && round.accepted === true,
-              reason: String(round && round.reason || '')
-            })),
-            effectiveGenre: String(pipelineResult.effectiveGenre || ''),
-            genreAssetStatus: String(pipelineResult.genreAssetStatus || '')
+            candidates: [{ contentHash: hashValue(text), audit: pipelineResult.semanticAudit, deterministicAudit: pipelineResult.deterministicAudit }],
+            selectedHash: hashValue(text),
+            rounds: [{ round: pipelineResult.revisionRound || 0, accepted: true, reason: 'content-engine-draft' }],
+            quality: pipelineResult.quality,
+            qualityVector: pipelineResult.quality && pipelineResult.quality.qualityVector,
+            effectiveGenre: String(pipelineResult.effectiveGenre || (passedGenre && passedGenre.genre) || runRequest.genre || '')
           };
           return {
             text,

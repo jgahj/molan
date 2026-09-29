@@ -45,4 +45,24 @@ test('Generation audit evidence binds the run, exact content hash, chapter, and 
   const qualityFailed = evidenceInput();
   qualityFailed.result.quality.passed = false;
   assert.equal(validateGenerationAuditEvidence(qualityFailed).code, 'QUALITY_AUDIT_REQUIRED');
+
+  // 题材特定质检维度校验
+  const suspenseMissing = evidenceInput({ genre: '悬疑' });
+  assert.equal(validateGenerationAuditEvidence(suspenseMissing).code, 'CRITICAL_QUALITY_DIMENSION_MISSING');
+
+  const suspenseComplete = evidenceInput({
+    genre: '悬疑',
+    result: {
+      ...evidenceInput().result,
+      quality: {
+        passed: true,
+        qualityVector: {
+          language: { value: 0.9 },
+          clueIntegrity: { value: 0.85 },
+          povBoundary: { value: 0.8 }
+        }
+      }
+    }
+  });
+  assert.equal(validateGenerationAuditEvidence(suspenseComplete).ok, true);
 });

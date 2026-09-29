@@ -530,7 +530,7 @@ export async function runFeatureAudit({ root = ROOT, write = line => process.std
   return { results, unknown, controlScan, ...gateResult, exitCode: gateResult.gate === 'PASS' ? 0 : 1 };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) {
   runFeatureAudit().then(result => { process.exitCode = result.exitCode; }).catch(error => {
     process.stderr.write(`FEATURE AUDIT ERROR: ${String(error && error.message || error)}\n`);
     process.exitCode = 1;
