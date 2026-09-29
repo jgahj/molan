@@ -19,6 +19,7 @@ const { compileCharacterStateDirectives, getDynamicCharacterContext } = require(
 const { evaluateClimaxShockGate, generateMicroPatchPrompt } = require('./genre-narrative-audit');
 const { PipelineCoordinator, PIPELINE_STATES, parseDecoupledStream, applyHunkPatch } = require('./pipeline-coordinator');
 const { validateEntityTreeConsistency, compileStoryBiblePrompt } = require('./story-bible-schema');
+const { evaluateUnifiedQuality } = require('./quality/unified-quality-gate');
 
 
 /**
@@ -142,6 +143,8 @@ function auditGeneratedChapter(chapterText, context = {}) {
     ...context
   };
 
+  const unified = evaluateUnifiedQuality(chapterText, { genre, contract, ...context });
+
   // 1. 物理冲击与感官受创门禁审核 (DEF-DESC-001)
   const climaxGate = evaluateClimaxShockGate(chapterText, contract, genre);
 
@@ -151,13 +154,13 @@ function auditGeneratedChapter(chapterText, context = {}) {
   const entityPassed = !mentionsWrongRelationship && !mentionsContradictoryCrystal;
 
   // 3. 时空硬切违规检测 (DEF-PACING-001)
-  // 检查是否存在没有任何过渡标点的前后孤立“三日后”
   const abruptTimeJump = /(?:。|”)\s*三日后，/.test(chapterText);
 
-  const passed = climaxGate.passed && entityPassed;
+  const passed = climaxGate.passed && entityPassed && unified.passed;
 
   return {
     passed,
+    qualityGate: unified,
     climaxShockAudit: climaxGate,
     entityConsistencyAudit: {
       passed: entityPassed,
