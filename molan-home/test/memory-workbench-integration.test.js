@@ -85,9 +85,9 @@ test('index.html 导航与页面集成故事记忆中心与全套资料中心', 
   assert.match(indexHtmlSource, /data-page="story-workbench">\$\{icon\('brain'\)\}故事记忆工作台/);
   assert.match(indexHtmlSource, /data-page="project-docs">\$\{icon\('layers'\)\}全套创作资料/);
 
-  // 4. renderPage 统一拦截跳转与作品绑定
-  assert.match(indexHtmlSource, /if \(page === 'story-workbench'\) \{/);
-  assert.match(indexHtmlSource, /if \(page === 'project-docs'\) \{/);
-  assert.match(indexHtmlSource, /pages\/story-workbench\.html\?nid=/);
-  assert.match(indexHtmlSource, /pages\/project-docs\.html\?nid=/);
+  // 4. renderers 在当前作品上下文中嵌入工作台
+  assert.match(indexHtmlSource, /'story-workbench': storyWorkbenchPage/);
+  assert.match(indexHtmlSource, /'project-docs': projectDocsPage/);
+  assert.match(indexHtmlSource, /const url = `\.\/pages\/story-workbench\.html\?nid=\$\{encodeURIComponent\(activeNid\)\}`;/);
+  assert.match(indexHtmlSource, /const url = `\.\/pages\/project-docs\.html\?nid=\$\{encodeURIComponent\(activeNid\)\}`;/);
 });

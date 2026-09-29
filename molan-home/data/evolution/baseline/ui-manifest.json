@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "ui-source-baseline-v1",
+  "sourceRef": "ac483e3",
+  "sourceCommit": "ac483e39359445d6fb6c2ba5d86410a7a6f6abae",
+  "generatedAt": "2026-09-28T21:22:31.997Z",
+  "algorithm": "sha256",
+  "files": {
+    "index.html": "ef0d6f8ecf92ccf5be7b806ebe1eff70cf6376de4b30c733a572fdaa0b68fcbf",
+    "completion-editor.js": "32273f409ad8fabb1d4ecdc1ff840f8ba03c379dabf0160ef7257075e85fc837",
+    "pages/editor.html": "7bbb0d3388d32b280f37de4911e9cee19990734640b8dd2a90666aa851cb5317",
+    "pages/editor.js": "40b046754d952a0d34ad783fc202ceee00d4c3313621b78f84aa004f0222707a",
+    "pages/molan-shell.js": "0df44d13497715921610ac8555c689a56bab1d64783cb27baee8949f61b3311c",
+    "pages/molan-ui.css": "d7bd73146146b5895617c4472744a1b16428fa649badc02aa2a291d6b62b415a",
+    "pages/styles.css": "aa52d92b30fa8c92593dad4b0d5b10824d068d68dc14319fbfbe332b6595eb17"
+  },
+  "notPresentAtBaseline": [
+    "pages/tokens.css"
+  ]
+}

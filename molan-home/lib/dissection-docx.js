@@ -72,14 +72,14 @@ function dosDateTime(d) {
  * 构造本地文件头（Local File Header）。
  * 压缩方式固定为 8（deflate，使用原始 deflate 流）。
  */
-function buildLocalHeader(name, crc, compSize, uncompSize, time, date) {
+function buildLocalHeader(name, crc, compSize, uncompSize, time, date, method = 8) {
   const nameBuf = Buffer.from(name, 'utf8');
   const buf = Buffer.alloc(30 + nameBuf.length);
   let o = 0;
   buf.writeUInt32LE(0x04034b50, o); o += 4; // 本地文件头签名 PK\x03\x04
   buf.writeUInt16LE(20, o); o += 2;        // version needed to extract
   buf.writeUInt16LE(0, o); o += 2;         // general purpose bit flag
-  buf.writeUInt16LE(8, o); o += 2;         // compression method = deflate
+  buf.writeUInt16LE(method, o); o += 2;    // compression method
   buf.writeUInt16LE(time, o); o += 2;      // 最后修改时间
   buf.writeUInt16LE(date, o); o += 2;      // 最后修改日期
   buf.writeUInt32LE(crc, o); o += 4;       // CRC32
@@ -94,7 +94,7 @@ function buildLocalHeader(name, crc, compSize, uncompSize, time, date) {
 /**
  * 构造中央目录文件头（Central Directory File Header）。
  */
-function buildCentralHeader(name, crc, compSize, uncompSize, offset, time, date) {
+function buildCentralHeader(name, crc, compSize, uncompSize, offset, time, date, method = 8) {
   const nameBuf = Buffer.from(name, 'utf8');
   const buf = Buffer.alloc(46 + nameBuf.length);
   let o = 0;
@@ -102,7 +102,7 @@ function buildCentralHeader(name, crc, compSize, uncompSize, offset, time, date)
   buf.writeUInt16LE(20, o); o += 2;        // version made by
   buf.writeUInt16LE(20, o); o += 2;        // version needed to extract
   buf.writeUInt16LE(0, o); o += 2;         // general purpose bit flag
-  buf.writeUInt16LE(8, o); o += 2;         // compression method = deflate
+  buf.writeUInt16LE(method, o); o += 2;    // compression method
   buf.writeUInt16LE(time, o); o += 2;      // 最后修改时间
   buf.writeUInt16LE(date, o); o += 2;      // 最后修改日期
   buf.writeUInt32LE(crc, o); o += 4;       // CRC32
@@ -133,15 +133,16 @@ function buildZip(entries) {
     const data = Buffer.isBuffer(entry.data) ? entry.data : Buffer.from(entry.data);
     const crc = crc32(data);
     const uncompSize = data.length;
-    // 使用原始 deflate 流（不带 zlib 头），符合 ZIP 规范
-    const compressed = zlib.deflateRawSync(data);
+    const method = entry.store === true ? 0 : 8;
+    // EPUB 要求 mimetype 使用 ZIP Store，其余既有文档仍使用原始 deflate。
+    const compressed = method === 0 ? data : zlib.deflateRawSync(data);
     const compSize = compressed.length;
     const { time, date } = dosDateTime(new Date());
 
-    const localHeader = buildLocalHeader(entry.name, crc, compSize, uncompSize, time, date);
+    const localHeader = buildLocalHeader(entry.name, crc, compSize, uncompSize, time, date, method);
     localParts.push(localHeader, compressed);
 
-    centralParts.push(buildCentralHeader(entry.name, crc, compSize, uncompSize, offset, time, date));
+    centralParts.push(buildCentralHeader(entry.name, crc, compSize, uncompSize, offset, time, date, method));
 
     offset += localHeader.length + compressed.length;
   }

@@ -1,0 +1,15 @@
+{
+  "manifestVersion": 1,
+  "latestPostgresMigration": "0038_luna_worker_actual_cost.sql",
+  "sqliteAuthority": "local durable database",
+  "postgresAuthority": "cloud canonical database",
+  "tables": [
+    "luna.jobs",
+    "luna.job_events",
+    "luna.budget_reservations",
+    "luna.billing_ledger",
+    "luna.manuscript_revisions",
+    "luna.creation_books",
+    "luna.story_memory_generation_runs"
+  ]
+}

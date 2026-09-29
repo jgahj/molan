@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "sourceCommit": "ac483e3",
+  "promptVersion": "legacy-main-v1",
+  "files": [
+    "completion-editor.js",
+    "server.js",
+    "lib/genre-engine.js",
+    "lib/style-system.js",
+    "lib/causal-debt-tracker.js",
+    "lib/evidence-review.js"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 1,
+  "styleVersion": "style-1",
+  "systems": [
+    "lib/style-system.js",
+    "lib/style-fingerprint.js",
+    "data/style-fingerprints.json"
+  ],
+  "authorImitationPrompting": false
+}

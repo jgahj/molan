@@ -55,10 +55,82 @@ test('小说HTTP读写按显式项目成员隔离并支持协作者保存与恢�
   });
   const novelId = 'n_scopehttp1';
   const workspaceId = projectScope.personalWorkspaceId(projectScope.stableUserId(userA.email));
-  const state = { title: 'HTTP作用域小说', volumes: [{ id: 'v1', title: '第一卷', chapters: [{ id: 'c1', title: '第一章', scenes: [{ id: 's1', name: '正文', content: '初稿正文' }] }] }] };
+  const state = { title: 'HTTP作用域小说', volumes: [{ id: 'v1', title: '第一卷', chapters: [
+    { id: 'c1', chapterNo: 10, title: '第一章', scenes: [{ id: 's1', name: '正文', content: '初稿正文' }] },
+    { id: 'c2', chapterNo: 20, title: '第二章', scenes: [{ id: 's2', name: '正文', content: '第二章正文' }] }
+  ] }] };
   try {
     const created = await (await request('/api/novels', tokenA, { method: 'POST', body: JSON.stringify({ id: novelId, title: state.title, state }) })).json();
     assert.equal(created.ok, true, JSON.stringify(created));
+    const previousGenerationFlag = process.env.MOLAN_GENERATION_V2;
+    process.env.MOLAN_GENERATION_V2 = 'true';
+    try {
+      const legacyWrite = prompt => ({
+        projectId: novelId, chapterId: 'c1', creationMode: true, stage: 'writing',
+        genre: '玄幻', prompt
+      });
+      const missingKey = await request('/api/chat', tokenA, {
+        method: 'POST', body: JSON.stringify(legacyWrite('写第一章'))
+      });
+      assert.equal(missingKey.status, 428);
+      assert.equal((await missingKey.json()).code, 'IDEMPOTENCY_KEY_REQUIRED');
+
+      const forbiddenWrite = await request('/api/chat', tokenB, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'legacy-chat-unauthorized' },
+        body: JSON.stringify(legacyWrite('写第一章'))
+      });
+      assert.equal(forbiddenWrite.status, 404);
+
+      const legacyOptions = prompt => ({
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'legacy-chat-idempotent' },
+        body: JSON.stringify(legacyWrite(prompt))
+      });
+      const firstLegacyRun = await request('/api/chat', tokenA, legacyOptions('写第一章'));
+      assert.equal(firstLegacyRun.status, 200);
+      assert.match(firstLegacyRun.headers.get('content-type') || '', /text\/event-stream/i);
+      const firstLegacyBody = await firstLegacyRun.text();
+      const firstLegacyEvent = JSON.parse(firstLegacyBody.split(/\r?\n/).find(line => line.startsWith('data: ')).slice(6));
+      assert.equal(firstLegacyEvent.idempotent, false);
+      const legacyRunId = firstLegacyRun.headers.get('x-molan-generation-id');
+      assert.ok(legacyRunId);
+
+      const replayLegacyRun = await request('/api/chat', tokenA, legacyOptions('写第一章'));
+      assert.equal(replayLegacyRun.status, 200);
+      const replayLegacyBody = await replayLegacyRun.text();
+      const replayLegacyEvent = JSON.parse(replayLegacyBody.split(/\r?\n/).find(line => line.startsWith('data: ')).slice(6));
+      assert.equal(replayLegacyEvent.idempotent, true);
+      assert.equal(replayLegacyRun.headers.get('x-molan-generation-id'), legacyRunId);
+
+      const conflictingLegacyRun = await request('/api/chat', tokenA, legacyOptions('写不同的第一章'));
+      assert.equal(conflictingLegacyRun.status, 409);
+      assert.equal((await conflictingLegacyRun.json()).code, 'IDEMPOTENCY_KEY_REUSED');
+    } finally {
+      if (previousGenerationFlag === undefined) delete process.env.MOLAN_GENERATION_V2;
+      else process.env.MOLAN_GENERATION_V2 = previousGenerationFlag;
+    }
+    const textExport = await request(`/api/novels/${novelId}/export?format=txt`, tokenA);
+    assert.equal(textExport.status, 200);
+    assert.match(textExport.headers.get('content-type') || '', /^text\/plain; charset=utf-8/i);
+    assert.match(textExport.headers.get('content-disposition') || '', /attachment/);
+    assert.match(await textExport.text(), /初稿正文/);
+    const rangedExport = await request(`/api/novels/${novelId}/export?format=txt&fromChapter=2&toChapter=2`, tokenA);
+    assert.equal(rangedExport.status, 200);
+    const rangedText = await rangedExport.text();
+    assert.match(rangedText, /第二章正文/);
+    assert.doesNotMatch(rangedText, /初稿正文/);
+    for (const suffix of [
+      'fromChapter=0', 'fromChapter=2&toChapter=1', 'fromChapter=3', 'toChapter=3',
+      'fromChapter=1&fromChapter=2'
+    ]) {
+      const invalidRange = await request(`/api/novels/${novelId}/export?format=txt&${suffix}`, tokenA);
+      assert.equal(invalidRange.status, 400, suffix);
+      assert.equal(invalidRange.headers.get('content-disposition'), null, suffix);
+      assert.equal((await invalidRange.json()).code, 'export_range_invalid', suffix);
+    }
+    assert.equal((await request(`/api/novels/${novelId}/export?format=pdf`, tokenA)).status, 400);
+    assert.equal((await request(`/api/novels/${novelId}/export?format=txt`, tokenB)).status, 404);
     assert.equal((await (await request('/api/novels', tokenB)).json()).novels.length, 0);
     assert.equal((await request(`/api/novels/${novelId}`, tokenB)).status, 404);
     assert.equal((await request(`/api/books/${novelId}/memory`, tokenB)).status, 404);
@@ -104,6 +176,7 @@ test('小说HTTP读写按显式项目成员隔离并支持协作者保存与恢�
         body: JSON.stringify({ email: userB.email, role: 'editor' })
       })).json();
       assert.equal(member.ok, true, JSON.stringify(member));
+      assert.equal((await request(`/api/novels/${novelId}/export?format=txt`, tokenB)).status, 404);
     } finally {
       database.close();
     }

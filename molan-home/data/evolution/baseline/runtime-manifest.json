@@ -1,0 +1,7 @@
+{
+  "manifestVersion": 1,
+  "node": ">=22.5.0",
+  "database": ["SQLite", "PostgreSQL"],
+  "generationV2Default": false,
+  "recoveryPolicy": "provider requests with unknown outcome are not retried automatically"
+}

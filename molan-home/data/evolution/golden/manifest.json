@@ -1,0 +1,12 @@
+{
+  "manifestVersion": 1,
+  "taskCount": 80,
+  "genres": ["玄幻", "都市", "悬疑", "言情", "历史", "科幻", "西幻", "轻小说"],
+  "tasksPerGenre": 10,
+  "taskFields": ["taskId", "genre", "sourceGenerationId", "bible", "outline", "chapterContract", "contextSnapshot", "model", "modelParams", "pipelineVersion", "promptVersion", "genreProfileVersion", "styleVersion", "benchmarkId"],
+  "fixtureStatus": "metadata_only",
+  "taskRecordsIncluded": false,
+  "replaySnapshotsIncluded": false,
+  "promotionEligible": false,
+  "note": "This file contains only the golden-set schema and target counts. It contains no task records or replay snapshots. Do not synthesize task bodies. Quality-loop runs stay BLOCKED until the real 80-task corpus and replayable artifacts are supplied."
+}

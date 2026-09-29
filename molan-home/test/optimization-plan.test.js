@@ -2,9 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const planJsonPath = path.resolve(process.cwd(), 'molan-home/data/evaluation-input/optimization-plans/system-optimization-plan.json');
-const planMdPath = path.resolve(process.cwd(), 'molan-home/data/evaluation-input/optimization-plans/system-optimization-plan.md');
+const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+const planJsonPath = path.resolve(testDirectory, '../data/evaluation-input/optimization-plans/system-optimization-plan.json');
+const planMdPath = path.resolve(testDirectory, '../data/evaluation-input/optimization-plans/system-optimization-plan.md');
 
 test('优化架构方案：系统优化方案 JSON/Markdown 资产完备性', () => {
   assert.ok(fs.existsSync(planJsonPath), 'system-optimization-plan.json 必须存在');

@@ -1,0 +1,14 @@
+{
+  "manifestVersion": 1,
+  "sourceCommit": "ac483e3",
+  "branch": "feature/generation-v2",
+  "generatedAt": "2026-09-29T00:00:00.000Z",
+  "scope": [
+    "server.js",
+    "completion-editor.js",
+    "completion-library.js",
+    "lib/generation-pipeline-coordinator.js",
+    "lib/pipeline-coordinator.js"
+  ],
+  "note": "Starting baseline before Generation V2 integration; regenerate with scripts/build-generation-baseline.mjs for an exact commit snapshot."
+}

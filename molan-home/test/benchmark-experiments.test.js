@@ -122,8 +122,14 @@ test('固定manifest哈希锁定全部三阶段且不包含实跑/真人结论',
   }
 });
 
-test('固定prompt逐字对应记录的git提交，不冒充完整历史链路', () => {
-  const source = execFileSync('git', ['show', `${provenance.sourceCommit}:${provenance.sourcePath}`], { cwd: ROOT, encoding: 'utf8', maxBuffer: 5 * 1024 * 1024 });
+test('固定prompt逐字对应记录的git提交，不冒充完整历史链路', t => {
+  if (spawnSync('git', ['cat-file', '-e', provenance.sourceCommit], { cwd: ROOT }).status !== 0) {
+    t.skip(`来源提交 ${provenance.sourceCommit} 不在当前 Git 克隆中`);
+    return;
+  }
+  const repositoryRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: ROOT, encoding: 'utf8' }).trim();
+  const sourcePath = path.relative(repositoryRoot, path.join(ROOT, provenance.sourcePath)).split(path.sep).join('/');
+  const source = execFileSync('git', ['show', `${provenance.sourceCommit}:${sourcePath}`], { cwd: ROOT, encoding: 'utf8', maxBuffer: 5 * 1024 * 1024 });
   const snapshot = source.match(/const baseWritingDirectives = `([\s\S]*?)`;/);
   assert.ok(snapshot);
   assert.equal(prompt, snapshot[1].replace(/\r\n/g, '\n').trim());

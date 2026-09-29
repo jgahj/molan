@@ -10,10 +10,11 @@ const { runOnce } = require('../lib/benchmark-receipts');
 const { validateCommitAudit } = require('../lib/benchmark-commit');
 
 const content = Array.from({ length: 24 }, (_, index) => `第${index}号码头的货箱带着编号${index + 20}，搬运工对照清单核实箱内的器物后登记到第${index + 50}页账册。`).join('\n');
+const auditedContent = content + '交接人逐项复核封签，确认记录与实物一致。'.repeat(12);
 const targetWords = content.replace(/\s/g, '').length;
 const usage = { totalTokens: 120, creditCost: 0.01, status: 'completed' };
 const checked = Object.fromEntries(review.REVIEW_DIMENSIONS.map(dimension => [dimension, 'checked']));
-const clean = () => ({ issues: [], stageChange: '清点并交付货物', summary: '未发现已知事实冲突', coverage: checked, factLedgerDelta: { newRules: [], newPromises: [], byEntity: {}, updates: [] } });
+const clean = () => ({ issues: [], stageChange: '清点并交付货物', summary: '未发现已知事实冲突', coverage: checked, factLedgerDelta: { newRules: [], newPromises: [], byEntity: {}, updates: [] }, stateDelta: { timeline: [], relations: [], characters: [], world: [] }, outlineImpact: { status: 'unplanned', addressed: [], deferred: [] } });
 const highIssue = () => ({ severity: 'high', category: 'state', quote: '搬运工对照清单核实箱内的器物', paragraphIndex: 1, issue: '清单未到却完成核对', reason: '起始合同约束', fixHint: '先取得清单' });
 const options = { text: content, targetWords, genre: '都市高武' };
 
@@ -34,7 +35,7 @@ test('起草与审稿都实际注入已加载的题材提示块', async () => {
   const requests = [];
   await pipeline.generateChapter({ callModel: async (_, request) => {
     requests.push(request);
-    return request.jsonMode ? { json: clean(), usage } : { text: content, usage };
+    return request.jsonMode ? { json: clean(), usage } : { text: auditedContent, usage };
   } }, null, { prompt: '核对并交付货物', genre: '都市高武', targetWords, maxRounds: 0 });
   assert.ok(requests.find(request => !request.jsonMode).system.includes('都市高武题材证据'));
   assert.ok(requests.find(request => request.jsonMode).system.includes('都市高武审稿参考'));
@@ -83,7 +84,7 @@ test('auto题材无可靠线索时不套用玄幻规则', async () => {
   const requests = [];
   const result = await pipeline.generateChapter({ callModel: async (_, request) => {
     requests.push(request);
-    return request.jsonMode ? { json: clean(), usage } : { text: content, usage };
+    return request.jsonMode ? { json: clean(), usage } : { text: auditedContent, usage };
   } }, null, {
     prompt: '写一段未知题材的原创章节', genre: 'auto', targetWords,
     control: true, controlSystem: '只写小说正文', maxRounds: 0
@@ -368,4 +369,77 @@ test('题材别名与简称规范化为六大母类且证据运行时正常加�
   const xianxiaRuntime = pipeline.genreRuntime('仙侠');
   assert.equal(xianxiaRuntime.status, 'ready');
   assert.equal(xianxiaRuntime.genre, '玄幻');
+});
+
+test('章节合同篇幅越界在确定性审计阶段拦截，不再调用语义审稿模型', async () => {
+  for (const wordBudget of [
+    { targetChars: content.length, minChars: content.length + 1, maxChars: content.length + 100 },
+    { targetChars: content.length, minChars: content.length - 100, maxChars: content.length - 1 }
+  ]) {
+    const requests = [];
+    const result = await pipeline.generateChapter({ callModel: async (_auth, request) => {
+      requests.push(request);
+      return request.jsonMode ? { json: clean(), usage } : { text: content, usage };
+    } }, null, { prompt: '按章节合同续写', targetWords: content.length, contract: { chapterGoal: '交付货物', wordBudget } });
+    assert.equal(result.status, 'needs_review');
+    assert.equal(result.audit.phase, 'deterministic_audit');
+    assert.equal(result.deterministicAudit.passed, false);
+    assert.equal(requests.filter(request => request.jsonMode).length, 0);
+    assert.equal(requests.length, 1);
+  }
+});
+
+test('生成前 guard 阻断状态冲突且不调用 Writer', async () => {
+  let calls = 0;
+  const result = await pipeline.generateChapter({ callModel: async () => { calls++; return { text: content, usage }; } }, null, {
+    prompt: '续写', preGenerationGuard: { passed: false, blockers: [{ factId: 'fact_dead_1', problem: '角色已经死亡' }] }
+  });
+  assert.equal(calls, 0);
+  assert.equal(result.audit.phase, 'pre_generation_guard');
+  assert.equal(result.audit.issues[0].sourceFactId, 'fact_dead_1');
+});
+
+test('题材画像与明确 Style DNA 分开进入 Writer 和生成 manifest', async () => {
+  const requests = [];
+  const result = await pipeline.generateChapter({ callModel: async (_auth, request) => {
+    requests.push(request);
+    return request.jsonMode ? { json: clean(), usage } : { text: auditedContent, usage };
+  } }, null, {
+    prompt: '交接货物', genre: '都市高武', style: '冷峻', targetWords: auditedContent.length,
+    contract: { chapterGoal: '完成核验', wordBudget: { targetChars: auditedContent.length, minChars: auditedContent.length - 40, maxChars: auditedContent.length + 40 } },
+    characters: [{ id: 'char_1', name: '林舟', voice_contract: { turnLengthPref: 'short', styleHabits: ['先回答事实'], tabooWords: ['显然'] } }],
+    generationId: 'generation-1', projectId: 'project-1', chapterId: 'chapter-2'
+  });
+  assert.equal(result.genreResolution.status, 'resolved');
+  assert.equal(result.genreProfile.genre, '都市');
+  assert.equal(result.styleBundle.style.styleId, '冷峻');
+  assert.ok(requests[0].system.includes('STYLE DNA'));
+  assert.ok(result.styleBundle.prompt.includes('显然'));
+  assert.equal(result.manifest.generationId, 'generation-1');
+  assert.equal(result.manifest.contextHash, result.contextPlan.contextHash);
+  assert.ok(result.manifest.contractHash);
+});
+
+test('缺少 Scene Contract 时从大纲规划；已有场景合同不重复规划', async () => {
+  const requests = [];
+  const common = {
+    callModel: async (_auth, request) => {
+      requests.push(request);
+      return request.jsonMode ? { json: clean(), usage } : { text: auditedContent, usage };
+    }
+  };
+  const budget = { targetChars: auditedContent.length, minChars: auditedContent.length - 80, maxChars: auditedContent.length + 80 };
+  const planned = await pipeline.generateChapter(common, null, {
+    prompt: '完成交接', genre: '都市高武', targetWords: auditedContent.length, outlineNodes: ['核对清单', '封存货箱'], contract: { chapterGoal: '交接货物', wordBudget: budget }
+  });
+  assert.equal(planned.scenePlan.totalScenes, 2);
+  assert.ok(requests[0].system.includes('Scene Planner Enforced'));
+
+  requests.length = 0;
+  const contracted = await pipeline.generateChapter(common, null, {
+    prompt: '完成交接', genre: '都市高武', targetWords: auditedContent.length, outlineNodes: ['忽略这份重复大纲'],
+    contract: { chapterGoal: '交接货物', wordBudget: budget, scenes: [{ sceneId: 's1', purpose: '核验', goal: '完成清点' }] }
+  });
+  assert.equal(contracted.scenePlan, null);
+  assert.ok(!requests[0].system.includes('Scene Planner Enforced'));
 });

@@ -1,10 +1,50 @@
 'use strict';
 
 const QUALITY_DIMENSIONS = [
+  'opening', 'plot', 'pacing', 'character', 'relationship', 'emotion', 'causality',
+  'foreshadowing', 'payoff', 'dialogue', 'description', 'language', 'human_texture',
+  'ai_flavor', 'consistency', 'originality', 'reader_drive', 'genre_fit', 'style_fit'
+];
+
+const LEGACY_QUALITY_DIMENSIONS = [
   'plot', 'pacing', 'character', 'emotion', 'causality', 'hook', 'suspense',
   'payoff', 'dialogue', 'description', 'language', 'human_texture', 'ai_flavor',
   'consistency', 'originality', 'commercial_drive'
 ];
+
+const QUALITY_PROFILE_FIELDS = {
+  opening: 'opening',
+  plot: 'plot',
+  pacing: 'pacing',
+  character: 'character',
+  relationship: 'relationship',
+  emotion: 'emotion',
+  causality: 'causality',
+  foreshadowing: 'foreshadowing',
+  payoff: 'payoff',
+  dialogue: 'dialogue',
+  description: 'description',
+  language: 'language',
+  human_texture: 'human_texture',
+  ai_flavor: 'ai_flavor',
+  consistency: 'consistency',
+  originality: 'originality',
+  reader_drive: 'reader_drive',
+  genre_fit: 'genre_fit',
+  style_fit: 'style_fit'
+};
+
+const QUALITY_AXES = Object.freeze({
+  quality: Object.freeze([
+    'opening', 'plot', 'pacing', 'character', 'relationship', 'emotion', 'causality',
+    'foreshadowing', 'payoff', 'dialogue', 'description', 'language', 'human_texture',
+    'consistency', 'reader_drive'
+  ]),
+  genre_fit: Object.freeze(['genre_fit']),
+  style_fit: Object.freeze(['style_fit']),
+  originality: Object.freeze(['originality']),
+  ai_flavor_risk: Object.freeze(['ai_flavor'])
+});
 
 const DEFECT_DIMENSIONS = [
   'weak_opening', 'weak_hook', 'flat_pacing', 'shallow_character',
@@ -89,44 +129,77 @@ function evidenceRefs(block) {
 function buildQualityVector(profile = {}) {
   const dimensions = {};
   const values = {};
-  const sources = {};
 
   for (const key of QUALITY_DIMENSIONS) {
-    let sourceField = key;
+    let sourceField = QUALITY_PROFILE_FIELDS[key];
     let block = profile[key];
     if (key === 'ai_flavor' && !block) {
       sourceField = 'language.value.aiFlavorScore';
       const aiFlavorScore = profile.language && profile.language.value && profile.language.value.aiFlavorScore;
       block = aiFlavorScore === undefined ? null : {
         value: aiFlavorScore,
-        evidence: profile.language.evidence,
-        confidence: profile.language.confidence
+        evidence: profile.language && profile.language.evidence,
+        confidence: profile.language && profile.language.confidence
       };
-    }
-    if (key === 'commercial_drive' && !block) {
-      sourceField = 'reader_drive';
-      block = profile.reader_drive || profile.commercial_patterns;
     }
 
     const value = scoreFromBlock(block);
     const confidence = toFiniteNumber(block && block.confidence);
+    const source = value === null ? null :
+      ['deterministic', 'heuristic', 'model', 'human'].includes(String(block && block.source || '').toLowerCase())
+        ? String(block.source).toLowerCase()
+        : 'heuristic';
+    const refs = evidenceRefs(block);
     values[key] = value;
-    sources[key] = sourceField;
     dimensions[key] = {
       value,
       status: value === null ? 'unknown' : 'measured',
       direction: key === 'ai_flavor' ? 'lower_is_better' : null,
+      source,
       source_field: sourceField,
       confidence: confidence === null ? null : Math.max(0, Math.min(1, confidence)),
-      evidence_refs: evidenceRefs(block)
+      evidence: refs,
+      evidence_refs: refs
+    };
+  }
+
+  const legacyValues = {};
+  const legacyDimensions = {};
+  for (const key of LEGACY_QUALITY_DIMENSIONS) {
+    const mappedKey = key === 'commercial_drive' ? 'reader_drive' : key;
+    const block = key === 'commercial_drive'
+      ? profile.commercial_drive || profile.reader_drive || profile.commercial_patterns
+      : profile[key];
+    const value = scoreFromBlock(block);
+    const confidence = toFiniteNumber(block && block.confidence);
+    const source = value === null ? null :
+      ['deterministic', 'heuristic', 'model', 'human'].includes(String(block && block.source || '').toLowerCase())
+        ? String(block.source).toLowerCase()
+        : 'heuristic';
+    const refs = evidenceRefs(block);
+    legacyValues[key] = value;
+    legacyDimensions[key] = {
+      value,
+      status: value === null ? 'unknown' : 'measured',
+      direction: key === 'ai_flavor' ? 'lower_is_better' : null,
+      source,
+      source_field: key === 'commercial_drive' ? mappedKey : key,
+      confidence: confidence === null ? null : Math.max(0, Math.min(1, confidence)),
+      evidence: refs,
+      evidence_refs: refs
     };
   }
 
   return {
-    schemaVersion: 'quality-vector-v1',
+    schemaVersion: 'quality-vector-v2',
+    legacySchemaVersion: 'quality-vector-v1',
+    contractVersion: 'quality-vector-19d-v1',
     source_profile_version: profile.schemaVersion || null,
     values,
-    dimensions
+    dimensions,
+    axes: Object.fromEntries(Object.entries(QUALITY_AXES).map(([axis, keys]) => [axis, keys.slice()])),
+    legacy_values: legacyValues,
+    legacy_dimensions: legacyDimensions
   };
 }
 
@@ -245,6 +318,8 @@ function buildRootCauseVector(report = {}) {
 
 module.exports = {
   QUALITY_DIMENSIONS,
+  LEGACY_QUALITY_DIMENSIONS,
+  QUALITY_AXES,
   DEFECT_DIMENSIONS,
   ROOT_CAUSE_DIMENSIONS,
   buildQualityVector,

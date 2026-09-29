@@ -1,0 +1,24 @@
+:root {
+  --ink: #202724;
+  --ink-soft: #3f4a45;
+  --paper: #ffffff;
+  --canvas: #f5f7f5;
+  --line: #d9dfdb;
+  --line-strong: #b9c4bd;
+  --muted: #707b74;
+  --green: #34775c;
+  --blue: #376c99;
+  --amber: #a96e1c;
+  --danger: #aa4545;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --font-sans: "Segoe UI", "Microsoft YaHei", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+}

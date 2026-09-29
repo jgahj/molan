@@ -88,14 +88,44 @@
 (function () {
   'use strict';
 
+  const EDITOR_SCRIPT_URL = document.currentScript && document.currentScript.src || '';
+
   const runtime = {
     installed: false,
     originalRenderPage: null,
     editorSaveTimer: 0,
+    editorScheduledSaveOptions: null,
     editorSavePromise: null,
     editorSaveQueued: false,
     editorSaveQueuedOptions: null,
     editorChangeVersion: 0,
+    editorWal: null,
+    editorWalLoadPromise: null,
+    editorWalRecovery: new Map(),
+    editorWalBaselines: new Map(),
+    editorWalLocalVersions: new Map(),
+    editorWalOperationVersions: new Map(),
+    editorWalLatest: new Map(),
+    editorWalSuperseded: new Map(),
+    editorWalConflicts: new Set(),
+    editorWalTabId: '',
+    editorWalTimer: 0,
+    editorWalUnsubscribe: null,
+    editorSearchLoadPromise: null,
+    editorSearchApi: null,
+    editorSearchWorker: null,
+    editorSearchFallback: null,
+    editorSearchDocuments: [],
+    editorSearchTimer: 0,
+    editorSearchSession: 0,
+    editorSearchUndoStack: [],
+    editorGenerationRunsLoadPromise: null,
+    editorGenerationRunsClient: null,
+    editorGenerationCapabilities: null,
+    editorGenerationCapabilitiesAt: 0,
+    editorGenerationRunObservers: new Map(),
+    editorGenerationCancelPending: false,
+    editorGenerationCancelRequested: false,
     editorBusy: false,
     modalConfirmCleanup: null,
     pendingResults: [],
@@ -395,6 +425,341 @@
     return text(preview.novelId || preview.novel && preview.novel.id || state && state.id || 'current');
   }
 
+  /** 以账户和作品稳定标识隔离浏览器中的正文 WAL。 */
+  function editorWalProjectId(state) {
+    const backend = getBackend();
+    const identity = backend.user && (backend.user.userId || backend.user.email) || 'guest';
+    return `${encodeURIComponent(String(identity).trim().toLowerCase())}:${encodeURIComponent(completionNovelKey(state))}`;
+  }
+
+  /** 根据场景引用生成用于 IndexedDB 和跨标签协作的文档键。 */
+  function editorWalDocument(state, sceneRef) {
+    const current = activeRefs(state);
+    let chapter = current.chapter;
+    let scene = current.scene;
+    if (sceneRef && sceneRef !== scene) {
+      const located = (state.volumes || []).flatMap(volume => volume.chapters || [])
+        .map(item => ({ chapter: item, scene: (item.scenes || []).find(candidate => candidate === sceneRef) }))
+        .find(item => item.scene);
+      if (located) { chapter = located.chapter; scene = located.scene; }
+    }
+    if (!chapter || !scene) return null;
+    const projectId = editorWalProjectId(state);
+    return {
+      projectId,
+      chapterId: String(chapter.id),
+      sceneId: String(scene.id),
+      scene,
+      docKey: `${projectId}|${encodeURIComponent(chapter.id)}|${encodeURIComponent(scene.id)}`
+    };
+  }
+
+  /** 为当前浏览器标签生成独立的写入者标识。 */
+  function editorWalTabId() {
+    if (runtime.editorWalTabId) return runtime.editorWalTabId;
+    const cryptoApi = window.crypto;
+    runtime.editorWalTabId = cryptoApi && typeof cryptoApi.randomUUID === 'function'
+      ? cryptoApi.randomUUID()
+      : `tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    return runtime.editorWalTabId;
+  }
+
+  /** 加载浏览器端 IndexedDB WAL 模块并建立通知通道。 */
+  function loadEditorWalModule() {
+    if (window.MolanLocalWal) return Promise.resolve(window.MolanLocalWal);
+    if (runtime.editorWalLoadPromise) return runtime.editorWalLoadPromise;
+    if (!document.createElement || !document.head) return Promise.reject(new Error('IndexedDB WAL 模块不可用'));
+    const sourceUrl = EDITOR_SCRIPT_URL || window.location && window.location.href || '';
+    const scriptUrl = sourceUrl ? new URL('./lib/client/local-wal.js', sourceUrl).href : './lib/client/local-wal.js';
+    runtime.editorWalLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = scriptUrl;
+      script.async = true;
+      script.onload = () => window.MolanLocalWal ? resolve(window.MolanLocalWal) : reject(new Error('IndexedDB WAL 模块加载失败'));
+      script.onerror = () => reject(new Error('IndexedDB WAL 模块加载失败'));
+      document.head.appendChild(script);
+    }).then(api => {
+      runtime.editorWal = api.create();
+      installEditorWalNotifications();
+      return api;
+    });
+    return runtime.editorWalLoadPromise;
+  }
+
+  /** 按稳定章节和场景 ID 定位待恢复的正文节点。 */
+  function locateEditorWalScene(state, chapterId, sceneId) {
+    if (!state || !Array.isArray(state.volumes)) return null;
+    for (const volume of state.volumes) {
+      for (const chapter of Array.isArray(volume.chapters) ? volume.chapters : []) {
+        if (String(chapter.id) !== String(chapterId)) continue;
+        const scene = (Array.isArray(chapter.scenes) ? chapter.scenes : []).find(item => String(item.id) === String(sceneId));
+        return scene ? { chapter, scene } : null;
+      }
+    }
+    return null;
+  }
+
+  /** 判断当前作品是否仍有未解决的跨标签冲突。 */
+  function editorWalProjectHasConflict(state) {
+    const prefix = `${editorWalProjectId(state)}|`;
+    return Array.from(runtime.editorWalConflicts).some(docKey => docKey.startsWith(prefix));
+  }
+
+  /** 在异步读取 IndexedDB 前记录当前正文基线，避免恢复覆盖新输入。 */
+  function seedEditorWalBaselines(state) {
+    if (!state || !Array.isArray(state.volumes)) return;
+    const projectId = editorWalProjectId(state);
+    const revision = Number(getPreview().novelRevision) || 0;
+    state.volumes.forEach(volume => (volume.chapters || []).forEach(chapter => (chapter.scenes || []).forEach(scene => {
+      const docKey = `${projectId}|${encodeURIComponent(chapter.id)}|${encodeURIComponent(scene.id)}`;
+      if (!runtime.editorWalBaselines.has(docKey)) {
+        runtime.editorWalBaselines.set(docKey, { content: String(scene.content || ''), revision });
+      }
+    })));
+  }
+
+  /** 收到同场景的其他标签写入时阻止旧状态覆盖。 */
+  function installEditorWalNotifications() {
+    if (!runtime.editorWal || runtime.editorWalUnsubscribe) return;
+    runtime.editorWalUnsubscribe = runtime.editorWal.subscribe(message => {
+      const state = editorState(false);
+      if (!state || message.projectId !== editorWalProjectId(state) || message.tabId === editorWalTabId()) return;
+      runtime.editorWalConflicts.add(message.docKey);
+      const current = editorWalDocument(state);
+      if (current && current.docKey === message.docKey) {
+        setSaveStatus(message.type === 'synced' ? '其他标签页已保存，当前场景需重新载入' : '其他标签页有未合并修改');
+      }
+    });
+  }
+
+  /** 按基线校验并重放当前作品中唯一且未冲突的正文 WAL。 */
+  async function ensureEditorWalRecovery(state) {
+    if (!state) return;
+    seedEditorWalBaselines(state);
+    const projectId = editorWalProjectId(state);
+    if (runtime.editorWalRecovery.has(projectId)) return runtime.editorWalRecovery.get(projectId);
+    const recovery = (async () => {
+      const api = await loadEditorWalModule();
+      const wal = runtime.editorWal;
+      const records = await wal.readProject(projectId);
+      const groups = new Map();
+      records.forEach(record => {
+        const group = groups.get(record.docKey) || [];
+        group.push(record);
+        groups.set(record.docKey, group);
+      });
+      let recovered = false;
+      for (const [docKey, pending] of groups) {
+        const latest = pending[pending.length - 1];
+        const head = await wal.getHead(docKey);
+        runtime.editorWalLocalVersions.set(docKey, Number(head.version) || Number(latest.localVersion) || 0);
+        const location = locateEditorWalScene(state, latest.chapterId, latest.sceneId);
+        if (!location) {
+          runtime.editorWalConflicts.add(docKey);
+          continue;
+        }
+        if (pending.length !== 1 || latest.conflicted) {
+          runtime.editorWalConflicts.add(docKey);
+          continue;
+        }
+        const baseline = runtime.editorWalBaselines.get(docKey) || { content: String(location.scene.content || ''), revision: Number(getPreview().novelRevision) || 0 };
+        const baseHash = await api.hashText(baseline.content, window.crypto);
+        if (baseHash !== latest.baseHash) {
+          runtime.editorWalConflicts.add(docKey);
+          continue;
+        }
+        try {
+          const restoredContent = api.applySplices(baseline.content, latest.operations);
+          if (latest.contentHash && await api.hashText(restoredContent, window.crypto) !== latest.contentHash) {
+            runtime.editorWalConflicts.add(docKey);
+            continue;
+          }
+          location.scene.content = restoredContent;
+          runtime.editorWalBaselines.set(docKey, {
+            content: baseline.content,
+            revision: Number(getPreview().novelRevision) || Number(latest.baseRevision) || 0
+          });
+          runtime.editorWalOperationVersions.set(latest.opId, Number(latest.operationVersion) || 0);
+          runtime.editorWalLatest.set(latest.opId, { record: latest, content: location.scene.content });
+          runtime.editorWalSuperseded.set(docKey, pending.slice());
+          recovered = true;
+        } catch (_) {
+          runtime.editorWalConflicts.add(docKey);
+        }
+      }
+      if (recovered && currentPageName() === 'editor' && editorWalProjectId(editorState(false)) === projectId) {
+        const current = editorWalDocument(editorState(false));
+        if (current) getPreview().editorBody = current.scene.content;
+        renderEditorSurface();
+      }
+      if (runtime.editorWalConflicts.size) setSaveStatus('发现跨标签或版本冲突，草稿已保留');
+    })();
+    const trackedRecovery = recovery.catch(error => {
+      if (runtime.editorWalRecovery.get(projectId) === trackedRecovery) runtime.editorWalRecovery.delete(projectId);
+      throw error;
+    });
+    runtime.editorWalRecovery.set(projectId, trackedRecovery);
+    return trackedRecovery;
+  }
+
+  /** 将当前场景与已确认正文之间的差量先写入 IndexedDB。 */
+  async function writeEditorWal(state, sceneRef) {
+    const preview = getPreview();
+    if (!state || !isServerNovelId(preview.novelId)) return null;
+    await ensureEditorWalRecovery(state);
+    const api = await loadEditorWalModule();
+    const doc = editorWalDocument(state, sceneRef);
+    if (!doc) return null;
+    if (runtime.editorWalConflicts.has(doc.docKey)) throw new Error('当前场景存在跨标签版本冲突，草稿已保留');
+    const baseline = runtime.editorWalBaselines.get(doc.docKey) || {
+      content: String(doc.scene.content || ''), revision: Number(preview.novelRevision) || 0
+    };
+    const content = String(doc.scene.content || '');
+    const operation = api.makeSplice(baseline.content, content);
+    const opId = `scene:${editorWalTabId()}:${doc.docKey}`;
+    if (!operation) {
+      const pending = [runtime.editorWalLatest.get(opId), ...(runtime.editorWalSuperseded.get(doc.docKey) || []).map(record => ({ record }))]
+        .filter(Boolean);
+      for (const item of pending) await runtime.editorWal.remove(item.record.opId, item.record.operationVersion);
+      pending.forEach(item => {
+        runtime.editorWalLatest.delete(item.record.opId);
+        runtime.editorWalOperationVersions.delete(item.record.opId);
+      });
+      runtime.editorWalSuperseded.delete(doc.docKey);
+      return null;
+    }
+    const baseHash = await api.hashText(baseline.content, window.crypto);
+    let expectedVersion = runtime.editorWalLocalVersions.get(doc.docKey);
+    if (expectedVersion == null) expectedVersion = (await runtime.editorWal.getHead(doc.docKey)).version;
+    const existing = runtime.editorWalLatest.get(opId);
+    const result = await runtime.editorWal.put({
+      opId,
+      projectId: doc.projectId,
+      docKey: doc.docKey,
+      tabId: editorWalTabId(),
+      chapterId: doc.chapterId,
+      sceneId: doc.sceneId,
+      baseRevision: Number(baseline.revision) || 0,
+      baseHash,
+      contentHash: await api.hashText(content, window.crypto),
+      operations: [operation],
+      createdAt: Number(existing && existing.record.createdAt) || Date.now(),
+      updatedAt: Date.now()
+    }, expectedVersion);
+    runtime.editorWalLocalVersions.set(doc.docKey, result.version);
+    runtime.editorWalOperationVersions.set(opId, result.record.operationVersion);
+    runtime.editorWalLatest.set(opId, { record: result.record, content });
+    if (result.conflict) {
+      runtime.editorWalConflicts.add(doc.docKey);
+      setSaveStatus('本地草稿已保存，但检测到其他标签页修改');
+      throw Object.assign(new Error('当前场景存在跨标签版本冲突，草稿已保留'), { walConflict: true });
+    }
+    setSaveStatus('正文已写入本地 WAL，等待同步');
+    return { record: result.record, content, baseline, doc };
+  }
+
+  /** 将正文本地落盘延迟 250ms，与云端同步计时器分离。 */
+  function scheduleEditorWalSave(sceneRef) {
+    const state = editorState(false);
+    const preview = getPreview();
+    if (!state || !isServerNovelId(preview.novelId)) return;
+    window.clearTimeout(runtime.editorWalTimer);
+    runtime.editorWalTimer = window.setTimeout(() => {
+      void writeEditorWal(state, sceneRef).catch(error => {
+        setSaveStatus(error && error.message && error.message.includes('冲突') ? '跨标签冲突，WAL 草稿已保留' : '本地 WAL 保存失败');
+      });
+    }, 250);
+  }
+
+  /** 整本保存确认后清理已包含在该快照中的 WAL，并重基较新的本地编辑。 */
+  async function acknowledgeEditorWalPut(state, sceneSnapshot, revision) {
+    if (!runtime.editorWal || !isServerNovelId(getPreview().novelId) || !Number.isInteger(Number(revision))) return true;
+    try {
+      const api = await loadEditorWalModule();
+      const projectId = editorWalProjectId(state);
+      const records = await runtime.editorWal.readProject(projectId);
+      let cleanupPending = false;
+      state.volumes.forEach(volume => (volume.chapters || []).forEach(chapter => (chapter.scenes || []).forEach(scene => {
+        const docKey = `${projectId}|${encodeURIComponent(chapter.id)}|${encodeURIComponent(scene.id)}`;
+        if (sceneSnapshot.has(docKey)) runtime.editorWalBaselines.set(docKey, { content: sceneSnapshot.get(docKey), revision: Number(revision) });
+      })));
+      for (const record of records) {
+        if (record.conflicted) {
+          runtime.editorWalConflicts.add(record.docKey);
+          cleanupPending = true;
+          continue;
+        }
+        const sentContent = sceneSnapshot.get(record.docKey);
+        if (sentContent == null) {
+          await runtime.editorWal.remove(record.opId, record.operationVersion, {
+            projectId, docKey: record.docKey, tabId: editorWalTabId(), revision: Number(revision), contentHash: ''
+          });
+          continue;
+        }
+        const sentHash = await api.hashText(sentContent, window.crypto);
+        if (sentHash === record.contentHash) {
+          const removed = await runtime.editorWal.remove(record.opId, record.operationVersion, {
+            projectId,
+            docKey: record.docKey,
+            tabId: editorWalTabId(),
+            revision: Number(revision),
+            contentHash: sentHash
+          });
+          if (removed) {
+            runtime.editorWalLatest.delete(record.opId);
+            runtime.editorWalOperationVersions.delete(record.opId);
+          } else {
+            cleanupPending = true;
+            const currentRecord = (await runtime.editorWal.readProject(projectId)).find(item => item.opId === record.opId);
+            const location = locateEditorWalScene(state, record.chapterId, record.sceneId);
+            if (currentRecord && currentRecord.tabId === editorWalTabId() && location && !runtime.editorWalConflicts.has(record.docKey)) {
+              await writeEditorWal(state, location.scene);
+            } else if (currentRecord) {
+              runtime.editorWalConflicts.add(record.docKey);
+            }
+          }
+          continue;
+        }
+        const location = locateEditorWalScene(state, record.chapterId, record.sceneId);
+        if (record.tabId === editorWalTabId() && location && !runtime.editorWalConflicts.has(record.docKey)) {
+          cleanupPending = true;
+          await writeEditorWal(state, location.scene);
+        } else {
+          runtime.editorWalConflicts.add(record.docKey);
+          cleanupPending = true;
+        }
+      }
+      return !cleanupPending && (records.length === 0 || !Array.from(runtime.editorWalConflicts).some(docKey => docKey.startsWith(`${projectId}|`)));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /** 覆盖式保存前确认请求快照包含其他标签待同步的正文。 */
+  async function editorWalHasUnrepresentedDraft(state, sceneSnapshot) {
+    if (!isServerNovelId(getPreview().novelId)) return false;
+    await ensureEditorWalRecovery(state);
+    const api = await loadEditorWalModule();
+    const projectId = editorWalProjectId(state);
+    const records = await runtime.editorWal.readProject(projectId);
+    for (const record of records) {
+      if (record.conflicted) {
+        runtime.editorWalConflicts.add(record.docKey);
+        return true;
+      }
+      const sentContent = sceneSnapshot.get(record.docKey);
+      if (sentContent == null) return true;
+      if (record.tabId !== editorWalTabId() || runtime.editorWalConflicts.has(record.docKey)) {
+        const sentHash = await api.hashText(sentContent, window.crypto);
+        if (sentHash !== record.contentHash) {
+          runtime.editorWalConflicts.add(record.docKey);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function isServerNovelId(value) {
     return /^n_[A-Za-z0-9]{1,30}$/.test(String(value || ''));
   }
@@ -463,18 +828,39 @@
   }
 
   function sanitizeHtml(value) {
-    const holder = document.createElement('div');
-    holder.innerHTML = text(value);
-    holder.querySelectorAll('script,style,iframe,object,embed,form,link,meta').forEach(node => node.remove());
-    holder.querySelectorAll('*').forEach(node => {
-      [...node.attributes].forEach(attribute => {
-        const name = attribute.name.toLowerCase();
-        const value = attribute.value || '';
-        if (name.startsWith('on') || name === 'srcdoc' || name === 'style') node.removeAttribute(attribute.name);
-        if ((name === 'href' || name === 'src') && !/^(https?:|data:image\/|#|\/)/i.test(value)) node.removeAttribute(attribute.name);
-      });
+    const template = document.createElement('template');
+    template.innerHTML = text(value);
+    const allowedTags = new Set(['P', 'DIV', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'DEL', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'HR', 'A', 'SPAN', 'CODE', 'PRE', 'SUB', 'SUP']);
+    const removedTags = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'SVG', 'MATH', 'VIDEO', 'AUDIO', 'SOURCE', 'TRACK', 'CANVAS', 'TEMPLATE', 'LINK', 'META', 'BASE']);
+    const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_ELEMENT);
+    const elements = [];
+    let node;
+    while ((node = walker.nextNode())) elements.push(node);
+    elements.reverse().forEach(element => {
+      if (removedTags.has(element.tagName)) {
+        element.remove();
+        return;
+      }
+      if (!allowedTags.has(element.tagName)) {
+        const parent = element.parentNode;
+        if (!parent) return;
+        while (element.firstChild) parent.insertBefore(element.firstChild, element);
+        element.remove();
+        return;
+      }
+      const href = element.tagName === 'A' ? String(element.getAttribute('href') || '').trim() : '';
+      [...element.attributes].forEach(attribute => element.removeAttribute(attribute.name));
+      if (element.tagName === 'A') {
+        if (/^(https?:|mailto:|#|\/)/i.test(href) && !/^\/\//.test(href) && !/^\/\\/.test(href)) {
+          element.setAttribute('href', href);
+          element.setAttribute('rel', 'noopener noreferrer');
+          element.setAttribute('target', '_blank');
+        } else {
+          element.replaceWith(...element.childNodes);
+        }
+      }
     });
-    return holder.innerHTML;
+    return template.innerHTML;
   }
 
   function textToHtml(value) {
@@ -577,6 +963,7 @@
     if (!Array.isArray(state.knowledge.edges)) state.knowledge.edges = [];
     if (!Array.isArray(state.foreshadows)) state.foreshadows = [];
     if (!Array.isArray(state.history)) state.history = [];
+    state.searchChangeSets = Array.isArray(state.searchChangeSets) ? state.searchChangeSets.slice(0, 20) : [];
     state.chapterContracts = state.chapterContracts && typeof state.chapterContracts === 'object' && !Array.isArray(state.chapterContracts) ? state.chapterContracts : {};
     state.generationRuns = Array.isArray(state.generationRuns) ? state.generationRuns : [];
     state.creationBookId = text(state.creationBookId || state.workspace && state.workspace.creationBrief && state.workspace.creationBrief.creationBookId || '');
@@ -1180,14 +1567,149 @@
   }
 
   function scheduleSave(options) {
+    const saveOptions = options || {};
+    runtime.editorScheduledSaveOptions = saveOptions;
     window.clearTimeout(runtime.editorSaveTimer);
-    runtime.editorSaveTimer = window.setTimeout(() => { void persistNovel(options || {}); }, 700);
+    runtime.editorSaveTimer = window.setTimeout(() => {
+      runtime.editorScheduledSaveOptions = null;
+      void persistNovel(saveOptions);
+    }, 700);
     setSaveStatus('有未保存更改');
+  }
+
+  /** 先确保 WAL 已持久化，再用 revision/baseHash 对单个场景正文做 CAS PATCH。 */
+  async function persistNovelScenePatch(options) {
+    const state = editorState(false);
+    const preview = getPreview();
+    const backend = getBackend();
+    const request = refFunction('backendRequest');
+    if (!state || !isServerNovelId(preview.novelId) || !backend.token || !request) return null;
+    if (runtime.editorSavePromise) {
+      runtime.editorSaveQueued = true;
+      runtime.editorSaveQueuedOptions = options || { patchSave: true };
+      return runtime.editorSavePromise;
+    }
+    const saveVersion = runtime.editorChangeVersion;
+    const requestSessionKey = editorSessionKey();
+    let saveScene = options && options.sceneRef;
+    let saveChapter = null;
+    if (saveScene) {
+      for (const volume of state.volumes || []) {
+        saveChapter = (volume.chapters || []).find(chapter => (chapter.scenes || []).includes(saveScene));
+        if (saveChapter) break;
+      }
+    } else {
+      const current = activeRefs(state);
+      saveScene = current.scene;
+      saveChapter = current.chapter;
+    }
+    if (!saveScene || !saveChapter) return null;
+    runtime.editorSavePromise = (async () => {
+      setSaveStatus('正在保护并同步正文…');
+      let savedWal = null;
+      try {
+        const doc = editorWalDocument(state, saveScene);
+        if (!doc) return null;
+        if (editorWalProjectHasConflict(state) || runtime.editorWalConflicts.has(doc.docKey)) {
+          throw Object.assign(new Error('当前作品存在跨标签版本冲突，草稿已保留'), { walConflict: true });
+        }
+        savedWal = await writeEditorWal(state, saveScene);
+        if (!savedWal) {
+          setSaveStatus('正文没有新的待同步差异');
+          return null;
+        }
+        const savedContent = savedWal.content;
+        if (requestSessionKey !== editorSessionKey()) return null;
+        const data = await request(`/api/novels/${encodeURIComponent(String(preview.novelId))}/scenes/${encodeURIComponent(doc.sceneId)}`, {
+          method: 'PATCH',
+          body: {
+            chapterId: doc.chapterId,
+            revision: savedWal.record.baseRevision,
+            baseHash: savedWal.record.baseHash,
+            operations: savedWal.record.operations
+          }
+        });
+        if (requestSessionKey !== editorSessionKey()) return null;
+        if (!data || !Number.isInteger(Number(data.revision))) throw new Error('云端未确认正文版本，WAL 已保留');
+        const api = await loadEditorWalModule();
+        const contentHash = await api.hashText(savedContent, window.crypto);
+        if (data.contentHash && String(data.contentHash) !== contentHash) {
+          throw Object.assign(new Error('云端正文校验不一致，WAL 已保留'), { walConflict: true });
+        }
+        preview.novelRevision = Number(data.revision);
+        runtime.editorWalBaselines.forEach(baseline => {
+          if (Number(baseline.revision) <= Number(data.revision)) baseline.revision = Number(data.revision);
+        });
+        runtime.editorWalBaselines.set(doc.docKey, { content: savedContent, revision: Number(data.revision) });
+        const removed = await runtime.editorWal.remove(savedWal.record.opId, savedWal.record.operationVersion, {
+          projectId: doc.projectId,
+          docKey: doc.docKey,
+          tabId: editorWalTabId(),
+          revision: Number(data.revision),
+          contentHash
+        });
+        const superseded = runtime.editorWalSuperseded.get(doc.docKey) || [];
+        for (const record of superseded) {
+          if (record.opId === savedWal.record.opId) continue;
+          await runtime.editorWal.remove(record.opId, record.operationVersion, {
+            projectId: doc.projectId,
+            docKey: doc.docKey,
+            tabId: editorWalTabId(),
+            revision: Number(data.revision),
+            contentHash
+          });
+          runtime.editorWalLatest.delete(record.opId);
+          runtime.editorWalOperationVersions.delete(record.opId);
+        }
+        runtime.editorWalSuperseded.delete(doc.docKey);
+        if (removed) {
+          runtime.editorWalLatest.delete(savedWal.record.opId);
+          runtime.editorWalOperationVersions.delete(savedWal.record.opId);
+        }
+        setSaveStatus(removed ? '当前场景已同步' : '正文新改动已写入本地 WAL，等待继续同步');
+        window.dispatchEvent(new CustomEvent('molan:novel-saved', {
+          detail: { localId: '', remoteId: String(preview.novelId), sessionKey: requestSessionKey, revision: Number(data.revision) }
+        }));
+        if (String(saveScene.content || '') !== savedContent) {
+          scheduleSave({ patchSave: true, sceneRef: saveScene });
+        }
+        return data;
+      } catch (error) {
+        if (requestSessionKey !== editorSessionKey()) return null;
+        if (error && (error.status === 409 || error.walConflict)) {
+          const doc = editorWalDocument(state, saveScene);
+          if (doc) runtime.editorWalConflicts.add(doc.docKey);
+          persistEditorConflictDraft(state, preview.novelRevision);
+          setSaveStatus('版本冲突，WAL 草稿已保留');
+          toast('云端或其他标签页已更新正文，当前 WAL 草稿已保留；请重新读取并手动合并');
+        } else {
+          setSaveStatus(savedWal ? '正文已保存在本地，等待云端同步' : '本地 WAL 未确认，正文未同步');
+          toast(error && error.message || (savedWal ? '正文云端同步失败，本地 WAL 已保留' : '本地 WAL 保存失败，正文未同步'));
+        }
+        return null;
+      } finally {
+        runtime.editorSavePromise = null;
+        if (runtime.editorSaveQueued || runtime.editorChangeVersion > saveVersion) {
+          const queuedOptions = runtime.editorSaveQueuedOptions || runtime.editorScheduledSaveOptions ||
+            (options && options.patchSave ? { patchSave: true, sceneRef: saveScene } : {});
+          runtime.editorSaveQueued = false;
+          runtime.editorSaveQueuedOptions = null;
+          scheduleSave(queuedOptions);
+        }
+      }
+    })();
+    return runtime.editorSavePromise;
   }
 
   async function persistNovel(options) {
     const state = editorState(false);
     if (!state) return null;
+    const preview = getPreview();
+    const backend = getBackend();
+    const request = refFunction('backendRequest');
+    if (options && options.patchSave && !options.snapshot && backend.token && request && isServerNovelId(preview.novelId)) {
+      return persistNovelScenePatch(options);
+    }
     if (runtime.editorSavePromise) {
       runtime.editorSaveQueued = true;
       runtime.editorSaveQueuedOptions = options || {};
@@ -1199,16 +1721,23 @@
     syncWorkspaceCollections(state);
     state.updatedAt = Date.now();
     if (options && options.snapshot) captureVersion(state);
-    const preview = getPreview();
-    const backend = getBackend();
-    const request = refFunction('backendRequest');
     const requestSessionKey = editorSessionKey();
     const localNovelId = String(preview._libraryLocalId || (!isServerNovelId(preview.novelId) ? preview.novelId || '' : ''));
+    const sceneSnapshot = new Map();
+    if (isServerNovelId(preview.novelId)) {
+      const projectId = editorWalProjectId(state);
+      (state.volumes || []).forEach(volume => (volume.chapters || []).forEach(chapter => (chapter.scenes || []).forEach(scene => {
+        sceneSnapshot.set(`${projectId}|${encodeURIComponent(chapter.id)}|${encodeURIComponent(scene.id)}`, String(scene.content || ''));
+      })));
+    }
     runtime.editorSavePromise = (async () => {
       setSaveStatus('正在保存…');
       try {
         if (backend.token && request) {
           const serverNovelId = isServerNovelId(preview.novelId) ? String(preview.novelId) : '';
+          if (serverNovelId && (editorWalProjectHasConflict(state) || await editorWalHasUnrepresentedDraft(state, sceneSnapshot))) {
+            throw Object.assign(new Error('其他标签页的场景草稿仍待合并，已阻止覆盖式保存'), { walConflict: true });
+          }
           const endpoint = serverNovelId ? `/api/novels/${encodeURIComponent(serverNovelId)}` : '/api/novels';
           const data = await request(endpoint, {
             method: serverNovelId ? 'PUT' : 'POST',
@@ -1220,6 +1749,7 @@
            if (data && data.id) preview.novelId = data.id;
            if (data && data.id && localNovelId && localNovelId !== String(data.id)) preview._libraryLocalId = '';
            if (data && Number.isInteger(data.revision)) preview.novelRevision = data.revision;
+           const walClean = await acknowledgeEditorWalPut(state, sceneSnapshot, data && data.revision);
            clearEditorConflictDraft(state);
            if (state.creationBookId && data && data.id && !state.creationBookLinked) {
              try {
@@ -1229,7 +1759,7 @@
                toast(linkError && linkError.message || '创作书与小说尚未完成关联，已保留待同步状态');
              }
            }
-           setSaveStatus('已保存到后端');
+           setSaveStatus(walClean ? '已保存到后端' : '作品已保存，仍有本地 WAL 草稿待处理');
           window.dispatchEvent(new CustomEvent('molan:novel-saved', { detail: { localId: localNovelId, remoteId: String(data && data.id || preview.novelId || ''), sessionKey: requestSessionKey } }));
         } else {
           try { localStorage.setItem('molan_guest_novel_state', JSON.stringify({ novel: preview.novel, state })); } catch (_) { throw new Error('本地保存失败，浏览器存储空间不足'); }
@@ -1239,7 +1769,9 @@
       } catch (error) {
         if (requestSessionKey !== editorSessionKey()) return null;
         setSaveStatus('保存失败');
-        if (error && error.status === 409) {
+        if (error && (error.status === 409 || error.walConflict)) {
+          const doc = editorWalDocument(state);
+          if (doc) runtime.editorWalConflicts.add(doc.docKey);
           persistEditorConflictDraft(state, preview.novelRevision);
           setSaveStatus('版本冲突，草稿已暂存');
           toast('云端版本已更新，未保存修改已暂存；请重新读取后手动合并，系统不会覆盖他人修改');
@@ -1250,7 +1782,7 @@
       } finally {
         runtime.editorSavePromise = null;
         if (runtime.editorSaveQueued || runtime.editorChangeVersion > saveVersion) {
-          const queuedOptions = runtime.editorSaveQueuedOptions || {};
+          const queuedOptions = runtime.editorSaveQueuedOptions || runtime.editorScheduledSaveOptions || {};
           runtime.editorSaveQueued = false;
           runtime.editorSaveQueuedOptions = null;
           scheduleSave(queuedOptions);
@@ -1287,11 +1819,84 @@
     return `<button class="button completion-add-chapter" style="width:calc(100% - 12px);margin:4px 6px 10px;min-height:29px;padding:0 7px;font-size:10px" data-completion-action="add-chapter" data-volume-id="${esc(volume.id)}" aria-label="在${esc(volume.title)}新增章节">${ico('plus')}新增章节</button>`;
   }
 
+  const EDITOR_TREE_ROW_HEIGHT = 36;
+  const EDITOR_TREE_OVERSCAN = 8;
+
+  function buildEditorTreeRows(state) {
+    const rows = [];
+    (state.volumes || []).forEach((volume, volumeIndex) => {
+      rows.push({ key: 'volume:' + volume.id, kind: 'volume', volume, volumeIndex });
+      (volume.chapters || []).forEach((chapter, chapterIndex) => {
+        rows.push({ key: 'chapter:' + chapter.id, kind: 'chapter', volume, chapter, chapterIndex });
+        (chapter.scenes || []).forEach((scene, sceneIndex) => {
+          rows.push({ key: 'scene:' + scene.id, kind: 'scene', volume, chapter, scene, sceneIndex });
+        });
+        rows.push({ key: 'add-scene:' + chapter.id, kind: 'add-scene', volume, chapter });
+      });
+      rows.push({ key: 'add-chapter:' + volume.id, kind: 'add-chapter', volume });
+    });
+    return rows;
+  }
+
+  function renderEditorTreeRow(row, state) {
+    const fixedRow = 'box-sizing:border-box;height:34px;min-height:34px;max-height:34px;margin:0 0 2px;overflow:hidden';
+    if (row.kind === 'volume') {
+      return '<div class="tree-heading completion-tree-row" style="' + fixedRow + ';padding:4px 5px"><span>' + ico('folder') +
+        '</span><strong style="margin-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(row.volume.title) +
+        '</strong><button class="icon-button" data-completion-action="add-chapter" data-volume-id="' + esc(row.volume.id) +
+        '" aria-label="在此卷新增章节" title="在此卷新增章节">' + ico('plus') + '</button></div>';
+    }
+    if (row.kind === 'chapter') {
+      return '<div class="editor-chapter completion-tree-row ' + (row.chapter.id === state.currentChapterId ? 'active' : '') +
+        '" style="' + fixedRow + '" data-completion-select-chapter="' + esc(row.chapter.id) + '" data-volume-id="' +
+        esc(row.volume.id) + '" role="button" tabindex="0"><small>' + String(row.chapterIndex + 1).padStart(3, '0') +
+        '</small><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(row.chapter.title) +
+        '</span><i class="' + (sceneHasText(row.chapter) ? 'done' : '') + '"></i></div>';
+    }
+    if (row.kind === 'scene') {
+      return '<div class="editor-chapter completion-tree-row completion-scene-row ' +
+        (row.scene.id === state.currentSceneId ? 'active' : '') + '" style="' + fixedRow +
+        ';padding-left:18px" data-completion-select-scene="' + esc(row.scene.id) + '" data-chapter-id="' +
+        esc(row.chapter.id) + '" data-volume-id="' + esc(row.volume.id) +
+        '" role="button" tabindex="0"><small>' + (row.sceneIndex + 1) +
+        '</small><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(row.scene.name) + '</span></div>';
+    }
+    if (row.kind === 'add-scene') {
+      return '<div class="completion-tree-row" style="' + fixedRow +
+        ';display:flex;align-items:center"><button class="button" style="box-sizing:border-box;width:calc(100% - 12px);height:28px;min-height:28px;margin:0 6px;padding:0 7px;font-size:10px" data-completion-action="add-scene" data-chapter-id="' +
+        esc(row.chapter.id) + '" data-volume-id="' + esc(row.volume.id) +
+        '" aria-label="新增场景" title="新增场景">' + ico('plus') + '新增场景</button></div>';
+    }
+    return '<div class="completion-tree-row" style="' + fixedRow +
+      ';display:flex;align-items:center"><button class="button completion-add-chapter" style="box-sizing:border-box;width:calc(100% - 12px);height:28px;min-height:28px;margin:0 6px;padding:0 7px;font-size:10px" data-completion-action="add-chapter" data-volume-id="' +
+      esc(row.volume.id) + '" aria-label="在' + esc(row.volume.title) + '新增章节">' + ico('plus') + '新增章节</button></div>';
+  }
+
+  function renderEditorTreeWindow(nav, cache) {
+    const top = nav.querySelector('[data-completion-tree-top]');
+    const windowNode = nav.querySelector('[data-completion-tree-window]');
+    const bottom = nav.querySelector('[data-completion-tree-bottom]');
+    if (!top || !windowNode || !bottom || !cache) return;
+    const paddingTop = typeof getComputedStyle === 'function' ? parseFloat(getComputedStyle(nav).paddingTop) || 0 : 0;
+    const localScroll = Math.max(0, nav.scrollTop - paddingTop);
+    const visibleStart = Math.floor(localScroll / EDITOR_TREE_ROW_HEIGHT);
+    const visibleCount = Math.max(1, Math.ceil(Math.max(nav.clientHeight, EDITOR_TREE_ROW_HEIGHT) / EDITOR_TREE_ROW_HEIGHT));
+    const start = Math.max(0, visibleStart - EDITOR_TREE_OVERSCAN);
+    const end = Math.min(cache.rows.length, visibleStart + visibleCount + EDITOR_TREE_OVERSCAN);
+    if (nav.dataset.treeWindowStart === String(start) && nav.dataset.treeWindowEnd === String(end)) return;
+    top.style.height = (start * EDITOR_TREE_ROW_HEIGHT) + 'px';
+    windowNode.innerHTML = cache.rows.slice(start, end).map(row => renderEditorTreeRow(row, cache.state)).join('');
+    bottom.style.height = (Math.max(0, cache.rows.length - end) * EDITOR_TREE_ROW_HEIGHT) + 'px';
+    nav.dataset.treeWindowStart = String(start);
+    nav.dataset.treeWindowEnd = String(end);
+    mountIconsSafe();
+  }
+
   function renderEditorPage() {
     const preview = getPreview();
     const state = editorState(false);
     const title = preview.novel && preview.novel.title || state && state.title || '未命名小说';
-    const tools = `<button class="button" data-completion-action="editor-save">${ico('save')}保存</button><button class="button" data-completion-action="open-memory-workbench" style="color:var(--blue);border-color:var(--blue);font-weight:600">${ico('brain')}长篇记忆与文风</button><button class="button" data-completion-action="open-materials-seven" style="font-weight:600">${ico('folder-kanban')}全套资料(七大板块)</button><button class="button" data-completion-action="editor-import">${ico('upload')}导入文本</button><button class="button" data-completion-action="editor-export">${ico('download')}导出</button><button class="button" data-completion-action="create-from-dissection">${ico('scan-text')}拆书创书</button><button class="button primary" data-completion-action="editor-ai-focus">${ico('sparkles')}AI 助手</button>`;
+    const tools = `<button class="button" data-completion-action="editor-save">${ico('save')}保存</button><button class="button" data-completion-action="open-memory-workbench" style="color:var(--blue);border-color:var(--blue);font-weight:600">${ico('brain')}长篇记忆与文风</button><button class="button" data-completion-action="open-materials-seven" style="font-weight:600">${ico('folder-kanban')}全套资料(七大板块)</button><button class="button" data-completion-action="editor-import">${ico('upload')}导入文本</button><button class="button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export">${ico('download')}导出</button><button class="button" data-completion-action="create-from-dissection">${ico('scan-text')}拆书创书</button><button class="button primary" data-completion-action="editor-ai-focus">${ico('sparkles')}AI 助手</button>`;
     // P1-1：账号下有作品但当前未打开时，自动打开最近编辑的第一本（refreshData 完成后会重渲染触发）
     if (!state && !preview.novelId) {
       const backend = getBackend();
@@ -1305,7 +1910,7 @@
     if (!state) return pageShell('editor', 'EDITOR', '小说编辑器', '打开作品后，正文、章节、设定和 AI 协作会共享同一份作品状态。', tools, '<div class="panel empty" style="padding:48px;max-width:560px;margin:40px auto;text-align:center"><div class="empty-icon">—</div><h3>还没有可编辑的作品</h3><p style="color:var(--muted);margin:8px 0 20px">打开已有小说或创建新书后，编辑器将自动加载正文、卷章与 AI 协同工作区。</p><div style="display:flex;gap:12px;justify-content:center"><button class="button primary" data-completion-page="novels">打开我的小说</button><button class="button" data-completion-action="create-from-dissection">' + ico('scan-text') + '从拆书创书</button></div></div>', 'editor-page');
     const active = activeRefs(state);
     if (active.scene) preview.editorBody = active.scene.content;
-    const volumes = state.volumes.map((volume, volumeIndex) => `<section class="completion-volume" data-volume-id="${esc(volume.id)}"><div class="tree-heading" style="padding-left:5px"><span>${ico('folder')}</span><strong style="margin-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(volume.title)}</strong><button class="icon-button" data-completion-action="add-chapter" data-volume-id="${esc(volume.id)}" aria-label="在此卷新增章节" title="在此卷新增章节">${ico('plus')}</button></div>${volume.chapters.map((chapter, chapterIndex) => `<div class="completion-chapter-block"><div class="editor-chapter ${chapter.id === state.currentChapterId ? 'active' : ''}" data-completion-select-chapter="${esc(chapter.id)}" data-volume-id="${esc(volume.id)}" role="button" tabindex="0"><small>${String(chapterIndex + 1).padStart(3, '0')}</small><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(chapter.title)}</span><i class="${sceneHasText(chapter) ? 'done' : ''}"></i></div><div class="completion-scene-list">${chapter.scenes.map((scene, sceneIndex) => `<div class="editor-chapter completion-scene-row ${scene.id === state.currentSceneId ? 'active' : ''}" data-completion-select-scene="${esc(scene.id)}" data-chapter-id="${esc(chapter.id)}" data-volume-id="${esc(volume.id)}" role="button" tabindex="0"><small>${sceneIndex + 1}</small><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(scene.name)}</span></div>`).join('')}<button class="button" style="width:calc(100% - 12px);margin:4px 6px;min-height:26px;padding:0 7px;font-size:10px" data-completion-action="add-scene" data-chapter-id="${esc(chapter.id)}" data-volume-id="${esc(volume.id)}" aria-label="新增场景" title="新增场景">${ico('plus')}新增场景</button></div></div>`).join('')}${renderAddChapterButton(volume)}</section>`).join('');
+    const volumes = '<div data-completion-tree-top style="height:0"></div><div data-completion-tree-window style="display:flow-root"></div><div data-completion-tree-bottom style="height:0"></div>';
     const modelSelect = '<select class="ai-select" data-completion-model data-model-select aria-label="选择模型"></select>';
     const skillSelect = `<select class="ai-select" data-completion-skill aria-label="固定写作 Skill" disabled title="AI 编辑器固定使用指定的高张力写作 Skill"><option value="${EDITOR_ONLY_SKILL_ID}">固定：高张力写作 Skill</option></select>`;
     const history = '<select class="ai-select" data-completion-history aria-label="选择历史会话"><option value="">当前会话</option></select>';
@@ -1331,7 +1936,7 @@
     </div>`;
     const creationCost = state.creationBookId ? '<div data-completion-creation-cost class="section-note" style="padding:4px 12px 0;font-size:10px">创作书预算正在读取…</div>' : '';
     const paramsDrawer = `<details class="ai-params-drawer" data-completion-params-drawer><summary class="ai-params-summary"><span class="ai-params-summary-title">创作参数</span><span class="ai-params-summary-hint" data-completion-params-hint>题材·思考·文风设置</span><span class="ai-params-toggle-text">展开 ▾</span></summary><div class="ai-params-body"><label class="ai-control-field" style="margin-top:2px"><span class="ai-control-field__label">写作预设</span>${skillSelect}</label><label class="ai-control-field"><span class="ai-control-field__label">历史会话</span>${history}</label>${thinkingControl}${genreFamilySelect}${xuanhuanRouteSelect}${styleDetectorControl}${creationCost}</div></details>`;
-    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div>${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述你想让 AI 完成的创作任务…（Enter 发送，Shift + Enter 换行）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
+    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div>${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述你想让 AI 完成的创作任务…（Enter 发送，Shift + Enter 换行）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
    }
 
   function renderEditorNav() {
@@ -1341,9 +1946,48 @@
     const nav = stageNode.querySelector('.completion-editor-tree');
     if (!nav) return;
     const existingAddVolume = nav.querySelector('[data-completion-action="add-volume"]');
-    const markup = state.volumes.map(volume => `<section class="completion-volume" data-volume-id="${esc(volume.id)}"><div class="tree-heading" style="padding-left:5px"><span>${ico('folder')}</span><strong style="margin-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(volume.title)}</strong><button class="icon-button" data-completion-action="add-chapter" data-volume-id="${esc(volume.id)}" aria-label="在此卷新增章节" title="在此卷新增章节">${ico('plus')}</button></div>${volume.chapters.map((chapter, chapterIndex) => `<div class="completion-chapter-block"><div class="editor-chapter ${chapter.id === state.currentChapterId ? 'active' : ''}" data-completion-select-chapter="${esc(chapter.id)}" data-volume-id="${esc(volume.id)}" role="button" tabindex="0"><small>${String(chapterIndex + 1).padStart(3, '0')}</small><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(chapter.title)}</span><i class="${sceneHasText(chapter) ? 'done' : ''}"></i></div><div class="completion-scene-list">${chapter.scenes.map((scene, sceneIndex) => `<div class="editor-chapter completion-scene-row ${scene.id === state.currentSceneId ? 'active' : ''}" data-completion-select-scene="${esc(scene.id)}" data-chapter-id="${esc(chapter.id)}" data-volume-id="${esc(volume.id)}" role="button" tabindex="0"><small>${sceneIndex + 1}</small><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(scene.name)}</span></div>`).join('')}<button class="button" style="width:calc(100% - 12px);margin:4px 6px;min-height:26px;padding:0 7px;font-size:10px" data-completion-action="add-scene" data-chapter-id="${esc(chapter.id)}" data-volume-id="${esc(volume.id)}" aria-label="新增场景" title="新增场景">${ico('plus')}新增场景</button></div></div>`).join('')}${renderAddChapterButton(volume)}</section>`).join('');
-    nav.innerHTML = markup + (existingAddVolume ? existingAddVolume.outerHTML : `<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button>`);
-    mountIconsSafe();
+    const novelKey = completionNovelKey(state);
+    const initialized = nav.dataset.treeNovelKey === novelKey;
+    const previous = runtime.editorTreeCache;
+    const paddingTop = typeof getComputedStyle === 'function' ? parseFloat(getComputedStyle(nav).paddingTop) || 0 : 0;
+    let anchorKey = '';
+    let anchorOffset = 0;
+    if (initialized && previous && previous.novelKey === novelKey && previous.rows.length) {
+      const oldIndex = Math.max(0, Math.min(previous.rows.length - 1,
+        Math.floor(Math.max(0, nav.scrollTop - paddingTop) / EDITOR_TREE_ROW_HEIGHT)));
+      anchorKey = previous.rows[oldIndex].key;
+      anchorOffset = Math.max(0, nav.scrollTop - paddingTop - oldIndex * EDITOR_TREE_ROW_HEIGHT);
+    }
+    const rows = buildEditorTreeRows(state);
+    if (!nav.querySelector('[data-completion-tree-window]')) {
+      const addVolumeMarkup = existingAddVolume ? existingAddVolume.outerHTML
+        : '<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">' + ico('plus') + '新增卷</button>';
+      nav.innerHTML = '<div data-completion-tree-top style="height:0"></div><div data-completion-tree-window style="display:flow-root"></div><div data-completion-tree-bottom style="height:0"></div>' + addVolumeMarkup;
+    }
+    let scrollTop = nav.scrollTop;
+    if (!initialized) {
+      const activeKey = state.currentSceneId ? 'scene:' + state.currentSceneId : 'chapter:' + state.currentChapterId;
+      const activeIndex = rows.findIndex(row => row.key === activeKey);
+      scrollTop = paddingTop + Math.max(0, activeIndex) * EDITOR_TREE_ROW_HEIGHT;
+    } else if (anchorKey) {
+      const anchorIndex = rows.findIndex(row => row.key === anchorKey);
+      if (anchorIndex >= 0) scrollTop = paddingTop + anchorIndex * EDITOR_TREE_ROW_HEIGHT + anchorOffset;
+    }
+    const activeKey = state.currentSceneId ? 'scene:' + state.currentSceneId : 'chapter:' + state.currentChapterId;
+    const activeIndex = rows.findIndex(row => row.key === activeKey);
+    const selectionKey = String(state.currentChapterId || '') + ':' + String(state.currentSceneId || '');
+    const selectionChanged = nav.dataset.treeSelection !== selectionKey;
+    const viewportRows = Math.max(1, Math.ceil(Math.max(nav.clientHeight, EDITOR_TREE_ROW_HEIGHT) / EDITOR_TREE_ROW_HEIGHT));
+    const visibleStart = Math.floor(Math.max(0, scrollTop - paddingTop) / EDITOR_TREE_ROW_HEIGHT);
+    if (selectionChanged && activeIndex >= 0 &&
+      (activeIndex < visibleStart || activeIndex >= visibleStart + viewportRows)) {
+      scrollTop = paddingTop + activeIndex * EDITOR_TREE_ROW_HEIGHT;
+    }
+    nav.scrollTop = Math.max(0, scrollTop);
+    nav.dataset.treeNovelKey = novelKey;
+    nav.dataset.treeSelection = selectionKey;
+    runtime.editorTreeCache = { novelKey, rows, state };
+    renderEditorTreeWindow(nav, runtime.editorTreeCache);
   }
 
   function renderEditorPaper() {
@@ -1367,11 +2011,31 @@
   function reconcileEditorChatRecords(records) {
     if (runtime.editorBusy || runtime.activeGenerationRun) return false;
     const state = editorState(false);
+    restoreGenerationV2Projections(state, records);
     const pendingStages = ['in_progress', 'planning', 'preparing', 'extracting', 'drafting', 'auditing', 'revising', 'resuming'];
     let changed = false;
     records.forEach(item => {
       if (!item || item.kind !== 'assistant' || (!pendingStages.includes(item.status) && !pendingStages.includes(item.workflowStage))) return;
       const run = (state?.generationRuns || []).find(record => record && record.id === item.workflowRunId);
+      if (run && run.generationV2) {
+        item.generationV2 = true;
+        item.remoteRunId = run.remoteRunId;
+        item.serverState = run.serverState || item.serverState || 'created';
+        const status = generationV2Status(item.serverState);
+        item.status = status.itemStatus;
+        item.workflowStage = status.workflowStage;
+        if (run.finalText) {
+          item.text = run.finalText;
+          item.resultId = item.resultId || uid('ai-result');
+          item.audit = cloneValue(run.audit || item.audit);
+        }
+        if (['provider_unknown', 'cancelled', 'committed'].includes(item.serverState)) item.retryPrompt = '';
+        item.errorNotice = item.serverState === 'provider_unknown'
+          ? '供应商结果未知；系统已停止自动重试，请查询任务状态。'
+          : item.serverState === 'cancelled' ? '生成已取消；未写入正文。' : item.errorNotice || '';
+        changed = true;
+        return;
+      }
       if (run?.pendingCommit) {
         item.status = run.status;
         item.workflowStage = run.status;
@@ -1423,10 +2087,11 @@
         let textVal = text(item.text);
         let statusVal = text(item.status);
         let workflowStageVal = text(item.workflowStage);
-        let retryPromptVal = text(item.retryPrompt || item.prompt || '');
+        let retryPromptVal = ['provider_unknown', 'cancelled', 'committed'].includes(text(item.serverState))
+          ? '' : text(item.retryPrompt || item.prompt || '');
         const errorNoticeVal = text(item.errorNotice || '');
 
-        if (!retryPromptVal) {
+        if (!retryPromptVal && !['provider_unknown', 'cancelled', 'committed'].includes(text(item.serverState))) {
           const prevUser = all.slice(0, index).reverse().find(m => m && m.kind === 'user');
           if (prevUser) retryPromptVal = text(prevUser.text);
         }
@@ -1458,6 +2123,9 @@
           target: targetVal,
           workflowStage: workflowStageVal,
           workflowRunId: text(item.workflowRunId),
+          generationV2: item.generationV2 === true,
+          remoteRunId: text(item.remoteRunId),
+          serverState: text(item.serverState),
           status: statusVal,
           audit: auditVal,
           retryPrompt: retryPromptVal,
@@ -1467,6 +2135,7 @@
     }
     trimCompletionHistory(preview.editorChat);
     if (reconcileEditorChatRecords(preview.editorChat)) writeWorkspace('editor-chat', preview.editorChat);
+    void recoverGenerationRuns(editorState(false), preview.editorChat);
     return preview.editorChat;
   }
 
@@ -1480,7 +2149,8 @@
       skillId: text(record && record.skillId),
       messages: Array.isArray(record && record.messages) ? record.messages.filter(item => item && item.kind && item.text).map(item => ({
         kind: item.kind === 'user' ? 'user' : 'assistant', text: text(item.text), resultId: text(item.resultId), target: item.target && typeof item.target === 'object' ? cloneValue(item.target) : null,
-        workflowStage: text(item.workflowStage), workflowRunId: text(item.workflowRunId), status: text(item.status), audit: item.audit && typeof item.audit === 'object' ? cloneValue(item.audit) : null,
+        workflowStage: text(item.workflowStage), workflowRunId: text(item.workflowRunId), generationV2: item.generationV2 === true,
+        remoteRunId: text(item.remoteRunId), serverState: text(item.serverState), status: text(item.status), audit: item.audit && typeof item.audit === 'object' ? cloneValue(item.audit) : null,
         retryPrompt: text(item.retryPrompt || (item.kind === 'assistant' ? item.prompt : '')), errorNotice: text(item.errorNotice)
       })) : []
     })).filter(record => record.id && record.messages.some(item => item.kind === 'user'))
@@ -1584,8 +2254,8 @@
               ? '<span class="badge gray" style="display:inline-block;margin-bottom:4px">生成未完成</span>'
               : '')));
       const hasAudit = Boolean(item.audit && (item.audit.summary || (Array.isArray(item.audit.issues) && item.audit.issues.length)));
-      const adoptBtn = (isNeedsReview && !generationPending) ? `<button class="button primary" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-adopt="${index}">直接采纳</button>` : '';
-      const reviseBtn = hasAudit ? `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-revise="${index}">按建议优化</button>` : '';
+      const adoptBtn = (isNeedsReview && !generationPending && !item.generationV2) ? `<button class="button primary" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-adopt="${index}">直接采纳</button>` : '';
+      const reviseBtn = hasAudit ? `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-revise="${index}" data-feature="AI_AUDIT" data-action="audit-revise">按建议优化</button>` : '';
       const retryBtn = item.retryPrompt ? `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-retry="${index}">重新生成</button>` : '';
       const notice = item.errorNotice ? `<div style="margin-bottom:6px;color:var(--amber,#f59e0b);font-size:9px">${esc(item.errorNotice)}</div>` : '';
 
@@ -1613,7 +2283,9 @@
         ? `<details style="margin-top:4px;font-size:9px;color:var(--muted)"><summary style="cursor:pointer;user-select:none">查看 ${item.audit.issues.length} 条审校建议 ▾</summary><div style="margin-top:4px;line-height:1.6;padding:4px 6px;background:var(--card,var(--paper-warm,#f9f8f6));border:1px solid var(--line);border-radius:3px">${item.audit.issues.slice(0, 6).map(iss => `<div>• ${esc(iss.problem || iss.detail || iss)}${iss.fix ? ` <span style="color:var(--ink-light,var(--muted))">（建议：${esc(iss.fix)}）</span>` : ''}</div>`).join('')}</div></details>`
         : '';
 
-      const actionRow = hasResult ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px"><span class="badge ${badgeClass}">${badgeText}</span>${item.audit ? `<div style="margin-top:6px;color:var(--muted);font-size:9px">审计 ${esc(normalizeAudit(item.audit).status)}${item.audit.summary ? `：${esc(item.audit.summary)}` : ''}</div>` : ''}${auditIssuesHtml}${run ? `<div class="chat-usage-meta">${esc(generationUsageSummary(run))}</div>` : ''}<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${['body', 'setting', 'outline', 'foreshadow'].map(target => `<button class="button ${target === 'body' && !generationPending && !reviewBlocked && !pendingCommit ? 'primary' : ''}" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-apply="${target}" data-result-index="${index}"${generationPending || reviewBlocked || (pendingCommit && target !== 'body') ? ' disabled' : ''}>${target === 'body' ? (pendingCommit ? '确认提交' : '写入正文') : target === 'setting' ? '保存设定' : target === 'outline' ? '保存大纲' : '记录伏笔'}</button>`).join('')}<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-copy data-result-index="${index}">复制</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--blue);border-color:var(--blue)" data-completion-ai-memory-extract="${index}" title="从本段提取候选事实与认知变化">${ico('scan')}提取记忆变更</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-style-audit="${index}" title="检测本段文风套话与节奏">${ico('activity')}文风质检</button>${adoptBtn}${reviseBtn}${retryBtn}</div></div>` : (retryBtn ? `<div style="margin-top:6px">${retryBtn}</div>` : '');
+      const applyTargets = item.generationV2 ? ['body'] : ['body', 'setting', 'outline', 'foreshadow'];
+      const applyButtons = applyTargets.map(target => `<button class="button ${target === 'body' && !generationPending && !reviewBlocked && !pendingCommit ? 'primary' : ''}" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-apply="${target}" data-result-index="${index}"${target === 'body' && item.generationV2 ? ' data-feature="AI_COMMIT" data-action="ai-commit"' : ''}${generationPending || reviewBlocked || (pendingCommit && target !== 'body') ? ' disabled' : ''}>${target === 'body' ? (pendingCommit ? '确认提交' : '写入正文') : target === 'setting' ? '保存设定' : target === 'outline' ? '保存大纲' : '记录伏笔'}</button>`).join('');
+      const actionRow = hasResult ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px"><span class="badge ${badgeClass}">${badgeText}</span>${item.audit ? `<div style="margin-top:6px;color:var(--muted);font-size:9px">审计 ${esc(normalizeAudit(item.audit).status)}${item.audit.summary ? `：${esc(item.audit.summary)}` : ''}</div>` : ''}${auditIssuesHtml}${run ? `<div class="chat-usage-meta">${esc(generationUsageSummary(run))}</div>` : ''}<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${applyButtons}<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-copy data-result-index="${index}">复制</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--blue);border-color:var(--blue)" data-completion-ai-memory-extract="${index}" title="从本段提取候选事实与认知变化">${ico('scan')}提取记忆变更</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-style-audit="${index}" title="检测本段文风套话与节奏">${ico('activity')}文风质检</button>${adoptBtn}${reviseBtn}${retryBtn}</div></div>` : (retryBtn ? `<div style="margin-top:6px">${retryBtn}</div>` : '');
       return `<div class="chat-message ${item.kind === 'user' ? 'user' : ''}"><span class="chat-avatar">${item.kind === 'user' ? '你' : '墨'}</span><div class="chat-bubble">${stageLabel}${statusBadge}${notice}${esc(item.text).replace(/\n/g, '<br>')}${actionRow}</div></div>`;
     }).join('');
     chat.innerHTML = items || '<div class="empty"><div class="empty-icon">—</div><p>当前章节还没有 AI 对话记录。</p></div>';
@@ -2043,12 +2715,42 @@
     const names = (presentNames || []).filter(Boolean);
     const picked = (names.length ? cards.filter(card => names.includes(String(card.name))) : cards.slice(0, 4)).slice(0, 5);
     if (!picked.length) return '';
+    const safeText = (value, limit = 60) => text(value).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit);
+    const listValues = (limit, maxItems, ...values) => {
+      const value = values.find(item => Array.isArray(item) ? item.length > 0 : item != null && safeText(item, limit).length > 0);
+      const list = Array.isArray(value) ? value : value == null ? [] : [value];
+      return [...new Set(list.map(item => safeText(item, limit)).filter(Boolean))].slice(0, maxItems);
+    };
     const parts = picked.map(card => {
-      const lines = [String(card.name || '') + '（' + String(card.role || '') + '）'];
+      const name = safeText(card.name, 40) || '未命名角色';
+      const role = safeText(card.role, 40);
+      const lines = [name.replace(/[【】]/g, '') + (role ? '（' + role.replace(/[【】]/g, '') + '）' : '')];
+      const rawVoice = card.voice_contract || card.voiceContract || card.voice;
+      const voice = rawVoice && typeof rawVoice === 'object' && !Array.isArray(rawVoice) ? rawVoice : {};
+      const pref = safeText(
+        voice.turnLengthPref || voice.turn_length_pref || voice.sentenceLengthPreference || voice.sentence_length_preference ||
+        card.turnLengthPref || card.turn_length_pref || 'medium_long',
+        40
+      );
+      const prefKey = pref.toLowerCase().replace(/[\s_–—]/g, '-');
+      const lengthLabel = ['short', 'short-turn', 'brief', '短句', '短'].includes(prefKey)
+        ? '偏好 8~15 字'
+        : ['long', 'long-turn', '长句', '长'].includes(prefKey)
+          ? '偏好 25~45 字'
+          : ['medium', 'medium-long', '15-30', '15~30', '15-30字', '15~30字', '中等', '常态', '中长'].includes(prefKey)
+            ? '偏好 15~30 字'
+            : '偏好 ' + JSON.stringify(pref);
+      lines.push('单轮台词长度' + lengthLabel + '（软约束；允许短促应答，单轮不得超过 50 字，不为凑长度重复信息）');
+      lines.push('声音契约只提供有限风格偏好，服从本章事实、审计与通用纠错规则。');
       if (card.emotionStyle) lines.push('情绪表达：' + card.emotionStyle);
-      if (card.voice && Array.isArray(card.voice.samples) && card.voice.samples.length) lines.push('台词样本：' + card.voice.samples.join(' / '));
-      if (card.voice && card.voice.taboo) lines.push('禁语：' + card.voice.taboo);
-      if (card.voice && card.voice.habit) lines.push('句式习惯：' + card.voice.habit);
+      const habits = listValues(60, 5, voice.styleHabits, voice.style_habits, voice.verbalHabits, voice.verbal_habits, voice.habits, voice.habit, card.styleHabits, card.habit, typeof rawVoice === 'string' ? rawVoice : null);
+      const tabooWords = listValues(60, 8, voice.tabooWords, voice.taboo_words, voice.tabooPhrases, voice.taboo_phrases, voice.taboos, voice.taboo, card.tabooWords, card.taboo);
+      const samples = listValues(120, 3, voice.samples, voice.voiceSamples, voice.voice_samples, card.samples);
+      const responsePattern = safeText(voice.responsePattern || voice.response_pattern || voice.pattern || '', 80);
+      if (responsePattern) lines.push('交锋偏好（仅作参考）：' + JSON.stringify(responsePattern));
+      if (habits.length) lines.push('口吻习惯（仅作参考，不照抄）：' + JSON.stringify(habits));
+      if (tabooWords.length) lines.push('言语禁忌（不得出现）：' + JSON.stringify(tabooWords));
+      if (samples.length) lines.push('台词样本（仅观察，不复用）：' + JSON.stringify(samples));
       if (Array.isArray(card.tell) && card.tell.length) lines.push('外露方式：' + card.tell.map(t => (t.when || '') + '→' + (t.how || '')).join('；'));
       if (card.wound) lines.push('软肋（一提即痛）：' + card.wound);
       if (Array.isArray(card.stance) && card.stance.length) lines.push('立场：' + card.stance.map(st => (st.toward || '') + '（' + (st.current || '') + '）').join('；'));
@@ -2599,10 +3301,12 @@
       problem: text(item && (item.problem || item.issue || item.description) || '') + (item && item.quote ? '（原文：「' + String(item.quote).slice(0, 30) + '」）' : ''),
       fix: text(item && (item.fix || item.suggestion) || '')
     })).filter(item => item.problem) : [];
-    const passed = source.passed === true && (!source.status || source.status === 'passed') &&
-      !source.error && !(source.incompleteReasons || []).length &&
-      !source.noStageChange && source.usage?.complete !== false &&
-      !(Array.isArray(source.issues) ? source.issues : []).some(item => ['blocker', 'high', 'medium'].includes(text(item && item.severity || 'medium').toLowerCase()));
+    const passed = source.serverVerified === true
+      ? source.passed === true && source.status === 'passed' && Boolean(source.contentHash)
+      : source.passed === true && (!source.status || source.status === 'passed') &&
+        !source.error && !(source.incompleteReasons || []).length &&
+        !source.noStageChange && source.usage?.complete !== false &&
+        !(Array.isArray(source.issues) ? source.issues : []).some(item => ['blocker', 'high', 'medium'].includes(text(item && item.severity || 'medium').toLowerCase()));
     return {
       ...cloneValue(source),
       passed,
@@ -2711,6 +3415,451 @@
     return typeof result === 'string' ? result : text(result && result.text);
   }
 
+  function loadGenerationRunsModule() {
+    if (window.MolanGenerationRuns) return Promise.resolve(window.MolanGenerationRuns);
+    if (runtime.editorGenerationRunsLoadPromise) return runtime.editorGenerationRunsLoadPromise;
+    const sourceUrl = EDITOR_SCRIPT_URL || window.location && window.location.href || '';
+    const scriptUrl = sourceUrl ? new URL('./lib/client/generation-runs.js', sourceUrl).href : './lib/client/generation-runs.js';
+    runtime.editorGenerationRunsLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = scriptUrl;
+      script.async = true;
+      script.onload = () => window.MolanGenerationRuns ? resolve(window.MolanGenerationRuns) : reject(new Error('Generation Run 模块加载失败'));
+      script.onerror = () => reject(new Error('Generation Run 模块加载失败'));
+      document.head.appendChild(script);
+    });
+    return runtime.editorGenerationRunsLoadPromise;
+  }
+
+  async function generationRunsClient() {
+    if (runtime.editorGenerationRunsClient) return runtime.editorGenerationRunsClient;
+    const api = await loadGenerationRunsModule();
+    runtime.editorGenerationRunsClient = api.createGenerationRunClient({ request: (path, options) => creationRequest(path, options) });
+    return runtime.editorGenerationRunsClient;
+  }
+
+  async function generationV2Capabilities(forceRefresh) {
+    if (!forceRefresh && runtime.editorGenerationCapabilities && Date.now() - runtime.editorGenerationCapabilitiesAt < 20000) {
+      return runtime.editorGenerationCapabilities;
+    }
+    let response;
+    try {
+      response = await creationRequest('/api/generation-runs/capabilities', {});
+    } catch (error) {
+      if (error && error.code === 'generation_v2_disabled') {
+        runtime.editorGenerationCapabilities = { generationV2: false, disabled: true, code: 'generation_v2_disabled' };
+        runtime.editorGenerationCapabilitiesAt = Date.now();
+        return runtime.editorGenerationCapabilities;
+      }
+      throw error;
+    }
+    if (response && response.code === 'generation_v2_disabled') {
+      runtime.editorGenerationCapabilities = { ...response, generationV2: false, disabled: true };
+      runtime.editorGenerationCapabilitiesAt = Date.now();
+      return runtime.editorGenerationCapabilities;
+    }
+    if (!response || response.generationV2 !== true) {
+      throw new Error('Generation V2 能力响应无效；已停止生成，未切换到旧生成链');
+    }
+    if (response.commit !== true || response.recovery !== true) {
+      throw new Error('Generation V2 缺少正式提交或任务恢复能力；已停止生成，未切换到旧生成链');
+    }
+    runtime.editorGenerationCapabilities = response;
+    runtime.editorGenerationCapabilitiesAt = Date.now();
+    return response;
+  }
+
+  function generationV2Status(state) {
+    const key = String(state || 'created');
+    const statuses = {
+      created: ['in_progress', 'planning'], request_validated: ['in_progress', 'planning'],
+      genre_resolved: ['in_progress', 'planning'], style_resolved: ['in_progress', 'planning'],
+      context_built: ['in_progress', 'planning'], contract_validated: ['in_progress', 'planning'],
+      pre_generation_guard: ['in_progress', 'auditing'], scene_planning: ['in_progress', 'planning'],
+      generating: ['in_progress', 'drafting'], draft_received: ['in_progress', 'auditing'],
+      deterministic_audit: ['in_progress', 'auditing'], semantic_audit: ['in_progress', 'auditing'],
+      quality_audit: ['in_progress', 'auditing'], revision: ['in_progress', 'revising'],
+      committing: ['in_progress', 'commit_pending'], cancel_requested: ['in_progress', 'cancel_requested'],
+      waiting_author: ['ready', 'ready'], needs_human: ['needs_review', 'needs_review'],
+      committed: ['ready', 'ready'], cancelled: ['cancelled', 'cancelled'],
+      failed: ['failed', 'failed'], provider_unknown: ['unknown', 'unknown'], rejected: ['needs_review', 'needs_review'],
+      paused: ['in_progress', 'paused']
+    };
+    const pair = statuses[key] || ['in_progress', 'planning'];
+    return { itemStatus: pair[0], workflowStage: pair[1] };
+  }
+
+  function generationV2Audit(result, state) {
+    const primary = result && result.audit && typeof result.audit === 'object' ? result.audit : {};
+    const semanticValue = result && result.semanticAudit;
+    const semantic = semanticValue && semanticValue.audit && typeof semanticValue.audit === 'object'
+      ? semanticValue.audit
+      : semanticValue && typeof semanticValue === 'object' ? semanticValue : {};
+    const issues = [
+      ...(Array.isArray(primary.issues) ? primary.issues : []),
+      ...(Array.isArray(semantic.issues) ? semantic.issues : [])
+    ].map(item => ({
+      ...cloneValue(item),
+      type: text(item && (item.type || item.category) || 'logic'),
+      problem: text(item && (item.problem || item.detail || item.description) || ''),
+      fix: text(item && (item.fix || item.fixHint || item.suggestion) || '')
+    }));
+    const passed = String(state || '') === 'waiting_author' || String(state || '') === 'committed';
+    return {
+      ...cloneValue(primary),
+      issues,
+      passed,
+      status: passed ? 'passed' : 'needs_review',
+      serverVerified: passed,
+      contentHash: text(result && result.outputHash || primary.contentHash),
+      summary: text(primary.summary || semantic.summary || (passed ? '服务端审计通过，等待作者确认' : '服务端审计需要人工复核'))
+    };
+  }
+
+  async function applyGenerationV2Snapshot(state, run, item, remote, stages) {
+    if (!run || !remote) return false;
+    const nextState = text(remote.state || '');
+    const priorState = run.serverState;
+    const result = remote.result && typeof remote.result === 'object' ? remote.result : {};
+    const draft = text(result.draft || result.text || '');
+    const outputHash = text(result.outputHash || remote.manifest && remote.manifest.outputHash || '');
+    run.generationV2 = true;
+    run.remoteRunId = text(remote.id || run.remoteRunId);
+    run.serverState = nextState;
+    run.serverUpdatedAt = Number(remote.updatedAt) || Date.now();
+    run.serverEventCursor = Math.max(Number(run.serverEventCursor) || 0, Number(remote.lastEventSequence) || 0);
+    run.serverStages = (Array.isArray(stages) ? stages : []).map(stage => ({
+      stage: text(stage && stage.stage), status: text(stage && stage.status),
+      attemptNo: Number(stage && stage.attemptNo) || 1, errorCode: text(stage && stage.errorCode)
+    }));
+    run.serverResult = {
+      outputHash,
+      audit: cloneValue(result.audit || null),
+      semanticAudit: cloneValue(result.semanticAudit || null),
+      quality: cloneValue(result.quality || null),
+      contract: cloneValue(result.contract || null),
+      revisionRound: Number(result.revisionRound) || 0,
+      contextHash: text(result.contextHash || '')
+    };
+    run.revisionRound = Number(result.revisionRound) || 0;
+    if (nextState === 'committed' && result.commitReceipt && typeof result.commitReceipt === 'object') {
+      run.commitReceipt = { ...cloneValue(result.commitReceipt), bookId: state.creationBookId || '' };
+      run.appliedContentHash = outputHash || run.commitReceipt.contentHash || run.appliedContentHash;
+      run.acceptedAt = Number(run.acceptedAt) || Date.now();
+      run.pendingCommit = null;
+      syncCreationCommitReceipt(state, run);
+    }
+    run.errorCode = text(remote.error && remote.error.code || remote.errorCode || '');
+    run.lastServerMessage = text(remote.lastEvent && remote.lastEvent.message || run.lastServerMessage || '');
+    run.status = nextState === 'waiting_author' ? 'awaiting_confirmation'
+      : nextState === 'committed' ? 'accepted'
+        : nextState === 'provider_unknown' ? 'provider_unknown'
+          : nextState === 'cancelled' ? 'cancelled'
+            : nextState === 'failed' ? 'failed'
+              : nextState === 'needs_human' ? 'needs_review'
+                : nextState === 'cancel_requested' ? 'cancel_requested'
+                  : nextState;
+    if (draft) {
+      run.finalText = draft;
+      run.draft = draft;
+      run.resultContentHash = outputHash || await hashText(draft);
+      run.pendingFactLedgerHash = run.resultContentHash;
+      const semantic = result.semanticAudit && (result.semanticAudit.audit || result.semanticAudit) || {};
+      run.pendingFactLedgerDelta = semantic.factLedgerDelta || result.audit && result.audit.factLedgerDelta || null;
+      run.audit = generationV2Audit(result, nextState);
+      run.outputHash = run.resultContentHash;
+    }
+    if (item) {
+      const status = generationV2Status(nextState);
+      item.generationV2 = true;
+      item.remoteRunId = run.remoteRunId;
+      item.serverState = nextState;
+      item.workflowRunId = run.id;
+      item.workflowStage = status.workflowStage;
+      item.status = status.itemStatus;
+      if (draft) {
+        item.text = draft;
+        item.audit = cloneValue(run.audit);
+        item.resultId = item.resultId || uid('ai-result');
+      } else if (run.lastServerMessage && status.itemStatus === 'in_progress') {
+        item.text = run.lastServerMessage;
+      }
+      item.retryPrompt = ['provider_unknown', 'cancelled', 'committed'].includes(nextState) ? '' : run.prompt || item.retryPrompt || '';
+      item.errorNotice = nextState === 'provider_unknown'
+        ? '供应商结果未知；系统已停止自动重试，请查询任务状态。'
+        : nextState === 'needs_human' || nextState === 'rejected'
+          ? run.lastServerMessage || '审计需要人工复核；正文已保留。'
+          : nextState === 'cancelled' ? '生成已取消；未写入正文。'
+            : nextState === 'failed' ? text(remote.error && remote.error.message || run.lastServerMessage || '生成未完成。')
+              : '';
+    }
+    if (priorState !== nextState) persistGenerationRun(state, run);
+    return priorState !== nextState;
+  }
+
+  function generationV2StageForEvent(event) {
+    const state = text(event && (event.state || event.event && event.event.state) || '');
+    return generationV2Status(state).workflowStage;
+  }
+
+  async function observeGenerationRun(state, run, item, options) {
+    if (!run || !run.remoteRunId) return { outcome: 'unavailable' };
+    const existing = runtime.editorGenerationRunObservers.get(run.remoteRunId);
+    if (existing) return existing;
+    const settings = options || {};
+    const observer = (async () => {
+      const capabilities = settings.capabilities || await generationV2Capabilities();
+      if (!capabilities.generationV2 || capabilities.recovery !== true) {
+        if (item) {
+          item.status = 'unknown';
+          item.workflowStage = 'unknown';
+          item.errorNotice = '服务端未提供任务恢复能力，稿件与任务编号已保留。';
+          renderEditorChat();
+        }
+        return { outcome: 'unavailable', run: null };
+      }
+      const client = await generationRunsClient();
+      if (settings.ownBusy !== false) {
+        runtime.activeGenerationRun = run;
+        runtime.activeGenerationState = state;
+        runtime.editorBusy = true;
+        renderGenerationControl();
+      }
+      const result = await client.observe(run.remoteRunId, {
+        after: Number(run.serverEventCursor) || 0,
+        signal: settings.signal,
+        onEvent: event => {
+          const sequence = Number(event && event.sequence) || 0;
+          run.serverEventCursor = Math.max(Number(run.serverEventCursor) || 0, sequence);
+          run.serverState = text(event && event.state || run.serverState);
+          run.lastServerMessage = text(event && (event.message || event.event && event.event.message) || run.lastServerMessage);
+          if (item) {
+            item.serverState = run.serverState;
+            item.workflowStage = generationV2StageForEvent(event);
+            if (run.lastServerMessage && item.status === 'in_progress') item.text = run.lastServerMessage;
+            renderEditorChat();
+          }
+          persistGenerationRun(state, run);
+        },
+        onRun: (remote, stages) => {
+          void applyGenerationV2Snapshot(state, run, item, remote, stages).then(changed => {
+            if (changed && item) renderEditorChat();
+          });
+        }
+      });
+      if (result && result.run) await applyGenerationV2Snapshot(state, run, item, result.run, result.stages);
+      if (item) {
+        writeWorkspace('editor-chat', chatRecords());
+        renderEditorChat();
+      }
+      return result;
+    })().catch(error => {
+      if (error && error.code === 'generation_v2_disabled') {
+        if (item) {
+          item.status = 'unknown';
+          item.workflowStage = 'unknown';
+          item.errorNotice = 'Generation V2 已关闭，暂时无法读取此任务；任务编号和草稿已保留。';
+          renderEditorChat();
+        }
+        return { outcome: 'unavailable', error };
+      }
+      if (item) {
+        item.status = 'unknown';
+        item.workflowStage = 'unknown';
+        item.errorNotice = '暂时无法确认服务端任务状态；已保留任务编号与稿件，不会自动重新生成。';
+        renderEditorChat();
+      }
+      return { outcome: 'unknown', error };
+    }).finally(() => {
+      runtime.editorGenerationRunObservers.delete(run.remoteRunId);
+      if (runtime.activeGenerationRun === run) {
+        runtime.activeGenerationRun = null;
+        runtime.activeGenerationState = null;
+        runtime.editorBusy = false;
+        runtime.editorGenerationCancelPending = false;
+        renderGenerationControl();
+        const thinking = getStage() && getStage().querySelector('[data-completion-thinking]');
+        thinking && thinking.classList.remove('visible');
+      }
+    });
+    runtime.editorGenerationRunObservers.set(run.remoteRunId, observer);
+    return observer;
+  }
+
+  function restoreGenerationV2Projections(state, records) {
+    if (!state) return;
+    state.generationRuns = Array.isArray(state.generationRuns) ? state.generationRuns : [];
+    const stored = readWorkspace('generation-run-projection', []);
+    stored.filter(item => item && item.novelId === completionNovelKey(state) && item.run).forEach(item => {
+      const existing = state.generationRuns.find(run => run && run.id === item.run.id);
+      if (!existing) state.generationRuns.push(cloneValue(item.run));
+    });
+    (records || []).forEach(item => {
+      if (!item || !item.generationV2 || !item.remoteRunId) return;
+      let run = state.generationRuns.find(candidate => candidate && candidate.id === item.workflowRunId);
+      if (!run) {
+        run = { id: item.workflowRunId || item.remoteRunId, generationV2: true, remoteRunId: item.remoteRunId, prompt: item.retryPrompt || '', chapterId: item.target && item.target.chapterId || '', sceneId: item.target && item.target.sceneId || '', serverState: item.serverState || 'created' };
+        state.generationRuns.unshift(run);
+      }
+      run.generationV2 = true;
+      run.remoteRunId = item.remoteRunId;
+      if (item.serverState && !run.serverState) run.serverState = item.serverState;
+    });
+  }
+
+  async function recoverGenerationRuns(state, records) {
+    if (!state || runtime.editorBusy) return;
+    restoreGenerationV2Projections(state, records);
+    const pendingCreate = (state.generationRuns || []).find(run => run && run.generationV2 &&
+      !run.remoteRunId && run.idempotencyKey && run.createRequest && run.serverState === 'unknown');
+    if (pendingCreate) {
+      const item = (records || []).find(record => record && record.workflowRunId === pendingCreate.id);
+      void recoverGenerationV2Create(state, pendingCreate, item);
+      return;
+    }
+    const candidate = (records || []).slice().reverse().find(item => {
+      const run = (state.generationRuns || []).find(value => value && value.id === item.workflowRunId);
+      return item && run && run.generationV2 && run.remoteRunId &&
+        ['created', 'request_validated', 'genre_resolved', 'style_resolved', 'context_built', 'contract_validated', 'pre_generation_guard', 'scene_planning', 'generating', 'draft_received', 'deterministic_audit', 'semantic_audit', 'quality_audit', 'revision', 'cancel_requested', 'waiting_author', 'needs_human', 'committing'].includes(run.serverState);
+    });
+    if (!candidate) return;
+    const run = (state.generationRuns || []).find(value => value && value.id === candidate.workflowRunId);
+    void observeGenerationRun(state, run, candidate, { ownBusy: true });
+  }
+
+  /** 用已保存的幂等键取回创建响应未知的任务，不生成第二个 Run。 */
+  async function recoverGenerationV2Create(state, run, item) {
+    if (!state || !run || !run.idempotencyKey || !run.createRequest || runtime.editorBusy) return;
+    runtime.editorBusy = true;
+    runtime.activeGenerationRun = run;
+    runtime.activeGenerationState = state;
+    renderGenerationControl();
+    try {
+      const capabilities = await generationV2Capabilities();
+      if (!capabilities.generationV2 || capabilities.recovery !== true) throw new Error('Generation V2 查询能力当前不可用');
+      const created = await (await generationRunsClient()).create(run.createRequest, run.idempotencyKey);
+      const remote = created && created.run;
+      if (!created || created.ok !== true || !remote || !remote.id) throw new Error('服务端仍未确认此 Idempotency-Key 对应的任务');
+      run.remoteRunId = String(remote.id);
+      run.serverState = text(remote.state || 'created');
+      run.createRequest = null;
+      run.status = run.serverState;
+      if (item) {
+        item.generationV2 = true;
+        item.remoteRunId = run.remoteRunId;
+        item.serverState = run.serverState;
+      }
+      persistGenerationRun(state, run);
+      await applyGenerationV2Snapshot(state, run, item, remote, []);
+      if (item) writeWorkspace('editor-chat', chatRecords());
+      await observeGenerationRun(state, run, item, { capabilities, ownBusy: true });
+    } catch (error) {
+      run.status = 'unknown';
+      run.serverState = run.remoteRunId ? run.serverState : 'unknown';
+      run.lastServerMessage = text(error && error.message || '任务状态暂时无法确认');
+      if (item) {
+        item.status = 'unknown';
+        item.workflowStage = 'unknown';
+        item.errorNotice = '服务端任务状态暂时无法确认；Idempotency-Key 已保留，未创建新的生成请求。';
+        renderEditorChat();
+      }
+      persistGenerationRun(state, run);
+    } finally {
+      if (runtime.activeGenerationRun === run && runtime.editorBusy) {
+        runtime.activeGenerationRun = null;
+        runtime.activeGenerationState = null;
+        runtime.editorBusy = false;
+        renderGenerationControl();
+      }
+    }
+  }
+
+  /** 仅针对当前服务端已验证 issue 做局部修订，并以最新 outputHash 执行 CAS。 */
+  async function reviseGenerationV2Item(index) {
+    if (runtime.editorBusy || runtime.aiApplyBusy) { toast('当前任务仍在处理，请稍后修订'); return false; }
+    const records = chatRecords();
+    const item = records[Number(index)];
+    const state = editorState(false);
+    const run = state && (state.generationRuns || []).find(record => record && record.id === item?.workflowRunId);
+    if (!item || !run || !run.generationV2 || !run.remoteRunId) { toast('Generation V2 任务编号不可用，无法安全修订'); return false; }
+    runtime.editorBusy = true;
+    runtime.activeGenerationRun = run;
+    runtime.activeGenerationState = state;
+    run.status = 'revising';
+    if (item) { item.status = 'in_progress'; item.workflowStage = 'revising'; item.errorNotice = ''; }
+    renderGenerationControl();
+    renderEditorChat();
+    try {
+      const capabilities = await generationV2Capabilities();
+      if (!capabilities.generationV2 || capabilities.recovery !== true) throw new Error('Generation V2 修订或任务查询能力不可用');
+      const client = await generationRunsClient();
+      const snapshot = await client.get(run.remoteRunId);
+      if (!snapshot || !snapshot.run) throw new Error('服务端未返回可验证的生成任务状态');
+      await applyGenerationV2Snapshot(state, run, item, snapshot.run, snapshot.stages || []);
+      if (!['waiting_author', 'needs_human'].includes(run.serverState)) {
+        throw new Error('服务端任务当前状态不允许修订');
+      }
+      if (await hashText(item.text) !== run.outputHash) throw new Error('当前稿件与服务端审计 hash 不一致，不能修订');
+      const attempted = new Set();
+      let appliedCount = 0;
+      while (appliedCount < 2 && Number(run.serverResult && run.serverResult.revisionRound || 0) < 2) {
+        const issues = Array.isArray(item.audit && item.audit.issues) ? item.audit.issues : [];
+        const issue = issues.find(candidate => {
+          const key = `${text(candidate && candidate.category)}|${text(candidate && candidate.quote)}|${text(candidate && candidate.problem)}`;
+          return candidate && candidate.status === 'verified' && text(candidate.issueId) &&
+            text(candidate.quote).trim().length >= 6 && !attempted.has(key);
+        });
+        if (!issue) break;
+        const key = `${text(issue.category)}|${text(issue.quote)}|${text(issue.problem)}`;
+        attempted.add(key);
+        const replacementWindow = generationV2ReplacementWindow(item.text, issue.quote);
+        if (!replacementWindow) continue;
+        const response = await client.revise(run.remoteRunId, {
+          issueId: String(issue.issueId),
+          quote: String(issue.quote),
+          replacementWindow,
+          replacement: '',
+          preservedFacts: [],
+          outputHash: String(run.outputHash)
+        });
+        if (!response || response.ok !== true || !response.run) throw new Error('服务端未确认局部修订结果');
+        await applyGenerationV2Snapshot(state, run, item, response.run, response.stages || []);
+        appliedCount += 1;
+        if (run.serverState !== 'waiting_author') break;
+      }
+      if (!appliedCount) {
+        toast('当前服务端审计没有可唯一定位的已验证原文证据');
+        return false;
+      }
+      item.status = run.serverState === 'waiting_author' ? 'ready' : generationV2Status(run.serverState).itemStatus;
+      item.workflowStage = generationV2Status(run.serverState).workflowStage;
+      item.errorNotice = run.serverState === 'needs_human' ? '修订后仍需人工复核；正文已保留。' : '';
+      writeWorkspace('editor-chat', records);
+      renderEditorChat();
+      toast(run.serverState === 'waiting_author' ? `服务端局部修订并复审完成（${appliedCount} 轮）` : '服务端修订需要人工复核，正文已保留');
+      return run.serverState === 'waiting_author';
+    } catch (error) {
+      item.status = 'unknown';
+      item.workflowStage = 'unknown';
+      item.errorNotice = `修订结果尚未确认；稿件与 Run 已保留，请先查询状态。${text(error && error.message || '')}`;
+      run.status = 'unknown';
+      run.lastServerMessage = text(error && error.message || '服务端修订响应未确认');
+      persistGenerationRun(state, run);
+      writeWorkspace('editor-chat', records);
+      renderEditorChat();
+      toast(run.lastServerMessage);
+      return false;
+    } finally {
+      if (runtime.activeGenerationRun === run) {
+        runtime.activeGenerationRun = null;
+        runtime.activeGenerationState = null;
+      }
+      runtime.editorBusy = false;
+      runtime.editorGenerationCancelPending = false;
+      renderGenerationControl();
+    }
+  }
+
   function setEditorThinking(node, message) {
     if (node) node.textContent = message;
   }
@@ -2726,7 +3875,11 @@
     }
     if (stop) {
       stop.hidden = !busy;
-      stop.disabled = !busy;
+      const generationV2 = Boolean(runtime.activeGenerationRun && runtime.activeGenerationRun.generationV2);
+      stop.disabled = !busy || generationV2 && runtime.editorGenerationCancelPending;
+      stop.setAttribute('aria-label', generationV2 ? '取消生成' : '暂停生成');
+      stop.title = generationV2 ? '取消生成' : '暂停生成';
+      stop.innerHTML = ico(generationV2 ? 'x' : 'pause');
     }
   }
 
@@ -2771,6 +3924,10 @@
 
   function pauseEditorAI() {
     if (!runtime.editorBusy) return;
+    if (runtime.activeGenerationRun && runtime.activeGenerationRun.generationV2) {
+      void cancelActiveGenerationV2();
+      return;
+    }
     runtime.generationPauseRequested = true;
     const controller = runtime.activeRequestController;
     if (controller && typeof controller.abort === 'function') {
@@ -2780,12 +3937,59 @@
     renderGenerationControl();
   }
 
+  async function cancelActiveGenerationV2() {
+    const run = runtime.activeGenerationRun;
+    if (!run || !run.generationV2) return;
+    runtime.editorGenerationCancelPending = true;
+    runtime.editorGenerationCancelRequested = true;
+    const thinking = getStage() && getStage().querySelector('[data-completion-thinking]');
+    if (thinking) setEditorThinking(thinking, '正在请求取消任务…');
+    renderGenerationControl();
+    if (!run.remoteRunId) {
+      run.lastServerMessage = '已请求取消；尚未创建服务端任务。';
+      return;
+    }
+    try {
+      const client = await generationRunsClient();
+      let snapshot;
+      try {
+        snapshot = await client.cancel(run.remoteRunId);
+      } catch (error) {
+        if (error && error.code === 'generation_v2_disabled') throw error;
+        snapshot = await client.get(run.remoteRunId);
+      }
+      await applyGenerationV2Snapshot(runtime.activeGenerationState || editorState(false), run, null, snapshot.run || snapshot, snapshot.stages || []);
+      if (thinking) setEditorThinking(thinking, run.serverState === 'cancelled' ? '任务已取消' : '已请求取消，正在等待服务端确认…');
+      toast(run.serverState === 'cancelled' ? '生成已取消' : '已向服务端请求取消');
+    } catch (error) {
+      if (thinking) setEditorThinking(thinking, '取消结果未确认，正在查询任务状态…');
+      try {
+        const client = await generationRunsClient();
+        const snapshot = await client.get(run.remoteRunId);
+        await applyGenerationV2Snapshot(runtime.activeGenerationState || editorState(false), run, null, snapshot.run || snapshot, snapshot.stages || []);
+      } catch (_) {
+        toast('取消结果尚未确认；任务不会自动重新生成。');
+      }
+    } finally {
+      runtime.editorGenerationCancelPending = false;
+      renderGenerationControl();
+    }
+  }
+
   function persistGenerationRun(state, run) {
     state.generationRuns = Array.isArray(state.generationRuns) ? state.generationRuns : [];
     const index = state.generationRuns.findIndex(item => item && item.id === run.id);
     if (index >= 0) state.generationRuns[index] = run;
     else state.generationRuns.unshift(run);
     state.generationRuns = state.generationRuns.slice(0, 30);
+    if (run.generationV2) {
+      const novelId = completionNovelKey(state);
+      const projections = readWorkspace('generation-run-projection', []).filter(item =>
+        item && !(item.novelId === novelId && item.run && item.run.id === run.id));
+      projections.unshift({ novelId, updatedAt: Date.now(), run: cloneValue(run) });
+      writeWorkspace('generation-run-projection', projections.slice(0, 30));
+      return;
+    }
     scheduleSave({ snapshot: false });
   }
 
@@ -2968,12 +4172,37 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     if (writingSystem.length + prompt.length > 32000) throw new Error('章节上下文超过预算，请缩小历史范围或整理账本；未静默删除关键设定。');
     const reasoningControl = stageNode.querySelector('[data-completion-thinking-control]');
     const scopedLedger = scopeFactLedger(state.factLedger, (context.characters || []).map(item => item && item.name));
+    const creationCharacters = state.creationContext && state.creationContext.bible && state.creationContext.bible.payload &&
+      Array.isArray(state.creationContext.bible.payload.characters) ? state.creationContext.bible.payload.characters : [];
+    const requestCharacters = (context.characters || []).slice(0, 16).map(character => {
+      const entity = state.knowledge && state.knowledge.entities && state.knowledge.entities[character.id] || {};
+      const bibleCharacter = creationCharacters.find(item => item && String(item.name || '') === String(character.name || ''));
+      const sourceVoice = character.voice_contract || character.voiceContract || character.voice ||
+        entity.voice_contract || entity.voiceContract || entity.voice ||
+        bibleCharacter && (bibleCharacter.voice_contract || bibleCharacter.voiceContract || bibleCharacter.voice) ||
+        ((entity.turnLengthPref || entity.turn_length_pref || entity.styleHabits || entity.tabooWords)
+          ? entity
+          : (bibleCharacter && (bibleCharacter.turnLengthPref || bibleCharacter.styleHabits || bibleCharacter.tabooWords) ? bibleCharacter : null));
+      const voice = sourceVoice && typeof sourceVoice === 'object' && !Array.isArray(sourceVoice)
+        ? sourceVoice
+        : sourceVoice ? { styleHabits: [sourceVoice] } : {};
+      const firstList = (...values) => values.find(value => Array.isArray(value) ? value.length > 0 : value != null && String(value).trim()) || [];
+      return {
+        ...character,
+        voice_contract: {
+          ...voice,
+          turnLengthPref: voice.turnLengthPref || voice.turn_length_pref || voice.sentenceLengthPreference || voice.sentence_length_preference || 'medium_long',
+          styleHabits: firstList(voice.styleHabits, voice.style_habits, voice.verbalHabits, voice.verbal_habits, voice.habits, voice.habit),
+          tabooWords: firstList(voice.tabooWords, voice.taboo_words, voice.tabooPhrases, voice.taboo_phrases, voice.taboos, voice.taboo)
+        }
+      };
+    });
     const draftResult = await creationRequest('/api/benchmark/generate', trackedGenerationOptions({ method: 'POST', body: {
       requestId: run.id, prompt, writingSystem, genre: editorGenre, targetWords: draftTargetChars, contract,
       novelId: state.id || '', creationBookId: state.creationBookId || '',
       modelId: (stageNode.querySelector('[data-completion-model]') || {}).value || undefined,
       reasoningEffort: reasoningControl && reasoningControl.dataset.mode === 'reasoning' ? reasoningControl.value : undefined,
-      factLedger: scopedLedger || null, previousEnding: context.previous && context.previous.ending || '', maxRounds: 2
+      characters: requestCharacters, factLedger: scopedLedger || null, previousEnding: context.previous && context.previous.ending || '', maxRounds: 2
     } }));
     const draftRaw = text(draftResult && draftResult.text);
     const draft = typeof sanitizeAiFlavor === 'function' ? sanitizeAiFlavor(draftRaw) : draftRaw;
@@ -3062,6 +4291,208 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     return draft;
   }
 
+  /** 生成服务的局部修订使用固定段落窗口；客户端按同一规则提交证据。 */
+  function generationV2ReplacementWindow(sourceText, quote) {
+    const source = String(sourceText || '');
+    const target = String(quote || '');
+    if (!target) return null;
+    const first = source.indexOf(target);
+    if (first < 0 || source.indexOf(target, first + target.length) >= 0) return null;
+    const paragraphs = source.split(/(?<=\n\s*\n)/);
+    let offset = 0;
+    const index = paragraphs.findIndex(paragraph => {
+      const start = offset;
+      offset += paragraph.length;
+      return first >= start && first < offset;
+    });
+    if (index < 0) return null;
+    return {
+      before: paragraphs.slice(Math.max(0, index - 2), index).join(''),
+      target,
+      after: paragraphs.slice(index + 1, Math.min(paragraphs.length, index + 3)).join('')
+    };
+  }
+
+  /** 新建或补齐 Generation V2 所需的创作书，并先持久化小说关联。 */
+  async function ensureGenerationV2CreationBook(state, prompt) {
+    const preview = getPreview();
+    const backend = getBackend();
+    const novelId = String(preview.novelId || state.id || '');
+    if (!state.creationBookId) {
+      if (!novelId || !backend.token) throw new Error('Generation V2 正式提交需要已登录的服务器作品和创作书');
+      const creationData = await creationRequest('/api/creation-books', {
+        method: 'POST',
+        body: {
+          title: text(state.title || preview.novel && preview.novel.title || '未命名小说'),
+          genre: text(state.projectProfile && state.projectProfile.primaryGenre || state.genre || state.type || state.genreRoute || ''),
+          plan: text(state.outline && state.outline.oneLine || prompt || ''),
+          novelId,
+          generated: true
+        }
+      });
+      state.creationBookId = text(creationData && (creationData.creationBookId || creationData.creationBook && creationData.creationBook.id));
+      if (!state.creationBookId) throw new Error(creationData && creationData.error || '创作书创建未确认，已停止 Generation V2');
+      state.creationBookLinked = true;
+      await persistAppliedNovel({ snapshot: false });
+    } else if (novelId && !state.creationBookLinked) {
+      await creationRequest(`/api/creation-books/${encodeURIComponent(state.creationBookId)}/link-novel`, {
+        method: 'POST', body: { novelId }
+      });
+      state.creationBookLinked = true;
+      await persistAppliedNovel({ snapshot: false });
+    }
+    const context = await hydrateCreationContext(state);
+    if (!context || !context.bible || !Number.isInteger(Number(state.creationStateVersion)) ||
+      !Number.isInteger(Number(state.creationBibleVersion))) {
+      throw new Error('创作书状态或创作圣经未能读取，Generation V2 尚不能安全提交');
+    }
+    return context;
+  }
+
+  /** 通过服务端 Generation Run 执行正式正文生成并观察可恢复状态。 */
+  async function runChapterWorkflowV2({ state, prompt, stageNode, records, assistantIndex, target, context, capabilities }) {
+    const current = context.current;
+    const chapter = current && current.chapter;
+    const scene = current && current.scene;
+    if (!chapter || !scene) throw new Error('Generation V2 需要明确的当前章节和场景');
+    await ensureGenerationV2CreationBook(state, prompt);
+    context = currentContext(state);
+    const preview = getPreview();
+    const projectId = String(preview.novelId || state.id || '');
+    const expectedRevision = Number(preview.novelRevision);
+    const baseStateVersion = Number(state.creationStateVersion);
+    const baseBibleVersion = Number(state.creationBibleVersion);
+    if (!projectId || !Number.isInteger(expectedRevision) || expectedRevision < 0 ||
+      !Number.isInteger(baseStateVersion) || baseStateVersion < 0 ||
+      !Number.isInteger(baseBibleVersion) || baseBibleVersion < 1) {
+      throw new Error('Generation V2 缺少有效的作品 revision、故事状态或创作圣经版本');
+    }
+    const baseContent = String(scene.content == null ? '' : scene.content);
+    const baseHash = await hashText(baseContent);
+    if (!/^[a-f0-9]{64}$/i.test(baseHash)) throw new Error('当前环境不能计算 SHA-256，已停止 Generation V2');
+    const modelId = text((stageNode.querySelector('[data-completion-model]') || {}).value || getPreview().editorModel || '');
+    const contract = context.contract || state.chapterContracts && state.chapterContracts[chapter.id] || null;
+    const storyContext = {
+      stateVersion: baseStateVersion,
+      baseStateVersion,
+      baseRevision: expectedRevision,
+      baseHash,
+      contentHash: baseHash,
+      previousEnding: text(context.previous && context.previous.ending || ''),
+      planText: clipContextText(context.outline || '', 3000),
+      factLedger: cloneValue(state.factLedger || null),
+      characters: cloneValue(context.characters || []),
+      continuity: {
+        chapterTitle: text(chapter.title),
+        sceneName: text(scene.name),
+        currentBody: clipContextText(plainText(baseContent), 9000),
+        outline: clipContextText(context.outline || '', 3000),
+        nextChapter: context.next ? { title: text(context.next.title), outline: clipContextText(context.next.outline || '', 1600) } : null,
+        entities: clipContextText(context.entities || '', 5000),
+        openForeshadows: clipContextText(context.foreshadows || '', 2500),
+        dossier: clipContextText(context.dossier || '', 5000),
+        canonSnapshot: cloneValue(context.canonSnapshot || null),
+        creationBible: clipContextText(context.creationBible || '', 9000),
+        styleKit: clipContextText(context.styleKit || '', 2500),
+        globalLedger: clipContextText(context.globalLedger || '', 3000),
+        history: cloneValue((context.history || []).slice(-4))
+      }
+    };
+    const targetWords = Number(state.creationContext && state.creationContext.bible &&
+      state.creationContext.bible.payload && state.creationContext.bible.payload.taskConstraints &&
+      state.creationContext.bible.payload.taskConstraints.chapterWordTarget) ||
+      Number(contract && (contract.targetWords || contract.wordTarget)) || 0;
+    const requestPayload = {
+      projectId,
+      novelId: projectId,
+      creationBookId: String(state.creationBookId),
+      chapterId: String(chapter.id),
+      sceneId: String(scene.id),
+      modelId: modelId || undefined,
+      genre: text(state.projectProfile && state.projectProfile.primaryGenre || state.genre || state.type || state.genreRoute || ''),
+      style: text(state.stylePreset || state.settings && (state.settings.stylePreset || state.settings.style) || ''),
+      userInstruction: prompt,
+      prompt,
+      messages: [{ role: 'user', content: prompt }],
+      contract: contract ? cloneValue(contract) : undefined,
+      chapterContract: contract ? cloneValue(contract) : undefined,
+      storyContext,
+      factLedger: cloneValue(state.factLedger || null),
+      previousEnding: storyContext.previousEnding,
+      planText: storyContext.planText,
+      characters: cloneValue(context.characters || []),
+      targetWords,
+      writingSystem: clipContextText([context.styleKit || '', context.globalLedger || ''].filter(Boolean).join('\n\n'), 12000)
+    };
+    const idempotencyKey = window.crypto && typeof window.crypto.randomUUID === 'function'
+      ? window.crypto.randomUUID() : uid('generation-idempotency');
+    const run = {
+      id: uid('generation-run'), generationV2: true, idempotencyKey,
+      projectId,
+      chapterId: String(chapter.id), sceneId: String(scene.id), chapterTitle: text(chapter.title), sceneName: text(scene.name),
+      prompt, createdAt: Date.now(), status: 'creating', serverState: 'created',
+      commitBase: { expectedRevision, baseStateVersion, baseBibleVersion, baseHash, chapterNo: creationChapterNo(state, chapter.id) },
+      createRequest: requestPayload, context: cloneValue({ outline: context.outline, previous: context.previous, next: context.next })
+    };
+    runtime.activeGenerationRun = run;
+    runtime.activeGenerationState = state;
+    persistGenerationRun(state, run);
+    records[assistantIndex].workflowStage = 'planning';
+    records[assistantIndex].workflowRunId = run.id;
+    records[assistantIndex].generationV2 = true;
+    records[assistantIndex].idempotencyKey = idempotencyKey;
+    records[assistantIndex].status = 'in_progress';
+    records[assistantIndex].text = '正在创建服务端生成任务…';
+    writeWorkspace('editor-chat', records);
+    renderEditorChat();
+
+    let created;
+    try {
+      created = await (await generationRunsClient()).create(requestPayload, idempotencyKey);
+    } catch (error) {
+      const rejected = error && error.status >= 400 && error.status < 500 && error.status !== 408;
+      run.status = rejected ? 'failed' : 'unknown';
+      run.serverState = rejected ? 'failed' : 'unknown';
+      run.errorCode = text(error && error.code || '');
+      run.lastServerMessage = text(error && error.message || '创建任务响应未确认');
+      if (rejected) run.createRequest = null;
+      records[assistantIndex].status = rejected ? 'failed' : 'unknown';
+      records[assistantIndex].workflowStage = rejected ? 'failed' : 'unknown';
+      records[assistantIndex].errorNotice = rejected
+        ? run.lastServerMessage
+        : '创建结果尚未确认；任务请求和 Idempotency-Key 已保留，不会切换到旧生成链。';
+      records[assistantIndex].text = rejected ? `生成未完成：${run.lastServerMessage}` : '正在确认服务端生成任务状态…';
+      persistGenerationRun(state, run);
+      writeWorkspace('editor-chat', records);
+      throw error;
+    }
+    const remote = created && created.run;
+    if (!created || created.ok !== true || !remote || !remote.id) {
+      run.status = 'unknown';
+      run.serverState = 'unknown';
+      run.lastServerMessage = '服务端未返回可验证的 Generation Run 编号';
+      records[assistantIndex].status = 'unknown';
+      records[assistantIndex].workflowStage = 'unknown';
+      records[assistantIndex].errorNotice = `${run.lastServerMessage}；任务请求和 Idempotency-Key 已保留，不会切换到旧生成链。`;
+      records[assistantIndex].text = '正在确认服务端生成任务状态…';
+      persistGenerationRun(state, run);
+      writeWorkspace('editor-chat', records);
+      throw new Error(run.lastServerMessage);
+    }
+    run.remoteRunId = String(remote.id);
+    run.serverState = text(remote.state || 'created');
+    run.createRequest = null;
+    run.status = run.serverState;
+    records[assistantIndex].remoteRunId = run.remoteRunId;
+    records[assistantIndex].serverState = run.serverState;
+    records[assistantIndex].idempotencyKey = idempotencyKey;
+    persistGenerationRun(state, run);
+    await applyGenerationV2Snapshot(state, run, records[assistantIndex], remote, []);
+    writeWorkspace('editor-chat', records);
+    await observeGenerationRun(state, run, records[assistantIndex], { capabilities, ownBusy: true });
+    return run.finalText || '';
+  }
+
   async function sendEditorAI() {
     const overridePrompt = arguments[0];
     const options = arguments[1];
@@ -3075,7 +4506,6 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     const state = editorState(false);
     if (!state) { toast('请先打开一本作品'); return; }
     const request = refFunction('requestChatText');
-    if (!request) { toast('当前页面未加载 AI 请求接口'); return; }
     const routeSelect = stageNode && stageNode.querySelector && stageNode.querySelector('[data-completion-xuanhuan-route]');
     const activeRoute = (routeSelect && routeSelect.value) || (state && (state.genreRoute || state.xuanhuanRoute)) || 'auto';
     if (state) state.genreRoute = activeRoute;
@@ -3122,9 +4552,17 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       ensureGenerationActive(records[assistantIndex].text);
       const context = currentContext(state);
       if (isBodyTask(prompt)) {
-        setEditorThinking(thinking, '正在建立章节执行卡');
-        await runChapterWorkflow({ state, prompt, stageNode, records, assistantIndex, target, context });
+        const capabilities = await generationV2Capabilities();
+        if (capabilities.code === 'generation_v2_disabled') {
+          if (!request) throw new Error('当前页面未加载 AI 请求接口');
+          setEditorThinking(thinking, '正在建立章节执行卡');
+          await runChapterWorkflow({ state, prompt, stageNode, records, assistantIndex, target, context });
+        } else {
+          setEditorThinking(thinking, '正在创建服务端生成任务');
+          await runChapterWorkflowV2({ state, prompt, stageNode, records, assistantIndex, target, context, capabilities });
+        }
       } else {
+        if (!request) throw new Error('当前页面未加载 AI 请求接口');
         setEditorThinking(thinking, '正在整理上下文');
          const system = `你是墨阑小说编辑器中的创作助手。必须严格遵守当前作品事实，不得擅自新增人物、地点、势力、物品或伏笔。根据用户任务直接给出可执行结果；如果用户要求正文，输出可以直接进入小说的正文，不要解释。\n\n${DYNAMIC_CONTEXT_MARKER}\n\n当前章节：${context.current.chapter ? context.current.chapter.title : '未选择'} · 当前场景：${context.current.scene ? context.current.scene.name : '未选择'}\n上一章结尾：${context.previous ? clipContextText(context.previous.ending || '暂无', 1000) : '暂无'}\n下一章接口：${context.next ? `${context.next.title}：${clipContextText(context.next.outline || '暂无', 600)}` : '暂无'}\n章节大纲：${clipContextText(context.outline || '暂无', 1500)}\n相关设定：\n${clipContextText(context.entities || '暂无动态召回设定', 2000)}\n作品资料中心（定位、专项素材，只读引用）：\n${clipContextText(context.dossier || '暂无', 2200)}\n创作圣经（只读事实）：\n${clipContextText(context.creationBible || '当前作品未接入创作圣经', 2000)}\n风格工坊（遵循）：\n${clipContextText(context.styleKit || '暂无', 1000)}\n全局规则与长线伏笔（只读）：\n${clipContextText(context.globalLedger || '暂无', 1200)}\n全书事实账本（检索）：\n${clipContextText(context.factLedger || '暂无', 1500)}\n未回收伏笔：\n${clipContextText(context.foreshadows || '暂无', 1000)}\n当前正文（仅用于衔接）：\n${clipContextText(context.body || '暂无正文', 1500)}${context.contract ? `\n\n当前章节执行卡：\n${JSON.stringify(context.contract, null, 2)}` : ''}`;
          const history = records.filter(item => item && item.text).slice(-8).map(item => ({ role: item.kind === 'user' ? 'user' : 'assistant', content: item.text }));
@@ -3149,7 +4587,32 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       const rawPartial = text(error && error.partialText || (isStatusProgress(currentText) ? '' : currentText)).trim();
       const isProse = !isPrepStage && !isJsonLike(rawPartial) && rawPartial.length > 0;
       const partialText = isProse ? rawPartial : '';
-      if (paused) {
+      if (activeRun && activeRun.generationV2) {
+        const item = records[assistantIndex];
+        const status = generationV2Status(activeRun.serverState || 'unknown');
+        activeRun.status = activeRun.serverState === 'unknown' ? 'unknown' : activeRun.status;
+        activeRun.lastServerMessage = text(error && error.message || activeRun.lastServerMessage || '服务端任务状态暂时无法确认');
+        if (item) {
+          item.generationV2 = true;
+          item.workflowRunId = activeRun.id;
+          item.remoteRunId = activeRun.remoteRunId || '';
+          item.serverState = activeRun.serverState || 'unknown';
+          item.status = activeRun.serverState === 'unknown' ? 'unknown' : status.itemStatus;
+          item.workflowStage = activeRun.serverState === 'unknown' ? 'unknown' : status.workflowStage;
+          item.text = activeRun.finalText || (item.status === 'in_progress' ? activeRun.lastServerMessage : item.text);
+          item.audit = cloneValue(activeRun.audit || item.audit || null);
+          item.errorNotice = item.status === 'unknown'
+            ? '服务端任务状态暂时无法确认；任务编号与稿件已保留，不会自动重新生成。'
+            : activeRun.lastServerMessage;
+        }
+        persistGenerationRun(state, activeRun);
+        if (item) writeWorkspace('editor-chat', records);
+        toast(activeRun.lastServerMessage);
+        if (runtime.activeGenerationRun === activeRun) {
+          runtime.activeGenerationRun = null;
+          runtime.activeGenerationState = null;
+        }
+      } else if (paused) {
         if (activeRun) {
           const previousStatus = activeRun.status;
           activeRun.status = 'paused';
@@ -3258,9 +4721,22 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
   }
 
   function prepareCreationCommit(state, run, scene, body) {
-    const current = activeRefs(state);
-    const data = ensureKnowledge(state);
-    const latestSnapshot = state.creationContext && Array.isArray(state.creationContext.snapshots) ? state.creationContext.snapshots[0] : null;
+    const generationV2 = Boolean(run && run.generationV2);
+    const legacyState = {};
+    if (!generationV2) {
+      const current = activeRefs(state);
+      const data = ensureKnowledge(state);
+      const latestSnapshot = state.creationContext && Array.isArray(state.creationContext.snapshots) ? state.creationContext.snapshots[0] : null;
+      Object.assign(legacyState, {
+        actualCost: generationActualCost(run),
+        characterStates: data.entities.slice(0, 80).map(entity => ({ id: entity.id, name: entity.name, status: entity.status, location: entity.currentLocation || '' })),
+        relationshipStates: data.edges.slice(0, 120),
+        worldStates: state.creationContext && state.creationContext.bible && state.creationContext.bible.payload && state.creationContext.bible.payload.worldRules || [],
+        timeline: stateTimeline(state).slice(-120),
+        openForeshadows: state.foreshadows.filter(item => item.status !== 'resolved').slice(0, 80),
+        recentFacts: [{ chapterNo: creationChapterNo(state, run.chapterId), title: current.chapter && current.chapter.title || '', ending: body.slice(-1000), previousSnapshotId: latestSnapshot && latestSnapshot.id || '' }]
+      });
+    }
     return cloneValue({
       bookId: state.creationBookId,
       chapterId: run.chapterId,
@@ -3278,13 +4754,7 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
         content: body,
         contentRef: `${completionNovelKey(state)}#${run.chapterId}#${scene.id}`,
         auditStatus: 'passed',
-        actualCost: generationActualCost(run),
-        characterStates: data.entities.slice(0, 80).map(entity => ({ id: entity.id, name: entity.name, status: entity.status, location: entity.currentLocation || '' })),
-        relationshipStates: data.edges.slice(0, 120),
-        worldStates: state.creationContext && state.creationContext.bible && state.creationContext.bible.payload && state.creationContext.bible.payload.worldRules || [],
-        timeline: stateTimeline(state).slice(-120),
-        openForeshadows: state.foreshadows.filter(item => item.status !== 'resolved').slice(0, 80),
-        recentFacts: [{ chapterNo: creationChapterNo(state, run.chapterId), title: current.chapter && current.chapter.title || '', ending: body.slice(-1000), previousSnapshotId: latestSnapshot && latestSnapshot.id || '' }]
+        ...legacyState
       }
     });
   }
@@ -3292,22 +4762,99 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
   async function commitCreationChapter(state, item, scene, content) {
     const run = (state.generationRuns || []).find(record => record && record.id === item.workflowRunId);
     const pending = run && run.pendingCommit;
-    const body = plainText(content);
+    const generationV2 = Boolean(run && run.generationV2);
+    const body = generationV2 ? String(content == null ? '' : content) : plainText(content);
     const contentHash = await hashText(body);
     if (!pending || pending.bookId !== state.creationBookId || pending.chapterId !== run.chapterId ||
       pending.sceneId !== scene.id || !pending.body || pending.body.content !== body ||
       pending.body.contentHash !== contentHash || !normalizeAudit(run.audit).passed ||
       run.audit.contentHash !== contentHash || run.pendingFactLedgerHash !== contentHash ||
-      scene.content !== content || editorState(false) !== state ||
+      (!generationV2 && scene.content !== content) || editorState(false) !== state ||
       !completionTargetMatches(item.target, state, getPreview().editorChatSessionId)) {
       return { outcome: 'rejected', error: '提交正文与持久化请求或审计 hash 不匹配，不能提交' };
     }
     let result;
     try {
-      result = await creationRequest(`/api/creation-books/${encodeURIComponent(pending.bookId)}/commit`, { method: 'POST', body: cloneValue(pending.body) });
+      if (generationV2) {
+        if (!run.remoteRunId || !run.commitBase || run.outputHash !== contentHash) {
+          return { outcome: 'rejected', code: 'STATE_CONFLICT', error: 'Generation V2 缺少原始 Run、基线或服务端输出 hash，不能提交' };
+        }
+        const client = await generationRunsClient();
+        const snapshot = await client.get(run.remoteRunId);
+        const remote = snapshot && snapshot.run;
+        if (!remote) return { outcome: 'unknown', error: '服务端未返回可验证的 Generation Run 状态' };
+        if (remote.state === 'committed') {
+          result = { ok: true, run: remote, receipt: remote.result && remote.result.commitReceipt };
+        } else {
+          if (remote.state !== 'waiting_author') {
+            return { outcome: remote.state === 'committing' ? 'unknown' : 'rejected', code: 'STATE_CONFLICT', error: 'Generation V2 任务当前状态不允许提交' };
+          }
+          const currentSceneHash = await hashText(String(scene.content == null ? '' : scene.content));
+          if (currentSceneHash !== run.commitBase.baseHash ||
+            Number(getPreview().novelRevision) !== Number(run.commitBase.expectedRevision)) {
+            return { outcome: 'rejected', code: 'STATE_CONFLICT', status: 409, error: '作品或场景已在生成后发生变化，草稿已保留；请重新载入并核对后再操作' };
+          }
+          const expectedRevision = Number(run.commitBase.expectedRevision);
+          const baseStateVersion = Number(run.commitBase.baseStateVersion);
+          const commitPayload = {
+            creationBookId: pending.bookId,
+            projectId: String(getPreview().novelId || state.id || ''),
+            chapterId: pending.chapterId,
+            sceneId: pending.sceneId,
+            chapterNo: Number(pending.body.chapterNo),
+            expectedRevision,
+            baseStateVersion,
+            baseHash: String(run.commitBase.baseHash),
+            bibleVersion: Number(run.commitBase.baseBibleVersion),
+            stateVersion: baseStateVersion,
+            contentHash,
+            content: body,
+            contentRef: String(pending.body.contentRef || ''),
+            planHash: String(pending.body.planHash || ''),
+            contextHash: String(pending.body.contextHash || ''),
+            deltaHash: String(pending.body.deltaHash || ''),
+            auditStatus: 'passed'
+          };
+          result = await client.commit(run.remoteRunId, {
+            projectId: commitPayload.projectId,
+            expectedRevision,
+            baseStateVersion,
+            text: body,
+            outputHash: run.outputHash,
+            contentRef: commitPayload.contentRef,
+            payload: commitPayload
+          });
+        }
+      } else {
+        result = await creationRequest(`/api/creation-books/${encodeURIComponent(pending.bookId)}/commit`, { method: 'POST', body: cloneValue(pending.body) });
+      }
     } catch (error) {
       const rejected = error && error.status >= 400 && error.status < 500 && error.status !== 408;
-      return { outcome: rejected ? 'rejected' : 'unknown', code: error && error.code, error: error && error.message || '提交响应未确认' };
+      return { outcome: rejected ? 'rejected' : 'unknown', status: Number(error && error.status) || 0, code: error && error.code, error: error && error.message || '提交响应未确认' };
+    }
+    if (generationV2) {
+      const remote = result && result.run;
+      const receipt = result && result.receipt || remote && remote.result && remote.result.commitReceipt;
+      if (!result || result.ok !== true || !remote || remote.state !== 'committed' || !receipt || receipt.committed !== true ||
+        !receipt.snapshotId || !Number.isInteger(Number(receipt.stateVersion)) || Number(receipt.stateVersion) < 1 ||
+        text(receipt.contentHash) !== contentHash || Number(receipt.chapterNo) !== Number(pending.body.chapterNo)) {
+        return { outcome: 'unknown', error: 'Generation V2 提交回包不完整或与原稿不匹配，尚未确认结果' };
+      }
+      const confirmed = {
+        ...cloneValue(receipt),
+        bookId: pending.bookId,
+        chapterNo: pending.body.chapterNo,
+        contentHash,
+        projectRevision: Number(receipt.projectRevision || receipt.currentProjectRevision) || Number(run.commitBase.expectedRevision) + 1
+      };
+      run.serverState = 'committed';
+      run.status = 'accepted';
+      run.appliedContentHash = contentHash;
+      run.acceptedAt = Date.now();
+      run.commitReceipt = confirmed;
+      run.pendingCommit = null;
+      persistGenerationRun(state, run);
+      return { outcome: 'committed', receipt: run.commitReceipt };
     }
     if (result && result.ok === false && result.code === 'committed_content_conflict') {
       return { outcome: 'rejected', code: result.code, error: result.error || '该章已提交不同正文，请核对服务端状态' };
@@ -3334,6 +4881,10 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     state.creationContext = state.creationContext || {};
     const book = state.creationContext.book;
     if (book) book.currentStateVersion = Math.max(Number(book.currentStateVersion) || 0, state.creationStateVersion);
+    const preview = getPreview();
+    const projectRevision = Number(receipt.projectRevision || receipt.currentProjectRevision) ||
+      Number(run.commitBase && run.commitBase.expectedRevision) + 1;
+    if (Number.isInteger(projectRevision) && projectRevision >= 0) preview.novelRevision = Math.max(Number(preview.novelRevision) || 0, projectRevision);
     const spentCost = receipt.spentCost == null ? NaN : Number(receipt.spentCost);
     if (book && Number.isFinite(spentCost) && spentCost >= 0 && currentVersion >= previousVersion) book.spentCost = spentCost;
     const snapshots = (state.creationContext.snapshots || []).filter(snapshot => snapshot && snapshot.id !== receipt.snapshotId);
@@ -3403,6 +4954,11 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       item.workflowRunId = run.id;
       item.audit = cloneValue(run.audit);
     }
+    const generationV2 = Boolean(run.generationV2 || item.generationV2);
+    if (generationV2 && (!run.generationV2 || !run.remoteRunId || !run.commitBase)) {
+      toast('Generation V2 任务状态不完整；稿件已保留，不能直接写入');
+      return false;
+    }
     const recovering = !!(run && (run.pendingCommit || run.appliedContentHash));
     if (!run || ['needs_review', 'commit_conflict'].includes(run.status) || !normalizeAudit(run.audit).passed ||
       (!recovering && (['needs_review', 'failed', 'interrupted', 'paused'].includes(item.status) || !normalizeAudit(item.audit).passed))) {
@@ -3419,7 +4975,8 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     try {
       if (!matchesTarget()) throw new Error('当前编辑位置已变化，请切回结果发起位置');
       if (run.appliedContentHash) {
-        if (await hashText(plainText(scene.content)) !== run.appliedContentHash) throw new Error('已采纳正文发生变化，不能重复入账');
+        const currentBody = generationV2 ? String(scene.content == null ? '' : scene.content) : plainText(scene.content);
+        if (await hashText(currentBody) !== run.appliedContentHash) throw new Error('已采纳正文发生变化，不能重复入账');
         if (!matchesTarget()) throw new Error('当前编辑位置已变化，未合并账本');
         syncCreationCommitReceipt(state, run);
         await mergeAcceptedLedger(state, run);
@@ -3431,33 +4988,54 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
         return true;
       }
       if (run.pendingCommit) {
-        nextContent = scene.content;
+        nextContent = generationV2 ? String(run.finalText || item.text || '') : scene.content;
       } else {
         const sourceHash = await hashText(item.text);
-        if (sourceHash !== run.resultContentHash) throw new Error('稿件已改变或缺少原稿 hash，不能沿用旧审计');
+        if (sourceHash !== run.resultContentHash || generationV2 && sourceHash !== run.outputHash) throw new Error('稿件已改变或缺少原稿 hash，不能沿用旧审计');
         if (item.audit.contentHash !== sourceHash || run.audit.contentHash !== sourceHash ||
           run.pendingFactLedgerHash !== sourceHash) throw new Error('稿件与审计 hash 不匹配，请重新审计');
-        const addition = textToHtml(item.text);
-        nextContent = mode === 'replace' ? addition : `${normalizeSceneContent(previousContent)}${addition ? `${previousContent ? '\n' : ''}${addition}` : ''}`;
-        const body = plainText(nextContent);
-        if (!body.trim()) throw new Error('待写入正文为空');
-        if (!await requestFinalContentAudit(state, run, body, getStage())) throw new Error(run.audit.summary);
-        item.audit = cloneValue(run.audit);
-        if (await hashText(body) !== run.audit.contentHash) throw new Error('待写入正文 hash 校验失败');
+        let body;
+        if (generationV2) {
+          if (mode !== 'replace') throw new Error('Generation V2 只允许提交原始服务端审计稿；请通过已验证的审计问题执行局部修订');
+          if (item.text !== run.finalText || !state.creationBookId || await hashText(item.text) !== run.outputHash) {
+            throw new Error('Generation V2 正文必须与服务端已审计原稿完全一致');
+          }
+          nextContent = String(run.finalText);
+          body = nextContent;
+          if (!body.trim()) throw new Error('待写入正文为空');
+          if (await hashText(body) !== run.audit.contentHash) throw new Error('待写入正文 hash 校验失败');
+        } else {
+          const addition = textToHtml(item.text);
+          nextContent = mode === 'replace' ? addition : `${normalizeSceneContent(previousContent)}${addition ? `${previousContent ? '\n' : ''}${addition}` : ''}`;
+          body = plainText(nextContent);
+          if (!body.trim()) throw new Error('待写入正文为空');
+          if (!await requestFinalContentAudit(state, run, body, getStage())) throw new Error(run.audit.summary);
+          item.audit = cloneValue(run.audit);
+          if (await hashText(body) !== run.audit.contentHash) throw new Error('待写入正文 hash 校验失败');
+        }
         if (!matchesTarget() || scene.content !== previousContent || item.text !== run.finalText) throw new Error('审计期间正文或编辑位置已变化，请重新审计');
         if (state.creationBookId) {
           run.pendingCommit = prepareCreationCommit(state, run, scene, body);
+          if (generationV2) {
+            run.pendingCommit.body.baseStateVersion = Number(run.commitBase.baseStateVersion);
+            run.pendingCommit.body.stateVersion = Number(run.commitBase.baseStateVersion);
+            run.pendingCommit.body.bibleVersion = Number(run.commitBase.baseBibleVersion);
+          }
           run.status = 'commit_pending';
+          persistGenerationRun(state, run);
         }
-        scene.content = nextContent;
-        markEditorDirty(true);
-        await persistAppliedNovel({ snapshot: true });
-        bodySaved = true;
-        if (!matchesTarget() || scene.content !== nextContent) throw new Error('保存期间正文或编辑位置已变化，未提交账本');
+        if (!generationV2) {
+          scene.content = nextContent;
+          markEditorDirty(true);
+          await persistAppliedNovel({ snapshot: true });
+          bodySaved = true;
+          if (!matchesTarget() || scene.content !== nextContent) throw new Error('保存期间正文或编辑位置已变化，未提交账本');
+        }
       }
       if (state.creationBookId || run.pendingCommit) {
         commitResult = await commitCreationChapter(state, item, scene, nextContent);
         if (commitResult.outcome !== 'committed') throw new Error(commitResult.error);
+        if (generationV2) scene.content = nextContent;
         item.status = 'ready';
         item.workflowStage = 'ready';
         item.errorNotice = '';
@@ -3476,15 +5054,25 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       renderBodyApplication(state, state.creationBookId ? 'AI 结果已确认提交创作状态' : 'AI 结果已审计、保存并合并事实账本');
       return true;
     } catch (error) {
-      const conflict = commitResult && commitResult.code === 'committed_content_conflict';
-      if (!run.appliedContentHash && (recovering || conflict || commitResult && commitResult.outcome === 'unknown')) {
+      const conflict = commitResult && (commitResult.code === 'committed_content_conflict' ||
+        generationV2 && (commitResult.status === 409 || commitResult.code === 'STATE_CONFLICT'));
+      const v2CommitFailure = generationV2 && commitResult && commitResult.outcome !== 'committed';
+      if (!run.appliedContentHash && (recovering || conflict || commitResult && commitResult.outcome === 'unknown' || v2CommitFailure)) {
         run.status = conflict ? 'commit_conflict' : 'commit_unknown';
         item.status = run.status;
         item.workflowStage = run.status;
         item.audit = cloneValue(run.audit);
-        item.errorNotice = conflict ? '服务端该章已提交不同正文，请核对；当前正文及提交请求已保留' : '提交结果尚未确认，正文已保留；请再次点击「确认提交」重放原请求，不会重新生成或追加正文';
+        item.errorNotice = conflict
+          ? '作品或场景版本已变化；稿件与原始提交请求已保留，请重新载入并核对。'
+          : commitResult && commitResult.outcome === 'rejected'
+            ? `服务端拒绝了提交：${commitResult.error || error && error.message || '请检查任务权限与状态'}；稿件和 Run 已保留。`
+            : '提交结果尚未确认；正文稿件和原始提交请求已保留，请查询任务状态后重放同一请求，不会重新生成。';
         try {
-          if (matchesTarget()) await persistAppliedNovel({ snapshot: false });
+          if (matchesTarget() && !generationV2) await persistAppliedNovel({ snapshot: false });
+          else if (generationV2) {
+            persistGenerationRun(state, run);
+            writeWorkspace('editor-chat', chatRecords());
+          }
         } catch (_) { item.errorNotice += '；恢复状态尚未保存，请保留页面'; }
       } else if (!run.appliedContentHash) {
         run.pendingCommit = null;
@@ -3511,6 +5099,7 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
   async function applyAIResult(target, index) {
     const item = resultAt(index);
     if (!item) { toast('该 AI 结果已不存在'); return; }
+    if (item.generationV2 && target !== 'body') { toast('Generation V2 结果只能通过服务端 Run 提交到正文'); return; }
     if (item.status === 'in_progress' || ['extracting', 'planning', 'drafting', 'auditing', 'revising'].includes(item.workflowStage)) { toast('生成或审校尚未完成，可先复制，完成后再写入'); return; }
     if (['failed', 'interrupted', 'paused', 'commit_conflict'].includes(item.status)) { toast('生成未完成，暂无法写入'); return; }
     if (target === 'body') {
@@ -3519,16 +5108,20 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       const scene = activeScene(state);
       if (!scene) return;
       const run = (state.generationRuns || []).find(record => record && record.id === item.workflowRunId);
+      if (item.generationV2 && target !== 'body') { toast('Generation V2 结果只能通过服务端 Run 提交到正文'); return; }
       if (run && (run.pendingCommit || run.appliedContentHash)) return applyReviewedBody(state, item, scene, 'replace');
        const existingChars = scene.content ? plainText(scene.content).replace(/\s/g, '').length : 0;
-       if (existingChars > 400) {
-         openEditorForm('采纳 AI 结果', '<div class="notice"><span>当前场景已有 ' + existingChars + ' 字正文。选择「替换」将覆盖当前场景（旧内容自动进入版本历史），选择「追加」将接在现有正文之后。</span></div><div class="form-grid"><label class="segment"><input type="radio" name="completionApplyMode" value="replace" checked>替换当前场景正文</label><label class="segment"><input type="radio" name="completionApplyMode" value="append">追加到现有正文之后</label></div>', '确认采纳', async () => {
-           const mode = document.querySelector('input[name="completionApplyMode"]:checked') ? document.querySelector('input[name="completionApplyMode"]:checked').value : 'replace';
+       if (existingChars > (item.generationV2 ? 0 : 400)) {
+         const body = item.generationV2
+           ? '<div class="notice"><span>Generation V2 的服务端审计绑定原稿。确认后会由服务端以 revision 和场景基线校验替换当前场景；追加需要先通过服务端局部修订与复审。</span></div>'
+           : '<div class="notice"><span>当前场景已有 ' + existingChars + ' 字正文。选择「替换」将覆盖当前场景（旧内容自动进入版本历史），选择「追加」将接在现有正文之后。</span></div><div class="form-grid"><label class="segment"><input type="radio" name="completionApplyMode" value="replace" checked>替换当前场景正文</label><label class="segment"><input type="radio" name="completionApplyMode" value="append">追加到现有正文之后</label></div>';
+         openEditorForm('采纳 AI 结果', body, item.generationV2 ? '确认替换并提交' : '确认采纳', async () => {
+           const mode = item.generationV2 ? 'replace' : (document.querySelector('input[name="completionApplyMode"]:checked') ? document.querySelector('input[name="completionApplyMode"]:checked').value : 'replace');
            return applyReviewedBody(state, item, scene, mode);
          });
          return;
        }
-       await applyReviewedBody(state, item, scene, 'append');
+       await applyReviewedBody(state, item, scene, item.generationV2 ? 'replace' : 'append');
        return;
     }
     const title = target === 'setting' ? '保存 AI 结果为设定' : target === 'outline' ? '保存 AI 结果为大纲' : '记录 AI 结果为伏笔';
@@ -3575,6 +5168,7 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     if (runtime.aiApplyBusy || runtime.editorBusy) { toast('正在处理正文，请稍后再采纳'); return false; }
     const item = resultAt(index);
     if (!item || !item.text) { toast('该 AI 结果已不存在或正文为空'); return false; }
+    if (item.generationV2) { toast('Generation V2 结果需先通过服务端复审，不能直接采纳 needs_review 稿件'); return false; }
     const state = editorState(false);
     if (!state) { toast('请先打开一本作品'); return false; }
     if (!completionTargetMatches(item.target, state, getPreview().editorChatSessionId)) {
@@ -3647,14 +5241,19 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     document.getElementById('modalBackdrop')?.classList.remove('open');
   }
 
-  function markEditorDirty(snapshot) {
+  function markEditorDirty(snapshot, options) {
     const state = editorState(false);
     if (!state) return;
     syncOutline(state);
     syncKnowledgeWorkspace(state);
     if (snapshot) captureVersion(state);
     runtime.editorChangeVersion += 1;
-    scheduleSave({ snapshot: false });
+    if (options && options.patchSave) {
+      scheduleEditorWalSave(options.sceneRef);
+      scheduleSave({ patchSave: true, sceneRef: options.sceneRef });
+    } else {
+      scheduleSave({ snapshot: false });
+    }
   }
 
   function openEditorForm(title, body, confirmText, callback) {
@@ -3904,53 +5503,759 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     return chunks.length ? chunks : [{ title: fileName.replace(/\.[^.]+$/, ''), body: raw }];
   }
 
-  function exportText(scope) {
+  async function downloadNovelExport(format, scope, fromChapter, toChapter) {
+    const backend = getBackend();
+    if (!backend.token) throw new Error('请登录后导出作品');
+    await persistNovel();
     const state = editorState(false);
-    if (!state) return;
-    const chapters = scope === 'book' ? state.volumes.flatMap(volume => volume.chapters.map(chapter => ({ volume, chapter }))) : (() => { const current = activeRefs(state); return current.chapter ? [{ volume: current.volume, chapter: current.chapter }] : []; })();
-    const output = chapters.map(item => {
-      const body = item.chapter.scenes.map(scene => plainText(scene.content).trim()).filter(Boolean).join('\n\n');
-      return `${item.volume.title}\n${item.chapter.title}\n\n${body}`.trim();
-    }).filter(Boolean).join('\n\n');
-    if (!output) { toast('当前没有可导出的正文'); return; }
+    const preview = getPreview();
+    const novelId = String(preview.novelId || state && state.id || '');
+    if (!isServerNovelId(novelId)) throw new Error('作品尚未保存到云端，请先保存后重试');
+    const params = new URLSearchParams({ format });
+    if (scope === 'range') {
+      params.set('fromChapter', String(fromChapter));
+      params.set('toChapter', String(toChapter));
+    }
+    const apiBase = window.location.protocol === 'file:' || window.location.protocol === 'about:' ? 'http://127.0.0.1:3000' : '';
+    const response = await fetch(`${apiBase}/api/novels/${encodeURIComponent(novelId)}/export?${params.toString()}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${backend.token}` },
+      cache: 'no-store'
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data && data.error || `导出失败（${response.status}）`);
+    }
+    const extension = { txt: 'txt', epub: 'epub', docx: 'docx' }[format];
+    let filename = `${text(preview.novel && preview.novel.title || state && state.title || '小说')}.${extension}`;
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (encodedFilename) {
+      try { filename = decodeURIComponent(encodedFilename[1]); } catch (_) {}
+    }
+    const url = URL.createObjectURL(await response.blob());
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([output], { type: 'text/plain;charset=utf-8' }));
-    link.download = `${text(getPreview().novel && getPreview().novel.title || state.title || '小说')}-${scope === 'book' ? '全文' : '当前章节'}.txt`;
-    document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(link.href);
-    toast(`已导出${scope === 'book' ? '全文' : '当前章节'}`);
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function replaceTextNodes(root, query, replacement, caseSensitive) {
-    let count = 0;
-    const flags = caseSensitive ? 'g' : 'gi';
-    const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const nodes = []; let node;
-    while ((node = walker.nextNode())) nodes.push(node);
-    nodes.forEach(textNode => {
-      const next = textNode.nodeValue.replace(pattern, () => { count += 1; return replacement; });
-      if (next !== textNode.nodeValue) textNode.nodeValue = next;
+  function openNovelExportModal() {
+    const state = editorState(false);
+    if (!state) { toast('请先打开一本作品'); return; }
+    const chapters = chapterSequence(state);
+    const currentIndex = chapters.findIndex(item => item.chapter.id === activeRefs(state).chapter?.id);
+    const initialChapter = Math.max(1, currentIndex + 1);
+    const chapterCount = chapters.length;
+    const chapterName = index => {
+      const item = chapters[index - 1];
+      return item ? `${index}. ${item.chapter.title}` : '超出作品章节范围';
+    };
+    const rangeDisabled = chapterCount ? '' : ' disabled';
+    const html = '<div class="form-grid">' +
+      '<div class="field"><label for="completionExportFormat">文件格式</label><select id="completionExportFormat"><option value="txt">TXT</option><option value="epub">EPUB</option><option value="docx">DOCX</option></select></div>' +
+      '<div class="field"><label for="completionExportScope">导出范围</label><select id="completionExportScope"><option value="book">整本作品</option><option value="range"' + rangeDisabled + '>章节范围</option></select></div>' +
+      '<div id="completionExportRange" class="form-grid" hidden>' +
+      '<div class="field"><label for="completionExportFrom">起始章序</label><input id="completionExportFrom" type="number" min="1" max="' + chapterCount + '" step="1" value="' + initialChapter + '"' + rangeDisabled + '></div>' +
+      '<div class="field"><label for="completionExportTo">结束章序</label><input id="completionExportTo" type="number" min="1" max="' + chapterCount + '" step="1" value="' + initialChapter + '"' + rangeDisabled + '></div>' +
+      '</div><div id="completionExportStatus" role="status" class="section-note">导出前会先保存当前作品。</div></div>';
+    openEditorForm('导出小说', html, '导出', async () => {
+      const format = document.getElementById('completionExportFormat')?.value || 'txt';
+      const scope = document.getElementById('completionExportScope')?.value || 'book';
+      const fromChapter = Number(document.getElementById('completionExportFrom')?.value);
+      const toChapter = Number(document.getElementById('completionExportTo')?.value);
+      const status = document.getElementById('completionExportStatus');
+      const confirmButton = document.getElementById('confirmModal');
+      if (scope === 'range' && (!Number.isSafeInteger(fromChapter) || !Number.isSafeInteger(toChapter) ||
+        fromChapter < 1 || toChapter < fromChapter || toChapter > chapterCount)) {
+        const message = `请输入 1 至 ${chapterCount} 之间且结束章不早于起始章的整数序号`;
+        if (status) status.textContent = message;
+        toast(message);
+        return false;
+      }
+      if (confirmButton) { confirmButton.disabled = true; confirmButton.textContent = '正在导出…'; }
+      if (status) status.textContent = '正在保存作品并生成文件…';
+      try {
+        await downloadNovelExport(format, scope, fromChapter, toChapter);
+        closeExistingModal();
+        toast('导出文件已开始下载');
+        return true;
+      } catch (error) {
+        const message = error && error.message || '导出失败，请重试';
+        if (status) status.textContent = message;
+        toast(message);
+        return false;
+      } finally {
+        if (confirmButton && document.getElementById('modalBackdrop')?.classList.contains('open')) {
+          confirmButton.disabled = false;
+          confirmButton.textContent = '导出';
+        }
+      }
     });
-    return count;
+    const scopeInput = document.getElementById('completionExportScope');
+    const formatInput = document.getElementById('completionExportFormat');
+    const fromInput = document.getElementById('completionExportFrom');
+    const toInput = document.getElementById('completionExportTo');
+    const rangePanel = document.getElementById('completionExportRange');
+    const status = document.getElementById('completionExportStatus');
+    const updatePreview = () => {
+      const range = scopeInput && scopeInput.value === 'range';
+      if (rangePanel) rangePanel.hidden = !range;
+      if (!status) return;
+      const format = formatInput && formatInput.value.toUpperCase() || 'TXT';
+      if (!range) { status.textContent = `${format} · 整本作品`; return; }
+      const from = Number(fromInput && fromInput.value);
+      const to = Number(toInput && toInput.value);
+      if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from < 1 || to < from || to > chapterCount) {
+        status.textContent = `请输入 1 至 ${chapterCount} 之间且结束章不早于起始章的整数序号`;
+        return;
+      }
+      status.textContent = `${format} · ${chapterName(from)} 至 ${chapterName(to)}`;
+    };
+    [scopeInput, formatInput].forEach(input => input && input.addEventListener('change', updatePreview));
+    [fromInput, toInput].forEach(input => input && input.addEventListener('input', updatePreview));
+    updatePreview();
+  }
+
+  function editorSearchDocKey(chapterId, sceneId) {
+    return String(chapterId) + '\u0000' + String(sceneId);
+  }
+
+  function loadEditorSearchModule() {
+    if (window.MolanSearchIndex) return Promise.resolve(window.MolanSearchIndex);
+    if (runtime.editorSearchLoadPromise) return runtime.editorSearchLoadPromise;
+    const sourceUrl = EDITOR_SCRIPT_URL || window.location && window.location.href || '';
+    const scriptUrl = sourceUrl ? new URL('./lib/client/search-index.js', sourceUrl).href : './lib/client/search-index.js';
+    runtime.editorSearchLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = scriptUrl;
+      script.async = true;
+      script.onload = () => window.MolanSearchIndex ? resolve(window.MolanSearchIndex) : reject(new Error('搜索索引模块加载失败'));
+      script.onerror = () => reject(new Error('搜索索引模块加载失败'));
+      document.head.appendChild(script);
+    }).then(api => {
+      runtime.editorSearchApi = api;
+      return api;
+    }).catch(error => {
+      runtime.editorSearchLoadPromise = null;
+      throw error;
+    });
+    return runtime.editorSearchLoadPromise;
+  }
+
+  async function buildEditorSearchIndex(documents) {
+    const api = await loadEditorSearchModule();
+    runtime.editorSearchDocuments = documents;
+    if (typeof Worker === 'function') {
+      try {
+        if (!runtime.editorSearchWorker) {
+          const sourceUrl = EDITOR_SCRIPT_URL || window.location && window.location.href || '';
+          const workerUrl = sourceUrl ? new URL('./lib/client/search-worker.js', sourceUrl).href : './lib/client/search-worker.js';
+          runtime.editorSearchWorker = api.createWorkerClient(new Worker(workerUrl));
+        }
+        await runtime.editorSearchWorker.build(documents);
+        return;
+      } catch (_) {
+        try { runtime.editorSearchWorker && runtime.editorSearchWorker.terminate(); } catch (_) {}
+        runtime.editorSearchWorker = null;
+      }
+    }
+    runtime.editorSearchFallback = api.createSearchIndex(documents);
+  }
+
+  async function queryEditorSearchIndex(query, options) {
+    if (runtime.editorSearchWorker) {
+      try { return await runtime.editorSearchWorker.search(query, options); }
+      catch (_) {
+        try { runtime.editorSearchWorker.terminate(); } catch (_) {}
+        runtime.editorSearchWorker = null;
+      }
+    }
+    if (!runtime.editorSearchFallback) {
+      const api = await loadEditorSearchModule();
+      runtime.editorSearchFallback = api.createSearchIndex(runtime.editorSearchDocuments);
+    }
+    return runtime.editorSearchFallback.search(query, options);
+  }
+
+  function editorSearchRevision(state, chapterId, sceneId) {
+    const preview = getPreview();
+    const projectId = editorWalProjectId(state);
+    const docKey = projectId + '|' + encodeURIComponent(chapterId) + '|' + encodeURIComponent(sceneId);
+    const baseline = runtime.editorWalBaselines.get(docKey);
+    return baseline ? Number(baseline.revision) || 0 : Number(preview.novelRevision) || 0;
+  }
+
+  function collectEditorSearchDocuments(state) {
+    const documents = [];
+    (state.volumes || []).forEach(volume => (volume.chapters || []).forEach(chapter => (chapter.scenes || []).forEach(scene => {
+      const rawContent = String(scene.content || '');
+      const safeContent = sanitizeHtml(rawContent);
+      documents.push({
+        key: editorSearchDocKey(chapter.id, scene.id),
+        kind: 'manuscript',
+        chapterId: String(chapter.id),
+        chapterTitle: String(chapter.title || ''),
+        sceneId: String(scene.id),
+        sceneTitle: String(scene.name || ''),
+        revision: editorSearchRevision(state, chapter.id, scene.id),
+        text: plainText(safeContent),
+        baseContent: rawContent,
+        baseText: plainText(safeContent),
+        target: scene
+      });
+    })));
+    ensureKnowledge(state).entities.forEach(entity => {
+      const notes = String(entity.notes || '');
+      documents.push({
+        key: editorSearchDocKey('__knowledge__', entity.id),
+        kind: 'knowledge',
+        chapterId: '__knowledge__',
+        chapterTitle: '设定资料',
+        sceneId: String(entity.id),
+        sceneTitle: String(entity.name || '未命名设定'),
+        revision: Number(entity.updatedAt) || 0,
+        text: notes,
+        baseContent: notes,
+        baseText: notes,
+        target: entity
+      });
+    });
+    return documents;
+  }
+
+  function scopedEditorSearchDocuments(documents, scope, state) {
+    const active = activeRefs(state);
+    if (scope === 'knowledge') return documents.filter(item => item.kind === 'knowledge');
+    if (scope === 'scene') {
+      return documents.filter(item => item.kind === 'manuscript' && active.chapter && active.scene &&
+        item.chapterId === String(active.chapter.id) && item.sceneId === String(active.scene.id));
+    }
+    if (scope === 'chapter') {
+      return documents.filter(item => item.kind === 'manuscript' && active.chapter && item.chapterId === String(active.chapter.id));
+    }
+    return documents.filter(item => item.kind === 'manuscript');
+  }
+
+  function editorContentFingerprint(value) {
+    const source = String(value == null ? '' : value);
+    let first = 2166136261;
+    let second = 0x9e3779b9;
+    for (let index = 0; index < source.length; index += 1) {
+      const code = source.charCodeAt(index);
+      first = Math.imul(first ^ code, 16777619);
+      second = Math.imul(second + code, 2246822519);
+      second ^= second >>> 13;
+    }
+    return source.length + ':' + (first >>> 0).toString(16) + ':' + (second >>> 0).toString(16);
+  }
+
+  function applySearchTextOperations(value, operations) {
+    let result = String(value == null ? '' : value);
+    const ordered = (operations || []).slice().sort((left, right) => right.start - left.start || right.end - left.end);
+    ordered.forEach(operation => {
+      const start = Number(operation.start);
+      const end = Number(operation.end);
+      const before = String(operation.before == null ? '' : operation.before);
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end > result.length ||
+        result.slice(start, end) !== before) throw new Error('目标正文已变化，请重新搜索');
+      result = result.slice(0, start) + String(operation.after == null ? '' : operation.after) + result.slice(end);
+    });
+    return result;
+  }
+
+  function applySearchOperationsToRichText(html, operations) {
+    const template = document.createElement('template');
+    template.innerHTML = sanitizeHtml(html);
+    const ordered = (operations || []).slice().sort((left, right) => right.start - left.start || right.end - left.end);
+    ordered.forEach(operation => {
+      const start = Number(operation.start);
+      const end = Number(operation.end);
+      const root = template.content;
+      const sourceText = root.textContent || '';
+      const before = String(operation.before == null ? '' : operation.before);
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end > sourceText.length ||
+        sourceText.slice(start, end) !== before) throw new Error('目标正文已变化，请重新搜索');
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      let node;
+      let offset = 0;
+      while ((node = walker.nextNode())) {
+        nodes.push({ node, start: offset });
+        offset += node.data.length;
+      }
+      let startPoint = null;
+      let endPoint = null;
+      nodes.forEach((item, index) => {
+        const next = item.start + item.node.data.length;
+        if (!startPoint && start >= item.start && start < next) startPoint = { node: item.node, offset: start - item.start, index };
+        if (!endPoint && end > item.start && end <= next) endPoint = { node: item.node, offset: end - item.start, index };
+      });
+      if (!startPoint || !endPoint) throw new Error('搜索命中无法映射回富文本正文');
+      const replacement = String(operation.after == null ? '' : operation.after);
+      if (startPoint.index === endPoint.index) {
+        startPoint.node.data = startPoint.node.data.slice(0, startPoint.offset) + replacement + startPoint.node.data.slice(endPoint.offset);
+      } else {
+        startPoint.node.data = startPoint.node.data.slice(0, startPoint.offset) + replacement;
+        for (let index = startPoint.index + 1; index < endPoint.index; index += 1) nodes[index].node.data = '';
+        endPoint.node.data = endPoint.node.data.slice(endPoint.offset);
+      }
+    });
+    return template.innerHTML;
+  }
+
+  function inverseSearchOperations(operations) {
+    let delta = 0;
+    const inverse = (operations || []).slice().sort((left, right) => left.start - right.start).map(operation => {
+      const start = Number(operation.start) + delta;
+      const after = String(operation.after == null ? '' : operation.after);
+      const before = String(operation.before == null ? '' : operation.before);
+      delta += after.length - (Number(operation.end) - Number(operation.start));
+      return { start, end: start + after.length, before: after, after: before };
+    });
+    return inverse.sort((left, right) => right.start - left.start);
+  }
+
+  function searchChangeSetOperator() {
+    const user = getBackend().user || {};
+    return String(user.userId || user.email || 'local-author');
+  }
+
+  function buildEditorSearchChangeSet(result, documents, values) {
+    const documentMap = new Map(documents.map(item => [item.key, item]));
+    const grouped = new Map();
+    result.matches.forEach(match => {
+      const key = editorSearchDocKey(match.chapterId, match.sceneId);
+      const document = documentMap.get(key);
+      if (!document) return;
+      const before = document.baseText.slice(match.start, match.end);
+      if (before === values.replacement) return;
+      let change = grouped.get(key);
+      if (!change) {
+        change = {
+          kind: document.kind,
+          chapterId: document.chapterId,
+          chapter: document.chapterTitle,
+          sceneId: document.sceneId,
+          scene: document.sceneTitle,
+          revision: document.revision,
+          beforeHash: editorContentFingerprint(document.baseContent),
+          afterHash: '',
+          operations: []
+        };
+        grouped.set(key, change);
+      }
+      change.operations.push({
+        start: match.start,
+        end: match.end,
+        before,
+        after: values.replacement,
+        context: match.snippet && match.snippet.text || before
+      });
+    });
+    const changes = Array.from(grouped.values());
+    const count = changes.reduce((sum, change) => sum + change.operations.length, 0);
+    return {
+      id: uid('search-change-set'),
+      query: values.query,
+      replacement: values.replacement,
+      scope: values.scope,
+      caseSensitive: values.caseSensitive,
+      operator: searchChangeSetOperator(),
+      timestamp: Date.now(),
+      totalMatches: count,
+      changes
+    };
+  }
+
+  function selectEditorSearchRange(root, start, end) {
+    if (!root || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return false;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let offset = 0;
+    let node;
+    while ((node = walker.nextNode())) {
+      const next = offset + node.data.length;
+      nodes.push({ node, start: offset, end: next });
+      offset = next;
+    }
+    let startPoint = null;
+    let endPoint = null;
+    nodes.forEach(item => {
+      if (!startPoint && start >= item.start && start < item.end) startPoint = { node: item.node, offset: start - item.start };
+      if (!endPoint && end > item.start && end <= item.end) endPoint = { node: item.node, offset: end - item.start };
+    });
+    if (!startPoint || !endPoint) return false;
+    const range = document.createRange();
+    range.setStart(startPoint.node, startPoint.offset);
+    range.setEnd(endPoint.node, endPoint.offset);
+    const selection = window.getSelection();
+    if (!selection) return false;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    startPoint.node.parentElement && startPoint.node.parentElement.scrollIntoView({ block: 'center' });
+    return true;
+  }
+
+  function navigateToEditorSearchHit(state, match) {
+    const ref = chapterSequence(state).find(item => String(item.chapter.id) === String(match.chapterId) &&
+      (item.chapter.scenes || []).some(scene => String(scene.id) === String(match.sceneId)));
+    const scene = ref && ref.chapter.scenes.find(item => String(item.id) === String(match.sceneId));
+    if (!ref || !scene) {
+      toast('搜索结果已变化，请重新搜索');
+      return false;
+    }
+    state.currentVolumeId = ref.volume.id;
+    state.currentChapterId = ref.chapter.id;
+    state.currentSceneId = scene.id;
+    getPreview().editorBody = scene.content;
+    runtime.editorSearchSession += 1;
+    window.clearTimeout(runtime.editorSearchTimer);
+    closeExistingModal();
+    renderEditorSurface();
+    window.setTimeout(() => {
+      const editor = getStage() && getStage().querySelector('.completion-editor-content');
+      if (!editor) return;
+      editor.focus();
+      if (!selectEditorSearchRange(editor, Number(match.start), Number(match.end))) {
+        toast('搜索命中已变化，请重新搜索');
+        return;
+      }
+      toast(`已定位到${ref.chapter.title} · ${scene.name}`);
+    }, 0);
+    return true;
+  }
+
+  function renderEditorSearchHits(result, documentMap) {
+    if (!result || !result.matches.length) return '<div class="empty"><p>没有找到匹配内容。</p></div>';
+    return result.matches.map((match, index) => {
+      const document = documentMap.get(editorSearchDocKey(match.chapterId, match.sceneId));
+      const interactive = document && document.kind === 'manuscript';
+      const tagName = interactive ? 'button' : 'div';
+      const attributes = interactive ? ' type="button" data-editor-search-hit="' + index + '" aria-label="定位到' + esc(match.chapterTitle || '未命名章节') + '，' + esc(match.sceneTitle || '未命名场景') + '"' : '';
+      const snippet = match.snippet || { text: '', matchStart: 0, matchEnd: 0 };
+      const textValue = String(snippet.text || '');
+      const before = textValue.slice(0, snippet.matchStart);
+      const hit = textValue.slice(snippet.matchStart, snippet.matchEnd);
+      const after = textValue.slice(snippet.matchEnd);
+      return '<' + tagName + attributes + ' style="width:100%;padding:8px 0;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;' + (interactive ? 'cursor:pointer;' : '') + 'display:grid;gap:3px">' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px"><strong>' + esc(match.chapterTitle || '未命名章节') +
+        '</strong><span>' + esc(match.sceneTitle || '未命名场景') + '</span><span style="color:var(--muted)">revision ' + Number(match.revision || 0) + '</span></div>' +
+        '<div style="font-size:12px;line-height:1.6;color:var(--text-secondary,#555)">' + esc(before) + '<mark>' + esc(hit) + '</mark>' + esc(after) + '</div></' + tagName + '>';
+    }).join('');
+  }
+
+  function renderEditorSearchReview(changeSet) {
+    const rows = [];
+    changeSet.changes.forEach(change => change.operations.forEach(operation => {
+      rows.push('<div style="padding:8px 0;border-bottom:1px solid var(--line);display:grid;gap:4px">' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px"><strong>' + esc(change.chapter || change.scene) +
+        '</strong><span>' + esc(change.scene) + '</span><span style="color:var(--muted)">revision ' + Number(change.revision || 0) + '</span></div>' +
+        '<div style="font-size:12px;line-height:1.6"><del style="color:#a24b4b">' + esc(operation.before) + '</del><span style="padding:0 7px;color:var(--muted)">→</span><ins style="color:#2d7b57;text-decoration:none">' +
+        (operation.after ? esc(operation.after) : '（删除）') + '</ins></div><div style="font-size:11px;color:var(--muted)">' + esc(operation.context) + '</div></div>');
+    }));
+    return '<div><div class="section-note" style="margin-bottom:8px">共 ' + changeSet.totalMatches + ' 处 · ' + changeSet.changes.length + ' 个文档</div>' +
+      '<div style="max-height:360px;overflow:auto" aria-label="替换变更预览">' + rows.join('') + '</div>' +
+      '<button class="button" type="button" data-editor-search-back style="margin-top:10px">返回搜索</button></div>';
+  }
+
+  function currentEditorSearchContent(state, change) {
+    if (change.kind === 'knowledge') {
+      const entity = Object.values(ensureKnowledge(state).entities).find(item => String(item.id) === String(change.sceneId));
+      return entity ? { target: entity, content: String(entity.notes || ''), revision: Number(entity.updatedAt) || 0 } : null;
+    }
+    const location = locateEditorWalScene(state, change.chapterId, change.sceneId);
+    if (!location) return null;
+    const doc = editorWalDocument(state, location.scene);
+    return {
+      target: location.scene,
+      content: String(location.scene.content || ''),
+      text: plainText(sanitizeHtml(location.scene.content || '')),
+      revision: editorSearchRevision(state, change.chapterId, change.sceneId),
+      docKey: doc && doc.docKey
+    };
+  }
+
+  function prepareEditorSearchApply(state, changeSet, documentMap) {
+    if (editorState(false) !== state) throw new Error('编辑器状态已切换，请重新搜索');
+    const prepared = [];
+    changeSet.changes.forEach(change => {
+      const source = documentMap.get(editorSearchDocKey(change.chapterId, change.sceneId));
+      const current = currentEditorSearchContent(state, change);
+      if (!source || !current || current.content !== source.baseContent || current.revision !== change.revision ||
+        (change.kind === 'manuscript' && (current.text !== source.baseText || runtime.editorWalConflicts.has(current.docKey)))) {
+        throw new Error('命中正文或版本已变化，未应用替换；请重新搜索');
+      }
+      const nextText = applySearchTextOperations(source.baseText, change.operations);
+      const nextContent = change.kind === 'manuscript' ? applySearchOperationsToRichText(current.content, change.operations) : nextText;
+      const verifiedText = change.kind === 'manuscript' ? plainText(sanitizeHtml(nextContent)) : nextContent;
+      if (verifiedText !== nextText) throw new Error('替换结果与预览不一致，未应用任何修改');
+      change.afterHash = editorContentFingerprint(nextContent);
+      prepared.push({ change, target: current.target, afterContent: nextContent });
+    });
+    return prepared;
+  }
+
+  function canUndoEditorSearchChangeSet(state, record) {
+    if (!state || !record || !Array.isArray(record.changes)) return false;
+    return record.changes.every(change => {
+      const current = currentEditorSearchContent(state, change);
+      return current && editorContentFingerprint(current.content) === change.afterHash;
+    });
+  }
+
+  function markEditorSearchDirty(state, sceneRefs) {
+    syncOutline(state);
+    syncKnowledgeWorkspace(state);
+    captureVersion(state);
+    runtime.editorChangeVersion += 1;
+    const uniqueScenes = Array.from(new Set((sceneRefs || []).filter(Boolean)));
+    if (!uniqueScenes.length || !isServerNovelId(getPreview().novelId)) {
+      scheduleSave({ snapshot: false });
+      return;
+    }
+    window.clearTimeout(runtime.editorSaveTimer);
+    runtime.editorScheduledSaveOptions = null;
+    const backend = getBackend();
+    const request = refFunction('backendRequest');
+    void (async () => {
+      for (const scene of uniqueScenes) await writeEditorWal(state, scene);
+      if (!backend.token || !request) {
+        setSaveStatus('正文已写入本地 WAL，联网后自动同步');
+        return;
+      }
+      for (const scene of uniqueScenes) {
+        const ack = await persistNovelScenePatch({ patchSave: true, sceneRef: scene });
+        if (!ack) throw new Error('部分场景仍在本地 WAL 中，待联网或冲突处理后继续同步');
+      }
+      const saved = await persistNovel({ snapshot: false });
+      if (!saved) throw new Error('正文已同步，替换记录尚未同步');
+    })().catch(error => {
+      setSaveStatus('替换已保留在本地 WAL，云端同步待重试');
+      toast(error && error.message || '全书替换已保存在本地，云端同步失败');
+    });
+    setSaveStatus('替换已写入本地 WAL，正在逐场景同步');
+  }
+
+  async function undoEditorSearchChangeSet() {
+    const state = editorState(false);
+    const record = runtime.editorSearchUndoStack[0] || (state && state.searchChangeSets || []).find(item => item && !item.undoneAt);
+    if (!state || !record || !canUndoEditorSearchChangeSet(state, record)) return false;
+    const targets = [];
+    try {
+      record.changes.forEach(change => {
+        const current = currentEditorSearchContent(state, change);
+        if (!current || editorContentFingerprint(current.content) !== change.afterHash) throw new Error('正文已继续修改，不能安全撤销这组替换');
+        const restored = change.kind === 'manuscript'
+          ? applySearchOperationsToRichText(current.content, inverseSearchOperations(change.operations))
+          : applySearchTextOperations(current.content, inverseSearchOperations(change.operations));
+        targets.push({ change, target: current.target, content: restored });
+      });
+      targets.forEach(item => {
+        if (item.change.kind === 'manuscript') item.target.content = item.content;
+        else { item.target.notes = item.content; item.target.updatedAt = Date.now(); }
+      });
+      record.undoneAt = Date.now();
+      runtime.editorSearchUndoStack.shift();
+      markEditorSearchDirty(state, targets.filter(item => item.change.kind === 'manuscript').map(item => item.target));
+      closeExistingModal();
+      renderEditorSurface();
+      toast('已撤销最近一组搜索替换');
+      return true;
+    } catch (error) {
+      toast(error && error.message || '无法安全撤销搜索替换');
+      return false;
+    }
+  }
+
+  async function flushEditorWalDrafts(state) {
+    const preview = getPreview();
+    const backend = getBackend();
+    const request = refFunction('backendRequest');
+    if (!state || !isServerNovelId(preview.novelId) || !backend.token || !request) return false;
+    await ensureEditorWalRecovery(state);
+    if (!runtime.editorWal) return false;
+    const records = await runtime.editorWal.readProject(editorWalProjectId(state));
+    const sceneKeys = new Set();
+    for (const record of records) {
+      if (record.conflicted || runtime.editorWalConflicts.has(record.docKey)) continue;
+      const key = String(record.chapterId) + '\u0000' + String(record.sceneId);
+      if (sceneKeys.has(key)) continue;
+      sceneKeys.add(key);
+      const location = locateEditorWalScene(state, record.chapterId, record.sceneId);
+      if (!location) continue;
+      const ack = await persistNovelScenePatch({ patchSave: true, sceneRef: location.scene });
+      if (!ack) return false;
+    }
+    if (records.length && !runtime.editorWalConflicts.size) return !!(await persistNovel({ snapshot: false }));
+    return records.length === 0;
   }
 
   function openSearchReplace() {
-    openEditorForm('搜索与替换', '<div class="form-grid"><div class="field"><label for="completionSearchText">搜索内容</label><input id="completionSearchText"></div><div class="field"><label for="completionReplaceText">替换为</label><input id="completionReplaceText"></div><div class="field"><label for="completionSearchScope">范围</label><select id="completionSearchScope"><option value="scene">当前场景</option><option value="chapter">当前章节全部场景</option><option value="book">全书正文</option><option value="knowledge">设定资料</option></select></div><label class="check"><input id="completionCaseSensitive" type="checkbox">区分大小写</label></div>', '替换全部', () => {
-      const query = document.getElementById('completionSearchText').value;
-      const replacement = document.getElementById('completionReplaceText').value;
-      const scope = document.getElementById('completionSearchScope').value;
-      if (!query) { toast('请输入搜索内容'); return false; }
-      const state = editorState(false); let count = 0;
-      if (scope === 'knowledge') {
-        ensureKnowledge(state).entities.forEach(entity => { const holder = document.createElement('div'); holder.innerHTML = esc(entity.notes); count += replaceTextNodes(holder, query, replacement, document.getElementById('completionCaseSensitive').checked); entity.notes = holder.textContent || entity.notes; });
-        syncKnowledgeWorkspace(state);
-      } else {
-        const active = activeRefs(state);
-        const targets = scope === 'scene' ? [active.scene] : scope === 'chapter' ? active.chapter.scenes : state.volumes.flatMap(volume => volume.chapters.flatMap(chapter => chapter.scenes));
-        targets.filter(Boolean).forEach(scene => { const holder = document.createElement('div'); holder.innerHTML = sanitizeHtml(scene.content); count += replaceTextNodes(holder, query, replacement, document.getElementById('completionCaseSensitive').checked); scene.content = holder.innerHTML; });
-      }
-      markEditorDirty(true); closeExistingModal(); renderEditorSurface(); toast(`已替换 ${count} 处`);
+    const state = editorState(false);
+    if (!state) { toast('请先打开一本作品'); return; }
+    const sessionId = ++runtime.editorSearchSession;
+    window.clearTimeout(runtime.editorSearchTimer);
+    const allDocuments = collectEditorSearchDocuments(state);
+    const documentMap = new Map(allDocuments.map(item => [item.key, item]));
+    let phase = 'search';
+    let currentMatches = null;
+    let searchSignature = '';
+    let indexedScope = '';
+    let changeSet = null;
+    const backdrop = document.getElementById('modalBackdrop');
+    const bodyNode = backdrop && backdrop.querySelector('.modal-body');
+    const confirmButton = document.getElementById('confirmModal');
+
+    const formHtml = values => '<div class="form-grid">' +
+      '<div class="field"><label for="completionSearchText">搜索内容</label><input id="completionSearchText" value="' + esc(values.query || '') + '"></div>' +
+      '<div class="field"><label for="completionReplaceText">替换为</label><input id="completionReplaceText" value="' + esc(values.replacement || '') + '"></div>' +
+      '<div class="field"><label for="completionSearchScope">范围</label><select id="completionSearchScope">' +
+      '<option value="scene"' + (values.scope === 'scene' ? ' selected' : '') + '>当前场景</option>' +
+      '<option value="chapter"' + (values.scope === 'chapter' ? ' selected' : '') + '>当前章节全部场景</option>' +
+      '<option value="book"' + (values.scope === 'book' ? ' selected' : '') + '>全书正文</option>' +
+      '<option value="knowledge"' + (values.scope === 'knowledge' ? ' selected' : '') + '>设定资料</option></select></div>' +
+      '<label class="check"><input id="completionCaseSensitive" type="checkbox"' + (values.caseSensitive ? ' checked' : '') + '>区分大小写</label></div>' +
+      '<div id="completionSearchSummary" role="status" style="margin:8px 0;font-size:11px;color:var(--muted)">输入搜索内容</div>' +
+      '<div id="completionSearchResults" style="max-height:340px;overflow:auto"></div>';
+
+    const readValues = () => ({
+      query: document.getElementById('completionSearchText') && document.getElementById('completionSearchText').value || '',
+      replacement: document.getElementById('completionReplaceText') && document.getElementById('completionReplaceText').value || '',
+      scope: document.getElementById('completionSearchScope') && document.getElementById('completionSearchScope').value || 'book',
+      caseSensitive: !!(document.getElementById('completionCaseSensitive') && document.getElementById('completionCaseSensitive').checked)
     });
+    const signatureFor = values => JSON.stringify([values.query, values.replacement, values.scope, values.caseSensitive]);
+    const sessionActive = () => runtime.editorSearchSession === sessionId && backdrop && backdrop.classList.contains('open');
+
+    function scheduleSearch() {
+      if (phase !== 'search') return;
+      window.clearTimeout(runtime.editorSearchTimer);
+      if (confirmButton) confirmButton.disabled = true;
+      runtime.editorSearchTimer = window.setTimeout(() => { void refreshSearch(); }, 180);
+    }
+
+    async function refreshSearch() {
+      const values = readValues();
+      const signature = signatureFor(values);
+      const summary = document.getElementById('completionSearchSummary');
+      const resultsNode = document.getElementById('completionSearchResults');
+      if (!values.query.trim()) {
+        currentMatches = null;
+        searchSignature = '';
+        if (summary) summary.textContent = '输入搜索内容';
+        if (resultsNode) resultsNode.innerHTML = '';
+        if (confirmButton) confirmButton.disabled = true;
+        return;
+      }
+      if (summary) summary.textContent = '正在检索';
+      if (resultsNode) resultsNode.innerHTML = '';
+      if (confirmButton) confirmButton.disabled = true;
+      const scopeDocuments = scopedEditorSearchDocuments(allDocuments, values.scope, state);
+      const scopeKey = values.scope + ':' + scopeDocuments.length + ':' +
+        (values.scope === 'scene' ? scopeDocuments[0] && scopeDocuments[0].sceneId : values.scope === 'chapter' ? scopeDocuments[0] && scopeDocuments[0].chapterId : '');
+      try {
+        if (indexedScope !== scopeKey) {
+          await buildEditorSearchIndex(scopeDocuments.map(item => ({
+            chapterId: item.chapterId,
+            chapterTitle: item.chapterTitle,
+            sceneId: item.sceneId,
+            sceneTitle: item.sceneTitle,
+            revision: item.revision,
+            text: item.text
+          })));
+          indexedScope = scopeKey;
+        }
+        const result = await queryEditorSearchIndex(values.query, { caseSensitive: values.caseSensitive, limit: 1000 });
+        if (!sessionActive() || signatureFor(readValues()) !== signature) return;
+        currentMatches = result;
+        searchSignature = signature;
+        if (summary) summary.textContent = result.totalMatches + ' 处命中 · ' + scopeDocuments.length + ' 个文档' +
+          (result.truncated ? ' · 超过 1000 处，请缩小范围后预览' : '');
+        if (resultsNode) {
+          resultsNode.innerHTML = renderEditorSearchHits(result, documentMap);
+          resultsNode.querySelectorAll('[data-editor-search-hit]').forEach(button => {
+            button.addEventListener('click', () => {
+              const match = result.matches[Number(button.dataset.editorSearchHit)];
+              if (match) navigateToEditorSearchHit(state, match);
+            });
+          });
+        }
+        if (confirmButton) {
+          confirmButton.textContent = '生成替换预览';
+          confirmButton.disabled = !result.matches.length || result.truncated;
+        }
+      } catch (error) {
+        if (summary) summary.textContent = error && error.message || '搜索索引不可用';
+        if (resultsNode) resultsNode.innerHTML = '';
+        if (confirmButton) confirmButton.disabled = true;
+      }
+    }
+
+    function bindSearchInputs() {
+      ['completionSearchText', 'completionReplaceText'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.addEventListener('input', scheduleSearch);
+      });
+      ['completionSearchScope', 'completionCaseSensitive'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.addEventListener('change', scheduleSearch);
+      });
+    }
+
+    function bindReviewBack() {
+      const button = bodyNode && bodyNode.querySelector('[data-editor-search-back]');
+      if (!button) return;
+      button.addEventListener('click', () => {
+        phase = 'search';
+        bodyNode.innerHTML = formHtml(changeSet);
+        if (confirmButton) confirmButton.textContent = '生成替换预览';
+        bindSearchInputs();
+        void refreshSearch();
+      });
+    }
+
+    openEditorForm('搜索与替换', formHtml({ scope: 'book' }), '生成替换预览', async () => {
+      if (!sessionActive()) return false;
+      if (phase === 'search') {
+        const values = readValues();
+        if (!values.query.trim()) { toast('请输入搜索内容'); return false; }
+        if (!currentMatches || searchSignature !== signatureFor(values)) { toast('搜索结果正在更新，请稍候'); return false; }
+        if (currentMatches.truncated) { toast('命中结果超过预览上限，请缩小搜索范围'); return false; }
+        changeSet = buildEditorSearchChangeSet(currentMatches, scopedEditorSearchDocuments(allDocuments, values.scope, state), values);
+        if (!changeSet.totalMatches) { toast('替换内容与现有正文相同，无需修改'); return false; }
+        phase = 'review';
+        bodyNode.innerHTML = renderEditorSearchReview(changeSet);
+        if (confirmButton) confirmButton.textContent = '确认应用 ' + changeSet.totalMatches + ' 处';
+        bindReviewBack();
+        return false;
+      }
+      try {
+        const prepared = prepareEditorSearchApply(state, changeSet, documentMap);
+        prepared.forEach(item => {
+          if (item.change.kind === 'manuscript') item.target.content = item.afterContent;
+          else { item.target.notes = item.afterContent; item.target.updatedAt = Date.now(); }
+        });
+        state.searchChangeSets.unshift(cloneValue(changeSet));
+        state.searchChangeSets = state.searchChangeSets.slice(0, 20);
+        runtime.editorSearchUndoStack.unshift(changeSet);
+        runtime.editorSearchUndoStack = runtime.editorSearchUndoStack.slice(0, 20);
+        const scenes = prepared.filter(item => item.change.kind === 'manuscript').map(item => item.target);
+        markEditorSearchDirty(state, scenes);
+        closeExistingModal();
+        renderEditorSurface();
+        toast('已应用 ' + changeSet.totalMatches + ' 处替换，可用 Ctrl+Z 撤销');
+        return true;
+      } catch (error) {
+        toast(error && error.message || '搜索替换未应用');
+        return false;
+      }
+    });
+    bindSearchInputs();
+    if (confirmButton) confirmButton.disabled = true;
   }
 
   function diffLines(before, after) {
@@ -5018,6 +7323,13 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
 
   function installDelegation() {
     if (runtime.delegated) return; runtime.delegated = true;
+    document.addEventListener('scroll', event => {
+      const nav = event.target;
+      const cache = runtime.editorTreeCache;
+      if (!nav || !nav.matches || !nav.matches('.completion-editor-tree') || !cache ||
+        nav.dataset.treeNovelKey !== cache.novelKey) return;
+      renderEditorTreeWindow(nav, cache);
+    }, true);
     document.addEventListener('click', event => {
       const dossierAction = event.target.closest('[data-completion-dossier-action]');
       if (dossierAction) {
@@ -5090,6 +7402,7 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
         const idx = Number(aiRevise.dataset.completionAiRevise);
         const item = records[idx];
         if (!item) return;
+        if (item.generationV2) { void reviseGenerationV2Item(idx); return; }
         const issuesList = (item.audit && Array.isArray(item.audit.issues) ? item.audit.issues : [])
           .map((iss, i) => `${i + 1}. ${iss.problem || iss.detail || iss}${iss.fix ? `（建议：${iss.fix}）` : ''}`)
           .filter(Boolean);
@@ -5135,7 +7448,7 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
       if (name === 'open-materials-seven') { void openMaterialsSevenWorkbenchModal(); return; }
       if (name === 'editor-save') { void persistNovel({ snapshot: true }); return; }
       if (name === 'editor-import') { importTextFiles(); return; }
-      if (name === 'editor-export') { openEditorForm('导出正文', '<div class="segmented"><label class="segment active"><input type="radio" name="completionExportScope" value="scene" checked hidden>当前场景</label><label class="segment"><input type="radio" name="completionExportScope" value="book" hidden>全书</label></div>', '导出', () => { const scope = document.querySelector('input[name="completionExportScope"]:checked').value; closeExistingModal(); exportText(scope); }); return; }
+      if (name === 'editor-export') { openNovelExportModal(); return; }
       if (name === 'create-from-dissection') { const creator = window.MolanCompletionDissection && window.MolanCompletionDissection.openCreateFromDissection; if (creator) void creator(); else toast('拆书创书模块尚未加载'); return; }
       if (name === 'add-volume') { addVolume(); return; }
       if (name === 'add-chapter') { addChapter(action.dataset.volumeId); return; }
@@ -5155,7 +7468,12 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
         return;
       }
       if (name === 'format') { applyFormat(action.dataset.format, action.dataset.formatValue); return; }
-      if (name === 'undo') { document.execCommand('undo'); markEditorDirty(false); return; }
+      if (name === 'undo') {
+        const state = editorState(false);
+        const record = runtime.editorSearchUndoStack[0] || (state && state.searchChangeSets || []).find(item => item && !item.undoneAt);
+        if (canUndoEditorSearchChangeSet(state, record)) { void undoEditorSearchChangeSet(); return; }
+        document.execCommand('undo'); markEditorDirty(false); return;
+      }
       if (name === 'redo') { document.execCommand('redo'); markEditorDirty(false); return; }
       if (name === 'search-replace') { openSearchReplace(); return; }
       if (name === 'history') { openVersionHistory(); return; }
@@ -5298,8 +7616,11 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
       if (paper && currentPageName() === 'editor') {
         const state = editorState(false); const current = activeRefs(state); if (!current.chapter || !current.scene) return;
         if (target.matches('[data-completion-chapter-title]')) { current.chapter.title = target.textContent.trim() || current.chapter.title; syncOutline(state); }
-        else if (target.matches('.completion-editor-content')) { current.scene.content = normalizeSceneContent(target.innerHTML, ''); const meta = paper.querySelector('.editor-paper-meta span:last-child'); if (meta) meta.textContent = `${wordCount(current.scene.content).toLocaleString()} 字`; }
-        getPreview().editorBody = current.scene.content; markEditorDirty(false); return;
+        const sceneContentChanged = target.matches('.completion-editor-content');
+        if (sceneContentChanged) { current.scene.content = normalizeSceneContent(target.innerHTML, ''); const meta = paper.querySelector('.editor-paper-meta span:last-child'); if (meta) meta.textContent = `${wordCount(current.scene.content).toLocaleString()} 字`; }
+        getPreview().editorBody = current.scene.content;
+        markEditorDirty(false, sceneContentChanged ? { patchSave: true, sceneRef: current.scene } : null);
+        return;
       }
       const search = target.closest('[data-completion-knowledge-search]'); if (search) { runtime.knowledgeQuery = search.value.trim(); renderKnowledgeList(editorState(false)); return; }
       const treeSearch = target.closest('[data-completion-knowledge-tree-search]'); if (treeSearch) {
@@ -5324,6 +7645,16 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
         event.stopPropagation();
         void sendEditorAI();
         return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z' && currentPageName() === 'editor') {
+        const state = editorState(false);
+        const record = runtime.editorSearchUndoStack[0] || (state && state.searchChangeSets || []).find(item => item && !item.undoneAt);
+        if (canUndoEditorSearchChangeSet(state, record)) {
+          event.preventDefault();
+          event.stopPropagation();
+          void undoEditorSearchChangeSet();
+          return;
+        }
       }
       if (event.key === 'Enter' && event.target.closest('[data-completion-select-chapter],[data-completion-select-scene]')) { event.preventDefault(); event.target.click(); }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && currentPageName() === 'editor') { event.preventDefault(); void persistNovel({ snapshot: true }); }
@@ -5386,7 +7717,14 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
 
   function mountCurrentPage() {
     const page = currentPageName();
-    if (page === 'editor') { renderEditorSurface(); const preview = getStage()?.querySelector('#editorPreview'); preview?.classList.toggle('ai-open', runtime.aiOpen); preview?.classList.toggle('nav-open', runtime.navOpen); }
+    if (page === 'editor') {
+      const state = editorState(false);
+      if (state) void ensureEditorWalRecovery(state).catch(() => setSaveStatus('本地 WAL 恢复失败'));
+      renderEditorSurface();
+      const preview = getStage()?.querySelector('#editorPreview');
+      preview?.classList.toggle('ai-open', runtime.aiOpen);
+      preview?.classList.toggle('nav-open', runtime.navOpen);
+    }
     if (page === 'outline') { renderOutlineView(); }
     if (page === 'knowledge') { renderKnowledgeView(); }
   }
@@ -5400,6 +7738,10 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
     rendererMap.outline = renderOutlinePage;
     rendererMap.knowledge = knowledgePage;
     installDelegation();
+    window.addEventListener('online', () => {
+      const state = editorState(false);
+      void flushEditorWalDrafts(state).catch(() => setSaveStatus('本地 WAL 草稿仍待同步'));
+    });
     const render = refFunction('renderPage');
     if (render && !runtime.originalRenderPage) {
       runtime.originalRenderPage = render;

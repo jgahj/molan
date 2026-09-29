@@ -79,3 +79,56 @@ test('普通仓储与worker事务使用隔离角色并在归还连接前重置�
   ]);
   await repository.close();
 });
+
+
+test('PG 正文导出仓储复核 canExport 并在正文哈希不匹配时阻止读取', async t => {
+  const workspaceId = internalUuid('export-workspace');
+  const projectId = internalUuid('export-project');
+  const statements = [];
+  const client = {
+    canExport: false,
+    async query(sql) {
+      const statement = String(sql).trim();
+      statements.push(statement);
+      if (['BEGIN', 'COMMIT', 'ROLLBACK', 'RESET ROLE', 'RESET ALL'].includes(statement) ||
+          statement.startsWith('SELECT set_config') || statement.startsWith('SELECT luna.ensure_actor')) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (statement.includes('luna.project_access(')) {
+        return { rows: [{
+          workspace_uuid: workspaceId, project_uuid: projectId,
+          role: 'editor', project_status: 'active', can_spend: true,
+          can_export: this.canExport, project_revision: 1, acl_revision: 1
+        }], rowCount: 1 };
+      }
+      if (statement.includes('FROM luna.commits c')) {
+        return { rows: [{ chapter_no: 1, body: '正文', body_hash: '0'.repeat(64) }], rowCount: 1 };
+      }
+      throw new Error(`Unexpected PostgreSQL export query: ${statement.slice(0, 180)}`);
+    },
+    release() {}
+  };
+  class FakePool {
+    async connect() { return client; }
+    async end() {}
+  }
+  const repository = createPostgresRepository({
+    env: { MOLAN_PG_ENABLED: '1', MOLAN_PG_RUNTIME_ROLE: 'none' },
+    Pool: FakePool
+  });
+  t.after(() => repository.close());
+
+  await assert.rejects(
+    repository.listExportableChapters('export-user', 'export-project', 'export-workspace'),
+    { code: 'export_forbidden', status: 404 }
+  );
+  assert.equal(statements.some(statement => statement.includes('FROM luna.commits c')), false);
+
+  client.canExport = true;
+  await assert.rejects(
+    repository.listExportableChapters('export-user', 'export-project', 'export-workspace'),
+    { code: 'export_content_blocked', status: 409 }
+  );
+  const exportQuery = statements.find(statement => statement.includes('FROM luna.commits c'));
+  assert.match(exportQuery, /chapterNo.*\^\[1-9\]\[0-9\]/s);
+});
