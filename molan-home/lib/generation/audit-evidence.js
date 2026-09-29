@@ -82,6 +82,13 @@ function validateGenerationAuditEvidence(input = {}) {
         message: `质量向量缺失题材「${genreKey || '通用'}」关键质检维度「${dim}」`
       };
     }
+    if (entry && entry.status === 'NOT_MEASURED') {
+      return {
+        ok: false,
+        code: 'CRITICAL_QUALITY_DIMENSION_NOT_MEASURED',
+        message: `关键质检维度「${dim}」未真实测量 (status=NOT_MEASURED)`
+      };
+    }
     const score = typeof entry === 'number' ? entry : Number(entry.value);
     if (!Number.isFinite(score) || score < 0.4) {
       return {

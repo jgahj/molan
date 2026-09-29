@@ -480,9 +480,46 @@ function auditTextStyle(text, options = {}) {
   const allFindings = [...detAudit.findings, ...semAudit.findings];
   const passed = detAudit.passed && semAudit.passed;
 
+  const hardViolations = allFindings.filter(f => f.severity === 'critical' || ['EMPTY_TEXT', 'FORBIDDEN_TERM_HIT', 'POV_PERSON_DRIFT'].includes(f.type));
+  const styleMeasurements = {
+    dialogueRatio: detAudit.metrics ? detAudit.metrics.dialogueRatio : 0,
+    avgSentenceLength: detAudit.metrics ? detAudit.metrics.avgSentenceLength : 0,
+    longSentenceRatio: detAudit.metrics ? detAudit.metrics.longSentenceRatio : 0,
+    rhythmVariance: detAudit.metrics ? detAudit.metrics.rhythmVariance : 0,
+    charCount: text ? text.length : 0
+  };
+  const aiFlavorRisk = {
+    score: (detAudit.metrics && detAudit.metrics.aiFlavorScore) || 0,
+    risk: ((detAudit.metrics && detAudit.metrics.aiFlavorScore) >= 60 ? 'critical' : (((detAudit.metrics && detAudit.metrics.aiFlavorScore) >= 35) ? 'warning' : 'clean')),
+    findings: allFindings.filter(f => f.type === 'AI_SLOP_DENSITY_HIGH' || String(f.type || '').startsWith('AI_'))
+  };
+  const voiceConsistency = {
+    passed: !allFindings.some(f => ['CHARACTER_VOICE_OUT_OF_CHARACTER', 'CATCHPHRASE_OVERUSE'].includes(f.type)),
+    findings: allFindings.filter(f => ['CHARACTER_VOICE_OUT_OF_CHARACTER', 'CATCHPHRASE_OVERUSE'].includes(f.type))
+  };
+  const pacingEvidence = {
+    passed: !allFindings.some(f => ['LONG_SENTENCE', 'DIALOGUE_RATIO_TOO_LOW', 'DIALOGUE_RATIO_TOO_HIGH', 'OVER_EXPLANATION_MECHANICAL_ELEVATION'].includes(f.type)),
+    findings: allFindings.filter(f => ['LONG_SENTENCE', 'DIALOGUE_RATIO_TOO_LOW', 'DIALOGUE_RATIO_TOO_HIGH', 'OVER_EXPLANATION_MECHANICAL_ELEVATION'].includes(f.type)),
+    dialogueRatio: detAudit.metrics ? detAudit.metrics.dialogueRatio : 0,
+    avgSentenceLength: detAudit.metrics ? detAudit.metrics.avgSentenceLength : 0
+  };
+
+  let score = 100;
+  if (hardViolations.length > 0) score -= Math.min(60, hardViolations.length * 25);
+  if (!voiceConsistency.passed) score -= 15;
+  if (!pacingEvidence.passed) score -= 10;
+  if (aiFlavorRisk.risk === 'critical') score -= 25;
+  else if (aiFlavorRisk.risk === 'warning') score -= 10;
+  score = Math.max(0, Math.min(100, score));
+
   return {
     passed,
-    score: Math.max(0, 100 - allFindings.length * 8 - (detAudit.metrics.aiFlavorScore || 0) * 10),
+    score,
+    hardViolations,
+    styleMeasurements,
+    aiFlavorRisk,
+    voiceConsistency,
+    pacingEvidence,
     metrics: detAudit.metrics,
     reports: {
       novelLevel: allFindings.filter(f => ['AI_SLOP_DENSITY_HIGH', 'FORBIDDEN_TERM_HIT', 'POV_PERSON_DRIFT'].includes(f.type)),
