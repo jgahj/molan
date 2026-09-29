@@ -305,9 +305,7 @@
     }
 
     if (codeBtn) {
-      codeBtn.disabled = true;
-      codeBtn.title = '邮箱验证码登录暂未开放，请使用密码登录';
-      codeBtn.textContent = '验证码登录（暂未开放）';
+      codeBtn.style.display = 'none';
     }
     if (registerLink) registerLink.addEventListener('click', function (e) {
       e.preventDefault();
@@ -315,7 +313,7 @@
     });
     if (forgotBtn) forgotBtn.addEventListener('click', function (e) {
       e.preventDefault();
-      setTip('密码重置暂未开放，请使用已注册密码登录或联系管理员');
+      setTip('本地工作台支持创作者账号直连：若忘记密码请重新注册创作者身份或使用管理员登录', false);
       emailInput.focus();
     });
 
