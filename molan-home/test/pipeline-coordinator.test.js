@@ -5,6 +5,8 @@ const assert = require('node:assert/strict');
 const {
   PIPELINE_STATES,
   PipelineCoordinator,
+  RETRY_POLICIES,
+  classifyError,
   parseDecoupledStream,
   applyHunkPatch
 } = require('../lib/pipeline-coordinator');
@@ -96,3 +98,105 @@ test('OPT-ARCH-001: 指数退避重试网络韧性', async () => {
   assert.equal(attempts, 2);
   assert.equal(res.data, 'OK');
 });
+
+test('P1 收敛约束: classifyError 严格区分 retryable / non_retryable / unknown', () => {
+  // Retryable
+  assert.equal(classifyError({ status: 429 }), RETRY_POLICIES.RETRYABLE);
+  assert.equal(classifyError({ status: 503 }), RETRY_POLICIES.RETRYABLE);
+  assert.equal(classifyError({ code: 'RATE_LIMIT_EXCEEDED' }), RETRY_POLICIES.RETRYABLE);
+  assert.equal(classifyError({ code: 'ECONNRESET' }), RETRY_POLICIES.RETRYABLE);
+  assert.equal(classifyError({ code: 'ETIMEDOUT' }), RETRY_POLICIES.RETRYABLE);
+  assert.equal(classifyError({ retryable: true }), RETRY_POLICIES.RETRYABLE);
+
+  // Unknown (绝对不可重试)
+  assert.equal(classifyError({ code: 'PROVIDER_UNKNOWN' }), RETRY_POLICIES.UNKNOWN);
+  assert.equal(classifyError({ unknown: true }), RETRY_POLICIES.UNKNOWN);
+  assert.equal(classifyError(new Error('Provider 调用结果未知')), RETRY_POLICIES.UNKNOWN);
+
+  // Non-retryable
+  assert.equal(classifyError({ status: 400 }), RETRY_POLICIES.NON_RETRYABLE);
+  assert.equal(classifyError({ status: 403 }), RETRY_POLICIES.NON_RETRYABLE);
+  assert.equal(classifyError({ status: 409 }), RETRY_POLICIES.NON_RETRYABLE);
+  assert.equal(classifyError({ status: 413 }), RETRY_POLICIES.NON_RETRYABLE);
+  assert.equal(classifyError({ code: 'CONTRACT_INVALID' }), RETRY_POLICIES.NON_RETRYABLE);
+  assert.equal(classifyError({ code: 'STATE_CONFLICT' }), RETRY_POLICIES.NON_RETRYABLE);
+  assert.equal(classifyError({ retryable: false }), RETRY_POLICIES.NON_RETRYABLE);
+});
+
+test('P1 收敛约束: executeWithRetry 对 non_retryable 错误立即阻断且零重试', async () => {
+  const coordinator = new PipelineCoordinator({ maxRetries: 3, initialBackoffMs: 5 });
+  let callCount = 0;
+
+  await assert.rejects(
+    async () => {
+      await coordinator.executeWithRetry('contractValidation', async () => {
+        callCount += 1;
+        const err = new Error('参数校验未通过');
+        err.status = 422;
+        err.code = 'CONTRACT_INVALID';
+        throw err;
+      });
+    },
+    err => {
+      assert.equal(err.code, 'CONTRACT_INVALID');
+      assert.equal(err.retryPolicy, RETRY_POLICIES.NON_RETRYABLE);
+      return true;
+    }
+  );
+
+  assert.equal(callCount, 1, '不可重试错误必须在首次尝试失败后立即阻断，调用次数必须为 1');
+});
+
+test('P1 收敛约束: executeWithRetry 对 unknown Provider 结果绝对禁止自动重试', async () => {
+  const coordinator = new PipelineCoordinator({ maxRetries: 3, initialBackoffMs: 5 });
+  let providerCalls = 0;
+
+  await assert.rejects(
+    async () => {
+      await coordinator.executeWithRetry('providerStreamCall', async () => {
+        providerCalls += 1;
+        const err = new Error('模型服务调用超时且连接中断，结果未知');
+        err.code = 'PROVIDER_UNKNOWN';
+        err.unknown = true;
+        throw err;
+      });
+    },
+    err => {
+      assert.equal(err.code, 'PROVIDER_UNKNOWN');
+      assert.equal(err.unknown, true);
+      assert.equal(err.retryPolicy, RETRY_POLICIES.UNKNOWN);
+      return true;
+    }
+  );
+
+  assert.equal(providerCalls, 1, '未知结果的 Provider 调用严禁自动重试，调用次数必须严格为 1');
+});
+
+test('P1 收敛约束: 生产生成主入口隔离 (旧版 Pipeline 不得被生产主链直接调用)', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const serverCode = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+
+  // 1. 验证 server.js 生产链路没有 require 旧版 pipeline-coordinator 或 generation-pipeline-coordinator
+  assert.doesNotMatch(
+    serverCode,
+    /require\s*\(\s*['"][^'"]*pipeline-coordinator['"]\s*\)/,
+    'server.js 严禁引用旧版 pipeline-coordinator'
+  );
+
+  // 2. 验证唯一生产生成入口为 orchestrator.js
+  assert.match(
+    serverCode,
+    /require\s*\(\s*['"]\.\/lib\/generation\/orchestrator['"]\s*\)/,
+    'server.js 必须且仅引用 lib/generation/orchestrator'
+  );
+
+  // 3. 验证 orchestrator 严格依赖唯一业务状态机 state-machine.js
+  const orchestratorCode = fs.readFileSync(path.join(__dirname, '../lib/generation/orchestrator.js'), 'utf8');
+  assert.match(
+    orchestratorCode,
+    /require\s*\(\s*['"]\.\/state-machine['"]\s*\)/,
+    'orchestrator 必须严格依赖 state-machine.js 业务状态机'
+  );
+});
+

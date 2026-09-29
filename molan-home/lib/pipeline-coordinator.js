@@ -1,18 +1,71 @@
-'use strict';
+/**
+ * @deprecated
+ * ⚠️【历史组件说明 / DEPRECATED】
+ * 本文件定义的 PipelineCoordinator 与 PIPELINE_STATES 是早期单体实验使用的管线状态机。
+ * 当前生产生成主链路已完全统一收敛至：
+ * 1. 唯一业务状态机：lib/generation/state-machine.js
+ * 2. 唯一生产编排器：lib/generation/orchestrator.js
+ * 3. 唯一正文起草引擎：lib/generation/content-engine.js
+ * 生产入口（server.js /api/generation-runs）严禁调用本模块。
+ * 本模块仅保留给离线测试和流解析工具函数 (parseDecoupledStream, applyHunkPatch)。
+ */
+
+const RETRY_POLICIES = Object.freeze({
+  RETRYABLE: 'retryable',
+  NON_RETRYABLE: 'non_retryable',
+  UNKNOWN: 'unknown'
+});
 
 /**
- * pipeline-coordinator.js
- * ---------------------------------------------------------------------------
- * 流式事件解耦与状态机自愈管线协调器 (Pipeline Coordinator - OPT-ARCH-001)
- *
- * 核心设计目标：
- * 1. 根治 DEF-PIPE-001：流式事件碰撞中断与截断残卷问题；
- * 2. 状态机中枢：维护 INIT -> GENERATING -> VALIDATING -> REVISING -> COMMITTED 状态流转；
- * 3. 流式协议多路解耦：隔离上游计费 (molan_billing)、心跳包与正文 content_delta；
- * 4. 指数退避重试 (Exponential Backoff)：网络抖动或瞬态异常时自动恢复；
- * 5. Diff 增量补丁修订 (Hunk Patching)：替代 3000 字全量重写，避免超时截断产出 1394 字残卷。
- * ---------------------------------------------------------------------------
+ * 严格分类错误类型，杜绝任意异常自动重试与未知结果重复生成：
+ * 1. RETRYABLE: 限流 (429)、服务不可用 (503)、连接未建立时的瞬态网络抖动 (ECONNRESET, ETIMEDOUT 等)
+ * 2. UNKNOWN: 请求已发出但未收到完整确认、流中断、超时未知、PROVIDER_UNKNOWN 等
+ * 3. NON_RETRYABLE: 客户端参数错误 (400, 422, 428)、鉴权 (401, 403)、状态冲突 (409)、正文越界 (413)、语义门禁拦截等
  */
+function classifyError(err) {
+  if (!err) return RETRY_POLICIES.NON_RETRYABLE;
+
+  if (err.unknown === true || err.code === 'PROVIDER_UNKNOWN' || (err.status === 502 && err.unknown)) {
+    return RETRY_POLICIES.UNKNOWN;
+  }
+  if (err.retryable === false) {
+    return RETRY_POLICIES.NON_RETRYABLE;
+  }
+  if (err.retryable === true) {
+    return RETRY_POLICIES.RETRYABLE;
+  }
+
+  const message = String(err.message || '');
+  const code = String(err.code || '');
+  const status = Number(err.status || err.statusCode || 0);
+
+  // 1. 明确的未知状态 (UNKNOWN) -> 绝不自动重试
+  if (code === 'PROVIDER_UNKNOWN' || /provider.*unknown|结果未知|未确认/i.test(message)) {
+    return RETRY_POLICIES.UNKNOWN;
+  }
+
+  // 2. 明确的非重试状态 (NON_RETRYABLE)
+  if ([400, 401, 403, 404, 409, 413, 422, 428].includes(status)) {
+    return RETRY_POLICIES.NON_RETRYABLE;
+  }
+  if (['CONTRACT_INVALID', 'STATE_CONFLICT', 'IDEMPOTENCY_KEY_REQUIRED', 'IDEMPOTENCY_KEY_REUSED', 'CONTEXT_OVERFLOW', 'AUDIT_BLOCKED', 'MODEL_CONTENT_BLOCKED'].includes(code)) {
+    return RETRY_POLICIES.NON_RETRYABLE;
+  }
+
+  // 3. 明确的可重试状态 (RETRYABLE)
+  if (status === 429 || status === 503) {
+    return RETRY_POLICIES.RETRYABLE;
+  }
+  if (['RATE_LIMIT_EXCEEDED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN'].includes(code)) {
+    return RETRY_POLICIES.RETRYABLE;
+  }
+  if (/(?:ETIMEDOUT|ECONNRESET|网络瞬态抖动|rate limit|429|503)/i.test(message)) {
+    return RETRY_POLICIES.RETRYABLE;
+  }
+
+  // 默认不可重试，防止将未知逻辑错误盲目重试
+  return RETRY_POLICIES.NON_RETRYABLE;
+}
 
 const PIPELINE_STATES = Object.freeze({
   INIT: 'INIT',
@@ -163,7 +216,10 @@ class PipelineCoordinator {
   }
 
   /**
-   * 带指数退避重试的任务执行器
+   * 带明确错误分类审查的重试任务执行器：
+   * - RETRYABLE: 指数退避重试；
+   * - NON_RETRYABLE: 立即阻断抛出，绝不重试；
+   * - UNKNOWN: 立即判定为 PROVIDER_UNKNOWN 并抛出，严禁自动重复调用。
    */
   async executeWithRetry(actionName, taskFn, customRetries = null) {
     const retries = customRetries ?? this.maxRetries;
@@ -175,8 +231,26 @@ class PipelineCoordinator {
         const result = await taskFn(attempt);
         return result;
       } catch (err) {
-        attempt += 1;
         lastError = err;
+        const policy = classifyError(err);
+
+        // 如果是不可重试错误或未知状态，绝对不进行自动重试，立即向上抛出
+        if (policy === RETRY_POLICIES.NON_RETRYABLE) {
+          throw Object.assign(err instanceof Error ? err : new Error(String(err)), {
+            retryPolicy: RETRY_POLICIES.NON_RETRYABLE,
+            actionName
+          });
+        }
+        if (policy === RETRY_POLICIES.UNKNOWN) {
+          throw Object.assign(err instanceof Error ? err : new Error(String(err)), {
+            retryPolicy: RETRY_POLICIES.UNKNOWN,
+            code: 'PROVIDER_UNKNOWN',
+            unknown: true,
+            actionName
+          });
+        }
+
+        attempt += 1;
         if (attempt > retries) {
           break;
         }
@@ -223,6 +297,8 @@ class PipelineCoordinator {
 module.exports = {
   PIPELINE_STATES,
   PipelineCoordinator,
+  RETRY_POLICIES,
+  classifyError,
   parseDecoupledStream,
   applyHunkPatch
 };

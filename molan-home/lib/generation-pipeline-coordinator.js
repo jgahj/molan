@@ -1,16 +1,15 @@
 'use strict';
 
 /**
- * generation-pipeline-coordinator.js
- * ---------------------------------------------------------------------------
- * 全能小说生成管线调度器 (Universal Generation Pipeline Coordinator)
- *
- * 核心设计目标：
- * 战役一：集成 Scene Planner（单章容量门禁、时空跳跃检测与转场桥梁契约）解决 DEF-PACING-001/002；
- * 战役二：集成 Character State Adapter（情绪状态机与人味微弱点契约）解决 DEF-CHAR-001；
- * 战役三：闭环 Genre Narrative Audit（战前物理阻力指令注入 + 战后 ClimaxShockGate 门禁拦截）解决 DEF-DESC-001；
- * 战役四：实现流式控制帧多路解耦与结构化实体图谱（Entity Graph）校验，解决 DEF-PIPE-001 与 DEF-CONSIST-001。
- * ---------------------------------------------------------------------------
+ * @deprecated
+ * ⚠️【历史组件说明 / DEPRECATED】
+ * 本文件为战役实验期使用的管线调度器。
+ * 当前生产生成主链路已完全统一收敛至：
+ * 1. 唯一业务状态机：lib/generation/state-machine.js
+ * 2. 唯一生产编排器：lib/generation/orchestrator.js
+ * 3. 唯一正文起草引擎：lib/generation/content-engine.js
+ * 生产入口（server.js /api/generation-runs）严禁调用本模块。
+ * 本模块禁止作为通用生产链调用，仅保留历史兼容。
  */
 
 const fs = require('node:fs');
