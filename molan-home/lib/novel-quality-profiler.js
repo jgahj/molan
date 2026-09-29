@@ -169,7 +169,7 @@ function parseBookChapters(textOrChapters) {
  * @returns {Object} 符合 Schema 的标准 NovelQualityProfile
  */
 function extractNovelQualityProfile(novelInput, options = {}) {
-  const genre = String(options.genre || '玄幻');
+  const genre = String(options.genre || '通用');
   const subgenre = String(options.subgenre || '');
   const bookTitle = String(options.title || options.bookTitle || '未命名小说');
   const author = String(options.author || '未知作者');
@@ -899,7 +899,7 @@ function compareQualityProfiles(targetProfile, baselineProfileOrDistribution) {
   );
 
   return {
-    matchedGenre: targetProfile.bookMeta?.genre || '玄幻',
+    matchedGenre: targetProfile.bookMeta?.genre || '通用',
     overallQualityIndex: overallHealth,
     conformanceToBenchmark: issues.length === 0 ? '完全落入同类可比正常区间' : '存在偏离或异常指标',
     dimensionalScores,

@@ -132,7 +132,7 @@ function compareTriad(originalText, detailedGenText, coarseGenText, context = {}
     meta: {
       bookTitle: context.bookTitle || '未知作品',
       author: context.author || '名家',
-      genre: context.genre || '玄幻',
+      genre: context.genre || '通用',
       stage: context.stage || 'early'
     },
     features: {

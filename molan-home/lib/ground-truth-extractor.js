@@ -31,7 +31,9 @@ const GENRE_STYLE_DIRECTIVES = Object.freeze({
   仙侠: '【古典仙侠·克制与道心】笔触典雅深沉，带有佛理禅机或仙途寂寥感。交锋注重招式拆解、心性拷问与因果律动，人物言行有古雅礼法约束，拒绝粗鄙无脑爽文套话。',
   悬疑灵异: '【中式民俗·怪谈与压迫】注重感官递进压迫（冷意、光影跳跃、微弱异响），严格遵循视角隔离，绝不出现上帝视角全知剧透。危机遵循物理尺度步步逼近，制造让读者屏息的窒息感。',
   历史脑洞: '【历史正剧·礼制与政争】严守古代君臣、宗族礼法秩序，严禁现代大词穿帮。政治博弈着眼于制度、钱粮、人脉与权谋微澜，写出大时代碾压下人物的挣扎与格局。',
-  青春甜宠: '【现代言情·情绪流动与细腻通感】极度注重男女主角微表情、视线躲闪、指尖触感与呼吸节奏的微观刻画。对白多重潜台词交锋，情绪波形细腻起伏，充满心动张力与生活甜涩。'
+  青春甜宠: '【现代言情·情绪流动与细腻通感】极度注重男女主角微表情、视线躲闪、指尖触感与呼吸节奏的微观刻画。对白多重潜台词交锋，情绪波形细腻起伏，充满心动张力与生活甜涩。',
+  通用: '【通用叙事·现实质感与戏剧推进】行文凝练扎实，注重人际互动中的潜台词与行动阻力。情节点交锋遵循现实物理与心理动因，拒绝悬浮抽象与空洞套话。',
+  universal: '【通用叙事·现实质感与戏剧推进】行文凝练扎实，注重人际互动中的潜台词与行动阻力。情节点交锋遵循现实物理与心理动因，拒绝悬浮抽象与空洞套话。'
 });
 
 /**
@@ -195,9 +197,9 @@ function compressToDualPrompts(stageData, metadata = {}) {
   const { stage, chapterTitle, bodyText, paragraphs } = stageData;
   const bookTitle = metadata.title || '未知作品';
   const author = metadata.author || '名家';
-  const genre = metadata.genre || '玄幻';
+  const genre = metadata.genre || '通用';
 
-  const styleDirective = GENRE_STYLE_DIRECTIVES[genre] || GENRE_STYLE_DIRECTIVES.玄幻;
+  const styleDirective = GENRE_STYLE_DIRECTIVES[genre] || GENRE_STYLE_DIRECTIVES.通用;
   const beats = distillChapterPlotBeats(paragraphs);
 
   // 1. 构建详细版 Prompt (Detailed Prompt)

@@ -135,7 +135,7 @@ function assembleUpgradedGenerationPrompt(rawPrompt, options = {}) {
  * @returns {Object} 门禁审计结果
  */
 function auditGeneratedChapter(chapterText, context = {}) {
-  const genre = context.genre || '玄幻';
+  const genre = context.genre || '通用';
   const contract = {
     isClimax: true,
     emotionIntensity: 8,

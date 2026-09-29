@@ -8,14 +8,20 @@ const GENRE_ALIASES = Object.freeze({
   '言情': ['言情', '恋爱', '甜宠', ' romance '],
   '科幻': ['科幻', '赛博', '星际', '机甲', '末世'],
   '西幻': ['西幻', '奇幻', '魔法', '骑士', '精灵'],
-  '轻小说': ['轻小说', '校园', '异世界', '日系']
+  '轻小说': ['轻小说', '校园', '异世界', '日系'],
+  '通用': ['通用', '剧情', '现实小说', '文学', '无题材', '其他', 'universal']
 });
 
 /** 从显式题材或用户输入生成带置信度的候选，不使用默认玄幻兜底。 */
 function resolveGenre(input = {}) {
   const explicit = String(input.genre || '').trim();
   if (explicit && explicit !== 'auto') {
-    const matched = Object.keys(GENRE_ALIASES).find(genre => genre === explicit || GENRE_ALIASES[genre].includes(explicit));
+    const matched = Object.keys(GENRE_ALIASES).find(genre => (
+      genre === explicit ||
+      GENRE_ALIASES[genre].includes(explicit) ||
+      genre.toLowerCase() === explicit.toLowerCase() ||
+      GENRE_ALIASES[genre].some(a => a.toLowerCase() === explicit.toLowerCase())
+    ));
     if (matched) return { status: 'resolved', confidence: 1, genre: matched, subgenre: String(input.subgenre || '') };
   }
   const text = [input.title, input.userInstruction, input.prompt, ...(Array.isArray(input.messages) ? input.messages.map(item => item && item.content) : [])]

@@ -699,7 +699,7 @@
         var typeNode = document.getElementById('libraryCreateType');
         var title = titleNode && titleNode.value.trim();
         var intro = introNode && introNode.value.trim() || '';
-        var type = typeNode && typeNode.value || '玄幻';
+        var type = typeNode && typeNode.value || '通用';
         if (!title) { showToast('请先填写小说标题'); if (titleNode) titleNode.focus(); return false; }
         if (state.busy) return false;
          state.busy = true;
@@ -951,7 +951,7 @@
   function persistActiveLocalDraft() {
     var item = activeLocalItem();
     if (!item) return false;
-    var source = clone(previewState.novelState) || createState(previewState.novel && previewState.novel.title || '未命名小说', previewState.novel && previewState.novel.intro || '', previewState.novel && previewState.novel.type || '玄幻');
+    var source = clone(previewState.novelState) || createState(previewState.novel && previewState.novel.title || '未命名小说', previewState.novel && previewState.novel.intro || '', previewState.novel && previewState.novel.type || '通用');
     var body = String(previewState.editorBody || '');
     var chapters = chaptersOf(source);
     var current = chapters.filter(function (entry) { return entry.chapter.id === source.currentChapterId; })[0] || chapters[0];

@@ -161,8 +161,8 @@ function detectNovelStyle(inputQuery, context = {}) {
   }
 
   // 3. 题材子类与母类推断
-  let detectedSubcat = '玄幻';
-  let detectedFamily = '玄幻修真';
+  let detectedSubcat = '通用';
+  let detectedFamily = '通用现实';
   for (const sub of SUBCATEGORY_PATTERNS) {
     if (sub.regex.test(combined)) {
       detectedSubcat = sub.subcategory;
@@ -202,8 +202,10 @@ function detectNovelStyle(inputQuery, context = {}) {
     else if (detectedFamily === '悬疑惊悚') bestArchetype = 'creepy_folklore';
     else if (detectedFamily === '科幻末世') bestArchetype = 'scifi_hardcore';
     else if (detectedFamily === '都市高武') bestArchetype = 'urban_face_slap';
+    else if (detectedFamily === '通用现实' || detectedFamily === '通用' || detectedFamily === 'universal') bestArchetype = 'workplace_inversion';
     else if (detectedSubcat.includes('修仙') || detectedSubcat.includes('仙侠')) bestArchetype = 'hardcore_progression';
-    else bestArchetype = 'epic_grandeur';
+    else if (detectedFamily === '玄幻修真') bestArchetype = 'epic_grandeur';
+    else bestArchetype = 'workplace_inversion';
   }
 
 function getEpistemicAndFriction(family) {
@@ -217,18 +219,21 @@ function getEpistemicAndFriction(family) {
       '历史古代': 'history',
       '西方奇幻': 'western_fantasy',
       '古言世情': 'ancient_romance',
-      '现代言情': 'modern_romance'
+      '现代言情': 'modern_romance',
+      '通用现实': 'universal',
+      '通用': 'universal',
+      'universal': 'universal'
     };
-    const key = fMap[family] || 'xuanhuan';
-    const ep = (EPISTEMIC_PRESETS && EPISTEMIC_PRESETS[key]) || (EPISTEMIC_PRESETS && EPISTEMIC_PRESETS.xuanhuan) || {};
-    const fr = (FRICTION_PRESETS && FRICTION_PRESETS[key]) || (FRICTION_PRESETS && FRICTION_PRESETS.xuanhuan) || '';
+    const key = fMap[family] || 'universal';
+    const ep = (EPISTEMIC_PRESETS && (EPISTEMIC_PRESETS[key] || EPISTEMIC_PRESETS.universal || EPISTEMIC_PRESETS.xuanhuan)) || {};
+    const fr = (FRICTION_PRESETS && (FRICTION_PRESETS[key] || FRICTION_PRESETS.universal || FRICTION_PRESETS.xuanhuan)) || '';
     return {
       epistemic5D: {
-        desire: ep.charactersDesire || '争夺机缘与生存话语权',
-        conceal: ep.charactersConceal || '隐秘底牌杀招与未报备之物',
-        blindSpots: ep.blindSpots || '局势暗流与不可名状的黄雀杀局',
-        irreversibleChange: ep.irreversibleChange || '秩序或关系打破，隐秘暴露',
-        friction: fr || '物理磨损与现实阻力'
+        desire: ep.charactersDesire || '推进核心目标与化解当下阻力',
+        conceal: ep.charactersConceal || '未言明的真实意图与底牌',
+        blindSpots: ep.blindSpots || '局势暗流与未察觉的信息差',
+        irreversibleChange: ep.irreversibleChange || '立场明确与关系格局重组',
+        friction: fr || '现实阻力与信息差摩擦'
       },
       tensionCurve: [
         { beat: '起手铺垫', tension: 3.5, label: '平静中隐现反常暗涌' },
@@ -245,7 +250,7 @@ function getEpistemicAndFriction(family) {
   }
 }
 
-  const archetypeDef = STYLE_ARCHETYPES[bestArchetype] || STYLE_ARCHETYPES.epic_grandeur;
+  const archetypeDef = STYLE_ARCHETYPES[bestArchetype] || STYLE_ARCHETYPES.workplace_inversion || Object.values(STYLE_ARCHETYPES)[0];
   const epData = getEpistemicAndFriction(detectedFamily);
 
   return {

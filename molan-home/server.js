@@ -2057,6 +2057,7 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
           if (detected.genreFamily === '科幻末世') return '科幻';
           if (detected.genreFamily === '悬疑惊悚') return '悬疑';
           if (detected.genreFamily === '历史古代') return '历史';
+          if (detected.genreFamily === '通用现实' || detected.genreFamily === 'universal') return 'universal';
           return detected.genreFamily;
         }
       } catch (_) {}
@@ -2072,9 +2073,9 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
       if (/悬疑|惊悚|规则怪谈|民俗/i.test(t)) {
         return '悬疑';
       }
-      return '';
+      return 'universal';
     }
-    const effectiveGenre = inferGenreFromInput(input, validatedMessages) || '玄幻';
+    const effectiveGenre = inferGenreFromInput(input, validatedMessages) || 'universal';
 
     if (isCreationTask || stage === 'writing') {
       const hasSystem = validatedMessages.some(m => m && m.role === 'system');
@@ -19658,7 +19659,7 @@ async function handleBenchmark(req, res, u) {
     }
     if (req.method === 'GET' && u === '/api/benchmark/baseline') {
       let genre = String(url.searchParams.get('genre') || '').trim();
-      if (!genre || genre.toLowerCase() === 'auto') genre = '玄幻';
+      if (!genre || genre.toLowerCase() === 'auto') genre = '通用';
       const subgenre = String(url.searchParams.get('subgenre') || '').trim();
       const protagonistType = String(url.searchParams.get('protagonistType') || '').trim();
       const prompt = String(url.searchParams.get('prompt') || '').trim();
@@ -19682,7 +19683,7 @@ async function handleBenchmark(req, res, u) {
       const classification = benchmarkDatabase.getDetectionModeClassification();
       if (genre || subgenre) {
         const baseline = benchmarkDatabase.getGenreQualityBaseline(genre, subgenre);
-        return json(res, 200, { ok: true, genre: genre || '玄幻修真', subgenre, baseline, classification });
+        return json(res, 200, { ok: true, genre: genre || '通用现实', subgenre, baseline, classification });
       }
       const allDb = benchmarkDatabase.loadGenreQualityBaselines();
       return json(res, 200, { ok: true, totalGenres: allDb?.totalGenresCovered || 0, baselines: allDb?.baselines || {}, classification });

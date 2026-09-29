@@ -203,7 +203,7 @@ test('真实会话持久化后生成结束，界面和历史记录均退出进�
   assert.equal(harness.requests.filter(request => request.endpoint === '/api/benchmark/generate').length, 1);
   const inspection = harness.requests.find(request => request.endpoint === '/api/genre-lab/inspect');
   assert.ok(inspection);
-  assert.equal(inspection.body.genre, '玄幻');
+  assert.equal(inspection.body.genre, '通用');
   assert.equal(inspection.body.text, harness.prose);
 });
 

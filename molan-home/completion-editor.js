@@ -2933,7 +2933,7 @@
       state && state.novel && state.novel.type
     ].map(value => String(value || '').trim()).filter(Boolean);
     const sceneType = deriveSceneType(sceneSource || '');
-    const primaryGenre = genreCandidates[0] || '玄幻';
+    const primaryGenre = genreCandidates[0] || '通用';
     const selectedRoute = (state && (state.genreRoute || state.xuanhuanRoute || (state.outline && state.outline.book && state.outline.book.xuanhuanRoute))) || '';
     let effectiveRoute = selectedRoute;
     if (!effectiveRoute || effectiveRoute === 'auto') {
@@ -3241,7 +3241,7 @@
     const explicit = source.genre || source.novelType || source.category || source.creationContext?.bible?.payload?.genre || stylePack?.genre;
     if (typeof explicit === 'string' && explicit.trim() && explicit.trim().toLowerCase() !== 'auto') {
       const clean = explicit.trim();
-      if (['玄幻', '都市高武', '悬疑脑洞', '青春甜宠', '历史脑洞', '科幻末世'].includes(clean)) return clean;
+      if (['玄幻', '都市高武', '悬疑脑洞', '青春甜宠', '历史脑洞', '科幻末世', '通用', '通用现实'].includes(clean)) return clean;
     }
     const route = source.genreRoute || source.xuanhuanRoute || '';
     const groups = {
@@ -3250,7 +3250,8 @@
       悬疑脑洞: ['laoshiren', 'rule_horror', 'folklore_investigation', 'sequence_cost'],
       青春甜宠: ['urban_emotion', 'modern_romance'],
       历史脑洞: ['dynasty_friction', 'spy_years', 'history'],
-      科幻末世: ['hard_survival', 'dawn_blade', 'super_mechanic']
+      科幻末世: ['hard_survival', 'dawn_blade', 'super_mechanic'],
+      通用: ['neutral_dramatic']
     };
     if (route && route !== 'auto') {
       const matched = Object.keys(groups).find(genre => groups[genre].includes(route));
@@ -3268,7 +3269,7 @@
     if (/朝廷|大明|大秦|边军|锦衣卫|皇帝|科举|漕运|藩王|历史|军垦/i.test(combined)) return '历史脑洞';
     if (/甜宠|校草|学霸|暗恋|总裁|婚恋|恋爱|女频|校园/i.test(combined)) return '青春甜宠';
     if (/商战|资本|重仓|并购|职场|名利|首富|金融|重生|武馆|气血|基因|高武|都市/i.test(combined)) return '都市高武';
-    return '玄幻';
+    return '通用';
   }
 
   async function requestExistingContentExtraction({ state, context, prompt, stageNode }) {
@@ -4060,7 +4061,7 @@
     if (!state.creationBookId && state.id && typeof getBackend === 'function' && getBackend() && getBackend().token) {
       try {
         const bookTitle = text(state.title || '未命名小说');
-        const bookGenre = text(state.genre || state.genreRoute || '玄幻');
+        const bookGenre = text(state.genre || state.genreRoute || '通用');
         const bookPlan = text(state.outline && state.outline.oneLine || prompt || '');
         const creationData = await creationRequest('/api/creation-books', {
           method: 'POST',
