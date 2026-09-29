@@ -18,6 +18,7 @@ function normalizeChapterContract(input = {}) {
     chapterGoal: String(input.chapterGoal || input.goal || '').trim(),
     genreProfileId: String(input.genreProfileId || ''),
     styleBundleId: String(input.styleBundleId || ''),
+    stateSnapshotHash: String(input.stateSnapshotHash || input.storyStateSnapshotHash || ''),
     pov: String(input.pov || 'third-limited'),
     viewpointCharacter: String(input.viewpointCharacter || ''),
     allowedKnowledge: Array.isArray(input.allowedKnowledge) ? input.allowedKnowledge.map(String) : [],

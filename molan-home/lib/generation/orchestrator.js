@@ -222,10 +222,21 @@ function createGenerationOrchestrator(options = {}) {
       if (Object.hasOwn(authoritative.storyContext, 'previousEnding')) request.previousEnding = authoritative.storyContext.previousEnding;
       if (Object.hasOwn(authoritative.storyContext, 'planText')) request.planText = authoritative.storyContext.planText;
       const sourceContext = { ...(request.storyContext || {}), sceneContract: contract };
-      let context = assembleContext(sourceContext, { maxChars: request.modelParams && request.modelParams.contextChars });
+      let context = assembleContext(sourceContext, {
+        maxChars: request.modelParams && request.modelParams.contextChars,
+        model: request.modelId,
+        provider: request.provider,
+        hardLimit: request.providerContextLimit,
+        targetWords: contract.wordBudget && contract.wordBudget.targetChars || 2400
+      });
       current = await move(scope, id, 'context_built', { message: '故事上下文已编译', contextPlan: context.contextPlan }, {
         genreResolution: genre, styleResolution: style, contract, contextPlan: context.contextPlan,
-        authoritativeStoryContext: request.storyContext, stateSnapshotHash: String(authoritative.snapshotHash || ''),
+        authoritativeStoryContext: request.storyContext,
+        stateSnapshot: {
+          snapshotHash: String(authoritative.snapshotHash || ''),
+          storyContext: request.storyContext
+        },
+        stateSnapshotHash: String(authoritative.snapshotHash || ''),
         contractHash: contractHash(contract)
       });
       current = await move(scope, id, 'contract_validated', { message: '章节合同已校验' });
@@ -413,6 +424,12 @@ function createGenerationOrchestrator(options = {}) {
         contextHash: context.contextPlan.contextHash,
         genreResolution: genre,
         styleResolution: style,
+        stateSnapshot: {
+          snapshotHash: String(authoritative.snapshotHash || (current.result && current.result.stateSnapshotHash) || ''),
+          storyContext: request.storyContext
+        },
+        stateSnapshotHash: String(authoritative.snapshotHash || (current.result && current.result.stateSnapshotHash) || ''),
+        promptHash: (current.manifest && current.manifest.promptHash) || draftManifest.promptHash || hashValue(promptInput),
         audit: withIssueIds(finalAudit, hashValue(draft)),
         semanticAudit: semantic && semantic.audit
           ? { ...semantic, audit: withIssueIds(semantic.audit, hashValue(draft)) }
@@ -422,7 +439,12 @@ function createGenerationOrchestrator(options = {}) {
         completedAt: Date.now()
       };
       const finalManifest = {
-        ...(current.manifest || {})
+        ...(current.manifest || {}),
+        promptHash: (current.manifest && current.manifest.promptHash) || draftManifest.promptHash || hashValue(promptInput),
+        stateSnapshotHash: (current.manifest && current.manifest.stateSnapshotHash) || draftManifest.stateSnapshotHash || String(authoritative.snapshotHash || ''),
+        contextHash: context.contextPlan.contextHash,
+        contractHash: contractHash(contract),
+        outputHash: hashValue(draft)
       };
       if (String(finalManifest.outputHash || '') !== hashValue(draft)) throw new GenerationError('MODEL_CONTENT_BLOCKED', 'Writer Manifest 正文摘要发生变化');
       return await move(scope, id, 'waiting_author', { message: '审计通过，等待作者确认' }, result, undefined, finalManifest);
@@ -736,7 +758,50 @@ function createGenerationOrchestrator(options = {}) {
     return true;
   }
 
-  return { create, execute, revise, commit, cancel, cancelOnDisconnect, pause, resume, recover, abortWorker };
+  /**
+   * 从生成任务 ID 恢复完整的重放上下文，满足 P4 验收：
+   * contract, contextPlan, stateSnapshot, styleBundle, genreProfile, promptHash
+   * 确保做到 replayable = true
+   */
+  async function getReplay(scope, id) {
+    const run = await store.getRun(db, { ...scope, id });
+    if (!run) throw new GenerationError('RUN_NOT_FOUND', '生成任务不存在或无权访问', { status: 404 });
+    const input = await store.getRunInput(db, { ...scope, id });
+    const result = run.result || {};
+    const manifest = run.manifest || {};
+
+    const contract = result.contract || (input && (input.chapterContract || input.contract) ? normalizeChapterContract(input.chapterContract || input.contract) : null);
+    const contextPlan = result.contextPlan || null;
+    const stateSnapshot = result.stateSnapshot || (result.authoritativeStoryContext ? {
+      snapshotHash: result.stateSnapshotHash || manifest.stateSnapshotHash || '',
+      storyContext: result.authoritativeStoryContext
+    } : (input && input.storyContext ? {
+      snapshotHash: result.stateSnapshotHash || manifest.stateSnapshotHash || '',
+      storyContext: input.storyContext
+    } : null));
+    const styleBundle = (result.styleResolution && (result.styleResolution.bundle || result.styleResolution.styleBundle || result.styleResolution)) ||
+      (input && (input.styleBundle || input.style)) || null;
+    const genreProfile = (result.genreResolution && (result.genreResolution.profile || result.genreResolution.genreProfile || result.genreResolution)) ||
+      (input && (input.genreProfile || input.genre)) || null;
+    const promptHash = manifest.promptHash || result.promptHash || '';
+
+    const hasAll = Boolean(contract && contextPlan && stateSnapshot && styleBundle && genreProfile && promptHash);
+
+    return {
+      generationId: id,
+      replayable: hasAll,
+      contract,
+      contextPlan,
+      stateSnapshot,
+      styleBundle,
+      genreProfile,
+      promptHash,
+      manifest,
+      outputHash: result.outputHash || manifest.outputHash || ''
+    };
+  }
+
+  return { create, execute, revise, commit, cancel, cancelOnDisconnect, pause, resume, recover, abortWorker, getReplay };
 }
 
 module.exports = { createGenerationOrchestrator, ACTIVE_STATES };

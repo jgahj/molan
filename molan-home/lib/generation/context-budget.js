@@ -34,15 +34,51 @@ function estimateTokens(value) {
  * 计算精确上下文预算边界：
  * systemTokens + contextTokens + contractTokens + promptTokens + outputReserve <= providerContextLimit
  */
-function calculateContextBudget({
-  system = '',
-  context = '',
-  contract = null,
-  prompt = '',
-  targetWords = 2400,
-  modelId = '',
-  providerContextLimit = null
-} = {}) {
+function calculateContextBudget(options = {}) {
+  if (options && options.contextPlan) {
+    const cp = options.contextPlan;
+    const limit = Number(cp.hardLimit) || DEFAULT_PROVIDER_CONTEXT_LIMITS[cp.model] || DEFAULT_PROVIDER_CONTEXT_LIMITS.default;
+    const outputReserve = Number(cp.outputReserve) || 0;
+    const systemTokens = Number(cp.systemTokens) || 0;
+    const contractTokens = Number(cp.contractTokens) || 0;
+    const memoryTokens = Number(cp.memoryTokens) || 0;
+    const storyTokens = Number(cp.storyTokens) || 0;
+    const recentTokens = Number(cp.recentTokens) || 0;
+    const contextTokens = memoryTokens + storyTokens + recentTokens;
+    const promptTokens = Number(cp.promptTokens) || (contractTokens + contextTokens);
+    const totalRequired = Number(cp.totalRequired) || (systemTokens + contractTokens + contextTokens + outputReserve);
+    const margin = limit - totalRequired;
+    const fits = margin >= 0;
+
+    return {
+      fits,
+      margin,
+      limit,
+      totalRequired,
+      breakdown: {
+        systemTokens,
+        contextTokens,
+        contractTokens,
+        memoryTokens,
+        storyTokens,
+        recentTokens,
+        promptTokens,
+        outputReserve
+      },
+      contextPlan: cp
+    };
+  }
+
+  const {
+    system = '',
+    context = '',
+    contract = null,
+    prompt = '',
+    targetWords = 2400,
+    modelId = '',
+    providerContextLimit = null
+  } = options;
+
   const systemTokens = estimateTokens(system);
   const contextTokens = estimateTokens(context);
   const contractTokens = contract ? estimateTokens(contract) : 0;

@@ -36,6 +36,7 @@ function buildGenerationManifest(input = {}) {
     promptVersion: String(input.promptVersion || 'writer-1'),
     storyBibleVersion: Number(input.storyBibleVersion) || 0,
     stateVersion: Number(input.stateVersion) || 0,
+    stateSnapshotHash: String(input.stateSnapshotHash || ''),
     contextHash: String(input.contextHash || ''),
     contractHash: String(input.contractHash || ''),
     promptHash: String(input.promptHash || ''),
