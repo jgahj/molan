@@ -31,11 +31,12 @@ function checkpoints(indices) {
   }));
 }
 
-test('long-form soak plan supports the required 3/10/20/50/100 chapter milestones', () => {
-  assert.deepEqual(SOAK_MILESTONES, [3, 10, 20, 50, 100]);
+test('long-form soak plan supports the required 3/10/20/50/100/200 chapter milestones', () => {
+  assert.deepEqual(SOAK_MILESTONES, [3, 10, 20, 50, 100, 200]);
   assert.deepEqual(buildSoakPlan({ replayManifest, milestone: 3 }).checkpoints, []);
   assert.deepEqual(buildSoakPlan({ replayManifest, milestone: 20 }).checkpoints, [10, 20]);
   assert.deepEqual(buildSoakPlan({ replayManifest, milestone: 100 }).checkpoints, [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
+  assert.equal(buildSoakPlan({ replayManifest, milestone: 200 }).checkpoints.length, 20);
 });
 
 test('soak run passes only with every audited chapter and all 10-chapter health snapshots', () => {
