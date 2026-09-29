@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "generation-baseline-manifest-v1",
+  "pipelineVersion": "generation-v2.1",
+  "modelId": "gpt-5.6-luna",
+  "promptVersion": "writer-v7",
+  "contractVersion": "chapter-contract-v2",
+  "styleVersion": "style-dna-v1",
+  "genreVersion": "genre-matrix-v2",
+  "contextVersion": "context-plan-v1",
+  "sourceCommit": "4baa230ad2d0b9b68b71e3d2be3583f8957b82d7",
+  "sourceBranch": "main",
+  "generatedAt": "2026-09-29T13:48:51.113Z",
+  "reproducible": true,
+  "status": {
+    "tests": "PASS",
+    "golden": "PASS",
+    "features": "PASS"
+  },
+  "evidence": {
+    "codeManifest": "code-manifest.json",
+    "uiManifest": "ui-manifest.json",
+    "testResult": "test-result.json",
+    "goldenResult": "golden-result.json",
+    "featureResult": "feature-result.json",
+    "sourceHashes": "source-hashes.json"
+  },
+  "protectedDataRead": false
+}
