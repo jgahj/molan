@@ -32,3 +32,8 @@ test('错误响应的跨块中文保持准确，余额不足仍可识别', async
   const call = caller(JSON.stringify({ error: '余额不足，请核对账户。' }), 402);
   await assert.rejects(call({}), error => error.status === 402 && error.code === 'upstream_balance_exhausted' && error.message.includes('余额不足，请核对账户。'));
 });
+
+test('内部服务显式报告 Provider 未知结果时保留未知状态', async () => {
+  const call = caller(JSON.stringify({ error: '上游结果未知', code: 'PROVIDER_UNKNOWN', unknown: true }), 409);
+  await assert.rejects(call({}), error => error.status === 409 && error.code === 'PROVIDER_UNKNOWN' && error.unknown === true);
+});

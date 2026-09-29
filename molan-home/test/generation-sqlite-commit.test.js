@@ -73,10 +73,11 @@ function commitInput(text = '新正文') {
     run: {
       id: 'run-1', projectId: 'n-1', workspaceId: 'ws-1', actualCostMinor: 50,
       result: {
-        outputHash: contentHash, contract: { chapterNo: 1 },
+        draft: text, outputHash: contentHash, contract: { chapterNo: 1 },
         audit: { passed: true, issues: [] },
         benchmark: { status: 'passed' },
-        semanticAudit: { passed: true, audit: { passed: true, factLedgerDelta: delta } }
+        semanticAudit: { passed: true, audit: { passed: true, issues: [], factLedgerDelta: delta } },
+        quality: { passed: true, qualityVector: { language: { value: 0.9, confidence: 0.9 } } }
       }
     },
     request: {
@@ -147,6 +148,26 @@ test('SQLite commit rejects stale story state and project revisions before mutat
     staleState.payload.payload.baseStateVersion = 1;
     assert.throws(() => commitSqliteChapter(db, staleState), { code: 'STATE_CONFLICT', status: 409 });
     assert.equal(Number(db.prepare('SELECT revision FROM novels WHERE id = ?').get('n-1').revision), 4);
+  } finally {
+    db.close();
+  }
+});
+
+test('SQLite commit rejects missing or failed semantic and quality evidence', () => {
+  const { db } = commitDatabase();
+  try {
+    const missingQuality = commitInput();
+    delete missingQuality.run.result.quality;
+    assert.throws(() => commitSqliteChapter(db, missingQuality), { code: 'AUDIT_BLOCKED' });
+
+    const failedSemantic = commitInput();
+    failedSemantic.run.result.semanticAudit.passed = false;
+    assert.throws(() => commitSqliteChapter(db, failedSemantic), { code: 'AUDIT_BLOCKED' });
+
+    const failedQuality = commitInput();
+    failedQuality.run.result.quality.passed = false;
+    assert.throws(() => commitSqliteChapter(db, failedQuality), { code: 'AUDIT_BLOCKED' });
+    assert.equal(Number(db.prepare('SELECT count(*) AS n FROM creation_state_snapshots').get().n), 0);
   } finally {
     db.close();
   }
