@@ -3,27 +3,27 @@
  * keep ownership of behavior while this file owns the visual system.
  */
 :root {
-  --molan-ink: #0a0a0a;
-  --molan-ink-soft: #292927;
-  --molan-paper: #ffffff;
-  --molan-paper-warm: #fbfbf9;
-  --molan-canvas: #f3f3f0;
-  --molan-line: #e7e7e2;
-  --molan-line-strong: #d6d6d0;
-  --molan-muted: #74746e;
-  --molan-muted-light: #a5a59f;
-  --molan-green: #25845a;
-  --molan-green-bg: #eef8f1;
-  --molan-blue: #385c91;
-  --molan-blue-bg: #eef3fb;
-  --molan-amber: #a86b20;
-  --molan-amber-bg: #fff7ea;
-  --molan-danger: #ae3d3d;
-  --molan-danger-bg: #fff0f0;
-  --molan-shadow: 0 10px 30px rgba(17, 17, 15, .06);
-  --molan-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --molan-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
-  --molan-mono: "SFMono-Regular", Consolas, monospace;
+  --molan-ink: var(--ink, #0a0a0a);
+  --molan-ink-soft: var(--ink-soft, #292927);
+  --molan-paper: var(--paper, #ffffff);
+  --molan-paper-warm: var(--paper-warm, #fbfbf9);
+  --molan-canvas: var(--canvas, #f3f3f0);
+  --molan-line: var(--line, #e7e7e2);
+  --molan-line-strong: var(--line-strong, #d6d6d0);
+  --molan-muted: var(--muted, #74746e);
+  --molan-muted-light: var(--muted-light, #a5a59f);
+  --molan-green: var(--green, #25845a);
+  --molan-green-bg: var(--green-bg, #eef8f1);
+  --molan-blue: var(--blue, #385c91);
+  --molan-blue-bg: var(--blue-bg, #eef3fb);
+  --molan-amber: var(--amber, #a86b20);
+  --molan-amber-bg: var(--amber-bg, #fff7ea);
+  --molan-danger: var(--danger, #ae3d3d);
+  --molan-danger-bg: var(--danger-bg, #fff0f0);
+  --molan-shadow: var(--shadow, 0 10px 30px rgba(17, 17, 15, .06));
+  --molan-sans: var(--sans, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif);
+  --molan-serif: var(--serif, "Noto Serif SC", "Songti SC", "SimSun", serif);
+  --molan-mono: var(--mono, "SFMono-Regular", Consolas, monospace);
 }
 
 /* Shared page foundation */

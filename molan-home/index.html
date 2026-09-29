@@ -3177,7 +3177,26 @@
       return sanitizeAiFlavor(draftText);
     }
 
-    function mountIcons() { if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } }); }
+    function mountIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+      } else {
+        document.querySelectorAll('i[data-lucide]').forEach(el => {
+          if (!el.innerHTML.trim()) {
+            const name = el.getAttribute('data-lucide');
+            const fallbackMap = {
+              'layout-dashboard': '▤', 'library': '📚', 'pen-line': '✎', 'folder-open': '📁',
+              'milestone': '⚐', 'brain': '🧠', 'layers': '📑', 'scan-text': '🔍',
+              'wand-sparkles': '✨', 'network': '🕸', 'sparkles': '✦', 'coins': '🪙',
+              'book-open': '📖', 'settings-2': '⚙', 'log-in': '⎆', 'blocks': '☵',
+              'notebook-pen': '📝', 'shield-check': '🛡', 'menu': '☰', 'chevron-right': '›',
+              'bell': '🔔', 'sun': '☼', 'user-round': '👤'
+            };
+            el.textContent = fallbackMap[name] || '•';
+          }
+        });
+      }
+    }
     function showToast(message) { toast.textContent = message; toast.classList.add('show'); window.clearTimeout(toastTimer); const duration = String(message || '').length > 30 ? 6000 : 2200; toastTimer = window.setTimeout(() => toast.classList.remove('show'), duration); }
     const offlineBanner = document.getElementById('offlineBanner');
     function updateOfflineBanner() { if (offlineBanner) offlineBanner.hidden = navigator.onLine !== false; }

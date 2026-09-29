@@ -2299,7 +2299,7 @@
     const labels = curve.map((c, i) => `<text x="${x(i).toFixed(1)}" y="${H - 9}" font-size="9" text-anchor="middle" fill="#8a8a8a">${esc(String(c.position || ('#' + (i + 1))).slice(0, 8))}</text>`).join('');
     const grid = [0, 2, 4, 6, 8, 10].map(v => `<line x1="${padL}" y1="${y(v).toFixed(1)}" x2="${W - padR}" y2="${y(v).toFixed(1)}" stroke="#eee"/><text x="${padL - 6}" y="${(y(v) + 3).toFixed(1)}" font-size="9" text-anchor="end" fill="#bbb">${v}</text>`).join('');
     const dots = curve.map((c, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(c.intensity).toFixed(1)}" r="3" fill="#e0524f"/>`).join('');
-    return `<div class="emotion-chart" style="margin-top:4px"><svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="background:#fff;border:1px solid #eee;border-radius:8px">${grid}<polyline points="${pts}" fill="none" stroke="#e0524f" stroke-width="2"/>${dots}${labels}<text x="${padL}" y="12" font-size="10" fill="#666">情绪强度曲线（1-10）</text></svg></div>`;
+    return `<div class="emotion-chart" style="margin-top:4px"><svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="background:var(--paper,#fff);border:1px solid var(--line,#eee);border-radius:8px">${grid}<polyline points="${pts}" fill="none" stroke="#e0524f" stroke-width="2"/>${dots}${labels}<text x="${padL}" y="12" font-size="10" fill="var(--muted,#666)">情绪强度曲线（1-10）</text></svg></div>`;
   }
   function emotionResultMarkup(emotion) {
     const chart = emotionChartMarkup(emotion);
