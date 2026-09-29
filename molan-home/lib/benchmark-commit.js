@@ -9,7 +9,18 @@ function validateCommitAudit(record, body) {
   if (record.content_hash !== body.contentHash) return { ok: false, code: 'audit_content_changed' };
   let audit;
   try { audit = JSON.parse(record.result_json); } catch (_) { return { ok: false, code: 'audit_evidence_missing' }; }
-  if (record.passed !== 1 || audit.protocol !== 'benchmark-local-v2' || audit.passed !== true || audit.contentHash !== body.contentHash || audit.semanticAudit?.passed !== true || audit.semanticAudit?.status !== 'passed') return { ok: false, code: 'audit_blocked' };
+  if (record.passed !== 1 || audit.passed !== true || audit.contentHash !== body.contentHash) return { ok: false, code: 'audit_blocked' };
+  if (audit.protocol === 'generation-v2-audit-v1') {
+    if (!audit.generationId || !Number.isInteger(Number(audit.chapterNo)) || Number(audit.chapterNo) < 1 ||
+        audit.deterministicAudit?.passed !== true || audit.semanticAudit?.passed !== true ||
+        audit.quality?.passed !== true || !audit.quality?.qualityVector ||
+        typeof audit.quality.qualityVector !== 'object' || Array.isArray(audit.quality.qualityVector) ||
+        !Object.keys(audit.quality.qualityVector).length) {
+      return { ok: false, code: 'audit_blocked' };
+    }
+  } else if (audit.protocol !== 'benchmark-local-v2' || audit.semanticAudit?.passed !== true || audit.semanticAudit?.status !== 'passed') {
+    return { ok: false, code: 'audit_blocked' };
+  }
   return { ok: true, audit };
 }
 

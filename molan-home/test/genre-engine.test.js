@@ -132,59 +132,42 @@ test('元始法则特化管线动态加载并注入 Few-Shot 正向名家切片'
   assert.ok(context.writingSystem.includes('庞大且健壮的体躯跃上数米高的船舷'));
 });
 
-test('服务端口3000通用题材HTTP接口端到端正常', async (t) => {
-  const isPortAvailable = await new Promise(resolve => {
-    const socket = require('node:net').createConnection(3000, '127.0.0.1');
-    socket.once('connect', () => { socket.end(); resolve(true); });
-    socket.once('error', () => resolve(false));
-  });
-  if (!isPortAvailable) {
-    if (t && typeof t.skip === 'function') t.skip('本地 3000 端口服务未启动，跳过在线端到端 HTTP 测试');
+test('服务端通用题材HTTP接口端到端正常', async (t) => {
+  const origin = String(process.env.MOLAN_GENRE_TEST_ORIGIN || '').trim();
+  const token = String(process.env.MOLAN_GENRE_TEST_TOKEN || '').trim();
+  if (!origin || !token) {
+    t.skip('设置隔离的本机测试地址和令牌后运行 HTTP 集成测试');
     return;
   }
-  const token = await new Promise((resolve, reject) => {
-    const data = JSON.stringify({ email: '1271055010@qq.com', password: '123456' });
-    const req = http.request('http://127.0.0.1:3000/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
-    }, res => {
-      let b = '';
-      res.on('data', c => b += c);
-      res.on('end', () => resolve(JSON.parse(b).token));
+  const base = new URL(origin);
+  assert.equal(base.protocol, 'http:');
+  assert.ok(['127.0.0.1', 'localhost', '::1'].includes(base.hostname), 'genre HTTP 测试只允许访问本机');
+  const requestJson = (method, route, value) => new Promise((resolve, reject) => {
+    const data = value == null ? '' : JSON.stringify(value);
+    const headers = { Authorization: 'Bearer ' + token };
+    if (data) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = Buffer.byteLength(data);
+    }
+    const req = http.request(new URL(route, base), { method, headers }, res => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch (error) { reject(error); }
+      });
     });
     req.on('error', reject);
-    req.write(data);
+    if (data) req.write(data);
     req.end();
   });
 
-  // 1. GET /api/genre-lab/routes
-  const routesData = await new Promise((resolve, reject) => {
-    http.get('http://127.0.0.1:3000/api/genre-lab/routes?genre=科幻末世', {
-      headers: { Authorization: 'Bearer ' + token }
-    }, res => {
-      let b = '';
-      res.on('data', c => b += c);
-      res.on('end', () => resolve(JSON.parse(b)));
-    }).on('error', reject);
-  });
+  const routesData = await requestJson('GET', '/api/genre-lab/routes?genre=科幻末世');
   assert.equal(routesData.ok, true);
   assert.ok(routesData.routes.length >= 1);
   assert.equal(routesData.routes[0].id, 'hard_survival');
 
-  // 2. POST /api/genre-lab/prepare
-  const prepareData = await new Promise((resolve, reject) => {
-    const body = JSON.stringify({ genre: '科幻末世', query: '外骨骼电池 辐射 废土', routeId: 'hard_survival' });
-    const req = http.request('http://127.0.0.1:3000/api/genre-lab/prepare', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
-    }, res => {
-      let b = '';
-      res.on('data', c => b += c);
-      res.on('end', () => resolve(JSON.parse(b)));
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+  const prepareData = await requestJson('POST', '/api/genre-lab/prepare', {
+    genre: '科幻末世', query: '外骨骼电池 辐射 废土', routeId: 'hard_survival'
   });
   assert.equal(prepareData.ok, true);
   assert.equal(prepareData.routeId, 'hard_survival');

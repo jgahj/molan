@@ -43,6 +43,9 @@ test('后续版本化迁移只增加稳定ID和受控成员函数', () => {
   assert.ok(files.includes('0012_luna_reservation_period.sql'));
   assert.ok(files.includes('0016_luna_legacy_payloads.sql'));
   assert.ok(files.includes('0017_luna_creation_snapshot_legacy_ids.sql'));
+  assert.ok(files.includes('0039_luna_generation_runs.sql'));
+  assert.ok(files.includes('0040_luna_auth_session_event_contract.sql'));
+  assert.ok(files.includes('0041_luna_generation_audit_binding.sql'));
   for (const file of files) {
     const source = fs.readFileSync(path.join(migrationDirectory, file), 'utf8');
     assert.match(source, /\bBEGIN\s*;/i, file);
@@ -53,6 +56,26 @@ test('后续版本化迁移只增加稳定ID和受控成员函数', () => {
   assert.match(legacyMigration, /legacy_id/);
   assert.match(legacyMigration, /luna\.project_access/);
   assert.match(legacyMigration, /luna\.restore_project_by_id/);
+});
+
+test('Generation V2 chapter audits are bound to one run and chapter without deleting older audit rows', () => {
+  const source = fs.readFileSync(path.join(migrationDirectory, '0041_luna_generation_audit_binding.sql'), 'utf8');
+  assert.match(source, /ADD COLUMN IF NOT EXISTS generation_id uuid/);
+  assert.match(source, /ADD COLUMN IF NOT EXISTS chapter_no integer/);
+  assert.match(source, /FOREIGN KEY \(workspace_id, project_id, generation_id\)/);
+  assert.match(source, /CREATE UNIQUE INDEX IF NOT EXISTS luna_audits_generation_uidx/);
+  assert.doesNotMatch(source, /\bDROP\s+TABLE\b|\bTRUNCATE\b|\bDELETE\s+FROM\b/i);
+});
+
+test('shared PostgreSQL session events use the stable userId contract for create and revoke', () => {
+  const source = fs.readFileSync(path.join(migrationDirectory, '0040_luna_auth_session_event_contract.sql'), 'utf8');
+  assert.match(source, /'event', 'created'[\s\S]*?'userId', stable_user_id/);
+  assert.match(source, /'event', 'revoked'[\s\S]*?'userId', stable_user_id/);
+  assert.match(source, /'event', 'user_revoked'[\s\S]*?'userId', stable_user_id/);
+  assert.match(source, /'sessionId'/);
+  assert.match(source, /'revokedAt'/);
+  assert.match(source, /target_scope IS NULL/);
+  assert.match(source, /target_expires_at IS NULL/);
 });
 
 test('资源类型扩展通过新的非破坏性迁移加入PostgreSQL', () => {

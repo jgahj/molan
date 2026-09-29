@@ -5,6 +5,7 @@ const { GenerationError } = require('./errors');
 const projectResources = require('../project-resources');
 const { validateCommitAudit, saveCommitReceipt, finishCommitReceipt } = require('../benchmark-commit');
 const { deriveGenerationCommitProjection } = require('./commit-projection');
+const { validateGenerationAuditEvidence } = require('./audit-evidence');
 
 function fail(code, message, status = 409) {
   throw new GenerationError(code, message, { status });
@@ -64,10 +65,16 @@ function commitSqliteChapter(db, input = {}) {
   const deterministic = result.audit || result.deterministicAudit || {};
   const semantic = result.semanticAudit || {};
   const semanticEvidence = semantic.audit || {};
+  const quality = result.quality || {};
   const pipelineStatus = String(result.benchmark && result.benchmark.status || '');
   const audited = deterministic.passed === true && semantic.passed === true && semanticEvidence.passed === true &&
-    (!pipelineStatus || pipelineStatus === 'passed');
+    quality.passed === true && quality.qualityVector && typeof quality.qualityVector === 'object' &&
+    Object.keys(quality.qualityVector).length > 0 && (!pipelineStatus || pipelineStatus === 'passed');
   if (!audited) fail('AUDIT_BLOCKED', '生成正文尚未通过服务端审计，不能正式提交');
+  const evidenceCheck = validateGenerationAuditEvidence({
+    generationId: run.id, chapterNo, content, contentHash, result
+  });
+  if (!evidenceCheck.ok) fail('AUDIT_BLOCKED', evidenceCheck.message);
 
   const creationContract = result.contract || request.chapterContract || request.contract || {};
   const now = Date.now();
@@ -146,12 +153,8 @@ function commitSqliteChapter(db, input = {}) {
     projection = deriveGenerationCommitProjection({ result, text: content, previousSnapshot, chapterNo });
 
     const audit = {
-      ...semanticEvidence,
-      protocol: 'benchmark-local-v2',
-      passed: true,
-      status: 'passed',
-      contentHash,
-      semanticAudit: { ...semanticEvidence, passed: true, status: 'passed' },
+      ...evidenceCheck.evidence,
+      protocol: 'generation-v2-audit-v1',
       factLedgerDelta: projection.factLedgerDelta,
       projection: {
         characterStates: projection.characterStates,
@@ -276,6 +279,25 @@ function commitSqliteChapter(db, input = {}) {
       snapshotId, bookId, chapterNo, stateVersion: nextStateVersion,
       contentHash, content, ledgerDelta: projection.factLedgerDelta
     });
+    if (run.id && run.fencingToken != null) {
+      const storedRun = db.prepare(`SELECT result_json, state, lease_owner, fencing_token, lease_until
+        FROM generation_runs WHERE id = ? AND project_id = ? AND actor_user_id = ?
+          AND (? = '' OR workspace_id = ?)`)
+        .get(String(run.id), projectId, actorUserId, workspaceId, workspaceId);
+      if (!storedRun || storedRun.state !== 'committing' || String(storedRun.lease_owner || '') !== String(run.leaseOwner || '') ||
+          Number(storedRun.fencing_token) !== Number(run.fencingToken) || Number(storedRun.lease_until) <= now) {
+        fail('STATE_CONFLICT', 'Generation Run 提交租约已变化', 409);
+      }
+      const storedResult = parseJson(storedRun.result_json, {});
+      const commitReceipt = {
+        committed: true, snapshotId, stateVersion: nextStateVersion, currentStateVersion: nextStateVersion,
+        chapterNo, contentHash, projectRevision: nextProjectRevision
+      };
+      const updatedRun = db.prepare(`UPDATE generation_runs SET result_json = ?, updated_at = ?
+        WHERE id = ? AND state = 'committing' AND lease_owner = ? AND fencing_token = ? AND lease_until > ?`)
+        .run(JSON.stringify({ ...storedResult, commitReceipt }), now, String(run.id), String(run.leaseOwner || ''), Number(run.fencingToken), now);
+      if (Number(updatedRun.changes || 0) !== 1) fail('STATE_CONFLICT', 'Generation Run 提交租约已变化', 409);
+    }
     db.prepare('UPDATE novel_projects SET updated_at = ? WHERE workspace_id = ? AND project_id = ?')
       .run(now, workspaceId, projectId);
     db.exec('COMMIT');

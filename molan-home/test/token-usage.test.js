@@ -902,7 +902,11 @@ test('reserves credits atomically and holds reservation when usage is missing', 
     saveUser(user);
     const estimated = reservationCostForRequest(user, 'unknown-model', [{ role: 'user', content: 'hello' }], 1000);
     assert.ok(estimated > 0);
-    assert.equal(reserveCredits(user, 'unknown-model', 'unknown-model', 'reserve-a', 0.8).ok, true);
+    assert.equal(reserveCredits(user, 'unknown-model', 'unknown-model', 'reserve-a', 0.8, null, 'a'.repeat(64)).ok, true);
+    assert.equal(reserveCredits(user, 'unknown-model', 'unknown-model', 'reserve-a', 0.2, null, 'a'.repeat(64)).existing, true);
+    assert.equal(reserveCredits(user, 'unknown-model', 'unknown-model', 'reserve-probe', 0, null, 'c'.repeat(64), null, { lookupOnly: true }).missing, true);
+    assert.equal(reserveCredits(user, 'other-model', 'other-model', 'reserve-a', 0.8, null, 'a'.repeat(64)).conflict, true);
+    assert.equal(reserveCredits(user, 'unknown-model', 'unknown-model', 'reserve-a', 0.8, null, 'b'.repeat(64)).conflict, true);
     assert.equal(reserveCredits(user, 'unknown-model', 'unknown-model', 'reserve-b', 0.8).ok, false);
 
     const pending = settleTokenUsage({ requestId: 'reserve-a', userEmail: email, modelId: 'unknown-model', providerModel: 'unknown-model', promptTokens: null, completionTokens: null, reasoningTokens: null, totalTokens: null, cachedTokens: null, cacheWriteTokens: null, usageSource: 'unavailable', status: 'usage_unavailable', createdAt: Date.now(), durationMs: 1 });

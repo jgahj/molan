@@ -11,6 +11,7 @@ const WORKSPACE_ID = internalUuid('projection-workspace');
 const PROJECT_ID = internalUuid('projection-project');
 const BOOK_UUID = internalUuid(BOOK_ID);
 const AUDIT_ID = internalUuid('projection-audit');
+const GENERATION_ID = '11111111-1111-4111-8111-111111111111';
 const CONTENT = '经审计并提交的正文';
 const CONTENT_HASH = crypto.createHash('sha256').update(CONTENT, 'utf8').digest('hex');
 
@@ -25,6 +26,13 @@ class CommitClient {
     this.snapshotPayload = null;
     this.snapshotHash = '';
     this.outboxPayload = null;
+    this.audit = null;
+    this.generationResult = {
+      draft: CONTENT, outputHash: CONTENT_HASH, contract: { chapterNo: 4 },
+      audit: { passed: true, blockerCount: 0, issues: [] },
+      semanticAudit: { passed: true, audit: { passed: true, issues: [] } },
+      quality: { passed: true, qualityVector: { language: { value: 0.9 } } }
+    };
   }
 
   release() {}
@@ -48,8 +56,19 @@ class CommitClient {
         project_status: 'active', can_spend: true, project_revision: 8, acl_revision: 2
       }], rowCount: 1 };
     }
+    if (statement.includes('FROM luna.generation_runs')) {
+      return { rows: [{ state: 'committing', result: this.generationResult, chapter_id: 'chapter_4' }], rowCount: 1 };
+    }
     if (statement.includes('FROM luna.audits')) {
-      return { rows: [{ id: AUDIT_ID, subject_hash: CONTENT_HASH, status: 'passed', result: { passed: true } }], rowCount: 1 };
+      if (!this.audit) return { rows: [], rowCount: 0 };
+      return { rows: [clone(this.audit)], rowCount: 1 };
+    }
+    if (statement.startsWith('INSERT INTO luna.audits')) {
+      this.audit = {
+        id: params[2], subject_hash: params[3], status: 'passed', result: JSON.parse(params[4]),
+        generation_id: params[6], chapter_no: params[7]
+      };
+      return { rows: [], rowCount: 1 };
     }
     if (statement.startsWith('SELECT revision FROM luna.manuscripts')) return { rows: [], rowCount: 0 };
     if (statement.startsWith('INSERT INTO luna.context_snapshots')) {
@@ -93,6 +112,11 @@ test('PostgreSQL chapter commit persists only the server-derived projection in i
   };
   const receipt = await repository.commitChapter({
     userId: USER_ID,
+    workspaceId: 'projection-workspace',
+    projectId: 'projection-project',
+    generationId: GENERATION_ID,
+    runLeaseOwner: 'worker-1',
+    fencingToken: 1,
     bookId: BOOK_ID,
     chapterNo: 4,
     content: CONTENT,
@@ -111,6 +135,12 @@ test('PostgreSQL chapter commit persists only the server-derived projection in i
   });
 
   assert.equal(receipt.ok, true);
+  assert.equal(client.audit.status, 'passed');
+  assert.equal(client.audit.subject_hash, CONTENT_HASH);
+  const beginIndex = client.queries.findIndex(query => query.statement === 'BEGIN');
+  const auditIndex = client.queries.findIndex(query => query.statement.startsWith('INSERT INTO luna.audits'));
+  const commitIndex = client.queries.findIndex(query => query.statement === 'COMMIT');
+  assert.ok(beginIndex >= 0 && beginIndex < auditIndex && auditIndex < commitIndex);
   assert.deepEqual(receipt.projection, projection);
   assert.equal(receipt.projectionHash, crypto.createHash('sha256').update(JSON.stringify(projection), 'utf8').digest('hex'));
   for (const key of Object.keys(projection)) assert.deepEqual(client.snapshotPayload[key], projection[key]);

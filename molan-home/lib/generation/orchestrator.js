@@ -123,7 +123,7 @@ function createGenerationOrchestrator(options = {}) {
       workerScope = { ...scope, leaseOwner, fencingToken: lease.fencingToken };
     }
     const controller = new AbortController();
-    const worker = { controller, promise: null };
+    const worker = { controller, promise: null, providerStarted: false, providerInFlight: false };
     const renewTimer = lease && typeof store.renewLease === 'function'
       ? setInterval(() => {
           Promise.resolve(store.renewLease(db, { ...scope, id, leaseOwner, fencingToken: lease.fencingToken, ttlMs: LEASE_TTL_MS }))
@@ -134,7 +134,18 @@ function createGenerationOrchestrator(options = {}) {
         }, Math.floor(LEASE_TTL_MS / 3))
       : null;
     if (renewTimer && typeof renewTimer.unref === 'function') renewTimer.unref();
-    worker.promise = run(workerScope, id, controller, executionContext).finally(() => {
+    worker.promise = run(workerScope, id, controller, {
+      ...executionContext,
+      onProviderStart: () => {
+        worker.providerStarted = true;
+        worker.providerInFlight = true;
+        if (typeof executionContext.onProviderStart === 'function') executionContext.onProviderStart();
+      },
+      onProviderComplete: () => {
+        worker.providerInFlight = false;
+        if (typeof executionContext.onProviderComplete === 'function') executionContext.onProviderComplete();
+      }
+    }).finally(() => {
       if (renewTimer) clearInterval(renewTimer);
       if (lease && typeof store.releaseLease === 'function') {
         try { store.releaseLease(db, { ...scope, id, leaseOwner, fencingToken: lease.fencingToken }); } catch (_) {}
@@ -150,13 +161,24 @@ function createGenerationOrchestrator(options = {}) {
     let current = await store.getRun(db, { ...scope, id });
     if (!current) throw new GenerationError('RUN_NOT_FOUND', '生成任务不存在或无权访问', { status: 404 });
     if (isTerminal(current.state) || current.state === 'waiting_author' || current.state === 'needs_human') return current;
+    if (current.state === 'cancel_requested') {
+      const target = Number(current.attemptNo) > 0 ? 'provider_unknown' : 'cancelled';
+      return await move(scope, id, target, {
+        message: target === 'provider_unknown' ? 'Provider 调用结果未知，未自动重试' : '生成已取消',
+        code: target === 'provider_unknown' ? 'PROVIDER_UNKNOWN' : 'cancelled'
+      }, current.result);
+    }
     const request = await store.getRunInput(db, { ...scope, id });
     if (!request) throw new GenerationError('RUN_NOT_FOUND', '生成任务输入快照不存在', { status: 404 });
     const runDependencies = typeof options.dependenciesForRun === 'function'
-      ? options.dependenciesForRun(executionContext, request) || deps
+      ? options.dependenciesForRun({ ...executionContext, signal: controller.signal }, request) || deps
       : deps;
+    const assertActive = () => {
+      if (controller.signal.aborted) throw controller.signal.reason || new GenerationError('MODEL_CONTENT_BLOCKED', '生成已取消', { status: 409 });
+    };
 
     try {
+      assertActive();
       if (current.state === 'created') current = await move(scope, id, 'request_validated', { message: '请求已验证' });
 
       let genre = request.genre && request.genre !== 'auto' ? { status: 'resolved', confidence: 1, genre: request.genre } : null;
@@ -243,6 +265,7 @@ function createGenerationOrchestrator(options = {}) {
       } else {
         current = await move(scope, id, 'generating', { message: '正在生成正文' });
       }
+      assertActive();
       if (typeof runDependencies.writer !== 'function') throw new GenerationError('MODEL_CONTENT_BLOCKED', 'Writer 未配置');
       let generated = await runDependencies.writer({ ...promptInput, signal: controller.signal, onProgress: event => {
         Promise.resolve().then(() => store.appendEvent(db, { ...scope, id, event: event || {} })).catch(() => {});
@@ -321,7 +344,8 @@ function createGenerationOrchestrator(options = {}) {
           current = await move(scope, id, 'revision', { message: `正在局部修订（${revisionRound + 1}/${MAX_REVISION_ROUNDS}）`, issueId: blocker.issueId });
           const window = require('./revision').locateReplacementWindow(draft, blocker.quote);
           if (!window.ok) return await move(scope, id, 'needs_human', { message: '审计证据无法唯一定位', reason: window.reason });
-          const revised = await runDependencies.revise({ request, contract, issue: blocker, window, round: revisionRound });
+          assertActive();
+          const revised = await runDependencies.revise({ request, contract, issue: blocker, window, round: revisionRound, signal: controller.signal });
           const applied = applyLocalRevision({
             text: draft, quote: blocker.quote, replacement: revised && revised.replacement,
             protectedTerms: revised && revised.preservedFacts, round: revisionRound
@@ -333,9 +357,10 @@ function createGenerationOrchestrator(options = {}) {
         }
 
         current = await move(scope, id, 'semantic_audit', { message: '正在进行语义审计' });
+        assertActive();
         semantic = pipeline
           ? { passed: pipeline.status === 'passed' && pipeline.audit && pipeline.audit.passed === true, issues: [], usage: pipeline.usage, audit: pipeline.audit }
-          : runDependencies.semanticAudit ? await runDependencies.semanticAudit({ draft, request, contract, context: context.text }) : { passed: true, issues: [] };
+          : runDependencies.semanticAudit ? await runDependencies.semanticAudit({ draft, request, contract, context: context.text, signal: controller.signal, attempt: revisionRound + 1 }) : { passed: true, issues: [] };
         const semanticAudit = pipeline
           ? { ...pipeline.audit, passed: semantic.passed }
           : auditDraft({ text: draft, findings: semantic && semantic.issues });
@@ -349,7 +374,8 @@ function createGenerationOrchestrator(options = {}) {
           current = await move(scope, id, 'revision', { message: `正在局部修订（${revisionRound + 1}/${MAX_REVISION_ROUNDS}）`, issueId: blocker.issueId });
           const window = require('./revision').locateReplacementWindow(draft, blocker.quote);
           if (!window.ok) return await move(scope, id, 'needs_human', { message: '审计证据无法唯一定位', reason: window.reason });
-          const revised = await runDependencies.revise({ request, contract, issue: blocker, window, round: revisionRound });
+          assertActive();
+          const revised = await runDependencies.revise({ request, contract, issue: blocker, window, round: revisionRound, signal: controller.signal });
           const applied = applyLocalRevision({ text: draft, quote: blocker.quote, replacement: revised && revised.replacement, protectedTerms: revised && revised.preservedFacts, round: revisionRound });
           if (!applied.ok) return await move(scope, id, 'needs_human', { message: '局部修订未通过语义保留检查', revision: applied });
           draft = applied.text;
@@ -358,9 +384,10 @@ function createGenerationOrchestrator(options = {}) {
         }
 
         current = await move(scope, id, 'quality_audit', { message: '正在生成质量向量' });
+        assertActive();
         quality = pipeline
           ? { passed: semantic.passed, qualityVector: pipeline.audit && pipeline.audit.qualityVector || null, benchmarkStatus: pipeline.status }
-          : runDependencies.qualityAudit ? await runDependencies.qualityAudit({ draft, request, contract, genre, style }) : {
+          : runDependencies.qualityAudit ? await runDependencies.qualityAudit({ draft, request, contract, genre, style, signal: controller.signal }) : {
           qualityVector: { language: { value: Math.min(1, draft.length / Math.max(Number(contract.wordBudget.targetChars) || draft.length, 1)), confidence: 0.35, source: 'heuristic', evidence: [] } },
           passed: true
         };
@@ -419,7 +446,15 @@ function createGenerationOrchestrator(options = {}) {
       const publicError = toPublicError(error);
       const state = publicError.unknown ? 'provider_unknown' : 'failed';
       const fresh = await store.getRun(db, { ...scope, id });
-      if (fresh && fresh.state === 'cancel_requested') return await move(scope, id, 'cancelled', { message: '生成已取消' }, fresh.result);
+      if (fresh && fresh.state === 'cancel_requested') {
+        const worker = workers.get(id);
+        const providerUnknown = publicError.unknown || Boolean(worker && worker.providerInFlight);
+        const target = providerUnknown ? 'provider_unknown' : 'cancelled';
+        return await move(scope, id, target, {
+          message: providerUnknown ? 'Provider 调用结果未知，未自动重试' : '生成已取消',
+          code: providerUnknown ? 'PROVIDER_UNKNOWN' : 'cancelled'
+        }, fresh.result, providerUnknown ? { code: 'PROVIDER_UNKNOWN', message: 'Provider 调用结果未知' } : undefined);
+      }
       if (fresh && !isTerminal(fresh.state) && transitionAllows(fresh.state, state)) {
         return await move(scope, id, state, { message: publicError.message, code: publicError.code }, fresh.result, publicError);
       }
@@ -489,7 +524,10 @@ function createGenerationOrchestrator(options = {}) {
         throw new GenerationError('STATE_CONFLICT', '提交任务租约已丢失，提交操作未开始', { status: 409 });
       }
       commitStarted = true;
-      const receipt = await runDependencies.commit({ run: leasedRun, request, payload: input.payload, text: submittedText });
+      const receipt = await runDependencies.commit({
+        run: { ...leasedRun, leaseOwner: workerScope.leaseOwner || '', fencingToken: workerScope.fencingToken },
+        request, payload: input.payload, text: submittedText
+      });
       if (!receipt || receipt.committed === false) throw new GenerationError('STATE_CONFLICT', '提交服务未确认写入', { status: 409 });
       const current = await store.getRun(db, { ...scope, id: run.id });
       const next = await move(workerScope, run.id, 'committed', { message: '章节已提交', receipt }, { ...current.result, commitReceipt: receipt });
@@ -565,7 +603,7 @@ function createGenerationOrchestrator(options = {}) {
       };
     } else {
       try {
-        revision = await runDependencies.revise({ request, contract: result.contract, issue, window, round: revisionRound });
+        revision = await runDependencies.revise({ request, contract: result.contract, issue, window, round: revisionRound, signal: executionContext.signal });
       } catch (error) {
         const publicError = toPublicError(error);
         const target = publicError.unknown ? 'provider_unknown' : 'needs_human';
@@ -607,7 +645,7 @@ function createGenerationOrchestrator(options = {}) {
     await move(scope, run.id, 'deterministic_audit', { message: '正在复核修订正文' }, nextResult);
     let review;
     try {
-      review = await runDependencies.reaudit({ request, contract: result.contract, draft: applied.text });
+      review = await runDependencies.reaudit({ request, contract: result.contract, draft: applied.text, signal: executionContext.signal });
     } catch (error) {
       const publicError = toPublicError(error);
       const target = publicError.unknown ? 'provider_unknown' : 'needs_human';
@@ -652,6 +690,14 @@ function createGenerationOrchestrator(options = {}) {
     return updated;
   }
 
+  /** SSE 断开只取消仍在生成中的任务，保留已进入作者确认的结果。 */
+  async function cancelOnDisconnect(input) {
+    const scope = { projectId: String(input.projectId), actorUserId: String(input.actorUserId), workspaceId: String(input.workspaceId || '') };
+    const run = await store.getRun(db, { ...scope, id: input.id });
+    if (!run || !ACTIVE_STATES.has(String(run.state || ''))) return run;
+    return cancel({ ...scope, id: run.id });
+  }
+
   async function pause(input) {
     const scope = { projectId: String(input.projectId), actorUserId: String(input.actorUserId), workspaceId: String(input.workspaceId || '') };
     if (typeof store.requestPause !== 'function') throw new GenerationError('STATE_CONFLICT', '当前运行环境不支持任务暂停', { status: 409 });
@@ -677,7 +723,15 @@ function createGenerationOrchestrator(options = {}) {
     return { supported: true, ...(await store.recoverExpiredRuns(db, { ...actorScope, now: legacyNow || now })) };
   }
 
-  return { create, execute, revise, commit, cancel, pause, resume, recover };
+  /** 由跨实例持久通知中止本地 worker，不修改已提交的 Generation Run 状态。 */
+  function abortWorker(id) {
+    const worker = workers.get(String(id || ''));
+    if (!worker || !worker.controller || worker.controller.signal.aborted) return false;
+    worker.controller.abort(new GenerationError('CANCEL_REQUESTED', '收到跨实例取消请求', { status: 409 }));
+    return true;
+  }
+
+  return { create, execute, revise, commit, cancel, cancelOnDisconnect, pause, resume, recover, abortWorker };
 }
 
 module.exports = { createGenerationOrchestrator, ACTIVE_STATES };

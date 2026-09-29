@@ -47,10 +47,14 @@ const {
 } = require('./lib/character-material');
 const { resolveFingerprintProfile, buildRhythmTargetBlock } = require('./lib/style-fingerprint');
 const benchmarkPipeline = require('./lib/benchmark-pipeline');
+const { applyAuthSessionInvalidation, sessionEventUserId } = require('./lib/auth-session-events');
 const { generationV2Enabled, generationV2Status } = require('./lib/generation/feature-flag');
 const generationRunContext = require('./lib/generation/run-context');
 const generationManifest = require('./lib/generation/manifest');
+const { generationProviderRequestId } = require('./lib/generation/provider-request');
+const { matchesTokenUsageReservation } = require('./lib/token-usage-idempotency');
 const generationScenePatch = require('./lib/generation/scene-patch');
+const { attachResponseDisconnect } = require('./lib/generation/response-disconnect');
 const { createGenerationOrchestrator } = require('./lib/generation/orchestrator');
 const { GenerationError } = require('./lib/generation/errors');
 const projectPackage = require('./lib/project-package');
@@ -2319,12 +2323,6 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
       rulesReducedByBudget: !!contextPlan.characterMaterialRulesReducedByBudget
     };
     skillAudit.characterMaterial = characterMaterialResult.audit;
-    const creditPlan = planCreditReservation(auth.user, modelId, messages, max_tokens);
-    if (!creditPlan.ok) {
-      releaseSlot();
-      return json(res, 402, { error: '当前积分不足以覆盖本次输入，请充值后再试' });
-    }
-    max_tokens = creditPlan.maxTokens;
 
     // 请求体统一带 stream_options.include_usage，便于服务端按 token 扣减积分
     let bodyObj;
@@ -2360,6 +2358,42 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
       if (firstSystem >= 0) bodyObj.messages[firstSystem] = { ...bodyObj.messages[firstSystem], content: String(bodyObj.messages[firstSystem].content || '') + '\n\n' + jsonHint };
       else bodyObj.messages.unshift({ role: 'system', content: jsonHint });
     }
+    const requestedRequestId = internalRouteAuthorized
+      ? String(input.requestId || req.headers['idempotency-key'] || '').trim()
+      : '';
+    if (requestedRequestId && !/^req_[a-f0-9]{40}$/i.test(requestedRequestId)) {
+      releaseSlot();
+      return json(res, 400, { error: '内部 Provider 请求幂等键格式无效', code: 'INVALID_IDEMPOTENCY_KEY' });
+    }
+    const requestId = requestedRequestId || 'req_' + crypto.randomBytes(16).toString('hex');
+    const requestPayloadHash = crypto.createHash('sha256').update(JSON.stringify(bodyObj), 'utf8').digest('hex');
+    const existingReservation = POSTGRES_MODE
+      ? await reserveCredits(auth.user, modelId, model, requestId, 0, skillAudit, requestPayloadHash, chatScope, { lookupOnly: true })
+      : reserveCredits(auth.user, modelId, model, requestId, 0, skillAudit, requestPayloadHash, chatScope, { lookupOnly: true });
+    if (!existingReservation.ok) {
+      releaseSlot();
+      if (existingReservation.conflict) {
+        return json(res, 409, { error: 'Provider 幂等键已绑定到不同请求内容', code: 'IDEMPOTENCY_KEY_REUSED' });
+      }
+      return json(res, 402, { error: '积分不足，请前往价格页充值或升级套餐' });
+    }
+    if (existingReservation.existing) {
+      releaseSlot();
+      return json(res, 409, {
+        error: 'Provider 请求已受理；请查询 Generation Run 状态，不要重新调用模型',
+        code: 'PROVIDER_UNKNOWN', unknown: true, requestId
+      });
+    }
+
+    const creditPlan = planCreditReservation(auth.user, modelId, messages, max_tokens);
+    if (!creditPlan.ok) {
+      releaseSlot();
+      return json(res, 402, { error: '当前积分不足以覆盖本次输入，请充值后再试' });
+    }
+    max_tokens = creditPlan.maxTokens;
+    if (Object.prototype.hasOwnProperty.call(bodyObj, 'max_completion_tokens')) bodyObj.max_completion_tokens = max_tokens;
+    if (Object.prototype.hasOwnProperty.call(bodyObj, 'max_tokens')) bodyObj.max_tokens = max_tokens;
+
     // Some OpenAI-compatible relays expose GPT-5.6 but have not implemented
     // explicit prompt-cache fields yet. Keep one plain-request fallback for
     // that narrow 400 response; never retry arbitrary upstream failures.
@@ -2372,14 +2406,23 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
     }
     const body = JSON.stringify(bodyObj);
 
-    const requestId = 'req_' + crypto.randomBytes(16).toString('hex');
     const reservedCost = creditPlan.reservedCost;
     const reservation = POSTGRES_MODE
-      ? await reserveCredits(auth.user, modelId, model, requestId, reservedCost, skillAudit, skillAudit.promptHash, chatScope)
-      : reserveCredits(auth.user, modelId, model, requestId, reservedCost, skillAudit, skillAudit.promptHash, chatScope);
+      ? await reserveCredits(auth.user, modelId, model, requestId, reservedCost, skillAudit, requestPayloadHash, chatScope)
+      : reserveCredits(auth.user, modelId, model, requestId, reservedCost, skillAudit, requestPayloadHash, chatScope);
     if (!reservation.ok) {
       releaseSlot();
+      if (reservation.conflict) {
+        return json(res, 409, { error: 'Provider 幂等键已绑定到不同请求内容', code: 'IDEMPOTENCY_KEY_REUSED' });
+      }
       return json(res, 402, { error: '积分不足，请前往价格页充值或升级套餐' });
+    }
+    if (reservation.existing) {
+      releaseSlot();
+      return json(res, 409, {
+        error: 'Provider 请求已受理；请查询 Generation Run 状态，不要重新调用模型',
+        code: 'PROVIDER_UNKNOWN', unknown: true, requestId
+      });
     }
     const startedAt = Date.now();
     let usageBuf = '';
@@ -2816,7 +2859,10 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
       const onUpstreamError = options.onError || null;
       openUpstream(targetURL, effectiveProxy, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey, 'Accept': 'text/event-stream' },
+        headers: {
+          'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey,
+          'Accept': 'text/event-stream', 'Idempotency-Key': requestId, 'X-Molan-Request-Id': requestId
+        },
         onResponse: upRes => {
           if (finalized || responseClosed) { try { upRes.resume(); } catch (_) {} return; }
           const upstreamHttpError = upRes.statusCode < 200 || upRes.statusCode >= 300;
@@ -5603,20 +5649,16 @@ async function hydratePostgresSessions() {
   try {
     await postgresRepository.subscribeAuthSessionInvalidation(event => {
       if (!event || !event.event) return;
-      if (event.event === 'revoked' && event.tokenHash) {
-        sessions.delete(String(event.tokenHash).toLowerCase());
-      } else if (event.event === 'user_revoked' && event.legacyId) {
-        for (const [tokenHash, record] of sessions.entries()) {
-          if (record && record.userId === String(event.legacyId)) sessions.delete(tokenHash);
-        }
-      } else if (event.event === 'created' && event.tokenHash && event.legacyId) {
+      if (applyAuthSessionInvalidation(sessions, event)) return;
+      const userId = sessionEventUserId(event);
+      if (event.event === 'created' && event.tokenHash && userId) {
         const tokenHash = String(event.tokenHash).toLowerCase();
         if (isSessionRevoked(tokenHash)) {
           void postgresRepository.revokeAuthSession(tokenHash).catch(() => {});
           return;
         }
         sessions.set(tokenHash, {
-          userId: String(event.legacyId),
+          userId,
           email: '',
           expiresAt: Number(event.expiresAt) || 0,
           scope: normalizeSessionScope(event.scope),
@@ -8216,15 +8258,15 @@ function usageDocumentFromRow(row) {
   };
 }
 
-function reserveCredits(user, modelId, providerModel, requestId, reservedCost, skillAudit, messagesHash, scope = null) {
-  if (isAdminUser(user)) return { ok: true, reservedCost: 0 };
-  const reserve = roundCreditValue(reservedCost);
-  if (!reserve) return { ok: true, reservedCost: 0 };
+function reserveCredits(user, modelId, providerModel, requestId, reservedCost, skillAudit, messagesHash, scope = null, options = null) {
+  const isAdmin = isAdminUser(user);
+  const reserve = isAdmin ? 0 : roundCreditValue(reservedCost);
+  const lookupOnly = !!(options && options.lookupOnly === true);
   const email = String(user && user.email || '').trim().toLowerCase();
   const userId = String(user && user.userId || projectScope.stableUserId(email)).trim();
   const workspaceId = String(scope && (scope.workspaceId || scope.workspace_id) || '').trim();
   const projectId = String(scope && (scope.projectId || scope.project_id) || '').trim();
-  if (!email) return { ok: false, reservedCost: reserve };
+  if (!email || !requestId) return { ok: false, reservedCost: reserve };
   const now = Date.now();
   if (POSTGRES_MODE) {
     const pending = usageRowFromEvent({
@@ -8235,20 +8277,32 @@ function reserveCredits(user, modelId, providerModel, requestId, reservedCost, s
     pending.usageSource = 'pending';
     return postgresRepository.runtimeReserveTokenUsage({
       actorUserId: userId, userId, requestId, reservedCost: reserve,
-      document: usageDocumentFromRow(pending), cells: []
+      document: usageDocumentFromRow(pending), cells: [], lookupOnly
     });
   }
   if (dbReady()) {
     db.exec('BEGIN IMMEDIATE');
     try {
-      const existing = db.prepare('SELECT status, reserved_cost AS reservedCost FROM token_usage WHERE request_id = ?').get(requestId);
-      if (existing) { db.exec('COMMIT'); return { ok: true, existing: true, reservedCost: Number(existing.reservedCost) || 0 }; }
-      const result = db.prepare(`UPDATE accounts
-        SET credits = credits - ?
-        WHERE (user_id = ? OR (user_id = '' AND email = ?)) AND role <> 'admin' AND credits >= ?`).run(reserve, userId, email, reserve);
-      if (Number(result.changes || 0) !== 1) {
-        db.exec('ROLLBACK');
-        return { ok: false, reservedCost: reserve };
+      const existing = db.prepare('SELECT * FROM token_usage WHERE request_id = ?').get(requestId);
+      if (existing) {
+        const expected = { requestId, userEmail: email, userId, workspaceId, projectId, modelId, providerModel, messagesHash };
+        db.exec('COMMIT');
+        return matchesTokenUsageReservation(existing, expected)
+          ? { ok: true, existing: true, reservedCost: Number(existing.reserved_cost) || 0 }
+          : { ok: false, conflict: true, reservedCost: reserve };
+      }
+      if (lookupOnly) {
+        db.exec('COMMIT');
+        return { ok: true, existing: false, missing: true, reservedCost: reserve };
+      }
+      if (!isAdmin && reserve > 0) {
+        const result = db.prepare(`UPDATE accounts
+          SET credits = credits - ?
+          WHERE (user_id = ? OR (user_id = '' AND email = ?)) AND role <> 'admin' AND credits >= ?`).run(reserve, userId, email, reserve);
+        if (Number(result.changes || 0) !== 1) {
+          db.exec('ROLLBACK');
+          return { ok: false, reservedCost: reserve };
+        }
       }
       db.prepare(`INSERT INTO token_usage
         (request_id, user_email, user_id, workspace_id, project_id, model_id, provider_model, prompt_tokens, completion_tokens, reasoning_tokens, total_tokens, cached_tokens, cache_write_tokens, usage_source, status, created_at, duration_ms, credit_cost, reserved_cost, skill_ids_json, skill_audit_json, messages_sha256)
@@ -8267,12 +8321,19 @@ function reserveCredits(user, modelId, providerModel, requestId, reservedCost, s
 
   const users = loadUsers();
   const current = users.find(item => String(item && item.email || '').trim().toLowerCase() === email);
-  if (!current || isAdminUser(current) || Number(current.credits) < reserve) return { ok: false, reservedCost: reserve };
+  if (!current) return { ok: false, reservedCost: reserve };
   const rows = usageRowsFromJson();
   const existing = rows.find(item => item && item.requestId === requestId);
-  if (existing) return { ok: true, existing: true, reservedCost: Number(existing.reservedCost) || 0 };
+  if (existing) {
+    const expected = { requestId, userEmail: email, userId, workspaceId, projectId, modelId, providerModel, messagesHash };
+    return matchesTokenUsageReservation(existing, expected)
+      ? { ok: true, existing: true, reservedCost: Number(existing.reservedCost) || 0 }
+      : { ok: false, conflict: true, reservedCost: reserve };
+  }
+  if (lookupOnly) return { ok: true, existing: false, missing: true, reservedCost: reserve };
+  if (!isAdmin && reserve > 0 && Number(current.credits) < reserve) return { ok: false, reservedCost: reserve };
   const previousCredits = Number(current.credits) || 0;
-  current.credits = roundCreditValue(previousCredits - reserve);
+  if (!isAdmin && reserve > 0) current.credits = roundCreditValue(previousCredits - reserve);
   const row = usageRowFromEvent({ requestId, userEmail: email, modelId, providerModel, usageSource: 'unavailable', status: 'reserved', createdAt: now, durationMs: 0, skillAudit, messagesHash }, 0, reserve);
   row.usageSource = 'pending';
   try {
@@ -16054,6 +16115,7 @@ async function callMolanChat(authToken, user, opts) {
     model, stage: o.stage || 'skill_analysis',
     temperature: o.temperature == null ? 0.3 : o.temperature, max_tokens: o.maxTokens || 2000, messages
   };
+  if (o.requestId) body.requestId = String(o.requestId);
   if (o.thinking != null) body.thinking = o.thinking === true;
   if (o.reasoningEffort != null && o.reasoningEffort !== '') body.reasoningEffort = o.reasoningEffort;
   if (o.projectId) body.projectId = String(o.projectId);
@@ -16077,13 +16139,20 @@ async function callMolanChat(authToken, user, opts) {
     else externalController.signal.addEventListener('abort', onExternalAbort, { once: true });
   }
   let raw = '';
+  let providerRequestStarted = false;
   try {
     const headers = { 'Content-Type': 'application/json', Authorization: authToken, Accept: 'text/event-stream' };
+    if (o.requestId) headers['Idempotency-Key'] = String(o.requestId);
     if (internalModelId || o.requireComplete === true) headers[INTERNAL_MODEL_ROUTE_HEADER] = INTERNAL_MODEL_ROUTE_KEY;
     const bodyString = JSON.stringify(body);
     headers['Content-Length'] = String(Buffer.byteLength(bodyString));
     // ★ 用 node:http 裸连接替代进程内 fetch：与外部客户端完全同构，排除 undici 在
     //   长请求上的隐藏行为差异（实测同参外部调用成功而进程内 fetch 返回空内容）。
+    if (timeoutController.signal.aborted) {
+      throw timeoutController.signal.reason || new Error('内部模型调用已取消');
+    }
+    providerRequestStarted = true;
+    if (typeof o.onProviderStart === 'function') o.onProviderStart();
     raw = await new Promise((resolve, reject) => {
       const upstreamRequest = http.request({
         hostname: '127.0.0.1', port: PORT, path: '/api/chat', method: 'POST', headers, timeout: 0
@@ -16097,6 +16166,11 @@ async function callMolanChat(authToken, user, opts) {
             const detail = parsed && parsed.error;
             const message = String((detail && (detail.message || detail.type)) || detail || errBody || '').trim().slice(0, 300);
             const err = requestError(Math.min(599, Math.max(400, upstreamResponse.statusCode || 502)), '内部模型调用失败：' + (message || 'HTTP ' + upstreamResponse.statusCode));
+            if (parsed && parsed.code) {
+              err.code = String(parsed.code);
+              if (parsed.unknown === true || err.code === 'PROVIDER_UNKNOWN') err.unknown = true;
+            }
+            err.definitiveResponse = upstreamResponse.statusCode >= 400 && upstreamResponse.statusCode < 500 && err.unknown !== true;
             if (upstreamResponse.statusCode === 402 && /余额不足/i.test(message)) err.code = 'upstream_balance_exhausted';
             reject(err);
           });
@@ -16115,9 +16189,19 @@ async function callMolanChat(authToken, user, opts) {
       timeoutController.signal.addEventListener('abort', abortOnce, { once: true });
       upstreamRequest.end(bodyString);
     });
+  } catch (error) {
+    const errorCode = String(error && error.code || '');
+    const definitelyNotConnected = ['ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH'].includes(errorCode);
+    if (providerRequestStarted && error.definitiveResponse !== true &&
+        (timeoutController.signal.aborted || (errorCode && !definitelyNotConnected))) {
+      error.code = 'PROVIDER_UNKNOWN';
+      error.unknown = true;
+    }
+    throw error;
   } finally {
     if (timer) clearTimeout(timer);
     if (externalController && externalController.signal) externalController.signal.removeEventListener('abort', onExternalAbort);
+    if (providerRequestStarted && typeof o.onProviderComplete === 'function') o.onProviderComplete();
   }
    console.error('[callMolanChat] 响应诊断 model=' + (body.model || '') + ' rawLen=' + raw.length);
   if (!raw.trim()) throw requestError(502, '内部模型调用返回空响应，请重试');
@@ -17419,7 +17503,7 @@ async function handlePostgresCreationBookState(req, res, id) {
   json(res, 200, { ok: true, ...result });
 }
 
-/** PG 模式下执行低成本确定性章节审计，模型语义审核仍由用户主动触发。 */
+/** PG 旧审计入口缺少 Generation V2 证据时只登记待复核状态。 */
 async function handlePostgresCreationBookAudit(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
@@ -18703,6 +18787,7 @@ function generationRunOrchestrator() {
       const actorUserId = String(executionContext.actorUserId || auth && auth.user && (auth.user.userId || projectScope.stableUserId(auth.user.email)) || '');
       const story = request.storyContext && typeof request.storyContext === 'object' ? request.storyContext : {};
       let pipelineResult = null;
+      let writerCallNo = 0;
       return {
         resolveGenre: value => ({ status: 'resolved', confidence: value.genre && value.genre !== 'auto' ? 1 : 0, genre: value.genre || 'auto' }),
         resolveStyle: value => {
@@ -18747,11 +18832,15 @@ function generationRunOrchestrator() {
             pipelineResult = await benchmarkPipeline.generateChapter({
               callModel: (_auth, options) => {
                 if (signal.aborted) throw signal.reason || new Error('生成已取消');
+                const stage = String(options.stage || 'writer');
                 return callMolanChat(String(executionContext.authorization || ''), user, {
                   ...options,
+                  requestId: generationProviderRequestId(runId, 'writer', stage, ++writerCallNo),
                   modelId: runRequest.modelId,
                   projectId,
                   workspaceId,
+                  onProviderStart: executionContext.onProviderStart,
+                  onProviderComplete: executionContext.onProviderComplete,
                   recordId: runId,
                   workflowId: runId,
                   controller: { signal },
@@ -18872,10 +18961,14 @@ function generationRunOrchestrator() {
             pipeline: evidence
           };
         },
-        revise: async ({ request: runRequest, issue, window, round }) => {
+        revise: async ({ request: runRequest, issue, window, round, signal }) => {
           const revision = await callMolanChat(String(executionContext.authorization || ''), user, {
             modelId: runRequest.reviseModelId || runRequest.modelId,
             projectId, workspaceId, recordId: runId, workflowId: runId,
+            requestId: generationProviderRequestId(runId, 'revision', issue && issue.issueId || 'manual', Number(round) + 1),
+            controller: signal ? { signal } : undefined,
+            onProviderStart: executionContext.onProviderStart,
+            onProviderComplete: executionContext.onProviderComplete,
             stage: 'revision', jsonMode: true, requireComplete: true,
             maxTokens: 1800, temperature: 0.25, timeoutMs: 120000,
             system: '你是局部修订编辑。只返回严格 JSON：{"quote":"给定原句","replacement":"修订后的目标句","preservedFacts":["原文明确包含且必须保留的事实短语"]}。不得改写窗口外内容，不得增加窗口外没有依据的事实，不得改变人物身份、关系、地点、时间、数字或已发生事件。',
@@ -18887,11 +18980,16 @@ function generationRunOrchestrator() {
           }
           return { quote: String(value.quote || ''), replacement: value.replacement, preservedFacts: value.preservedFacts.map(String).slice(0, 32), usage: revision.usage || null };
         },
-        reaudit: async ({ request: runRequest, contract, draft }) => {
+        reaudit: async ({ request: runRequest, contract, draft, signal, attempt }) => {
           const context = JSON.stringify({ storyContext: runRequest.storyContext || {}, chapterContract: contract || {} });
+          let auditCallNo = 0;
           const result = await benchmarkPipeline.auditReviseLoop({
             callModel: (_auditAuth, modelOptions) => callMolanChat(String(executionContext.authorization || ''), user, {
               ...modelOptions, modelId: runRequest.modelId, projectId, workspaceId,
+              requestId: generationProviderRequestId(runId, 'reaudit', String(modelOptions.stage || 'semantic_audit'), Number(attempt) + ++auditCallNo),
+              controller: signal ? { signal } : undefined,
+              onProviderStart: executionContext.onProviderStart,
+              onProviderComplete: executionContext.onProviderComplete,
               recordId: runId, workflowId: runId, stage: 'semantic_audit', requireComplete: true
             })
           }, auth, {
@@ -18948,18 +19046,17 @@ function generationRunOrchestrator() {
             result: run.result, text, previousSnapshot, chapterNo
           });
           const contentHash = generationManifest.hashValue(text);
-          const audit = await postgresRepository.createChapterAudit({
-            userId: postgresActor(auth), bookId, chapterNo, content: text, contentHash,
-            auditId: `audit_generation_${run.id}`
-          });
           const receipt = await postgresRepository.commitChapter({
-            userId: postgresActor(auth), bookId, chapterNo, content: text, contentHash,
-            auditId: audit.auditId, baseStateVersion: Number(expectedStateVersion), expectedProjectRevision,
+            userId: postgresActor(auth), workspaceId: run.workspaceId, projectId: run.projectId,
+            generationId: run.id, runLeaseOwner: run.leaseOwner, fencingToken: run.fencingToken,
+            bookId, chapterNo, content: text, contentHash,
+            auditId: `audit_generation_${run.id}`,
+            baseStateVersion: Number(expectedStateVersion), expectedProjectRevision,
             actualCost: Math.max(0, Number(run.actualCostMinor) || 0) / 100,
             contentRef: `manuscript:${bookId}:chapter:${chapterNo}`,
             projection
           });
-          return { committed: receipt && receipt.ok === true, ...receipt, auditId: audit.auditId };
+          return { committed: receipt && receipt.ok === true, ...receipt };
         } : async ({ run, request: runRequest, payload, text }) => {
           const actorUserId = String(auth.user.userId || projectScope.stableUserId(auth.user.email));
           const access = projectScope.getNovelAccess(db, projectId, actorUserId);
@@ -19019,21 +19116,23 @@ async function streamGenerationEvents(req, res, store, database, scope, initialC
   });
   res.write('retry: 1000\n\n');
   let cursor = initialCursor;
-  let disconnected = false;
   let lastHeartbeat = Date.now();
-  const onClose = () => { disconnected = true; };
-  res.once('close', onClose);
+  const disconnect = attachResponseDisconnect(res, () => {
+    void generationRunOrchestrator().cancelOnDisconnect(scope).catch(error => {
+      console.error('[generation] SSE 断开后取消任务失败', scope.id, error && error.code || error);
+    });
+  });
   try {
-    while (!disconnected && !res.writableEnded) {
+    while (!disconnect.disconnected && !res.writableEnded) {
       const events = await store.listEvents(database, { ...scope, generationId: scope.id, after: cursor, limit: 500 });
       for (const event of events) {
-        if (disconnected || res.writableEnded) break;
+        if (disconnect.disconnected || res.writableEnded) break;
         generationSseEvent(res, event);
         cursor = Number(event.sequence) || cursor;
       }
-      if (disconnected || res.writableEnded) break;
+      if (disconnect.disconnected || res.writableEnded) break;
       const run = await store.getRun(database, { ...scope, id: scope.id });
-      if (!run || ['committed', 'cancelled', 'failed', 'provider_unknown', 'rejected'].includes(String(run.state))) break;
+      if (!run || ['waiting_author', 'needs_human', 'paused', 'committed', 'cancelled', 'failed', 'provider_unknown', 'rejected'].includes(String(run.state))) break;
       if (Date.now() - lastHeartbeat >= 15000) {
         res.write(`: heartbeat ${Date.now()}\n\n`);
         lastHeartbeat = Date.now();
@@ -19049,7 +19148,7 @@ async function streamGenerationEvents(req, res, store, database, scope, initialC
       });
     }
   } finally {
-    res.removeListener('close', onClose);
+    disconnect.dispose();
     if (!res.destroyed && !res.writableEnded) res.end();
   }
 }
@@ -19082,25 +19181,28 @@ async function streamLegacyGenerationChat(req, res, created, scope) {
     'X-Molan-Generation-Id': runId
   });
   res.write(generationChatChunk(runId, '', created.run && created.run.state, { idempotent: created.idempotent === true }));
-  let disconnected = false;
   let lastHeartbeat = Date.now();
-  const onClose = () => { disconnected = true; };
-  res.once('close', onClose);
+  const runScope = { ...scope, id: runId };
+  const disconnect = attachResponseDisconnect(res, () => {
+    void generationRunOrchestrator().cancelOnDisconnect(runScope).catch(error => {
+      console.error('[generation] /api/chat 断开后取消任务失败', runId, error && error.code || error);
+    });
+  });
   try {
     let run = created.run;
-    while (!disconnected && !res.writableEnded && run && !['waiting_author', 'needs_human', 'committed', 'cancelled', 'failed', 'provider_unknown', 'rejected'].includes(String(run.state))) {
+    while (!disconnect.disconnected && !res.writableEnded && run && !['waiting_author', 'needs_human', 'committed', 'cancelled', 'failed', 'provider_unknown', 'rejected'].includes(String(run.state))) {
       await new Promise(resolve => setTimeout(resolve, 500));
-      if (disconnected || res.writableEnded) break;
+      if (disconnect.disconnected || res.writableEnded) break;
       run = await store.getRun(database, { ...scope, id: runId });
-      if (Date.now() - lastHeartbeat >= 15000 && !disconnected && !res.writableEnded) {
+      if (Date.now() - lastHeartbeat >= 15000 && !disconnect.disconnected && !res.writableEnded) {
         res.write(': generation heartbeat\n\n');
         lastHeartbeat = Date.now();
       }
     }
-    if (disconnected || res.writableEnded || !run) return;
+    if (disconnect.disconnected || res.writableEnded || !run) return;
     const content = String(run.result && run.result.draft || '');
     for (let index = 0; index < content.length; index += 240) {
-      if (disconnected || res.writableEnded) return;
+      if (disconnect.disconnected || res.writableEnded) return;
       res.write(generationChatChunk(runId, content.slice(index, index + 240), run.state));
     }
     res.write(generationChatChunk(runId, '', run.state, {
@@ -19113,7 +19215,7 @@ async function streamLegacyGenerationChat(req, res, created, scope) {
       res.write('data: [DONE]\n\n');
     }
   } finally {
-    res.removeListener('close', onClose);
+    disconnect.dispose();
     if (!res.destroyed && !res.writableEnded) res.end();
   }
 }
@@ -19516,18 +19618,29 @@ async function handleGenerationRuns(req, res, u) {
     if (req.method === 'POST' && revision) {
       if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权修订此任务', code: 'forbidden' });
       const body = await readBody(req, 256 * 1024 + 4096);
-      const revised = await orchestrator.revise({
-        ...scope,
-        issueId: body.issueId,
-        quote: body.quote,
-        replacementWindow: body.replacementWindow,
-        replacement: body.replacement,
-        preservedFacts: body.preservedFacts,
-        outputHash: body.outputHash
-      }, {
-        auth, user: auth.user, authorization: String(req.headers.authorization || ''),
-        projectId: run.projectId, workspaceId: run.workspaceId, generationId: run.id
+      const controller = new AbortController();
+      const disconnect = attachResponseDisconnect(res, () => {
+        controller.abort(new Error('修订响应已断开'));
       });
+      let revised;
+      try {
+        revised = await orchestrator.revise({
+          ...scope,
+          issueId: body.issueId,
+          quote: body.quote,
+          replacementWindow: body.replacementWindow,
+          replacement: body.replacement,
+          preservedFacts: body.preservedFacts,
+          outputHash: body.outputHash
+        }, {
+          auth, user: auth.user, authorization: String(req.headers.authorization || ''),
+          projectId: run.projectId, workspaceId: run.workspaceId, generationId: run.id,
+          signal: controller.signal
+        });
+      } finally {
+        disconnect.dispose();
+      }
+      if (disconnect.disconnected || res.destroyed || res.writableEnded) return;
       return json(res, 200, { ok: true, run: revised.run, revision: revised.revision, idempotent: revised.idempotent });
     }
     if (req.method === 'POST' && commit) {
@@ -20106,6 +20219,10 @@ if (require.main === module) {
       // Token 预占/结算只写入费用兼容行，不改变本地业务投影。
       // 拆书/技能在本地执行时已写入 SQLite 镜像并写回 PG，无需在此重复触发全量投影刷新。
       const kind = String(payload && payload.kind || '').trim();
+      if (kind === 'generation-cancel') {
+        generationRunOrchestrator().abortWorker(String(payload && payload.id || ''));
+        return;
+      }
       if (new Set([
         'token-reserved', 'token-settled', 'token-recorded', 'token-stale-released',
         'dissection', 'dissection-delete', 'dissection-rows', 'dissection-rows-replace', 'dissection-rows-delete',

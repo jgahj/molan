@@ -6,6 +6,8 @@ const projectScope = require('./project-scope');
 const projectPackage = require('./project-package');
 const projectResources = require('./project-resources');
 const { GenerationError } = require('./generation/errors');
+const { hashValue } = require('./generation/manifest');
+const { matchesTokenUsageReservation } = require('./token-usage-idempotency');
 
 let Pool = null;
 try {
@@ -3679,7 +3681,7 @@ function createPostgresRepository(options = {}) {
     });
   }
 
-  /** 保存确定性章节审计结果，默认不因文学规则阻断，只拒绝空正文和哈希不一致。 */
+  /** 保存缺少 Generation V2 语义证据的旧式章节审计，并明确标为待复核。 */
   async function createChapterAudit(input) {
     const content = String(input.content || '');
     const subjectHash = jsonHash(content);
@@ -3697,19 +3699,83 @@ function createPostgresRepository(options = {}) {
       const result = {
         source: 'local-deterministic',
         chapterNo: Math.max(1, Number(input.chapterNo) || 1),
-        passed: true,
-        blockerCount: 0,
-        qualityGate: 'passed',
+        passed: false,
+        blockerCount: null,
+        qualityGate: 'needs_review',
         originalityStatus: 'not_run',
+        reason: '缺少绑定 Generation Run 的确定性、语义和质量审计证据',
         contentHash: subjectHash
       };
       await client.query(
         `INSERT INTO luna.audits
           (workspace_id, project_id, id, subject_hash, status, result, created_by)
-         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::text, 'passed', $5::jsonb, $6::uuid)`,
+         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::text, 'needs_review', $5::jsonb, $6::uuid)`,
         [book.workspace_id, book.project_id, internalUuid(auditId), subjectHash, JSON.stringify(result), internalUuid(input.userId)]
       );
-      return { ok: true, auditId, status: 'passed', subjectHash, result };
+      return { ok: true, auditId, status: 'needs_review', passed: false, subjectHash, result };
+    });
+  }
+
+  /** 从处于 committing 状态的 Generation Run 读取并持久化通过门禁的章节证据。 */
+  async function createGenerationChapterAudit(input) {
+    const userId = normalizeLegacyId(input.actorUserId || input.userId, 'actorUserId');
+    const generationId = String(input.generationId || '').trim();
+    const chapterNo = Number(input.chapterNo);
+    const content = String(input.content || '');
+    const contentHash = jsonHash(content);
+    if (!UUID_PATTERN.test(generationId)) throw repositoryError('invalid_id', 'generationId格式无效', 422);
+    if (!Number.isInteger(chapterNo) || chapterNo < 1) throw repositoryError('invalid_chapter', 'chapterNo格式无效', 422);
+    if (!content.trim() || String(input.contentHash || '') !== contentHash) {
+      throw repositoryError('content_hash_mismatch', '正文哈希与内容不一致', 422);
+    }
+    return withTransaction(userId, async client => {
+      const actorUuid = await ensureActor(client, userId);
+      const book = await creationBookForClient(client, input.bookId);
+      if (!book) throw repositoryError('not_found', '创作书不存在或无权访问', 404);
+      const access = await accessForClient(client, book.project_id, book.workspace_id);
+      if (!hasRole(access, PROJECT_WRITE_ROLES)) throw repositoryError('forbidden', '当前账户无权审计该章节', 403);
+      const runResult = await client.query(
+        `SELECT result, state, chapter_id
+         FROM luna.generation_runs
+         WHERE workspace_id = $1::uuid AND project_id = $2::uuid
+           AND id = $3::uuid AND requested_by = $4::uuid AND state = 'committing'
+         FOR UPDATE`,
+        [book.workspace_id, book.project_id, internalUuid(generationId), actorUuid]
+      );
+      const run = runResult.rows[0];
+      if (!run) throw repositoryError('audit_blocked', '审计必须绑定正在提交的 Generation Run', 409);
+      const result = parseJsonDocument(run.result) || {};
+      const checked = require('./generation/audit-evidence').validateGenerationAuditEvidence({
+        generationId, chapterNo, content, contentHash, result
+      });
+      if (!checked.ok) throw repositoryError('audit_blocked', checked.message, 409);
+
+      const existingResult = await client.query(
+        `SELECT id, subject_hash, status, result, chapter_no
+         FROM luna.audits
+         WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND generation_id = $3::uuid
+         LIMIT 1`,
+        [book.workspace_id, book.project_id, internalUuid(generationId)]
+      );
+      if (existingResult.rows.length) {
+        const existing = existingResult.rows[0];
+        const evidence = parseJsonDocument(existing.result) || {};
+        if (existing.status !== 'passed' || String(existing.subject_hash) !== contentHash ||
+            String(evidence.generationId || '') !== generationId || Number(existing.chapter_no) !== chapterNo) {
+          throw repositoryError('audit_blocked', 'Generation Run 已绑定到不同章节审计证据', 409);
+        }
+        return { ok: true, auditId: String(existing.id), status: 'passed', passed: true, idempotent: true, subjectHash: contentHash, result: evidence };
+      }
+
+      const auditId = normalizeLegacyId(input.auditId || `audit_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`, 'auditId');
+      await client.query(
+        `INSERT INTO luna.audits
+          (workspace_id, project_id, id, subject_hash, status, result, created_by, generation_id, chapter_no)
+         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::text, 'passed', $5::jsonb, $6::uuid, $7::uuid, $8::integer)`,
+        [book.workspace_id, book.project_id, internalUuid(auditId), contentHash,
+          JSON.stringify(checked.evidence), actorUuid, internalUuid(generationId), chapterNo]
+      );
+      return { ok: true, auditId, status: 'passed', passed: true, idempotent: false, subjectHash: contentHash, result: checked.evidence };
     });
   }
 
@@ -3718,7 +3784,10 @@ function createPostgresRepository(options = {}) {
     const content = String(input.content || '');
     const contentHash = jsonHash(content);
     if (String(input.contentHash || '') !== contentHash) throw repositoryError('content_hash_mismatch', '正文哈希与内容不一致', 422);
-    const chapterNo = Math.max(1, Number(input.chapterNo) || 1);
+    const generationId = String(input.generationId || '').trim();
+    if (!UUID_PATTERN.test(generationId)) throw repositoryError('audit_blocked', '正式提交必须绑定 Generation Run', 409);
+    const chapterNo = Number(input.chapterNo);
+    if (!Number.isInteger(chapterNo) || chapterNo < 1) throw repositoryError('invalid_chapter', 'chapterNo格式无效', 422);
     const projectionInput = input.projection && typeof input.projection === 'object' && !Array.isArray(input.projection)
       ? input.projection
       : {};
@@ -3735,29 +3804,65 @@ function createPostgresRepository(options = {}) {
     };
     const projectionHash = jsonHash(projection);
     return withTransaction(input.userId, async client => {
-      await ensureActor(client, input.userId);
+      const actorUuid = await ensureActor(client, input.userId);
+      const generationResult = await client.query(
+        `SELECT state, result, chapter_id
+         FROM luna.generation_runs
+         WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND id = $3::uuid
+           AND requested_by = $4::uuid AND state = 'committing'
+           AND lease_owner::text = $5::text AND fencing_token = $6::bigint
+           AND lease_until > now()
+         FOR UPDATE`,
+        [internalUuid(input.workspaceId || ''), internalUuid(input.projectId || ''), internalUuid(generationId), actorUuid,
+          String(input.runLeaseOwner || ''), Number(input.fencingToken) || 0]
+      );
+      const generationRun = generationResult.rows[0];
+      if (!generationRun) throw repositoryError('audit_blocked', 'Generation Run 不处于有效的提交租约中', 409);
+      const generationResultJson = parseJsonDocument(generationRun.result) || {};
+      const previousReceipt = generationResultJson.commitReceipt;
+      if (previousReceipt) {
+        if (String(previousReceipt.contentHash || '') !== contentHash || Number(previousReceipt.chapterNo) !== chapterNo) {
+          throw repositoryError('idempotency_conflict', 'Generation Run 已提交不同正文', 409);
+        }
+        return { ok: true, ...previousReceipt, committed: true, idempotent: true };
+      }
+      const checkedEvidence = require('./generation/audit-evidence').validateGenerationAuditEvidence({
+        generationId, chapterNo, content, contentHash, result: generationResultJson
+      });
+      if (!checkedEvidence.ok) throw repositoryError('audit_blocked', checkedEvidence.message, 409);
       const book = await creationBookForClient(client, input.bookId, true);
       if (!book) throw repositoryError('not_found', '创作书不存在或无权访问', 404);
       const access = await accessForClient(client, book.project_id, book.workspace_id);
       if (!hasRole(access, PROJECT_WRITE_ROLES)) throw repositoryError('forbidden', '当前账户无权提交章节', 403);
-      const latestAudit = input.auditId
-        ? await client.query(
-          `SELECT id, subject_hash, status, result
-           FROM luna.audits
-           WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND id = $3::uuid
-           LIMIT 1`,
-          [book.workspace_id, book.project_id, internalUuid(input.auditId)]
-        )
-        : await client.query(
-          `SELECT id, subject_hash, status, result
-           FROM luna.audits
-           WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND subject_hash = $3::text
-           ORDER BY created_at DESC LIMIT 1`,
-          [book.workspace_id, book.project_id, contentHash]
+      const auditId = normalizeLegacyId(input.auditId || `audit_generation_${generationId}`, 'auditId');
+      const latestAudit = await client.query(
+        `SELECT id, subject_hash, status, result, generation_id, chapter_no
+         FROM luna.audits
+         WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND generation_id = $3::uuid
+         LIMIT 1 FOR UPDATE`,
+        [book.workspace_id, book.project_id, internalUuid(generationId)]
+      );
+      let audit = latestAudit.rows[0];
+      if (audit) {
+        const persistedEvidence = parseJsonDocument(audit.result) || {};
+        if (audit.status !== 'passed' || String(audit.subject_hash) !== contentHash ||
+            String(audit.generation_id || '') !== internalUuid(generationId) || Number(audit.chapter_no) !== chapterNo ||
+            hashValue(persistedEvidence) !== hashValue(checkedEvidence.evidence)) {
+          throw repositoryError('audit_blocked', '正文没有匹配的已通过服务端审计', 409);
+        }
+      } else {
+        const auditUuid = internalUuid(auditId);
+        await client.query(
+          `INSERT INTO luna.audits
+            (workspace_id, project_id, id, subject_hash, status, result, created_by, generation_id, chapter_no)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::text, 'passed', $5::jsonb, $6::uuid, $7::uuid, $8::integer)`,
+          [book.workspace_id, book.project_id, auditUuid, contentHash, JSON.stringify(checkedEvidence.evidence),
+            actorUuid, internalUuid(generationId), chapterNo]
         );
-      const audit = latestAudit.rows[0];
-      if (!audit || audit.status !== 'passed' || String(audit.subject_hash) !== contentHash) {
-        throw repositoryError('audit_blocked', '正文没有匹配的已通过服务端审计', 409);
+        audit = {
+          id: auditUuid, subject_hash: contentHash, status: 'passed', result: checkedEvidence.evidence,
+          generation_id: internalUuid(generationId), chapter_no: chapterNo
+        };
       }
       const currentStateVersion = Number(book.current_state_version) || 0;
       const baseStateVersion = input.baseStateVersion == null ? currentStateVersion : Number(input.baseStateVersion);
@@ -3859,18 +3964,34 @@ function createPostgresRepository(options = {}) {
          VALUES ($1::uuid, $2::uuid, $3::uuid, 'commit', $4::uuid, $5::bigint, 1, 'commit.committed', $6::jsonb, $4::uuid)`,
         [book.workspace_id, book.project_id, internalUuid(`outbox:${input.bookId}:${chapterNo}:${nextStateVersion}`), commitId, nextStateVersion, JSON.stringify({ chapterNo, contentHash, snapshotId: snapshotId.toString(), projectionHash })]
       );
-      return {
+      const receipt = {
         ok: true,
+        committed: true,
+        idempotent: false,
         stateVersion: nextStateVersion,
         currentStateVersion: nextStateVersion,
         spentCost: spentCost + actualCost,
         snapshotId: snapshotId.toString(),
         commitId: commitId.toString(),
-        auditId: String(input.auditId || audit.id),
+        auditId,
         contentHash,
         projection,
         projectionHash
       };
+      const savedReceipt = await client.query(
+        `UPDATE luna.generation_runs
+         SET result = jsonb_set(result, '{commitReceipt}', $5::jsonb, true), updated_at = now()
+         WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND id = $3::uuid
+           AND requested_by = $4::uuid AND state = 'committing'
+           AND lease_owner::text = $6::text AND fencing_token = $7::bigint
+           AND result->>'outputHash' = $8::text`,
+        [book.workspace_id, book.project_id, internalUuid(generationId), actorUuid, JSON.stringify(receipt),
+          String(input.runLeaseOwner || ''), Number(input.fencingToken) || 0, contentHash]
+      );
+      if (Number(savedReceipt.rowCount || 0) !== 1) {
+        throw repositoryError('revision_conflict', 'Generation Run 提交租约或正文摘要已变化', 409);
+      }
+      return receipt;
     });
   }
 
@@ -4142,10 +4263,15 @@ function createPostgresRepository(options = {}) {
     const actorUserId = normalizeLegacyId(input.actorUserId || input.userId, 'actorUserId');
     const requestId = String(input.requestId || '').trim();
     const reserve = Math.max(0, Number(input.reservedCost) || 0);
-    if (!requestId || reserve <= 0) throw repositoryError('invalid_token_reservation', 'Token 预占参数无效', 422);
+    if (!requestId) throw repositoryError('invalid_token_reservation', 'Token 预占参数无效', 422);
     const document = input.document && typeof input.document === 'object' ? input.document : {};
     const cells = Array.isArray(input.cells) ? input.cells : [];
     return withTransaction(actorUserId, async client => {
+      const accountResult = await client.query(
+        `SELECT role, credits FROM luna.runtime_accounts WHERE id = luna.actor_id() FOR UPDATE`
+      );
+      if (!accountResult.rows.length) throw repositoryError('not_found', '账户不存在或不能预占积分', 404);
+      const isAdmin = String(accountResult.rows[0].role || '') === 'admin';
       const existing = await client.query(
         `SELECT document FROM luna.runtime_dissection_rows
          WHERE owner_actor_id = luna.actor_id() AND source_table = 'token_usage'
@@ -4154,18 +4280,31 @@ function createPostgresRepository(options = {}) {
       );
       if (existing.rows.length) {
         const current = parseJsonDocument(existing.rows[0].document) || {};
+        const identity = { ...document };
+        delete identity.reserved_cost;
+        delete identity.reservedCost;
+        if (!matchesTokenUsageReservation(current, identity)) {
+          return { ok: false, conflict: true, reservedCost: reserve };
+        }
         return {
           ok: true, existing: true, reservedCost: Number(current.reserved_cost) || reserve,
           remainingCredits: null, document: current
         };
       }
-      const account = await client.query(
-        `UPDATE luna.runtime_accounts
-         SET credits = credits - $1::numeric, updated_at = now()
-         WHERE id = luna.actor_id() AND role <> 'admin' AND credits >= $1::numeric
-         RETURNING credits`, [reserve]
-      );
-      if (!account.rows.length) return { ok: false, reservedCost: reserve };
+      if (input.lookupOnly === true) {
+        return { ok: true, existing: false, missing: true, reservedCost: reserve };
+      }
+      let remainingCredits = Number(accountResult.rows[0].credits) || 0;
+      if (!isAdmin && reserve > 0) {
+        const account = await client.query(
+          `UPDATE luna.runtime_accounts
+           SET credits = credits - $1::numeric, updated_at = now()
+           WHERE id = luna.actor_id() AND role <> 'admin' AND credits >= $1::numeric
+           RETURNING credits`, [reserve]
+        );
+        if (!account.rows.length) return { ok: false, reservedCost: reserve };
+        remainingCredits = Number(account.rows[0].credits) || 0;
+      }
       const hash = jsonHash(document);
       await client.query(
         `INSERT INTO luna.runtime_dissection_rows
@@ -4177,7 +4316,7 @@ function createPostgresRepository(options = {}) {
       await notifyRuntimeChanged(client, 'token-reserved', requestId);
       return {
         ok: true, existing: false, reservedCost: reserve,
-        remainingCredits: Number(account.rows[0].credits) || 0, document
+        remainingCredits, document
       };
     });
   }
@@ -4943,6 +5082,7 @@ function createPostgresRepository(options = {}) {
          VALUES ($1::uuid,$2::uuid,$3::uuid,$4::bigint,$5::text,$6::jsonb)`,
         [access.workspace_uuid, access.project_uuid, id, sequence.rows[0].next_seq, next.state, JSON.stringify(input.event || {})]
       );
+      if (next.state === 'cancel_requested') await notifyRuntimeChanged(client, 'generation-cancel', id.toString());
       const updated = await client.query(
         `SELECT r.*, w.legacy_id AS workspace_legacy_id, p.legacy_id AS project_legacy_id
          FROM luna.generation_runs r
@@ -5565,6 +5705,7 @@ function createPostgresRepository(options = {}) {
     getCreationState,
     getCreationPackageData,
     createChapterAudit,
+    createGenerationChapterAudit,
     commitChapter,
     createGenerationRun,
     getGenerationRun,
