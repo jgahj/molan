@@ -1,24 +1,131 @@
+/**
+ * Molan Design System - Single Source of Truth Tokens
+ * 墨阑全站统一设计系统规范
+ */
+
 :root {
-  --ink: #202724;
-  --ink-soft: #3f4a45;
+  /* 基础墨阑文人色板 (Default Light) */
+  --ink: #0a0a0a;
+  --ink-soft: #292927;
+  --ink-light: #52524e;
   --paper: #ffffff;
-  --canvas: #f5f7f5;
-  --line: #d9dfdb;
-  --line-strong: #b9c4bd;
-  --muted: #707b74;
-  --green: #34775c;
-  --blue: #376c99;
-  --amber: #a96e1c;
-  --danger: #aa4545;
+  --paper-warm: #fbfbf9;
+  --card: #ffffff;
+  --canvas: #f3f3f0;
+  --line: #e7e7e2;
+  --line-strong: #d6d6d0;
+  --muted: #74746e;
+  --muted-light: #a5a59f;
+
+  /* 状态点缀色 */
+  --green: #25845a;
+  --green-bg: #eef8f1;
+  --blue: #385c91;
+  --blue-bg: #eef3fb;
+  --amber: #a86b20;
+  --amber-bg: #fff7ea;
+  --danger: #ae3d3d;
+  --danger-bg: #fff0f0;
+
+  /* 投影与微质感 */
+  --shadow-sm: 0 1px 2px rgba(17, 17, 15, .04);
+  --shadow: 0 10px 30px rgba(17, 17, 15, .06);
+  --shadow-lg: 0 20px 40px rgba(17, 17, 15, .1);
+
+  /* 间距度量阶梯 */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* 圆角阶梯 */
+  --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
-  --font-sans: "Segoe UI", "Microsoft YaHei", sans-serif;
-  --font-serif: "Noto Serif SC", "Songti SC", serif;
-  --font-mono: ui-monospace, Consolas, monospace;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-full: 9999px;
+
+  /* 字体栈：书卷衬线与界面无衬线 */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --mono: "SFMono-Regular", Consolas, ui-monospace, monospace;
+  --font-sans: var(--sans);
+  --font-serif: var(--serif);
+  --font-mono: var(--mono);
+
+  /* 层级 z-index 体系 */
+  --z-base: 1;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+
+  /* 向前兼容：历史 --molan-* 别名映射 */
+  --molan-ink: var(--ink);
+  --molan-ink-soft: var(--ink-soft);
+  --molan-paper: var(--paper);
+  --molan-paper-warm: var(--paper-warm);
+  --molan-card: var(--card);
+  --molan-canvas: var(--canvas);
+  --molan-line: var(--line);
+  --molan-line-strong: var(--line-strong);
+  --molan-muted: var(--muted);
+  --molan-muted-light: var(--muted-light);
+  --molan-green: var(--green);
+  --molan-green-bg: var(--green-bg);
+  --molan-blue: var(--blue);
+  --molan-blue-bg: var(--blue-bg);
+  --molan-amber: var(--amber);
+  --molan-amber-bg: var(--amber-bg);
+  --molan-danger: var(--danger);
+  --molan-danger-bg: var(--danger-bg);
+  --molan-shadow: var(--shadow);
+  --molan-sans: var(--sans);
+  --molan-serif: var(--serif);
+  --molan-mono: var(--mono);
+
+  /* 向前兼容：历史 --ml-* 别名映射 */
+  --ml-background: var(--canvas);
+  --ml-foreground: var(--ink);
+  --ml-card: var(--paper);
+  --ml-border: var(--line);
+  --ml-muted: var(--muted);
+  --ml-primary: var(--ink);
+  --ml-banner: var(--paper-warm);
+}
+
+/* 深色模式统一映射 (Dark Theme) */
+body.theme-dim,
+html.dark,
+[data-theme="dark"] {
+  --ink: #f2f2ed;
+  --ink-soft: #d7d7d0;
+  --ink-light: #aaa9a1;
+  --paper: #242422;
+  --paper-warm: #2b2b28;
+  --card: #282825;
+  --canvas: #171716;
+  --line: #3b3b37;
+  --line-strong: #55554f;
+  --muted: #aaa9a1;
+  --muted-light: #7f7f78;
+  --green: #62c799;
+  --green-bg: #1e3528;
+  --blue: #7ba3e8;
+  --blue-bg: #202d40;
+  --amber: #f0b86e;
+  --amber-bg: #3b2e1d;
+  --danger: #e57373;
+  --danger-bg: #3b2020;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  color-scheme: dark;
 }
