@@ -201,24 +201,101 @@ async function main() {
       expectedRevision: bibleRead.bible.version
     });
     if (!bibleUpdate.ok || bibleUpdate.bibleVersion !== 2) throw new Error('PG创作书Bible CAS保存失败');
+    stage = 'generation-run-create';
+    const content = '这是用于数据库闭环验证的章节正文。';
+    const contentHash = crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+    const runId = crypto.randomUUID();
+    const request = { creationBookId: creationBook.book.id, chapterNo: 1, smoke: true };
+    const generation = await repository.createGenerationRun({
+      userId: userA,
+      workspaceId,
+      projectId,
+      id: runId,
+      chapterId: 'chapter_1',
+      pipelineVersion: 'postgres-runtime-smoke-v1',
+      idempotencyKey: `postgres-runtime-smoke-${suffix}`,
+      requestHash: crypto.createHash('sha256').update(JSON.stringify(request), 'utf8').digest('hex'),
+      request,
+      manifest: { smoke: true },
+      modelId: 'postgres-runtime-smoke',
+      providerModel: 'no-provider-call'
+    });
+    if (!generation.run || generation.run.id !== runId || generation.idempotent) throw new Error('Generation Run创建失败');
+    stage = 'generation-run-lease';
+    const initialOwner = crypto.randomUUID();
+    const initialLease = await repository.acquireGenerationRunLease({
+      userId: userA, workspaceId, projectId, id: runId, leaseOwner: initialOwner, ttlMs: 60000
+    });
+    if (!initialLease.acquired || initialLease.fencingToken !== 1) throw new Error('Generation Run初始fencing租约获取失败');
+    const initialWorker = { userId: userA, workspaceId, projectId, id: runId, leaseOwner: initialOwner, fencingToken: initialLease.fencingToken };
+    const chapterResult = {
+      draft: content,
+      outputHash: contentHash,
+      contract: { chapterNo: 1 },
+      audit: { passed: true, blockerCount: 0, issues: [] },
+      semanticAudit: { passed: true, audit: { passed: true, issues: [] } },
+      quality: { passed: true, qualityVector: { language: { value: 0.9, status: 'MEASURED' } } }
+    };
+    for (const state of [
+      'request_validated', 'genre_resolved', 'style_resolved', 'context_built', 'contract_validated',
+      'pre_generation_guard', 'scene_planning', 'generating', 'draft_received', 'deterministic_audit',
+      'semantic_audit', 'quality_audit', 'waiting_author'
+    ]) {
+      const updatedRun = await repository.updateGenerationRun({
+        ...initialWorker,
+        state,
+        event: { message: `PG runtime smoke: ${state}` },
+        ...(state === 'waiting_author' ? { result: chapterResult } : {})
+      });
+      if (updatedRun.state !== state) throw new Error(`Generation Run状态迁移失败：${state}`);
+    }
+    if (!await repository.releaseGenerationRunLease(initialWorker)) throw new Error('Generation Run初始租约释放失败');
+    stage = 'generation-run-commit-lease';
+    const commitOwner = crypto.randomUUID();
+    const commitLease = await repository.acquireGenerationRunLease({
+      userId: userA, workspaceId, projectId, id: runId, leaseOwner: commitOwner, leasePurpose: 'commit', ttlMs: 60000
+    });
+    if (!commitLease.acquired || commitLease.fencingToken !== 2) throw new Error('Generation Run提交fencing租约获取失败');
+    const commitWorker = { userId: userA, workspaceId, projectId, id: runId, leaseOwner: commitOwner, fencingToken: commitLease.fencingToken };
+    const committingRun = await repository.updateGenerationRun({
+      ...commitWorker,
+      state: 'committing',
+      event: { message: 'PG runtime smoke: committing' }
+    });
+    if (committingRun.state !== 'committing') throw new Error('Generation Run进入提交态失败');
     stage = 'creation-audit';
-    const audit = await repository.createChapterAudit({
+    const audit = await repository.createGenerationChapterAudit({
       userId: userA,
       bookId: creationBook.book.id,
+      generationId: runId,
       chapterNo: 1,
-      content: '这是用于数据库闭环验证的章节正文。'
+      content,
+      contentHash
     });
     stage = 'creation-commit';
     const committed = await repository.commitChapter({
       userId: userA,
+      workspaceId,
+      projectId,
       bookId: creationBook.book.id,
+      generationId: runId,
+      runLeaseOwner: commitOwner,
+      fencingToken: commitLease.fencingToken,
       chapterNo: 1,
-      content: '这是用于数据库闭环验证的章节正文。',
-      contentHash: audit.subjectHash,
+      content,
+      contentHash,
       auditId: audit.auditId,
       baseStateVersion: 0
     });
     if (!committed.ok || committed.stateVersion !== 1) throw new Error('PG创作书章节提交失败');
+    const finishedRun = await repository.updateGenerationRun({
+      ...commitWorker,
+      state: 'committed',
+      result: { ...chapterResult, commitReceipt: committed },
+      event: { message: 'PG runtime smoke: committed' }
+    });
+    if (finishedRun.state !== 'committed' || !finishedRun.result.commitReceipt) throw new Error('Generation Run提交回执保存失败');
+    if (!await repository.releaseGenerationRunLease(commitWorker)) throw new Error('Generation Run提交租约释放失败');
     stage = 'creation-state';
     const creationState = await repository.getCreationState(userA, creationBook.book.id);
     if (!creationState || creationState.snapshots.length !== 1) throw new Error('PG创作书状态快照读取失败');
@@ -233,7 +310,7 @@ async function main() {
       ok: true,
       projectId,
       workspaceId,
-      checks: ['profile', 'project-member', 'cas', 'resource-version', 'resource-projection-cas', 'creation-bible', 'creation-audit-commit', 'revoke', 'project-restore']
+      checks: ['profile', 'project-member', 'cas', 'resource-version', 'resource-projection-cas', 'creation-bible', 'generation-run-fencing', 'creation-audit-commit', 'revoke', 'project-restore']
     }) + '\n');
   } catch (error) {
     const wrapped = new Error(stage + ': ' + String(error && error.message || '') + (error && error.databaseCode ? ` [${error.databaseCode}] ${error.databaseMessage || ''}` : ''));
