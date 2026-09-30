@@ -44,7 +44,7 @@ test('native main starts, persists sessions and skills, and restarts without cre
     const capabilities = await request('GET', '/api/generation-runs/capabilities', null, token);
     assert.equal(capabilities.status, 200);
     assert.equal(capabilities.data.storageMode, 'json');
-    assert.equal(capabilities.data.commit, false);
+    assert.equal(capabilities.data.commit, true);
     assert.equal((await request('POST', '/api/admin/auth/login', { email: 'restart@example.test', password: 'test-password' })).status, 403);
     assert.equal((await request('POST', '/api/auth/code', { email: 'restart@example.test' })).status, 503);
     assert.equal((await request('POST', '/api/auth/login-code', { email: 'restart@example.test', code: '123456' })).status, 503);
@@ -57,7 +57,10 @@ test('native main starts, persists sessions and skills, and restarts without cre
     const units = await request('GET', '/api/dissections/d_native/units', null, token);
     assert.equal(units.status, 200);
     assert.ok(units.data.items.length > 0);
-    assert.equal((await request('POST', '/api/creation-books', {}, token)).status, 503);
+    assert.equal((await request('POST', '/api/creation-books', {}, token)).status, 422);
+    const creationBooks = await request('GET', '/api/creation-books?projectId=n_restart', null, token);
+    assert.equal(creationBooks.status, 200);
+    assert.deepEqual(creationBooks.data.books, []);
     await stop();
     assert.equal((await fs.readdir(directory)).some(name => /^(?:molan\.db|users\.json|sessions\.json)/.test(name)), false);
     await start();

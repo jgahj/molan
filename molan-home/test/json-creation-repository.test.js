@@ -23,7 +23,9 @@ async function fixture(t, options = {}) {
   const text = 'new';
   const run = { id: 'run-1', kind: 'generation-run-v1', projectId: novel.id, workspaceId: novel.workspaceId,
     actorUserId: user.userId, state: 'committing', leaseOwner: 'worker', fencingToken: 1, leaseUntil: Date.now() + 60000,
-    actualCostMinor: 50, request: { creationBookId: 'book-1', novelId: novel.id, chapterId: 'chapter_1', sceneId: 'scene_1',
+    actualCostMinor: 50, costStatus: 'settled', stages: [{ stage: 'context_built', costStatus: 'pending', status: 'completed' },
+      { stage: 'provider:writer', actualCostMinor: 50, costStatus: 'settled', status: 'completed' }],
+    request: { creationBookId: 'book-1', novelId: novel.id, chapterId: 'chapter_1', sceneId: 'scene_1',
       storyContext: { stateVersion: 0, baseRevision: 0, baseHash: hash('old'), storyBibleVersion: 1, planHash: hash('{}') } },
     result: { draft: text, outputHash: hash(text), contract: { chapterNo: 1 }, audit: { passed: true, issues: [] },
       benchmark: { status: 'passed' }, semanticAudit: { passed: true, audit: { passed: true, issues: [],
@@ -88,4 +90,19 @@ test('native commit rolls back novel, memory and snapshots when transaction hook
   assert.equal((await f.repo.read(f.scope)).currentStateVersion, 0);
   assert.equal(await f.app.repository.memory.get(f.scope.projectId, 'attempt'), null);
   assert.equal((await f.repo.snapshots(f.scope)).length, 0);
+});
+
+test('native generation restart recovers the matching atomic creation receipt', async t => {
+  const f = await fixture(t);
+  const { createJsonGenerationStore, GENERATION_INDEX_SCOPE } = require('../lib/generation/json-store');
+  const store = createJsonGenerationStore(null, { repository: f.app.repository });
+  await f.app.repository.generation.put(GENERATION_INDEX_SCOPE, { id: f.run.id, kind: 'generation-run-index-v1',
+    actorUserId: f.scope.userId, workspaceId: f.scope.workspaceId, projectId: f.scope.projectId }, 0);
+  const receipt = await f.repo.commitChapter(f.commit);
+  const recovered = await store.recoverExpiredRuns(null, { actorUserId: f.scope.userId, now: Date.now() + 120000 });
+  assert.equal(recovered.committed, 1);
+  const run = await store.getRun({ id: f.run.id, actorUserId: f.scope.userId, projectId: f.scope.projectId, workspaceId: f.scope.workspaceId });
+  assert.equal(run.state, 'committed');
+  assert.equal(run.result.commitReceipt.snapshotId, receipt.snapshotId);
+  assert.equal((await f.app.read(f.scope)).revision, 1);
 });

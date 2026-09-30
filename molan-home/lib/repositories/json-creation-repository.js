@@ -84,6 +84,23 @@ class JsonCreationRepository {
   async read(input) {
     return this.repository.transaction([input.projectId], tx => publicBook(this.book(tx, input).row));
   }
+  async resolveScope({ userId, bookId }) {
+    identifier(userId);
+    identifier(bookId);
+    const index = await this.repository.novels.get(INDEX, key('book', bookId));
+    if (index?.kind !== 'creation-book-index' || !index.projectId) fail('BOOK_NOT_FOUND', 404);
+    return this.repository.transaction([INDEX, index.projectId], tx => {
+      const current = tx.get(INDEX, 'novels', key('book', bookId));
+      if (current?.kind !== 'creation-book-index' || current.projectId !== index.projectId) fail('BOOK_NOT_FOUND', 404);
+      try {
+        const { project } = this.book(tx, { userId, bookId, projectId: current.projectId });
+        return { userId, bookId, projectId: project.id, workspaceId: project.workspaceId };
+      } catch (error) {
+        if (error.code === 'FORBIDDEN' || error.code === 'BOOK_NOT_FOUND') fail('BOOK_NOT_FOUND', 404);
+        throw error;
+      }
+    });
+  }
   async list(input) {
     return this.repository.transaction([input.projectId], tx => {
       this.access(tx, input);

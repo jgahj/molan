@@ -11965,7 +11965,9 @@ const generationService = require('./services/generation-service').createGenerat
   resolveModelForUser,
   responseCors,
   sanitizeNovelStateForStorage,
-  getDatabase: () => db
+  getDatabase: () => db,
+  getNativeAppRepository: () => appRepository(),
+  getNativeCreationRepository: () => nativeCreationRepository()
 });
 const { generationRunOrchestrator, generationRequestAuth, generationRunError, generationSseEvent, streamGenerationEvents, generationProjectAccess, generationChatChunk, streamLegacyGenerationChat, handleLegacyGenerationChat, generationChapterNo, generationPreviousEnding, generationFactLedger, loadAuthoritativeGenerationContext, scenePatchError, validateScenePatchBody, handleNovelScenePatch, handleGenerationRuns, handleBenchmark } = generationService;
 
@@ -12004,6 +12006,21 @@ async function nativeSkillCatalog(user) {
 }
 let nativeProjects;
 let nativeDissections;
+let nativeCreation;
+let nativeCreationHttp;
+function nativeCreationRepository() {
+  if (!nativeCreation) {
+    nativeCreation = new (require('./lib/repositories/json-creation-repository').JsonCreationRepository)(appRepository());
+  }
+  return nativeCreation;
+}
+function nativeCreationService() {
+  if (!nativeCreationHttp) nativeCreationHttp = require('./services/native-creation-service').createNativeCreationService({
+    repository: nativeCreationRepository(), getAuthUser, readBody, json,
+    normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms
+  });
+  return nativeCreationHttp;
+}
 function nativeDissectionService() {
   if (!nativeDissections) {
     const repository = new (require('./lib/repositories/json-dissection-repository').JsonDissectionRepository)(appRepository().repository, {
@@ -12052,6 +12069,10 @@ async function dispatchRequest(req, res) {
     req.molanNativeAuth = await nativeAuthService().resolve(req);
   }
   const u = req.url.split('?')[0];
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/creation-books')) {
+    if (await nativeCreationService().dispatch(req, res, u)) return;
+    return json(res, 503, { error: '该创作操作尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
+  }
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' &&
       (u.startsWith('/api/workspaces') || /^\/api\/novels\/[^/]+\/(?:resources|package)(?:\/|$)/.test(u))) {
     if (await nativeProjectService().dispatch(req, res, u)) return;
