@@ -86,8 +86,12 @@ const postgresRepository = postgresData.createPostgresRepository();
 const { runGenreNarrativeAudits } = require('./lib/genre-narrative-audit');
 const postgresMemoryBridge = require('./lib/postgres-memory-bridge').createPostgresMemoryBridge(postgresRepository);
 const POSTGRES_MODE = postgresRepository.enabled;
+const postgresStyleProfileStore = POSTGRES_MODE
+  ? require('./lib/style-profile-store').createPostgresStyleProfileStore(postgresRepository)
+  : null;
 let generationOrchestrator = null;
 let jsonGenerationStore = null;
+let jsonStyleProfileStore = null;
 function generationRunStore() {
   if (!POSTGRES_MODE && process.env.MOLAN_GENERATION_STORE === 'json') {
     if (!jsonGenerationStore) {
@@ -98,6 +102,31 @@ function generationRunStore() {
   return POSTGRES_MODE
     ? require('./lib/generation/postgres-store').createPostgresGenerationStore(postgresRepository)
     : require('./lib/generation/sqlite-store');
+}
+function styleProfileStore() {
+  if (POSTGRES_MODE) return postgresStyleProfileStore;
+  if (process.env.MOLAN_STYLE_STORE !== 'json') return null;
+  if (!jsonStyleProfileStore) {
+    jsonStyleProfileStore = require('./lib/style-profile-store')
+      .createJsonStyleProfileStore(path.join(DATA_DIR, 'style-profiles-json'));
+  }
+  return jsonStyleProfileStore;
+}
+async function closeStorageStores() {
+  const activeDatabase = db;
+  const results = await Promise.allSettled([
+    jsonGenerationStore ? jsonGenerationStore.close() : Promise.resolve(),
+    jsonStyleProfileStore ? jsonStyleProfileStore.close() : Promise.resolve(),
+    postgresRepository.close(),
+    activeDatabase && typeof activeDatabase.close === 'function'
+      ? Promise.resolve().then(async () => {
+        await activeDatabase.close();
+        if (db === activeDatabase) db = null;
+      })
+      : Promise.resolve()
+  ]);
+  const failures = results.filter(result => result.status === 'rejected').map(result => result.reason);
+  if (failures.length) throw new AggregateError(failures, 'One or more storage stores failed to close');
 }
 let postgresHealth = POSTGRES_MODE
   ? { enabled: true, available: false, status: 'starting' }
@@ -19858,6 +19887,7 @@ function handleLocalStyleBaseline(req, res, params) {
     return memoryRoutes.dispatch(req, res, u, db, getAuthUser, {
       backend: POSTGRES_MODE ? 'postgres' : 'sqlite',
       postgresMemoryBridge,
+      styleProfileStore: styleProfileStore(),
       generate: (user, params, guard) => {
         const account = getUserByEmail(user.email);
         const modelId = resolveModelForUser(account, params.modelId || currentDefaultModel());
@@ -19896,6 +19926,7 @@ if (require.main === module) {
     throw error;
   }
   initDB();
+  if (!POSTGRES_MODE && process.env.MOLAN_STYLE_STORE === 'json') styleProfileStore();
   let stopMemoryProjections = null;
   if (!POSTGRES_MODE && dbReady()) {
     stopMemoryProjections = require('./lib/memory-projection-worker').start(db);
@@ -19908,14 +19939,12 @@ if (require.main === module) {
     if (!POSTGRES_MODE) stopCreditReservationReaper();
     flushSessionsSync();
     const closePostgres = () => flushPostgresRuntimeWrites()
-      .catch(() => {})
-      .finally(async () => {
-        if (jsonGenerationStore) await jsonGenerationStore.close();
-        await postgresRepository.close();
-      }).catch(error => { console.error('Storage shutdown failed:', error); process.exitCode = 1; });
+      .catch(error => { console.error('PostgreSQL writes failed to flush:', error); process.exitCode = 1; })
+      .then(() => closeStorageStores())
+      .catch(error => { console.error('Storage shutdown failed:', error); process.exitCode = 1; });
     if (server.listening) server.close(closePostgres);
     else closePostgres();
-    setTimeout(() => process.exit(0), 5000).unref();
+    setTimeout(() => process.exit(process.exitCode || 0), 5000).unref();
     console.log('🛑  墨阑服务正在优雅退出：' + signal);
   };
   process.once('SIGTERM', () => shutdown('SIGTERM'));
@@ -20024,7 +20053,7 @@ if (require.main === module) {
     if (process.env.MOLAN_GENERATION_STORE === 'json') {
       generationRunStore().recoverExpiredRuns(null, { now: Date.now() }).then(startListening).catch(async error => {
         console.error('JSON generation storage recovery failed; service will not listen:', error);
-        if (jsonGenerationStore) await jsonGenerationStore.close().catch(() => {});
+        await closeStorageStores().catch(closeError => console.error('Storage cleanup after startup failure failed:', closeError));
         process.exitCode = 1;
       });
     } else startListening();
@@ -20160,6 +20189,7 @@ module.exports = {
   releaseDissectionUserSlot,
   server,
   initDB,
+  closeStorageStores,
   initializePostgresRuntime,
   loadSessions,
   postgresRepository,

@@ -34,6 +34,7 @@ test('novel create/save CAS/delete/restore preserve HTTP permissions and revisio
     app.sessions.delete(app.hashSessionToken(editorToken));
     app.server.closeAllConnections();
     await new Promise(resolve => app.server.close(resolve));
+    await app.closeStorageStores();
     fs.rmSync(dataDirectory, { recursive: true, force: true });
   });
 
