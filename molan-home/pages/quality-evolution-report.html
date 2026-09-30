@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>质量评测报告 | 墨阑</title>
+  <style>
+    :root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #202a31; background: #f4f6f7; }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; color: #fff; background: #243b45; }
+    header h1 { margin: 0; font-size: 19px; font-weight: 650; }
+    header p { margin: 4px 0 0; color: #c8d9df; font-size: 13px; }
+    main { max-width: 1440px; margin: 0 auto; padding: 20px 24px 40px; }
+    .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+    .file-label { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid #536f7b; border-radius: 4px; color: #fff; background: #315663; cursor: pointer; font-size: 13px; }
+    .file-label:focus-within { outline: 2px solid #75c9b1; outline-offset: 2px; }
+    .file-label input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    #fileName { color: #59666c; font-size: 13px; overflow-wrap: anywhere; }
+    #notice { margin: 0 0 16px; color: #59666c; font-size: 13px; }
+    .summary { display: grid; grid-template-columns: minmax(180px, 1.25fr) repeat(4, minmax(130px, 1fr)); border-top: 1px solid #cfd8dc; border-bottom: 1px solid #cfd8dc; background: #fff; }
+    .summary > div { min-width: 0; padding: 14px 16px; border-right: 1px solid #e2e7e9; }
+    .summary > div:last-child { border-right: 0; }
+    .label { display: block; margin-bottom: 5px; color: #69777d; font-size: 12px; }
+    .value { display: block; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+    .status { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: 700; }
+    .status-PROMOTION_READY, .status-PASS { color: #155d46; background: #dff3e9; }
+    .status-BLOCKED { color: #805311; background: #fff0cf; }
+    .status-REJECTED, .status-FAIL, .status-REJECT { color: #922f36; background: #fce5e5; }
+    section { margin-top: 22px; }
+    h2 { margin: 0 0 10px; font-size: 15px; font-weight: 650; }
+    .table-wrap { overflow-x: auto; border-top: 1px solid #cfd8dc; border-bottom: 1px solid #cfd8dc; background: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    #dimensionsSection table { min-width: 1120px; }
+    #gateSection table { min-width: 640px; }
+    th, td { padding: 9px 10px; border-bottom: 1px solid #e4e9eb; text-align: left; vertical-align: top; }
+    th { position: sticky; top: 0; color: #53636a; background: #edf1f2; font-size: 12px; font-weight: 650; white-space: nowrap; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    td.refs { min-width: 220px; max-width: 380px; color: #59666c; overflow-wrap: anywhere; }
+    tr:last-child td { border-bottom: 0; }
+    details { border-top: 1px solid #cfd8dc; border-bottom: 1px solid #cfd8dc; background: #fff; }
+    summary { padding: 12px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    details .table-wrap { border: 0; }
+    #reasons { margin: 0; padding: 0 12px 12px 32px; color: #754f16; font-size: 13px; }
+    @media (max-width: 760px) {
+      header { align-items: flex-start; flex-direction: column; padding: 16px; }
+      main { padding: 16px 12px 28px; }
+      .summary { grid-template-columns: 1fr 1fr; }
+      .summary > div:nth-child(2) { border-right: 0; }
+      .summary > div:nth-child(-n+2) { border-bottom: 1px solid #e2e7e9; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>质量评测报告</h1><p>配对质量向量与回归门禁</p></div>
+    <label class="file-label">选择 JSON 报告<input id="reportFile" type="file" accept="application/json,.json"></label>
+  </header>
+  <main>
+    <div class="toolbar"><span id="fileName">尚未载入报告</span></div>
+    <p id="notice" role="status">载入 compare-quality-vectors CLI 生成的报告后查看结果。</p>
+    <div id="summary" class="summary" hidden></div>
+    <section id="bindingSection" hidden><h2>版本与输入绑定</h2><div id="binding" class="summary"></div></section>
+    <section id="dimensionsSection" hidden><h2>质量向量差异</h2><div class="table-wrap"><table><thead><tr><th>维度</th><th>基线</th><th>候选</th><th>变化</th><th>方向变化</th><th>状态</th><th>证据等级</th><th>证据引用</th></tr></thead><tbody id="dimensions"></tbody></table></div></section>
+    <section id="gateSection" hidden><h2>既有回归门禁</h2><div class="table-wrap"><table><thead><tr><th>检查项</th><th>状态</th><th>基线</th><th>候选</th><th>证据引用</th></tr></thead><tbody id="gate"></tbody></table></div></section>
+    <section id="reasonSection" hidden><details open><summary>阻断与拒绝原因</summary><ul id="reasons"></ul></details></section>
+  </main>
+  <script>
+    'use strict';
+    const labels = {
+      opening: '开篇', plot: '情节', pacing: '节奏', character: '人物', relationship: '关系',
+      emotion: '情绪', causality: '因果', foreshadowing: '伏笔', payoff: '回收', dialogue: '对白',
+      description: '描写', language: '语言', human_texture: '人味', ai_flavor: 'AI 痕迹',
+      consistency: '一致性', originality: '原创性', reader_drive: '阅读驱动力', genre_fit: '题材契合', style_fit: '文风契合'
+    };
+    const evidenceLabels = { NOT_MEASURED: '未测量', ESTIMATED: '估算', MEASURED: '实测', JUDGED: '评审', HUMAN_REVIEWED: '人工复核' };
+    const $ = id => document.getElementById(id);
+    const item = (label, value) => {
+      const box = document.createElement('div');
+      const caption = document.createElement('span'); caption.className = 'label'; caption.textContent = label;
+      const content = document.createElement('span'); content.className = 'value'; content.textContent = value == null ? '—' : String(value);
+      box.append(caption, content); return box;
+    };
+    const cell = (row, value, className) => {
+      const node = document.createElement('td');
+      if (className) node.className = className;
+      if (value instanceof Node) node.append(value); else node.textContent = value == null ? '—' : String(value);
+      row.append(node); return node;
+    };
+    const badge = status => {
+      const node = document.createElement('span'); node.className = `status status-${String(status || 'BLOCKED')}`;
+      node.textContent = String(status || 'BLOCKED'); return node;
+    };
+    /** 安全渲染已校验的离线评测报告。 */
+    function show(report, fileName) {
+      if (!report || report.schemaVersion !== 'quality-vector-ab-report-v1') throw new Error('报告 schemaVersion 不受支持');
+      $('fileName').textContent = fileName;
+      $('notice').textContent = `报告指纹 ${report.reportHash || '缺失'}；评测模式 ${report.evaluationMode || '未知'}`;
+      const summary = $('summary'); summary.replaceChildren(
+        item('晋级结论', report.status), item('配对任务', report.pairedTaskCount),
+        item('目标维度', (report.targetDimensions || []).map(name => labels[name] || name).join('、')),
+        item('任务数 / 量表', `${report.golden?.taskCount ?? '—'} / ${report.scoreScale ?? '—'}`),
+        item('实际费用', report.costs ? `${report.costs.baseline} → ${report.costs.candidate} ${report.costs.currency || ''}` : '—')
+      );
+      summary.children[0].querySelector('.value').replaceChildren(badge(report.status)); summary.hidden = false;
+
+      const versions = report.versions || {};
+      const binding = report.binding || {};
+      $('binding').replaceChildren(
+        item('模型', binding.model), item('参数指纹', binding.modelParametersHash),
+        item('评测器', binding.evaluatorVersion), item('评审版本', binding.reviewerVersion),
+        item('基线版本', JSON.stringify(versions.baseline || {})), item('候选版本', JSON.stringify(versions.candidate || {})),
+        item('Golden 指纹', report.golden?.manifestHash), item('输入指纹', report.inputHash), item('报告哈希', report.reportHash)
+      );
+      $('bindingSection').hidden = false;
+
+      const dimensions = $('dimensions'); dimensions.replaceChildren();
+      for (const entry of report.dimensions || []) {
+        const row = document.createElement('tr');
+        cell(row, labels[entry.dimension] || entry.dimension);
+        cell(row, entry.baseline, 'num'); cell(row, entry.candidate, 'num'); cell(row, entry.delta, 'num');
+        cell(row, entry.signed_improvement, 'num'); cell(row, badge(entry.status));
+        cell(row, evidenceLabels[entry.evidence_status] || entry.evidence_status);
+        cell(row, (entry.evidence_refs || []).join(', '), 'refs'); dimensions.append(row);
+      }
+      $('dimensionsSection').hidden = false;
+
+      const gateRows = $('gate'); gateRows.replaceChildren();
+      const gate = report.existingRegressionGate || {};
+      for (const [name, result] of Object.entries(gate.category_results || {})) {
+        const row = document.createElement('tr'); cell(row, name); cell(row, badge(result.status));
+        cell(row, '—'); cell(row, '—'); cell(row, (result.evidence_refs || []).join(', '), 'refs'); gateRows.append(row);
+      }
+      for (const result of gate.guard_metrics || []) {
+        const row = document.createElement('tr'); cell(row, result.metric); cell(row, badge(result.status));
+        cell(row, result.baseline); cell(row, result.candidate); cell(row, (result.evidence_refs || []).join(', '), 'refs'); gateRows.append(row);
+      }
+      if (gate.target_metric) {
+        const result = gate.target_metric; const row = document.createElement('tr');
+        cell(row, `目标：${result.metric || '—'}`); cell(row, badge(result.status));
+        cell(row, result.baseline); cell(row, result.candidate); cell(row, (result.evidence_refs || []).join(', '), 'refs'); gateRows.append(row);
+      }
+      $('gateSection').hidden = false;
+
+      const reasons = report.blockingReasons || [];
+      const list = $('reasons'); list.replaceChildren();
+      reasons.forEach(reason => { const row = document.createElement('li'); row.textContent = reason; list.append(row); });
+      $('reasonSection').hidden = reasons.length === 0;
+    }
+    $('reportFile').addEventListener('change', async event => {
+      const file = event.target.files && event.target.files[0]; if (!file) return;
+      try { show(JSON.parse(await file.text()), file.name); }
+      catch (error) {
+        $('fileName').textContent = file.name;
+        $('notice').textContent = error.message || String(error);
+        ['summary', 'bindingSection', 'dimensionsSection', 'gateSection', 'reasonSection'].forEach(id => { $(id).hidden = true; });
+        ['binding', 'dimensions', 'gate', 'reasons'].forEach(id => $(id).replaceChildren());
+      }
+    });
+  </script>
+</body>
+</html>
