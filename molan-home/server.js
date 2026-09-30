@@ -9313,12 +9313,7 @@ async function handleCreationBookChapterAudit(req, res, id) {
 }
 
 // ★ G0 · 创书因果债务账本：按书隔离存储在 DATA_DIR/causal-debts/<bookId>-debts.json
-let creationDebtTracker = null;
 /** 懒加载创书因果债务追踪器（存储目录跟随 DATA_DIR，测试可通过 MOLAN_DATA_DIR 隔离）。 */
-function getCreationDebtTracker() {
-  if (!creationDebtTracker) creationDebtTracker = new CausalDebtTracker({ storeDir: path.join(DATA_DIR, 'causal-debts') });
-  return creationDebtTracker;
-}
 
 const SOMATIC_REFLEX_PATTERN = /(?:(?:指腹|指肚|拇指|手指)反复?摩挲|食指轻叩(?:桌面|桌案)|指尖(?:骤然)?(?:一顿|悬在半空|僵在半空)|指甲(?:深深)?掐(?:进|入)掌心|骨节捏得泛白|指节泛白|指骨泛白|指骨发白|喉咙发紧|咽喉发紧|喉头发干|喉头一哽|呼吸骤然一窒|呼吸乱了一拍|按揉发胀的太阳穴|后槽牙咬得咯咯作响|咬紧后槽牙|喉结上下滚动|震得脚底发木|虎口发麻|耳膜生疼|脑仁剧痛|气血翻涌|喉头一甜)/gu;
 
@@ -9337,47 +9332,9 @@ const SOMATIC_REFLEX_PATTERN = /(?:(?:指腹|指肚|拇指|手指)反复?摩挲|
  * 审计通过后登记本章因果债务：承诺（newPromises）记 arc 债，代价/副作用类规则记 micro 债，
  * 再补充正文启发式提取的代价种子；按 seed 去重，返回本次新增与当前活跃概况。
  */
-function recordChapterCausalDebts(bookId, chapterNo, content, ledgerDelta) {
-  const tracker = getCreationDebtTracker();
-  const store = tracker.loadBookDebts(bookId);
-  const existing = new Set((store.debts || []).map(d => String(d.seed || '').trim()).filter(Boolean));
-  const candidates = [];
-  const delta = ledgerDelta && typeof ledgerDelta === 'object' ? ledgerDelta : {};
-  (Array.isArray(delta.newPromises) ? delta.newPromises : []).forEach(p => {
-    const seed = String(p && (p.text || p) || '').trim().slice(0, 80);
-    if (seed) candidates.push({ type: 'arc', seed, immediateCost: '第' + chapterNo + '章立下的承诺/威胁' });
-  });
-  (Array.isArray(delta.newRules) ? delta.newRules : []).forEach(r => {
-    const kind = String(r && r.kind || '');
-    const seed = String(r && r.text || '').trim().slice(0, 80);
-    if (seed && /代价|副作用/.test(kind)) candidates.push({ type: 'micro', seed, immediateCost: '第' + chapterNo + '章付出的' + kind });
-  });
-  tracker.extractPotentialDebts(content, chapterNo).forEach(c => candidates.push(c));
-  const added = [];
-  for (const c of candidates) {
-    if (added.length >= 4) break;
-    if (!c.seed || existing.has(c.seed)) continue;
-    existing.add(c.seed);
-    added.push(tracker.recordDebt(bookId, { ...c, originChapter: chapterNo }));
-  }
-  const { active, matured } = tracker.getActiveDebts(bookId, chapterNo + 1);
-  return { added: added.map(d => ({ id: d.id, type: d.type, seed: d.seed, maturationChapter: d.maturationChapter })), activeCount: active.length, maturedCount: matured.length };
-}
+function recordChapterCausalDebts(...args) { return creationDebtService.recordChapterCausalDebts(...args); }
 
 /** GET /api/creation-books/:id/debts?chapterNo= —— 返回下一章起草可注入的因果债务提示块与明细。 */
-function handleCreationBookDebts(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const book = loadCreationBookForAuth(id, auth, projectScope.PROJECT_ROLES);
-  if (!book) return json(res, 404, { error: '创作书不存在或无权访问' });
-  const q = queryParamsFromUrl(req.url);
-  const chapterNo = Math.max(1, Number(q.chapterNo) || (Number(book.current_chapter_no) || 0) + 1);
-  const recovery = require('./lib/benchmark-commit').recoverPendingCommitDebts(db, book.id, recordChapterCausalDebts);
-  const tracker = getCreationDebtTracker();
-  const { active, matured } = tracker.getActiveDebts(book.id, chapterNo);
-  const block = tracker.buildDebtPromptInjection(book.id, chapterNo);
-  json(res, 200, { ok: true, chapterNo, block: block.slice(0, 1800), active, matured, recovery });
-}
 
 async function handleCreationBookChapterAuditImpl(req, res, id) {
   const auth = getAuthUser(req);
@@ -11773,6 +11730,12 @@ const { callMolanChat, dissectionStreamText } = require('./services/model-call-s
   wrapSkillBlock: (...args) => wrapSkillBlock(...args)
 });
 
+const creationDebtService = require('./services/creation-debt-service').createCreationDebtService({
+  CausalDebtTracker, DATA_DIR, path, getAuthUser, json, loadCreationBookForAuth,
+  projectScope, queryParamsFromUrl, getDatabase: () => db,
+  recoverPendingCommitDebts: require('./lib/benchmark-commit').recoverPendingCommitDebts
+});
+
 const { openUpstream, openValidatedUpstream } = require('./services/model-transport-service').createModelTransportService({ UPSTREAM_CONNECT_TIMEOUT_MS, UPSTREAM_IDLE_TIMEOUT_MS, http, https, providerUrlGuard, tls });
 
 const { handleNovelPackageExport, handleNovelExport, restoreProjectResourceSnapshot, handleNovelPackageImport, handleNovelPackageRestore, handleNovelResources, handleNovelResourceHistory, handleWorkspaceList, handleWorkspaceCreate, handleWorkspaceMembers, handleWorkspaceProjectList, handleNovelMembers } = require('./services/project-service').createProjectService({
@@ -11960,7 +11923,7 @@ const generationService = require('./services/generation-service').createGenerat
   postgresRepository,
   projectScope,
   readBody,
-  recordChapterCausalDebts,
+  recordChapterCausalDebts: creationDebtService.recordChapterCausalDebts,
   requireSqliteForPublic,
   resolveModelForUser,
   responseCors,
@@ -12285,7 +12248,7 @@ async function dispatchRequest(req, res) {
   if (req.method === 'POST' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/chapter-contract$/))) return handleCreationBookChapterContract(req, res, m[1]).catch(error => respondError(res, error, 502));
   if (req.method === 'POST' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/audit$/))) return handleCreationBookChapterAudit(req, res, m[1]).catch(error => respondError(res, error, 502));
   if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/debts$/))) return handlePostgresCreationBookDebts(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/debts$/))) return handleCreationBookDebts(req, res, m[1]);
+  if (req.method === 'GET'  && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/debts$/))) return creationDebtService.handleCreationBookDebts(req, res, m[1]);
   if (req.method === 'GET'  && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/quality-report$/))) return handleCreationBookQualityReport(req, res, m[1]);
   if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/regenerate-asset$/))) return handlePostgresCreationBookRegenerateAsset(req, res, m[1]).catch(error => respondPostgresError(res, error));
   if (req.method === 'POST' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/regenerate-asset$/))) return handleCreationBookRegenerateAsset(req, res, m[1]).catch(error => respondError(res, error, 502));
@@ -12567,7 +12530,7 @@ module.exports = {
   verifyModelAuditQuotes,
   resolveGenreWritingSkill,
   recordChapterCausalDebts,
-  getCreationDebtTracker,
+  getCreationDebtTracker: creationDebtService.getCreationDebtTracker,
   handleStyleDetect,
   handleChapterHealthCheck,
   handleCausalDebtsGet,
