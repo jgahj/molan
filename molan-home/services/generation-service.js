@@ -42,15 +42,19 @@ function createGenerationService({
   resolveModelForUser,
   responseCors,
   sanitizeNovelStateForStorage,
-  getDatabase
+  getDatabase,
+  getNativeCreationRepository = () => null,
+  getNativeAppRepository = () => null
 }) {
   let orchestrator = null;
+  const nativeCreationRepository = () => !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? getNativeCreationRepository() : null;
+  const generationDatabase = () => POSTGRES_MODE ? postgresRepository : nativeCreationRepository()?.repository || getDatabase();
   function generationRunOrchestrator() {
     if (orchestrator) return orchestrator;
     const store = generationRunStore();
     orchestrator = createGenerationOrchestrator({
       store,
-      db: POSTGRES_MODE ? postgresRepository : getDatabase(),
+      db: generationDatabase(),
         dependenciesForRun(executionContext, request) {
         const auth = executionContext.auth;
         const user = executionContext.user;
@@ -247,7 +251,13 @@ function createGenerationService({
             });
             return { audit: result.audit, deterministicAudit: result.deterministicAudit, passed: result.status === 'passed', usage: result.usage };
           },
-          commit: POSTGRES_MODE ? async ({ run, request: runRequest, payload, text }) => {
+          commit: nativeCreationRepository() ? async ({ run, request: runRequest, payload, text }) => {
+            return nativeCreationRepository().commitChapter({
+              userId: actorUserId, projectId: run.projectId, workspaceId: run.workspaceId,
+              bookId: String(runRequest.creationBookId || ''), runId: run.id, run,
+              leaseOwner: run.leaseOwner, fencingToken: run.fencingToken, payload, text
+            });
+          } : POSTGRES_MODE ? async ({ run, request: runRequest, payload, text }) => {
             const bookId = String(runRequest.creationBookId || '').trim();
             if (!bookId) throw new GenerationError('STATE_CONFLICT', '生成请求缺少 creationBookId，不能写入正式章节', { status: 409 });
             const commitInput = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
@@ -400,6 +410,7 @@ function createGenerationService({
   
   async function generationProjectAccess(actorUserId, projectId, workspaceId = '') {
     if (POSTGRES_MODE) return postgresRepository.getProjectAccess(actorUserId, projectId, workspaceId);
+    if (nativeCreationRepository()) return getNativeAppRepository().getAccess({ userId: actorUserId, projectId, workspaceId });
     const access = projectScope.getNovelAccess(getDatabase(), projectId, actorUserId);
     if (access && workspaceId && String(access.workspace_id) !== String(workspaceId)) return null;
     return access;
@@ -415,7 +426,7 @@ function createGenerationService({
   
   async function streamLegacyGenerationChat(req, res, created, scope) {
     const store = generationRunStore();
-    const database = POSTGRES_MODE ? postgresRepository : getDatabase();
+    const database = generationDatabase();
     const runId = String(created.run && created.run.id || '');
     res.writeHead(200, {
       ...responseCors(res),
@@ -556,7 +567,21 @@ function createGenerationService({
     let snapshots;
     let novelState = {};
     let projectRevision = 0;
-    if (POSTGRES_MODE) {
+    if (nativeCreationRepository()) {
+      const scope = { userId: actorUserId, projectId, workspaceId, bookId };
+      try {
+        book = await nativeCreationRepository().read(scope);
+        bible = await nativeCreationRepository().readBible(scope);
+        snapshots = await nativeCreationRepository().snapshots(scope);
+        const profile = await getNativeAppRepository().read(scope);
+        if (!profile) return { ok: false, reason: 'project_state_missing' };
+        novelState = profile.state;
+        projectRevision = Number(profile.revision) || 0;
+      } catch (error) {
+        if (['BOOK_NOT_FOUND', 'FORBIDDEN'].includes(error.code)) return { ok: false, reason: 'creation_book_missing' };
+        throw error;
+      }
+    } else if (POSTGRES_MODE) {
       const creation = await postgresRepository.getCreationState(actorUserId, bookId, 0);
       if (!creation || !creation.book || String(creation.book.projectId) !== projectId || String(creation.book.workspaceId) !== workspaceId) {
         return { ok: false, reason: 'creation_book_missing' };
@@ -591,6 +616,7 @@ function createGenerationService({
     const previous = snapshots.filter(snapshot => Number(snapshot && snapshot.stateVersion) <= stateVersion)
       .sort((a, b) => Number(b && b.stateVersion) - Number(a && a.stateVersion))[0] || {};
     const biblePayload = bible && bible.payload && typeof bible.payload === 'object' ? bible.payload : {};
+    const planHash = crypto.createHash('sha256').update(JSON.stringify(biblePayload.creationPlan || {}), 'utf8').digest('hex');
     const chapterContext = creationChapterContext(biblePayload, chapterNo);
     const factLedger = generationFactLedger(previous);
     const characters = [...chapterContext.characters, ...chapterContext.characterLibrary];
@@ -614,11 +640,13 @@ function createGenerationService({
     }
     const snapshotHash = generationManifest.hashValue({
       projectId, workspaceId, bookId, projectRevision, stateVersion,
-      bibleVersion: Number(bible && bible.version) || 0, previous: previous.id || previous.stateVersion || 0,
+      bibleVersion: Number(bible && bible.version) || 0, planHash, previous: previous.id || previous.stateVersion || 0,
       stateSummary
     });
     const storyContext = {
       ...stateSummary,
+      bibleVersion: Number(bible && bible.version) || 0,
+      planHash,
       baseStateVersion: stateVersion,
       baseHash,
       contentHash: String(previous.contentHash || ''),
@@ -768,7 +796,8 @@ function createGenerationService({
       const nativeAppStore = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json';
       const commit = POSTGRES_MODE
         ? typeof postgresRepository.commitChapter === 'function'
-        : !nativeAppStore && dbReady() && ['creation_books', 'creation_state_snapshots', 'creation_chapter_audits', 'benchmark_commit_receipts', 'project_resources', 'novels']
+        : nativeAppStore ? typeof nativeCreationRepository()?.commitChapter === 'function'
+        : dbReady() && ['creation_books', 'creation_state_snapshots', 'creation_chapter_audits', 'benchmark_commit_receipts', 'project_resources', 'novels']
           .every(name => Boolean(getDatabase().prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name)));
       const generationStatus = generationV2Status(generationV2Enabled(process.env, actorUserId));
       return json(res, 200, {
@@ -791,7 +820,7 @@ function createGenerationService({
     try {
       const orchestrator = generationRunOrchestrator();
       const store = generationRunStore();
-      const database = POSTGRES_MODE ? postgresRepository : getDatabase();
+      const database = generationDatabase();
       if (typeof orchestrator.recover === 'function') await orchestrator.recover();
       if (req.method === 'POST' && u === rootPath) {
         const body = await readBody(req, 2 * 1024 * 1024 + 4096);

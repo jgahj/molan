@@ -10,11 +10,20 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
   for (const fn of [normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms]) {
     if (typeof fn !== 'function') throw new TypeError('Creation validation dependencies are required');
   }
-  function scope(auth, body, url, bookId) {
+  async function scope(auth, body, url, bookId) {
     const projectId = String(body.projectId || body.novelId || url.searchParams.get('projectId') || url.searchParams.get('novelId') || '').trim();
-    if (!projectId) fail('CREATION_PROJECT_SCOPE_REQUIRED', 422, '必须提供关联项目 projectId 或 novelId');
     if (body.projectId && body.novelId && body.projectId !== body.novelId) fail('INVALID_SCOPE', 422);
-    return { userId: auth.user.userId, projectId, workspaceId: String(body.workspaceId || url.searchParams.get('workspaceId') || '').trim(), bookId };
+    const workspaceId = String(body.workspaceId || url.searchParams.get('workspaceId') || '').trim();
+    if (bookId) {
+      const resolved = await repository.resolveScope({ userId: auth.user.userId, bookId });
+      const projectClaims = [body.projectId, body.novelId, url.searchParams.get('projectId'), url.searchParams.get('novelId')].filter(Boolean);
+      const workspaceClaims = [body.workspaceId, url.searchParams.get('workspaceId')].filter(Boolean);
+      if (projectClaims.some(value => String(value).trim() !== resolved.projectId) ||
+          workspaceClaims.some(value => String(value).trim() !== resolved.workspaceId)) fail('BOOK_NOT_FOUND', 404);
+      return resolved;
+    }
+    if (!projectId) fail('CREATION_PROJECT_SCOPE_REQUIRED', 422, '必须提供关联项目 projectId 或 novelId');
+    return { userId: auth.user.userId, projectId, workspaceId, bookId };
   }
   function validate(payload) {
     if (!object(payload)) fail('invalid_bible_payload', 422, '创作圣经负载非法');
@@ -33,7 +42,7 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
       const body = req.method === 'GET' ? {} : await readBody(req);
       if (!object(body)) fail('INVALID_REQUEST_BODY', 400);
       const [, id, section] = match;
-      const input = scope(auth, body, url, id);
+      const input = await scope(auth, body, url, id);
       if (req.method !== 'GET') {
         const access = await repository.app.getAccess(input);
         if (!canAccess(access, WRITE_ROLES) || !resources.canMutate(access, 'manuscript')) fail('FORBIDDEN', 404, '关联小说不存在或无权写入');

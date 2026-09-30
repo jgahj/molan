@@ -59,6 +59,16 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
   const state = await call('/api/creation-books/cb_http/state?projectId=n_http');
   assert.equal(state.status, 200);
   assert.deepEqual(state.body.snapshots, []);
+  const legacyState = await call('/api/creation-books/cb_http/state?chapterNo=1');
+  assert.equal(legacyState.status, 200);
+  assert.equal(legacyState.body.book.projectId, 'n_http');
+  assert.equal((await call('/api/creation-books/cb_http/bible')).body.bible.version, 2);
+  assert.equal((await call('/api/creation-books/cb_http/bible', 'PUT', { bible: { valid: true }, bibleVersion: 2 })).body.bibleVersion, 3);
+  assert.equal((await call('/api/creation-books/cb_http/state?chapterNo=1', 'GET', undefined, 'stranger')).status, 404);
+  assert.equal((await call('/api/creation-books/cb_missing/state', 'GET', undefined, 'stranger')).status, 404);
+  assert.equal((await call('/api/creation-books/cb_http/bible', 'PUT', { projectId: 'n_fake', bible: { valid: true }, bibleVersion: 3 })).status, 404);
+  assert.equal((await call('/api/creation-books/cb_http/bible?projectId=n_http', 'PUT', {
+    projectId: 'n_fake', bible: { valid: true }, bibleVersion: 3 })).status, 404);
   assert.equal((await call('/api/creation-books/cb_http/state?projectId=n_http&chapterNo=-1')).status, 422);
   assert.equal((await call('/api/creation-books/cb_http/bible?projectId=n_other')).status, 404);
 });
