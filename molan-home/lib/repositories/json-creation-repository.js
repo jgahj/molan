@@ -137,6 +137,7 @@ class JsonCreationRepository {
       const contentHash = hash(content);
       const chapterNo = Number(result.contract?.chapterNo);
       if (request.creationBookId !== book.bookId || request.novelId && request.novelId !== project.id ||
+          contentHash !== result.outputHash || content !== result.draft ||
           !integer(chapterNo) || chapterNo < 1 || payload.content != null && payload.content !== content ||
           payload.projectId && payload.projectId !== project.id || payload.chapterId && payload.chapterId !== request.chapterId ||
           payload.sceneId && payload.sceneId !== request.sceneId) fail('STATE_CONFLICT');
@@ -170,10 +171,10 @@ class JsonCreationRepository {
         row.stateVersion <= baseStateVersion).sort((a, b) => b.stateVersion - a.stateVersion)[0] || {};
       const projection = deriveGenerationCommitProjection({ result, text: content, previousSnapshot: previous, chapterNo });
       const pendingCosts = ['pending', 'unknown', 'provider_unknown', 'needs_review'];
-      if (run.actualCostMinor == null || pendingCosts.includes(run.costStatus) || pendingCosts.includes(run.usageStatus) ||
-          (run.stages || []).some(stage => pendingCosts.includes(stage.costStatus) || pendingCosts.includes(stage.usageStatus) ||
-            ['running', 'provider_started', 'provider_unknown'].includes(stage.status)) ||
-          Number(run.actualCostMinor) === 0 && run.costStatus !== 'settled') fail('PROVIDER_COST_PENDING');
+      if (run.actualCostMinor == null || run.costStatus !== 'settled' || pendingCosts.includes(run.usageStatus) ||
+          (run.stages || []).filter(stage => String(stage.stage || '').startsWith('provider:')).some(stage =>
+            stage.actualCostMinor == null || stage.costStatus !== 'settled' || pendingCosts.includes(stage.usageStatus) ||
+            stage.status !== 'completed')) fail('PROVIDER_COST_PENDING');
       const cost = Number(run.actualCostMinor) / 100;
       if (!Number.isFinite(cost) || cost < 0) fail('INVALID_COST', 422);
       if (book.budgetLimit > 0 && book.spentCost + cost > book.budgetLimit + 1e-9) fail('BUDGET_EXCEEDED', 402);
@@ -211,13 +212,14 @@ class JsonCreationRepository {
       tx.put(input.projectId, 'ledger', { id: `cca_generation_${run.id.replace(/[^A-Za-z0-9_]/g, '_')}`,
         kind: 'creation-audit', bookId: book.bookId, chapterNo, contentHash, evidence: check.evidence, projection,
         bibleVersion: bible.version, stateVersion: baseStateVersion, actorUserId: actor, createdAt: now }, 0);
-      if (this.onCommit) await this.onCommit(tx, { project: next, book, snapshot, projection, run });
+      const hookResult = this.onCommit ? await this.onCommit(tx, { project: next, book, snapshot, projection, run }) : null;
+      const debtStatus = hookResult?.debtsRecorded === true ? 'recorded' : 'pending';
       const receipt = { committed: true, idempotent: false, snapshotId, stateVersion, currentStateVersion: stateVersion,
         chapterNo, contentHash, projectRevision: next.contentRevision, spentCost: book.spentCost + cost,
-        debtStatus: { status: this.onCommit ? 'recorded' : 'pending', durable: true } };
+        debtStatus: { status: debtStatus, durable: true } };
       tx.put(input.projectId, 'ledger', { id: key('debt-outbox', snapshotId), kind: 'creation-debt-outbox',
         bookId: book.bookId, snapshotId, causalDebts: clone(projection.causalDebts), ledgerDelta: clone(projection.factLedgerDelta),
-        status: this.onCommit ? 'recorded' : 'pending', actorUserId: actor, createdAt: now }, 0);
+        status: debtStatus, actorUserId: actor, createdAt: now }, 0);
       tx.put(input.projectId, 'ledger', { id: receiptId, kind: 'creation-commit-receipt', bookId: book.bookId,
         runId: run.id, contentHash, content, ledgerDelta: projection.factLedgerDelta, causalDebts: projection.causalDebts,
         receipt, actorUserId: actor, createdAt: now }, 0);
