@@ -54,6 +54,10 @@ class JsonDissectionRepository {
   providerUnresolved(tx, scope, jobId) {
     return tx.list(scope, 'generation').some(row => row.kind === 'provider-attempt' && row.jobId === jobId && ['inflight', 'unknown'].includes(row.status));
   }
+  providerCostPending(tx, scope, jobId) {
+    return tx.list(scope, 'ledger').some(row => row.kind === 'provider-receipt' && row.jobId === jobId && row.status === 'completed' &&
+      !tx.get(scope, 'ledger', key('cost', `${jobId}:${row.requestId}`)));
+  }
   async create(input) {
     if (!validKey(input.requestId) || typeof input.sourceText !== 'string' || !input.sourceText.trim()) fail('INVALID_DISSECTION_INPUT', 422);
     if (!this.inputService?.cleanDissectionText || !this.inputService?.buildDissectionUnits) fail('DISSECTION_NORMALIZER_REQUIRED', 503);
@@ -246,6 +250,7 @@ class JsonDissectionRepository {
     return this.transact(input, true, (tx, job, scope) => {
       this.fence(job, input);
       if (this.providerUnresolved(tx, scope, job.jobId)) fail('PROVIDER_ATTEMPT_UNKNOWN');
+      if (this.providerCostPending(tx, scope, job.jobId)) fail('PROVIDER_COST_PENDING');
       if (!this.phases.length || this.phases.some(stageId => !tx.list(scope, 'ledger').some(row => row.kind === 'dissection-stage' && row.jobId === job.jobId && row.stageId === stageId))) fail('DISSECTION_INCOMPLETE');
       return this.publicJob(tx.put(scope, 'novels', { ...job, status: 'completed', phase: 'completed', progress: 100, lease: null, updatedAt: this.now() }, input.expectedRevision));
     });
@@ -260,6 +265,7 @@ class JsonDissectionRepository {
       const actor = this.actor(tx, input.actorUserId);
       if (job.ownerUserId !== actor.userId && actor.role !== 'admin') fail('FORBIDDEN', 403);
       if (this.providerUnresolved(tx, scope, job.jobId)) fail('PROVIDER_ATTEMPT_UNKNOWN');
+      if (this.providerCostPending(tx, scope, job.jobId)) fail('PROVIDER_COST_PENDING');
       if (job.lease?.expiresAt > this.now()) fail('LEASE_HELD');
       tx.remove(scope, 'novels', job.id, input.expectedRevision);
       const index = tx.get(INDEX, 'novels', key('index', job.jobId));
