@@ -121,15 +121,15 @@ const POSTGRES_RUNTIME_SOURCE_TABLES = new Set([
   'dissection_versions', 'token_usage', 'model_usage', 'admin_audit'
 ]);
 
-// node:sqlite 内置（Node 22.5+），零 npm 依赖；若环境不可用则降级为「仅本地模式」
-// 启动需加 --experimental-sqlite 标志（脚本 npm start 已带）
+// PostgreSQL 为墨阑权威云端/生产数据库（通过 pg 连接池直连）；
+// 本地开发或离线单机模式使用纯原生文件存储（JSON/Text），零数据库依赖。
 let DatabaseSync = null;
 let dbEnabled = false;
 try {
   ({ DatabaseSync } = require('node:sqlite'));
-  dbEnabled = true;
+  dbEnabled = Boolean(DatabaseSync);
 } catch (_) {
-  console.warn('⚠️  node:sqlite 不可用，云端存储已禁用，仅本地模式。Node ≥ 22.5 + --experimental-sqlite 可启用。');
+  dbEnabled = false;
 }
 
 const PORT = process.env.PORT || 3000;
@@ -20142,7 +20142,6 @@ function handleLocalStyleBaseline(req, res, params) {
 });
 async function initializePostgresRuntime() {
   const info = await postgresRepository.initialize();
-  if (!dbReady()) throw new Error('PostgreSQL 模式需要 Node 22.5+ 的 node:sqlite 内存镜像');
   await refreshPostgresRuntimeState();
   await hydratePostgresSessions();
   recoverDissectionJobs();
@@ -20188,7 +20187,11 @@ if (require.main === module) {
   const startListening = () => {
     const onListen = () => {
       console.log('🖌  墨阑落地页已启动 → http://localhost:' + PORT + ' (http://127.0.0.1:' + PORT + ')');
-      if (!dbEnabled) console.log('   ⚠️  云端存储未启用（node:sqlite 不可用）');
+      if (POSTGRES_MODE && postgresRepository.enabled) {
+        console.log('   🐘 PostgreSQL 权威数据库已启用');
+      } else {
+        console.log('   📁 本地纯文件存储模式已启用（零数据库依赖）');
+      }
     };
     const listen = host => server.listen(PORT, host, onListen);
     server.once('error', err => {
