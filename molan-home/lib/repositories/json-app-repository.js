@@ -524,7 +524,7 @@ class JsonAppRepository {
     return this.repository.transaction([projectId], tx => {
       const project = tx.get(projectId, 'novels', projectId);
       const access = accessFrom(project, userId);
-      if (!canAccess(access, WRITE_ROLES, 'export')) fail('PROJECT_NOT_FOUND', 404);
+      if (!canAccess(access, new Set(['owner', 'admin', 'editor']), 'export')) fail('PROJECT_NOT_FOUND', 404);
       const resources = tx.list(projectId, 'novels').filter(row => row.kind === 'resource').map(row => publicResource(row, project));
       const novel = publicNovel({ ...project, state: mergeResourcesIntoState(project.state, resources) }, access);
       return { novel, access, resources };
