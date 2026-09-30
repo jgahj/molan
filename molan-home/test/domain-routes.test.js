@@ -10,6 +10,7 @@ const { createKnowledgeRoutes } = require('../routes/knowledge');
 const { createDissectionRoutes } = require('../routes/dissections');
 const { createProjectRoutes } = require('../routes/projects');
 const { createNovelReadHandlers } = require('../routes/novel-read-handlers');
+const { createNovelWriteHandlers } = require('../routes/novel-write-handlers');
 const { createAuthAttemptLimiter } = require('../services/auth-attempt-limiter');
 
 function serviceRecorder(overrides = {}) {
@@ -149,4 +150,80 @@ test('novel read handlers use injected storage and retain project visibility che
   assert.deepEqual(responses[0].body.novels, [{ id: 'n_novel1', title: '测试小说' }]);
   assert.equal(responses[1].body.novel.revision, 3);
   assert.equal(responses[1].body.novel.scope, access);
+});
+
+test('novel create handler rejects unauthenticated requests before reading input', async () => {
+  const responses = [];
+  const handlers = createNovelWriteHandlers({
+    getDatabase: () => { throw new Error('database should not be read'); },
+    getAuthUser: () => null,
+    requireStorage: () => { throw new Error('storage check should not run'); },
+    isStorageReady: () => true,
+    readBody: () => { throw new Error('request body should not be read'); },
+    sanitizeNovelState: value => value,
+    byteLength: Buffer.byteLength,
+    maxNovelStateBytes: 1024,
+    maxNovelsPerUser: 10,
+    calcWordCount: () => 0,
+    requestError: (status, message) => Object.assign(new Error(message), { status }),
+    projectScope: {},
+    json: (_res, status, body) => responses.push({ status, body }),
+    respondError: error => { throw error; },
+    now: () => 1234,
+    random: () => 0.5
+  });
+
+  await handlers.handleNovelCreate({}, {});
+  assert.deepEqual(responses, [{ status: 401, body: { error: '未登录' } }]);
+});
+
+test('novel create handler injects project access, storage limits, and creation response', async () => {
+  const responses = [];
+  const inserts = [];
+  const projectEnsures = [];
+  const database = {
+    prepare(sql) {
+      if (/SELECT user_email, owner_user_id, title FROM novels/.test(sql)) return { get: () => null };
+      if (/SELECT COUNT\(\*\) AS n FROM novels/.test(sql)) return { get: () => ({ n: 0 }) };
+      if (/INSERT INTO novels/.test(sql)) return { run: (...params) => { inserts.push(params); return { changes: 1 }; } };
+      throw new Error('unexpected SQL: ' + sql);
+    }
+  };
+  const auth = { user: { userId: 'owner-1', email: 'owner@example.test' } };
+  const state = { title: '测试作品', volumes: [{ id: 'vol-1' }] };
+  const handlers = createNovelWriteHandlers({
+    getDatabase: () => database,
+    getAuthUser: () => auth,
+    requireStorage: () => true,
+    isStorageReady: () => true,
+    readBody: async () => ({ id: 'n_test1', title: '新小说', state, workspaceId: 'workspace-1' }),
+    sanitizeNovelState: value => ({ ...value, normalized: true }),
+    byteLength: Buffer.byteLength,
+    maxNovelStateBytes: 1024,
+    maxNovelsPerUser: 10,
+    calcWordCount: () => 17,
+    requestError: (status, message) => Object.assign(new Error(message), { status }),
+    projectScope: {
+      getWorkspaceAccess: (_db, workspaceId, userId) => workspaceId === 'workspace-1' && userId === auth.user.userId,
+      getNovelAccess: () => ({ workspace_id: 'workspace-1' }),
+      ensureNovelProject: (...args) => projectEnsures.push(args)
+    },
+    json: (_res, status, body) => responses.push({ status, body }),
+    respondError: error => { throw error; },
+    now: () => 1234,
+    random: () => 0.5
+  });
+
+  await handlers.handleNovelCreate({}, {});
+  assert.equal(inserts.length, 1);
+  assert.deepEqual(inserts[0], [
+    'n_test1', 'owner@example.test', 'owner-1', '新小说',
+    JSON.stringify({ ...state, normalized: true }), 17, 1234, 1234
+  ]);
+  assert.equal(projectEnsures.length, 1);
+  assert.equal(projectEnsures[0][4], 'workspace-1');
+  assert.deepEqual(responses, [{
+    status: 200,
+    body: { ok: true, id: 'n_test1', workspaceId: 'workspace-1', projectId: 'n_test1', wordCount: 17, updatedAt: 1234, revision: 0 }
+  }]);
 });
