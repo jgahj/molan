@@ -6,6 +6,7 @@ const resources = require('../project-resources');
 const { deriveGenerationCommitProjection } = require('../generation/commit-projection');
 const { validateGenerationAuditEvidence } = require('../generation/audit-evidence');
 const { locateScene, hashSceneText } = require('../generation/scene-patch');
+const { projectDebts } = require('../creation-debt-projection');
 
 const clone = value => structuredClone(value);
 const hash = value => crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
@@ -135,6 +136,71 @@ class JsonCreationRepository {
       this.book(tx, input);
       return tx.list(input.projectId, 'ledger').filter(row => row.kind === 'creation-snapshot' && row.bookId === input.bookId &&
         (!input.upTo || row.chapterNo <= input.upTo)).sort((a, b) => b.stateVersion - a.stateVersion).map(clone);
+    });
+  }
+
+  async contractContext(input) {
+    return this.repository.transaction([input.projectId], tx => {
+      const { project, row: book } = this.book(tx, input, true);
+      const member = project.members[input.userId];
+      if (member.role !== 'owner' && !member.canSpend) fail('spend_forbidden', 403);
+      const bible = tx.get(input.projectId, 'novels', key('bible', input.bookId));
+      if (!bible) fail('BIBLE_NOT_FOUND', 404);
+      const previous = tx.list(input.projectId, 'ledger').filter(row => row.kind === 'creation-snapshot' && row.bookId === input.bookId)
+        .sort((a, b) => b.stateVersion - a.stateVersion)[0] || null;
+      return { book: publicBook(book), bible: { bibleId: bible.bibleId, version: bible.version, payload: clone(bible.payload) },
+        previous: clone(previous), baseline: { bibleVersion: bible.version, stateVersion: book.currentStateVersion,
+          baseRevision: project.contentRevision, planHash: hash(JSON.stringify(bible.payload.creationPlan || {})) } };
+    });
+  }
+
+  async saveContractCAS(input) {
+    return this.repository.transaction([input.projectId], tx => {
+      const { project, row: book } = this.book(tx, input, true);
+      const member = project.members[input.userId];
+      if (member.role !== 'owner' && !member.canSpend) fail('spend_forbidden', 403);
+      const bible = tx.get(input.projectId, 'novels', key('bible', input.bookId));
+      if (input.baseline.bibleVersion !== bible.version || input.baseline.stateVersion !== book.currentStateVersion ||
+          input.baseline.baseRevision !== project.contentRevision || input.baseline.planHash !== hash(JSON.stringify(bible.payload.creationPlan || {}))) fail('REVISION_CONFLICT');
+      const id = `contract_${crypto.randomUUID().replace(/-/g, '')}`;
+      tx.put(input.projectId, 'ledger', { id, kind: 'creation-contract', bookId: book.bookId, contract: clone(input.contract),
+        baseline: clone(input.baseline), validation: clone(input.validation), actorUserId: input.userId, auditStatus: 'unaudited', createdAt: this.now() }, 0);
+      return { contractId: id };
+    });
+  }
+
+  async debts(input) {
+    return this.repository.transaction([input.projectId], tx => {
+      const { row: book } = this.book(tx, input);
+      const chapterNo = input.chapterNo ?? book.currentChapterNo + 1;
+      if (!Number.isSafeInteger(chapterNo) || chapterNo < 1) fail('INVALID_CHAPTER_NO', 422);
+      const ledger = tx.list(input.projectId, 'ledger');
+      const rows = ledger.filter(row => row.kind === 'creation-debt-outbox' && row.bookId === input.bookId).sort((a, b) => a.createdAt - b.createdAt);
+      const stored = ledger.filter(row => row.kind === 'creation-debt' && row.bookId === input.bookId);
+      const seeds = new Set(stored.map(row => row.seed));
+      let recovered = 0;
+      for (const outbox of rows) {
+        const materializedId = key('debt-materialized', outbox.id);
+        if (tx.get(input.projectId, 'novels', materializedId)) continue;
+        for (const debt of Array.isArray(outbox.causalDebts) ? outbox.causalDebts : []) {
+          const seed = String(debt.seed || '').trim().slice(0, 500);
+          if (!seed || seeds.has(seed)) continue;
+          seeds.add(seed);
+          const type = ['major', 'arc', 'micro'].includes(debt.type) ? debt.type : 'arc';
+          const originChapter = Math.max(1, Number(debt.originChapter) || 1);
+          const id = `debt_${hash(`${book.bookId}:${seed}`).slice(0, 32)}`;
+          const row = tx.put(input.projectId, 'ledger', { ...clone(debt), id, kind: 'creation-debt', bookId: book.bookId,
+            type, seed, originChapter, status: 'active', debtCategory: String(debt.debtCategory || 'general'),
+            maturationChapter: Number(debt.maturationChapter) || originChapter + (type === 'major' ? 25 : type === 'micro' ? 3 : 10),
+            recordedAt: outbox.createdAt, sourceSnapshotId: outbox.snapshotId }, 0);
+          stored.push(row);
+        }
+        tx.put(input.projectId, 'novels', { id: materializedId, kind: 'creation-debt-materialized',
+          outboxId: outbox.id, bookId: book.bookId, createdAt: this.now() }, 0);
+        recovered++;
+      }
+      const view = projectDebts(stored.sort((a, b) => a.recordedAt - b.recordedAt), chapterNo);
+      return { chapterNo, ...view, recovery: { recovered, pending: 0 } };
     });
   }
 
