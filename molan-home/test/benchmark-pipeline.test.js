@@ -56,6 +56,19 @@ test('空正文、缺模型、空审稿、用量缺失及引文无效一律不�
   }
 });
 
+test('正文模型调用失败时保留安全错误元数据', async () => {
+  const failure = Object.assign(new Error('内部模型调用超时'), {
+    code: 'PROVIDER_UNKNOWN', status: 504, unknown: true
+  });
+  const result = await pipeline.generateChapter({ callModel: async () => { throw failure; } }, null, {
+    prompt: '核对并交付货物', genre: '都市高武', targetWords, maxRounds: 0
+  });
+
+  assert.deepEqual(result.calls[0].failure, {
+    code: 'PROVIDER_UNKNOWN', status: 504, unknown: true
+  });
+});
+
 test('完整覆盖和用量的干净审稿可通过，但人工体验保持pending', async () => {
   const audit = await pipeline.evidenceAudit({ callModel: async () => ({ json: clean(), usage }) }, null, options);
   assert.equal(audit.passed, true, JSON.stringify(audit));
