@@ -13,6 +13,7 @@ const textHash = memory.computeTextHash;
 const identifier = prefix => `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 18)}`;
 function fail(code, status = 409) { throw Object.assign(new Error(code), { code, status, statusCode: status }); }
 const OBJECT = value => value && typeof value === 'object' && !Array.isArray(value);
+const APPROVAL_WRITE = Symbol('approval-write');
 const TYPES = { INSERT_FACT: 'fact', INSERT_COGNITION: 'cognition', STATE_TRANSITION: 'transition', INSERT_EVENT: 'event',
   UPSERT_PLAN: 'plan', UPSERT_FORESHADOW: 'foreshadow', UPSERT_COMMITMENT: 'commitment', SET_DISCLOSURE: 'disclosure', TEMPORAL_RELATION: 'temporal_relation' };
 function blank(bookId) {
@@ -163,7 +164,8 @@ function createJsonMemoryStore(options) {
 }
 
 function makeStore(adapter) {
-  const { read, write } = adapter;
+  const { read } = adapter;
+  const write = (input, action) => adapter.write({ ...input, approval: input[APPROVAL_WRITE] === true }, action);
   function findCs(b, input) { const cs = b.changesets[input.changesetId]; if (!cs) fail('CHANGESET_NOT_FOUND', 404); return cs; }
   const store = {
     backend: adapter.backend, repository: adapter.repository, getAccess: adapter.resolve, close: adapter.close,
@@ -190,7 +192,7 @@ function makeStore(adapter) {
       }
       b.changesets[cs.id] = cs; emit(b, cs.id, 'MEMORY_PENDING_APPROVAL', {}); return cs;
     }),
-    approveChangeset: input => write({ ...input, approval: true }, (b, novel, scope) => {
+    approveChangeset: input => write({ ...input, [APPROVAL_WRITE]: true }, (b, novel, scope) => {
       const cs = findCs(b, input), status = input.status ?? 'approved';
       if (cs.committedAt) fail('CHANGESET_ALREADY_COMMITTED');
       if (!['approved', 'rejected'].includes(status)) fail('INVALID_APPROVAL_STATUS', 422);

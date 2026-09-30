@@ -17,6 +17,9 @@ test('native memory: author review, evidence, atomic chapter CAS, receipts, isol
   let store = createMemoryStore({ repository, getAccess: input => app.getAccess(input) });
   const scope = { userId: 'author', bookId: 'n_memory' };
   await assert.rejects(store.getMemory({ ...scope, userId: 'intruder' }), { code: 'BOOK_NOT_FOUND' });
+  await app.saveAccount({ userId: 'reviewer', email: 'reviewer@test.local' });
+  await repository.transaction(['n_memory'], tx => { const novel = tx.get('n_memory', 'novels', 'n_memory'); novel.members.reviewer = { role: 'reviewer', active: true }; tx.put('n_memory', 'novels', novel, novel.revision); });
+  await assert.rejects(store.createChangeset({ ...scope, userId: 'reviewer', approval: true, operations: [] }), { code: 'FORBIDDEN' });
   const m = await store.saveManuscript({ ...scope, text: '阿青回到家中。', chapterId: 'c1', expectedRevision: 0, expectedNovelRevision: 0 });
   const extracted = await store.extract({ ...scope, manuscriptRevisionId: m.id });
   assert.equal(extracted.propositions.length, 1);
