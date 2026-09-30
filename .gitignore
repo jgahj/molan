@@ -46,6 +46,8 @@ molan-home/scratch/*.sqlite
 molan-home/scratch/*.sqlite-*
 molan-home/generated/*
 !molan-home/generated/月圆夜前的布局-20260910/
+!molan-home/generated/月圆夜前的布局-20260910/**
+!molan-home/generated/月圆夜前的布局-20260910/*.txt
 
 # ==========================================
 # 工具链二进制、构建归档与敏感备份
