@@ -115,6 +115,13 @@ class JsonCreationRepository {
       return { bibleId: row.bibleId, version: row.version, payload: clone(row.payload) };
     });
   }
+  async qualityReport(input) {
+    return this.repository.transaction([input.projectId], tx => {
+      this.book(tx, input);
+      const records = tx.list(input.projectId, 'ledger').filter(row => row.kind === 'creation-audit' && row.bookId === input.bookId);
+      return require('../creation-quality-report').buildCreationQualityReport(records);
+    });
+  }
   async saveBibleCAS(input) {
     if (!integer(input.expectedVersion) || !input.payload || typeof input.payload !== 'object' || Array.isArray(input.payload)) fail('INVALID_BIBLE', 422);
     return this.repository.transaction([input.projectId], tx => {

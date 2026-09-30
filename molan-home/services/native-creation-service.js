@@ -34,7 +34,7 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
       hits: gate.hits, missing: gate.missing });
   }
   async function dispatch(req, res, pathname) {
-    const match = pathname.match(/^\/api\/creation-books(?:\/([A-Za-z0-9_]+)(?:\/(bible|state|chapter-contract|debts))?)?$/);
+    const match = pathname.match(/^\/api\/creation-books(?:\/([A-Za-z0-9_]+)(?:\/(bible|state|chapter-contract|debts|quality-report))?)?$/);
     if (!match || match[1] === 'core-jobs') return false;
     try {
       const auth = await getAuthUser(req);
@@ -49,7 +49,9 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
         if (!canAccess(access, WRITE_ROLES) || !resources.canMutate(access, 'manuscript')) fail('FORBIDDEN', 404, '关联小说不存在或无权写入');
       }
       let value;
-      if (id && section === 'debts' && req.method === 'GET') {
+      if (id && section === 'quality-report' && req.method === 'GET') {
+        value = await repository.qualityReport(input);
+      } else if (id && section === 'debts' && req.method === 'GET') {
         const raw = url.searchParams.get('chapterNo');
         const chapterNo = raw == null ? undefined : Number(raw);
         if (chapterNo != null && (!Number.isSafeInteger(chapterNo) || chapterNo < 1)) fail('INVALID_CHAPTER_NO', 422);

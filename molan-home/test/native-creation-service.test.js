@@ -77,6 +77,11 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
   const state = await call('/api/creation-books/cb_http/state?projectId=n_http');
   assert.equal(state.status, 200);
   assert.deepEqual(state.body.snapshots, []);
+  const quality = await call('/api/creation-books/cb_http/quality-report', 'GET', undefined, 'viewer');
+  assert.equal(quality.status, 200);
+  assert.equal(quality.body.summary.chapterCount, 0);
+  assert.deepEqual(quality.body.chapters, []);
+  assert.equal((await call('/api/creation-books/cb_http/quality-report', 'GET', undefined, 'stranger')).status, 404);
   const legacyState = await call('/api/creation-books/cb_http/state?chapterNo=1');
   assert.equal(legacyState.status, 200);
   assert.equal(legacyState.body.book.projectId, 'n_http');

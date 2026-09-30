@@ -3,8 +3,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
+const { JsonAppRepository } = require('../lib/repositories/json-app-repository');
 const projectResources = require('../lib/project-resources');
 const schema = require('../lib/project-material-schema');
 
@@ -16,16 +17,16 @@ const expectedIds = [
   'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'F01', 'F02', 'F03', 'F04', 'F05'
 ];
 
-function createDatabase() {
-  const db = new DatabaseSync(':memory:');
-  db.exec(`CREATE TABLE novel_projects (
-    workspace_id TEXT NOT NULL,
-    project_id TEXT NOT NULL,
-    PRIMARY KEY (workspace_id, project_id)
-  )`);
-  db.exec("INSERT INTO novel_projects VALUES ('ws-schema', 'project-schema')");
-  projectResources.initializeSchema(db);
-  return db;
+async function fixture(context) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-material-schema-'));
+  const repository = new JsonAppRepository(directory);
+  context.after(async () => {
+    await repository.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+  const user = await repository.saveAccount({ userId: 'schema-author', email: 'schema@test.local' });
+  await repository.create({ id: 'n_schema', user, state: { volumes: [] } });
+  return { repository, scope: { userId: user.userId, projectId: 'n_schema' } };
 }
 
 function sample(field) {
@@ -60,16 +61,14 @@ test('运行时字段契约覆盖规划中的全部49项且与资料类型一致
   }
 });
 
-test('49项资料逐项创建、CAS更新、重新读取和历史版本往返', () => {
-  const db = createDatabase();
-  const access = { workspace_id: 'ws-schema', project_id: 'project-schema', role: 'owner', active: 1 };
-  try {
+test('49项资料逐项创建、CAS更新、重新读取和历史版本往返', async context => {
+  const { repository, scope } = await fixture(context);
     for (const requirement of schema.requirements) {
       const resourceId = `data01-${requirement.id.toLowerCase()}`;
       const requirementData = Object.fromEntries(requirement.fields.map(field => [field.path, sample(field)]));
       requirementData['extensions.preserved'] = { source: requirement.id };
       const payload = { requirementIds: [requirement.id], requirementData };
-      const created = projectResources.createResource(db, access, requirement.kind, payload, 'schema-author', resourceId, 'DATA-01 fixture');
+      const created = await repository.saveResource({ ...scope, kind: requirement.kind, payload, id: resourceId, expectedRevision: 0, reason: 'DATA-01 fixture' });
       assert.equal(created.ok, true, `${requirement.id} creates`);
       assert.equal(created.resource.revision, 1);
 
@@ -77,23 +76,20 @@ test('49项资料逐项创建、CAS更新、重新读取和历史版本往返', 
         ...created.resource.payload,
         requirementData: { ...created.resource.payload.requirementData, 'extensions.updated': true }
       };
-      const updated = projectResources.updateResource(db, access, requirement.kind, resourceId, updatedPayload, 1, 'schema-author', 'DATA-01 CAS update');
+      const updated = await repository.saveResource({ ...scope, kind: requirement.kind, id: resourceId, payload: updatedPayload, expectedRevision: 1, reason: 'DATA-01 CAS update' });
       assert.equal(updated.ok, true, `${requirement.id} updates`);
       assert.equal(updated.resource.revision, 2);
 
-      const reopened = projectResources.getResource(db, access, requirement.kind, resourceId);
+      const reopened = (await repository.listResources({ ...scope, kind: requirement.kind })).find(resource => resource.id === resourceId);
       assert.equal(reopened.revision, 2, `${requirement.id} reopens at latest revision`);
       assert.deepEqual(reopened.payload.requirementData['extensions.preserved'], { source: requirement.id });
       assert.equal(reopened.payload.requirementData['extensions.updated'], true);
       assert.deepEqual(
-        projectResources.listResourceVersions(db, access, requirement.kind, resourceId).map(version => version.revision),
+        (await repository.listResourceVersions({ ...scope, id: resourceId })).map(version => version.revision),
         [2, 1],
         `${requirement.id} retains immutable history`
       );
     }
-  } finally {
-    db.close();
-  }
 });
 
 test('资料中心将49项运行时schema加载到真实表单入口', () => {
