@@ -186,16 +186,37 @@ function publicJob(job, detailed = true) {
 function createReadingLab(deps) {
   const directory = path.join(deps.dataDir, 'xuanhuan-lab');
   fs.mkdirSync(directory, { recursive: true });
-  const { DatabaseSync } = require('node:sqlite');
-  const database = new DatabaseSync(path.join(directory, 'reading.db'));
-  database.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS reading_jobs(id TEXT PRIMARY KEY, owner TEXT NOT NULL, payload TEXT NOT NULL, updated INTEGER NOT NULL)');
+  for (const filename of ['reading.db', 'reading.db-wal']) {
+    const legacy = path.join(directory, filename);
+    if (fs.existsSync(legacy) && fs.statSync(legacy).size > 0) throw Object.assign(new Error('旧 reading.db 需要显式迁移，已拒绝创建空 JSON 精读仓储'), { code: 'LEGACY_READING_STORE_PRESENT' });
+  }
+  const ownedRepository = deps.repository ? null : new (require('./repositories/json-file-repository').JsonFileRepository)(process.env.MOLAN_LAB_JOB_DIR || path.join(deps.dataDir, 'lab-jobs-json'));
+  const repository = deps.repository || new (require('./repositories/json-lab-job-repository').JsonLabJobRepository)(ownedRepository);
+  const revisions = new WeakMap();
+  const saves = new WeakMap();
+  let initialization;
+  function init() { if (!initialization) initialization = repository.init({ kind: 'reading' }); return initialization; }
   const active = new Map();
+  const workers = new Set();
+  function start(job, auth) {
+    const task = run(job, auth).finally(() => workers.delete(task));
+    workers.add(task);
+    task.catch(error => { console.error('[reading persistence]', error.message); });
+  }
   const preparing = new Set();
-  function save(job) { database.prepare('INSERT INTO reading_jobs VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated=excluded.updated').run(job.id, job.owner, JSON.stringify(job), Date.now()); }
-  function load(id, owner) { const row = database.prepare('SELECT payload FROM reading_jobs WHERE id=? AND owner=?').get(id, owner); if (!row) fail('精读任务不存在或无权访问', 404); return JSON.parse(row.payload); }
+  async function save(job) {
+    const snapshot = structuredClone(job);
+    const next = (saves.get(job) || Promise.resolve()).then(async () => {
+      const row = await repository.save({ owner: job.owner, kind: 'reading', job: snapshot, expectedRevision: revisions.get(job) || 0 });
+      revisions.set(job, row.revision);
+    });
+    saves.set(job, next);
+    return next;
+  }
+  async function load(id, owner) { const row = await repository.load({ owner, kind: 'reading', id }); if (!row) fail('精读任务不存在或无权访问', 404); revisions.set(row.job, row.revision); return row.job; }
   function sources() { return BOOKS.map(book => parseBook(fs.readFileSync(path.join(deps.sourceDirectory, book.filename)), book)); }
   function ensureUnchanged(job) { for (const book of job.books) if (hash(fs.readFileSync(path.join(deps.sourceDirectory, book.filename))) !== book.hash) fail('原文件已变化，笔记版本失效；请创建新任务重新核验', 409); }
-  function refreshParsing(job) {
+  async function refreshParsing(job) {
     const fresh = sources();
     for (const book of job.books) {
       const replacement = fresh.find(item => item.id === book.id);
@@ -206,17 +227,9 @@ function createReadingLab(deps) {
         job.parsingUpdates = [...(job.parsingUpdates || []), { at: Date.now(), bookId: book.id, affectedChapters: affected, reason: '章末作者附言与宣传分离；失效阶段需重新阅读，原尝试与用量不删除' }];
       }
     }
-    job.books = fresh; save(job);
+    job.books = fresh; await save(job);
   }
   function describe(job, detailed = true) { const result = publicJob(job, detailed); try { ensureUnchanged(job); result.sourceVersionValid = true; } catch (_) { result.sourceVersionValid = false; result.sourceWarning = '原文已变化或不可访问，旧笔记仅作历史记录，须重新核验。'; } return result; }
-  for (const row of database.prepare('SELECT payload FROM reading_jobs').all()) {
-    const job = JSON.parse(row.payload);
-    if (job.status === 'running' || job.status === 'queued') {
-      job.status = 'interrupted'; job.error = '服务重启，已保存阶段保留；在途未保存调用可能重复计费。';
-      for (const attempt of job.attempts) if (attempt.status === 'running') { attempt.status = 'interrupted'; attempt.error = '服务重启时仍在途，未确认是否扣费'; }
-      save(job);
-    }
-  }
 
   async function quote(auth, modelId, books) {
     const plannedCalls = books.reduce((total, book) => total + 1 + book.chapters.reduce((sum, chapter) => sum + chapter.segments.length + 2, 0), 0);
@@ -233,7 +246,7 @@ function createReadingLab(deps) {
     if (job.stages[key]) { validate(job.stages[key]); return job.stages[key]; }
     const reusable = job.attempts.findLast(attempt => attempt.stage === key && attempt.rejectedResponse && attempt.inputHash === hash(system + prompt));
     if (reusable) {
-      try { validate(reusable.rejectedResponse); job.stages[key] = reusable.rejectedResponse; reusable.revalidatedAt = Date.now(); reusable.revalidation = '同一输入的原始响应通过修正后的证据校验，未重发模型调用；原失败状态与用量保留'; save(job); return job.stages[key]; } catch (_) {}
+      try { validate(reusable.rejectedResponse); job.stages[key] = reusable.rejectedResponse; reusable.revalidatedAt = Date.now(); reusable.revalidation = '同一输入的原始响应通过修正后的证据校验，未重发模型调用；原失败状态与用量保留'; await save(job); return job.stages[key]; } catch (_) {}
     }
     const lastFailure = job.attempts.findLast(attempt => attempt.stage === key && attempt.status === 'failed');
     const scope = job.books.find(book => key.startsWith(book.id + '-c') || key.startsWith(book.id + ':'));
@@ -250,24 +263,24 @@ function createReadingLab(deps) {
     job.callCount += 1;
     const attempt = { stage: key, number: job.callCount, startedAt: Date.now(), status: 'running', inputHash: hash(system + prompt), inputCharacterCount: system.length + prompt.length };
     if (problems.length) { attempt.mode = 'citation-repair'; attempt.repairSourceAttempt = lastFailure.number; }
-    job.attempts.push(attempt); save(job);
+    job.attempts.push(attempt); await save(job);
     try {
       const output = await deps.callModel(auth, { modelId: job.modelId, stage: 'single', jsonMode: true, maxTokens: OUTPUT_TOKENS, temperature: 0.25, thinking: false, reasoningEffort: 'none', timeoutMs: 600000, controller, system, userPrompt: prompt, recordId: job.id, unitId: key, promptVersion: VERSION });
       job.usage.push({ stage: key, attempt: attempt.number, usage: output.usage || null });
-      save(job);
+      await save(job);
       if (controller.signal.aborted) fail('用户已停止；已返回用量保留，未将结果标记为完成');
       let value = output.json;
       if (problems.length) { attempt.repairResponse = value; value = applyCitationRepairs(lastFailure.rejectedResponse, value, problems, attempt.number); }
       try { validate(value); } catch (error) { attempt.rejectedResponse = value || output.text || null; throw error; }
-      job.stages[key] = value; attempt.status = 'completed'; attempt.finishedAt = Date.now(); save(job);
+      job.stages[key] = value; attempt.status = 'completed'; attempt.finishedAt = Date.now(); await save(job);
       return value;
-    } catch (error) { attempt.status = 'failed'; attempt.finishedAt = Date.now(); attempt.error = String(error.message || error).slice(0, 300); save(job); throw error; }
+    } catch (error) { attempt.status = 'failed'; attempt.finishedAt = Date.now(); attempt.error = String(error.message || error).slice(0, 300); await save(job); throw error; }
   }
 
   async function run(job, auth) {
     const controller = new AbortController();
     active.set(job.owner, { id: job.id, controller });
-    job.status = 'running'; job.error = ''; save(job);
+    job.status = 'running'; job.error = ''; await save(job);
     try {
       const results = await Promise.allSettled(job.books.map(async book => {
         const previous = [];
@@ -296,11 +309,12 @@ function createReadingLab(deps) {
       if (failure) throw failure.reason;
       ensureUnchanged(job); job.status = 'completed'; job.currentStage = 'awaiting-expansion-budget';
     } catch (error) { job.status = controller.signal.aborted ? 'cancelled' : 'interrupted'; job.error = String(error.message || error).slice(0, 300); }
-    finally { save(job); active.delete(job.owner); }
+    finally { await save(job); active.delete(job.owner); }
   }
 
   async function handle(req, res) {
     try {
+      await init();
       const auth = await deps.getAuthUser(req);
       if (!auth?.user?.email || !auth.token) fail('请先登录网站', 401);
       const owner = auth.user.email.toLowerCase();
@@ -310,7 +324,7 @@ function createReadingLab(deps) {
         return deps.json(res, 200, { version: VERSION, books: books.map(book => ({ id: book.id, title: book.title, hash: book.hash, totalChapters: book.totalChapters, excludedPreamble: book.excludedPreamble, chapters: book.chapters.map(chapter => ({ title: chapter.title, paragraphs: chapter.paragraphs.length, segments: chapter.segments.length })) })), activeJob: active.get(owner)?.id || null, maxCalls: MAX_CALLS });
       }
       if (req.method === 'POST' && route === '/quote') { const body = await deps.readBody(req); return deps.json(res, 200, await quote(auth, body.modelId, sources())); }
-      if (req.method === 'GET' && route === '/jobs') return deps.json(res, 200, { jobs: database.prepare('SELECT payload FROM reading_jobs WHERE owner=? ORDER BY updated DESC LIMIT 40').all(owner).map(row => describe(JSON.parse(row.payload), false)) });
+      if (req.method === 'GET' && route === '/jobs') return deps.json(res, 200, { jobs: (await repository.list({ owner, kind: 'reading' })).map(row => describe(row.job, false)) });
       if (req.method === 'POST' && route === '/jobs') {
         if (preparing.has(owner) || active.has(owner)) fail('已有精读任务运行或正在确认预算', 409);
         const body = await deps.readBody(req);
@@ -320,21 +334,21 @@ function createReadingLab(deps) {
         try {
           const books = sources(); const estimate = await quote(auth, body.modelId, books);
           if (estimate.estimate.estimatedCredits > body.maxCredits) fail('当前预估超过确认积分预算，禁止启动');
-          const existing = database.prepare('SELECT payload FROM reading_jobs WHERE owner=?').all(owner).map(row => JSON.parse(row.payload)).find(job => job.version === VERSION && job.modelId === estimate.model.id && job.books.every((book, index) => book.hash === books[index].hash));
+          const existing = (await repository.list({ owner, kind: 'reading', limit: 1000 })).map(row => row.job).find(job => job.version === VERSION && job.modelId === estimate.model.id && job.books.every((book, index) => book.hash === books[index].hash));
           if (existing) return deps.json(res, 200, publicJob(existing));
           const job = { id: crypto.randomUUID(), owner, version: VERSION, createdAt: Date.now(), status: 'queued', modelId: estimate.model.id, quote: estimate, maxCredits: body.maxCredits, books, callCount: 0, maxCalls: MAX_CALLS, currentStage: '', stages: {}, usage: [], attempts: [] };
-          save(job); void run(job, auth); return deps.json(res, 202, publicJob(job));
+          await save(job); start(job, auth); return deps.json(res, 202, publicJob(job));
         } finally { preparing.delete(owner); }
       }
       if (req.method === 'GET' && route === '/narrative-routes') return deps.json(res, 200, { ok: true, routes: NARRATIVE_ROUTES });
       const match = route.match(/^\/jobs\/([a-f0-9-]+)(?:\/(resume|cancel|export|activate))?$/);
       if (!match) fail('接口不存在', 404);
-      const job = load(match[1], owner);
+      const job = await load(match[1], owner);
       if (req.method === 'POST' && match[2] === 'activate') {
         if (job.status !== 'completed') fail('只有精读完成的任务才能激活', 400);
         job.activated = true;
         job.currentStage = 'creation-active';
-        save(job);
+        await save(job);
         return deps.json(res, 200, { ok: true, job: publicJob(job) });
       }
       if (req.method === 'GET' && (!match[2] || match[2] === 'export')) return deps.json(res, 200, describe(job));
@@ -345,16 +359,17 @@ function createReadingLab(deps) {
         if (job.version !== VERSION) fail('阅读协议已更新，请保留旧记录并新建任务', 409);
         preparing.add(owner);
         try {
-          ensureUnchanged(job); refreshParsing(job); const estimate = await quote(auth, job.modelId, job.books);
+          if (job.status === 'needs_review' || job.attempts.some(attempt => attempt.status === 'provider_unknown')) fail('供应商结果未知，须人工核对后才能恢复', 409);
+          ensureUnchanged(job); await refreshParsing(job); const estimate = await quote(auth, job.modelId, job.books);
           if (estimate.estimate.estimatedCredits > job.maxCredits) fail('计费变化超过原预算，禁止恢复');
           if (job.callCount >= MAX_CALLS) fail('调用预算已耗尽');
-          void run(job, auth); return deps.json(res, 202, publicJob(job));
+          start(job, auth); return deps.json(res, 202, publicJob(job));
         } finally { preparing.delete(owner); }
       }
       fail('请求方式不支持', 405);
     } catch (error) { return deps.json(res, error.status || 400, { error: error.code === 'ENOENT' ? '指定原文文件不存在' : String(error.message || error).slice(0, 300) }); }
   }
-  return { handle, close: () => { for (const execution of active.values()) execution.controller.abort(); database.close(); } };
+  return { handle, init, close: async () => { for (const execution of active.values()) execution.controller.abort(); await Promise.allSettled([...workers]); if (ownedRepository) await ownedRepository.close(); } };
 }
 
 module.exports = { BOOKS, VERSION, MAX_CALLS, NARRATIVE_ROUTES, parseBook, sourceText, validateNotes, validateReading, validateReview, citationRepairProblems, applyCitationRepairs, publicJob, createReadingLab };

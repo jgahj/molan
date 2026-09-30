@@ -113,6 +113,7 @@ function styleProfileStore() {
   return jsonStyleProfileStore;
 }
 async function closeStorageStores() {
+  if (xuanhuanReadingLab) await xuanhuanReadingLab.close();
   const activeDatabase = db;
   const results = await Promise.allSettled([
     jsonGenerationStore ? jsonGenerationStore.close() : Promise.resolve(),
@@ -11759,7 +11760,7 @@ async function dispatchRequest(req, res) {
   }
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/')) {
     const supported = /^\/api\/(?:auth\/(?:register|login|me|profile|logout|logout-all)$|admin\/(?:auth\/(?:login|me|logout)|skills(?:\/[^/]+)?)$|skills(?:\/import)?$|open-skills(?:\/[^/]+(?:\/download)?)?$|novels(?:\/[^/]+(?:\/restore)?)?$|books\/|runs\/|generation-runs(?:\/|$)|chat$|models$|health$|usage$|billing\/(?:estimate|topup)$|local-sync\/status$|local-style\/)/.test(u);
-    if (!supported) return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
+    if (!supported && !u.startsWith('/api/xuanhuan-reading/')) return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
   }
   if (req.method === 'GET' && u === '/api/local-sync/status') return handleLocalSyncStatus(req, res);
 
@@ -11769,6 +11770,8 @@ async function dispatchRequest(req, res) {
   if (u.startsWith('/api/xuanhuan-reading/')) {
     if (!xuanhuanReadingLab) xuanhuanReadingLab = createReadingLab({
       dataDir: DATA_DIR, sourceDirectory: path.resolve(__dirname, '../资源库/小说原本/玄幻'), readBody, json,
+      repository: !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json'
+        ? new (require('./lib/repositories/json-lab-job-repository').JsonLabJobRepository)(appRepository().repository) : undefined,
       getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req),
       callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options),
       preflight: async (auth, modelId, tokens) => {
