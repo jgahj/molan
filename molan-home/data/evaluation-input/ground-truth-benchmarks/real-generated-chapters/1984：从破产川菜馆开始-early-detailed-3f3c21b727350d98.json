@@ -1,0 +1,550 @@
+{
+  "ok": true,
+  "model": "gpt-5.6-luna",
+  "promptHash": "3f3c21b727350d98",
+  "bookTitle": "1984：从破产川菜馆开始",
+  "genre": "都市",
+  "stage": "early",
+  "variant": "detailed",
+  "content": "# 第一章 汉卡\n\n上午九点，赵烨手里拎着保温杯，慢悠悠走进了中科院计算所。\n\n门卫老周抬头看了他一眼，没急着放行。\n\n“今天又来借机器？”\n\n赵烨把工作证递过去，杯盖在掌心转了半圈：“借机器是公事，借热水是私事。您要是连这两项都拦，我只能去门口摆摊卖茶叶蛋了。”\n\n老周扫过证件上的名字，笑了一声，把登记簿推出来：“茶叶蛋得有本钱。你们研究员好歹还有工资。”\n\n“工资先欠着，等我把汉字输进电脑，第一笔专利费就给您补两颗。”\n\n“别给我画饼。”老周在来访栏上点了点，“签字。上礼拜有人把计算机抱走，说是去修，三天没回来。你们知识分子搬东西，嘴上都比扁担轻。”\n\n赵烨签下名字，收回工作证，保温杯碰在桌沿，里面的水晃了出来。他用拇指擦掉杯身上的水珠，抬脚进楼。\n\n楼道里有煤灰、油漆和机器散热后的焦味。墙边堆着待报废的磁带机，纸箱上印着俄文，封口被拆开过几次，重新糊了胶。几个年轻人抱着文件从二楼下来，见到赵烨，脚步没有停，话题却转到了汉字输入。\n\n“听说加拿大回来那位已经看过方案了。”\n\n“人家在国外做过研究，咱们这套东西能不能用，还得他说话。”\n\n“那倒不一定。国外也不是神仙，键盘上总不能多长出两千个键。”\n\n话传到楼梯拐角，最后一句说得不轻不重，赵烨听得清楚。他把杯子换到左手，继续往上走。\n\n前世，他在计算所做了八年研究员，后来去了西安电子科技大学任教。那八年里，他熬过通宵，改过无数遍程序，也在项目评审会上听过许多不疼不痒的鼓励。教授这个头衔曾经让他以为自己拥有了下海的资格，到了二〇〇八年，他辞掉职务出来创业，才知道市场从来不认头衔。\n\n他创过几次业。\n\n每次都不是输在技术上。第一次缺资金，第二次缺渠道，第三次合伙人把账目做成了一锅夹生饭，第四次连房租都没能撑到下一轮融资。后来他终于明白，技术只是把门敲响，谁来开门、门后站着几个人、开门之后要不要收钱，才是生意。\n\n而现在，他站在二十世纪八十年代的计算所楼梯上，手里握着一套已经开发完成的汉卡系统。\n\n程序能跑。\n\n方案能讲。\n\n缺的是元器件。\n\n连购买元器件的钱都没有，更别提下海创业。\n\n三楼会议室的门敞着，里面已经坐了七八个人。靠窗位置摆着一台国产计算机，旁边连着显示器和打印机，机箱盖没有扣紧，几根彩色导线从缝隙里伸出来。赵烨进去时，正在发言的人停了停。\n\n“赵老师来了，正好。”负责项目协调的孙科长把手里的烟按灭，“大家都在商量汉字处理系统的下一步。你这套程序，今天也带来了吧？”\n\n问的是程序，实际问的是态度。\n\n赵烨把保温杯放在桌角，没有马上坐下：“带来了。”\n\n孙科长点头：“能不能现场跑一下？”\n\n“可以。”\n\n“那就别藏着掖着嘛。计算所做东西，最后总要给集体用。”\n\n旁边有人低头翻纸，纸张边缘发出细碎的摩擦声。赵烨看向那台机器，电源线插在墙上的多孔插座里，插座外壳已经裂了一道口子。电压稳不稳，他心里没底；汉卡的核心程序装在自己办公室那台旧机里，手头这台只配了普通字符显示设备，临时接入要改线路。\n\n孙科长见他没有动，笑着补了一句：“当然，谁先拿出来，谁就是第一完成人。这个我们不会抹掉。”\n\n话说得很漂亮，唯独没有提经费、署名顺序和后续收益。\n\n赵烨拉开椅子坐下：“如果只是证明程序能跑，我可以口头说明。要接机器，需要一块专用控制板，外加两组存储芯片。现成的没有，采购单也还没批。”\n\n“采购总能批。”孙科长夹起一支烟，在桌上敲了敲，“现在缺的是结果。你要是能把结果拿出来，流程就会快。”\n\n赵烨笑了笑：“流程快不快，和程序跑不跑，原来是两回事。”\n\n会议室里有人抬起头，很快又把纸压平。孙科长没有发火，只把烟放回烟盒：“赵老师，年轻人愿意折腾是好事。可个人项目和单位项目，不能混在一张纸上写。”\n\n这句话等于提醒他，代码放在个人手里，算不算个人，还要看单位怎么解释。\n\n门外传来脚步声。\n\n倪暗楠进来时，身后跟了三个人。去年秋天，他从加拿大回来，带着几本英文资料和一套国外同行的技术路线。所里不少人都听过他的经历，说他在国外接触过汉卡技术，也做过相关研究。\n\n他穿着一件灰色西装，手里没有拿文件，只夹着一支钢笔。进门后，他先向孙科长点头，接着看了看桌上的机器。\n\n“讨论到哪一步了？”\n\n孙科长给他让出位置：“赵老师的程序已经完成，现在差一个硬件验证。倪老师正好熟悉国外方案，等会儿给我们把把关。”\n\n倪暗楠没有坐，站在机器旁边，弯腰看了看露出的线路：“汉字编码用的是哪套？”\n\n“内部编码。”\n\n“输入法呢？”\n\n“拼音和拼形都能接，词库还在调整。”\n\n“磁盘占用？”\n\n赵烨报出一个数。\n\n倪暗楠的笔尖在掌心敲了两下，随后看向他：“如果硬件做出来，能不能把整套系统交给所里统一管理？”\n\n“系统可以交付，源程序另说。”\n\n孙科长的手停在烟盒上。\n\n倪暗楠问：“赵老师对源程序有什么安排？”\n\n“安排谈不上。”赵烨拿起保温杯喝了一口，温水已经凉了，“我得先知道谁出钱，谁承担风险，谁拥有后续改进的权利。技术人员有时候也会算账，虽然算得不如会计快。”\n\n倪暗楠看了他几秒，把钢笔夹回文件夹：“国外做项目，通常不会把所有问题都摊到桌面上。”\n\n“所以国外有律师。”赵烨放下杯子，“我们这里有科长。”\n\n桌旁那几个年轻人没有笑。孙科长把烟盒推远了些，像是怕它突然成为证物。\n\n倪暗楠终于坐下：“你想下海？”\n\n这句话问得直接，屋里的人都在等他的回答。\n\n赵烨没有立刻开口。\n\n他当然想。\n\n前世他辞职时，带走的是论文、职称和一腔不合时宜的信心。现在，他已经把汉卡系统做出来了，知道它将来会落进怎样的市场，也知道最早拿到这张门票的人能占多大的位置。可他连买元器件的钱都没有，身边没有合伙人，没有供应商，更没有一间能让客户坐下来的办公室。\n\n下海不是推开门就能下去，至少得先有一双不漏水的鞋。\n\n“想过。”赵烨说，“但想法不值钱，芯片值钱。”\n\n倪暗楠靠在椅背上：“如果有人愿意替你解决硬件和渠道呢？”\n\n“那要看他想拿走什么。”\n\n“你很在意控制权。”\n\n“做程序的人，多少有点职业病。”赵烨看了一眼那台机器，“改一行代码就可能牵动整套系统，交出去之前，至少得知道谁会改。”\n\n倪暗楠没有接话。他身边那名年轻人替他翻开文件夹，里面露出几页打印资料，标题是英文，排版和赵烨看过的国外论文很像。赵烨只扫到其中一行，便认出那是关于汉字字模压缩的内容。\n\n倪暗楠早先就接触过这些东西，甚至可能比他更早看到成型方案。这样的技术背景足以让他在所里获得支持，也足以让别人相信，汉卡的方向应当由他来定。\n\n会议拖了半个小时，最后只定下一件事：赵烨下午把程序说明交上去，硬件验证暂缓，等设备计划确定再议。\n\n“赵老师，”孙科长送他到门口，手掌扶着门框，“说明写得清楚一点。特别是程序来源、开发时间，还有是在什么条件下完成的。”\n\n赵烨停在门边：“这些都有记录。”\n\n“有记录就好。”孙科长说，“记录是保护，也是约束。写错一个字，后面都要解释。”\n\n赵烨看着他：“那我把没有发生过的事，也一并写进去？”\n\n孙科长的脸色沉了沉，最终还是让开了门：“年轻人别把话说得太满，路还长。”\n\n赵烨走在最后。\n\n走廊尽头，倪暗楠被两名工程师围在中间，询问加拿大的设备和国外的研究方向。他停下来回答，语气从容，偶尔翻开资料让对方看一眼。那几个人听得认真，谁也没有再提赵烨的程序。\n\n赵烨把保温杯握在手里，杯壁的温度已经彻底散掉。\n\n他羡慕倪暗楠身边的那些人，也羡慕那种一进门就有人替他搬椅子、找资料、解释背景的资格。更让他难受的是紧迫感——他知道汉卡不会等谁准备好，技术窗口一旦被别人先占住，后来者即使做得更好，也只能从别人划出的缝里挤进去。\n\n他转身回办公室。\n\n桌上的抽屉没有锁，赵记得自己出门前推过把手。抽屉里面放着程序说明、手绘电路图和一盘磁带。东西看上去都在，唯独那张画着存储扩展线路的草图被抽走了。\n\n纸下面压着一张白色便笺，只有一行字：\n\n“下午两点，老机房。带上汉卡全套程序。别让第三个人知道。”\n\n赵烨拿起便笺，纸边划过指腹，留下细小的刺痛。\n\n门外，倪暗楠的脚步停在了他的办公室门口。\n\n“赵老师，”他隔着半开的门说，“你的程序，恐怕不能再等设备计划了。”",
+  "charCount": 3366,
+  "durationMs": 64646,
+  "usage": {
+    "requestId": "req_c5ed3bdbf67ab117bc9d6746900df457",
+    "userEmail": "1271055010@qq.com",
+    "userId": "usr_69045981613f27cb496923a120d17758",
+    "workspaceId": "",
+    "projectId": "",
+    "modelId": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "contextWindowTokens": 131072,
+    "promptTokens": 18929,
+    "completionTokens": 3149,
+    "reasoningTokens": 460,
+    "totalTokens": 22078,
+    "cachedTokens": 17152,
+    "cacheWriteTokens": null,
+    "usageSource": "upstream",
+    "status": "completed",
+    "finishReason": null,
+    "createdAt": 1790090735741,
+    "durationMs": 64329,
+    "creditCost": 0,
+    "reservedCost": 0,
+    "estimatedTokens": 22078,
+    "estimatedCreditCost": 0,
+    "correctionAudit": {
+      "version": "universal-v3.8-2026-09-10",
+      "libraryVersion": "f4d035d0d608",
+      "enabled": true,
+      "status": "needs_review",
+      "findings": [
+        {
+          "ruleId": "R-45-chapter-length-standard",
+          "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+          "severity": "high",
+          "text": "# 第一章 汉卡\n\n上午九点，赵烨手里拎着保温杯，慢悠悠走进了中科院计算所。\n\n门卫老周抬头看了他一眼，没急着放行。\n\n“今天又来借机器？”\n\n赵烨把工作证递过去，杯盖在掌心转了半圈：“借机器是公事，借热水是私事。您要是连这两项都拦，我只能",
+          "index": 0,
+          "suggestion": {
+            "ruleId": "R-45",
+            "label": "商业单章篇幅硬标准（2000~3000字）",
+            "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+            "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+          }
+        },
+        {
+          "ruleId": "L-registered-case",
+          "label": "纠错库已登记原句",
+          "severity": "medium",
+          "text": "他终于明白",
+          "index": 748,
+          "suggestion": {
+            "ruleId": "L-registered-case",
+            "label": "纠错库已登记原句",
+            "must": "",
+            "badExample": "",
+            "caseId": "C18-17",
+            "before": "他终于明白：叶辰的清算绝非临时起意",
+            "after": "叶天没有再说话。所有证据早被理清",
+            "principle": "旁白不直接剧透角色的心理领悟，用沉默让读者自己推断"
+          }
+        },
+        {
+          "ruleId": "R-15-redundant-transition",
+          "label": "无功能转场或能力复述",
+          "severity": "low",
+          "text": "终于明白",
+          "index": 749,
+          "suggestion": {
+            "ruleId": "R-15",
+            "label": "无功能身体状态与转场",
+            "must": "身体状态、转场和时间句必须新增行动限制或局势变化",
+            "badExample": "“双腿还能用”“两人赶在第三遍钟前离开柴院”",
+            "caseId": "C18-17",
+            "before": "他终于明白：叶辰的清算绝非临时起意",
+            "after": "叶天没有再说话。所有证据早被理清",
+            "principle": "旁白不直接剧透角色的心理领悟，用沉默让读者自己推断"
+          }
+        }
+      ],
+      "matchedRuleIds": [
+        "R-15-redundant-transition",
+        "R-45-chapter-length-standard",
+        "L-registered-case"
+      ],
+      "findingCount": 3,
+      "metrics": {
+        "chars": 3196,
+        "charLimitMin": 2000,
+        "charLimitMax": 3000,
+        "metaphorWords": 1,
+        "metaphorLimit": 4,
+        "decorativeQuantity": 0,
+        "decorativeQuantityLimit": 2,
+        "shortParagraphs": 18,
+        "shortParagraphLimit": 3,
+        "exceeded": [
+          "shortParagraphs",
+          "chapterLength"
+        ]
+      },
+      "repetition": [],
+      "genre": "都市",
+      "genreFamily": "urban_modern",
+      "skippedRuleIds": [
+        "R-23-modern-legal-bureaucracy",
+        "R-30-lore-announcement",
+        "R-33-pseudo-precision",
+        "R-38-game-meter-ticking",
+        "R-44-quest-penalty-staccato"
+      ],
+      "checkedAt": 1790090800070
+    },
+    "characterMaterial": {
+      "enabled": false,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "auto",
+      "downgradeReason": "",
+      "archetype": "",
+      "archetypes": [],
+      "archetypeSource": "none",
+      "archetypeConfidence": 0,
+      "dimensions": [
+        "appearance",
+        "expression",
+        "action",
+        "dialogue",
+        "catchphrase",
+        "psychology"
+      ],
+      "scene": "",
+      "relationship": "",
+      "emotionalState": [],
+      "intent": "",
+      "humanTextureSignals": [],
+      "contextFallback": true,
+      "rankingWeights": null,
+      "profileKey": "",
+      "profileBucket": "",
+      "profileFocusSlice": "",
+      "profileAvailable": false,
+      "profileFallback": true,
+      "profileReason": "profiles_not_published",
+      "profileSampleCount": 0,
+      "ruleCount": 0,
+      "sampleCount": 0,
+      "fallback": true,
+      "samplesRemovedByBudget": false,
+      "rulesReducedByBudget": false,
+      "sampleSources": [],
+      "reason": "disabled_by_work",
+      "overlap": {
+        "checkedSampleCount": 0,
+        "overlapFragments": [],
+        "leakedTerms": [],
+        "blocked": false
+      },
+      "rhythmDeviation": {
+        "available": false,
+        "exceeded": false
+      },
+      "blocked": false
+    },
+    "qualityScan": {
+      "maxChars": 200000,
+      "scannedChars": 3368,
+      "truncated": false
+    },
+    "skillAudit": {
+      "version": 1,
+      "audited": true,
+      "status": "verified",
+      "promptHash": "6c76189322e4ccbe35e0a315b858d21cac25e598463122a04ae1d6cb25e49d27",
+      "actualSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "declaredSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "skills": [
+        {
+          "id": "write-high-tension-fiction",
+          "name": "write-high-tension-fiction",
+          "source": "builtin",
+          "occurrences": 1,
+          "files": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "fileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12602
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 12351
+            }
+          ],
+          "fileHashes": [
+            {
+              "path": "agents/openai.yaml",
+              "sha256": "c9a7972cd91f5541015caa27365ce95ba3b8b10f2b8e6e47aa5cef6cde981a41",
+              "size": 431
+            },
+            {
+              "path": "references/canon-template.md",
+              "sha256": "87b2208f519a9a618c7fe960b6ed5bfe9f72fb3f6ad4863a16cf0de48565b09c",
+              "size": 1071
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "sha256": "7c763d8551941600e6bcd08ee56443745dcdeb0a0c560767094eb88bf7101fcb",
+              "size": 1710
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "sha256": "94acb0793912aed519ebbcea118cb99bfd7f544f5d5b464dc3689feee3ec50b5",
+              "size": 1632
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "sha256": "9eac1d8356a192483afead707d66f00c083c1ebca0c0e37c6f66922d3d55e806",
+              "size": 4818
+            },
+            {
+              "path": "references/style-profile.md",
+              "sha256": "119fa92fbdda319d61a2fa816b448e1e4da0e04f52d88e98cfd47f644ca76707",
+              "size": 1743
+            },
+            {
+              "path": "SKILL.md",
+              "sha256": "c41b3ffbd1f32d01a890a83a8ab102dacce4ab75e89898d1868e648ebde92195",
+              "size": 5101
+            }
+          ],
+          "instructionHash": "e29c9c6f414a25c90212f560b41cac08e25f85887d0d440522367e53be95ae75",
+          "expectedInstructionHash": "e29c9c6f414a25c90212f560b41cac08e25f85887d0d440522367e53be95ae75",
+          "promptFiles": [
+            "SKILL.md",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md"
+          ],
+          "promptInstructionHash": "79fd231a0b7a81220a1e7ff482f5ea87d7c2283ecd01a52148a6f8f9ce8c83c4",
+          "promptFilesProvided": false,
+          "declaredPromptFiles": [],
+          "declaredFiles": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "declaredFileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12602
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 12351
+            }
+          ],
+          "verification": "server-match"
+        }
+      ],
+      "stage": "writing",
+      "editorOnly": false,
+      "defaultWritingSkill": {
+        "id": "write-high-tension-fiction",
+        "applied": true
+      },
+      "forwarding": {
+        "status": "verified",
+        "skills": [
+          {
+            "id": "write-high-tension-fiction",
+            "status": "verified",
+            "instructionForwarded": true,
+            "promptFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "promptFilesProvided": false,
+            "auditedFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "forwardedTextFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md"
+            ],
+            "omittedTextFiles": [],
+            "omittedBinaryFiles": []
+          }
+        ]
+      },
+      "correctionPolicy": {
+        "version": "universal-v3.8-2026-09-10",
+        "scope": "all-users-all-novels",
+        "stages": [
+          "skill_analysis",
+          "writing",
+          "humanizer",
+          "single"
+        ]
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "needs_review",
+        "findings": [
+          {
+            "ruleId": "R-45-chapter-length-standard",
+            "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+            "severity": "high",
+            "text": "# 第一章 汉卡\n\n上午九点，赵烨手里拎着保温杯，慢悠悠走进了中科院计算所。\n\n门卫老周抬头看了他一眼，没急着放行。\n\n“今天又来借机器？”\n\n赵烨把工作证递过去，杯盖在掌心转了半圈：“借机器是公事，借热水是私事。您要是连这两项都拦，我只能",
+            "index": 0,
+            "suggestion": {
+              "ruleId": "R-45",
+              "label": "商业单章篇幅硬标准（2000~3000字）",
+              "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+              "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+            }
+          },
+          {
+            "ruleId": "L-registered-case",
+            "label": "纠错库已登记原句",
+            "severity": "medium",
+            "text": "他终于明白",
+            "index": 748,
+            "suggestion": {
+              "ruleId": "L-registered-case",
+              "label": "纠错库已登记原句",
+              "must": "",
+              "badExample": "",
+              "caseId": "C18-17",
+              "before": "他终于明白：叶辰的清算绝非临时起意",
+              "after": "叶天没有再说话。所有证据早被理清",
+              "principle": "旁白不直接剧透角色的心理领悟，用沉默让读者自己推断"
+            }
+          },
+          {
+            "ruleId": "R-15-redundant-transition",
+            "label": "无功能转场或能力复述",
+            "severity": "low",
+            "text": "终于明白",
+            "index": 749,
+            "suggestion": {
+              "ruleId": "R-15",
+              "label": "无功能身体状态与转场",
+              "must": "身体状态、转场和时间句必须新增行动限制或局势变化",
+              "badExample": "“双腿还能用”“两人赶在第三遍钟前离开柴院”",
+              "caseId": "C18-17",
+              "before": "他终于明白：叶辰的清算绝非临时起意",
+              "after": "叶天没有再说话。所有证据早被理清",
+              "principle": "旁白不直接剧透角色的心理领悟，用沉默让读者自己推断"
+            }
+          }
+        ],
+        "matchedRuleIds": [
+          "R-15-redundant-transition",
+          "R-45-chapter-length-standard",
+          "L-registered-case"
+        ],
+        "findingCount": 3,
+        "metrics": {
+          "chars": 3196,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 1,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 0,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 18,
+          "shortParagraphLimit": 3,
+          "exceeded": [
+            "shortParagraphs",
+            "chapterLength"
+          ]
+        },
+        "repetition": [],
+        "genre": "都市",
+        "genreFamily": "urban_modern",
+        "skippedRuleIds": [
+          "R-23-modern-legal-bureaucracy",
+          "R-30-lore-announcement",
+          "R-33-pseudo-precision",
+          "R-38-game-meter-ticking",
+          "R-44-quest-penalty-staccato"
+        ],
+        "checkedAt": 1790090800070
+      }
+    },
+    "messagesHash": "6c76189322e4ccbe35e0a315b858d21cac25e598463122a04ae1d6cb25e49d27",
+    "editorOnly": false,
+    "billingStatus": "exact"
+  },
+  "removedBillingEvents": 235,
+  "generatedAt": "2026-09-22T15:26:40.083Z",
+  "isFromCache": false
+}

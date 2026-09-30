@@ -1,0 +1,356 @@
+{
+  "都市": {
+    "genreName": "都市",
+    "baselineStats": {
+      "count": 10,
+      "avgChars": 3414,
+      "avgDialogue": 0.334,
+      "avgSensory": 0.384,
+      "abruptJumps": 0,
+      "sampleWorks": [
+        {
+          "title": "1984川菜馆-川味觉醒-live-cycle3",
+          "chars": 4016,
+          "diaRatio": "38.3%",
+          "reqId": "req_1b1003370244ad6823524cec8035d548"
+        },
+        {
+          "title": "1984：从破产川菜馆开始",
+          "chars": 4575,
+          "diaRatio": "40.0%",
+          "reqId": "req_646d78323a3898c0268dfe90112e346f"
+        },
+        {
+          "title": "1984：从破产川菜馆开始",
+          "chars": 3185,
+          "diaRatio": "35.5%",
+          "reqId": "req_6f53963c609570b371ac6a8d12061409"
+        }
+      ]
+    },
+    "generatedStats": {
+      "count": 10,
+      "avgChars": 3414,
+      "avgDialogue": 0.334,
+      "avgSensory": 0.908,
+      "avgConflict": 0.21,
+      "avgCliches": 0,
+      "abruptJumps": 0,
+      "latestCycleWorks": [
+        {
+          "bookTitle": "1984川菜馆-川味觉醒-live-cycle3",
+          "stage": "live-cycle3-urban",
+          "requestId": "req_1b1003370244ad6823524cec8035d548",
+          "charCount": 4016,
+          "conflictDensity": "0.274",
+          "dialogueRatio": "38.3%",
+          "sensoryDensity": "2.14",
+          "clicheCount": 0,
+          "excerpt": "# 川味觉醒  1984年秋，蓉城红星农贸市场的水泥地还没有干透。清晨落过一场雨，肉摊前铺着几块旧木板，板缝里积着浑浊的水，猪血被脚底带开，染成暗红色。  陈青山挽起袖口，站在赵大喜的肉案前。  案上摆着一扇刚卸下来的猪肉，皮面刮得干净，二刀坐墩肉被赵大喜切成巴掌大的方块，肥膘微黄，瘦肉紧实，按下去很快回弹。  陈青山没有急着开口。他用右手拇指抵着肉皮，食指"
+        },
+        {
+          "bookTitle": "1984：从破产川菜馆开始",
+          "stage": "early",
+          "requestId": "req_646d78323a3898c0268dfe90112e346f",
+          "charCount": 4575,
+          "conflictDensity": "0.044",
+          "dialogueRatio": "40.0%",
+          "sensoryDensity": "1.55",
+          "clicheCount": 0,
+          "excerpt": "# 第一章 汉卡  上午九点左右，赵烨手里端着保温杯，走进了中国科学院计算技术研究所的大门。  门卫抬头看了他一眼。  赵烨穿着洗得发白的蓝布外套，裤脚沾着一块干掉的油渍，手里的保温杯是搪瓷的，杯盖边缘磕掉了一圈漆。怎么看，都不像来谈科研合作的。  “同志，找谁？”  “找倪暗楠。”  “有介绍信吗？”  赵烨从口袋里掏出一张折过两次的纸，递过去：“有，昨天"
+        },
+        {
+          "bookTitle": "1984：从破产川菜馆开始",
+          "stage": "early",
+          "requestId": "req_6f53963c609570b371ac6a8d12061409",
+          "charCount": 3185,
+          "conflictDensity": "0.157",
+          "dialogueRatio": "35.5%",
+          "sensoryDensity": "1.29",
+          "clicheCount": 0,
+          "excerpt": "### 第一章　回锅肉要先过油  下午四点，嘉陵饭店的卷帘门只拉到一半，门口已经站了三个人。  最前面的男人穿一件洗得发亮的蓝布褂，手里夹着账本，鞋尖不停磕着台阶。他姓周，是供货的肉贩。旁边两个年轻人抬着一箱冻货，箱角已经磕破，塑料袋里的猪肠露出一截灰白。  “陈师傅，今天再不给个说法，这批货我就搬回去。”周肉贩把账本拍在柜台上，“上个月的猪肉钱，六百八。前"
+        },
+        {
+          "bookTitle": "1984：从破产川菜馆开始",
+          "stage": "early",
+          "requestId": "req_c5ed3bdbf67ab117bc9d6746900df457",
+          "charCount": 3366,
+          "conflictDensity": "0.089",
+          "dialogueRatio": "31.7%",
+          "sensoryDensity": "0.92",
+          "clicheCount": 0,
+          "excerpt": "# 第一章 汉卡  上午九点，赵烨手里拎着保温杯，慢悠悠走进了中科院计算所。  门卫老周抬头看了他一眼，没急着放行。  “今天又来借机器？”  赵烨把工作证递过去，杯盖在掌心转了半圈：“借机器是公事，借热水是私事。您要是连这两项都拦，我只能去门口摆摊卖茶叶蛋了。”  老周扫过证件上的名字，笑了一声，把登记簿推出来：“茶叶蛋得有本钱。你们研究员好歹还有工资。”"
+        }
+      ]
+    }
+  },
+  "仙侠": {
+    "genreName": "仙侠",
+    "baselineStats": {
+      "count": 10,
+      "avgChars": 3374,
+      "avgDialogue": 0.261,
+      "avgSensory": 0.663,
+      "abruptJumps": 4,
+      "sampleWorks": [
+        {
+          "title": "临圣",
+          "chars": 1462,
+          "diaRatio": "35.2%",
+          "reqId": "req_23e8c56d2af58bc97ed34beef6c85a2e"
+        },
+        {
+          "title": "临圣",
+          "chars": 3027,
+          "diaRatio": "27.3%",
+          "reqId": "req_939ce71b6c3b2aaa27e9ec7ed08cd814"
+        },
+        {
+          "title": "仙府！",
+          "chars": 3722,
+          "diaRatio": "22.2%",
+          "reqId": "req_c955950cdef2bde61642f77c1ce5c5db"
+        }
+      ]
+    },
+    "generatedStats": {
+      "count": 11,
+      "avgChars": 3343,
+      "avgDialogue": 0.263,
+      "avgSensory": 1.394,
+      "avgConflict": 0.634,
+      "avgCliches": 1.91,
+      "abruptJumps": 3,
+      "latestCycleWorks": [
+        {
+          "bookTitle": "凡人修仙传-神手谷考验-live-cycle3",
+          "stage": "live-cycle3-xianxia",
+          "requestId": "req_94d71fad169a28808ed7c7dae5de5782",
+          "charCount": 3789,
+          "conflictDensity": "0.554",
+          "dialogueRatio": "28.9%",
+          "sensoryDensity": "1.37",
+          "clicheCount": 0,
+          "excerpt": "# 神手谷的考验  神手谷背靠绝壁，三面都是高耸山岩。谷中少有人声，只有药炉里的水沸腾时，隔着石墙传来细碎的响动。  韩立住在偏厢房里已经有半月。  厢房不大，靠墙摆着一张旧木桌，桌上铺着白布，白布上分成十几个小堆，分别放着晒干的药草、树皮和根茎。秋日的阳光从窗缝里照进来，落在桌角，照出一层浮尘。  韩立坐在桌前，手里捏着一截青褐色的草根。他皮肤微黑，脸相平"
+        },
+        {
+          "bookTitle": "凡人修仙传-神手谷考验-live-cycle5",
+          "stage": "live-cycle5-xianxia",
+          "requestId": "req_7ac04978dce86a79ded56d6372e1409d",
+          "charCount": 3041,
+          "conflictDensity": "0.592",
+          "dialogueRatio": "28.1%",
+          "sensoryDensity": "1.32",
+          "clicheCount": 0,
+          "excerpt": "# 神手谷的考验  神手谷的偏厢房常年关着半扇窗，屋里没有多少阳光，药材的气味却积得很厚。苦参、黄精、蛇涎草混在一起，沉沉压在鼻端，连木架上的灰尘都带着药味。  韩立站在长案前，面前摆着十七只小碟。碟中药材形状相近，颜色却各有差别。墨大夫坐在案后，枯瘦的手指搭着椅背，眼神落在韩立脸上，半晌没有说话。  “辨出来。”他说。  韩立没有立即伸手。他先看了看最左边"
+        }
+      ]
+    }
+  },
+  "玄幻": {
+    "genreName": "玄幻",
+    "baselineStats": {
+      "count": 12,
+      "avgChars": 2975,
+      "avgDialogue": 0.209,
+      "avgSensory": 0.9,
+      "abruptJumps": 0,
+      "sampleWorks": [
+        {
+          "title": "一世之尊",
+          "chars": 3467,
+          "diaRatio": "15.4%",
+          "reqId": "req_cb23a259c954fcd0296924ccc098835c"
+        },
+        {
+          "title": "一世之尊",
+          "chars": 471,
+          "diaRatio": "25.1%",
+          "reqId": "req_2a056e0c081d4bd1bab3e0eabddff65b"
+        },
+        {
+          "title": "一世之尊",
+          "chars": 3107,
+          "diaRatio": "6.5%",
+          "reqId": "req_93e7e274cc4a4048d3bf70e3903aab21"
+        }
+      ]
+    },
+    "generatedStats": {
+      "count": 14,
+      "avgChars": 3016,
+      "avgDialogue": 0.209,
+      "avgSensory": 1.099,
+      "avgConflict": 1.625,
+      "avgCliches": 0.93,
+      "abruptJumps": 0,
+      "latestCycleWorks": [
+        {
+          "bookTitle": "万古神帝-月圆破局-live-cycle4",
+          "stage": "live-cycle4-fantasy",
+          "requestId": "req_d6711258708247f488f292f62e396946",
+          "charCount": 3672,
+          "conflictDensity": "2.397",
+          "dialogueRatio": "23.2%",
+          "sensoryDensity": "1.06",
+          "clicheCount": 0,
+          "excerpt": "# 月圆破局  偏阁的门窗同时向内塌陷。  黑色符火沿着梁柱爬行，火舌没有温度，却将青石烧出大片焦痕。殿外风雪被神力撕碎，卷着碎木和铁屑撞入室内。下一刻，数十道咒纹从虚空压下，偏阁上方的穹顶轰然下沉。  张若尘立在供案前，手指刚触到沉渊古剑的剑柄，第三根石柱便从中间断开。  石柱被硬生生切成两截，断面平滑得令人心惊。碎石如雨飞射，擦过墙壁，打出一片密集的凹坑"
+        },
+        {
+          "bookTitle": "万古神帝-神武破壁-live-cycle5",
+          "stage": "live-cycle5-fantasy",
+          "requestId": "req_e7a9a212e79d6a5f1d3912b2c28faf5e",
+          "charCount": 2847,
+          "conflictDensity": "2.950",
+          "dialogueRatio": "18.9%",
+          "sensoryDensity": "1.83",
+          "clicheCount": 0,
+          "excerpt": "# 神武破壁  黑煞自云琉神殿偏阁上空压落，万咒天功凝成的刀芒斜斩而下。青石梁柱接连爆裂，四根合抱粗的汉白玉石柱被刀气拦腰切断，断面飞溅出灼白碎屑。整面山壁从中线崩开，岩层错动，沉重石块带着尘浪轰然下塌，偏阁半边屋檐被砸得粉碎。  张若尘从坍塌的石幕里拔出沉渊古剑。无疆一掌压着魔光撞来，剑锋与掌前黑芒硬生生碰在一起，炽热火星沿剑脊炸开，半截青砖在两人脚下同时"
+        },
+        {
+          "bookTitle": "月圆夜前的布局-实验组Cycle2",
+          "stage": "cycle2-pacing-opt",
+          "requestId": "req_a186bb70ff8e6062ee0b1d5640c31885",
+          "charCount": 3493,
+          "conflictDensity": "1.575",
+          "dialogueRatio": "35.2%",
+          "sensoryDensity": "0.92",
+          "clicheCount": 0,
+          "excerpt": "# 月圆夜前的布局  罗祖云山界，黑石魔窟。  张若尘站在裂开的窟门前，手里拎着一壶酒，身边跟着木灵希。两人脚下横着三具昏迷的魔修，储物袋还在腰间，兵器也没有被取走。  木灵希看了一眼地上的人：“你已经问过七次了。”  “他们都没有回答。”  “你问的是认不认识你，不是问路。”  张若尘抬手敲了敲窟门上的骨钉，朝里面喊道：“连我俗世神话张若尘都不知道，找死！"
+        }
+      ]
+    }
+  },
+  "青春甜宠": {
+    "genreName": "青春甜宠",
+    "baselineStats": {
+      "count": 7,
+      "avgChars": 3794,
+      "avgDialogue": 0.288,
+      "avgSensory": 0.367,
+      "abruptJumps": 0,
+      "sampleWorks": [
+        {
+          "title": "F4里最病弱的那个，被团宠了",
+          "chars": 3720,
+          "diaRatio": "30.8%",
+          "reqId": "req_d76c3bdfe601873847f2fbc9ef23929e"
+        },
+        {
+          "title": "亲一下就软！",
+          "chars": 4297,
+          "diaRatio": "33.5%",
+          "reqId": "req_c3c19d63b14a91d7e5e174a1a5f648d9"
+        },
+        {
+          "title": "厌世农村妹也要被少爷强制爱吗？",
+          "chars": 3898,
+          "diaRatio": "27.7%",
+          "reqId": "req_b25ca49bf5bcabd0d89041031970e103"
+        }
+      ]
+    },
+    "generatedStats": {
+      "count": 7,
+      "avgChars": 3794,
+      "avgDialogue": 0.288,
+      "avgSensory": 1.017,
+      "avgConflict": 0.32,
+      "avgCliches": 1,
+      "abruptJumps": 0,
+      "latestCycleWorks": []
+    }
+  },
+  "悬疑灵异": {
+    "genreName": "悬疑灵异",
+    "baselineStats": {
+      "count": 7,
+      "avgChars": 3454,
+      "avgDialogue": 0.193,
+      "avgSensory": 0.683,
+      "abruptJumps": 0,
+      "sampleWorks": [
+        {
+          "title": "一个民间阴阳先生的真实经历",
+          "chars": 3216,
+          "diaRatio": "15.9%",
+          "reqId": "req_e62e84dbf8fff4cb8e75ecdd00060fb9"
+        },
+        {
+          "title": "一个民间阴阳先生的真实经历",
+          "chars": 3098,
+          "diaRatio": "22.4%",
+          "reqId": "req_dcc3ff7e89b3d60c29fc0bc94468587f"
+        },
+        {
+          "title": "三界物流公司",
+          "chars": 2949,
+          "diaRatio": "6.5%",
+          "reqId": "req_1ceb10dc9e4ea50916e0ed522ad66f4c"
+        }
+      ]
+    },
+    "generatedStats": {
+      "count": 8,
+      "avgChars": 3466,
+      "avgDialogue": 0.17,
+      "avgSensory": 1.291,
+      "avgConflict": 0.487,
+      "avgCliches": 0.5,
+      "abruptJumps": 0,
+      "latestCycleWorks": [
+        {
+          "bookTitle": "旧楼回煞-第七阶迷局-live-cycle4",
+          "stage": "live-cycle4-suspense",
+          "requestId": "req_32b538bcb9449248320ea1e8085aaa9b",
+          "charCount": 3549,
+          "conflictDensity": "0.535",
+          "dialogueRatio": "0.6%",
+          "sensoryDensity": "2.48",
+          "clicheCount": 1,
+          "excerpt": "# 第七阶迷局  我在午夜踏进七楼楼道时，鞋底先碰到一层冷水。  水没有漫过鞋面，只沿着水磨石台阶低处积着，黑得看不出深浅。鞋底踩下去，水面荡开一圈细纹，露出几粒被泥浆裹住的米粒。八十年代的筒子楼没有电梯，楼道窄得只能容两个人错身，墙面刷过几层石灰，后来剥落成一片片卷起的灰皮，底下的黑霉斑从墙角爬到门牌旁，湿气里混着生石灰味，呛得鼻腔发涩。  我抬起手电筒。"
+        }
+      ]
+    }
+  },
+  "历史脑洞": {
+    "genreName": "历史脑洞",
+    "baselineStats": {
+      "count": 7,
+      "avgChars": 3645,
+      "avgDialogue": 0.265,
+      "avgSensory": 0.401,
+      "abruptJumps": 0,
+      "sampleWorks": [
+        {
+          "title": "一心求死，反倒成为千古一帝？",
+          "chars": 3802,
+          "diaRatio": "31.4%",
+          "reqId": "req_35f4dca12f37be53416347a31dbb243c"
+        },
+        {
+          "title": "三国：开局项羽模板，你当谋士？",
+          "chars": 3738,
+          "diaRatio": "11.5%",
+          "reqId": "req_bcdd16c61b9fef526c459d066565f5be"
+        },
+        {
+          "title": "三国：开局项羽模板，你当谋士？",
+          "chars": 3174,
+          "diaRatio": "15.7%",
+          "reqId": "req_ebd9b643f48c4d837d95545001b6a3c8"
+        }
+      ]
+    },
+    "generatedStats": {
+      "count": 7,
+      "avgChars": 3645,
+      "avgDialogue": 0.265,
+      "avgSensory": 0.531,
+      "avgConflict": 0.747,
+      "avgCliches": 0.57,
+      "abruptJumps": 0,
+      "latestCycleWorks": []
+    }
+  }
+}

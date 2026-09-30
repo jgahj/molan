@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "kind": "fixed-benchmark-plan-manifest",
+  "frozenAt": "2026-09-10",
+  "status": "not_executed",
+  "executed": false,
+  "humanReviewStatus": "pending",
+  "hashAlgorithm": "sha256",
+  "fileNormalization": "UTF-8; CRLF normalized to LF",
+  "suiteHash": "a5c3d9a6463a061a2dc5e7005b649a6c8cf0db22b9669d6ad32e5c9a492988d4",
+  "files": {
+    "suite.json": "2aae34c416b994105fd9855e876db591f7314b602d40ea1bcb20ed2135e12385",
+    "control-prompt.txt": "6cb027f138cfd8c5ea95cf7816a9654b71d7b110e7af6ab543bde5f7fc7882cb",
+    "control-provenance.json": "2a78769b6725ec832a1f4ec605d85b2b554955d268581fbe5777d526773cd38f"
+  },
+  "regressionHash": "546c4998c90b578eaf3deb901b93a922b47e3c382db6d74a50940bc7d8886278",
+  "plans": {
+    "P0": {
+      "planHash": "486741b2a5a963ac5ea73076d61acf8b7b45afbeab4ff32aa624a7d846b4f04c",
+      "generations": 36,
+      "arms": ["control"]
+    },
+    "P3": {
+      "planHash": "783aaf133244b89e9ef042af6463fe3b63bbfa722afd39593e4366a4ab6c10b2",
+      "generations": 36,
+      "arms": ["control", "candidate"]
+    },
+    "P4": {
+      "planHash": "3ca151718c6f6fb80c741ab8caba97e70b569ce17521014b98517334983a003b",
+      "generations": 20,
+      "arms": ["candidate"]
+    }
+  },
+  "controlKind": "fixed_control_prompt",
+  "historicalPipelineReplay": false,
+  "limitations": "这是冻结计划而非实跑报告。P0固定控制prompt不代表完整历史主链路，P4单臂尚待真人审读。"
+}

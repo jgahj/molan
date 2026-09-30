@@ -26,7 +26,21 @@ function locateReplacementWindow(text, quote) {
   return { ok: true, before, target, after, paragraphIndex: index };
 }
 
-/** 拒绝改写中丢失合同要求保留的人名、地点、数字和事实标记。 */
+const NEGATION_PATTERNS = [
+  '没有', '并未', '未曾', '绝不', '不可', '未有', '不曾', '不能', '并非', '不得',
+  '不', '没', '未', '无', '非'
+];
+
+/** 提取文本中的否定词标记快照 */
+function extractNegationSnapshot(text) {
+  const clean = String(text || '');
+  return NEGATION_PATTERNS.filter(neg => clean.includes(neg));
+}
+
+/**
+ * 拒绝改写中丢失合同要求保留的人名、地点、数字和事实标记，
+ * 建立 Invariant Snapshot 严格防止否定极性反转（如「他没有杀她」被修改为「他杀了她」）。
+ */
 function preservesMeaning(input = {}) {
   const before = String(input.before || '');
   const after = String(input.after || '');
@@ -34,6 +48,18 @@ function preservesMeaning(input = {}) {
   const numbers = (before.match(/\d+(?:\.\d+)?/g) || []).filter((value, index, values) => values.indexOf(value) === index);
   const required = [...new Set([...protectedTerms, ...numbers])];
   const missing = required.filter(term => !after.includes(term));
+
+  // Invariant Snapshot: 否定极性反转防护
+  const beforeNegations = extractNegationSnapshot(before);
+  const afterNegations = extractNegationSnapshot(after);
+
+  // 若原句包含明确双字否定短语，但修订后完全失去否定极性，判定语义被颠覆性篡改
+  const strongBeforeNegations = beforeNegations.filter(n => n.length >= 2);
+  const strongAfterNegations = afterNegations.filter(n => n.length >= 2);
+  if (strongBeforeNegations.length > 0 && strongAfterNegations.length === 0 && afterNegations.length === 0) {
+    missing.push(`否定极性反转: 原文包含[${strongBeforeNegations.join('/')}]但修订句被改为肯定事实`);
+  }
+
   return { passed: missing.length === 0, required, missing };
 }
 

@@ -1,0 +1,440 @@
+{
+  "generation_id": "gen-treatment-cycle2-luna-1790145556872",
+  "experiment_id": "EXP-PACING-002",
+  "cycle": 2,
+  "group": "TREATMENT_CYCLE2",
+  "version": "v2.2-momentum-desmoothing",
+  "model": "gpt-5.6-luna",
+  "prompt_version": "prompt-v2.2-momentum-gate",
+  "story_bible_version": "SB-WANGC-YUENIGHT-01",
+  "optimizer_version": "OPT-SCENE-002",
+  "benchmark_version": "yishi-zhizun-benchmark-v1",
+  "generation_parameters": {
+    "temperature": 0.82,
+    "max_tokens": 6500,
+    "top_p": 1,
+    "target_word_bounds": [
+      2500,
+      3200
+    ]
+  },
+  "metrics": {
+    "charCount": 3493,
+    "abruptTransitionCount": 0,
+    "sceneCount": 41,
+    "avgSceneLength": 85,
+    "downtimeMatchesCount": 1,
+    "estimatedDowntimeRatio": 0.003,
+    "conflictMatchesCount": 17,
+    "conflictDensity": 0.4866876610363584
+  },
+  "chapter_structure": {
+    "title": "月圆夜前的布局",
+    "totalCharacters": 3493,
+    "hasAbruptTimeJump": false
+  },
+  "full_text": "# 月圆夜前的布局\n\n罗祖云山界，黑石魔窟。\n\n张若尘站在裂开的窟门前，手里拎着一壶酒，身边跟着木灵希。两人脚下横着三具昏迷的魔修，储物袋还在腰间，兵器也没有被取走。\n\n木灵希看了一眼地上的人：“你已经问过七次了。”\n\n“他们都没有回答。”\n\n“你问的是认不认识你，不是问路。”\n\n张若尘抬手敲了敲窟门上的骨钉，朝里面喊道：“连我俗世神话张若尘都不知道，找死！”\n\n声音在黑石通道里传开，惊起一群乌鸦。\n\n片刻后，魔窟深处升起一片血光。三尊神灵从血光中走出，为首者披着黑甲，手中握着一柄断刃。\n\n“张若尘，你闯入罗祖云山界，伤我门人，还敢在这里放肆？”黑甲神灵的声音震得石壁簌簌落灰。\n\n张若尘把酒壶收进袖中：“你认得我？”\n\n“本座当然认得。”\n\n“那你们为何一直不开门？”\n\n黑甲神灵脸上怒意更盛，断刃劈下。虚空在刀锋前撕裂，黑色裂缝迅速扩大，神威沿着地面撞来，附近石柱成片崩断。\n\n张若尘一把扯住木灵希，身形向后暴退。刀光贴着他的肩膀落下，黑石地面被削出数十丈长的沟壑。紧接着，一只神力凝成的大手从高处抓落，五根手指扣住半边石壁，整面山岩被硬生生压塌。\n\n碎石穿空，砸在地上发出密集的爆响。\n\n木灵希抬手撑起剑幕，挡住迎面飞来的巨石，剑幕被撞得不断后移。张若尘踩着崩塌的石块跃起，袖中飞出一卷阵图，挡住黑甲神灵第二次劈斩。\n\n“我只是来问一句话。”张若尘落在一块倾斜的岩柱上，“你们动这么大的阵仗，传出去不好听。”\n\n“废话留到死后再说！”\n\n黑甲神灵五指收拢，周围空间骤然塌陷。张若尘脚下岩柱被神力压成碎粉，整个人向下坠去。木灵希刚要出剑，远处忽然传来一道清冷声音。\n\n“住手。”\n\n声音不高，却截断了所有神光。\n\n一道白衣身影踏过破碎的山门。她没有显露神躯，四周神威却自行分开，黑甲神灵打出的力量在她身前停住，随后化为细碎光尘。\n\n姑射静抬手，掌心浮出一枚天阁印。\n\n“地姥有口谕，张若尘在云山界期间，任何神灵不得私自取他性命。”她扫了张若尘一眼，“违者，交老祖宗处置。”\n\n黑甲神灵握刀的手僵在半空。\n\n罗祖云山界的地姥活了太久，久到连许多神境都曾听过她的名字。更重要的是，姑射静背后站着天阁，谁也不愿因一个俗世神话，把两方都牵进来。\n\n黑甲神灵收回断刃，声音仍然冷硬：“他毁我魔窟，如何交代？”\n\n张若尘从碎石堆里走出来，衣袖破了一角，脸上倒没有伤：“那三个人还活着，石门也可以修。你看，我已经很克制了。”\n\n姑射静的眉梢动了一下。\n\n她刚才看得清楚，张若尘有机会夺走那三名魔修的储物袋，却连一块灵石都没有拿；面对黑甲神灵的杀招，他也一直避开要害。\n\n这个人确实在惹事。\n\n可他惹事的方式，显然经过挑选。\n\n张若尘转身对黑甲神灵道：“回去告诉其他人，地姥欲将天阁目嫁给我。往后见到我，最好先行礼。”\n\n山门外躲着的几名伪神听见这句话，脸色全变。\n\n姑射静的声音冷了下来：“张若尘。”\n\n“我在。”\n\n“跟我走。”\n\n她转身离开，张若尘朝木灵希使了个眼色，立即跟上。\n\n这句话当晚便传遍了云山界。\n\n第二日，三名伪神设宴请张若尘入席。张若尘刚坐下，其中一人便端着酒杯起身：“久闻俗世神话之名，今日得见，实在是——”\n\n“你认得我？”\n\n“自然认得。”\n\n“那就好。”\n\n张若尘端起酒杯，一口饮尽：“从今日起，我们便是结拜兄弟。”\n\n三名伪神的脸色一起僵住。\n\n“我没有这个意思。”\n\n“你请我赴宴，不就是这个意思？”张若尘放下酒杯，“难道你们准备反悔？”\n\n三名伪神连忙赔笑，又送出灵药和神石。张若尘一件没收，只让他们把消息传得更远。\n\n到第三日，云山界的修士见到他便绕路。有人关上魔楼大门，有人收起摊位，连巡界的神灵都改走另一条山道。\n\n姑射静回到云琉神殿时，正好看见母神坐在殿中翻阅《神储卷》。\n\n“母神。”她站在台阶下，“你可知道张若尘在外面说了什么？”\n\n姑射云琉没有抬头：“他说地姥要把你嫁给他。”\n\n“这件事根本没有定下。”\n\n“地姥确实传过口谕，问过你的意思。”\n\n姑射静压下火气：“那是询问，不是定亲。他把一句话拆开，拿去吓唬整个云山界，母神也不管？”\n\n姑射云琉翻过一页，手指停在一行古老神纹上：“你真以为他在乎那些修士如何看他？”\n\n姑射静没有回答。\n\n“他故意强闯魔窟，故意报出身份，故意让伪神摆宴。”姑射云琉抬起眼睛，“他想让老祖宗觉得，这桩婚事会给罗祖云山界带来麻烦。只要老祖宗开口取消，他便能脱身。”\n\n殿内安静下来。\n\n姑射静回想张若尘在魔窟中的动作，心里那点怒意没有消失，反而多了一层被利用的冷意。\n\n“所以我成了他的挡箭牌。”\n\n“你本来就是他的挡箭牌。”姑射云琉语气平淡，“只是他把挡箭牌举得太高，让所有人都看见了。”\n\n姑射静看向案上的《神储卷》。卷中记录着她从大圣到伪神的修行痕迹，每一道神纹都完整无缺，唯独最后一页始终没有落笔。\n\n神境。\n\n她伸手合上卷轴：“既然地姥说一不二，我便先成神。等月圆夜渡劫成功，我亲自去找张若尘算账。”\n\n姑射云琉没有劝阻，只说：“你若失败，神魂会受损，至少百年不能再冲击神境。”\n\n“我知道。”\n\n“他或许正等你被牵住。”\n\n姑射静看了母神一眼：“那就让他等着。”\n\n三日之间，云山界风声渐紧，月轮将圆。这日黄昏，张若尘如约登门云琉神殿。\n\n姑射静在殿后见到他时，手边已经摆好了渡劫所需的神药。她没有请他坐，只问：“你来做什么？”\n\n张若尘取出一方黑色石匣。\n\n石匣打开，《天魔石刻》安静地躺在其中。上面的魔纹没有神力外泄，却让殿后风声停了下来。\n\n“借你观悟。”他说。\n\n姑射静没有伸手：“你会这么好心？”\n\n“我若想害你，不必等到你渡劫。”\n\n这句话说得直接，姑射静反而没有立即反驳。\n\n张若尘把石刻放在石台上，又取出日晷。日晷落地，十二道刻线同时亮起，时间力量向四周铺开，将殿后的空间拉长。\n\n“日晷只能开启七日。”张若尘道，“你若在里面观悟，外界只过去一夜。”\n\n姑射静看着《天魔石刻》：“你想换什么？”\n\n“等你成神后，别在第一时间杀我。”\n\n“你觉得我杀不了你？”\n\n“我觉得你会先问清楚。”\n\n姑射静轻哼一声，盘膝坐下。石刻上的魔纹逐渐汇聚，最后显出一幅图卷。\n\n天魔贪狼图。\n\n贪狼踏着星河，吞噬一颗颗暗淡星辰，留下的不是杀伐神意，而是不断调整方向的贪念。姑射静看了许久，眉心神纹逐渐亮起。\n\n张若尘坐在数丈外，没有打扰。\n\n过了很久，姑射静才睁开眼：“这幅图不是地姥的根本道法。”\n\n“当然不是。”\n\n“你将它借给我，就不怕我借此推演你的路？”\n\n“你现在还推演不出来。”\n\n姑射静看着他，觉得这句话欠揍，却没有立刻发作。她修行《神储卷》多年，知道天资越高，越不能只看眼前的力量。天魔贪狼图对她的帮助很大，尤其是那股吞噬之后重新择路的神意，正好补上她迟迟无法迈过的关隘。\n\n她收回神念：“这次算你有诚意。我仍然不相信你。”\n\n“你能保持警惕，我很欣慰。”\n\n“少说一句。”\n\n张若尘起身收起日晷：“月圆夜之前，我不会再来打扰你。”\n\n离开神殿后，木灵希在长廊尽头等他。她看了一眼张若尘，又看了看殿门：“你真是为了让她冲击神境？”\n\n“她的确需要那幅图。”\n\n“你前几日一路报名字，抢进魔窟，连神灵都敢招惹，结果没有抢走一件宝物，也没有杀一个人。”木灵希把声音压低，“现在连身份都主动说给他们听。你到底想做什么？”\n\n张若尘沿着石阶向下走，日晷的光还停留在袖中。\n\n“让他们认得我。”\n\n木灵希皱眉：“认脸保命？”\n\n“月圆夜，我要去见蚩刑天。”\n\n她脚步停住。\n\n罗祖云山界的月圆夜，魔道神灵会聚于祖山，界门与巡查都会换防。那一夜去见蚩刑天，危险远超闯一座魔窟。\n\n张若尘回头看她：“我必须让整个界都知道，俗世神话张若尘在这里。这样一旦有人发现我的踪迹，第一反应会是地姥的婚事出了问题，而不是我在暗中见人。”\n\n木灵希沉默片刻：“姑射静呢？”\n\n“她会在月圆夜渡劫。她若成功，神劫会牵动半个云山界，没人有余力细查我。”\n\n“若她失败？”\n\n“那我就换路线。”\n\n张若尘看向远处逐渐升起的月亮，脸上的笑意收了几分。\n\n“月圆夜第二天，我必须离开罗祖云山界。”\n\n“蚩刑天会跟你走？”\n\n“他若愿意，路就在那边。”张若尘伸手摸向袖中的日晷，忽然停住。\n\n日晷上的第七道刻线，不知何时裂开了一条细缝。\n\n裂缝里夹着一片极薄的黑色鳞片，带着蚩刑天独有的煞气。\n\n木灵希看见那片鳞片，立即拔剑。\n\n张若尘却按住了她的剑柄。\n\n鳞片背面刻着一行血字：\n\n月圆夜，别进祖山。神殿之下，有人在等你。",
+  "usage": {
+    "requestId": "req_a186bb70ff8e6062ee0b1d5640c31885",
+    "userEmail": "1271055010@qq.com",
+    "userId": "usr_69045981613f27cb496923a120d17758",
+    "workspaceId": "",
+    "projectId": "",
+    "modelId": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "contextWindowTokens": 131072,
+    "promptTokens": 13325,
+    "completionTokens": 3197,
+    "reasoningTokens": 162,
+    "totalTokens": 16522,
+    "cachedTokens": null,
+    "cacheWriteTokens": null,
+    "usageSource": "upstream",
+    "status": "completed",
+    "finishReason": null,
+    "createdAt": 1790145497531,
+    "durationMs": 59316,
+    "creditCost": 0,
+    "reservedCost": 0,
+    "estimatedTokens": 16522,
+    "estimatedCreditCost": 0,
+    "correctionAudit": {
+      "version": "universal-v3.8-2026-09-10",
+      "libraryVersion": "f4d035d0d608",
+      "enabled": true,
+      "status": "needs_review",
+      "findings": [
+        {
+          "ruleId": "R-45-chapter-length-standard",
+          "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+          "severity": "high",
+          "text": "# 月圆夜前的布局\n\n罗祖云山界，黑石魔窟。\n\n张若尘站在裂开的窟门前，手里拎着一壶酒，身边跟着木灵希。两人脚下横着三具昏迷的魔修，储物袋还在腰间，兵器也没有被取走。\n\n木灵希看了一眼地上的人：“你已经问过七次了。”\n\n“他们都没有回答。”",
+          "index": 0,
+          "suggestion": {
+            "ruleId": "R-45",
+            "label": "商业单章篇幅硬标准（2000~3000字）",
+            "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+            "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+          }
+        },
+        {
+          "ruleId": "R-08-formulaic-reasoning",
+          "label": "工整二分或完整心理链",
+          "severity": "medium",
+          "text": "不是杀伐神意，而是",
+          "index": 2560,
+          "suggestion": {
+            "ruleId": "R-08",
+            "label": "关键动作指代模糊与越界推断",
+            "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+            "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+          }
+        }
+      ],
+      "matchedRuleIds": [
+        "R-08-formulaic-reasoning",
+        "R-45-chapter-length-standard"
+      ],
+      "findingCount": 2,
+      "metrics": {
+        "chars": 3252,
+        "charLimitMin": 2000,
+        "charLimitMax": 3000,
+        "metaphorWords": 0,
+        "metaphorLimit": 4,
+        "decorativeQuantity": 0,
+        "decorativeQuantityLimit": 2,
+        "shortParagraphs": 26,
+        "shortParagraphLimit": 3,
+        "exceeded": [
+          "shortParagraphs",
+          "chapterLength"
+        ]
+      },
+      "repetition": [],
+      "genre": "玄幻",
+      "genreFamily": "ancient_cultivation",
+      "skippedRuleIds": [],
+      "checkedAt": 1790145556847
+    },
+    "characterMaterial": {
+      "enabled": false,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "auto",
+      "downgradeReason": "",
+      "archetype": "",
+      "archetypes": [],
+      "archetypeSource": "none",
+      "archetypeConfidence": 0,
+      "dimensions": [
+        "appearance",
+        "expression",
+        "action",
+        "dialogue",
+        "catchphrase",
+        "psychology"
+      ],
+      "scene": "",
+      "relationship": "",
+      "emotionalState": [],
+      "intent": "",
+      "humanTextureSignals": [],
+      "contextFallback": true,
+      "rankingWeights": null,
+      "profileKey": "",
+      "profileBucket": "",
+      "profileFocusSlice": "",
+      "profileAvailable": false,
+      "profileFallback": true,
+      "profileReason": "profiles_not_published",
+      "profileSampleCount": 0,
+      "ruleCount": 0,
+      "sampleCount": 0,
+      "fallback": true,
+      "samplesRemovedByBudget": false,
+      "rulesReducedByBudget": false,
+      "sampleSources": [],
+      "reason": "disabled_by_work",
+      "overlap": {
+        "checkedSampleCount": 0,
+        "overlapFragments": [],
+        "leakedTerms": [],
+        "blocked": false
+      },
+      "rhythmDeviation": {
+        "available": false,
+        "exceeded": false
+      },
+      "blocked": false
+    },
+    "qualityScan": {
+      "maxChars": 200000,
+      "scannedChars": 3493,
+      "truncated": false
+    },
+    "skillAudit": {
+      "version": 1,
+      "audited": true,
+      "status": "verified",
+      "promptHash": "e85927bb2d4e11563ad9100976fe591af6a14a3b4cfb8a11fcf8b907d637ad4b",
+      "actualSkillIds": [
+        "mars-style-pure-xuanhuan-writing"
+      ],
+      "declaredSkillIds": [
+        "mars-style-pure-xuanhuan-writing"
+      ],
+      "skills": [
+        {
+          "id": "mars-style-pure-xuanhuan-writing",
+          "name": "mars-style-pure-xuanhuan-writing",
+          "source": "builtin",
+          "occurrences": 1,
+          "files": [
+            "agents/openai.yaml",
+            "references/correction-library.md",
+            "SKILL.md"
+          ],
+          "fileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 265
+            },
+            {
+              "path": "references/correction-library.md",
+              "type": "text",
+              "size": 13330
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 5477
+            }
+          ],
+          "fileHashes": [
+            {
+              "path": "agents/openai.yaml",
+              "sha256": "48e8a021a66de37aa5e39093d4e4f6610ef0d857c6cd81140056b8b4b7bf20b6",
+              "size": 161
+            },
+            {
+              "path": "references/correction-library.md",
+              "sha256": "cfc9a86e6ca5a874e826ccd51820be824fabe798aa33e1c56723ecefbc907581",
+              "size": 5648
+            },
+            {
+              "path": "SKILL.md",
+              "sha256": "a9df8d3b0c43c658391fa9931104daf75c675a762c2d9179dda07c859079eed6",
+              "size": 2103
+            }
+          ],
+          "instructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+          "expectedInstructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+          "promptFiles": [
+            "SKILL.md",
+            "references/correction-library.md"
+          ],
+          "promptInstructionHash": "34491ece7cc334cdb23f7f059597f7fbd2d36400d6216f916294959e32961fa9",
+          "promptFilesProvided": false,
+          "declaredPromptFiles": [],
+          "declaredFiles": [
+            "agents/openai.yaml",
+            "references/correction-library.md",
+            "SKILL.md"
+          ],
+          "declaredFileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 265
+            },
+            {
+              "path": "references/correction-library.md",
+              "type": "text",
+              "size": 13330
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 5477
+            }
+          ],
+          "verification": "server-match"
+        }
+      ],
+      "stage": "writing",
+      "editorOnly": false,
+      "defaultWritingSkill": {
+        "id": "mars-style-pure-xuanhuan-writing",
+        "applied": true
+      },
+      "forwarding": {
+        "status": "verified",
+        "skills": [
+          {
+            "id": "mars-style-pure-xuanhuan-writing",
+            "status": "verified",
+            "instructionForwarded": true,
+            "promptFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "promptFilesProvided": false,
+            "auditedFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "forwardedTextFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md"
+            ],
+            "omittedTextFiles": [],
+            "omittedBinaryFiles": []
+          }
+        ]
+      },
+      "correctionPolicy": {
+        "version": "universal-v3.8-2026-09-10",
+        "scope": "all-users-all-novels",
+        "stages": [
+          "skill_analysis",
+          "writing",
+          "humanizer",
+          "single"
+        ]
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "needs_review",
+        "findings": [
+          {
+            "ruleId": "R-45-chapter-length-standard",
+            "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+            "severity": "high",
+            "text": "# 月圆夜前的布局\n\n罗祖云山界，黑石魔窟。\n\n张若尘站在裂开的窟门前，手里拎着一壶酒，身边跟着木灵希。两人脚下横着三具昏迷的魔修，储物袋还在腰间，兵器也没有被取走。\n\n木灵希看了一眼地上的人：“你已经问过七次了。”\n\n“他们都没有回答。”",
+            "index": 0,
+            "suggestion": {
+              "ruleId": "R-45",
+              "label": "商业单章篇幅硬标准（2000~3000字）",
+              "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+              "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+            }
+          },
+          {
+            "ruleId": "R-08-formulaic-reasoning",
+            "label": "工整二分或完整心理链",
+            "severity": "medium",
+            "text": "不是杀伐神意，而是",
+            "index": 2560,
+            "suggestion": {
+              "ruleId": "R-08",
+              "label": "关键动作指代模糊与越界推断",
+              "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+              "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+            }
+          }
+        ],
+        "matchedRuleIds": [
+          "R-08-formulaic-reasoning",
+          "R-45-chapter-length-standard"
+        ],
+        "findingCount": 2,
+        "metrics": {
+          "chars": 3252,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 0,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 0,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 26,
+          "shortParagraphLimit": 3,
+          "exceeded": [
+            "shortParagraphs",
+            "chapterLength"
+          ]
+        },
+        "repetition": [],
+        "genre": "玄幻",
+        "genreFamily": "ancient_cultivation",
+        "skippedRuleIds": [],
+        "checkedAt": 1790145556847
+      }
+    },
+    "messagesHash": "e85927bb2d4e11563ad9100976fe591af6a14a3b4cfb8a11fcf8b907d637ad4b",
+    "editorOnly": false,
+    "billingStatus": "exact"
+  }
+}

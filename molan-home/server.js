@@ -19904,6 +19904,18 @@ function handleLocalStyleBaseline(req, res, params) {
   if (shouldProxyCloudRequest(req)) return handleCloudProxy(req, res);
   if (req.method === 'POST' && u === '/api/style/detect') return handleStyleDetect(req, res);
   if (req.method === 'POST' && u === '/api/chapter/health-check') return handleChapterHealthCheck(req, res);
+  if (req.method === 'GET' && u === '/api/genre-catalog') {
+    const { getGenreCatalog } = require('./lib/genre/genre-registry');
+    return json(res, 200, { ok: true, catalog: getGenreCatalog() });
+  }
+  if (req.method === 'GET' && u === '/api/model-capabilities') {
+    const { listSupportedModels } = require('./lib/model/model-registry');
+    return json(res, 200, { ok: true, models: listSupportedModels() });
+  }
+  if (req.method === 'GET' && u === '/api/style-catalog') {
+    const { getStyleCatalog } = require('./lib/style/style-registry');
+    return json(res, 200, { ok: true, catalog: getStyleCatalog() });
+  }
   const causalDebtSettleMatch = u.match(/^\/api\/causal-debts\/([^/]+)\/settle$/);
   const causalDebtExtractMatch = u.match(/^\/api\/causal-debts\/([^/]+)\/extract$/);
   const causalDebtMatch = u.match(/^\/api\/causal-debts\/([^/]+)$/);

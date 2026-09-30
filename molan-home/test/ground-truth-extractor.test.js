@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const {
   scanGenreBooks,
@@ -12,7 +13,11 @@ const {
 
 const CORPUS_BASE_DIR = path.resolve(__dirname, '../../资源库/小说原本');
 
-test('Ground Truth Extractor：扫描题材名家小说（每题材 >= 6 本）', () => {
+test('Ground Truth Extractor：扫描题材名家小说（每题材 >= 6 本）', (t) => {
+  if (!fs.existsSync(CORPUS_BASE_DIR)) {
+    t.skip('未包含受保护的本地原始小说归档，跳过回查测试');
+    return;
+  }
   const xuanhuanDir = path.join(CORPUS_BASE_DIR, '玄幻');
   const books = scanGenreBooks(xuanhuanDir, 6);
 
@@ -24,7 +29,11 @@ test('Ground Truth Extractor：扫描题材名家小说（每题材 >= 6 本）'
   }
 });
 
-test('Ground Truth Extractor：抽取前、中、后三阶段章节', () => {
+test('Ground Truth Extractor：抽取前、中、后三阶段章节', (t) => {
+  if (!fs.existsSync(CORPUS_BASE_DIR)) {
+    t.skip('未包含受保护的本地原始小说归档，跳过回查测试');
+    return;
+  }
   const xuanhuanDir = path.join(CORPUS_BASE_DIR, '玄幻');
   const books = scanGenreBooks(xuanhuanDir, 1);
   assert.ok(books.length > 0);

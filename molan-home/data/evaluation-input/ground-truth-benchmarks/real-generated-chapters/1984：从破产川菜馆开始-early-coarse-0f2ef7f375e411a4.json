@@ -1,0 +1,514 @@
+{
+  "ok": true,
+  "model": "gpt-5.6-luna",
+  "promptHash": "0f2ef7f375e411a4",
+  "bookTitle": "1984：从破产川菜馆开始",
+  "genre": "都市",
+  "stage": "early",
+  "variant": "coarse",
+  "content": "# 第一章 汉卡\n\n上午九点左右，赵烨手里端着保温杯，走进了中国科学院计算技术研究所的大门。\n\n门卫抬头看了他一眼。\n\n赵烨穿着洗得发白的蓝布外套，裤脚沾着一块干掉的油渍，手里的保温杯是搪瓷的，杯盖边缘磕掉了一圈漆。怎么看，都不像来谈科研合作的。\n\n“同志，找谁？”\n\n“找倪暗楠。”\n\n“有介绍信吗？”\n\n赵烨从口袋里掏出一张折过两次的纸，递过去：“有，昨天开的。”\n\n门卫展开看了看，纸上盖着红章，抬头又看他：“你是哪个单位？”\n\n“个体户。”\n\n门卫把纸递回来，语气客气了许多：“个体户来找研究员？”\n\n“我卖东西，找研究员不是很正常吗？卖菜还得找买菜的呢。”\n\n门卫没笑，把登记簿推过来：“姓名，单位，来访事由。”\n\n赵烨拿起钢笔，在“单位”一栏停了几秒，写下两个字：无。\n\n“来访事由呢？”\n\n他写：谈一笔生意。\n\n门卫扫了两眼，没有再问，指给他一条路：“第二栋，三楼，找办公室。别乱走。”\n\n赵烨道了谢，端着保温杯往里走。\n\n杯里泡的是碎茶叶，不值钱，喝起来有股纸箱味。他从八点半等到现在，已经续过一次热水。不是因为口渴，是因为手里没东西可拿。空着手站在人群里，显得太像来求人；端点热水，至少能把两只手安置妥当。\n\n第二栋楼前停着三辆自行车，两辆后座绑着资料袋，车把上挂着铝制饭盒。楼门口进进出出的年轻人，大多穿白衬衫、灰裤子，有人抱着线路板，有人夹着文件夹，走路很快，嘴里还在说着处理器、内存和接口。\n\n赵烨走得不快。\n\n他找到三楼，办公室门口已经站了七个人。\n\n领头的是个戴黑框眼镜的中年人，手里夹着公文包，正对里面的人说：“这次样机是部里点名要看的，下午就要送过去。倪工，你们这边要是不能保证汉字显示，就别把话说满。”\n\n站在门内的女人穿一件米白色短袖衬衫，头发剪到耳下，手里拿着一张蓝图。她没有争辩，只把图纸翻到另一页。\n\n“不是不能保证，”她说，“是你们拿来的显示板有问题。字符点阵少了两列，横画和撇画会粘在一起。”\n\n“现在讲这些有什么用？下午要交货。”\n\n“那就把时间往后推。”\n\n黑框眼镜笑了一下，手指敲着公文包：“倪工，这话你跟我说没用。研究所的项目不能因为个人判断推迟，设备是上面批的，指标也是上面定的。”\n\n赵烨站在最后，安静地看着。\n\n他认出那个女人就是倪暗楠。\n\n和照片上的人不太一样。照片里的人眉眼利落，像是随时准备把一页纸上的错误圈出来；眼前的倪暗楠脸上没有多少表情，手里的图纸却已经被她捏出了折痕。\n\n这趟来的人，显然不止他一个。\n\n门口那位黑框眼镜是市电子公司的采购负责人，后面两个年轻人像是厂里的技术员，还有一个穿中山装的男人，手里抱着一只皮包。赵烨看不出他的单位，但看得出他不想让别人知道自己在等谁。\n\n倪暗楠终于抬头，看见了赵烨。\n\n“你找我？”\n\n“赵烨，做汉字输入设备。”他从布包里取出一个木盒，放在门边的矮柜上，“昨天电话里说过。”\n\n黑框眼镜转过脸：“你就是那个卖打字机配件的？”\n\n“以前卖配件，最近想卖点别的。”\n\n“研究所不采购个体户的东西。”\n\n赵烨打开木盒，里面是一块巴掌大的线路板，边缘焊着几排密密麻麻的元件，旁边还压着一张打孔纸带。\n\n“你们不采购，我也不是来让你们采购的。”他说，“我是来问倪工，愿不愿意看看。”\n\n黑框眼镜皱了皱眉：“倪工现在忙。”\n\n“看一眼用不了多久。”\n\n“你听不懂吗？这里不是自由市场。”\n\n赵烨把线路板拿了，手指在板边抹掉一小块灰：“那挺好。我也没带菜来卖。”\n\n后面一个技术员低头笑了一声，随即咳嗽起来。\n\n黑框眼镜脸色变了，伸手要合上木盒。赵烨没有抢，只把线路板往自己这边收了收。\n\n“别碰。焊点松了，掉一根线，你赔不起。”\n\n“你这是什么态度？”\n\n“这是对器材的态度。至于对人，我一般看对方先怎么做。”\n\n倪暗楠接过线路板。\n\n她没有问功能，先看焊点，又翻过背面检查线路。看了片刻，她把纸带拿起来，对着窗边的光线查看上面的孔位。\n\n“你用的是什么编码？”\n\n“改过的区位码。”\n\n“改过哪里？”\n\n“常用字排序。把印刷厂、财务和公文里最常见的字提前，生僻字往后排。”\n\n“这样会改变原来的键位对应。”\n\n“原来的键位是按部首和笔画排的，理论上整齐，实际输入慢。拿‘国家’两个字来说，厂里打一天文件的人，不会因为键位排列漂亮就多忍三秒。”\n\n倪暗楠抬眼看他：“你做过测试？”\n\n“在印刷厂测过。十二个人，三天，平均速度比你们现有方案快四成。”\n\n“样本太少。”\n\n“所以我来找你，不是来宣布成果。”\n\n这句话让倪暗楠把线路板又翻了一面。\n\n黑框眼镜站在旁边，显然已经不耐烦：“倪工，时间差不多了。我们还要去调试。”\n\n倪暗楠没有立刻答应，她拿起桌上的一台旧电脑，接通电源。显示器上只有黑白两色，旁边的键盘缺了一个键帽。\n\n赵烨把线路板接到电脑背后的扩展槽上，动作很熟，先拔掉电源，再确认接口位置。房间里的人没有催他。那个穿中山装的男人甚至往前挪了一步。\n\n“你从哪儿弄来的机器？”技术员问。\n\n“朋友淘的。”\n\n“这不是普通个人能买到的。”\n\n“所以我说是朋友。”\n\n他把纸带送进读取器，线路板上的小灯亮了两下。赵烨按下几个键，屏幕上出现一行歪歪扭扭的字：\n\n人民需要自己的文字处理设备。\n\n黑框眼镜看了一眼，冷声说：“显示出来不等于能用。”\n\n“当然。”赵烨又按了几下，“您可以给个词。”\n\n黑框眼镜没有接话。\n\n赵烨看向倪暗楠：“倪工，你来。”\n\n倪暗楠拿过键盘，在纸上写了四个字：汉字处理。\n\n赵烨依次敲入编码。\n\n屏幕上跳出一行清楚的黑字。\n\n黑框眼镜的手从公文包上移开了。\n\n那两个厂里的技术员凑到屏幕前，其中一个低声说：“速度确实快。”\n\n“快有什么用？”黑框眼镜把声音压下来，“未经鉴定，出了问题谁负责？”\n\n赵烨伸手拔掉线路板。\n\n屏幕立刻黑了。\n\n“这块板只能解决输入和显示。”他说，“不能解决谁负责。要是你们真想知道，就把问题写在合同里。”\n\n黑框眼镜盯着他：“个体户也懂合同？”\n\n“卖东西的人不懂合同，早让买东西的人吃干净了。”\n\n这回没人笑。\n\n因为他说的是实话。\n\n黑框眼镜往门外让了半步，挡住了赵烨的路：“你这东西留在这里，研究所会按样品登记。你先回去等通知。”\n\n赵烨看了看他的手，又看了看桌上的线路板。\n\n“样品登记可以，收据给我。”\n\n“研究所收样品，什么时候给个体户开收据？”\n\n“那我就不留。”\n\n“你来之前没人告诉你这里的规矩？”\n\n“告诉了。”赵烨把线路板放回木盒，“所以我才不把东西交给你。”\n\n黑框眼镜的脸彻底沉下来：“你是什么意思？”\n\n赵烨端起保温杯，喝了口已经凉透的茶：“我的意思是，倪工看过了，您没看懂。东西要是丢了，您可以说没见过；要是留下，您可以说是你们自己做的。两头都占便宜，规矩确实挺好。”\n\n屋里安静了几秒。\n\n那个穿中山装的男人终于开口：“小赵，你别把话说得太满。科研单位有自己的流程。”\n\n赵烨转过身，认出他是刚才一直没说话的市电子公司副经理。\n\n“流程我不敢碰。”赵烨说，“但我有一件事想问。你们下午送去部里的样机，是不是已经装了同一套输入板？”\n\n副经理脸上的表情停住了。\n\n倪暗楠看向他。\n\n赵烨把木盒扣上，慢慢说道：“你们刚才说不能保证汉字显示，可机器里已经装了别人的板。那块板如果出了问题，下午验收时，责任会落到谁头上？”\n\n黑框眼镜猛地转向副经理：“你不是说还没定方案吗？”\n\n“只是测试板。”副经理的手压住皮包，“没装进正式样机。”\n\n赵烨没有接话。他只看倪暗楠。\n\n“测试板上的编码是不是区位码？”倪暗楠问。\n\n副经理没有回答。\n\n她走到桌边，从一叠文件里抽出验收单。翻到最后一页时，手指停在一行字上。\n\n赵烨看不清那行字，只看见倪暗楠的脸色变了。\n\n黑框眼镜上前一步：“倪工，这是项目资料，不能随便给外人看。”\n\n“他不是外人。”倪暗楠把验收单合上，“至少现在不是。”\n\n赵烨听出这句话里的分量，伸手拿回木盒。\n\n倪暗楠把那张验收单压在桌面上：“你这块板，能不能在今天下午之前做出两套？”\n\n“能。”\n\n“需要什么？”\n\n“钱，元件，还有一台能烧录的设备。”\n\n“研究所没有采购权限给你。”\n\n“我知道。”\n\n“市电子公司可以给你元件，但他们不会白给。”\n\n“那就谈价格。”\n\n黑框眼镜冷声道：“倪工，你要为一个来路不明的体户改变验收方案？”\n\n倪暗楠看着桌上的验收单：“我是在避免一块未经确认的板子替项目背责任。”\n\n副经理赶紧说：“倪工，事情没有这么严重，下午只是内部汇报。”\n\n“内部汇报也会形成记录。”\n\n她把验收单递给赵烨。\n\n赵烨没有接。他扫了一眼那行字，只看见“汉字输入装置”后面填着一个型号，而那个型号正是他木盒里的线路板。\n\n他抬起头：“你们已经把我的型号写进去了？”\n\n“不是你的。”副经理说。\n\n“那是谁的？”\n\n没人立刻回答。\n\n倪暗楠把验收单收了回来：“小赵，下午一点前，把两套板子送到这里。能不能通过，不由我保证。”\n\n“价格呢？”\n\n“通过之后，项目按采购流程结算。”\n\n“通过之前呢？”\n\n“我给你个人借一笔周转金，算我欠你的。”\n\n赵烨看着她。\n\n这句话听着体面，实际却把她从制度里摘了出去。她若用公款，手续不允许；她若不管，下午的样机可能出问题。个人借钱，是她能拿出来的最后一块垫脚石。\n\n“行。”赵烨说，“但我有条件。”\n\n黑框眼镜皱起眉头。\n\n“样机里原来的板子，必须当着我的面拆下来。我的板子由我自己装，出了问题我负责输入模块。”\n\n倪暗楠点头：“可以。”\n\n“还有，型号不能改。”\n\n副经理脸色一变：“你别得寸进尺。”\n\n赵烨把木盒抱在怀里：“型号一改，出了问题谁都能说没见过我。那我跑这一趟，图什么？”\n\n倪暗楠望着他，过了两秒，说：“按你的型号登记。”\n\n副经理还要说话，她已经拿起电话，拨了一个内线号码：“通知设备组，下午的样机暂停装配。把原输入板封存，等我过去。”\n\n电话那头不知道说了什么。\n\n倪暗楠把听筒放下，转向赵烨：“你去哪里弄元件？”\n\n“先去找钱。”\n\n“借不到呢？”\n\n赵烨把保温杯盖拧紧，杯底在桌边磕出一声轻响。\n\n“那就把我的饭馆卖了。”\n\n他说得很平常。\n\n倪暗楠看了他一会儿，像是第一次真正看清这个人。\n\n赵烨走在最后，跟着那群人下楼。前面的黑框眼镜已经开始打电话，副经理边走边解释，两个技术员低声讨论着线路板。倪暗楠被他们在中间，手里夹着那份验收单。\n\n他望了望被众星拱月的倪暗楠，心里嗟叹不已。\n\n这年头，懂技术的人不一定能做成生意，能把技术写进验收单的人，才有资格谈价钱。\n\n走到楼下时，门卫喊住了他。\n\n“赵同志，你的介绍信忘拿了。”\n\n赵烨接过信，才发现背面多了一行铅笔字。\n\n——下午一点前，带上汉卡；逾期，项目作废。\n\n落款不是倪暗楠。\n\n他把纸翻过来，看到右下角印着市电子公司的公章。那枚印章旁边，还有一个刚写上去的名字：陈启明。\n\n赵烨抬头看向三楼。\n\n倪暗楠已经不在窗前。\n\n他的保温杯里只剩半杯凉茶，木盒却比来时沉了许多。那不是因为线路板，而是因为从这一刻起，他手里的东西已经不再只是自己的生意。\n\n有人提前替他报了价。\n\n也有人准备让他替一块坏板子背锅。",
+  "charCount": 4575,
+  "durationMs": 77737,
+  "usage": {
+    "requestId": "req_646d78323a3898c0268dfe90112e346f",
+    "userEmail": "1271055010@qq.com",
+    "userId": "usr_69045981613f27cb496923a120d17758",
+    "workspaceId": "",
+    "projectId": "",
+    "modelId": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "contextWindowTokens": 131072,
+    "promptTokens": 18618,
+    "completionTokens": 3889,
+    "reasoningTokens": 299,
+    "totalTokens": 22507,
+    "cachedTokens": 17152,
+    "cacheWriteTokens": null,
+    "usageSource": "upstream",
+    "status": "completed",
+    "finishReason": null,
+    "createdAt": 1790090735971,
+    "durationMs": 77231,
+    "creditCost": 0,
+    "reservedCost": 0,
+    "estimatedTokens": 22507,
+    "estimatedCreditCost": 0,
+    "correctionAudit": {
+      "version": "universal-v3.8-2026-09-10",
+      "libraryVersion": "f4d035d0d608",
+      "enabled": true,
+      "status": "needs_review",
+      "findings": [
+        {
+          "ruleId": "R-45-chapter-length-standard",
+          "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+          "severity": "high",
+          "text": "# 第一章 汉卡\n\n上午九点左右，赵烨手里端着保温杯，走进了中国科学院计算技术研究所的大门。\n\n门卫抬头看了他一眼。\n\n赵烨穿着洗得发白的蓝布外套，裤脚沾着一块干掉的油渍，手里的保温杯是搪瓷的，杯盖边缘磕掉了一圈漆。怎么看，都不像来谈科研合",
+          "index": 0,
+          "suggestion": {
+            "ruleId": "R-45",
+            "label": "商业单章篇幅硬标准（2000~3000字）",
+            "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+            "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+          }
+        },
+        {
+          "ruleId": "R-08-formulaic-reasoning",
+          "label": "工整二分或完整心理链",
+          "severity": "medium",
+          "text": "不是因为线路板，而是",
+          "index": 4518,
+          "suggestion": {
+            "ruleId": "R-08",
+            "label": "关键动作指代模糊与越界推断",
+            "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+            "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+          }
+        }
+      ],
+      "matchedRuleIds": [
+        "R-08-formulaic-reasoning",
+        "R-45-chapter-length-standard"
+      ],
+      "findingCount": 2,
+      "metrics": {
+        "chars": 4242,
+        "charLimitMin": 2000,
+        "charLimitMax": 3000,
+        "metaphorWords": 4,
+        "metaphorLimit": 4,
+        "decorativeQuantity": 0,
+        "decorativeQuantityLimit": 2,
+        "shortParagraphs": 46,
+        "shortParagraphLimit": 3,
+        "exceeded": [
+          "shortParagraphs",
+          "chapterLength"
+        ]
+      },
+      "repetition": [],
+      "genre": "都市",
+      "genreFamily": "urban_modern",
+      "skippedRuleIds": [
+        "R-23-modern-legal-bureaucracy",
+        "R-30-lore-announcement",
+        "R-33-pseudo-precision",
+        "R-38-game-meter-ticking",
+        "R-44-quest-penalty-staccato"
+      ],
+      "checkedAt": 1790090813202
+    },
+    "characterMaterial": {
+      "enabled": false,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "auto",
+      "downgradeReason": "",
+      "archetype": "",
+      "archetypes": [],
+      "archetypeSource": "none",
+      "archetypeConfidence": 0,
+      "dimensions": [
+        "appearance",
+        "expression",
+        "action",
+        "dialogue",
+        "catchphrase",
+        "psychology"
+      ],
+      "scene": "",
+      "relationship": "",
+      "emotionalState": [],
+      "intent": "",
+      "humanTextureSignals": [],
+      "contextFallback": true,
+      "rankingWeights": null,
+      "profileKey": "",
+      "profileBucket": "",
+      "profileFocusSlice": "",
+      "profileAvailable": false,
+      "profileFallback": true,
+      "profileReason": "profiles_not_published",
+      "profileSampleCount": 0,
+      "ruleCount": 0,
+      "sampleCount": 0,
+      "fallback": true,
+      "samplesRemovedByBudget": false,
+      "rulesReducedByBudget": false,
+      "sampleSources": [],
+      "reason": "disabled_by_work",
+      "overlap": {
+        "checkedSampleCount": 0,
+        "overlapFragments": [],
+        "leakedTerms": [],
+        "blocked": false
+      },
+      "rhythmDeviation": {
+        "available": false,
+        "exceeded": false
+      },
+      "blocked": false
+    },
+    "qualityScan": {
+      "maxChars": 200000,
+      "scannedChars": 4584,
+      "truncated": false
+    },
+    "skillAudit": {
+      "version": 1,
+      "audited": true,
+      "status": "verified",
+      "promptHash": "df2d24390fef5cc9a17b1e208b6a73034957244d5ebd59de43ac5da40244eca8",
+      "actualSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "declaredSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "skills": [
+        {
+          "id": "write-high-tension-fiction",
+          "name": "write-high-tension-fiction",
+          "source": "builtin",
+          "occurrences": 1,
+          "files": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "fileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12602
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 12351
+            }
+          ],
+          "fileHashes": [
+            {
+              "path": "agents/openai.yaml",
+              "sha256": "c9a7972cd91f5541015caa27365ce95ba3b8b10f2b8e6e47aa5cef6cde981a41",
+              "size": 431
+            },
+            {
+              "path": "references/canon-template.md",
+              "sha256": "87b2208f519a9a618c7fe960b6ed5bfe9f72fb3f6ad4863a16cf0de48565b09c",
+              "size": 1071
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "sha256": "7c763d8551941600e6bcd08ee56443745dcdeb0a0c560767094eb88bf7101fcb",
+              "size": 1710
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "sha256": "94acb0793912aed519ebbcea118cb99bfd7f544f5d5b464dc3689feee3ec50b5",
+              "size": 1632
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "sha256": "9eac1d8356a192483afead707d66f00c083c1ebca0c0e37c6f66922d3d55e806",
+              "size": 4818
+            },
+            {
+              "path": "references/style-profile.md",
+              "sha256": "119fa92fbdda319d61a2fa816b448e1e4da0e04f52d88e98cfd47f644ca76707",
+              "size": 1743
+            },
+            {
+              "path": "SKILL.md",
+              "sha256": "c41b3ffbd1f32d01a890a83a8ab102dacce4ab75e89898d1868e648ebde92195",
+              "size": 5101
+            }
+          ],
+          "instructionHash": "e29c9c6f414a25c90212f560b41cac08e25f85887d0d440522367e53be95ae75",
+          "expectedInstructionHash": "e29c9c6f414a25c90212f560b41cac08e25f85887d0d440522367e53be95ae75",
+          "promptFiles": [
+            "SKILL.md",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md"
+          ],
+          "promptInstructionHash": "79fd231a0b7a81220a1e7ff482f5ea87d7c2283ecd01a52148a6f8f9ce8c83c4",
+          "promptFilesProvided": false,
+          "declaredPromptFiles": [],
+          "declaredFiles": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "declaredFileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12602
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 12351
+            }
+          ],
+          "verification": "server-match"
+        }
+      ],
+      "stage": "writing",
+      "editorOnly": false,
+      "defaultWritingSkill": {
+        "id": "write-high-tension-fiction",
+        "applied": true
+      },
+      "forwarding": {
+        "status": "verified",
+        "skills": [
+          {
+            "id": "write-high-tension-fiction",
+            "status": "verified",
+            "instructionForwarded": true,
+            "promptFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "promptFilesProvided": false,
+            "auditedFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "forwardedTextFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md"
+            ],
+            "omittedTextFiles": [],
+            "omittedBinaryFiles": []
+          }
+        ]
+      },
+      "correctionPolicy": {
+        "version": "universal-v3.8-2026-09-10",
+        "scope": "all-users-all-novels",
+        "stages": [
+          "skill_analysis",
+          "writing",
+          "humanizer",
+          "single"
+        ]
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "needs_review",
+        "findings": [
+          {
+            "ruleId": "R-45-chapter-length-standard",
+            "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+            "severity": "high",
+            "text": "# 第一章 汉卡\n\n上午九点左右，赵烨手里端着保温杯，走进了中国科学院计算技术研究所的大门。\n\n门卫抬头看了他一眼。\n\n赵烨穿着洗得发白的蓝布外套，裤脚沾着一块干掉的油渍，手里的保温杯是搪瓷的，杯盖边缘磕掉了一圈漆。怎么看，都不像来谈科研合",
+            "index": 0,
+            "suggestion": {
+              "ruleId": "R-45",
+              "label": "商业单章篇幅硬标准（2000~3000字）",
+              "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+              "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+            }
+          },
+          {
+            "ruleId": "R-08-formulaic-reasoning",
+            "label": "工整二分或完整心理链",
+            "severity": "medium",
+            "text": "不是因为线路板，而是",
+            "index": 4518,
+            "suggestion": {
+              "ruleId": "R-08",
+              "label": "关键动作指代模糊与越界推断",
+              "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+              "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+            }
+          }
+        ],
+        "matchedRuleIds": [
+          "R-08-formulaic-reasoning",
+          "R-45-chapter-length-standard"
+        ],
+        "findingCount": 2,
+        "metrics": {
+          "chars": 4242,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 4,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 0,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 46,
+          "shortParagraphLimit": 3,
+          "exceeded": [
+            "shortParagraphs",
+            "chapterLength"
+          ]
+        },
+        "repetition": [],
+        "genre": "都市",
+        "genreFamily": "urban_modern",
+        "skippedRuleIds": [
+          "R-23-modern-legal-bureaucracy",
+          "R-30-lore-announcement",
+          "R-33-pseudo-precision",
+          "R-38-game-meter-ticking",
+          "R-44-quest-penalty-staccato"
+        ],
+        "checkedAt": 1790090813202
+      }
+    },
+    "messagesHash": "df2d24390fef5cc9a17b1e208b6a73034957244d5ebd59de43ac5da40244eca8",
+    "editorOnly": false,
+    "billingStatus": "exact"
+  },
+  "removedBillingEvents": 259,
+  "generatedAt": "2026-09-22T15:26:53.217Z",
+  "isFromCache": false
+}

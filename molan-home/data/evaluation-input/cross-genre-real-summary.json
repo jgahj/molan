@@ -1,0 +1,751 @@
+{
+  "summary": {
+    "都市": {
+      "genre": "都市",
+      "uniqueBooks": 6,
+      "totalFiles": 9,
+      "totalChars": 30128,
+      "avgCharsPerChapter": 3348,
+      "avgParagraphsPerChapter": 107,
+      "avgDialogueRatio": 0.297,
+      "avgConflictDensity": 0.003,
+      "avgDowntimeDensity": 0.017,
+      "totalAbruptJumps": 0,
+      "avgAbruptPerChapter": 0,
+      "avgAiFlavorDensity": 0,
+      "booksList": [
+        "1984：从破产川菜馆开始",
+        "人在美利坚：我的叔叔堂吉诃德",
+        "以神通之名",
+        "半岛余生：Tara给别人可惜了",
+        "华娱情报王",
+        "华娱：从08考北电开始"
+      ]
+    },
+    "青春甜宠": {
+      "genre": "青春甜宠",
+      "uniqueBooks": 6,
+      "totalFiles": 7,
+      "totalChars": 26557,
+      "avgCharsPerChapter": 3794,
+      "avgParagraphsPerChapter": 150,
+      "avgDialogueRatio": 0.244,
+      "avgConflictDensity": 0.011,
+      "avgDowntimeDensity": 0.03,
+      "totalAbruptJumps": 0,
+      "avgAbruptPerChapter": 0,
+      "avgAiFlavorDensity": 0.008,
+      "booksList": [
+        "F4里最病弱的那个，被团宠了",
+        "亲一下就软！",
+        "厌世农村妹也要被少爷强制爱吗？",
+        "坏兄妹",
+        "夏夜有染",
+        "大反派的作精女友觉醒后，更作了"
+      ]
+    },
+    "玄幻": {
+      "genre": "玄幻",
+      "uniqueBooks": 7,
+      "totalFiles": 9,
+      "totalChars": 31507,
+      "avgCharsPerChapter": 3501,
+      "avgParagraphsPerChapter": 132,
+      "avgDialogueRatio": 0.174,
+      "avgConflictDensity": 0.06,
+      "avgDowntimeDensity": 0.054,
+      "totalAbruptJumps": 0,
+      "avgAbruptPerChapter": 0,
+      "avgAiFlavorDensity": 0.025,
+      "booksList": [
+        "一世之尊",
+        "万像归墟",
+        "万生痴魔",
+        "从伏虎桩开始成为武圣",
+        "从效法万妖开始成就真仙",
+        "从水猴子开始成神",
+        "月圆夜前的布局-实验组"
+      ]
+    },
+    "悬疑灵异": {
+      "genre": "悬疑灵异",
+      "uniqueBooks": 6,
+      "totalFiles": 7,
+      "totalChars": 24177,
+      "avgCharsPerChapter": 3454,
+      "avgParagraphsPerChapter": 133,
+      "avgDialogueRatio": 0.166,
+      "avgConflictDensity": 0.017,
+      "avgDowntimeDensity": 0.037,
+      "totalAbruptJumps": 0,
+      "avgAbruptPerChapter": 0,
+      "avgAiFlavorDensity": 0.004,
+      "booksList": [
+        "一个民间阴阳先生的真实经历",
+        "三界物流公司",
+        "不死的我速通灵异游戏",
+        "乡野道人",
+        "什么？任婷婷是我娃娃亲！",
+        "你一个交警，抢刑侦的案子合适吗"
+      ]
+    },
+    "历史脑洞": {
+      "genre": "历史脑洞",
+      "uniqueBooks": 6,
+      "totalFiles": 7,
+      "totalChars": 25514,
+      "avgCharsPerChapter": 3645,
+      "avgParagraphsPerChapter": 115,
+      "avgDialogueRatio": 0.241,
+      "avgConflictDensity": 0.012,
+      "avgDowntimeDensity": 0.043,
+      "totalAbruptJumps": 0,
+      "avgAbruptPerChapter": 0,
+      "avgAiFlavorDensity": 0.008,
+      "booksList": [
+        "一心求死，反倒成为千古一帝？",
+        "三国：开局项羽模板，你当谋士？",
+        "三国：我用边角料，吊打刘关张",
+        "兽娘：从被高冷蛇女捡回部落开始",
+        "别人夺嫡偷偷来，我家皇帝下圣旨",
+        "在大唐当丞相？豆包：我来助你！"
+      ]
+    },
+    "仙侠": {
+      "genre": "仙侠",
+      "uniqueBooks": 6,
+      "totalFiles": 9,
+      "totalChars": 29948,
+      "avgCharsPerChapter": 3328,
+      "avgParagraphsPerChapter": 134,
+      "avgDialogueRatio": 0.215,
+      "avgConflictDensity": 0.03,
+      "avgDowntimeDensity": 0.177,
+      "totalAbruptJumps": 3,
+      "avgAbruptPerChapter": 0.33,
+      "avgAiFlavorDensity": 0.027,
+      "booksList": [
+        "临圣",
+        "仙府！",
+        "仙道尽头",
+        "光阴之外",
+        "凡人修仙传",
+        "凡人修仙：阴阳道果"
+      ]
+    }
+  },
+  "genreStats": {
+    "都市": {
+      "genre": "都市",
+      "books": {},
+      "filesCount": 9,
+      "totalChars": 30128,
+      "totalParagraphs": 967,
+      "dialogueChars": 8953,
+      "conflictHits": 1,
+      "downtimeHits": 5,
+      "abruptHits": 0,
+      "aiFlavorHits": 0,
+      "bookDetails": [
+        {
+          "title": "1984：从破产川菜馆开始",
+          "fileName": "1984：从破产川菜馆开始-early-coarse-0f2ef7f375e411a4.json",
+          "charCount": 4575,
+          "paragraphsCount": 171,
+          "dialogueRatio": 0.3503825136612022,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "1984：从破产川菜馆开始",
+          "fileName": "1984：从破产川菜馆开始-early-coarse-1224f8b5cf15c595.json",
+          "charCount": 3185,
+          "paragraphsCount": 95,
+          "dialogueRatio": 0.31648351648351647,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.03139717425431711,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "1984：从破产川菜馆开始",
+          "fileName": "1984：从破产川菜馆开始-early-detailed-3f3c21b727350d98.json",
+          "charCount": 3366,
+          "paragraphsCount": 86,
+          "dialogueRatio": 0.28520499108734404,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "人在美利坚：我的叔叔堂吉诃德",
+          "fileName": "人在美利坚：我的叔叔堂吉诃德-early-coarse-ca064440de5e4131.json",
+          "charCount": 1296,
+          "paragraphsCount": 48,
+          "dialogueRatio": 0.2716049382716049,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "人在美利坚：我的叔叔堂吉诃德",
+          "fileName": "人在美利坚：我的叔叔堂吉诃德-early-detailed-5b0a987531d739b7.json",
+          "charCount": 1621,
+          "paragraphsCount": 55,
+          "dialogueRatio": 0.19370758790869833,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "以神通之名",
+          "fileName": "以神通之名-early-detailed-4c5cb4bfff7c651a.json",
+          "charCount": 4088,
+          "paragraphsCount": 150,
+          "dialogueRatio": 0.15728962818003914,
+          "conflictDensity": 0.02446183953033268,
+          "downtimeDensity": 0.02446183953033268,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "半岛余生：Tara给别人可惜了",
+          "fileName": "半岛余生：Tara给别人可惜了-early-detailed-c80ec11d53064332.json",
+          "charCount": 3806,
+          "paragraphsCount": 126,
+          "dialogueRatio": 0.2832369942196532,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.05254860746190226,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "华娱情报王",
+          "fileName": "华娱情报王-early-detailed-c80d8dc970644b3e.json",
+          "charCount": 3889,
+          "paragraphsCount": 103,
+          "dialogueRatio": 0.3761892517356647,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "华娱：从08考北电开始",
+          "fileName": "华娱：从08考北电开始-early-detailed-a86ca4c7048a5458.json",
+          "charCount": 4302,
+          "paragraphsCount": 133,
+          "dialogueRatio": 0.35611343561134357,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.02324500232450023,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        }
+      ]
+    },
+    "青春甜宠": {
+      "genre": "青春甜宠",
+      "books": {},
+      "filesCount": 7,
+      "totalChars": 26557,
+      "totalParagraphs": 1048,
+      "dialogueChars": 6472,
+      "conflictHits": 3,
+      "downtimeHits": 8,
+      "abruptHits": 0,
+      "aiFlavorHits": 2,
+      "bookDetails": [
+        {
+          "title": "F4里最病弱的那个，被团宠了",
+          "fileName": "F4里最病弱的那个，被团宠了-early-detailed-5d1e6336765fa295.json",
+          "charCount": 3720,
+          "paragraphsCount": 140,
+          "dialogueRatio": 0.26586021505376345,
+          "conflictDensity": 0.026881720430107524,
+          "downtimeDensity": 0.05376344086021505,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "亲一下就软！",
+          "fileName": "亲一下就软！-early-detailed-9f81418c53dcf1c9.json",
+          "charCount": 4297,
+          "paragraphsCount": 169,
+          "dialogueRatio": 0.28578077728647894,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.023272050267628578,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "厌世农村妹也要被少爷强制爱吗？",
+          "fileName": "厌世农村妹也要被少爷强制爱吗？-early-detailed-bd56f20a4f71bf46.json",
+          "charCount": 3898,
+          "paragraphsCount": 146,
+          "dialogueRatio": 0.2288353001539251,
+          "conflictDensity": 0.051308363263211906,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "坏兄妹",
+          "fileName": "坏兄妹-early-coarse-a0ac374a69307e9e.json",
+          "charCount": 3525,
+          "paragraphsCount": 157,
+          "dialogueRatio": 0.23063829787234041,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "坏兄妹",
+          "fileName": "坏兄妹-early-detailed-5d0491eafe8fb647.json",
+          "charCount": 4100,
+          "paragraphsCount": 169,
+          "dialogueRatio": 0.2375609756097561,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.07317073170731707,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.024390243902439025
+        },
+        {
+          "title": "夏夜有染",
+          "fileName": "夏夜有染-early-detailed-e179193ff4aa9655.json",
+          "charCount": 3566,
+          "paragraphsCount": 125,
+          "dialogueRatio": 0.250701065619742,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.028042624789680316,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "大反派的作精女友觉醒后，更作了",
+          "fileName": "大反派的作精女友觉醒后，更作了-early-detailed-17c24d4521630c61.json",
+          "charCount": 3451,
+          "paragraphsCount": 142,
+          "dialogueRatio": 0.19762387713706173,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.028977108084613158,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.028977108084613158
+        }
+      ]
+    },
+    "玄幻": {
+      "genre": "玄幻",
+      "books": {},
+      "filesCount": 9,
+      "totalChars": 31507,
+      "totalParagraphs": 1186,
+      "dialogueChars": 5476,
+      "conflictHits": 19,
+      "downtimeHits": 17,
+      "abruptHits": 0,
+      "aiFlavorHits": 8,
+      "bookDetails": [
+        {
+          "title": "一世之尊",
+          "fileName": "一世之尊-early-coarse-03684a136e5ed276.json",
+          "charCount": 3467,
+          "paragraphsCount": 131,
+          "dialogueRatio": 0.1277761753677531,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.028843380444188056,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "一世之尊",
+          "fileName": "一世之尊-middle-coarse-3c41e5a99df12634.json",
+          "charCount": 3107,
+          "paragraphsCount": 115,
+          "dialogueRatio": 0.05439330543933055,
+          "conflictDensity": 0.160926939169617,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "一世之尊",
+          "fileName": "一世之尊-middle-detailed-804a890b9fe98b77.json",
+          "charCount": 3305,
+          "paragraphsCount": 106,
+          "dialogueRatio": 0.1113464447806354,
+          "conflictDensity": 0.06051437216338881,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.12102874432677763
+        },
+        {
+          "title": "万像归墟",
+          "fileName": "万像归墟-early-detailed-35e45275d1690d9d.json",
+          "charCount": 3663,
+          "paragraphsCount": 141,
+          "dialogueRatio": 0.23723723723723725,
+          "conflictDensity": 0.1092001092001092,
+          "downtimeDensity": 0.0546000546000546,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.0273000273000273
+        },
+        {
+          "title": "万生痴魔",
+          "fileName": "万生痴魔-early-detailed-1c6ead550af2cf47.json",
+          "charCount": 3751,
+          "paragraphsCount": 166,
+          "dialogueRatio": 0.2655291922154092,
+          "conflictDensity": 0.026659557451346308,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "从伏虎桩开始成为武圣",
+          "fileName": "从伏虎桩开始成为武圣-early-detailed-ebb8d5bdbc3e0a2c.json",
+          "charCount": 3627,
+          "paragraphsCount": 120,
+          "dialogueRatio": 0.16432313206506755,
+          "conflictDensity": 0.027570995312930793,
+          "downtimeDensity": 0.027570995312930793,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "从效法万妖开始成就真仙",
+          "fileName": "从效法万妖开始成就真仙-early-detailed-885b579f3fe26e04.json",
+          "charCount": 3889,
+          "paragraphsCount": 151,
+          "dialogueRatio": 0.14888146052969914,
+          "conflictDensity": 0.025713551041398816,
+          "downtimeDensity": 0.05142710208279763,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.05142710208279763
+        },
+        {
+          "title": "从水猴子开始成神",
+          "fileName": "从水猴子开始成神-early-detailed-86c64903641f68af.json",
+          "charCount": 3549,
+          "paragraphsCount": 141,
+          "dialogueRatio": 0.1282051282051282,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.22541561003099464,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.02817695125387433
+        },
+        {
+          "title": "月圆夜前的布局-实验组",
+          "fileName": "月圆夜前的布局-实验组-pacing-exp-v-b9bbdfca7a4098f8.json",
+          "charCount": 3149,
+          "paragraphsCount": 115,
+          "dialogueRatio": 0.31787869164814225,
+          "conflictDensity": 0.15878056525881232,
+          "downtimeDensity": 0.0952683391552874,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        }
+      ]
+    },
+    "悬疑灵异": {
+      "genre": "悬疑灵异",
+      "books": {},
+      "filesCount": 7,
+      "totalChars": 24177,
+      "totalParagraphs": 932,
+      "dialogueChars": 4017,
+      "conflictHits": 4,
+      "downtimeHits": 9,
+      "abruptHits": 0,
+      "aiFlavorHits": 1,
+      "bookDetails": [
+        {
+          "title": "一个民间阴阳先生的真实经历",
+          "fileName": "一个民间阴阳先生的真实经历-early-coarse-4a940546857d37c0.json",
+          "charCount": 3216,
+          "paragraphsCount": 140,
+          "dialogueRatio": 0.12997512437810946,
+          "conflictDensity": 0.06218905472636817,
+          "downtimeDensity": 0.031094527363184084,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "一个民间阴阳先生的真实经历",
+          "fileName": "一个民间阴阳先生的真实经历-early-detailed-e303bf0cc337dfcc.json",
+          "charCount": 3098,
+          "paragraphsCount": 119,
+          "dialogueRatio": 0.1868947708198838,
+          "conflictDensity": 0.03227888960619755,
+          "downtimeDensity": 0.03227888960619755,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "三界物流公司",
+          "fileName": "三界物流公司-early-detailed-b91c6ab0ff2823a3.json",
+          "charCount": 2949,
+          "paragraphsCount": 131,
+          "dialogueRatio": 0.04984740590030519,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "不死的我速通灵异游戏",
+          "fileName": "不死的我速通灵异游戏-early-detailed-9e91c0817a692a87.json",
+          "charCount": 3766,
+          "paragraphsCount": 136,
+          "dialogueRatio": 0.11391396707381837,
+          "conflictDensity": 0.026553372278279343,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "乡野道人",
+          "fileName": "乡野道人-early-detailed-d96a2dc2903d5739.json",
+          "charCount": 3961,
+          "paragraphsCount": 133,
+          "dialogueRatio": 0.14895228477657158,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.15147689977278464,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "什么？任婷婷是我娃娃亲！",
+          "fileName": "什么？任婷婷是我娃娃亲！-early-detailed-f2e823287a4a82b5.json",
+          "charCount": 3316,
+          "paragraphsCount": 137,
+          "dialogueRatio": 0.2882991556091677,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.03015681544028951,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.03015681544028951
+        },
+        {
+          "title": "你一个交警，抢刑侦的案子合适吗",
+          "fileName": "你一个交警，抢刑侦的案子合适吗-early-detailed-01a59d95560faad6.json",
+          "charCount": 3871,
+          "paragraphsCount": 136,
+          "dialogueRatio": 0.2319814001549987,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        }
+      ]
+    },
+    "历史脑洞": {
+      "genre": "历史脑洞",
+      "books": {},
+      "filesCount": 7,
+      "totalChars": 25514,
+      "totalParagraphs": 807,
+      "dialogueChars": 6142,
+      "conflictHits": 3,
+      "downtimeHits": 11,
+      "abruptHits": 0,
+      "aiFlavorHits": 2,
+      "bookDetails": [
+        {
+          "title": "一心求死，反倒成为千古一帝？",
+          "fileName": "一心求死，反倒成为千古一帝？-early-detailed-8cedd02b97b5b92d.json",
+          "charCount": 3802,
+          "paragraphsCount": 114,
+          "dialogueRatio": 0.2856391372961599,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.026301946344029457,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "三国：开局项羽模板，你当谋士？",
+          "fileName": "三国：开局项羽模板，你当谋士？-early-coarse-3585697a8eb903d8.json",
+          "charCount": 3738,
+          "paragraphsCount": 132,
+          "dialogueRatio": 0.09844836811128946,
+          "conflictDensity": 0.08025682182985554,
+          "downtimeDensity": 0.026752273943285176,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "三国：开局项羽模板，你当谋士？",
+          "fileName": "三国：开局项羽模板，你当谋士？-early-detailed-46f6316ea471685d.json",
+          "charCount": 3174,
+          "paragraphsCount": 102,
+          "dialogueRatio": 0.1389413988657845,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "三国：我用边角料，吊打刘关张",
+          "fileName": "三国：我用边角料，吊打刘关张-early-detailed-d0648478f7913b5b.json",
+          "charCount": 3456,
+          "paragraphsCount": 88,
+          "dialogueRatio": 0.23177083333333334,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.057870370370370364,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "兽娘：从被高冷蛇女捡回部落开始",
+          "fileName": "兽娘：从被高冷蛇女捡回部落开始-early-detailed-7aa4c935bdb3eb27.json",
+          "charCount": 3862,
+          "paragraphsCount": 130,
+          "dialogueRatio": 0.3221128948731227,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.025893319523562924,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.025893319523562924
+        },
+        {
+          "title": "别人夺嫡偷偷来，我家皇帝下圣旨",
+          "fileName": "别人夺嫡偷偷来，我家皇帝下圣旨-early-detailed-1c88ac57570d879c.json",
+          "charCount": 3160,
+          "paragraphsCount": 90,
+          "dialogueRatio": 0.2889240506329114,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.12658227848101264,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.03164556962025316
+        },
+        {
+          "title": "在大唐当丞相？豆包：我来助你！",
+          "fileName": "在大唐当丞相？豆包：我来助你！-early-detailed-926e2da92ad4e387.json",
+          "charCount": 4322,
+          "paragraphsCount": 151,
+          "dialogueRatio": 0.2982415548357242,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.04627487274409996,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        }
+      ]
+    },
+    "仙侠": {
+      "genre": "仙侠",
+      "books": {},
+      "filesCount": 9,
+      "totalChars": 29948,
+      "totalParagraphs": 1203,
+      "dialogueChars": 6437,
+      "conflictHits": 9,
+      "downtimeHits": 53,
+      "abruptHits": 3,
+      "aiFlavorHits": 8,
+      "bookDetails": [
+        {
+          "title": "临圣",
+          "fileName": "临圣-early-coarse-97c6237bce974932.json",
+          "charCount": 1462,
+          "paragraphsCount": 65,
+          "dialogueRatio": 0.2961696306429549,
+          "conflictDensity": 0.06839945280437756,
+          "downtimeDensity": 0.13679890560875513,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "临圣",
+          "fileName": "临圣-early-detailed-b715b0f83af90c70.json",
+          "charCount": 3027,
+          "paragraphsCount": 130,
+          "dialogueRatio": 0.22860918401057154,
+          "conflictDensity": 0,
+          "downtimeDensity": 0,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "仙府！",
+          "fileName": "仙府！-early-detailed-ec74eff0328abd66.json",
+          "charCount": 3722,
+          "paragraphsCount": 149,
+          "dialogueRatio": 0.1894142933906502,
+          "conflictDensity": 0.13433637829124126,
+          "downtimeDensity": 0.2686727565824825,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.05373455131649651
+        },
+        {
+          "title": "仙道尽头",
+          "fileName": "仙道尽头-early-detailed-6aad47dc7746d859.json",
+          "charCount": 3821,
+          "paragraphsCount": 157,
+          "dialogueRatio": 0.18241298089505364,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.07851347814708191,
+          "abruptCount": 1,
+          "aiFlavorDensity": 0.02617115938236064
+        },
+        {
+          "title": "光阴之外",
+          "fileName": "光阴之外-early-detailed-6aeb4bf286244898.json",
+          "charCount": 3821,
+          "paragraphsCount": 171,
+          "dialogueRatio": 0.13216435488092124,
+          "conflictDensity": 0.05234231876472128,
+          "downtimeDensity": 0.10468463752944256,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "凡人修仙传",
+          "fileName": "凡人修仙传-early-coarse-6f6e599f9459619b.json",
+          "charCount": 2615,
+          "paragraphsCount": 103,
+          "dialogueRatio": 0.25391969407265774,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.6500956022944551,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0
+        },
+        {
+          "title": "凡人修仙传",
+          "fileName": "凡人修仙传-early-coarse-917a25ebaf21879f.json",
+          "charCount": 3425,
+          "paragraphsCount": 131,
+          "dialogueRatio": 0.13605839416058393,
+          "conflictDensity": 0.029197080291970802,
+          "downtimeDensity": 0.26277372262773724,
+          "abruptCount": 0,
+          "aiFlavorDensity": 0.058394160583941604
+        },
+        {
+          "title": "凡人修仙传",
+          "fileName": "凡人修仙传-early-detailed-b1f75431c0b574f4.json",
+          "charCount": 4505,
+          "paragraphsCount": 169,
+          "dialogueRatio": 0.31431742508324084,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.08879023307436183,
+          "abruptCount": 1,
+          "aiFlavorDensity": 0.022197558268590458
+        },
+        {
+          "title": "凡人修仙：阴阳道果",
+          "fileName": "凡人修仙：阴阳道果-early-detailed-df5d8bb1cbe15491.json",
+          "charCount": 3550,
+          "paragraphsCount": 128,
+          "dialogueRatio": 0.2419718309859155,
+          "conflictDensity": 0,
+          "downtimeDensity": 0.11267605633802817,
+          "abruptCount": 1,
+          "aiFlavorDensity": 0.056338028169014086
+        }
+      ]
+    }
+  }
+}

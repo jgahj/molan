@@ -1,0 +1,699 @@
+{
+  "schemaVersion": "molan-evaluation-input-benchmark-pools-v1",
+  "generatedAt": "2026-09-22T11:16:30.389Z",
+  "indexSource": "data/genre-baselines/index.json",
+  "poolSelectionPolicy": {
+    "primary": "same genre/subgenre when available",
+    "secondary": "same narrative mode and audience when metadata exists",
+    "broad": "same top-level genre",
+    "comparison": "留给外部比较模型，本文件不执行比较。"
+  },
+  "pools": [
+    {
+      "genre": "玄幻",
+      "status": "ready",
+      "sourceFile": "data/genre-baselines/玄幻.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "generatedAt": "2026-09-15T14:29:29.413Z",
+      "bookCount": 20,
+      "chaptersPerBook": 3,
+      "sampling": {
+        "method": "sorted-file-window-without-refill",
+        "candidateLimit": 20,
+        "consideredCount": 20,
+        "excludedCount": 0
+      },
+      "limitations": [
+        "下一章标题证明文件内边界，不证明采集原文没有缺页。",
+        "目录/标题格式异常保守跳过；非UTF-8需显式指定编码。",
+        "按文件名排序取样，不代表题材总体；人名与开篇/结尾分类仅启发式。"
+      ],
+      "baseline": {
+        "sentenceLenMean": {
+          "mean": 26.9661,
+          "stdDev": 5.2608,
+          "count": 20
+        },
+        "sentenceLenStd": {
+          "mean": 17.9651,
+          "stdDev": 4.0227,
+          "count": 20
+        },
+        "paragraphLenMean": {
+          "mean": 33.4606,
+          "stdDev": 11.241,
+          "count": 20
+        },
+        "paragraphLenStd": {
+          "mean": 21.6944,
+          "stdDev": 6.018,
+          "count": 20
+        },
+        "dialogueRatio": {
+          "mean": 0.2428,
+          "stdDev": 0.1286,
+          "count": 20
+        },
+        "dialogueTurnMean": {
+          "mean": 21.4833,
+          "stdDev": 7.7198,
+          "count": 20
+        },
+        "commaPeriodRatio": {
+          "mean": 2.3732,
+          "stdDev": 0.6878,
+          "count": 20
+        },
+        "ttr": {
+          "mean": 0.6675,
+          "stdDev": 0.0603,
+          "count": 20
+        },
+        "similePerKilo": {
+          "mean": 1.2481,
+          "stdDev": 0.6573,
+          "count": 20
+        }
+      },
+      "structureBaseline": {
+        "chapterCharsMean": 3281.65,
+        "chapterCharsP25": 2526,
+        "chapterCharsP75": 3423,
+        "singleSentenceParagraphRatio": 0.6281,
+        "directPsychRatio": 0.0621,
+        "onomatopoeiaParagraphRatio": 0.0009,
+        "dialogueParagraphRatio": 0.3338,
+        "openingModeDistribution": {
+          "scene": 0.9,
+          "dialogue": 0.1
+        },
+        "endingModeDistribution": {
+          "unknown": 0.717,
+          "question": 0.017,
+          "turn": 0.167,
+          "newProblem": 0.033,
+          "fulfil": 0.067
+        },
+        "nameAccumulationMean": [
+          1.25,
+          2.55,
+          3.55
+        ]
+      },
+      "sampleBookCountObserved": 20,
+      "sampleBookRefs": [
+        "一世之尊 - 爱潜水的乌贼",
+        "万像归墟 - 叉刀",
+        "万生痴魔 - 沙拉古斯",
+        "从伏虎桩开始成为武圣 - 努力的言念",
+        "从效法万妖开始成就真仙 - 陆月十九",
+        "从水猴子开始成神 - 甲壳蚁",
+        "仙朝鹰犬 - 平层",
+        "元始法则 - 飞天鱼",
+        "剑烛大荒 - 爱潜水的乌贼",
+        "匹夫原罪 - 庐州青石",
+        "夜无疆 - 辰东",
+        "天下无敌！ - 乘风御剑",
+        "天师怎么成了妖魔！ - 迪希霸",
+        "宿命之环 - 爱潜水的乌贼",
+        "宿命神契 - 签到领福利",
+        "巫师：从合成宝石开始 - 橘猫龙",
+        "我在永夜打造庇护所 - 中世纪的兔子",
+        "斗罗：灵眸白虎 - 飞羽心",
+        "星河之主 - 烽仙",
+        "武道！ - 田隶"
+      ]
+    },
+    {
+      "genre": "都市高武",
+      "status": "ready",
+      "sourceFile": "data/genre-baselines/都市高武.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "generatedAt": "2026-09-15T14:29:29.515Z",
+      "bookCount": 17,
+      "chaptersPerBook": 3,
+      "sampling": {
+        "method": "sorted-file-window-without-refill",
+        "candidateLimit": 20,
+        "consideredCount": 20,
+        "excludedCount": 3
+      },
+      "limitations": [
+        "下一章标题证明文件内边界，不证明采集原文没有缺页。",
+        "目录/标题格式异常保守跳过；非UTF-8需显式指定编码。",
+        "按文件名排序取样，不代表题材总体；人名与开篇/结尾分类仅启发式。"
+      ],
+      "baseline": {
+        "sentenceLenMean": {
+          "mean": 20.3726,
+          "stdDev": 4.2543,
+          "count": 17
+        },
+        "sentenceLenStd": {
+          "mean": 13.1896,
+          "stdDev": 4.0635,
+          "count": 17
+        },
+        "paragraphLenMean": {
+          "mean": 22.409,
+          "stdDev": 5.2412,
+          "count": 17
+        },
+        "paragraphLenStd": {
+          "mean": 13.6997,
+          "stdDev": 4.3032,
+          "count": 17
+        },
+        "dialogueRatio": {
+          "mean": 0.2302,
+          "stdDev": 0.098,
+          "count": 17
+        },
+        "dialogueTurnMean": {
+          "mean": 16.6402,
+          "stdDev": 4.161,
+          "count": 17
+        },
+        "commaPeriodRatio": {
+          "mean": 1.7479,
+          "stdDev": 0.8329,
+          "count": 17
+        },
+        "ttr": {
+          "mean": 0.705,
+          "stdDev": 0.029,
+          "count": 17
+        },
+        "similePerKilo": {
+          "mean": 1.0747,
+          "stdDev": 0.567,
+          "count": 17
+        }
+      },
+      "structureBaseline": {
+        "chapterCharsMean": 2331.1176,
+        "chapterCharsP25": 2136,
+        "chapterCharsP75": 2458,
+        "singleSentenceParagraphRatio": 0.8273,
+        "directPsychRatio": 0.03,
+        "onomatopoeiaParagraphRatio": 0.0041,
+        "dialogueParagraphRatio": 0.2982,
+        "openingModeDistribution": {
+          "dialogue": 0.353,
+          "exposition": 0.059,
+          "scene": 0.588
+        },
+        "endingModeDistribution": {
+          "unknown": 0.627,
+          "newProblem": 0.137,
+          "turn": 0.098,
+          "question": 0.098,
+          "fulfil": 0.039
+        },
+        "nameAccumulationMean": [
+          0.3529,
+          0.7059,
+          1.1765
+        ]
+      },
+      "sampleBookCountObserved": 17,
+      "sampleBookRefs": [
+        "一堆华丽的技能里出现了一个劲大",
+        "全民地仙：开局紫金葫芦辟福地",
+        "全民神祇：别人修仙道，我立魔道",
+        "全民英雄协会：开局招募一拳光头",
+        "全民领主：每日一个阿斯塔特",
+        "全民：转职炎法，解锁肉鸽系统",
+        "努力就变强的我，被重生者曝光了",
+        "国运求生，我靠情报系统养活国家",
+        "天物觉醒：我能刻印一切",
+        "娘胎觉醒转职，出生绑定四神兽！",
+        "我为至尊，饲养八王猎诸神",
+        "我从吃神开始反向晋升",
+        "我武道至尊！转生御兽世家？",
+        "我，亿万天赋，天才不过见我门槛",
+        "每天属性翻一倍，我黑化爆杀一切",
+        "系统敢逼我当狗？开局炼化系统！",
+        "觉醒伪神，神明弃我，我自为神"
+      ]
+    },
+    {
+      "genre": "悬疑脑洞",
+      "status": "ready",
+      "sourceFile": "data/genre-baselines/悬疑脑洞.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "generatedAt": "2026-09-15T14:29:29.608Z",
+      "bookCount": 20,
+      "chaptersPerBook": 3,
+      "sampling": {
+        "method": "sorted-file-window-without-refill",
+        "candidateLimit": 20,
+        "consideredCount": 20,
+        "excludedCount": 0
+      },
+      "limitations": [
+        "下一章标题证明文件内边界，不证明采集原文没有缺页。",
+        "目录/标题格式异常保守跳过；非UTF-8需显式指定编码。",
+        "按文件名排序取样，不代表题材总体；人名与开篇/结尾分类仅启发式。"
+      ],
+      "baseline": {
+        "sentenceLenMean": {
+          "mean": 21.7559,
+          "stdDev": 3.1531,
+          "count": 20
+        },
+        "sentenceLenStd": {
+          "mean": 14.2352,
+          "stdDev": 3.0635,
+          "count": 20
+        },
+        "paragraphLenMean": {
+          "mean": 26.0391,
+          "stdDev": 4.4355,
+          "count": 20
+        },
+        "paragraphLenStd": {
+          "mean": 15.0603,
+          "stdDev": 4.124,
+          "count": 20
+        },
+        "dialogueRatio": {
+          "mean": 0.1676,
+          "stdDev": 0.1096,
+          "count": 20
+        },
+        "dialogueTurnMean": {
+          "mean": 17.0869,
+          "stdDev": 5.1206,
+          "count": 20
+        },
+        "commaPeriodRatio": {
+          "mean": 1.9213,
+          "stdDev": 0.4199,
+          "count": 20
+        },
+        "ttr": {
+          "mean": 0.7035,
+          "stdDev": 0.0405,
+          "count": 20
+        },
+        "similePerKilo": {
+          "mean": 1.7189,
+          "stdDev": 0.7627,
+          "count": 20
+        }
+      },
+      "structureBaseline": {
+        "chapterCharsMean": 2416.1667,
+        "chapterCharsP25": 2127,
+        "chapterCharsP75": 2712,
+        "singleSentenceParagraphRatio": 0.7288,
+        "directPsychRatio": 0.038,
+        "onomatopoeiaParagraphRatio": 0.0028,
+        "dialogueParagraphRatio": 0.2282,
+        "openingModeDistribution": {
+          "scene": 0.75,
+          "dialogue": 0.2,
+          "exposition": 0.05
+        },
+        "endingModeDistribution": {
+          "unknown": 0.5,
+          "newProblem": 0.183,
+          "fulfil": 0.1,
+          "question": 0.15,
+          "turn": 0.067
+        },
+        "nameAccumulationMean": [
+          0.4,
+          1,
+          1.55
+        ]
+      },
+      "sampleBookCountObserved": 20,
+      "sampleBookRefs": [
+        "不要在无限流里招惹精神病！",
+        "乙女游戏哪来的面板和血条啊喂？",
+        "九叔的绝代师弟",
+        "九叔：我三岁，怎么会是道门魁首",
+        "九叔：我有一个蓝星直播间",
+        "九叔：末法时代？我直接挂机修仙",
+        "你好诡异Boss，我是来打工的",
+        "全民恐怖求生：我觉醒加点序列！",
+        "全民躲猫猫：疯批美人她满级天眼",
+        "全球死考：刚下刑场你让我去考试",
+        "刚成阎王，被孙女召唤到诡异世界",
+        "后室重生：我是顶级探索者",
+        "开局盗大墓，系统让我去自首",
+        "我创立的组织，被重生者曝光了！",
+        "我在诡异副本女装直播后爆火了",
+        "我有一个女鬼催眠APP",
+        "我的人格超会演【卡牌扮演】",
+        "我，编剧，灵气复苏",
+        "扮演美强惨马甲的我虐哭漫画读者",
+        "捡到隔壁鳏夫的玩偶后，他共感了"
+      ]
+    },
+    {
+      "genre": "青春甜宠",
+      "status": "ready",
+      "sourceFile": "data/genre-baselines/青春甜宠.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "generatedAt": "2026-09-15T14:29:29.698Z",
+      "bookCount": 20,
+      "chaptersPerBook": 3,
+      "sampling": {
+        "method": "sorted-file-window-without-refill",
+        "candidateLimit": 20,
+        "consideredCount": 20,
+        "excludedCount": 0
+      },
+      "limitations": [
+        "下一章标题证明文件内边界，不证明采集原文没有缺页。",
+        "目录/标题格式异常保守跳过；非UTF-8需显式指定编码。",
+        "按文件名排序取样，不代表题材总体；人名与开篇/结尾分类仅启发式。"
+      ],
+      "baseline": {
+        "sentenceLenMean": {
+          "mean": 21.3844,
+          "stdDev": 3.338,
+          "count": 20
+        },
+        "sentenceLenStd": {
+          "mean": 13.1256,
+          "stdDev": 2.812,
+          "count": 20
+        },
+        "paragraphLenMean": {
+          "mean": 24.0129,
+          "stdDev": 4.448,
+          "count": 20
+        },
+        "paragraphLenStd": {
+          "mean": 14.0187,
+          "stdDev": 3.4596,
+          "count": 20
+        },
+        "dialogueRatio": {
+          "mean": 0.1749,
+          "stdDev": 0.0671,
+          "count": 20
+        },
+        "dialogueTurnMean": {
+          "mean": 14.4247,
+          "stdDev": 3.6942,
+          "count": 20
+        },
+        "commaPeriodRatio": {
+          "mean": 1.579,
+          "stdDev": 0.4113,
+          "count": 20
+        },
+        "ttr": {
+          "mean": 0.7401,
+          "stdDev": 0.0351,
+          "count": 20
+        },
+        "similePerKilo": {
+          "mean": 1.8793,
+          "stdDev": 0.9185,
+          "count": 20
+        }
+      },
+      "structureBaseline": {
+        "chapterCharsMean": 2134.4667,
+        "chapterCharsP25": 1982,
+        "chapterCharsP75": 2351,
+        "singleSentenceParagraphRatio": 0.7981,
+        "directPsychRatio": 0.0461,
+        "onomatopoeiaParagraphRatio": 0.0001,
+        "dialogueParagraphRatio": 0.2779,
+        "openingModeDistribution": {
+          "scene": 0.8,
+          "dialogue": 0.2
+        },
+        "endingModeDistribution": {
+          "newProblem": 0.133,
+          "unknown": 0.6,
+          "turn": 0.083,
+          "question": 0.133,
+          "fulfil": 0.05
+        },
+        "nameAccumulationMean": [
+          0.4,
+          0.75,
+          1.1
+        ]
+      },
+      "sampleBookCountObserved": 20,
+      "sampleBookRefs": [
+        "F4里最病弱的那个，被团宠了",
+        "亲一下就软！",
+        "厌世农村妹也要被少爷强制爱吗？",
+        "坏兄妹",
+        "夏夜有染",
+        "大反派的作精女友觉醒后，更作了",
+        "大小姐雇我替她和太子爷网恋",
+        "宝宝乖，再亲一口好不好",
+        "宝宝，选我好不好",
+        "宝贝，别对我心软",
+        "强扭的校草太酸涩，重生她不要了",
+        "怎敌她动人",
+        "拜金小绿茶乖又软，大佬们偏心宠",
+        "春夜禧雨",
+        "春心难捱",
+        "暗恋对象又坏又撩，她招架不住",
+        "替大小姐网恋的恶毒小跟班重生了",
+        "杀死那个春夜",
+        "溯雨信笺",
+        "玩腻分手？宝宝，轻点咬"
+      ]
+    },
+    {
+      "genre": "历史脑洞",
+      "status": "ready",
+      "sourceFile": "data/genre-baselines/历史脑洞.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "generatedAt": "2026-09-15T14:29:29.798Z",
+      "bookCount": 19,
+      "chaptersPerBook": 3,
+      "sampling": {
+        "method": "sorted-file-window-without-refill",
+        "candidateLimit": 20,
+        "consideredCount": 20,
+        "excludedCount": 1
+      },
+      "limitations": [
+        "下一章标题证明文件内边界，不证明采集原文没有缺页。",
+        "目录/标题格式异常保守跳过；非UTF-8需显式指定编码。",
+        "按文件名排序取样，不代表题材总体；人名与开篇/结尾分类仅启发式。"
+      ],
+      "baseline": {
+        "sentenceLenMean": {
+          "mean": 21.5036,
+          "stdDev": 4.5815,
+          "count": 19
+        },
+        "sentenceLenStd": {
+          "mean": 13.6392,
+          "stdDev": 3.8261,
+          "count": 19
+        },
+        "paragraphLenMean": {
+          "mean": 26.0802,
+          "stdDev": 7.5569,
+          "count": 19
+        },
+        "paragraphLenStd": {
+          "mean": 14.7069,
+          "stdDev": 4.5357,
+          "count": 19
+        },
+        "dialogueRatio": {
+          "mean": 0.2087,
+          "stdDev": 0.0989,
+          "count": 19
+        },
+        "dialogueTurnMean": {
+          "mean": 18.5354,
+          "stdDev": 5.956,
+          "count": 19
+        },
+        "commaPeriodRatio": {
+          "mean": 2.0311,
+          "stdDev": 0.865,
+          "count": 19
+        },
+        "ttr": {
+          "mean": 0.7008,
+          "stdDev": 0.0395,
+          "count": 19
+        },
+        "similePerKilo": {
+          "mean": 1.1394,
+          "stdDev": 1.0315,
+          "count": 19
+        }
+      },
+      "structureBaseline": {
+        "chapterCharsMean": 2493.7368,
+        "chapterCharsP25": 2109,
+        "chapterCharsP75": 2585,
+        "singleSentenceParagraphRatio": 0.7311,
+        "directPsychRatio": 0.0518,
+        "onomatopoeiaParagraphRatio": 0.0007,
+        "dialogueParagraphRatio": 0.2725,
+        "openingModeDistribution": {
+          "scene": 0.895,
+          "dialogue": 0.105
+        },
+        "endingModeDistribution": {
+          "unknown": 0.561,
+          "question": 0.175,
+          "turn": 0.123,
+          "newProblem": 0.088,
+          "fulfil": 0.053
+        },
+        "nameAccumulationMean": [
+          0.3684,
+          1.3158,
+          1.7895
+        ]
+      },
+      "sampleBookCountObserved": 19,
+      "sampleBookRefs": [
+        "一心求死，反倒成为千古一帝？",
+        "三国：开局项羽模板，你当谋士？",
+        "三国：我用边角料，吊打刘关张",
+        "兽娘：从被高冷蛇女捡回部落开始",
+        "别人夺嫡偷偷来，我家皇帝下圣旨",
+        "在大唐当丞相？豆包：我来助你！",
+        "大唐：开局七岁闺女讨嫁妆",
+        "大唐：我穿越后每天获得一项能力",
+        "大唐：李世民求我造反",
+        "大唐：李承乾扮猪吃老虎",
+        "大明异姓王，开局治好朱雄英！",
+        "大明异姓王：开局复活马皇后！",
+        "大秦我带秦始皇长生不老",
+        "大秦：上交洞天，始皇带我狂飙！",
+        "天呐！我家来了个萌娃朱雄英",
+        "天幕洛神赋，曹家父子社死",
+        "天幕盘点开国，红色华夏震撼千古",
+        "天幕：刷短视频，嬴政得了MVP",
+        "开局签到常务副皇帝，权倾朝野！"
+      ]
+    },
+    {
+      "genre": "科幻末世",
+      "status": "ready",
+      "sourceFile": "data/genre-baselines/科幻末世.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "generatedAt": "2026-09-15T14:29:29.995Z",
+      "bookCount": 18,
+      "chaptersPerBook": 3,
+      "sampling": {
+        "method": "sorted-file-window-without-refill",
+        "candidateLimit": 20,
+        "consideredCount": 20,
+        "excludedCount": 2
+      },
+      "limitations": [
+        "下一章标题证明文件内边界，不证明采集原文没有缺页。",
+        "目录/标题格式异常保守跳过；非UTF-8需显式指定编码。",
+        "按文件名排序取样，不代表题材总体；人名与开篇/结尾分类仅启发式。"
+      ],
+      "baseline": {
+        "sentenceLenMean": {
+          "mean": 22.872,
+          "stdDev": 5.1821,
+          "count": 18
+        },
+        "sentenceLenStd": {
+          "mean": 14.9523,
+          "stdDev": 4.0495,
+          "count": 18
+        },
+        "paragraphLenMean": {
+          "mean": 26.551,
+          "stdDev": 6.125,
+          "count": 18
+        },
+        "paragraphLenStd": {
+          "mean": 16.3404,
+          "stdDev": 4.8489,
+          "count": 18
+        },
+        "dialogueRatio": {
+          "mean": 0.1126,
+          "stdDev": 0.0576,
+          "count": 18
+        },
+        "dialogueTurnMean": {
+          "mean": 16.9578,
+          "stdDev": 7.2258,
+          "count": 18
+        },
+        "commaPeriodRatio": {
+          "mean": 1.9913,
+          "stdDev": 0.846,
+          "count": 18
+        },
+        "ttr": {
+          "mean": 0.6887,
+          "stdDev": 0.042,
+          "count": 18
+        },
+        "similePerKilo": {
+          "mean": 1.5317,
+          "stdDev": 0.8203,
+          "count": 18
+        }
+      },
+      "structureBaseline": {
+        "chapterCharsMean": 2524.6296,
+        "chapterCharsP25": 2094,
+        "chapterCharsP75": 2728,
+        "singleSentenceParagraphRatio": 0.7218,
+        "directPsychRatio": 0.0383,
+        "onomatopoeiaParagraphRatio": 0.0011,
+        "dialogueParagraphRatio": 0.1782,
+        "openingModeDistribution": {
+          "scene": 0.722,
+          "dialogue": 0.278
+        },
+        "endingModeDistribution": {
+          "unknown": 0.556,
+          "question": 0.167,
+          "newProblem": 0.074,
+          "turn": 0.148,
+          "fulfil": 0.056
+        },
+        "nameAccumulationMean": [
+          1.0556,
+          1.5,
+          2.0556
+        ]
+      },
+      "sampleBookCountObserved": 18,
+      "sampleBookRefs": [
+        "全星际都知道我们小队很有钱",
+        "全民抽卡求生，每天一张传说卡",
+        "公路求生：开局觉醒修罗序列",
+        "公路求生：重生觉醒空间序列",
+        "列车求生，我每天获得永久增益",
+        "十日末世降临，我能推演人类未来",
+        "吞噬进化：从破旧机器人开始",
+        "小丧尸被读心，怎么就成团宠了？",
+        "小队全员兽化，菟丝花夹缝难逃",
+        "尸潮求生：我的手枪能发射核弹",
+        "庇护所进化论",
+        "序列车队我有药剂师机械师双序列",
+        "废土植灵：我的精神体是土豆！",
+        "废土？兽世？不给金手指不活了",
+        "弱智就弱智吧，我照样星际最强！",
+        "我在公路求生游戏开了家花店",
+        "我在末世经营中餐厅爆火",
+        "战争系统在末世"
+      ]
+    }
+  ]
+}

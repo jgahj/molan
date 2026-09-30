@@ -1,0 +1,145 @@
+{
+  "experiment_id": "EXP-PACING-001",
+  "title": "Scene Planner 时空转场过渡契约与单章容量留白 A/B 质量对照实验",
+  "evaluated_at": "2026-09-23T06:02:37.265Z",
+  "evaluator": "小说质量实验评测器 (Novel Quality Experiment Evaluator)",
+  "verdict": "PARTIALLY_SUPPORTED",
+  "confidence": 0.95,
+  "target_metric_before": {
+    "abrupt_transition_count": 1,
+    "avg_scene_length": 106,
+    "downtime_ratio": 0.011,
+    "conflict_density": 0.251
+  },
+  "target_metric_after": {
+    "abrupt_transition_count": 0,
+    "avg_scene_length": 112,
+    "downtime_ratio": 0.011,
+    "conflict_density": 0.159
+  },
+  "delta": {
+    "abrupt_transition_count": -1,
+    "avg_scene_length": 6,
+    "downtime_ratio": 0,
+    "conflict_density": -0.092,
+    "conflict_drop_percentage": 36.7
+  },
+  "side_effects": [
+    {
+      "type": "conflict_intensity_dilution",
+      "severity": "high",
+      "description": "核心交锋与神威压迫词频密度由 0.251 下降至 0.159，降幅达 36.7%，超出安全容差上限 (35.0%)。",
+      "root_cause": "场景规划过渡契约与调息篇幅挤占了动作交锋空间，开篇破门冲突描写从实体破坏软化为对峙僵持。"
+    }
+  ],
+  "unexpected_effects": [
+    {
+      "type": "emergent_cliffhanger_depth",
+      "description": "实验组在转场契约与悬念布局约束下，尾声自发衍生出“神殿之外，勿信地姥”的血书反转，比对照组单纯约定会面的悬念张力更具纵深感。",
+      "impact": "positive"
+    }
+  ],
+  "quality_regression": [
+    {
+      "dimension": "节奏与即时爽感",
+      "symptom": "第1至第2幕的动作对抗张力呈现轻度疲软，由“直接拔剑破石”退化为“提壶对饮对峙”，延缓了即时快感的释放节奏。"
+    }
+  ],
+  "dimensions_comparison": {
+    "target_metrics": {
+      "dimension": "目标指标",
+      "summary": "孤立硬切完全清零（1 -> 0），达成核心优化指标；但单场景微观段落均长提升有限（+6字），留白比率未达预设的10%门槛。",
+      "status": "partially_met"
+    },
+    "non_target_metrics": {
+      "dimension": "非目标指标",
+      "summary": "正文总字数平稳（Control: 3190 vs Treatment: 3149），处于玄幻基准（2500-3600）黄金带，无字数缩水崩溃。",
+      "status": "stable"
+    },
+    "overall_quality": {
+      "dimension": "整体质量",
+      "summary": "文本连贯性与场景过渡平滑度显著提升，由拼接感走向自然流动；但玄幻题材必需的爆裂破坏感有所平抑。",
+      "status": "trade_off"
+    },
+    "side_effects": {
+      "dimension": "副作用",
+      "summary": "交锋词频密度下降 36.7%，触发了预先约定的副作用熔断警戒线。",
+      "status": "alert_triggered"
+    },
+    "ai_flavor": {
+      "dimension": "AI味",
+      "summary": "去除了“三日后，”这种经典的功能性机械时间跳跃，但转场段落仍带有一定的功能交代痕迹（“三日之间，云山界的风声换了几轮”）。",
+      "status": "improved"
+    },
+    "human_touch": {
+      "dimension": "人味",
+      "summary": "增补了“酒是灵希替我买的”、“门不是人”等带有些许市井机锋的微小对白，人物情绪反差更为真实，摆脱了单纯的冰冷算计。",
+      "status": "improved"
+    },
+    "plot": {
+      "dimension": "剧情",
+      "summary": "主线反转脉络完整保留，尾部追加阵营内部分裂隐患（血书警示），剧情厚度优于对照组。",
+      "status": "enhanced"
+    },
+    "pacing": {
+      "dimension": "节奏",
+      "summary": "消除了断崖式跳跃，呼吸感有所显现；但从退婚宴到神殿借石刻之间的过渡略显绵长，起伏波长拉大。",
+      "status": "mixed"
+    },
+    "character": {
+      "dimension": "人物",
+      "summary": "张若尘动机自洽，姑射静骄傲而多疑的性格通过“贺礼名单折痕”与对日晷领悟的反应更具说服力，无降智表现。",
+      "status": "improved"
+    },
+    "causality": {
+      "dimension": "因果",
+      "summary": "张若尘前去借天魔石刻的理由在前文闭门调息与观察风向中得到铺垫，因果链由“突兀出现”变为“顺理成章”。",
+      "status": "improved"
+    },
+    "emotion": {
+      "dimension": "情绪",
+      "summary": "打破了对照组单一的高亢挑衅，形成了“试探-脱身-沉寂-释嫌-悚然”的多阶情绪波形。",
+      "status": "improved"
+    },
+    "reading_drive": {
+      "dimension": "阅读驱动力",
+      "summary": "动作破坏驱动转为因果悬念驱动；读者翻页动力由“看主角怎么砸场子”转为“看主角如何月圆夜遁逃与应对地姥之谜”。",
+      "status": "shifted"
+    },
+    "consistency": {
+      "dimension": "一致性",
+      "summary": "严格恪守 Story Bible（地姥指婚、元会代表天阁目、天魔贪狼图、日晷），与基准模型无实体冲突或代际矛盾。",
+      "status": "strictly_consistent"
+    }
+  },
+  "evidence": [
+    {
+      "type": "target_metric_improvement",
+      "label": "硬切消除事实证据",
+      "control_quote": "姑射云琉没有阻拦……稍有差错，神魂便会被劫火烧穿。三日后，张若尘主动来到云琉神殿。姑射静正在殿后石台上推演阵纹……",
+      "treatment_quote": "“先活过神劫。”“我会。”三日之间，云山界的风声换了几轮。张若尘没有再去砸门，也没有接受新的宴请，只在住处闭门调息。木灵希偶尔看见他取出一枚黑色玉简，在灯下读了很久……月圆渐近，云琉神殿外的守卫也多了起来。这日黄昏，张若尘终于亲自登门。",
+      "evaluation": "实验组成功使用环境风声、闭门调息与月圆黄昏光影形成自然过渡，硬切彻底消除。"
+    },
+    {
+      "type": "side_effect_conflict_drop",
+      "label": "冲突烈度衰退证据",
+      "control_quote": "话音刚落，魔窟深处亮起神光，一只黑色大手穿过石壁，五指收拢，直接向张若尘抓来……魔窟穹顶被掌风震下大片碎石……",
+      "treatment_quote": "张若尘扫了眼石案上的《神储卷》，又看了看旁边封存的玉匣。“我只问一句，认识不认识我。你们既然认识，我便不抢东西。”说罢，他将玉匣推回原处，提着酒壶坐下。那名伪神反倒不敢动了。",
+      "evaluation": "实验组在第一场交锋中以言语和姿态对峙替代了部分肢体破壁交火，导致冲突动词密度降低 36.7%。"
+    },
+    {
+      "type": "human_touch_evidence",
+      "label": "人味与对白微观潜台词证据",
+      "control_quote": "姑射静看着他，手指掐住一枚玉符……“你若再在罗祖云山界闹一次，我会亲自把你送出界门。”",
+      "treatment_quote": "姑射静看了一眼，气得笑了：“你连酒都护得住，护不住自己？”“酒是灵希替我买的。”“所以你就让别人替你收拾残局？”“你砸了人家的门。”“门不是人。”",
+      "evaluation": "实验组的对白出现反语、自嘲与调侃，具备真实的人情机锋与互动温度。"
+    }
+  ],
+  "genre_baseline_alignment": {
+    "genre": "玄幻修真",
+    "chapter_length_status": "within_p50_p75",
+    "dialogue_ratio_status": "in_sweet_spot",
+    "pacing_status": "smoother_but_tension_diluted"
+  },
+  "verdict_rationale": "目标指标“时空硬切次数”成功由 1 降为 0，且人味与因果自洽性显著提升；但由于冲突动词密度降幅达到 36.7%（超过事前约定的 35.0% 安全副作用门槛），且留白比例未达到 10% 目标，依据严谨评测规范，综合裁决为“部分支持”（PARTIALLY_SUPPORTED），须在下一轮迭代中微调控笔阻尼，禁止直接全量推进。"
+}

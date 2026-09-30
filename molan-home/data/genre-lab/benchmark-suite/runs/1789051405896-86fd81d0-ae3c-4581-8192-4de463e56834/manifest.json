@@ -1,0 +1,800 @@
+{
+  "schemaVersion": 1,
+  "kind": "frozen-local-benchmark-manifest",
+  "createdAt": "2026-09-10T14:43:25.943Z",
+  "status": "not_executed_at_manifest_creation",
+  "plan": {
+    "arms": [
+      "control",
+      "candidate"
+    ],
+    "contextCaveat": "独立单章的双臂使用完全相同的计划、合同、空ledger和模型控制参数；处理差异是固定控制prompt与生产管线。",
+    "contextPolicy": "arm-local-continuation",
+    "expectedGenerations": 36,
+    "expectedPairs": 18,
+    "expectedTasks": 18,
+    "phase": "P3",
+    "plannedStatus": "not_executed",
+    "schemaVersion": 1,
+    "suiteHash": "a5c3d9a6463a061a2dc5e7005b649a6c8cf0db22b9669d6ad32e5c9a492988d4",
+    "suiteId": "original-six-genres-v1",
+    "tasks": [
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "能力守恒",
+            "见证权限",
+            "代价入账"
+          ]
+        },
+        "cast": [
+          "陶汀：仅知本岛账目",
+          "祝栎：隐瞒旧契名单",
+          "余荻：不信任学徒的船户代表"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：修契学徒陶汀为两岛核验借水契，见证人因封路无法到场而放水已开始。写暂停阻力、远距见证验证及赔水协商。术法只能转移已有水量，不得代签，结尾保留有限信任。直接输出正文。"
+        ],
+        "familyId": "ancient_cultivation",
+        "genre": "玄幻",
+        "id": "reg-xuanhuan-01",
+        "phase": "P3",
+        "premise": "群岛以潮汐灵纹维持淡水，修契学徒陶汀发现集体退潮契约被延长。术法只能转移已有水量，改契须受损者见证。",
+        "prompt": "原创单章：修契学徒陶汀为两岛核验借水契，见证人因封路无法到场而放水已开始。写暂停阻力、远距见证验证及赔水协商。术法只能转移已有水量，不得代签，结尾保留有限信任。直接输出正文。",
+        "routeId": "tidal_covenant",
+        "seriesId": "reg-xuanhuan-01",
+        "stateChecks": [
+          "能力守恒",
+          "见证权限",
+          "代价入账"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "借水见证"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "退出权",
+            "制度自洽",
+            "对白推进"
+          ]
+        },
+        "cast": [
+          "陶汀：仅知本岛账目",
+          "祝栎：隐瞒旧契名单",
+          "余荻：不信任学徒的船户代表"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：余荻申请退出共有潮契，祝栎要求延长任期，余荻拒绝。陶汀主持公开交接，以临时减额而非强迫续任解决担保缺席。写权益、日常细节与改变条件的对白，不把拒绝者写成反派。直接输出正文。"
+        ],
+        "familyId": "ancient_cultivation",
+        "genre": "玄幻",
+        "id": "reg-xuanhuan-03",
+        "phase": "P3",
+        "premise": "群岛以潮汐灵纹维持淡水，修契学徒陶汀发现集体退潮契约被延长。术法只能转移已有水量，改契须受损者见证。",
+        "prompt": "原创单章：余荻申请退出共有潮契，祝栎要求延长任期，余荻拒绝。陶汀主持公开交接，以临时减额而非强迫续任解决担保缺席。写权益、日常细节与改变条件的对白，不把拒绝者写成反派。直接输出正文。",
+        "routeId": "tidal_covenant",
+        "seriesId": "reg-xuanhuan-03",
+        "stateChecks": [
+          "退出权",
+          "制度自洽",
+          "对白推进"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "退契席"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "有限认知",
+            "取舍代价",
+            "合作分歧"
+          ]
+        },
+        "cast": [
+          "岑葭：录声匠",
+          "卫砾：护路人",
+          "冉禾：远村信使"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：录声匠岑葭在回声廊封闭前辨求援尾音，信使冉禾要求先救本村，卫砾拒走裂桥。通过地形、时差与询问取得不完整证据，选择低风险耗时路线，不得突然全知或靠秘宝。直接输出正文。"
+        ],
+        "familyId": "ancient_cultivation",
+        "genre": "玄幻",
+        "id": "reg-xuanhuan-02",
+        "phase": "P3",
+        "premise": "公共回声廊传递护山术，录声匠岑葭发现同一句求援被两村认领。回声消耗石壁寿命，须实地回听。",
+        "prompt": "原创单章：录声匠岑葭在回声廊封闭前辨求援尾音，信使冉禾要求先救本村，卫砾拒走裂桥。通过地形、时差与询问取得不完整证据，选择低风险耗时路线，不得突然全知或靠秘宝。直接输出正文。",
+        "routeId": "echo_commons",
+        "seriesId": "reg-xuanhuan-02",
+        "stateChecks": [
+          "有限认知",
+          "取舍代价",
+          "合作分歧"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "尾音归属"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "能力边界",
+            "公共责任",
+            "物理反馈"
+          ]
+        },
+        "cast": [
+          "陆芩：试用登记员",
+          "申朔：退役承力师",
+          "段苇：公交调度员"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：末班公交过桥前，陆芩发现承力表有无人认领签名。申朔已到疲劳上限，段苇要照顾滞留乘客。写核对、限载替代与延误补偿，武技仅短时分担冲击，不修复桥体、不威压路人。直接输出正文。"
+        ],
+        "familyId": "urban_modern",
+        "genre": "都市高武",
+        "id": "reg-urban-01",
+        "phase": "P3",
+        "premise": "武者承力技艺绑定设施检修责任，登记员陆芩发现高架承力班次被重复出售，武斗不能修桥。",
+        "prompt": "原创单章：末班公交过桥前，陆芩发现承力表有无人认领签名。申朔已到疲劳上限，段苇要照顾滞留乘客。写核对、限载替代与延误补偿，武技仅短时分担冲击，不修复桥体、不威压路人。直接输出正文。",
+        "routeId": "civic_load",
+        "seriesId": "reg-urban-01",
+        "stateChecks": [
+          "能力边界",
+          "公共责任",
+          "物理反馈"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "末班核验"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "疲劳连续性",
+            "现实阻力",
+            "无道德绑架"
+          ]
+        },
+        "cast": [
+          "陆芩：试用登记员",
+          "申朔：退役承力师",
+          "段苇：公交调度员"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：申朔休班收到商场承托货架请求，拒绝超限施力。陆芩与员工隔离、分批卸货并核查失效检修贴。紧迫感落在搬运次序、器材变形和客流沟通，保留合理拒绝的尊严，不突然恢复体能。直接输出正文。"
+        ],
+        "familyId": "urban_modern",
+        "genre": "都市高武",
+        "id": "reg-urban-03",
+        "phase": "P3",
+        "premise": "武者承力技艺绑定设施检修责任，登记员陆芩发现高架承力班次被重复出售，武斗不能修桥。",
+        "prompt": "原创单章：申朔休班收到商场承托货架请求，拒绝超限施力。陆芩与员工隔离、分批卸货并核查失效检修贴。紧迫感落在搬运次序、器材变形和客流沟通，保留合理拒绝的尊严，不突然恢复体能。直接输出正文。",
+        "routeId": "civic_load",
+        "seriesId": "reg-urban-03",
+        "stateChecks": [
+          "疲劳连续性",
+          "现实阻力",
+          "无道德绑架"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "休班拒绝"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "隐私边界",
+            "证据来源",
+            "关系变化"
+          ]
+        },
+        "cast": [
+          "赵榆：替补教练",
+          "汤隼：队长",
+          "连青：康复队员"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：赵榆发现共享冲击额度超支，连青愿交记录但不公开病情，队长汤隼急于证明清白。写保护隐私的匿名总量核查、比赛降级与信任变化；信息须有来源，不用仪器跳数写升级。直接输出正文。"
+        ],
+        "familyId": "urban_modern",
+        "genre": "都市高武",
+        "id": "reg-urban-02",
+        "phase": "P3",
+        "premise": "社区联赛共享武技冲击余量，替补教练赵榆发现明星占用了康复者额度。",
+        "prompt": "原创单章：赵榆发现共享冲击额度超支，连青愿交记录但不公开病情，队长汤隼急于证明清白。写保护隐私的匿名总量核查、比赛降级与信任变化；信息须有来源，不用仪器跳数写升级。直接输出正文。",
+        "routeId": "resonance_league",
+        "seriesId": "reg-urban-02",
+        "stateChecks": [
+          "隐私边界",
+          "证据来源",
+          "关系变化"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "匿名额度"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "信息权限",
+            "线索可追溯",
+            "推断纠正"
+          ]
+        },
+        "cast": [
+          "许葵：保管员",
+          "邵迁：钟楼修理工",
+          "罗椿：失主"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：许葵收到两人申领同一记忆格，其中一人只授权三秒，邵迁从钟声判断时刻有歧义。写权限、可复查线索、错误推断及纠正，封存未授权部分，不读心或全知揭底。直接输出正文。"
+        ],
+        "familyId": "mystery",
+        "genre": "悬疑诡秘",
+        "id": "reg-mystery-01",
+        "phase": "P3",
+        "premise": "居民可寄存十分钟记忆，公共时钟出现空白，保管员许葵只能查看获授权记录。",
+        "prompt": "原创单章：许葵收到两人申领同一记忆格，其中一人只授权三秒，邵迁从钟声判断时刻有歧义。写权限、可复查线索、错误推断及纠正，封存未授权部分，不读心或全知揭底。直接输出正文。",
+        "routeId": "lost_minutes",
+        "seriesId": "reg-mystery-01",
+        "stateChecks": [
+          "信息权限",
+          "线索可追溯",
+          "推断纠正"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "三秒授权"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "销毁权",
+            "反证意识",
+            "推理边界"
+          ]
+        },
+        "cast": [
+          "许葵：保管员",
+          "邵迁：钟楼修理工",
+          "罗椿：失主"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：三个日期的寄存收据缺同长度时间，罗椿要求销毁自己的记忆。许葵不用播放私密内容，以公开钟楼检修表核验异常。尊重销毁权、保留反证、仅得有限结论，不以耳语解释一切。直接输出正文。"
+        ],
+        "familyId": "mystery",
+        "genre": "悬疑诡秘",
+        "id": "reg-mystery-03",
+        "phase": "P3",
+        "premise": "居民可寄存十分钟记忆，公共时钟出现空白，保管员许葵只能查看获授权记录。",
+        "prompt": "原创单章：三个日期的寄存收据缺同长度时间，罗椿要求销毁自己的记忆。许葵不用播放私密内容，以公开钟楼检修表核验异常。尊重销毁权、保留反证、仅得有限结论，不以耳语解释一切。直接输出正文。",
+        "routeId": "lost_minutes",
+        "seriesId": "reg-mystery-03",
+        "stateChecks": [
+          "销毁权",
+          "反证意识",
+          "推理边界"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "共同空白"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "公平线索",
+            "调查权限",
+            "不强行闭环"
+          ]
+        },
+        "cast": [
+          "闻苒：修复师",
+          "褚冬：校工",
+          "奚宁：测绘员"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：闻苒发现两张旧地图湿痕看似指同一学校却缩尺不同。褚冬只开放公共走廊，奚宁提议量距。写误判折返、获许可后验证和仍待解释的雨声，不能隐瞒视角已知事实制造悬念。直接输出正文。"
+        ],
+        "familyId": "mystery",
+        "genre": "悬疑诡秘",
+        "id": "reg-mystery-02",
+        "phase": "P3",
+        "premise": "旧地图在失踪街道处洇湿，修复师闻苒发现新洇痕经过学校。",
+        "prompt": "原创单章：闻苒发现两张旧地图湿痕看似指同一学校却缩尺不同。褚冬只开放公共走廊，奚宁提议量距。写误判折返、获许可后验证和仍待解释的雨声，不能隐瞒视角已知事实制造悬念。直接输出正文。",
+        "routeId": "paper_weather",
+        "seriesId": "reg-mystery-02",
+        "stateChecks": [
+          "公平线索",
+          "调查权限",
+          "不强行闭环"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "比例尺"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "双向回应",
+            "劳动细节",
+            "自然对白"
+          ]
+        },
+        "cast": [
+          "秦絮：字幕志愿者",
+          "许棠：学生演员",
+          "贺蓁：舞台负责人"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：成年学生秦絮、许棠因无障碍字幕节奏争执，交换岗位十分钟。通过误触灯、不同停顿理解与重新分工产生具体欣赏；亲近要双向，不读心、不霸道，不以意外身体接触代替发展。直接输出正文。"
+        ],
+        "familyId": "urban_modern",
+        "genre": "青春甜宠",
+        "id": "reg-romance-01",
+        "phase": "P3",
+        "premise": "成年大学生秦絮与许棠共同制作无障碍剧场字幕，在时间精度与语气争执中靠近。",
+        "prompt": "原创单章：成年学生秦絮、许棠因无障碍字幕节奏争执，交换岗位十分钟。通过误触灯、不同停顿理解与重新分工产生具体欣赏；亲近要双向，不读心、不霸道，不以意外身体接触代替发展。直接输出正文。",
+        "routeId": "accessible_stage",
+        "seriesId": "reg-romance-01",
+        "stateChecks": [
+          "双向回应",
+          "劳动细节",
+          "自然对白"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "交换岗位"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "劳动认可",
+            "尊重意愿",
+            "情感节奏"
+          ]
+        },
+        "cast": [
+          "秦絮：字幕志愿者",
+          "许棠：学生演员",
+          "贺蓁：舞台负责人"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：成年学生秦絮发现字幕署名漏许棠校对劳动，许棠不愿打断庆功。商量如何更正而不替对方决定，以具体措辞、后台整理与适度玩笑推动好感，约下次合作而非突然告白。直接输出正文。"
+        ],
+        "familyId": "urban_modern",
+        "genre": "青春甜宠",
+        "id": "reg-romance-03",
+        "phase": "P3",
+        "premise": "成年大学生秦絮与许棠共同制作无障碍剧场字幕，在时间精度与语气争执中靠近。",
+        "prompt": "原创单章：成年学生秦絮发现字幕署名漏许棠校对劳动，许棠不愿打断庆功。商量如何更正而不替对方决定，以具体措辞、后台整理与适度玩笑推动好感，约下次合作而非突然告白。直接输出正文。",
+        "routeId": "accessible_stage",
+        "seriesId": "reg-romance-03",
+        "stateChecks": [
+          "劳动认可",
+          "尊重意愿",
+          "情感节奏"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "署名次序"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "独立选择",
+            "可拒绝邀约",
+            "行动承载情绪"
+          ]
+        },
+        "cast": [
+          "梁苜：即将毕业",
+          "俞杉：本地转行"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：成年夜校同学梁苜告知俞杉将离城，两人管理屋顶种子站。围绕标签、浇灌和接班谈失落与分寸，提出明确可拒绝的私人邀约，不要求放弃学业或工作证明感情。直接输出正文。"
+        ],
+        "familyId": "urban_modern",
+        "genre": "青春甜宠",
+        "id": "reg-romance-02",
+        "phase": "P3",
+        "premise": "成年夜校同学梁苜、俞杉管理屋顶种子站，一人将离城，一人刚转行。",
+        "prompt": "原创单章：成年夜校同学梁苜告知俞杉将离城，两人管理屋顶种子站。围绕标签、浇灌和接班谈失落与分寸，提出明确可拒绝的私人邀约，不要求放弃学业或工作证明感情。直接输出正文。",
+        "routeId": "seed_exchange",
+        "seriesId": "reg-romance-02",
+        "stateChecks": [
+          "独立选择",
+          "可拒绝邀约",
+          "行动承载情绪"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "离城交接"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "制度自洽",
+            "证据取得",
+            "官民利益"
+          ]
+        },
+        "cast": [
+          "沈檀：河港书吏",
+          "牟荞：渡户代表",
+          "费棣：仓监"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：架空澄朝书吏沈檀发现赈济船返程空位被记满载，牟荞称旧规要求载客，费棣不凭口述改簿。写双孔渡筹核对、见证和重分渡次。虚构制度自洽、代价具体，无历史人物或名篇事件。直接输出正文。"
+        ],
+        "familyId": "ancient_world",
+        "genre": "历史脑洞",
+        "id": "reg-history-01",
+        "phase": "P3",
+        "premise": "架空澄朝河港以渡筹分配渡运，书吏沈檀发现赈济与商运不能同计，无真实历史人物。",
+        "prompt": "原创单章：架空澄朝书吏沈檀发现赈济船返程空位被记满载，牟荞称旧规要求载客，费棣不凭口述改簿。写双孔渡筹核对、见证和重分渡次。虚构制度自洽、代价具体，无历史人物或名篇事件。直接输出正文。",
+        "routeId": "river_ballots",
+        "seriesId": "reg-history-01",
+        "stateChecks": [
+          "制度自洽",
+          "证据取得",
+          "官民利益"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "返程空位"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "交叉证据",
+            "不徇私",
+            "不完美收尾"
+          ]
+        },
+        "cast": [
+          "沈檀：河港书吏",
+          "牟荞：渡户代表",
+          "费棣：仓监"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：架空澄朝渡户丢筹，沈檀不能凭熟人关系补发，牟荞又须日落前运鲜货。以装船痕迹、仓口存根、独立见证交叉验证，仅补已证部分，写未运货损和有边界互助。直接输出正文。"
+        ],
+        "familyId": "ancient_world",
+        "genre": "历史脑洞",
+        "id": "reg-history-03",
+        "phase": "P3",
+        "premise": "架空澄朝河港以渡筹分配渡运，书吏沈檀发现赈济与商运不能同计，无真实历史人物。",
+        "prompt": "原创单章：架空澄朝渡户丢筹，沈檀不能凭熟人关系补发，牟荞又须日落前运鲜货。以装船痕迹、仓口存根、独立见证交叉验证，仅补已证部分，写未运货损和有边界互助。直接输出正文。",
+        "routeId": "river_ballots",
+        "seriesId": "reg-history-03",
+        "stateChecks": [
+          "交叉证据",
+          "不徇私",
+          "不完美收尾"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "失筹补验"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "工艺阻力",
+            "权限边界",
+            "物质代价"
+          ]
+        },
+        "cast": [
+          "关芦：修册木匠",
+          "邓洄：乡约",
+          "成蔓：迁户代表"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：架空榆国木匠关芦被要求削平户册反向榫口，成蔓旧凭却与其对应，邓洄急于封册。写工艺核验、延期工钱与当事人到场周旋，不代迁户作主，不以现代演讲压服所有人。直接输出正文。"
+        ],
+        "familyId": "ancient_world",
+        "genre": "历史脑洞",
+        "id": "reg-history-02",
+        "phase": "P3",
+        "premise": "架空榆国以可拆木册登记田役，木匠关芦发现榫口导致一户两地重记。",
+        "prompt": "原创单章：架空榆国木匠关芦被要求削平户册反向榫口，成蔓旧凭却与其对应，邓洄急于封册。写工艺核验、延期工钱与当事人到场周旋，不代迁户作主，不以现代演讲压服所有人。直接输出正文。",
+        "routeId": "movable_registry",
+        "seriesId": "reg-history-02",
+        "stateChecks": [
+          "工艺阻力",
+          "权限边界",
+          "物质代价"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "反向榫口"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "能源约束",
+            "验证过程",
+            "损失不抹消"
+          ]
+        },
+        "cast": [
+          "甘芜：仅有区域数据",
+          "蒲砚：隐瞒手动校时",
+          "许汀：种植队代表，反对无据改线"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：遮光灾变后种库气象数据晚七小时，甘芜要改线，许汀要求先验证，蒲砚的备用时钟须挪照明电。写对照观测、电量限制、错失发芽窗口与下轮权限，不以万能算法解决。直接输出正文。"
+        ],
+        "familyId": "disaster_exploration",
+        "genre": "科幻末世",
+        "id": "reg-scifi-01",
+        "phase": "P3",
+        "premise": "轨道碎片遮光后城市依靠移动种库，调度员甘芜发现气象数据晚七小时。能源有限，调整须记录耗电和种子损失。",
+        "prompt": "原创单章：遮光灾变后种库气象数据晚七小时，甘芜要改线，许汀要求先验证，蒲砚的备用时钟须挪照明电。写对照观测、电量限制、错失发芽窗口与下轮权限，不以万能算法解决。直接输出正文。",
+        "routeId": "orbital_seed",
+        "seriesId": "reg-scifi-01",
+        "stateChecks": [
+          "能源约束",
+          "验证过程",
+          "损失不抹消"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "七小时误差"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "不确定性管理",
+            "授权可撤回",
+            "状态可核对"
+          ]
+        },
+        "cast": [
+          "甘芜：仅有区域数据",
+          "蒲砚：隐瞒手动校时",
+          "许汀：种植队代表，反对无据改线"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：新种库路线仅成功一次，甘芜要扩播，许汀因样本不足撤回授权。蒲砚提出复测却耗剩余晴窗。用不确定性管理达成有限方案，明确库存耗电下一步，不把单次成功当普遍保证。直接输出正文。"
+        ],
+        "familyId": "disaster_exploration",
+        "genre": "科幻末世",
+        "id": "reg-scifi-03",
+        "phase": "P3",
+        "premise": "轨道碎片遮光后城市依靠移动种库，调度员甘芜发现气象数据晚七小时。能源有限，调整须记录耗电和种子损失。",
+        "prompt": "原创单章：新种库路线仅成功一次，甘芜要扩播，许汀因样本不足撤回授权。蒲砚提出复测却耗剩余晴窗。用不确定性管理达成有限方案，明确库存耗电下一步，不把单次成功当普遍保证。直接输出正文。",
+        "routeId": "orbital_seed",
+        "seriesId": "reg-scifi-03",
+        "stateChecks": [
+          "不确定性管理",
+          "授权可撤回",
+          "状态可核对"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "撤回授权"
+      },
+      {
+        "acceptanceCriteria": {
+          "maxChars": 3000,
+          "minChars": 2000,
+          "semanticChecks": [
+            "不伪造数据",
+            "工程约束",
+            "居民权利"
+          ]
+        },
+        "cast": [
+          "齐蓼：档案员",
+          "周榫：陶窑工",
+          "缪苇：居民代表"
+        ],
+        "chapterIndex": 1,
+        "chapterPlan": [
+          "原创单章：盐原身份档案迁陶片后两户重号，周榫想凭记忆补写，缪苇拒绝。齐蓼保留旧盘、核验收缩差、逐户确认。写燃料和配给延误代价，不假造记录、不凭空恢复数据。直接输出正文。"
+        ],
+        "familyId": "disaster_exploration",
+        "genre": "科幻末世",
+        "id": "reg-scifi-02",
+        "phase": "P3",
+        "premise": "盐原腐蚀电子存储，档案员齐蓼将身份迁移至陶片码，遗漏影响配给，不能一次复制全部。",
+        "prompt": "原创单章：盐原身份档案迁陶片后两户重号，周榫想凭记忆补写，缪苇拒绝。齐蓼保留旧盘、核验收缩差、逐户确认。写燃料和配给延误代价，不假造记录、不凭空恢复数据。直接输出正文。",
+        "routeId": "salt_memory",
+        "seriesId": "reg-scifi-02",
+        "stateChecks": [
+          "不伪造数据",
+          "工程约束",
+          "居民权利"
+        ],
+        "targetWords": [
+          2200,
+          2800
+        ],
+        "title": "重号陶片"
+      }
+    ]
+  },
+  "config": {
+    "model": "UNSELECTED_DRY_RUN",
+    "pipelineVersion": "benchmark-local-v2-unverified",
+    "parameters": {
+      "temperature": 0.8,
+      "maxRounds": 2,
+      "topP": null,
+      "seed": null,
+      "maxTokens": null
+    },
+    "parameterSource": "pipeline-request; provider overrides not independently verified",
+    "parameterLimitations": "v2仅开放temperature/maxRounds。maxTokens由管线按阶段请求，topP/seed未开放；calls仅记录pipeline-request，不证明供应商实际采用参数或固定随机性。control无双稿与patch，费用不同是处理差异。",
+    "control": {
+      "kind": "fixed_control_prompt",
+      "sourceCommit": "e34d0ca4f650b4ec50bd3bee62663bfd4d412096",
+      "sourcePath": "completion-editor.js",
+      "sourceSymbol": "baseWritingDirectives",
+      "promptFile": "control-prompt.txt",
+      "normalization": "UTF-8; CRLF to LF; trim file newline",
+      "historicalPipelineReplay": false,
+      "limitations": "仅固定起草system prompt。未重演历史动态上下文、范文检索、角色演绎、执行卡、审计和修订主链路；不可宣称完整旧版主链路实测。",
+      "prompt": "你是墨阑专业小说编辑器正文生成器。你的唯一任务是输出文学质感高、叙事紧凑、人物鲜活的中文小说正文。严禁输出任何分析说明、大纲提纲、标题标记或执行卡，直接输出可读正文。\n\n【核心叙事法则·杜绝机械教条】\n1. 【人物动机与对白真实度】：严禁报菜名式交代设定。角色的每一句对话都必须带有当下的具体诉求（隐瞒、试探底线、关切或自保）。对白推进关系，严禁脸谱化套话。\n2. 【设定与日常交融】：世界观与超凡法则必须作为具体生活背景与行动阻力出现。读者需要理解当前行动时自然带出背景，绝不凭空机械倒灌大段说明，也不生搬硬套打脸。\n3. 【视角权限与信息差把控】：严格维护当下视角的认知边界。角色不知道的事情绝不越界掌握，让紧张感源于“人物在有限认知下的抉择与误判”。\n4. 【行动阻力与不可逆推进】：场景发展必须带来真实代价与物理触感。一场戏写完，人物的认知、双方的信任度或外部局视必须发生实质性改变。\n5. 【物理真实客体优先·杜绝神经生理套话】：描写撞击、奔跑、落地、交锋或重力时，只写外部环境与器材的真实物理运动（如钢板形变、冰层断裂、物件脱落、扬起雪粒），严禁描写“震得脚底发木/双腿发颤/虎口发麻/耳膜生疼/脑仁剧痛/气血翻涌/喉头一甜”等模型条件反射式身体套话；写实打实的物理反馈，不写神经反射模板。\n6. 【宏观格局与视界硬指标·杜绝底层市井降级】：若作品属于神话复苏、仙侠、灾变或硬核探索，开篇必须建立在宏大自然奇观（极地/深海/群山）、大型工业设施或远古遗迹前沿，以超自然未知危机为驱动；严禁开局局限于出租屋、催缴欠账、地痞要债、黑拳赌斗等狭隘琐碎市井套路。\n7. 【叙事呼吸感·杜绝单字发报机流水账】：长短句自然交织，严禁连续多句使用“主角名+单字动词”（如“周烈开门。周烈没有接。周烈走向……”）的代码式发报机结构；让主语丰富多元，将动作自然熔铸进环境互动与事件因果中。\n8. 【力量真实落地·杜绝游戏数值跳字打卡】：严禁在搏杀剧情中插入数值仪器跳字（如“从93跳到106卡”）；超凡或武道力量必须通过肌肉负荷、骨骼受力、兵刃形变损耗与沉重的物理破坏体现。\n9. 【市井烟火与语言声调落地·杜绝书面翻译感与普通话同质化】：对白与人物交互必须带有符合其地域、阶层与时代的俚语声调（如乡土土白、海派洋泾浜、江湖切口或机关公职行话）；人物用口头常理交涉，拒绝字正腔圆的书面背诵感。\n10. 【生活松弛感与非英雄自嘲·杜绝全天候苦大仇深假严肃】：真实名家文本在紧张肃杀之间，必有世俗生活的荒诞反讽与松弛闲笔（如对开销账目的锱铢必较、对日常疲惫的内心自嘲、小人物的烟火狡黠）；严禁通篇紧绷备战、全员机械沉重，让世界拥有呼吸与生活质感。",
+      "promptHash": "3dee4f290a7d8af0954455166b907baa169628237a20986df152f79bb371c371"
+    },
+    "transport": {
+      "kind": "local-http",
+      "baseUrl": "http://127.0.0.1:3000",
+      "protocol": "benchmark-local-v2"
+    }
+  },
+  "planHash": "783aaf133244b89e9ef042af6463fe3b63bbfa722afd39593e4366a4ab6c10b2",
+  "configHash": "f0210238a63b531a653b67612d14c2b97a8a080d555d7f233b64f1d01f212279",
+  "hashCoverageVersion": 2,
+  "implementationHashes": {
+    "server.js": "735c580b796cb9f88cf359be48fea481835bd88bb477b2cf29bde01375c3dcf1",
+    "scripts/run-local-benchmark-session.mjs": "3954f8212bf656ae685fe576871b06aea8f1b97961510743ca456668d126aa0b",
+    "scripts/run-benchmark-experiments.mjs": "cc4cceb6e98796eea8bf079f51e38edb3a087de2a11731de9fd37bc4210e0b08",
+    "lib/benchmark-experiments.js": "35fe975ec356c22631b4260d433a553a0f66a967b78639db6d4e8726b66ceafc",
+    "lib/benchmark-pipeline.js": "9c6a5f84e75742f0a91b567545329c0a7e4d019c29063a8f173eb9cc9b8b3732",
+    "lib/benchmark-receipts.js": "147a31b62c2e3708515f319e45ec3ba0ff49edb24804debc0e5aa7cbaccf01aa",
+    "lib/evidence-review.js": "c9aea1baee166b36e6cd1fb1e666ef5bb69a035414f98c1ae030dd4acd4ce6f6",
+    "lib/benchmark-metrics.js": "32773b9226d0625d09a4adf73e7f1b24832a2cb6225550f4a8a32aa04c0bbd0f",
+    "lib/molan-node-client.js": "3bafce2d560de067edd22d234001ca0a0da1eb102918de94de2ad27f313ff278",
+    "lib/genre-evidence.js": "c08ba5bcbf32e3c113092c686d9facc29af6b5f0e44f9e872d9507ae5a8a413d",
+    "lib/genre-rule-scope.js": "138af941d9f5ed9c5a5d2e3b6a81b2096e21acf5c23c1075d63e79edf897fadf",
+    "correction-policy.js": "8812bf57df3b38ae3e5ccc7900c207dd64f72d274e815b1fd93dd4092d148c3c",
+    "data/genre-baselines/index.json": "f8c55df64788255bd5fefcadc018d19d0e02d49812f964ffec0be9b753ba6d2c",
+    "data/genre-baselines/历史脑洞.json": "43418ff9fd8cfae93329391d3cc25663b8c435efe17efeafa53ee25925d08de4",
+    "data/genre-baselines/悬疑脑洞.json": "127d547ef69da2129f97b466794933cbd4ec121f6331e9e266e8efe6c5025aba",
+    "data/genre-baselines/玄幻.json": "1fdb2832341c81c4827e27476d2e9553d8a1867c1e43f96e0fd10692c03d9bea",
+    "data/genre-baselines/科幻末世.json": "cf9b1001d64c5822f58759f03735bea18183210f77f03b34837945562d6203cc",
+    "data/genre-baselines/都市高武.json": "8521a42a1ce55f1368f24d6ca4de35ce8cc1f9bc75ea6300a9489cc328628697",
+    "data/genre-baselines/青春甜宠.json": "690470541a755c728e3eb346288adde5718ebf943f3d0ae89e4841a408978690",
+    "data/genre-evidence/index.json": "c99527a95ce63d28a1886588abe2fa1165a8ed58ee156e0c3927e09f18ef3e4b",
+    "data/genre-evidence/selection.json": "599bafce07690e8541762d07d3267981faa5623903794339f125a55e5a074940",
+    "data/genre-evidence/历史脑洞.json": "fe37bf6d69c4b2ebc3100c7b86a4f6c93d4d9b17b3be76bd6017f801b3896b11",
+    "data/genre-evidence/悬疑脑洞.json": "f2a4bb362bba243ae9201e2a3cc5c53a8d028c7ab064ea3c461d094dcbdf0bad",
+    "data/genre-evidence/玄幻.json": "c7a40f9caa7dead54f443122cc7af93443cdddc86af3cdb756c648ed2aa421b8",
+    "data/genre-evidence/科幻末世.json": "bbf929abc5ea405206e02500c7a2259fdad4ddeca954080e314e1cbc779b3699",
+    "data/genre-evidence/都市高武.json": "5ff73d6ac1c0ea938019463e0c94e45f8aca6ba2b45bf7f505fc683636083080",
+    "data/genre-evidence/青春甜宠.json": "bbecb90f28aaadd8a7522ad785a9263a5791d7fd108ddf4d430d7fae72f7276c",
+    "data/genre-rules/历史脑洞.json": "0a288b9242844eb02aff7c1271b8e6b39d48d0886125c4e4956c6c55b6d9a25d",
+    "data/genre-rules/悬疑脑洞.json": "6758ef7022111225860ccf1b00941a1ab98bd267675234f31e7fcdd192a7fca5",
+    "data/genre-rules/玄幻.json": "24279b783fb33ab012ca69c9ca50322f170768a698ecf8a6408a6c436daa3808",
+    "data/genre-rules/科幻末世.json": "d78bf12c2e8a91ea2a682fa4969f50019df054d46af1fa34056e8ee5dc80db6e",
+    "data/genre-rules/都市高武.json": "55cffc3caf82b5dcf73e3a7275c9b8758eaaf8b232a9dc077da3c5e936374ac3",
+    "data/genre-rules/青春甜宠.json": "38d1caa6f4dcf20db418f47fa328086ce7427c3088cc7cb73b46e9ea4683ec3f"
+  },
+  "implementationCaveat": "冻结本地实现及六题材evidence/rules/baselines，缺失资产记null并核验后续出现；续跑须完全一致。不冒充供应商部署或已启动服务版本证明。",
+  "fixedSnapshots": {
+    "manifest.json": {
+      "content": "{\n  \"schemaVersion\": 1,\n  \"kind\": \"fixed-benchmark-plan-manifest\",\n  \"frozenAt\": \"2026-09-10\",\n  \"status\": \"not_executed\",\n  \"executed\": false,\n  \"humanReviewStatus\": \"pending\",\n  \"hashAlgorithm\": \"sha256\",\n  \"fileNormalization\": \"UTF-8; CRLF normalized to LF\",\n  \"suiteHash\": \"a5c3d9a6463a061a2dc5e7005b649a6c8cf0db22b9669d6ad32e5c9a492988d4\",\n  \"files\": {\n    \"suite.json\": \"2aae34c416b994105fd9855e876db591f7314b602d40ea1bcb20ed2135e12385\",\n    \"control-prompt.txt\": \"6cb027f138cfd8c5ea95cf7816a9654b71d7b110e7af6ab543bde5f7fc7882cb\",\n    \"control-provenance.json\": \"2a78769b6725ec832a1f4ec605d85b2b554955d268581fbe5777d526773cd38f\"\n  },\n  \"regressionHash\": \"546c4998c90b578eaf3deb901b93a922b47e3c382db6d74a50940bc7d8886278\",\n  \"plans\": {\n    \"P0\": {\n      \"planHash\": \"486741b2a5a963ac5ea73076d61acf8b7b45afbeab4ff32aa624a7d846b4f04c\",\n      \"generations\": 36,\n      \"arms\": [\"control\"]\n    },\n    \"P3\": {\n      \"planHash\": \"783aaf133244b89e9ef042af6463fe3b63bbfa722afd39593e4366a4ab6c10b2\",\n      \"generations\": 36,\n      \"arms\": [\"control\", \"candidate\"]\n    },\n    \"P4\": {\n      \"planHash\": \"3ca151718c6f6fb80c741ab8caba97e70b569ce17521014b98517334983a003b\",\n      \"generations\": 20,\n      \"arms\": [\"candidate\"]\n    }\n  },\n  \"controlKind\": \"fixed_control_prompt\",\n  \"historicalPipelineReplay\": false,\n  \"limitations\": \"这是冻结计划而非实跑报告。P0固定控制prompt不代表完整历史主链路，P4单臂尚待真人审读。\"\n}\n",
+      "sha256": "8634903b60d47489b8b549ca8cfc19ee4adb6ff6b63ac104e4f74ff6bd8a185a"
+    },
+    "suite.json": {
+      "content": "{\n  \"schemaVersion\": 1,\n  \"id\": \"original-six-genres-v1\",\n  \"frozenAt\": \"2026-09-10\",\n  \"description\": \"原创固定任务。P0仅control：六题材各两路线各前三章，共36章；P3为18个独立单章同条件双臂，共36输出；P4仅candidate：两题材各十章，共20章。P0固定控制prompt不冒充完整历史主链路。\",\n  \"targetWords\": [2200, 2800],\n  \"genres\": [\n    {\"genre\":\"玄幻\",\"familyId\":\"ancient_cultivation\",\"routes\":[\n      {\"id\":\"tidal_covenant\",\"title\":\"潮刻共契\",\"premise\":\"群岛以潮汐灵纹维持淡水，修契学徒陶汀发现集体退潮契约被延长。术法只能转移已有水量，改契须受损者见证。\",\"cast\":[\"陶汀：仅知本岛账目\",\"祝栎：隐瞒旧契名单\",\"余荻：不信任学徒的船户代表\"],\"stateChecks\":[\"关系：余荻逐渐给予有限授权，不能突然忠诚\",\"知识：第六章前陶汀不知道完整名单\",\"伏笔：缺角潮牌在第八章解释并付出代价\"],\"chapters\":[\"潮牌缺角，陶汀抵押当日取水额换公开验契，失去工钱。\",\"余荻拒交船账，核清多扣费用后只给半日阅账权。\",\"试补灵纹使邻埠缺水，三方立赔水契，陶汀承担首笔。\",\"夜潮冲坏临时契，祝栎承认旧契但不交名单，众人人工守堤。\",\"余荻公开船队曾获优先权的一页账，船户产生分歧。\",\"完整受损名单出土，陶汀发现师门也曾签字，不能推责单一恶人。\",\"材料不足，会议选择限航蓄水，承担粮价上涨。\",\"缺角潮牌来自被撤销的见证席，恢复席位须退还师门水额。\",\"祝栎接受追责但拒绝虚假认罪，余荻要求限期试运行。\",\"试契完成，淡水恢复而陶汀失去原职；公开账目，不抹平损失。\"]},\n      {\"id\":\"echo_commons\",\"title\":\"群峰借声\",\"premise\":\"公共回声廊传递护山术，录声匠岑葭发现同一句求援被两村认领。回声消耗石壁寿命，须实地回听。\",\"cast\":[\"岑葭：录声匠\",\"卫砾：护路人\",\"冉禾：远村信使\"],\"stateChecks\":[\"关系：信使只认可可验证承诺\",\"知识：不得提前知道求援来源\",\"伏笔：断续尾音需解释\"],\"chapters\":[\"两村争用最后一次回声，岑葭抵押工牌提出分段核验。\",\"尾音被裂缝延迟，卫砾拒走危险捷径，改道损失半日。\",\"求援来自不同时间的同一条路，公布时序证据并封廊，人力救援。\"]}\n    ]},\n    {\"genre\":\"都市高武\",\"familyId\":\"urban_modern\",\"routes\":[\n      {\"id\":\"civic_load\",\"title\":\"承力登记处\",\"premise\":\"武者承力技艺绑定设施检修责任，登记员陆芩发现高架承力班次被重复出售，武斗不能修桥。\",\"cast\":[\"陆芩：试用登记员\",\"申朔：退役承力师\",\"段苇：公交调度员\"],\"stateChecks\":[\"关系：合作保留责任冲突\",\"知识：账务与现场信息分别取得\",\"伏笔：重号班次有可查来源\"],\"chapters\":[\"桥面下沉，陆芩核对重号班次并申请限流，乘客质疑。\",\"申朔示范疲劳上限，段苇同意绕行但要求公布恢复时刻。\",\"重号源于外包转售，保存证据并组织轮班，不以武斗代替问责。\"]},\n      {\"id\":\"resonance_league\",\"title\":\"共振替补席\",\"premise\":\"社区联赛共享武技冲击余量，替补教练赵榆发现明星占用了康复者额度。\",\"cast\":[\"赵榆：替补教练\",\"汤隼：队长\",\"连青：康复队员\"],\"stateChecks\":[\"关系：康复者有拒绝权\",\"知识：后台记录须授权取得\",\"伏笔：训练表空栏应回收\"],\"chapters\":[\"训练表空栏，赵榆暂停演练，球队失去场地。\",\"连青提供记录但拒公开病情，用匿名总量核查。\",\"队长承认违规，队伍降级参赛，新战术完成不完美比赛。\"]}\n    ]},\n    {\"genre\":\"悬疑诡秘\",\"familyId\":\"mystery\",\"routes\":[\n      {\"id\":\"lost_minutes\",\"title\":\"失时保管室\",\"premise\":\"居民可寄存十分钟记忆，公共时钟出现空白，保管员许葵只能查看获授权记录。\",\"cast\":[\"许葵：保管员\",\"邵迁：钟楼修理工\",\"罗椿：失主\"],\"stateChecks\":[\"关系：授权不等同信任\",\"知识：遵守记录访问权限\",\"伏笔：相反签收单须解释\"],\"chapters\":[\"同格出现相反签收单，许葵封存而非擅自播放。\",\"失主只授权三秒，钟声回响证明记录不在同一天。\",\"检修重复标时解释空白，仍有脚步声无法归属，约定复核。\"]},\n      {\"id\":\"paper_weather\",\"title\":\"纸上局地雨\",\"premise\":\"旧地图在失踪街道处洇湿，修复师闻苒发现新洇痕经过学校。\",\"cast\":[\"闻苒：修复师\",\"褚冬：校工\",\"奚宁：测绘员\"],\"stateChecks\":[\"关系：校工有质疑和拒绝权\",\"知识：洇痕意义需验证\",\"伏笔：比例尺差异须解释\"],\"chapters\":[\"洇痕出现，闻苒只申请封库并保留样本。\",\"地图缩尺不同，测绘发现消失的是通行权，校工提供旧钥匙。\",\"恢复公共通道登记后图面干燥，墙后雨声仍待独立调查。\"]}\n    ]},\n    {\"genre\":\"青春甜宠\",\"familyId\":\"urban_modern\",\"routes\":[\n      {\"id\":\"accessible_stage\",\"title\":\"半拍字幕\",\"premise\":\"成年大学生秦絮与许棠共同制作无障碍剧场字幕，在时间精度与语气争执中靠近。\",\"cast\":[\"秦絮：字幕志愿者\",\"许棠：学生演员\",\"贺蓁：舞台负责人\"],\"stateChecks\":[\"关系：亲近需双向同意\",\"知识：不读心推断爱意\",\"伏笔：慢半拍提示灯须解释\"],\"chapters\":[\"字幕慢半拍，各述困难，约定交换岗位十分钟。\",\"发现提示灯接错线，也承认删了重要停顿，共同重排。\",\"正式演出仍有误差，及时补位，散场明确约定下一次合作。\"]},\n      {\"id\":\"seed_exchange\",\"title\":\"交换花期\",\"premise\":\"成年夜校同学梁苜、俞杉管理屋顶种子站，一人将离城，一人刚转行。\",\"cast\":[\"梁苜：即将毕业\",\"俞杉：本地转行\"],\"stateChecks\":[\"关系：不牺牲前途证明爱情\",\"知识：离城计划须本人告知\",\"伏笔：空白标签需解释\"],\"chapters\":[\"无花期标签引起分工摩擦，两人决定先做小样记录。\",\"梁苜告知离城日，俞杉不强留，改造远程交接记录。\",\"首批花期不齐，带新人接班，明确约定可拒绝的私人散步。\"]}\n    ]},\n    {\"genre\":\"历史脑洞\",\"familyId\":\"ancient_world\",\"routes\":[\n      {\"id\":\"river_ballots\",\"title\":\"渡筹公议\",\"premise\":\"架空澄朝河港以渡筹分配渡运，书吏沈檀发现赈济与商运不能同计，无真实历史人物。\",\"cast\":[\"沈檀：河港书吏\",\"牟荞：渡户代表\",\"费棣：仓监\"],\"stateChecks\":[\"关系：合作有利益边界\",\"知识：文书须逐项取得\",\"伏笔：双孔渡筹须解释\"],\"chapters\":[\"洪水减半运力，双孔筹被当废筹，暂留救济船接受问责。\",\"双孔代表返程载客，仓监要求核验，三方步行赴旧亭。\",\"公议重计返程义务，救济获渡商运延期，记录赔偿责任。\"]},\n      {\"id\":\"movable_registry\",\"title\":\"迁册小局\",\"premise\":\"架空榆国以可拆木册登记田役，木匠关芦发现榫口导致一户两地重记。\",\"cast\":[\"关芦：修册木匠\",\"邓洄：乡约\",\"成蔓：迁户代表\"],\"stateChecks\":[\"关系：工匠不得替迁户作主\",\"知识：重记须实物证明\",\"伏笔：反向榫口有用途\"],\"chapters\":[\"拒削反向榫口，保留旧册，延期验收工钱。\",\"迁户带旧凭，确认榫口标未结役，两地抄录规则冲突。\",\"当事人逐户复核取消重复役额，保留未决案件，分期付工钱。\"]}\n    ]},\n    {\"genre\":\"科幻末世\",\"familyId\":\"disaster_exploration\",\"routes\":[\n      {\"id\":\"orbital_seed\",\"title\":\"轨下种库\",\"premise\":\"轨道碎片遮光后城市依靠移动种库，调度员甘芜发现气象数据晚七小时。能源有限，调整须记录耗电和种子损失。\",\"cast\":[\"甘芜：仅有区域数据\",\"蒲砚：隐瞒手动校时\",\"许汀：种植队代表，反对无据改线\"],\"stateChecks\":[\"关系：许汀逐步有限授权且可撤回\",\"知识：第六章才确认手动校时原因\",\"伏笔：七小时延迟在第八章纠正验证\"],\"chapters\":[\"抵达无光地块发现七小时延迟，保留日志暂停播种。\",\"许汀只给一天验证，备用时钟耗去照明电量。\",\"对照证明失配，改线错过发芽窗口，记录种子损失。\",\"底盘故障，拆空仓减重，牺牲下一轮运输余量。\",\"邻区借种，公开库存后再谈互助，蒲砚回避校时日志。\",\"日志确认曾为保授粉时段校时，理解动机但分开操作与审核。\",\"通信中断，现场观测排路线，签署共享损失协议。\",\"两地观测重建时间基准纠正七小时误差，验证错失唯一晴窗。\",\"试运行时许汀撤回扩张授权，甘芜接受低产可靠方案。\",\"首轮收成仅够维持种库，公开耗电损失与值班表，不恢复旧世界。\"]},\n      {\"id\":\"salt_memory\",\"title\":\"盐层备忘\",\"premise\":\"盐原腐蚀电子存储，档案员齐蓼将身份迁移至陶片码，遗漏影响配给，不能一次复制全部。\",\"cast\":[\"齐蓼：档案员\",\"周榫：陶窑工\",\"缪苇：居民代表\"],\"stateChecks\":[\"关系：代表可否决分类方案\",\"知识：不得凭记忆补造记录\",\"伏笔：重号陶片须解释\"],\"chapters\":[\"试烧重号，暂停销毁旧盘，失去可回收金属。\",\"反对按贡献迁移，公开随机抽签，承担额外燃料。\",\"收缩率导致重号，双份校验逐户确认，留下明确未迁名单。\"]}\n    ]}\n  ],\n  \"p4\": [{\"genre\":\"玄幻\",\"routeId\":\"tidal_covenant\",\"chapters\":10},{\"genre\":\"科幻末世\",\"routeId\":\"orbital_seed\",\"chapters\":10}]\n}\n",
+      "sha256": "2aae34c416b994105fd9855e876db591f7314b602d40ea1bcb20ed2135e12385"
+    },
+    "control-prompt.txt": {
+      "content": "你是墨阑专业小说编辑器正文生成器。你的唯一任务是输出文学质感高、叙事紧凑、人物鲜活的中文小说正文。严禁输出任何分析说明、大纲提纲、标题标记或执行卡，直接输出可读正文。\n\n【核心叙事法则·杜绝机械教条】\n1. 【人物动机与对白真实度】：严禁报菜名式交代设定。角色的每一句对话都必须带有当下的具体诉求（隐瞒、试探底线、关切或自保）。对白推进关系，严禁脸谱化套话。\n2. 【设定与日常交融】：世界观与超凡法则必须作为具体生活背景与行动阻力出现。读者需要理解当前行动时自然带出背景，绝不凭空机械倒灌大段说明，也不生搬硬套打脸。\n3. 【视角权限与信息差把控】：严格维护当下视角的认知边界。角色不知道的事情绝不越界掌握，让紧张感源于“人物在有限认知下的抉择与误判”。\n4. 【行动阻力与不可逆推进】：场景发展必须带来真实代价与物理触感。一场戏写完，人物的认知、双方的信任度或外部局视必须发生实质性改变。\n5. 【物理真实客体优先·杜绝神经生理套话】：描写撞击、奔跑、落地、交锋或重力时，只写外部环境与器材的真实物理运动（如钢板形变、冰层断裂、物件脱落、扬起雪粒），严禁描写“震得脚底发木/双腿发颤/虎口发麻/耳膜生疼/脑仁剧痛/气血翻涌/喉头一甜”等模型条件反射式身体套话；写实打实的物理反馈，不写神经反射模板。\n6. 【宏观格局与视界硬指标·杜绝底层市井降级】：若作品属于神话复苏、仙侠、灾变或硬核探索，开篇必须建立在宏大自然奇观（极地/深海/群山）、大型工业设施或远古遗迹前沿，以超自然未知危机为驱动；严禁开局局限于出租屋、催缴欠账、地痞要债、黑拳赌斗等狭隘琐碎市井套路。\n7. 【叙事呼吸感·杜绝单字发报机流水账】：长短句自然交织，严禁连续多句使用“主角名+单字动词”（如“周烈开门。周烈没有接。周烈走向……”）的代码式发报机结构；让主语丰富多元，将动作自然熔铸进环境互动与事件因果中。\n8. 【力量真实落地·杜绝游戏数值跳字打卡】：严禁在搏杀剧情中插入数值仪器跳字（如“从93跳到106卡”）；超凡或武道力量必须通过肌肉负荷、骨骼受力、兵刃形变损耗与沉重的物理破坏体现。\n9. 【市井烟火与语言声调落地·杜绝书面翻译感与普通话同质化】：对白与人物交互必须带有符合其地域、阶层与时代的俚语声调（如乡土土白、海派洋泾浜、江湖切口或机关公职行话）；人物用口头常理交涉，拒绝字正腔圆的书面背诵感。\n10. 【生活松弛感与非英雄自嘲·杜绝全天候苦大仇深假严肃】：真实名家文本在紧张肃杀之间，必有世俗生活的荒诞反讽与松弛闲笔（如对开销账目的锱铢必较、对日常疲惫的内心自嘲、小人物的烟火狡黠）；严禁通篇紧绷备战、全员机械沉重，让世界拥有呼吸与生活质感。\n",
+      "sha256": "6cb027f138cfd8c5ea95cf7816a9654b71d7b110e7af6ab543bde5f7fc7882cb"
+    },
+    "control-provenance.json": {
+      "content": "{\n  \"kind\": \"fixed_control_prompt\",\n  \"sourceCommit\": \"e34d0ca4f650b4ec50bd3bee62663bfd4d412096\",\n  \"sourcePath\": \"completion-editor.js\",\n  \"sourceSymbol\": \"baseWritingDirectives\",\n  \"promptFile\": \"control-prompt.txt\",\n  \"normalization\": \"UTF-8; CRLF to LF; trim file newline\",\n  \"historicalPipelineReplay\": false,\n  \"limitations\": \"仅固定起草system prompt。未重演历史动态上下文、范文检索、角色演绎、执行卡、审计和修订主链路；不可宣称完整旧版主链路实测。\"\n}\n",
+      "sha256": "2a78769b6725ec832a1f4ec605d85b2b554955d268581fbe5777d526773cd38f"
+    },
+    "regression-prompts.json": {
+      "content": "[\n  {\"id\":\"reg-xuanhuan-01\",\"genre\":\"玄幻\",\"familyId\":\"ancient_cultivation\",\"routeId\":\"tidal_covenant\",\"title\":\"借水见证\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：修契学徒陶汀为两岛核验借水契，见证人因封路无法到场而放水已开始。写暂停阻力、远距见证验证及赔水协商。术法只能转移已有水量，不得代签，结尾保留有限信任。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"能力守恒\",\"见证权限\",\"代价入账\"]}},\n  {\"id\":\"reg-xuanhuan-02\",\"genre\":\"玄幻\",\"familyId\":\"ancient_cultivation\",\"routeId\":\"echo_commons\",\"title\":\"尾音归属\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：录声匠岑葭在回声廊封闭前辨求援尾音，信使冉禾要求先救本村，卫砾拒走裂桥。通过地形、时差与询问取得不完整证据，选择低风险耗时路线，不得突然全知或靠秘宝。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"有限认知\",\"取舍代价\",\"合作分歧\"]}},\n  {\"id\":\"reg-xuanhuan-03\",\"genre\":\"玄幻\",\"familyId\":\"ancient_cultivation\",\"routeId\":\"tidal_covenant\",\"title\":\"退契席\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：余荻申请退出共有潮契，祝栎要求延长任期，余荻拒绝。陶汀主持公开交接，以临时减额而非强迫续任解决担保缺席。写权益、日常细节与改变条件的对白，不把拒绝者写成反派。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"退出权\",\"制度自洽\",\"对白推进\"]}},\n  {\"id\":\"reg-urban-01\",\"genre\":\"都市高武\",\"familyId\":\"urban_modern\",\"routeId\":\"civic_load\",\"title\":\"末班核验\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：末班公交过桥前，陆芩发现承力表有无人认领签名。申朔已到疲劳上限，段苇要照顾滞留乘客。写核对、限载替代与延误补偿，武技仅短时分担冲击，不修复桥体、不威压路人。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"能力边界\",\"公共责任\",\"物理反馈\"]}},\n  {\"id\":\"reg-urban-02\",\"genre\":\"都市高武\",\"familyId\":\"urban_modern\",\"routeId\":\"resonance_league\",\"title\":\"匿名额度\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：赵榆发现共享冲击额度超支，连青愿交记录但不公开病情，队长汤隼急于证明清白。写保护隐私的匿名总量核查、比赛降级与信任变化；信息须有来源，不用仪器跳数写升级。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"隐私边界\",\"证据来源\",\"关系变化\"]}},\n  {\"id\":\"reg-urban-03\",\"genre\":\"都市高武\",\"familyId\":\"urban_modern\",\"routeId\":\"civic_load\",\"title\":\"休班拒绝\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：申朔休班收到商场承托货架请求，拒绝超限施力。陆芩与员工隔离、分批卸货并核查失效检修贴。紧迫感落在搬运次序、器材变形和客流沟通，保留合理拒绝的尊严，不突然恢复体能。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"疲劳连续性\",\"现实阻力\",\"无道德绑架\"]}},\n  {\"id\":\"reg-mystery-01\",\"genre\":\"悬疑诡秘\",\"familyId\":\"mystery\",\"routeId\":\"lost_minutes\",\"title\":\"三秒授权\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：许葵收到两人申领同一记忆格，其中一人只授权三秒，邵迁从钟声判断时刻有歧义。写权限、可复查线索、错误推断及纠正，封存未授权部分，不读心或全知揭底。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"信息权限\",\"线索可追溯\",\"推断纠正\"]}},\n  {\"id\":\"reg-mystery-02\",\"genre\":\"悬疑诡秘\",\"familyId\":\"mystery\",\"routeId\":\"paper_weather\",\"title\":\"比例尺\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：闻苒发现两张旧地图湿痕看似指同一学校却缩尺不同。褚冬只开放公共走廊，奚宁提议量距。写误判折返、获许可后验证和仍待解释的雨声，不能隐瞒视角已知事实制造悬念。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"公平线索\",\"调查权限\",\"不强行闭环\"]}},\n  {\"id\":\"reg-mystery-03\",\"genre\":\"悬疑诡秘\",\"familyId\":\"mystery\",\"routeId\":\"lost_minutes\",\"title\":\"共同空白\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：三个日期的寄存收据缺同长度时间，罗椿要求销毁自己的记忆。许葵不用播放私密内容，以公开钟楼检修表核验异常。尊重销毁权、保留反证、仅得有限结论，不以耳语解释一切。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"销毁权\",\"反证意识\",\"推理边界\"]}},\n  {\"id\":\"reg-romance-01\",\"genre\":\"青春甜宠\",\"familyId\":\"urban_modern\",\"routeId\":\"accessible_stage\",\"title\":\"交换岗位\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：成年学生秦絮、许棠因无障碍字幕节奏争执，交换岗位十分钟。通过误触灯、不同停顿理解与重新分工产生具体欣赏；亲近要双向，不读心、不霸道，不以意外身体接触代替发展。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"双向回应\",\"劳动细节\",\"自然对白\"]}},\n  {\"id\":\"reg-romance-02\",\"genre\":\"青春甜宠\",\"familyId\":\"urban_modern\",\"routeId\":\"seed_exchange\",\"title\":\"离城交接\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：成年夜校同学梁苜告知俞杉将离城，两人管理屋顶种子站。围绕标签、浇灌和接班谈失落与分寸，提出明确可拒绝的私人邀约，不要求放弃学业或工作证明感情。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"独立选择\",\"可拒绝邀约\",\"行动承载情绪\"]}},\n  {\"id\":\"reg-romance-03\",\"genre\":\"青春甜宠\",\"familyId\":\"urban_modern\",\"routeId\":\"accessible_stage\",\"title\":\"署名次序\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：成年学生秦絮发现字幕署名漏许棠校对劳动，许棠不愿打断庆功。商量如何更正而不替对方决定，以具体措辞、后台整理与适度玩笑推动好感，约下次合作而非突然告白。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"劳动认可\",\"尊重意愿\",\"情感节奏\"]}},\n  {\"id\":\"reg-history-01\",\"genre\":\"历史脑洞\",\"familyId\":\"ancient_world\",\"routeId\":\"river_ballots\",\"title\":\"返程空位\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：架空澄朝书吏沈檀发现赈济船返程空位被记满载，牟荞称旧规要求载客，费棣不凭口述改簿。写双孔渡筹核对、见证和重分渡次。虚构制度自洽、代价具体，无历史人物或名篇事件。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"制度自洽\",\"证据取得\",\"官民利益\"]}},\n  {\"id\":\"reg-history-02\",\"genre\":\"历史脑洞\",\"familyId\":\"ancient_world\",\"routeId\":\"movable_registry\",\"title\":\"反向榫口\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：架空榆国木匠关芦被要求削平户册反向榫口，成蔓旧凭却与其对应，邓洄急于封册。写工艺核验、延期工钱与当事人到场周旋，不代迁户作主，不以现代演讲压服所有人。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"工艺阻力\",\"权限边界\",\"物质代价\"]}},\n  {\"id\":\"reg-history-03\",\"genre\":\"历史脑洞\",\"familyId\":\"ancient_world\",\"routeId\":\"river_ballots\",\"title\":\"失筹补验\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：架空澄朝渡户丢筹，沈檀不能凭熟人关系补发，牟荞又须日落前运鲜货。以装船痕迹、仓口存根、独立见证交叉验证，仅补已证部分，写未运货损和有边界互助。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"交叉证据\",\"不徇私\",\"不完美收尾\"]}},\n  {\"id\":\"reg-scifi-01\",\"genre\":\"科幻末世\",\"familyId\":\"disaster_exploration\",\"routeId\":\"orbital_seed\",\"title\":\"七小时误差\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：遮光灾变后种库气象数据晚七小时，甘芜要改线，许汀要求先验证，蒲砚的备用时钟须挪照明电。写对照观测、电量限制、错失发芽窗口与下轮权限，不以万能算法解决。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"能源约束\",\"验证过程\",\"损失不抹消\"]}},\n  {\"id\":\"reg-scifi-02\",\"genre\":\"科幻末世\",\"familyId\":\"disaster_exploration\",\"routeId\":\"salt_memory\",\"title\":\"重号陶片\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：盐原身份档案迁陶片后两户重号，周榫想凭记忆补写，缪苇拒绝。齐蓼保留旧盘、核验收缩差、逐户确认。写燃料和配给延误代价，不假造记录、不凭空恢复数据。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"不伪造数据\",\"工程约束\",\"居民权利\"]}},\n  {\"id\":\"reg-scifi-03\",\"genre\":\"科幻末世\",\"familyId\":\"disaster_exploration\",\"routeId\":\"orbital_seed\",\"title\":\"撤回授权\",\"targetWords\":[2200,2800],\"prompt\":\"原创单章：新种库路线仅成功一次，甘芜要扩播，许汀因样本不足撤回授权。蒲砚提出复测却耗剩余晴窗。用不确定性管理达成有限方案，明确库存耗电下一步，不把单次成功当普遍保证。直接输出正文。\",\"acceptanceCriteria\":{\"minChars\":2000,\"maxChars\":3000,\"semanticChecks\":[\"不确定性管理\",\"授权可撤回\",\"状态可核对\"]}}\n]\n",
+      "sha256": "546c4998c90b578eaf3deb901b93a922b47e3c382db6d74a50940bc7d8886278"
+    }
+  },
+  "comparisonCaveat": "P0单control固定prompt基线，不是完整历史主链路；P3同条件A/B；P4单candidate长篇。人工结果无预填。",
+  "manifestHash": "97e5f92d14edcecb4066b6608f7c6d3bc751be7065ddeb2ec478079f6e4aa41e"
+}

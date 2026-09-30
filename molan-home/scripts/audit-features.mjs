@@ -387,38 +387,71 @@ function hasScopedFormControlBinding(formId, kind, bundle) {
 
 function enclosingFormId(source, index, attributes) {
   if (attributes.has('form')) return attributes.get('form');
-  const open = source.lastIndexOf('<form', index);
-  if (open < 0) return '';
-  const closeForm = source.lastIndexOf('</form', index);
-  if (closeForm > open) return '';
-  const close = source.indexOf('>', open);
-  const id = source.slice(open, close + 1).match(/\bid\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
-  return id ? id[1] || id[2] || '' : '';
+  let cur = index;
+  let depth = 0;
+  while (cur > 0) {
+    const nextOpen = source.lastIndexOf('<form', cur);
+    const nextClose = source.lastIndexOf('</form', cur);
+    if (nextOpen < 0 && nextClose < 0) return '';
+    if (nextClose > nextOpen) {
+      depth++;
+      cur = nextClose - 1;
+    } else {
+      if (depth === 0) {
+        const close = source.indexOf('>', nextOpen);
+        const id = source.slice(nextOpen, close + 1).match(/\bid\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
+        return id ? id[1] || id[2] || '' : '';
+      }
+      depth--;
+      cur = nextOpen - 1;
+    }
+  }
+  return '';
 }
 
 function enclosingFormClasses(source, index, attributes) {
   if (attributes.has('form')) return '';
-  const open = source.lastIndexOf('<form', index);
-  if (open < 0) return '';
-  const closeForm = source.lastIndexOf('</form', index);
-  if (closeForm > open) return '';
-  const close = source.indexOf('>', open);
-  const classes = source.slice(open, close + 1).match(/\bclass\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
-  return classes ? classes[1] || classes[2] || '' : '';
+  let cur = index;
+  let depth = 0;
+  while (cur > 0) {
+    const nextOpen = source.lastIndexOf('<form', cur);
+    const nextClose = source.lastIndexOf('</form', cur);
+    if (nextOpen < 0 && nextClose < 0) return '';
+    if (nextClose > nextOpen) {
+      depth++;
+      cur = nextClose - 1;
+    } else {
+      if (depth === 0) {
+        const close = source.indexOf('>', nextOpen);
+        const classes = source.slice(nextOpen, close + 1).match(/\bclass\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
+        return classes ? classes[1] || classes[2] || '' : '';
+      }
+      depth--;
+      cur = nextOpen - 1;
+    }
+  }
+  return '';
 }
 
 function enclosingParentClasses(source, index) {
   let cur = index;
+  let depth = 0;
   while (cur > 0) {
-    const open = source.lastIndexOf('<div', cur);
-    if (open < 0) return [];
-    const closeTag = source.lastIndexOf('</div>', cur);
-    if (closeTag < open) {
-      const close = source.indexOf('>', open);
-      const match = source.slice(open, close + 1).match(/\bclass\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
-      return String(match && (match[1] || match[2]) || '').split(/\s+/).filter(Boolean);
+    const nextOpen = source.lastIndexOf('<div', cur);
+    const nextClose = source.lastIndexOf('</div>', cur);
+    if (nextOpen < 0 && nextClose < 0) return [];
+    if (nextClose > nextOpen) {
+      depth++;
+      cur = nextClose - 1;
+    } else {
+      if (depth === 0) {
+        const close = source.indexOf('>', nextOpen);
+        const match = source.slice(nextOpen, close + 1).match(/\bclass\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
+        return String(match && (match[1] || match[2]) || '').split(/\s+/).filter(Boolean);
+      }
+      depth--;
+      cur = nextOpen - 1;
     }
-    cur = open - 1;
   }
   return [];
 }

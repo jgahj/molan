@@ -1,0 +1,336 @@
+{
+  "ok": true,
+  "model": "gpt-5.6-luna",
+  "promptHash": "bf3d9da0569a7958",
+  "bookTitle": "连接连通性真实探针测试",
+  "genre": "玄幻",
+  "stage": "probe",
+  "variant": "v1",
+  "content": "山腹中，黑甲妖猿抡起铁臂砸下，岩地承受不住，裂纹贴着石缝迅速蔓延。沈砚侧身避开，掌心的赤色符文骤然亮起。\n\n“跪下。”\n\n声音落下，神威从他体内铺开。妖猿肩背猛地一沉，双膝砸碎地面，身上的骨甲发出连续断裂声。它怒吼着抬头，妖气冲开尘雾，巨掌再次拍向沈砚。\n\n沈砚没有后退，五指合拢，赤光凝成一柄短矛，刺穿妖猿掌心。鲜血溅落，妖猿撞向后方石壁。轰然巨响中，石壁先凹陷，随后整片崩碎，巨石拖着尘烟滚入深谷。\n\n沈砚踏过碎石，短矛抵住妖猿喉咙。\n\n“你守的东西，我取走了。”",
+  "charCount": 234,
+  "durationMs": 7413,
+  "usage": {
+    "requestId": "req_2f1b288926694465a12273fbcf658169",
+    "userEmail": "1271055010@qq.com",
+    "userId": "usr_69045981613f27cb496923a120d17758",
+    "workspaceId": "",
+    "projectId": "",
+    "modelId": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "contextWindowTokens": 131072,
+    "promptTokens": 11896,
+    "completionTokens": 294,
+    "reasoningTokens": 43,
+    "totalTokens": 12190,
+    "cachedTokens": null,
+    "cacheWriteTokens": null,
+    "usageSource": "upstream",
+    "status": "completed",
+    "finishReason": null,
+    "createdAt": 1790145452768,
+    "durationMs": 7115,
+    "creditCost": 0,
+    "reservedCost": 0,
+    "estimatedTokens": 12190,
+    "estimatedCreditCost": 0,
+    "correctionAudit": {
+      "version": "universal-v3.8-2026-09-10",
+      "libraryVersion": "f4d035d0d608",
+      "enabled": true,
+      "status": "passed",
+      "findings": [],
+      "matchedRuleIds": [],
+      "findingCount": 0,
+      "metrics": {
+        "chars": 224,
+        "charLimitMin": 2000,
+        "charLimitMax": 3000,
+        "metaphorWords": 0,
+        "metaphorLimit": 4,
+        "decorativeQuantity": 0,
+        "decorativeQuantityLimit": 2,
+        "shortParagraphs": 1,
+        "shortParagraphLimit": 3,
+        "exceeded": []
+      },
+      "repetition": [],
+      "genre": "玄幻",
+      "genreFamily": "ancient_cultivation",
+      "skippedRuleIds": [],
+      "checkedAt": 1790145459883
+    },
+    "characterMaterial": {
+      "enabled": false,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "auto",
+      "downgradeReason": "",
+      "archetype": "",
+      "archetypes": [],
+      "archetypeSource": "none",
+      "archetypeConfidence": 0,
+      "dimensions": [
+        "appearance",
+        "expression",
+        "action",
+        "dialogue",
+        "catchphrase",
+        "psychology"
+      ],
+      "scene": "",
+      "relationship": "",
+      "emotionalState": [],
+      "intent": "",
+      "humanTextureSignals": [],
+      "contextFallback": true,
+      "rankingWeights": null,
+      "profileKey": "",
+      "profileBucket": "",
+      "profileFocusSlice": "",
+      "profileAvailable": false,
+      "profileFallback": true,
+      "profileReason": "profiles_not_published",
+      "profileSampleCount": 0,
+      "ruleCount": 0,
+      "sampleCount": 0,
+      "fallback": true,
+      "samplesRemovedByBudget": false,
+      "rulesReducedByBudget": false,
+      "sampleSources": [],
+      "reason": "disabled_by_work",
+      "overlap": {
+        "checkedSampleCount": 0,
+        "overlapFragments": [],
+        "leakedTerms": [],
+        "blocked": false
+      },
+      "rhythmDeviation": {
+        "available": false,
+        "exceeded": false
+      },
+      "blocked": false
+    },
+    "qualityScan": {
+      "maxChars": 200000,
+      "scannedChars": 234,
+      "truncated": false
+    },
+    "skillAudit": {
+      "version": 1,
+      "audited": true,
+      "status": "verified",
+      "promptHash": "9601d821795e642f1045bcd1b24e1f571e9b99f20fe2d63c882b6824660be2df",
+      "actualSkillIds": [
+        "mars-style-pure-xuanhuan-writing"
+      ],
+      "declaredSkillIds": [
+        "mars-style-pure-xuanhuan-writing"
+      ],
+      "skills": [
+        {
+          "id": "mars-style-pure-xuanhuan-writing",
+          "name": "mars-style-pure-xuanhuan-writing",
+          "source": "builtin",
+          "occurrences": 1,
+          "files": [
+            "agents/openai.yaml",
+            "references/correction-library.md",
+            "SKILL.md"
+          ],
+          "fileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 265
+            },
+            {
+              "path": "references/correction-library.md",
+              "type": "text",
+              "size": 13330
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 5477
+            }
+          ],
+          "fileHashes": [
+            {
+              "path": "agents/openai.yaml",
+              "sha256": "48e8a021a66de37aa5e39093d4e4f6610ef0d857c6cd81140056b8b4b7bf20b6",
+              "size": 161
+            },
+            {
+              "path": "references/correction-library.md",
+              "sha256": "cfc9a86e6ca5a874e826ccd51820be824fabe798aa33e1c56723ecefbc907581",
+              "size": 5648
+            },
+            {
+              "path": "SKILL.md",
+              "sha256": "a9df8d3b0c43c658391fa9931104daf75c675a762c2d9179dda07c859079eed6",
+              "size": 2103
+            }
+          ],
+          "instructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+          "expectedInstructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+          "promptFiles": [
+            "SKILL.md",
+            "references/correction-library.md"
+          ],
+          "promptInstructionHash": "34491ece7cc334cdb23f7f059597f7fbd2d36400d6216f916294959e32961fa9",
+          "promptFilesProvided": false,
+          "declaredPromptFiles": [],
+          "declaredFiles": [
+            "agents/openai.yaml",
+            "references/correction-library.md",
+            "SKILL.md"
+          ],
+          "declaredFileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 265
+            },
+            {
+              "path": "references/correction-library.md",
+              "type": "text",
+              "size": 13330
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 5477
+            }
+          ],
+          "verification": "server-match"
+        }
+      ],
+      "stage": "writing",
+      "editorOnly": false,
+      "defaultWritingSkill": {
+        "id": "mars-style-pure-xuanhuan-writing",
+        "applied": true
+      },
+      "forwarding": {
+        "status": "verified",
+        "skills": [
+          {
+            "id": "mars-style-pure-xuanhuan-writing",
+            "status": "verified",
+            "instructionForwarded": true,
+            "promptFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "promptFilesProvided": false,
+            "auditedFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "forwardedTextFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md"
+            ],
+            "omittedTextFiles": [],
+            "omittedBinaryFiles": []
+          }
+        ]
+      },
+      "correctionPolicy": {
+        "version": "universal-v3.8-2026-09-10",
+        "scope": "all-users-all-novels",
+        "stages": [
+          "skill_analysis",
+          "writing",
+          "humanizer",
+          "single"
+        ]
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "passed",
+        "findings": [],
+        "matchedRuleIds": [],
+        "findingCount": 0,
+        "metrics": {
+          "chars": 224,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 0,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 0,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 1,
+          "shortParagraphLimit": 3,
+          "exceeded": []
+        },
+        "repetition": [],
+        "genre": "玄幻",
+        "genreFamily": "ancient_cultivation",
+        "skippedRuleIds": [],
+        "checkedAt": 1790145459883
+      }
+    },
+    "messagesHash": "9601d821795e642f1045bcd1b24e1f571e9b99f20fe2d63c882b6824660be2df",
+    "editorOnly": false,
+    "billingStatus": "exact"
+  },
+  "removedBillingEvents": 33,
+  "generatedAt": "2026-09-23T06:37:39.886Z",
+  "isFromCache": false
+}

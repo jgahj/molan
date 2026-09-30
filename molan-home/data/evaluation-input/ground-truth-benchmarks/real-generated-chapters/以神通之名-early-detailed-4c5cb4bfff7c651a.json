@@ -1,0 +1,584 @@
+{
+  "ok": true,
+  "model": "gpt-5.6-luna",
+  "promptHash": "4c5cb4bfff7c651a",
+  "bookTitle": "以神通之名",
+  "genre": "都市",
+  "stage": "early",
+  "variant": "detailed",
+  "content": "# 第1章 起点\n\n南海西道防城，春雨刚停。\n\n城外五十公里，山里的路还在往下淌水。雨水从桉树叶尖滴落，砸在路边的废轮胎上，发出细碎的声响。山雾贴着坡面游动，把远处的铁丝网和瞭望塔遮去一半。\n\n陈渡穿着旧式雨靴，踩在泥路上。\n\n“啪。”\n\n“啪。”\n\n鞋底每次抬起，都要从泥里带出一层黏连的声响。路看着软，实际最滑，稍微把脚跟踩偏，整个人就会往坡下送。\n\n刘强走在他后面，手里提着一只保温壶，步子比陈渡慢了半拍。\n\n“陈哥，你以前真在边境干过？”刘强问。\n\n“干过几年。”\n\n“听说那边抓人，比这里抓野猪难？”\n\n“人会开门，会说话，会写保证书。野猪不会。”\n\n刘强笑了一声，雨帽边缘抖落几滴水：“妖兽也不会？”\n\n陈渡回头看了他一眼。\n\n刘强立刻把笑收住，抬脚跨过一条被雨水冲开的沟：“我就是随口问。”\n\n“随口问，通常都不是随口。”\n\n“那我换个说法。”刘强把保温壶往身侧提了提，“您觉得这份工作，算不算给国家看野猪？”\n\n“看什么不重要，谁让你看才重要。”\n\n陈渡说完，继续往前。\n\n他转到防城妖兽管理站不到三个月。名义上是巡护员，编制挂在西道异常事务处，实际每天干的事，和火情瞭望观察员差不多：巡山，记录，报点。\n\n只是他们观察的不是火情，而是有没有妖兽穿过山林。\n\n普通野兽留下脚印、粪便、毛发，妖兽留下的东西更麻烦。有些会让树木在一夜之间长出人脸，有些经过水源，能把喝水的人变成半兽状态，还有些没有任何痕迹，却能让整片山林里的鸟在同一个时辰闭嘴。\n\n至于“小异”，就是超凡力量的存在。\n\n历朝历代的统治者，无不是强大的超凡者。那时候没有现代意义上的国家机构，异兽、巫祝、武夫、方士各自占据山河，谁手里握着能改地势、断水脉的力量，谁就有资格坐在最高的位置上。\n\n建国以后，超凡者被纳入统一管理，妖兽也有了登记、迁徙和封锁制度。普通人照常上班、买菜、贷款，超凡世界则被藏在一套厚重的保密条例后面，偶尔从新闻里漏出一点边角。\n\n比如某地山体滑坡。\n\n比如某地发现新物种。\n\n比如某位老干部因病去世。\n\n陈渡曾经见过一名活了两百多岁的老干部。对方临死前还在批改文件，手指骨骼已经钙化，却坚持把最后一页签完。签字笔落下时，桌上的镇山符裂成了两半。\n\n这件事没有登报。\n\n“小异也分等级？”刘强忽然问。\n\n“你入职培训没听？”\n\n“听了。”刘强说，“培训老师讲得像卖保险，保了什么不说，出了事先问你有没有按流程操作。”\n\n陈的脚步停住了。\n\n刘强也停下来，脚底在泥上滑了半寸。他赶紧用登山杖撑住路边一截树根，身体才没有栽进排水沟。\n\n“陈哥？”\n\n“你刚才说什么？”\n\n“我说培训老师像卖保险。”\n\n“前一句。”\n\n刘强脸上的笑意慢慢收了：“我问小异分等级。”\n\n“为什么问这个？”\n\n“我总不能一直只看脚印。”刘强把保温壶放到地上，掀开盖子喝了一口，“早晚得知道自己在看什么。”\n\n保温壶里是姜茶，热气刚冒出来，就被山风吹散。刘强舔掉嘴角的水汽，拿袖口擦了擦。\n\n陈渡看着他，没急着回答。\n\n这次巡山路线是刘强主动申请的，原本应该由老何带队。老何昨天扭了腰，刘强便在午饭桌上说自己熟悉三号沟，主动把名额接了过去。\n\n一个刚入站不到两个月的新人，熟悉什么三号沟？\n\n“等级按危险性划分。”陈渡说，“低危、中危、高危。还有一类不登记。”\n\n刘强问：“不登记的那类，危险性最高？”\n\n“未必。”\n\n“那为什么不登记？”\n\n“因为登记的人不一定活着。”\n\n刘强把保温壶盖拧紧，放回背包侧袋，动作比刚才快了一点：“您这说话方式，挺省水。”\n\n“山里水多，不缺。”\n\n两个人继续往上走。\n\n雨靴踩过一段黏稠的黄泥，鞋底被吸住，发出闷响。陈渡把重心压低，每一步都先用鞋尖试路，再将脚掌落下。这里的路看不出坡度，地下却被雨水冲空了一层，稍不注意就会踩穿。\n\n他当边防警察时，受过最重的一次伤，就是在雨季追走私犯，脚下一滑，整个人摔进暗渠。右侧肋骨断了三根，肩胛骨顶住水泥壁，差点没能爬出来。\n\n所以他不喜欢这种路。\n\n不是怕滑，是知道滑倒之后会发生什么。\n\n前方出现一排旧木桩，木桩之间挂着褪色的红布条，代表管理站设下的第一道监测界线。红布条被雨水打湿，贴在木头上，露出后面一行模糊的小字：未经批准，不得跨越。\n\n陈渡抬手，示意刘强停下。\n\n刘强看了看那排木桩：“今天的路线包括三号沟。”\n\n“路线到二号沟。”\n\n“可你的地图上画过这里。”\n\n“我的地图没有给你看过。”\n\n刘强转身，脸上的表情已经没有刚才的随意：“那可能是我记错了。”\n\n“你在站里看过巡山图。”\n\n“大家都看过。”\n\n“你还问过三号沟的封锁记录。”\n\n刘强没有回答。\n\n湿树叶从头顶落下来，贴在他的雨衣肩膀上。他伸手拿掉，捏在指间，发现叶背有一道细长的黑痕，像被炭火烤过。\n\n陈渡蹲下，捡起一小块路边泥土。泥里混着灰白色的碎壳，壳面有细密的鳞纹，刚被雨冲出来不久。\n\n他把碎壳放在掌心看了看，收入证物袋。\n\n“你知道这是什么？”刘强问。\n\n“知道。”\n\n“那还走？”\n\n“现在回头，记录上会写巡查中止。你想让谁看到？”\n\n刘强的脸色变了。\n\n他当然不想让人看到。若这条路真有问题，他主动申请带队，却在封锁线前停下，说明他知道这里有什么。若他继续往前，出了事故，责任便会落到带队人身上。今天带队的人是陈渡。\n\n两个人都不是傻子。\n\n谁先承认知道得更多，谁就要先承担后果。\n\n“陈哥。”刘强把雨帽向后推了一下，“你们站的人，是不是都这么办事？”\n\n“办什么事？”\n\n“先把人推到沟边，再问人会不会掉下去。”\n\n陈渡把证物袋封好：“站里没有让你来。”\n\n“所以是我自己找死？”\n\n“这句话是你说的。”\n\n刘强侧开身体，给陈渡让出路：“那你现在可以回去报我违抗路线。我保证配合调查，嘴也不会比今天更硬。”\n\n陈渡看了他一眼。\n\n这个人想激他回站。\n\n那三号沟里有什么？或者说，刘强希望他看见什么？\n\n陈渡伸手摸向腰后的警棍，确认卡扣还在。妖兽管理站配发的制式短刃没有出鞘，收纳袋里装着两枚驱异弹，一枚信号弹。每一样东西都有使用记录，少一件都要写清原因。\n\n他跨过了木桩。\n\n刘强没有立刻跟上。\n\n陈渡走了几步，才听见后面传来泥水被踩开的声响。刘强捡起保温壶，低着头穿过红布条，鞋底打滑，手臂撞上木桩，木桩向旁边歪去，红布条被扯断了一根。\n\n刘强伸手扶住木桩，盯着那根断掉的红布，脸上第一次露出真正的慌乱。\n\n“别碰。”\n\n已经迟了。\n\n木桩底部埋着的铜铃没有响，铃舌却自行转了半圈。沉闷的金属碰撞声传到地下，泥水里几条蚯蚓同时钻出地面，扭成了相同的方向。\n\n陈渡拔出短刃，刀背抵住刘强的胸口，把他压回木桩旁。\n\n“你知道这是警戒线。”\n\n刘强被刀柄顶得后背撞在木头上，木屑从雨衣领口落进去。他抬起双手，没敢去碰刀：“我不知道它会这样。”\n\n“你知道它埋了铃。”\n\n“我只看过图。”\n\n“谁给你的图？”\n\n刘强没有回答。\n\n陈渡把刀锋偏开，视线越过他的肩膀，看向斜坡下方。树叶被雨水压得贴地，泥水沿着坡面往下流，里面混着一些新鲜的黑色碎屑。\n\n草丛动了。\n\n不是风。\n\n左侧的芭蕉叶先向里折，紧接着，旁边一片灌木被什么东西从中间撞开。枝条连续弯折，断裂处渗出乳白色树汁。\n\n刘强吓了一跳，没来得及开口求饶，远处草丛已经剧烈抖动起来。\n\n陈渡松开他，迅速抓住刘强的衣领，把人往木桩后面拽。刘强脚下打滑，膝盖撞在一块石头上，身体横着摔下去。陈渡没有去扶他，转身将短刃插入木桩旁的泥地，掀起一块湿土。\n\n湿土下面埋着一截银色金属管，管口对着山坡。\n\n这是旧式捕异枪。\n\n有人在监测线后面布了枪，还把枪口朝向巡山路线。\n\n草丛里的东西撞开最后一层蕨叶，露出一只青黑色的前爪。爪尖扎进泥里，三条深沟立刻向外延伸，泥水被挤到半尺之外。\n\n刘强压低身体，声音终于失去了试探的余裕：“陈哥，那不是登记妖兽。”\n\n“我知道。”\n\n“你知道它会从这里出来？”\n\n“我知道有人想让它从这里出来。”\n\n陈渡拔出短刃，刀身卡在金属管旁边，猛地向下一压。旧捕异枪的扳机被硬生生压断，内部弹簧弹出，撞裂了外壳。\n\n枪口转向旁边，银色弹丸擦过两人头顶，打进后方的树干。树皮炸开，木屑飞散，刘强抱住脑袋往下缩。\n\n那只青黑色前爪停了一下。\n\n下一刻，整个草丛向外塌开。\n\n陈渡抓住刘强的背带，将他从木桩后拖出来，自己侧身躲到坡壁旁。妖兽撞断两根灌木，庞大的身体压过泥地，露出一张长满细密黑鳞的脸。\n\n它只有半张脸。\n\n另一半像被什么东西削掉，露出灰白色的骨面，骨面上嵌着一枚红色金属牌。\n\n管理站的编号牌。\n\n陈渡的手指停在刀柄上。\n\n刘强也看到了那枚牌子，脸色一点点褪去血色：“这是……站里的东西？”\n\n妖兽低下头，鼻端距离刘强不到两米。它闻到了活人的气味，喉咙里挤出沉重的摩擦声，前爪压住一截树根。树根从泥里断开，碎裂的木纤维弹到刘强脸上。\n\n刘强想往后退，后腰撞上坡壁，已经没有位置。\n\n陈渡伸手按住他的肩膀。\n\n“别动。”\n\n刘强从牙缝里挤出一句：“你这时候还管规矩？”\n\n“我管它的视线。”\n\n陈渡取出驱异弹，没有立刻打开保险。\n\n妖兽脸上的红色金属牌正随着呼吸轻轻晃动。那不是管理站的编号，而是一块被磨掉大半字迹的旧牌，牌背露出半截刻痕。\n\n他认得那种刻痕。\n\n边防警察的内部封存标记。\n\n三年前，他在西南边境追查一宗失踪案时，见过同样的编号。案卷最后的结论是人员叛逃，所有装备销毁，相关档案封存。\n\n可那枚牌子，现在钉在一只妖兽的脸上。\n\n远处山脊忽然传来一声短促的汽笛。\n\n有人在给山里的东西报信。\n\n妖兽抬起头，向着声音传来的方向转动脖颈。陈渡趁它分神，将驱异弹塞进短刃下方的发射槽，另一只手摸出手机，打开了站内紧急频道。\n\n屏幕上没有信号，只有一条刚刚弹出的内部通知：\n\n【三号沟巡查任务取消。巡查员陈渡，立即撤离。】\n\n通知下方还有一行发件人。\n\n刘强看见那三个字，身体撞上了身后的木桩。\n\n那是陈渡的名字。\n\n而发送时间，早在他们进山之前。",
+  "charCount": 4088,
+  "durationMs": 72089,
+  "usage": {
+    "requestId": "req_40d329c9b051d2310df9b708bc6e3da7",
+    "userEmail": "1271055010@qq.com",
+    "userId": "usr_69045981613f27cb496923a120d17758",
+    "workspaceId": "",
+    "projectId": "",
+    "modelId": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "contextWindowTokens": 131072,
+    "promptTokens": 18893,
+    "completionTokens": 3575,
+    "reasoningTokens": 162,
+    "totalTokens": 22468,
+    "cachedTokens": 18176,
+    "cacheWriteTokens": null,
+    "usageSource": "upstream",
+    "status": "completed",
+    "finishReason": null,
+    "createdAt": 1790092410950,
+    "durationMs": 71573,
+    "creditCost": 0,
+    "reservedCost": 0,
+    "estimatedTokens": 22468,
+    "estimatedCreditCost": 0,
+    "correctionAudit": {
+      "version": "universal-v3.8-2026-09-10",
+      "libraryVersion": "f4d035d0d608",
+      "enabled": true,
+      "status": "needs_review",
+      "findings": [
+        {
+          "ruleId": "R-45-chapter-length-standard",
+          "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+          "severity": "high",
+          "text": "# 第1章 起点\n\n南海西道防城，春雨刚停。\n\n城外五十公里，山里的路还在往下淌水。雨水从桉树叶尖滴落，砸在路边的废轮胎上，发出细碎的声响。山雾贴着坡面游动，把远处的铁丝网和瞭望塔遮去一半。\n\n陈渡穿着旧式雨靴，踩在泥路上。\n\n“啪。”\n\n",
+          "index": 0,
+          "suggestion": {
+            "ruleId": "R-45",
+            "label": "商业单章篇幅硬标准（2000~3000字）",
+            "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+            "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+          }
+        },
+        {
+          "ruleId": "R-08-formulaic-reasoning",
+          "label": "工整二分或完整心理链",
+          "severity": "medium",
+          "text": "不是火情，而是",
+          "index": 520,
+          "suggestion": {
+            "ruleId": "R-08",
+            "label": "关键动作指代模糊与越界推断",
+            "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+            "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+          }
+        },
+        {
+          "ruleId": "R-39-staccato-subject-monotony",
+          "label": "主角名连续主语发报机句式",
+          "severity": "medium",
+          "text": "比如某地山体滑坡。\n\n比如某地发现新物种。\n\n比如某位老干部因病去世。",
+          "index": 818,
+          "suggestion": {
+            "ruleId": "R-39",
+            "label": "主角名连续主语发报机流水账",
+            "must": "长短句自然交织，严禁连续多句使用代码式发报机流水账",
+            "badExample": "“周烈开门。周烈没有接。周烈看向……周烈抬手……”",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "长短句自然交织，严禁连续多句使用代码式发报机流水账"
+          }
+        },
+        {
+          "ruleId": "R-08-formulaic-reasoning",
+          "label": "工整二分或完整心理链",
+          "severity": "medium",
+          "text": "不是管理站的编号，而是",
+          "index": 3754,
+          "suggestion": {
+            "ruleId": "R-08",
+            "label": "关键动作指代模糊与越界推断",
+            "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+            "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+          }
+        }
+      ],
+      "matchedRuleIds": [
+        "R-08-formulaic-reasoning",
+        "R-39-staccato-subject-monotony",
+        "R-45-chapter-length-standard"
+      ],
+      "findingCount": 4,
+      "metrics": {
+        "chars": 3794,
+        "charLimitMin": 2000,
+        "charLimitMax": 3000,
+        "metaphorWords": 0,
+        "metaphorLimit": 4,
+        "decorativeQuantity": 0,
+        "decorativeQuantityLimit": 2,
+        "shortParagraphs": 47,
+        "shortParagraphLimit": 3,
+        "exceeded": [
+          "shortParagraphs",
+          "chapterLength"
+        ]
+      },
+      "repetition": [],
+      "genre": "都市",
+      "genreFamily": "urban_modern",
+      "skippedRuleIds": [
+        "R-23-modern-legal-bureaucracy",
+        "R-30-lore-announcement",
+        "R-33-pseudo-precision",
+        "R-38-game-meter-ticking",
+        "R-44-quest-penalty-staccato"
+      ],
+      "checkedAt": 1790092482523
+    },
+    "characterMaterial": {
+      "enabled": false,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "auto",
+      "downgradeReason": "",
+      "archetype": "",
+      "archetypes": [],
+      "archetypeSource": "none",
+      "archetypeConfidence": 0,
+      "dimensions": [
+        "appearance",
+        "expression",
+        "action",
+        "dialogue",
+        "catchphrase",
+        "psychology"
+      ],
+      "scene": "",
+      "relationship": "",
+      "emotionalState": [],
+      "intent": "",
+      "humanTextureSignals": [],
+      "contextFallback": true,
+      "rankingWeights": null,
+      "profileKey": "",
+      "profileBucket": "",
+      "profileFocusSlice": "",
+      "profileAvailable": false,
+      "profileFallback": true,
+      "profileReason": "profiles_not_published",
+      "profileSampleCount": 0,
+      "ruleCount": 0,
+      "sampleCount": 0,
+      "fallback": true,
+      "samplesRemovedByBudget": false,
+      "rulesReducedByBudget": false,
+      "sampleSources": [],
+      "reason": "disabled_by_work",
+      "overlap": {
+        "checkedSampleCount": 0,
+        "overlapFragments": [],
+        "leakedTerms": [],
+        "blocked": false
+      },
+      "rhythmDeviation": {
+        "available": false,
+        "exceeded": false
+      },
+      "blocked": false
+    },
+    "qualityScan": {
+      "maxChars": 200000,
+      "scannedChars": 4094,
+      "truncated": false
+    },
+    "skillAudit": {
+      "version": 1,
+      "audited": true,
+      "status": "verified",
+      "promptHash": "bb4cbfdfb7e1016f40f15d9be533e5d68fcd60ea163b23b14697aace6c9fa450",
+      "actualSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "declaredSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "skills": [
+        {
+          "id": "write-high-tension-fiction",
+          "name": "write-high-tension-fiction",
+          "source": "builtin",
+          "occurrences": 1,
+          "files": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "fileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12602
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 12351
+            }
+          ],
+          "fileHashes": [
+            {
+              "path": "agents/openai.yaml",
+              "sha256": "c9a7972cd91f5541015caa27365ce95ba3b8b10f2b8e6e47aa5cef6cde981a41",
+              "size": 431
+            },
+            {
+              "path": "references/canon-template.md",
+              "sha256": "87b2208f519a9a618c7fe960b6ed5bfe9f72fb3f6ad4863a16cf0de48565b09c",
+              "size": 1071
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "sha256": "7c763d8551941600e6bcd08ee56443745dcdeb0a0c560767094eb88bf7101fcb",
+              "size": 1710
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "sha256": "94acb0793912aed519ebbcea118cb99bfd7f544f5d5b464dc3689feee3ec50b5",
+              "size": 1632
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "sha256": "9eac1d8356a192483afead707d66f00c083c1ebca0c0e37c6f66922d3d55e806",
+              "size": 4818
+            },
+            {
+              "path": "references/style-profile.md",
+              "sha256": "119fa92fbdda319d61a2fa816b448e1e4da0e04f52d88e98cfd47f644ca76707",
+              "size": 1743
+            },
+            {
+              "path": "SKILL.md",
+              "sha256": "c41b3ffbd1f32d01a890a83a8ab102dacce4ab75e89898d1868e648ebde92195",
+              "size": 5101
+            }
+          ],
+          "instructionHash": "e29c9c6f414a25c90212f560b41cac08e25f85887d0d440522367e53be95ae75",
+          "expectedInstructionHash": "e29c9c6f414a25c90212f560b41cac08e25f85887d0d440522367e53be95ae75",
+          "promptFiles": [
+            "SKILL.md",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md"
+          ],
+          "promptInstructionHash": "79fd231a0b7a81220a1e7ff482f5ea87d7c2283ecd01a52148a6f8f9ce8c83c4",
+          "promptFilesProvided": false,
+          "declaredPromptFiles": [],
+          "declaredFiles": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "declaredFileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12602
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 12351
+            }
+          ],
+          "verification": "server-match"
+        }
+      ],
+      "stage": "writing",
+      "editorOnly": false,
+      "defaultWritingSkill": {
+        "id": "write-high-tension-fiction",
+        "applied": true
+      },
+      "forwarding": {
+        "status": "verified",
+        "skills": [
+          {
+            "id": "write-high-tension-fiction",
+            "status": "verified",
+            "instructionForwarded": true,
+            "promptFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "promptFilesProvided": false,
+            "auditedFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "forwardedTextFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md"
+            ],
+            "omittedTextFiles": [],
+            "omittedBinaryFiles": []
+          }
+        ]
+      },
+      "correctionPolicy": {
+        "version": "universal-v3.8-2026-09-10",
+        "scope": "all-users-all-novels",
+        "stages": [
+          "skill_analysis",
+          "writing",
+          "humanizer",
+          "single"
+        ]
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "needs_review",
+        "findings": [
+          {
+            "ruleId": "R-45-chapter-length-standard",
+            "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+            "severity": "high",
+            "text": "# 第1章 起点\n\n南海西道防城，春雨刚停。\n\n城外五十公里，山里的路还在往下淌水。雨水从桉树叶尖滴落，砸在路边的废轮胎上，发出细碎的声响。山雾贴着坡面游动，把远处的铁丝网和瞭望塔遮去一半。\n\n陈渡穿着旧式雨靴，踩在泥路上。\n\n“啪。”\n\n",
+            "index": 0,
+            "suggestion": {
+              "ruleId": "R-45",
+              "label": "商业单章篇幅硬标准（2000~3000字）",
+              "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+              "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+            }
+          },
+          {
+            "ruleId": "R-08-formulaic-reasoning",
+            "label": "工整二分或完整心理链",
+            "severity": "medium",
+            "text": "不是火情，而是",
+            "index": 520,
+            "suggestion": {
+              "ruleId": "R-08",
+              "label": "关键动作指代模糊与越界推断",
+              "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+              "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+            }
+          },
+          {
+            "ruleId": "R-39-staccato-subject-monotony",
+            "label": "主角名连续主语发报机句式",
+            "severity": "medium",
+            "text": "比如某地山体滑坡。\n\n比如某地发现新物种。\n\n比如某位老干部因病去世。",
+            "index": 818,
+            "suggestion": {
+              "ruleId": "R-39",
+              "label": "主角名连续主语发报机流水账",
+              "must": "长短句自然交织，严禁连续多句使用代码式发报机流水账",
+              "badExample": "“周烈开门。周烈没有接。周烈看向……周烈抬手……”",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "长短句自然交织，严禁连续多句使用代码式发报机流水账"
+            }
+          },
+          {
+            "ruleId": "R-08-formulaic-reasoning",
+            "label": "工整二分或完整心理链",
+            "severity": "medium",
+            "text": "不是管理站的编号，而是",
+            "index": 3754,
+            "suggestion": {
+              "ruleId": "R-08",
+              "label": "关键动作指代模糊与越界推断",
+              "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+              "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+            }
+          }
+        ],
+        "matchedRuleIds": [
+          "R-08-formulaic-reasoning",
+          "R-39-staccato-subject-monotony",
+          "R-45-chapter-length-standard"
+        ],
+        "findingCount": 4,
+        "metrics": {
+          "chars": 3794,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 0,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 0,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 47,
+          "shortParagraphLimit": 3,
+          "exceeded": [
+            "shortParagraphs",
+            "chapterLength"
+          ]
+        },
+        "repetition": [],
+        "genre": "都市",
+        "genreFamily": "urban_modern",
+        "skippedRuleIds": [
+          "R-23-modern-legal-bureaucracy",
+          "R-30-lore-announcement",
+          "R-33-pseudo-precision",
+          "R-38-game-meter-ticking",
+          "R-44-quest-penalty-staccato"
+        ],
+        "checkedAt": 1790092482523
+      }
+    },
+    "messagesHash": "bb4cbfdfb7e1016f40f15d9be533e5d68fcd60ea163b23b14697aace6c9fa450",
+    "editorOnly": false,
+    "billingStatus": "exact"
+  },
+  "removedBillingEvents": 242,
+  "generatedAt": "2026-09-22T15:54:42.542Z",
+  "isFromCache": false
+}

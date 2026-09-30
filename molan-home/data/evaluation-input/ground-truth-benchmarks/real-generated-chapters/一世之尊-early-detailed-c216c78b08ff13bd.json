@@ -1,0 +1,340 @@
+{
+  "ok": true,
+  "model": "gpt-5.6-luna",
+  "promptHash": "c216c78b08ff13bd",
+  "bookTitle": "一世之尊",
+  "genre": "玄幻",
+  "stage": "early",
+  "variant": "detailed",
+  "content": "### 杂役院初见\n\n孟奇进少林寺那天，天刚下过雨。\n\n杂役院的青石路湿滑，墙角堆着劈好的柴，雨水顺着屋檐滴在木桶里，发出单调的声响。管事僧把扁担和斧头丢给他，指了指院后的山泉。\n\n“每日三担水，柴火劈满一垛。做不完，晚饭减半。”\n\n孟奇拎起斧头，掂了掂重量，没有争辩。他如今筋骨尚弱，肩膀刚挑起水桶，扁担便压得皮肉生疼。走到半路，右边木桶裂开一道缝，泉水顺着裤脚淌了一路。\n\n“师兄，你的桶漏水了。”\n\n墙边蹲着个圆脸小和尚，怀里抱着几根湿柴，正认真看着他。\n\n孟奇低头检查木桶，发现裂缝里塞着一片竹篾，显然是有人临时堵过。\n\n“你叫什么？”\n\n“真慧。”小和尚回答，“师兄呢？”\n\n“孟奇。”\n\n真慧把湿柴放下，跑到柴堆旁取来一只旧桶。\n\n“这只不漏。管事师兄说，坏桶留给新来的用。”\n\n孟奇接过旧桶，问道：“那你为什么帮我？”\n\n真慧挠了挠光头。\n\n“因为我刚来时，也挑坏过一担水。”\n\n孟奇看了他一会儿，扛起扁担。\n\n“那走吧。你带路。”\n\n真慧笑着跟上，脚下踩过积水，溅湿了僧衣。山泉声从林后传来，杂役院的钟声也在雨后的天空中响起。",
+  "charCount": 471,
+  "durationMs": 31921,
+  "usage": {
+    "requestId": "req_2a056e0c081d4bd1bab3e0eabddff65b",
+    "userEmail": "1271055010@qq.com",
+    "userId": "usr_69045981613f27cb496923a120d17758",
+    "workspaceId": "",
+    "projectId": "",
+    "modelId": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "contextWindowTokens": 131072,
+    "promptTokens": 11930,
+    "completionTokens": 586,
+    "reasoningTokens": 157,
+    "totalTokens": 12516,
+    "cachedTokens": null,
+    "cacheWriteTokens": null,
+    "usageSource": "upstream",
+    "status": "completed",
+    "finishReason": null,
+    "createdAt": 1790089956884,
+    "durationMs": 31661,
+    "creditCost": 0,
+    "reservedCost": 0,
+    "estimatedTokens": 12516,
+    "estimatedCreditCost": 0,
+    "correctionAudit": {
+      "version": "universal-v3.8-2026-09-10",
+      "libraryVersion": "f4d035d0d608",
+      "enabled": true,
+      "status": "needs_review",
+      "findings": [],
+      "matchedRuleIds": [],
+      "findingCount": 0,
+      "metrics": {
+        "chars": 434,
+        "charLimitMin": 2000,
+        "charLimitMax": 3000,
+        "metaphorWords": 0,
+        "metaphorLimit": 4,
+        "decorativeQuantity": 0,
+        "decorativeQuantityLimit": 2,
+        "shortParagraphs": 4,
+        "shortParagraphLimit": 3,
+        "exceeded": [
+          "shortParagraphs"
+        ]
+      },
+      "repetition": [],
+      "genre": "玄幻",
+      "genreFamily": "ancient_cultivation",
+      "skippedRuleIds": [],
+      "checkedAt": 1790089988545
+    },
+    "characterMaterial": {
+      "enabled": false,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "auto",
+      "downgradeReason": "",
+      "archetype": "",
+      "archetypes": [],
+      "archetypeSource": "none",
+      "archetypeConfidence": 0,
+      "dimensions": [
+        "appearance",
+        "expression",
+        "action",
+        "dialogue",
+        "catchphrase",
+        "psychology"
+      ],
+      "scene": "",
+      "relationship": "",
+      "emotionalState": [],
+      "intent": "",
+      "humanTextureSignals": [],
+      "contextFallback": true,
+      "rankingWeights": null,
+      "profileKey": "",
+      "profileBucket": "",
+      "profileFocusSlice": "",
+      "profileAvailable": false,
+      "profileFallback": true,
+      "profileReason": "profiles_not_published",
+      "profileSampleCount": 0,
+      "ruleCount": 0,
+      "sampleCount": 0,
+      "fallback": true,
+      "samplesRemovedByBudget": false,
+      "rulesReducedByBudget": false,
+      "sampleSources": [],
+      "reason": "disabled_by_work",
+      "overlap": {
+        "checkedSampleCount": 0,
+        "overlapFragments": [],
+        "leakedTerms": [],
+        "blocked": false
+      },
+      "rhythmDeviation": {
+        "available": false,
+        "exceeded": false
+      },
+      "blocked": false
+    },
+    "qualityScan": {
+      "maxChars": 200000,
+      "scannedChars": 471,
+      "truncated": false
+    },
+    "skillAudit": {
+      "version": 1,
+      "audited": true,
+      "status": "verified",
+      "promptHash": "1680e5d58da2e88ae2e280e4ba19693afffc3f5b2f54191ac268a785cd3a2625",
+      "actualSkillIds": [
+        "mars-style-pure-xuanhuan-writing"
+      ],
+      "declaredSkillIds": [
+        "mars-style-pure-xuanhuan-writing"
+      ],
+      "skills": [
+        {
+          "id": "mars-style-pure-xuanhuan-writing",
+          "name": "mars-style-pure-xuanhuan-writing",
+          "source": "builtin",
+          "occurrences": 1,
+          "files": [
+            "agents/openai.yaml",
+            "references/correction-library.md",
+            "SKILL.md"
+          ],
+          "fileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 265
+            },
+            {
+              "path": "references/correction-library.md",
+              "type": "text",
+              "size": 13330
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 5477
+            }
+          ],
+          "fileHashes": [
+            {
+              "path": "agents/openai.yaml",
+              "sha256": "48e8a021a66de37aa5e39093d4e4f6610ef0d857c6cd81140056b8b4b7bf20b6",
+              "size": 161
+            },
+            {
+              "path": "references/correction-library.md",
+              "sha256": "cfc9a86e6ca5a874e826ccd51820be824fabe798aa33e1c56723ecefbc907581",
+              "size": 5648
+            },
+            {
+              "path": "SKILL.md",
+              "sha256": "a9df8d3b0c43c658391fa9931104daf75c675a762c2d9179dda07c859079eed6",
+              "size": 2103
+            }
+          ],
+          "instructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+          "expectedInstructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+          "promptFiles": [
+            "SKILL.md",
+            "references/correction-library.md"
+          ],
+          "promptInstructionHash": "34491ece7cc334cdb23f7f059597f7fbd2d36400d6216f916294959e32961fa9",
+          "promptFilesProvided": false,
+          "declaredPromptFiles": [],
+          "declaredFiles": [
+            "agents/openai.yaml",
+            "references/correction-library.md",
+            "SKILL.md"
+          ],
+          "declaredFileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 265
+            },
+            {
+              "path": "references/correction-library.md",
+              "type": "text",
+              "size": 13330
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 5477
+            }
+          ],
+          "verification": "server-match"
+        }
+      ],
+      "stage": "writing",
+      "editorOnly": false,
+      "defaultWritingSkill": {
+        "id": "mars-style-pure-xuanhuan-writing",
+        "applied": true
+      },
+      "forwarding": {
+        "status": "verified",
+        "skills": [
+          {
+            "id": "mars-style-pure-xuanhuan-writing",
+            "status": "verified",
+            "instructionForwarded": true,
+            "promptFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "promptFilesProvided": false,
+            "auditedFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "forwardedTextFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md"
+            ],
+            "omittedTextFiles": [],
+            "omittedBinaryFiles": []
+          }
+        ]
+      },
+      "correctionPolicy": {
+        "version": "universal-v3.8-2026-09-10",
+        "scope": "all-users-all-novels",
+        "stages": [
+          "skill_analysis",
+          "writing",
+          "humanizer",
+          "single"
+        ]
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "needs_review",
+        "findings": [],
+        "matchedRuleIds": [],
+        "findingCount": 0,
+        "metrics": {
+          "chars": 434,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 0,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 0,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 4,
+          "shortParagraphLimit": 3,
+          "exceeded": [
+            "shortParagraphs"
+          ]
+        },
+        "repetition": [],
+        "genre": "玄幻",
+        "genreFamily": "ancient_cultivation",
+        "skippedRuleIds": [],
+        "checkedAt": 1790089988545
+      }
+    },
+    "messagesHash": "1680e5d58da2e88ae2e280e4ba19693afffc3f5b2f54191ac268a785cd3a2625",
+    "editorOnly": false,
+    "billingStatus": "exact"
+  },
+  "removedBillingEvents": 116,
+  "generatedAt": "2026-09-22T15:13:08.549Z",
+  "isFromCache": false
+}

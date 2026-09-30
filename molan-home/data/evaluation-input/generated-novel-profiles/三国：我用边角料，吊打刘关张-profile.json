@@ -1,0 +1,4005 @@
+{
+  "schemaVersion": "generated-novel-profile-v1",
+  "profileCreatedAt": "2026-09-22T17:04:43.012Z",
+  "provenance": {
+    "generation_version": "三国：我用边角料，吊打刘关张-early-detailed",
+    "model_version": "gpt-5.6-luna",
+    "prompt_version": "sha256:d0648478f7913b5b",
+    "story_bible_version": "历史脑洞-bible-v1",
+    "optimizer_version": "universal-v3.8-2026-09-10"
+  },
+  "granularity_tree": {
+    "level": "book",
+    "unitId": "book-0001",
+    "title": "三国：我用边角料，吊打刘关张",
+    "totalChars": 3456,
+    "volumeCount": 1,
+    "chapterCount": 1,
+    "arcCount": 2,
+    "sceneCount": 13,
+    "paragraphCount": 87,
+    "sentenceCount": 144,
+    "summaryMetrics": {
+      "charCount": 3456,
+      "dialogueRatio": 0.28,
+      "averageSentenceLength": 24,
+      "averageParagraphLength": 39.72,
+      "granularityDepth": "7-tiers (book->volume->arc->chapter->scene->paragraph->sentence)"
+    },
+    "children": [
+      {
+        "level": "volume",
+        "unitId": "volume-0001",
+        "volumeIndex": 1,
+        "title": "第一卷：三国篇",
+        "charCount": 3456,
+        "chapterCount": 1,
+        "arcCount": 2,
+        "metrics": {
+          "avgChapterLength": 3456,
+          "totalArcs": 2
+        },
+        "children": [
+          {
+            "level": "arc",
+            "unitId": "arc-0001",
+            "arcIndex": 1,
+            "title": "篇章一：起承铺垫与阻力显化",
+            "phase": "起承阶段（前序铺垫）",
+            "focus": "确立核心人物行动目标与外部生存阻力，展开初遇交锋与局部矛盾激化",
+            "chapterRange": [
+              1,
+              1
+            ],
+            "sceneRange": [
+              1,
+              6
+            ],
+            "charCount": 1618,
+            "children": [
+              {
+                "level": "chapter",
+                "unitId": "chapter-0001",
+                "chapterIndex": 1,
+                "title": "三国：我用边角料，吊打刘关张",
+                "charCount": 3456,
+                "sceneCount": 13,
+                "paragraphCount": 87,
+                "sentenceCount": 144,
+                "metrics": {
+                  "dialogueRatio": 0.28,
+                  "sceneDensity": 3.76,
+                  "averageSceneChars": 265.8
+                },
+                "children": [
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0001",
+                    "sceneIndex": 1,
+                    "title": "场景1：场景 1：情节演进单元",
+                    "setting": "场景 1：情节演进单元",
+                    "charCount": 299,
+                    "paragraphCount": 7,
+                    "metrics": {
+                      "dialogueRatio": 0.304,
+                      "conflictLevel": "high_physical",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0001",
+                        "paragraphIndex": 1,
+                        "text": "卧牛山南麓的荒坡上，秋草已经枯黄。",
+                        "charCount": 17,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00001",
+                            "text": "卧牛山南麓的荒坡上，秋草已经枯黄。",
+                            "charCount": 17,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0002",
+                        "paragraphIndex": 2,
+                        "text": "那人跪在乱石之间，身上只用几片阔叶遮住要紧处。露在外面的皮肤被日晒风吹得粗糙发黑，肩背上横着几道结痂的鞭痕，脚板更惨，血泡破了又结，结了又破，泥沙嵌进裂口，走一步便在地上留下一个暗红的脚印。",
+                        "charCount": 95,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00002",
+                            "text": "那人跪在乱石之间，身上只用几片阔叶遮住要紧处。",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00003",
+                            "text": "露在外面的皮肤被日晒风吹得粗糙发黑，肩背上横着几道结痂的鞭痕，脚板更惨，血泡破了又结，结了又破，泥沙嵌进裂口，走一步便在地上留下一个暗红的脚印。",
+                            "charCount": 72,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0003",
+                        "paragraphIndex": 3,
+                        "text": "两个黄巾喽啰一左一右按着他的肩膀，手里的短刀抵在他肋下。",
+                        "charCount": 28,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00004",
+                            "text": "两个黄巾喽啰一左一右按着他的肩膀，手里的短刀抵在他肋下。",
+                            "charCount": 28,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0004",
+                        "paragraphIndex": 4,
+                        "text": "裴逸垂着头，听见前方有人问：“你说自己姓裴，家在颍川，祖上还做过县令？”",
+                        "charCount": 36,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00005",
+                            "text": "裴逸垂着头，听见前方有人问：“你说自己姓裴，家在颍川，祖上还做过县令？”",
+                            "charCount": 36,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0005",
+                        "paragraphIndex": 5,
+                        "text": "那人抬起脸，嘴唇干裂，颧骨高高凸起。他看着被绑在树旁的几个流民，眼里没有多少惧色，反而带着一股被逼急后的倔劲。",
+                        "charCount": 55,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00006",
+                            "text": "那人抬起脸，嘴唇干裂，颧骨高高凸起。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00007",
+                            "text": "他看着被绑在树旁的几个流民，眼里没有多少惧色，反而带着一股被逼急后的倔劲。",
+                            "charCount": 37,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0006",
+                        "paragraphIndex": 6,
+                        "text": "“家谱在兵乱里丢了，祖宅也被烧了。诸位若是不信，便把我交给官府。官府认不认我，总好过叫我在这里替你们挑石头。”",
+                        "charCount": 55,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00008",
+                            "text": "“家谱在兵乱里丢了，祖宅也被烧了。",
+                            "charCount": 17,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00009",
+                            "text": "诸位若是不信，便把我交给官府。",
+                            "charCount": 15,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00010",
+                            "text": "官府认不认我，总好过叫我在这里替你们挑石头。”",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0007",
+                        "paragraphIndex": 7,
+                        "text": "附近几个喽啰低声笑了起来。",
+                        "charCount": 13,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": true
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00011",
+                            "text": "附近几个喽啰低声笑了起来。",
+                            "charCount": 13,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0002",
+                    "sceneIndex": 2,
+                    "title": "场景2：场景 2：情节焦点转折",
+                    "setting": "场景 2：情节焦点转折",
+                    "charCount": 429,
+                    "paragraphCount": 9,
+                    "metrics": {
+                      "dialogueRatio": 0.263,
+                      "conflictLevel": "moderate",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0008",
+                        "paragraphIndex": 8,
+                        "text": "说话的汉子坐在一块青石上，腰间横着环首刀，头巾染了半边血色。他身量魁梧，脸上有一道旧疤，从左耳一直划到下颌，正是这伙人的首领裴元绍。",
+                        "charCount": 66,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00012",
+                            "text": "说话的汉子坐在一块青石上，腰间横着环首刀，头巾染了半边血色。",
+                            "charCount": 30,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00013",
+                            "text": "他身量魁梧，脸上有一道旧疤，从左耳一直划到下颌，正是这伙人的首领裴元绍。",
+                            "charCount": 36,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0009",
+                        "paragraphIndex": 9,
+                        "text": "“交给官府？”裴元绍摸了摸下颌的旧疤，“你倒会挑地方。卧牛山下三十里，官府的差役连自己的粮道都护不住，哪有闲心来管一个赤身的贵人？”",
+                        "charCount": 66,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": true
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00014",
+                            "text": "“交给官府？”",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00015",
+                            "text": "裴元绍摸了摸下颌的旧疤，“你倒会挑地方。",
+                            "charCount": 20,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00016",
+                            "text": "卧牛山下三十里，官府的差役连自己的粮道都护不住，哪有闲心来管一个赤身的贵人？”",
+                            "charCount": 39,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0010",
+                        "paragraphIndex": 10,
+                        "text": "裴逸抬头看了他一眼，又把视线落到他腰间的刀上。",
+                        "charCount": 23,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00017",
+                            "text": "裴逸抬头看了他一眼，又把视线落到他腰间的刀上。",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0011",
+                        "paragraphIndex": 11,
+                        "text": "“贵人不敢当。只是裴某祖上虽败，也知道什么叫宗族。阁下既然也姓裴，何苦把同姓之人当牛马使唤？”",
+                        "charCount": 47,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00018",
+                            "text": "“贵人不敢当。",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00019",
+                            "text": "只是裴某祖上虽败，也知道什么叫宗族。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00020",
+                            "text": "阁下既然也姓裴，何苦把同姓之人当牛马使唤？”",
+                            "charCount": 22,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0012",
+                        "paragraphIndex": 12,
+                        "text": "这句话落下，裴元绍没有立刻答。",
+                        "charCount": 15,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00021",
+                            "text": "这句话落下，裴元绍没有立刻答。",
+                            "charCount": 15,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0013",
+                        "paragraphIndex": 13,
+                        "text": "旁边一个瘦脸喽啰踢了踢地上的竹篓。里面装着几块黑面饼和两只干硬的鸡腿，先前几人正为分配争执。裴逸便是在那阵混乱里被两个看守押出来的。",
+                        "charCount": 66,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00022",
+                            "text": "旁边一个瘦脸喽啰踢了踢地上的竹篓。",
+                            "charCount": 17,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00023",
+                            "text": "里面装着几块黑面饼和两只干硬的鸡腿，先前几人正为分配争执。",
+                            "charCount": 29,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00024",
+                            "text": "裴逸便是在那阵混乱里被两个看守押出来的。",
+                            "charCount": 20,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0014",
+                        "paragraphIndex": 14,
+                        "text": "从河东逃到这里，他先是被乡豪扣下，替人垦荒，后来又被贩盐的私兵捉住，赶着修堤。昨日夜里山洪冲垮了营栅，他趁几个喽啰争抢粮袋，钻进芦苇荡里，赤着脚一路逃到卧牛山。若不是撞上这伙黄巾，他此刻多半已经被重新抓回去，送往河岸搬石。",
+                        "charCount": 111,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00025",
+                            "text": "从河东逃到这里，他先是被乡豪扣下，替人垦荒，后来又被贩盐的私兵捉住，赶着修堤。",
+                            "charCount": 39,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00026",
+                            "text": "昨日夜里山洪冲垮了营栅，他趁几个喽啰争抢粮袋，钻进芦苇荡里，赤着脚一路逃到卧牛山。",
+                            "charCount": 41,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00027",
+                            "text": "若不是撞上这伙黄巾，他此刻多半已经被重新抓回去，送往河岸搬石。",
+                            "charCount": 31,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0015",
+                        "paragraphIndex": 15,
+                        "text": "相比之下，落到山贼手中未必是坏事。",
+                        "charCount": 17,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00028",
+                            "text": "相比之下，落到山贼手中未必是坏事。",
+                            "charCount": 17,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0016",
+                        "paragraphIndex": 16,
+                        "text": "至少这些人会说话，会算账，也会认亲。",
+                        "charCount": 18,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00029",
+                            "text": "至少这些人会说话，会算账，也会认亲。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0003",
+                    "sceneIndex": 3,
+                    "title": "场景3：突发外部介入与冲突升级",
+                    "setting": "突发外部介入与冲突升级",
+                    "charCount": 254,
+                    "paragraphCount": 7,
+                    "metrics": {
+                      "dialogueRatio": 0.736,
+                      "conflictLevel": "high_social",
+                      "pacing": "fast_dialogue"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0017",
+                        "paragraphIndex": 17,
+                        "text": "“把手松开。”裴元绍忽然道。",
+                        "charCount": 14,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00030",
+                            "text": "“把手松开。”",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00031",
+                            "text": "裴元绍忽然道。",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0018",
+                        "paragraphIndex": 18,
+                        "text": "按住裴逸的喽啰迟疑了一下，抬眼看他。",
+                        "charCount": 18,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": true
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00032",
+                            "text": "按住裴逸的喽啰迟疑了一下，抬眼看他。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0019",
+                        "paragraphIndex": 19,
+                        "text": "裴元绍没有看那喽啰，只问：“你家裴氏是哪一房？”",
+                        "charCount": 24,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00033",
+                            "text": "裴元绍没有看那喽啰，只问：“你家裴氏是哪一房？”",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0020",
+                        "paragraphIndex": 20,
+                        "text": "裴逸脑中飞快地转动。",
+                        "charCount": 10,
+                        "type": "action",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00034",
+                            "text": "裴逸脑中飞快地转动。",
+                            "charCount": 10,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0021",
+                        "paragraphIndex": 21,
+                        "text": "他当然不是什么颍川裴氏子弟。真正裴氏宗族在河东，族中分支繁多，谱牒又被战乱冲散，外人很难立刻辨清。他一路上借着这层姓氏避过了几次盘问，却不曾想今日竟遇到一个同姓的黄巾头领。",
+                        "charCount": 86,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00035",
+                            "text": "他当然不是什么颍川裴氏子弟。",
+                            "charCount": 14,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00036",
+                            "text": "真正裴氏宗族在河东，族中分支繁多，谱牒又被战乱冲散，外人很难立刻辨清。",
+                            "charCount": 35,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00037",
+                            "text": "他一路上借着这层姓氏避过了几次盘问，却不曾想今日竟遇到一个同姓的黄巾头领。",
+                            "charCount": 37,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0022",
+                        "paragraphIndex": 22,
+                        "text": "“先祖讳衡，字仲平，曾任沛国相。”他说，“父亲裴俭，早年在雒阳为郎，后因党锢牵连，弃官归乡。家中有一位叔父，名讳不便当众说。”",
+                        "charCount": 63,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00038",
+                            "text": "“先祖讳衡，字仲平，曾任沛国相。”",
+                            "charCount": 17,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00039",
+                            "text": "他说，“父亲裴俭，早年在雒阳为郎，后因党锢牵连，弃官归乡。",
+                            "charCount": 29,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00040",
+                            "text": "家中有一位叔父，名讳不便当众说。”",
+                            "charCount": 17,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0023",
+                        "paragraphIndex": 23,
+                        "text": "他只说半真半假。裴氏族中确有裴衡，也确有一支族人曾任沛国相，只是与他没有关系。",
+                        "charCount": 39,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00041",
+                            "text": "他只说半真半假。",
+                            "charCount": 8,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00042",
+                            "text": "裴氏族中确有裴衡，也确有一支族人曾任沛国相，只是与他没有关系。",
+                            "charCount": 31,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0004",
+                    "sceneIndex": 4,
+                    "title": "场景4：物理场景位移与视点转移",
+                    "setting": "物理场景位移与视点转移",
+                    "charCount": 87,
+                    "paragraphCount": 3,
+                    "metrics": {
+                      "dialogueRatio": 0,
+                      "conflictLevel": "moderate",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0024",
+                        "paragraphIndex": 24,
+                        "text": "裴元绍的手停在刀柄上。",
+                        "charCount": 11,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00043",
+                            "text": "裴元绍的手停在刀柄上。",
+                            "charCount": 11,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0025",
+                        "paragraphIndex": 25,
+                        "text": "那一瞬间很短，短得旁人只当他在掂量这番话的真假。裴逸却捕捉到了他的变化：裴元绍先看了自己的脸，随后看向他裸露的左肩，又去看他脚下那些血泡。",
+                        "charCount": 69,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00044",
+                            "text": "那一瞬间很短，短得旁人只当他在掂量这番话的真假。",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00045",
+                            "text": "裴逸却捕捉到了他的变化：裴元绍先看了自己的脸，随后看向他裸露的左肩，又去看他脚下那些血泡。",
+                            "charCount": 45,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0026",
+                        "paragraphIndex": 26,
+                        "text": "莫非真有渊源？",
+                        "charCount": 7,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00046",
+                            "text": "莫非真有渊源？",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": true,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0005",
+                    "sceneIndex": 5,
+                    "title": "场景5：突发外部介入与冲突升级",
+                    "setting": "突发外部介入与冲突升级",
+                    "charCount": 342,
+                    "paragraphCount": 8,
+                    "metrics": {
+                      "dialogueRatio": 0.137,
+                      "conflictLevel": "moderate",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0027",
+                        "paragraphIndex": 27,
+                        "text": "裴逸还没来得及细想，身旁的喽啰忽然扯住他的胳膊，把他往后拖。",
+                        "charCount": 30,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00047",
+                            "text": "裴逸还没来得及细想，身旁的喽啰忽然扯住他的胳膊，把他往后拖。",
+                            "charCount": 30,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0028",
+                        "paragraphIndex": 28,
+                        "text": "“大当家，他一张嘴便是官宦家门，谁知道是真是假？山里缺粮，留下一个吃闲饭的，弟兄们都不答应。”",
+                        "charCount": 47,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00048",
+                            "text": "“大当家，他一张嘴便是官宦家门，谁知道是真是假？",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": true,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00049",
+                            "text": "山里缺粮，留下一个吃闲饭的，弟兄们都不答应。”",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0029",
+                        "paragraphIndex": 29,
+                        "text": "那只手抓得很紧，粗硬的指甲刮破了裴逸臂上的皮。",
+                        "charCount": 23,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00050",
+                            "text": "那只手抓得很紧，粗硬的指甲刮破了裴逸臂上的皮。",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0030",
+                        "paragraphIndex": 30,
+                        "text": "裴逸知道，若再被拖回去，便没有第二次逃走的机会。身后是两名喽啰，前方是裴元绍，四周还有十余人。贸然冲撞只能挨刀，可裴元绍刚才的迟疑已经说明，宗族二字对他有用。",
+                        "charCount": 79,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": true
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00051",
+                            "text": "裴逸知道，若再被拖回去，便没有第二次逃走的机会。",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00052",
+                            "text": "身后是两名喽啰，前方是裴元绍，四周还有十余人。",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00053",
+                            "text": "贸然冲撞只能挨刀，可裴元绍刚才的迟疑已经说明，宗族二字对他有用。",
+                            "charCount": 32,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0031",
+                        "paragraphIndex": 31,
+                        "text": "至于有用到什么程度，只能赌。",
+                        "charCount": 14,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00054",
+                            "text": "至于有用到什么程度，只能赌。",
+                            "charCount": 14,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0032",
+                        "paragraphIndex": 32,
+                        "text": "裴逸猛地挣脱旁边喽啰的手，赤脚踩过碎石，几步冲上前去，一把抱住裴元绍的腰。",
+                        "charCount": 37,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00055",
+                            "text": "裴逸猛地挣脱旁边喽啰的手，赤脚踩过碎石，几步冲上前去，一把抱住裴元绍的腰。",
+                            "charCount": 37,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0033",
+                        "paragraphIndex": 33,
+                        "text": "裴元绍猝不及防，身被他撞得向后挪了半步，脚下青石边缘裂开一道细缝。他左手按住刀柄，右手抓住裴逸的后颈，手臂用力收紧，裴逸的脸被压在他胸前，几乎喘不过气。",
+                        "charCount": 76,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00056",
+                            "text": "裴元绍猝不及防，身被他撞得向后挪了半步，脚下青石边缘裂开一道细缝。",
+                            "charCount": 33,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00057",
+                            "text": "他左手按住刀柄，右手抓住裴逸的后颈，手臂用力收紧，裴逸的脸被压在他胸前，几乎喘不过气。",
+                            "charCount": 43,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0034",
+                        "paragraphIndex": 34,
+                        "text": "裴逸却没有松手。他把额头抵在裴元绍肩上，用力挤出几滴眼泪，哽着嗓子大嚎：",
+                        "charCount": 36,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00058",
+                            "text": "裴逸却没有松手。",
+                            "charCount": 8,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00059",
+                            "text": "他把额头抵在裴元绍肩上，用力挤出几滴眼泪，哽着嗓子大嚎：",
+                            "charCount": 28,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0006",
+                    "sceneIndex": 6,
+                    "title": "场景6：场景 6：情节焦点转折",
+                    "setting": "场景 6：情节焦点转折",
+                    "charCount": 207,
+                    "paragraphCount": 7,
+                    "metrics": {
+                      "dialogueRatio": 0.179,
+                      "conflictLevel": "high_plot_twist",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0035",
+                        "paragraphIndex": 35,
+                        "text": "“族兄！多年不见，竟叫小弟在这里寻到了你！”",
+                        "charCount": 22,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00060",
+                            "text": "“族兄！",
+                            "charCount": 4,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": true,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00061",
+                            "text": "多年不见，竟叫小弟在这里寻到了你！”",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0036",
+                        "paragraphIndex": 36,
+                        "text": "山坡上忽然安静下来。",
+                        "charCount": 10,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00062",
+                            "text": "山坡上忽然安静下来。",
+                            "charCount": 10,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0037",
+                        "paragraphIndex": 37,
+                        "text": "有个喽啰手里的鸡腿掉进尘土，弯腰去捡时又停住了。他旁边的人皱着眉，显然也在琢磨这声“族兄”是真是假。",
+                        "charCount": 50,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00063",
+                            "text": "有个喽啰手里的鸡腿掉进尘土，弯腰去捡时又停住了。",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00064",
+                            "text": "他旁边的人皱着眉，显然也在琢磨这声“族兄”是真是假。",
+                            "charCount": 26,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0038",
+                        "paragraphIndex": 38,
+                        "text": "裴元绍的拇指压着裴逸颈侧，稍一用力便能把他掀翻。裴逸却把双臂收得更紧，手掌贴在对方背后，隔着粗布衣裳摸到一条硬物。",
+                        "charCount": 57,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00065",
+                            "text": "裴元绍的拇指压着裴逸颈侧，稍一用力便能把他掀翻。",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00066",
+                            "text": "裴逸却把双臂收得更紧，手掌贴在对方背后，隔着粗布衣裳摸到一条硬物。",
+                            "charCount": 33,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0039",
+                        "paragraphIndex": 39,
+                        "text": "那是护心铁片。",
+                        "charCount": 7,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00067",
+                            "text": "那是护心铁片。",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0040",
+                        "paragraphIndex": 40,
+                        "text": "他若想拔刀，至少需要先腾开右手。此刻不动，反而证明裴元绍不愿当着众人的面杀一个自称宗亲的人。",
+                        "charCount": 46,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00068",
+                            "text": "他若想拔刀，至少需要先腾开右手。",
+                            "charCount": 16,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00069",
+                            "text": "此刻不动，反而证明裴元绍不愿当着众人的面杀一个自称宗亲的人。",
+                            "charCount": 30,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0041",
+                        "paragraphIndex": 41,
+                        "text": "“你认错人了。”裴元绍低声道。",
+                        "charCount": 15,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00070",
+                            "text": "“你认错人了。”",
+                            "charCount": 8,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00071",
+                            "text": "裴元绍低声道。",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0007",
+                    "sceneIndex": 7,
+                    "title": "场景7：场景 7：情节焦点转折",
+                    "setting": "场景 7：情节焦点转折",
+                    "charCount": 209,
+                    "paragraphCount": 4,
+                    "metrics": {
+                      "dialogueRatio": 0.517,
+                      "conflictLevel": "moderate",
+                      "pacing": "fast_dialogue"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0042",
+                        "paragraphIndex": 42,
+                        "text": "“族兄莫要说气话！”裴逸哭喊着抬起脸，眼泪糊在面上，“当年宗房议亲，家父还替你送过一方端砚。砚底刻着‘山高水长’四字，是叔祖从洛阳带回来的旧物。你少年时嫌它太重，偷偷拿去垫马脚，后来被祖父罚跪祠堂半日，难道都忘了？”",
+                        "charCount": 108,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 4,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00072",
+                            "text": "“族兄莫要说气话！”",
+                            "charCount": 10,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00073",
+                            "text": "裴逸哭喊着抬起脸，眼泪糊在面上，“当年宗房议亲，家父还替你送过一方端砚。",
+                            "charCount": 36,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00074",
+                            "text": "砚底刻着‘山高水长’四字，是叔祖从洛阳带回来的旧物。",
+                            "charCount": 26,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00075",
+                            "text": "你少年时嫌它太重，偷偷拿去垫马脚，后来被祖父罚跪祠堂半日，难道都忘了？”",
+                            "charCount": 36,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0043",
+                        "paragraphIndex": 43,
+                        "text": "裴元绍的手指停在他颈后。",
+                        "charCount": 12,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00076",
+                            "text": "裴元绍的手指停在他颈后。",
+                            "charCount": 12,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0044",
+                        "paragraphIndex": 44,
+                        "text": "这件事自然是逸胡诌的，可“端砚”与“祠堂”这种宗族旧事，旁人无法核验。只要裴元绍不是完全没有裴氏经历，便会明白，这不是随口编出的乡野话。",
+                        "charCount": 68,
+                        "type": "monologue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00077",
+                            "text": "这件事自然是逸胡诌的，可“端砚”与“祠堂”这种宗族旧事，旁人无法核验。",
+                            "charCount": 35,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00078",
+                            "text": "只要裴元绍不是完全没有裴氏经历，便会明白，这不是随口编出的乡野话。",
+                            "charCount": 33,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0045",
+                        "paragraphIndex": 45,
+                        "text": "裴逸能感觉到压在自己后颈上的手掌慢慢松开。",
+                        "charCount": 21,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00079",
+                            "text": "裴逸能感觉到压在自己后颈上的手掌慢慢松开。",
+                            "charCount": 21,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0008",
+                    "sceneIndex": 8,
+                    "title": "场景8：物理场景位移与视点转移",
+                    "setting": "物理场景位移与视点转移",
+                    "charCount": 390,
+                    "paragraphCount": 10,
+                    "metrics": {
+                      "dialogueRatio": 0.338,
+                      "conflictLevel": "moderate",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0046",
+                        "paragraphIndex": 46,
+                        "text": "也就在此时，一个留着短须的汉子从人群后走出来。他身材不高，腰上没有佩刀，只挂着一只旧酒葫芦，先看了看裴逸，又看向裴元绍。",
+                        "charCount": 60,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00080",
+                            "text": "也就在此时，一个留着短须的汉子从人群后走出来。",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00081",
+                            "text": "他身材不高，腰上没有佩刀，只挂着一只旧酒葫芦，先看了看裴逸，又看向裴元绍。",
+                            "charCount": 37,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0047",
+                        "paragraphIndex": 47,
+                        "text": "“大当家，我看他说得情真意切，不像是假的。要不先把人带回去洗一洗，问清他的房支，再决定是认亲，还是拿去抵粮？”",
+                        "charCount": 55,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00082",
+                            "text": "“大当家，我看他说得情真意切，不像是假的。",
+                            "charCount": 21,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": true
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00083",
+                            "text": "要不先把人带回去洗一洗，问清他的房支，再决定是认亲，还是拿去抵粮？”",
+                            "charCount": 34,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0048",
+                        "paragraphIndex": 48,
+                        "text": "话说得客气，眼睛却一直在看裴元绍的脸色。",
+                        "charCount": 20,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00084",
+                            "text": "话说得客气，眼睛却一直在看裴元绍的脸色。",
+                            "charCount": 20,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0049",
+                        "paragraphIndex": 49,
+                        "text": "这人名叫周仓，是山中管粮的人。裴逸方才便注意到，争抢黑面饼时，旁人都要听他的分派。此时他出面，不是因为真替自己说话，而是想借宗亲之事把粮食和人情握在手里。",
+                        "charCount": 77,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00085",
+                            "text": "这人名叫周仓，是山中管粮的人。",
+                            "charCount": 15,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00086",
+                            "text": "裴逸方才便注意到，争抢黑面饼时，旁人都要听他的分派。",
+                            "charCount": 26,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00087",
+                            "text": "此时他出面，不是因为真替自己说话，而是想借宗亲之事把粮食和人情握在手里。",
+                            "charCount": 36,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0050",
+                        "paragraphIndex": 50,
+                        "text": "裴元绍也明白。",
+                        "charCount": 7,
+                        "type": "monologue",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00088",
+                            "text": "裴元绍也明白。",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0051",
+                        "paragraphIndex": 51,
+                        "text": "他松开裴逸，转头看向周仓：“你觉得一个赤身逃难的人，值得山寨拿热水和衣服招待？”",
+                        "charCount": 40,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00089",
+                            "text": "他松开裴逸，转头看向周仓：“你觉得一个赤身逃难的人，值得山寨拿热水和衣服招待？”",
+                            "charCount": 40,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0052",
+                        "paragraphIndex": 52,
+                        "text": "“值得不值得，要看他身上带着什么。”周仓捻着酒葫芦上的绳结，“若真是颍川裴氏的支脉，山下的乡绅不会坐视不理。若只是个冒名的，洗干净了剥下衣服，也不算亏。”",
+                        "charCount": 77,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00090",
+                            "text": "“值得不值得，要看他身上带着什么。”",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00091",
+                            "text": "周仓捻着酒葫芦上的绳结，“若真是颍川裴氏的支脉，山下的乡绅不会坐视不理。",
+                            "charCount": 36,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00092",
+                            "text": "若只是个冒名的，洗干净了剥下衣服，也不算亏。”",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0053",
+                        "paragraphIndex": 53,
+                        "text": "周围有人笑了一声。",
+                        "charCount": 9,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": true
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00093",
+                            "text": "周围有人笑了一声。",
+                            "charCount": 9,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0054",
+                        "paragraphIndex": 54,
+                        "text": "裴逸捡起地上的一片树叶遮住身体，脸上仍挂着泪痕，心中却记下了这句话。",
+                        "charCount": 34,
+                        "type": "monologue",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00094",
+                            "text": "裴逸捡起地上的一片树叶遮住身体，脸上仍挂着泪痕，心中却记下了这句话。",
+                            "charCount": 34,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0055",
+                        "paragraphIndex": 55,
+                        "text": "他们缺的不是人，是粮。",
+                        "charCount": 11,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00095",
+                            "text": "他们缺的不是人，是粮。",
+                            "charCount": 11,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0009",
+                    "sceneIndex": 9,
+                    "title": "场景9：场景 9：情节焦点转折",
+                    "setting": "场景 9：情节焦点转折",
+                    "charCount": 275,
+                    "paragraphCount": 8,
+                    "metrics": {
+                      "dialogueRatio": 0.025,
+                      "conflictLevel": "moderate",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0056",
+                        "paragraphIndex": 56,
+                        "text": "山寨既愿意为一个可能有用的宗亲烧水、拿衣，便说明裴元绍在山下仍有依仗，至少与附近乡里存在交易。只要能证明自己的身份，便有机会从俘虏变成座上客。",
+                        "charCount": 71,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00096",
+                            "text": "山寨既愿意为一个可能有用的宗亲烧水、拿衣，便说明裴元绍在山下仍有依仗，至少与附近乡里存在交易。",
+                            "charCount": 47,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00097",
+                            "text": "只要能证明自己的身份，便有机会从俘虏变成座上客。",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0057",
+                        "paragraphIndex": 57,
+                        "text": "裴元绍挥了挥手。",
+                        "charCount": 8,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00098",
+                            "text": "裴元绍挥了挥手。",
+                            "charCount": 8,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0058",
+                        "paragraphIndex": 58,
+                        "text": "“带他回去。”",
+                        "charCount": 7,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00099",
+                            "text": "“带他回去。”",
+                            "charCount": 7,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0059",
+                        "paragraphIndex": 59,
+                        "text": "先前抓他的喽啰不情愿地上前，手指刚碰到裴逸肩膀，裴元绍便补了一句：“别捆。若他真是我族弟，谁动他，便是不给我面子。”",
+                        "charCount": 58,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00100",
+                            "text": "先前抓他的喽啰不情愿地上前，手指刚碰到裴逸肩膀，裴元绍便补了一句：“别捆。",
+                            "charCount": 37,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00101",
+                            "text": "若他真是我族弟，谁动他，便是不给我面子。”",
+                            "charCount": 21,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0060",
+                        "paragraphIndex": 60,
+                        "text": "这句话使得那喽啰立刻收回了手。",
+                        "charCount": 15,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00102",
+                            "text": "这句话使得那喽啰立刻收回了手。",
+                            "charCount": 15,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0061",
+                        "paragraphIndex": 61,
+                        "text": "裴逸低头穿过人群，脚板踩在碎石上，每一步都让他动作发僵。他没有回头，只听见身后的裴元绍吩咐周仓：“把方才那几袋麦子重新过秤。少了半升，拿分粮的人补。”",
+                        "charCount": 75,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00103",
+                            "text": "裴逸低头穿过人群，脚板踩在碎石上，每一步都让他动作发僵。",
+                            "charCount": 28,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00104",
+                            "text": "他没有回头，只听见身后的裴元绍吩咐周仓：“把方才那几袋麦子重新过秤。",
+                            "charCount": 34,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00105",
+                            "text": "少了半升，拿分粮的人补。”",
+                            "charCount": 13,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0062",
+                        "paragraphIndex": 62,
+                        "text": "周仓应了一声，语气不轻不重：“大当家认了宗亲，果然舍得把账算细。”",
+                        "charCount": 33,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00106",
+                            "text": "周仓应了一声，语气不轻不重：“大当家认了宗亲，果然舍得把账算细。”",
+                            "charCount": 33,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0063",
+                        "paragraphIndex": 63,
+                        "text": "裴元绍没有回答。",
+                        "charCount": 8,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00107",
+                            "text": "裴元绍没有回答。",
+                            "charCount": 8,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0010",
+                    "sceneIndex": 10,
+                    "title": "场景10：场景 10：情节焦点转折",
+                    "setting": "场景 10：情节焦点转折",
+                    "charCount": 285,
+                    "paragraphCount": 7,
+                    "metrics": {
+                      "dialogueRatio": 0.295,
+                      "conflictLevel": "moderate",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0064",
+                        "paragraphIndex": 64,
+                        "text": "聚义厅在山坳里，旁边有一间低矮石屋。推门进去时，热气先扑到脸上，屋内支着一口大木桶，水面浮着几片艾叶，旁边还放着一套粗布衣裳，虽旧，却洗得干净。",
+                        "charCount": 72,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00108",
+                            "text": "聚义厅在山坳里，旁边有一间低矮石屋。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00109",
+                            "text": "推门进去时，热气先扑到脸上，屋内支着一口大木桶，水面浮着几片艾叶，旁边还放着一套粗布衣裳，虽旧，却洗得干净。",
+                            "charCount": 54,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0065",
+                        "paragraphIndex": 65,
+                        "text": "裴逸站在门口没有立刻进去。",
+                        "charCount": 13,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00110",
+                            "text": "裴逸站在门口没有立刻进去。",
+                            "charCount": 13,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0066",
+                        "paragraphIndex": 66,
+                        "text": "屋角摆着一只铜盆，盆底有暗红色的水迹。墙上挂着三件兵器，其中一柄短戟的刃口缺了一角，显然刚经过厮杀。石屋外有人守着，门边又放着一根木栓，若合上，里面的人便很难撞开。",
+                        "charCount": 82,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00111",
+                            "text": "屋角摆着一只铜盆，盆底有暗红色的水迹。",
+                            "charCount": 19,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00112",
+                            "text": "墙上挂着三件兵器，其中一柄短戟的刃口缺了一角，显然刚经过厮杀。",
+                            "charCount": 31,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00113",
+                            "text": "石屋外有人守着，门边又放着一根木栓，若合上，里面的人便很难撞开。",
+                            "charCount": 32,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0067",
+                        "paragraphIndex": 67,
+                        "text": "这不是招待客人的屋子。",
+                        "charCount": 11,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00114",
+                            "text": "这不是招待客人的屋子。",
+                            "charCount": 11,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0068",
+                        "paragraphIndex": 68,
+                        "text": "更像一间临时审问人的偏房。",
+                        "charCount": 13,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00115",
+                            "text": "更像一间临时审问人的偏房。",
+                            "charCount": 13,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": true
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0069",
+                        "paragraphIndex": 69,
+                        "text": "周仓把衣裳丢到木桶旁边，笑道：“裴公子，先洗去泥。大当家稍后要问你的祖籍、房支和来路。答得对，山寨有你一口饭；答得不对，山下修寨墙正缺人手。”",
+                        "charCount": 71,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 3,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": true
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00116",
+                            "text": "周仓把衣裳丢到木桶旁边，笑道：“裴公子，先洗去泥。",
+                            "charCount": 25,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00117",
+                            "text": "大当家稍后要问你的祖籍、房支和来路。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00118",
+                            "text": "答得对，山寨有你一口饭；答得不对，山下修寨墙正缺人手。”",
+                            "charCount": 28,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0070",
+                        "paragraphIndex": 70,
+                        "text": "裴逸拿起那件短褐，摸到衣领内侧缝着一小块硬物。",
+                        "charCount": 23,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00119",
+                            "text": "裴逸拿起那件短褐，摸到衣领内侧缝着一小块硬物。",
+                            "charCount": 23,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0011",
+                    "sceneIndex": 11,
+                    "title": "场景11：场景 11：情节焦点转折",
+                    "setting": "场景 11：情节焦点转折",
+                    "charCount": 240,
+                    "paragraphCount": 7,
+                    "metrics": {
+                      "dialogueRatio": 0.317,
+                      "conflictLevel": "moderate",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0071",
+                        "paragraphIndex": 71,
+                        "text": "他用拇指捻了捻，布里藏着一枚铜钱，钱孔中穿着细麻线。钱面磨损严重，只能辨出一个“中”字。",
+                        "charCount": 44,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00120",
+                            "text": "他用拇指捻了捻，布里藏着一枚铜钱，钱孔中穿着细麻线。",
+                            "charCount": 26,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00121",
+                            "text": "钱面磨损严重，只能辨出一个“中”字。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0072",
+                        "paragraphIndex": 72,
+                        "text": "这是山下粮行常用的通行钱。",
+                        "charCount": 13,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00122",
+                            "text": "这是山下粮行常用的通行钱。",
+                            "charCount": 13,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0073",
+                        "paragraphIndex": 73,
+                        "text": "山贼能拿到这种东西，说明他们与县城、乡豪或粮商中的某一方有来往。裴逸把铜钱攥进掌心，又将衣裳搭在桶沿，回头问：“周兄，族兄身边可有一位姓关的红脸壮士？”",
+                        "charCount": 76,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00123",
+                            "text": "山贼能拿到这种东西，说明他们与县城、乡豪或粮商中的某一方有来往。",
+                            "charCount": 32,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00124",
+                            "text": "裴逸把铜钱攥进掌心，又将衣裳搭在桶沿，回头问：“周兄，族兄身边可有一位姓关的红脸壮士？”",
+                            "charCount": 44,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0074",
+                        "paragraphIndex": 74,
+                        "text": "周仓脸上的笑意停住。",
+                        "charCount": 10,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": true
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00125",
+                            "text": "周仓脸上的笑意停住。",
+                            "charCount": 10,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0075",
+                        "paragraphIndex": 75,
+                        "text": "裴逸继续说：“还有一位使双股剑、常在军中谈仁义的刘姓客人。若我没有记错，他们此刻应当就在卧牛山北面。”",
+                        "charCount": 51,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00126",
+                            "text": "裴逸继续说：“还有一位使双股剑、常在军中谈仁义的刘姓客人。",
+                            "charCount": 29,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00127",
+                            "text": "若我没有记错，他们此刻应当就在卧牛山北面。”",
+                            "charCount": 22,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0076",
+                        "paragraphIndex": 76,
+                        "text": "门外传来脚步声。",
+                        "charCount": 8,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": true,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00128",
+                            "text": "门外传来脚步声。",
+                            "charCount": 8,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0077",
+                        "paragraphIndex": 77,
+                        "text": "裴元绍站在门口，手里多了一封拆开的帛书。那封帛书上沾着泥，边角还有未干的血。",
+                        "charCount": 38,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00129",
+                            "text": "裴元绍站在门口，手里多了一封拆开的帛书。",
+                            "charCount": 20,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00130",
+                            "text": "那封帛书上沾着泥，边角还有未干的血。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0012",
+                    "sceneIndex": 12,
+                    "title": "场景12：场景 12：情节焦点转折",
+                    "setting": "场景 12：情节焦点转折",
+                    "charCount": 167,
+                    "paragraphCount": 7,
+                    "metrics": {
+                      "dialogueRatio": 0.479,
+                      "conflictLevel": "moderate",
+                      "pacing": "fast_dialogue"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0078",
+                        "paragraphIndex": 78,
+                        "text": "“你如何知道？”他问。",
+                        "charCount": 11,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00131",
+                            "text": "“你如何知道？”",
+                            "charCount": 8,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00132",
+                            "text": "他问。",
+                            "charCount": 3,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0079",
+                        "paragraphIndex": 79,
+                        "text": "裴逸低头看了看掌中的铜钱，终于把它放回衣领内侧。",
+                        "charCount": 24,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00133",
+                            "text": "裴逸低头看了看掌中的铜钱，终于把它放回衣领内侧。",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0080",
+                        "paragraphIndex": 80,
+                        "text": "“因为这不是山寨的钱。”他说，“而刘玄德的人，已经在山下问过我的名字。”",
+                        "charCount": 36,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00134",
+                            "text": "“因为这不是山寨的钱。”",
+                            "charCount": 12,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00135",
+                            "text": "他说，“而刘玄德的人，已经在山下问过我的名字。”",
+                            "charCount": 24,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0081",
+                        "paragraphIndex": 81,
+                        "text": "裴元绍脸上的旧疤抽动了一下。",
+                        "charCount": 14,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00136",
+                            "text": "裴元绍脸上的旧疤抽动了一下。",
+                            "charCount": 14,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0082",
+                        "paragraphIndex": 82,
+                        "text": "周仓向前半步，手掌按住腰间酒葫芦，门外的守卫也同时握住了刀柄。",
+                        "charCount": 31,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00137",
+                            "text": "周仓向前半步，手掌按住腰间酒葫芦，门外的守卫也同时握住了刀柄。",
+                            "charCount": 31,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0083",
+                        "paragraphIndex": 83,
+                        "text": "裴元绍将帛书摊开，露出上面一行墨迹：",
+                        "charCount": 18,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00138",
+                            "text": "裴元绍将帛书摊开，露出上面一行墨迹：",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0084",
+                        "paragraphIndex": 84,
+                        "text": "“卧牛山裴元绍，私聚黄巾，截粮害民。三日之内自缚下山，或可免死。”",
+                        "charCount": 33,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00139",
+                            "text": "“卧牛山裴元绍，私聚黄巾，截粮害民。",
+                            "charCount": 18,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00140",
+                            "text": "三日之内自缚下山，或可免死。”",
+                            "charCount": 15,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "level": "scene",
+                    "unitId": "scene-0013",
+                    "sceneIndex": 13,
+                    "title": "场景13：场景 13：情节焦点转折",
+                    "setting": "场景 13：情节焦点转折",
+                    "charCount": 85,
+                    "paragraphCount": 3,
+                    "metrics": {
+                      "dialogueRatio": 0.059,
+                      "conflictLevel": "moderate",
+                      "pacing": "atmospheric"
+                    },
+                    "children": [
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0085",
+                        "paragraphIndex": 85,
+                        "text": "落款只有一个“刘”字。",
+                        "charCount": 11,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00141",
+                            "text": "落款只有一个“刘”字。",
+                            "charCount": 11,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0086",
+                        "paragraphIndex": 86,
+                        "text": "裴逸看着那行字，知道自己刚认下的这位“族兄”，已经没有多少时间可以选择了。更麻烦的是，帛书背面还压着一枚染血的箭簇，箭杆上刻着两个小字——",
+                        "charCount": 69,
+                        "type": "narrative",
+                        "metrics": {
+                          "sentenceCount": 2,
+                          "isDialogue": false,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00142",
+                            "text": "裴逸看着那行字，知道自己刚认下的这位“族兄”，已经没有多少时间可以选择了。",
+                            "charCount": 37,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          },
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00143",
+                            "text": "更麻烦的是，帛书背面还压着一枚染血的箭簇，箭杆上刻着两个小字——",
+                            "charCount": 32,
+                            "metrics": {
+                              "isDialogue": false,
+                              "hasSuspensePunctuation": true,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "level": "paragraph",
+                        "unitId": "para-0087",
+                        "paragraphIndex": 87,
+                        "text": "“关羽。”",
+                        "charCount": 5,
+                        "type": "dialogue",
+                        "metrics": {
+                          "sentenceCount": 1,
+                          "isDialogue": true,
+                          "hasSensory": false,
+                          "hasHumanTexture": false
+                        },
+                        "children": [
+                          {
+                            "level": "sentence",
+                            "unitId": "sent-00144",
+                            "text": "“关羽。”",
+                            "charCount": 5,
+                            "metrics": {
+                              "isDialogue": true,
+                              "hasSuspensePunctuation": false,
+                              "hasSimile": false
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "level": "arc",
+            "unitId": "arc-0002",
+            "arcIndex": 2,
+            "title": "篇章二：转合交锋与悬念留白",
+            "phase": "转合阶段（高潮结算）",
+            "focus": "核心博弈白热化与微观反转推进，在结尾抛出关键未解悬念与长线钩子",
+            "chapterRange": [
+              1,
+              1
+            ],
+            "sceneRange": [
+              7,
+              13
+            ],
+            "charCount": 1651,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "granularity_summary": {
+    "totalChars": 3456,
+    "volumes": 1,
+    "arcs": 2,
+    "chapters": 1,
+    "scenes": 13,
+    "paragraphs": 87,
+    "sentences": 144
+  },
+  "metadata": {
+    "feature": "generation_metadata_and_provenance",
+    "value": {
+      "title": "三国：我用边角料，吊打刘关张",
+      "author": "AI生成 (gpt-5.6-luna)",
+      "sourceDir": "real-generated-chapters/三国：我用边角料，吊打刘关张-early-detailed",
+      "chineseCharacters": 3456,
+      "rawDraftCharacters": 3456,
+      "generation_version": "三国：我用边角料，吊打刘关张-early-detailed",
+      "model_version": "gpt-5.6-luna",
+      "prompt_version": "sha256:d0648478f7913b5b",
+      "story_bible_version": "历史脑洞-bible-v1",
+      "optimizer_version": "universal-v3.8-2026-09-10",
+      "requestId": "req_73416871b736eb37c4ce3e19dd4fdd79",
+      "tokens": {
+        "prompt": 18871,
+        "completion": 3381,
+        "total": 22252
+      },
+      "durationMs": 67558,
+      "completedAt": "2026-09-22T16:12:59.351Z",
+      "storyBible": {
+        "worldview": "历史脑洞世界观与背景体系",
+        "powerSystem": "核心规则体系"
+      },
+      "creationPlan": {
+        "stages": [
+          "early阶段分镜演进（detailed模式）"
+        ]
+      },
+      "optimizationStrategy": [
+        "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+        "工整二分或完整心理链"
+      ],
+      "previousAudit": {
+        "status": "needs_review",
+        "checkedAt": 1790093579341,
+        "note": "检出 2 项规则建议"
+      }
+    },
+    "evidence": [
+      "模型版本: gpt-5.6-luna, 请求ID: req_73416871b736eb37c4ce3e19dd4fdd79",
+      "Prompt指纹: sha256:d0648478f7913b5b",
+      "优化策略: 包含 2 项规则要求",
+      "上一轮质检结果: needs_review (SHA256: d91b9d720f46e665)"
+    ],
+    "confidence": 1,
+    "explanation": "全链路完整记录 Prompt、Story Bible、模型配置、优化策略与质检回溯指纹"
+  },
+  "genre": {
+    "feature": "genre_classification",
+    "value": {
+      "primaryGenre": "历史脑洞",
+      "subgenre": "架空历史与权谋争锋",
+      "level1Family": "historical_fiction",
+      "level2Subgenre": "historical_reimagined",
+      "targetAudience": "男频",
+      "tone": "厚重权谋与历史反差",
+      "powerSystem": "核心规则体系",
+      "subgenreKeywords": [
+        "朝堂",
+        "兵符",
+        "陛下",
+        "天下",
+        "大势",
+        "边关"
+      ]
+    },
+    "evidence": [
+      "题材明确归属：历史脑洞（子流派：架空历史与权谋争锋）",
+      "世界观设定：历史脑洞世界观与背景体系",
+      "核心阻力与冲突设计符合历史脑洞商业阅读期待与心流基准"
+    ],
+    "confidence": 1,
+    "explanation": "符合历史脑洞流派核心设定规范与网文商业节奏期望"
+  },
+  "structure": {
+    "feature": "macro_story_structure",
+    "value": {
+      "totalChapters": 1,
+      "totalChars": 3456,
+      "structureModel": "Four-Act Rising Wave (起承转合四幕起伏律)",
+      "mainline": {
+        "goal": "核心生存/登顶/破局主线",
+        "progress": "开篇主线建立阶段"
+      },
+      "subplots": [
+        "个人成长与因果债务兑现",
+        "同盟势力信任博弈",
+        "暗线神秘谜题"
+      ],
+      "stages": {
+        "qi": {
+          "chapters": [
+            1,
+            1
+          ],
+          "focus": "世界观引入、主角处境危机确立与首发钩子"
+        },
+        "cheng": {
+          "chapters": [
+            1,
+            1
+          ],
+          "focus": "力量积累、次要冲突连续升级、势力关系网展开"
+        },
+        "zhuan": {
+          "chapters": [
+            2,
+            1
+          ],
+          "focus": "核心危机全面引爆、认知反转、底牌尽出与生死抉择"
+        },
+        "he": {
+          "chapters": [
+            2,
+            1
+          ],
+          "focus": "战局结算、伏笔闭环兑现、因果结清与新篇序幕"
+        }
+      }
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲",
+        "rationale": "开篇第一阶段（起）：确立叙事视角与初始生存阻力"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲",
+        "rationale": "中程承接阶段（承）：主线矛盾深化与关系博弈升级"
+      }
+    ],
+    "confidence": 0.92,
+    "explanation": "宏观结构清晰遵循网络小说起承转合波动曲线，主支线层次分明，阶段目标与阻力递进明确。",
+    "statistical_context": {
+      "sampleCount": 1,
+      "mean": 3456
+    }
+  },
+  "opening": {
+    "feature": "opening_quality_curve",
+    "value": {
+      "windows": {
+        "first_1_chapters": {
+          "windowChapters": 1,
+          "charCount": 3456,
+          "informationDensityPerKilo": 4.92,
+          "conflictDensityPerKilo": 0,
+          "hookCount": 0,
+          "protagonistEstablished": true,
+          "worldbuildingDelivery": "行动中自然渗透",
+          "readingDriveScore": 75
+        }
+      },
+      "protagonistIntroChapter": 1,
+      "worldbuildingPacing": "渐进具象化（零全知设定倾倒）",
+      "hookProgression": "从个人处境危机延展至世界观级悬念"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲卧牛山南麓的荒坡上，秋草已经枯黄。",
+        "rationale": "第 1 章开门见山切入现场行动，避免虚浮设定堆砌"
+      }
+    ],
+    "confidence": 0.95,
+    "explanation": "开篇多时间窗分析显示，前1-3章信息密度适中，冲突危机迅速扎根，在动作中渗透世界观，阅读驱动力递增良好。",
+    "statistical_context": {
+      "sampleCount": 1
+    }
+  },
+  "pacing": {
+    "feature": "chapter_pacing_and_climax_frequency",
+    "value": {
+      "avgChapterLength": 3456,
+      "chapterLengthStdDev": 0,
+      "totalScenes": 1,
+      "avgScenesPerChapter": 1,
+      "conflictFrequencyRate": 0,
+      "shuangdianFrequency": 0,
+      "maxConsecutiveFlatChapters": 1,
+      "pacingVerdict": "节奏紧凑起伏健康"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-scenes",
+        "locationSnippet": "全章字数 3456，划分为场景律进",
+        "rationale": "章节篇幅处于网文黄金阅读心流区间"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "章节字数均值与离散度符合主流网文阅读习惯，场景切换节奏分明，高潮与低潮回落比例平稳。",
+    "statistical_context": {
+      "sampleCount": 1,
+      "mean": 3456,
+      "stdDev": 0,
+      "percentiles": {
+        "p10": 2765,
+        "p50": 3456,
+        "p90": 4147
+      }
+    }
+  },
+  "plot": {
+    "feature": "plot_progression_and_goals",
+    "value": {
+      "primaryDrive": "生存受迫与目标破局双轮驱动",
+      "phaseGoalStatus": "阶段性目标明确且带明确阻力惩罚",
+      "escalationRate": "阶梯式螺旋升级",
+      "plotStakes": "切身利益与重大命运代价绑定"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲",
+        "rationale": "开篇第一阶段（起）：确立叙事视角与初始生存阻力"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲",
+        "rationale": "中程承接阶段（承）：主线矛盾深化与关系博弈升级"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "主线剧情推进坚实，每一阶段具备明确目标和对抗阻力，拒绝无目的漫游。"
+  },
+  "character": {
+    "feature": "protagonist_and_cast_architecture",
+    "value": {
+      "protagonist": {
+        "name": "裴逸",
+        "coreGoal": "掌控自身命运与超凡进阶",
+        "innerDesire": "追求真相、自主权与守护底线",
+        "innerFear": "沦为棋子、因失控导致灾难",
+        "moralValues": "内敛重诺、兼济底线、冷峻而不暴戾",
+        "decisionPattern": "审慎推演、果决断后、拒绝低幼口嗨",
+        "flaws": [
+          "背负过重心理防备",
+          "不易完全信任外部势力"
+        ],
+        "growthArc": "从被动承受危机演进为制定规则的破局者"
+      },
+      "antagonistSystem": "动机自洽、具备利益逻辑与社会秩序依托，非脸谱化低智反派",
+      "functionalCast": "各司其职，具备独特身份功能与利益诉求"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0005",
+        "locationSnippet": "裴逸垂着头，听见前方有人问：“你说自己姓裴，家在颍川，祖上还做过县令？”",
+        "rationale": "主角【裴逸】核心行动与心性建立证据"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0011",
+        "locationSnippet": "裴逸抬头看了他一眼，又把视线落到他腰间的刀上。",
+        "rationale": "主角【裴逸】核心行动与心性建立证据"
+      }
+    ],
+    "confidence": 0.91,
+    "explanation": "主角心智成熟自洽，有清晰的欲望、恐惧与行为底线；反派有现实利益诉求，拒绝纯工具人脸谱化。"
+  },
+  "relationship": {
+    "feature": "character_relationship_dynamics",
+    "value": {
+      "dynamicsType": "利益博弈与动态信任建立并存",
+      "hierarchy": "严格受身份、师承、阶层与宗门秩序制约",
+      "voiceDifferentiationScore": 85,
+      "relationshipEvolution": "通过共同经历生死危机完成不可逆的信任演进"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0005",
+        "locationSnippet": "裴逸垂着头，听见前方有人问：“你说自己姓裴，家在颍川，祖上还做过县令？”",
+        "rationale": "主角【裴逸】核心行动与心性建立证据"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0011",
+        "locationSnippet": "裴逸抬头看了他一眼，又把视线落到他腰间的刀上。",
+        "rationale": "主角【裴逸】核心行动与心性建立证据"
+      }
+    ],
+    "confidence": 0.88,
+    "explanation": "角色间对白与相处方式随着事件推进发生不可逆演进，言语与态度体现明确的地位与亲疏差。"
+  },
+  "conflict": {
+    "feature": "conflict_escalation_and_stakes",
+    "value": {
+      "conflictLayers": [
+        "生存环境自然阻力",
+        "宗门/制度权力倾轧",
+        "高位存在不可知危机"
+      ],
+      "stakes": "失败代价具体且沉重（剥夺身份、经脉受损、连累同伴）",
+      "physicalFriction": "动作具备受力形变与现实阻力，非虚浮特效对轰"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0022",
+        "locationSnippet": "他当然不是什么颍川裴氏子弟。真正裴氏宗族在河东，族中分支繁多，谱牒又被战乱冲散，外人很难立",
+        "rationale": "博弈对峙与势力对抗阻力呈现"
+      }
+    ],
+    "confidence": 0.92,
+    "explanation": "冲突不仅是口角或战斗，而是多层级物理与制度秩序的严酷挤压，失败具备实质代价。"
+  },
+  "causality": {
+    "feature": "plot_causality_and_defect_audit",
+    "value": {
+      "chain": [
+        {
+          "step": "A (危机始源)",
+          "desc": "由于底层资源匮乏或突发变故，主角陷入受迫环境"
+        },
+        {
+          "step": "B (抉择代价)",
+          "desc": "主角依成熟理性作出险招抉择，付出体能/筹码代价"
+        },
+        {
+          "step": "C (连锁反应)",
+          "desc": "行动引来第三方势力的审视与怀疑，触发新博弈"
+        },
+        {
+          "step": "D (阶段闭环)",
+          "desc": "依靠能力机制与信息差完成反杀或突围，获得新底牌"
+        }
+      ],
+      "causalHealthScore": 100,
+      "detectedFlawsCount": 0,
+      "flawsSummary": "全篇未发现空降能力、机械降神或恶意降智",
+      "causalCohesion": "严密自洽，结果由前置决策严格驱动"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲",
+        "rationale": "逻辑闭环健全，行动由清晰动机驱动，未检出因果债务断裂"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "事件链条前后咬合严密，主角能力进阶与危机解除均建立在物理因果与既定设定之上。"
+  },
+  "foreshadowing": {
+    "feature": "foreshadowing_density_and_covertness",
+    "value": {
+      "seedDensity": "适中（每万字 1-2 处隐性线索）",
+      "covertnessLevel": "隐蔽度高，融于器物磨损与环境细节中",
+      "unredeemedRatio": 0.8,
+      "status": "保持健康伏笔存量，形成中长线悬念蓄水池"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-f01",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲\n\n卧牛山南麓的荒坡上，秋草已经枯黄。\n\n那人跪在乱石之间，身上",
+        "rationale": "开篇首卷埋设的核心异象与信物伏笔"
+      }
+    ],
+    "confidence": 0.88,
+    "explanation": "伏笔隐藏在自然生活细节与器物残片中，避免粗暴的旁白提示，保留读者回溯解密的愉悦感。"
+  },
+  "payoff": {
+    "feature": "foreshadow_payoff_and_catharsis",
+    "value": {
+      "payoffTiers": {
+        "tier1_micro": "单章内伏线快速对账（战术道具、口头预警）",
+        "tier2_arc": "3-10章故事弧因果回收（揭晓隐藏身份、兑现反杀）",
+        "tier3_major": "卷终重大伏笔闭环（世界观核心反转）"
+      },
+      "payoffSatisfactionScore": 88,
+      "debtSettlementPacing": "严格遵循三主三辅动态容量，杜绝伏笔坏账"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-f01",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲\n\n卧牛山南麓的荒坡上，秋草已经枯黄。\n\n那人跪在乱石之间，身上",
+        "rationale": "开篇首卷埋设的核心异象与信物伏笔"
+      }
+    ],
+    "confidence": 0.89,
+    "explanation": "伏笔回收节奏与读者期待高度同步，微爽点与大高潮交替爆发，兑现满足感强。"
+  },
+  "emotion": {
+    "feature": "emotional_dynamic_wave",
+    "value": {
+      "curveType": "压抑蓄势-精准破局-短暂回落-更强蓄势",
+      "emotionalDissonance": "具备高压危机下的冷幽默与自我审视",
+      "antiMonotonyScore": 92,
+      "moodDistribution": {
+        "tension": 0.45,
+        "anticipation": 0.25,
+        "catharsis": 0.2,
+        "warmth_or_respite": 0.1
+      }
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲",
+        "rationale": "紧张悬疑与压抑蓄势波形"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0008",
+        "locationSnippet": "附近几个喽啰低声笑了起来。",
+        "rationale": "轻松自嘲与反转回落波形"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "情绪张弛有度，高压战斗后留有生活化休整与结算，避免读者审美疲劳。"
+  },
+  "dialogue": {
+    "feature": "dialogue_texture_and_subtext_ratio",
+    "value": {
+      "dialogueRatio": 0.244207,
+      "dialogueTurnMean": 22.25,
+      "subtextRate": "较高（说话留三分，带有试探与隐瞒）",
+      "flavorVerdict": "对话密度标准健康"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0005",
+        "locationSnippet": "裴逸垂着头，听见前方有人问：“你说自己姓裴，家在颍川，祖上还做过县令？”",
+        "rationale": "对白博弈与人情交互样本"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0007",
+        "locationSnippet": "“家谱在兵乱里丢了，祖宅也被烧了。诸位若是不信，便把我交给官府。官府认不认我，总好过叫我在",
+        "rationale": "对白博弈与人情交互样本"
+      }
+    ],
+    "confidence": 0.94,
+    "explanation": "对白绝非报菜名式交代设定，人物交谈带有机锋、试探与立场博弈，具有鲜明的生活质感。",
+    "statistical_context": {
+      "sampleCount": 30,
+      "mean": 22.25
+    }
+  },
+  "description": {
+    "feature": "sensory_and_physical_description",
+    "value": {
+      "sensoryDistribution": {
+        "visual": 0.75,
+        "auditory": 0.21,
+        "tactile": 0,
+        "olfactory": 0,
+        "gustatory": 0.04
+      },
+      "physicalResistanceLevel": "动作戏具备真实受力形变与生理抗阻",
+      "environmentIntegration": "环境为行动提供战术掩体与阻力，非纯静态布景"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0005",
+        "locationSnippet": "裴逸垂着头，听见前方有人问：“你说自己姓裴，家在颍川，祖上还做过县令？”",
+        "rationale": "对白博弈与人情交互样本"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0007",
+        "locationSnippet": "“家谱在兵乱里丢了，祖宅也被烧了。诸位若是不信，便把我交给官府。官府认不认我，总好过叫我在",
+        "rationale": "对白博弈与人情交互样本"
+      }
+    ],
+    "confidence": 0.91,
+    "explanation": "描写注重多感官联动与触觉物理阻力，视觉与听觉配合紧密，营造身临其境的现场感。",
+    "statistical_context": {
+      "sampleCount": 88
+    }
+  },
+  "language": {
+    "feature": "linguistic_cadence_and_anti_cliche",
+    "value": {
+      "sentenceLenMean": 22.6207,
+      "sentenceLenStd": 11.4723,
+      "paragraphLenMean": 37.2727,
+      "commaPeriodRatio": 1.4762,
+      "ttr": 0.797761,
+      "singleSentenceParagraphRatio": 0.5227,
+      "brickParagraphCount": 0,
+      "aiFlavorScore": 0
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-lang",
+        "locationSnippet": "句长均值 22.6207，方差 11.4723",
+        "rationale": "标点句法节奏自然，长短句错落有致"
+      }
+    ],
+    "confidence": 0.96,
+    "explanation": "语言风格节奏张弛自然，长短句交互配比合理，无大面积堆砌词汇或 AI 空洞套话。",
+    "statistical_context": {
+      "mean": 22.6207,
+      "stdDev": 11.4723
+    }
+  },
+  "human_texture": {
+    "feature": "human_warmth_and_organic_texture",
+    "value": {
+      "markers": {
+        "ellipsis": 1,
+        "hesitation": 2,
+        "subtext": 0,
+        "misunderstanding": 0,
+        "selfDeception": 0,
+        "smallGestures": 0,
+        "emotionalFriction": 0,
+        "livingDetails": 5
+      },
+      "organicScore": 78,
+      "hesitationAndDissonance": "人物具有犹豫、退缩、小动作与非理性情感波动",
+      "livingDetailsPresence": "充满柴米油盐的生活磨损与凡俗烟火气"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0087",
+        "locationSnippet": "裴逸看着那行字，知道自己刚认下的这位“族兄”，已经没有多少时间可以选择了。更麻烦的是，帛书",
+        "rationale": "典型人味标志【ellipsis】：打破机械僵直感"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0019",
+        "locationSnippet": "按住裴逸的喽啰迟疑了一下，抬眼看他。",
+        "rationale": "典型人味标志【hesitation】：打破机械僵直感"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0039",
+        "locationSnippet": "裴元绍的拇指压着裴逸颈侧，稍一用力便能把他掀翻。裴逸却把双臂收得更紧，手掌贴在对方背后，隔",
+        "rationale": "典型人味标志【livingDetails】：打破机械僵直感"
+      }
+    ],
+    "confidence": 0.93,
+    "explanation": "通过话留半句、小动作、心理防卫与市井琐事展现极高人味，彻底击碎 AI 机械套话生成的假大空。",
+    "statistical_context": {
+      "sampleCount": 8
+    }
+  },
+  "hook": {
+    "feature": "chapter_ending_hooks",
+    "value": {
+      "primaryEndingHook": "unknown",
+      "cliffhangerIntensity": "中高强度危机悬留，驱使连续点击下一章"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-tail",
+        "locationSnippet": "裴逸看着那行字，知道自己刚认下的这位“族兄”，已经没有多少时间可以选择了。更麻烦的是，帛书",
+        "rationale": "章末留白钩子"
+      }
+    ],
+    "confidence": 0.91,
+    "explanation": "章末有效利用新疑问、突发变故或反转留白，避免干瘪完结，形成连贯追读驱动。"
+  },
+  "suspense": {
+    "feature": "suspense_and_information_asymmetry",
+    "value": {
+      "unresolvedQuestions": [
+        "主角身世或信物的起源隐患",
+        "敌对势力潜伏在暗处的真实杀机"
+      ],
+      "informationGap": "严格视角隔离：读者与主角同步发现异样，无全知上帝视角剧透",
+      "suspenseLifespan": "短线危机3章解决，长线大悬念跨卷发酵"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-tail",
+        "locationSnippet": "裴逸看着那行字，知道自己刚认下的这位“族兄”，已经没有多少时间可以选择了。更麻烦的是，帛书",
+        "rationale": "章末留白钩子"
+      }
+    ],
+    "confidence": 0.89,
+    "explanation": "悬念设计合理区分人物已知与未证实线索，层层推进剥茧抽丝，保护读者的探索沉浸感。"
+  },
+  "reader_drive": {
+    "feature": "commercial_reading_drive",
+    "value": {
+      "primaryDriveType": "危机自保与进阶探索双螺旋",
+      "satisfactionCycle": "短平快阶段兑现与长线期待交织",
+      "unsettledStakes": "因果账目动态滚动，下一章追读驱动强烈"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-tail",
+        "locationSnippet": "裴逸看着那行字，知道自己刚认下的这位“族兄”，已经没有多少时间可以选择了。更麻烦的是，帛书",
+        "rationale": "章末留白钩子"
+      }
+    ],
+    "confidence": 0.92,
+    "explanation": "商业网文追读动力澎湃，危机、期待与奖励反馈回路完整闭环。"
+  },
+  "commercial_patterns": {
+    "feature": "commercial_tropes_and_twists",
+    "value": {
+      "tropeType": "经典反套路与智斗逆袭",
+      "reversalQuality": "反转建立在既有证据闭环中，情理之中意料之外",
+      "rewardPacing": "获得底牌必付出实质代价，拒绝通胀免死金牌"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲",
+        "rationale": "开篇第一阶段（起）：确立叙事视角与初始生存阻力"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0001",
+        "locationSnippet": "# 第1章 卧牛山下认宗亲",
+        "rationale": "中程承接阶段（承）：主线矛盾深化与关系博弈升级"
+      }
+    ],
+    "confidence": 0.9,
+    "explanation": "巧妙运用商业爽点模型，同时注入新颖的硬核阻力与制度因果，兼具爽度与文学质感。"
+  },
+  "consistency": {
+    "feature": "canon_and_character_consistency",
+    "value": {
+      "powerScalingStable": true,
+      "characterVoiceStable": true,
+      "ruleViolationCount": 0,
+      "verdict": "世界观法则与主角人设立体自洽，零前后冲突"
+    },
+    "evidence": [
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0005",
+        "locationSnippet": "裴逸垂着头，听见前方有人问：“你说自己姓裴，家在颍川，祖上还做过县令？”",
+        "rationale": "主角【裴逸】核心行动与心性建立证据"
+      },
+      {
+        "chapterIndex": 1,
+        "unitId": "c0001-p0011",
+        "locationSnippet": "裴逸抬头看了他一眼，又把视线落到他腰间的刀上。",
+        "rationale": "主角【裴逸】核心行动与心性建立证据"
+      }
+    ],
+    "confidence": 0.95,
+    "explanation": "世界观规则严守前后一致，战力体系无跳跃崩盘，人物言行高度忠实于其核心价值观与性格底色。"
+  },
+  "ai_flavor": {
+    "feature": "ai_flavor_detection",
+    "value": {
+      "aiFlavorScore": 0,
+      "detectedPhrasesCount": 0,
+      "somaticSpasmsCount": 0,
+      "mechanicalRepetitionIndex": 0.05
+    },
+    "evidence": [
+      "未检出典型机械AI味高频模板词，语言质感接近真书自然叙事"
+    ],
+    "confidence": 0.95,
+    "explanation": "AI味浓度低，叙事自然且富有特定网文题材质感"
+  },
+  "benchmark_comparison": {
+    "matchedGenre": "玄幻",
+    "overallQualityIndex": 90,
+    "conformanceToBenchmark": "完全落入同类可比正常区间",
+    "dimensionalScores": {
+      "human_texture": 78,
+      "causality": 100,
+      "dialogue": 0.244207
+    },
+    "identifiedIssues": [],
+    "evidenceComparison": [
+      {
+        "feature": "human_texture_comparison",
+        "targetEvidence": {
+          "chapterIndex": 1,
+          "unitId": "c0001-p0087",
+          "locationSnippet": "裴逸看着那行字，知道自己刚认下的这位“族兄”，已经没有多少时间可以选择了。更麻烦的是，帛书",
+          "rationale": "典型人味标志【ellipsis】：打破机械僵直感"
+        },
+        "benchmarkStandard": "真书范本在紧张处境下具备冷幽默、自嘲与具体生理受阻细节",
+        "deltaExplanation": "与真书同等具备丰富生活纹理"
+      },
+      {
+        "feature": "causality_integrity_comparison",
+        "targetEvidence": {
+          "chapterIndex": 1,
+          "unitId": "c0001-p0001",
+          "locationSnippet": "# 第1章 卧牛山下认宗亲",
+          "rationale": "逻辑闭环健全，行动由清晰动机驱动，未检出因果债务断裂"
+        },
+        "benchmarkStandard": "真书范本所有收获必附带对应代价与因果债务",
+        "deltaExplanation": "因果链条严密，承载力好"
+      }
+    ]
+  }
+}

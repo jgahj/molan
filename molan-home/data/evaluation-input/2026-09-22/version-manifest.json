@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "molan-evaluation-input-version-v1",
+  "generatedAt": "2026-09-22T11:16:39.172Z",
+  "project": {
+    "name": "molan-home",
+    "version": "1.0.0"
+  },
+  "code": {
+    "gitHead": "e34d0ca4f650b4ec50bd3bee62663bfd4d412096",
+    "gitBranch": "main"
+  },
+  "measurement": {
+    "fingerprintVersion": "2-utf16-nonwhitespace-line-sentences",
+    "detectorSource": "lib/ai-flavor-detector.js",
+    "evidenceVerifierSource": "lib/evidence-review.js"
+  },
+  "benchmark": {
+    "poolIndex": "data/genre-baselines/index.json",
+    "poolCount": 6,
+    "promptVersion": "UNVERIFIED",
+    "skillVersion": "UNVERIFIED",
+    "knowledgeVersion": "UNVERIFIED",
+    "bibleVersion": "UNVERIFIED",
+    "contractVersion": "UNVERIFIED",
+    "modelVersion": "UNVERIFIED",
+    "seed": "UNVERIFIED"
+  },
+  "reproducibilityGaps": [
+    "generation run records do not consistently include model, temperature, topP, maxTokens and seed",
+    "chapter counts for the full corpus were not measured by this package",
+    "human judge and blinded selection records were not found in the scoped inputs",
+    "confidence intervals and inter-rater agreement require repeated samples and human labels"
+  ]
+}

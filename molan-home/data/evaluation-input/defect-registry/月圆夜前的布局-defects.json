@@ -1,0 +1,372 @@
+{
+  "detectedAt": "2026-09-22T17:08:57.525Z",
+  "novelTitle": "月圆夜前的布局",
+  "totalDefectsDetected": 6,
+  "nonDefectCount": 4,
+  "summaryBySeverity": {
+    "A": 0,
+    "B": 1,
+    "C": 3,
+    "D": 2,
+    "E": 4
+  },
+  "defects": [
+    {
+      "defect_id": "DEF-PIPE-001",
+      "category": "生成管线/模型调用容错",
+      "severity": "B",
+      "severity_label": "B. 严重缺陷",
+      "location": {
+        "chapter": "全书生成环节",
+        "scene": "模型流式计费事件接入与修订阶段",
+        "paragraph_range": [
+          0,
+          0
+        ],
+        "snippet": "生成记录.json & 修订失败记录.json (上游修订中断被 aborted)"
+      },
+      "symptom": "在全自动生成与修订管线中，上游模型流式事件与正文 JSON 产生解析冲突导致 aborted，且二次修订遭遇上游报错截断（仅产出 1,394 字符残卷），未能全自动闭环交付。",
+      "evidence": "修订失败记录.json: {\"status\": \"aborted\", \"error\": \"流式计费事件插入正文JSON导致解析中断\"}; luna-final-original.txt 仅 1394 字符。",
+      "expected_behavior": "端到端全自动生产管线应具备流式事件多路复用解耦机制与自动指数退避重试，直接原生交付完整合格正文，无需人工辅助校对。",
+      "actual_behavior": "模型原生输出遇到中断与截断，最终交付依赖了助手基于完整首稿的定向文字校对兜底。",
+      "benchmark_difference": "Benchmark 范本均已完成出版级定稿，无任何网络传输截断或残卷风险。",
+      "genre_baseline_difference": "工业级网文生产系统要求端到端全自动无人工介入可用率 >= 99.5%。",
+      "reader_impact": {
+        "has_impact": true,
+        "impact_types": [
+          "交付中断",
+          "剧情不完整风险"
+        ],
+        "detailed_analysis": "若无助手校对兜底介入，最终读者将得到只有前半章（1394字）的截断残卷，导致后半段赠宝与暗见蚩刑天的核心剧情完全丢失，属于毁灭性阅读阻断。"
+      },
+      "ranking_factors": {
+        "severity_score": 4,
+        "scope_score": 4,
+        "fix_value_score": 5,
+        "priority_score": 80
+      },
+      "confidence": 0.98
+    },
+    {
+      "defect_id": "DEF-PACING-001",
+      "category": "叙事节奏/时空转场衔接",
+      "severity": "C",
+      "severity_label": "C. 中等缺陷",
+      "location": {
+        "chapter": "第1章 月圆夜前的布局",
+        "scene": "场景4（云琉神殿母女谈话）到场景5（殿后赠宝助悟）交界处",
+        "paragraph_range": [
+          78,
+          79
+        ],
+        "snippet": "姑射云琉没有阻拦。这位天阁目，确实已走到了大圣境的尽头。/ 三日后，张若尘主动来到云琉神殿。"
+      },
+      "symptom": "跨越 3 天的时空跨度硬切过于生硬，前一句母女刚达成默契，下一句张若尘毫无前置铺垫地突然上门，缺少时空过渡桥梁。",
+      "evidence": "正文第 78 段到 79 段直接以“三日后，张若尘主动来到云琉神殿”衔接，缺乏主角这三天在云山界的动态或戒备氛围铺垫。",
+      "expected_behavior": "在跨越数日的大时间跳跃处，应有半句主角环境观察或云山界风云变化的过渡句（如“这三日罗祖云山界看似平静，暗流却已涌动”），使时空推进自然顺畅。",
+      "actual_behavior": "仅使用孤立的时间连接词“三日后”生硬切入新场景。",
+      "benchmark_difference": "《一世之尊》在跨日或跨场景时，均具备优美的环境与人物动向桥梁（如“三天时间眨眼即过，细雨初歇……”）。",
+      "genre_baseline_difference": "玄幻小说场景平均篇幅为 1,200 字符，生成小说场景仅 218 字符，高频场景硬切加剧了跳跃感。",
+      "reader_impact": {
+        "has_impact": true,
+        "impact_types": [
+          "阅读阻力",
+          "心流顿挫"
+        ],
+        "detailed_analysis": "读者在读到此处时会产生轻微的时空脱节感（前一秒还在神殿对谈，下一秒张若尘就突然上门），造成瞬间的阅读心流跳跃。"
+      },
+      "ranking_factors": {
+        "severity_score": 3,
+        "scope_score": 3,
+        "fix_value_score": 4,
+        "priority_score": 36
+      },
+      "confidence": 0.92
+    },
+    {
+      "defect_id": "DEF-PACING-002",
+      "category": "叙事节奏/缺乏呼吸留白",
+      "severity": "C",
+      "severity_label": "C. 中等缺陷",
+      "location": {
+        "chapter": "第1章 月圆夜前的布局",
+        "scene": "全篇整体节奏分布",
+        "paragraph_range": [
+          1,
+          137
+        ],
+        "snippet": "全篇平均场景跨度仅 218 字符，包含 15 个细分转场"
+      },
+      "symptom": "全篇叙事节奏拉满紧绷，连续塞入 7 个核心大事件，全程无冷场但也完全缺乏名家玄幻常有的战后休整留白与从容呼吸感。",
+      "evidence": "全篇 avgSceneLengthChars 为 218，场景密度为 4.5 场景/千字，全篇无任何一段纯生活化闲笔或风景沉淀。",
+      "expected_behavior": "高潮或大反转之间应预留 1-2 段约 100-150 字的呼吸回落（downtime），让读者消化情节并积累下一波期待。",
+      "actual_behavior": "从踢门、伪神设宴、识破退婚、赠天魔石刻到门外血简，全程连续高压推进。",
+      "benchmark_difference": "《一世之尊》单章常保留 10-15% 的泡茶发呆、同门打趣等呼吸留白段落。",
+      "genre_baseline_difference": "玄幻修真经验基线显示正常篇章应具备 10-15% 的情绪舒缓期（downtime）。",
+      "reader_impact": {
+        "has_impact": true,
+        "impact_types": [
+          "情绪疲劳",
+          "心流紧绷"
+        ],
+        "detailed_analysis": "读者全程精神高度紧绷，若长篇小说持续保持此种密度，容易使读者产生审美疲劳，削弱后续大爆发的心理落差震撼。"
+      },
+      "ranking_factors": {
+        "severity_score": 3,
+        "scope_score": 4,
+        "fix_value_score": 3,
+        "priority_score": 36
+      },
+      "confidence": 0.9
+    },
+    {
+      "defect_id": "DEF-CHAR-001",
+      "category": "人物塑造/心理层次单一高智",
+      "severity": "C",
+      "severity_label": "C. 中等缺陷",
+      "location": {
+        "chapter": "第1章 月圆夜前的布局",
+        "scene": "张若尘全篇言行与微表情",
+        "paragraph_range": [
+          1,
+          137
+        ],
+        "snippet": "“怕，所以我特意挑有神灵坐镇的地方喊”、“名声这种东西，关键时候能挡刀”"
+      },
+      "symptom": "主角张若尘在整章中全程处于算无遗策、无懈可击的高智掌控态，没有展现出任何一次尴尬、窘迫、肉痛或真实的人性弱点缝隙。",
+      "evidence": "张若尘在所有场景中对白皆从容机智，面对神灵大手亦毫无后怕或后背出汗等生理反应，心理防御完全封闭。",
+      "expected_behavior": "顶级商业玄幻主角在高智算计的同时，宜偶有自嘲、对前途未卜的隐秘顾虑或生活化微小弱点，增加角色的人性可爱度。",
+      "actual_behavior": "人设立体但心智偏向单维度的“绝对理智谋略家”，缺少陪伴型长篇主角的多维温度。",
+      "benchmark_difference": "《一世之尊》孟奇虽有机警，但常有死要面子、吐槽肉痛、吃瘪窘迫的生动人性弱点。",
+      "genre_baseline_difference": "现代名家玄幻越来越注重主角的人情味与微小弱点，拒绝绝对算计型冰冷人设。",
+      "reader_impact": {
+        "has_impact": true,
+        "impact_types": [
+          "共情深度受限",
+          "轻微距离感"
+        ],
+        "detailed_analysis": "读者会敬佩主角的智谋与处变不惊，但较难对一个完全不犯错、无弱点的神机妙算角色产生生死攸关的担忧与深度情感共鸣。"
+      },
+      "ranking_factors": {
+        "severity_score": 3,
+        "scope_score": 4,
+        "fix_value_score": 3,
+        "priority_score": 36
+      },
+      "confidence": 0.91
+    },
+    {
+      "defect_id": "DEF-DESC-001",
+      "category": "描写质感/物理抗阻与通感稍浅",
+      "severity": "D",
+      "severity_label": "D. 轻微缺陷",
+      "location": {
+        "chapter": "第1章 月圆夜前的布局",
+        "scene": "场景1 黑石魔窟门前神灵大手突袭",
+        "paragraph_range": [
+          14,
+          16
+        ],
+        "snippet": "掌风却先将洞门碾碎，神威压在肩头，他竟连第二步也迈不出去。下一刻，虚空裂开，一道白衣身影走入魔窟。"
+      },
+      "symptom": "全篇唯一的实质神威压迫仅用了两句话带过，缺乏重力形变、骨骼微鸣、圣气受窒等让读者屏息的物理阻力细节。",
+      "evidence": "正文第 15 段受力描写集中于“神威压在肩头”，未调用触觉中的沉重、骨裂、风压撕扯等具象化词汇。",
+      "expected_behavior": "在体现神灵与大圣的天壤之别时，宜增加 1 句高压生理受力特写，强化千钧一发的危机窒息感。",
+      "actual_behavior": "镜头迅速切给姑射静的虚空解围，受力描写点到即止，偏重情节过场。",
+      "benchmark_difference": "《一世之尊》在肉身受力、刀剑相撞入肉三分等物理阻力上描写极深。",
+      "genre_baseline_difference": "玄幻题材基准中触觉受力占比通常为 18-25%，生成小说仅为 12%。",
+      "reader_impact": {
+        "has_impact": true,
+        "impact_types": [
+          "临场沉浸感略淡"
+        ],
+        "detailed_analysis": "虽不影响情节理解，但在感官刺激与战斗危机感上未达到让读者毛孔收紧的震撼效果。"
+      },
+      "ranking_factors": {
+        "severity_score": 2,
+        "scope_score": 2,
+        "fix_value_score": 3,
+        "priority_score": 12
+      },
+      "confidence": 0.92
+    },
+    {
+      "defect_id": "DEF-CONSIST-001",
+      "category": "实体关系/首稿历史残余风险",
+      "severity": "D",
+      "severity_label": "D. 轻微缺陷",
+      "location": {
+        "chapter": "模型首稿与修订交互阶段",
+        "scene": "全篇亲属关系与镇物逻辑",
+        "paragraph_range": [
+          0,
+          0
+        ],
+        "snippet": "首稿曾出现“地姥女婿”（称谓错代）与“两手空空 vs 拿走黑晶”的自相矛盾"
+      },
+      "symptom": "首稿生成时模型曾将地姥（老祖宗）与姑射云琉（母神）的亲属代际混淆，且存在黑晶放回与两手空空的前后表述冲突。",
+      "evidence": "修订要求.md 条目 3、4 明确指出了首稿的“把自己说成地姥的女婿亲属错误”与“黑晶放回矛盾”。",
+      "expected_behavior": "模型应在 Prompt 注入 Story Bible 后原生保证 100% 亲属树与道具逻辑自洽。",
+      "actual_behavior": "原生初稿出现轻度逻辑毛刺，在定稿校验与定向校对后已完全剔除。",
+      "benchmark_difference": "名家长篇大纲在核心亲属设定上具有极高稳定性。",
+      "genre_baseline_difference": "世界观实体树一致性是商业玄幻作品的基本红线。",
+      "reader_impact": {
+        "has_impact": false,
+        "impact_types": [
+          "历史已修复",
+          "自动化管线需加防线"
+        ],
+        "detailed_analysis": "定稿中已完全修正为“天阁目的夫婿”与“两手空空”，终稿读者体验完好；但在全自动流水线中，该问题提示模型在复杂亲属代际解析上存在不稳定隐患。"
+      },
+      "ranking_factors": {
+        "severity_score": 2,
+        "scope_score": 2,
+        "fix_value_score": 2,
+        "priority_score": 8
+      },
+      "confidence": 0.95
+    },
+    {
+      "defect_id": "NON-DEF-001",
+      "category": "风格差异保真/对白占比与机锋",
+      "severity": "E",
+      "severity_label": "E. 非缺陷 (风格差异保真)",
+      "location": {
+        "chapter": "第1章 月圆夜前的布局",
+        "scene": "全篇对话交互",
+        "paragraph_range": [
+          1,
+          137
+        ],
+        "snippet": "对白占比 42.0%，单句均长 14 字，机锋暗藏"
+      },
+      "symptom": "生成小说的对白比例（42.0%）显著高于 Benchmark《一世之尊》的 18.4%，超出玄幻题材基准 P75（24.0%）。",
+      "evidence": "指纹度量数据：dialogueRatio = 0.420，单句对白均长 14.2 字。",
+      "expected_behavior": "现代快节奏智斗网文通过高密度的精炼对白推动剧情，提升阅读趣味性。",
+      "actual_behavior": "对白多为双关试探、冷幽默与机锋交错（“我怕你笑场”、“名声能挡刀”），极富张力。",
+      "benchmark_difference": "《一世之尊》篇幅宏大、带有佛理与宗门典雅叙事，对白偏少，旁白说明较多。",
+      "genre_baseline_difference": "偏离传统玄幻低对白基准，但完全契合现代都市智斗/轻快玄幻的演进风格。",
+      "reader_impact": {
+        "has_impact": false,
+        "impact_types": [
+          "正向快感提升",
+          "无负面阅读阻力"
+        ],
+        "detailed_analysis": "【严禁修复为缺陷】这种高对白比是生成小说最亮眼的现代文学优势之一，人物交谈话里有话、幽默灵动。若机械按照 Benchmark 压缩对白至 18%，将彻底抹杀其智斗趣味性，属于典型的“把优点修成平庸”。"
+      },
+      "ranking_factors": {
+        "severity_score": 0,
+        "scope_score": 0,
+        "fix_value_score": 0,
+        "priority_score": 0
+      },
+      "confidence": 0.96
+    },
+    {
+      "defect_id": "NON-DEF-002",
+      "category": "风格差异保真/开篇即进动作冲突",
+      "severity": "E",
+      "severity_label": "E. 非缺陷 (风格差异保真)",
+      "location": {
+        "chapter": "第1章 月圆夜前的布局",
+        "scene": "开篇第一幕",
+        "paragraph_range": [
+          1,
+          12
+        ],
+        "snippet": "第 3 段直接抬脚踢开魔窟石门叫嚣“找死”，第 15 段直接迎战神灵黑手"
+      },
+      "symptom": "没有传统玄幻的数千字宗门早课、地理风貌铺垫，开篇 180 字直接进入踢门惹事的物理冲突。",
+      "evidence": "正文第 3 段即出现破坏石门与言语叫嚣。",
+      "expected_behavior": "现代网络文学开篇黄金法则：快速抛出反常行为，立即引爆第一悬念。",
+      "actual_behavior": "极速入题，300 字内迅速建立主角“故意作死”的强悬念。",
+      "benchmark_difference": "《一世之尊》用前 2 章近 8,000 字交代少林寺寺规戒律院与身份适应，属于慢热古典流。",
+      "genre_baseline_difference": "偏离传统慢热范式，但契合新一代移动端网文的高留存开篇诉求。",
+      "reader_impact": {
+        "has_impact": false,
+        "impact_types": [
+          "正向降低弃读率",
+          "提升首章完读率"
+        ],
+        "detailed_analysis": "【严禁修复为缺陷】在现代网文连载环境下，慢热开篇弃读率极高。生成小说的急速破题是经过验证的高效商业技法，决不能强行加塞 2000 字无冲突的少林古刹式铺垫。"
+      },
+      "ranking_factors": {
+        "severity_score": 0,
+        "scope_score": 0,
+        "fix_value_score": 0,
+        "priority_score": 0
+      },
+      "confidence": 0.95
+    },
+    {
+      "defect_id": "NON-DEF-003",
+      "category": "风格差异保真/零注水高信息压缩率",
+      "severity": "E",
+      "severity_label": "E. 非缺陷 (风格差异保真)",
+      "location": {
+        "chapter": "第1章 月圆夜前的布局",
+        "scene": "全篇行文与段落排布",
+        "paragraph_range": [
+          1,
+          137
+        ],
+        "snippet": "废话与注水比仅 1%，净推进信息占比 92%"
+      },
+      "symptom": "全篇没有任何为凑字数而写的大段心理反刍、修行常识大纲复述或无意义的景物堆砌。",
+      "evidence": "信息密度度量：effectiveInfoRatio = 0.92，fluffRatio = 0.01。",
+      "expected_behavior": "精炼干脆，每一句服务于人物或主线。",
+      "actual_behavior": "行文干净利落，信息压缩比极高。",
+      "benchmark_difference": "商业连载网文因订阅篇幅要求，常有 4-8% 的过渡常识复述或闲笔。",
+      "genre_baseline_difference": "显著优于网络小说平均注水水平。",
+      "reader_impact": {
+        "has_impact": false,
+        "impact_types": [
+          "正向阅读效率提升"
+        ],
+        "detailed_analysis": "【严禁修复为缺陷】高效纯粹的叙事是高水准写作的体现，绝不应为了模仿传统连载作品的某些松散拖沓而人为“注水”。"
+      },
+      "ranking_factors": {
+        "severity_score": 0,
+        "scope_score": 0,
+        "fix_value_score": 0,
+        "priority_score": 0
+      },
+      "confidence": 0.94
+    },
+    {
+      "defect_id": "NON-DEF-004",
+      "category": "风格差异保真/章末惊悚异象断章钩子",
+      "severity": "E",
+      "severity_label": "E. 非缺陷 (风格差异保真)",
+      "location": {
+        "chapter": "第1章 月圆夜前的布局",
+        "scene": "章末尾声",
+        "paragraph_range": [
+          136,
+          137
+        ],
+        "snippet": "“院子里明明只有他们两人，门外却又响起一声轻笑。”"
+      },
+      "symptom": "末句不交代轻笑之人是谁，直接截断停留在最惊悚诡异的时刻。",
+      "evidence": "尾段直接在“轻笑”声处结束，无任何安抚性解释。",
+      "expected_behavior": "教科书级网络小说章末断章法，创造急性好奇心。",
+      "actual_behavior": "在最大悬念引爆的同一秒卡死切断。",
+      "benchmark_difference": "传统名家有时在章末采用平和的景物烘托或任务交代收尾。",
+      "genre_baseline_difference": "完全符合现代平台高连击、高点击率的章末钩子模型。",
+      "reader_impact": {
+        "has_impact": false,
+        "impact_types": [
+          "极致追读驱动"
+        ],
+        "detailed_analysis": "【严禁修复为缺陷】此断章是全篇最强商业亮点，制造了非点下一章不可的迫切冲动，绝不能修改为平稳的总结交代。"
+      },
+      "ranking_factors": {
+        "severity_score": 0,
+        "scope_score": 0,
+        "fix_value_score": 0,
+        "priority_score": 0
+      },
+      "confidence": 0.96
+    }
+  ]
+}

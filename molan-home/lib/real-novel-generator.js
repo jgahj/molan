@@ -16,11 +16,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { parseDecoupledStream } = require('./generation-pipeline-coordinator');
+const { parseDecoupledStream, STREAM_STATUS } = require('./generation/stream-parser');
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3000';
-const DEFAULT_EMAIL = '1271055010@qq.com';
-const DEFAULT_PASSWORD = '123456';
+const DEFAULT_EMAIL = process.env.MOLAN_BENCHMARK_EMAIL || '';
+const DEFAULT_PASSWORD = process.env.MOLAN_BENCHMARK_PASSWORD || '';
 const DEFAULT_MODEL = 'gpt-5.6-luna';
 
 let cachedToken = null;
@@ -30,6 +30,13 @@ let tokenExpiresAt = 0;
  * 获取本地服务登录凭证
  */
 async function getAuthToken(baseUrl = DEFAULT_BASE_URL, email = DEFAULT_EMAIL, password = DEFAULT_PASSWORD) {
+  const targetEmail = String(email || '').trim();
+  const targetPassword = String(password || '').trim();
+
+  if (!targetEmail || !targetPassword) {
+    throw new Error('缺少基准测试凭据: 请设置环境变量 MOLAN_BENCHMARK_EMAIL 和 MOLAN_BENCHMARK_PASSWORD，严禁在源码中保留默认账密。');
+  }
+
   const now = Date.now();
   if (cachedToken && now < tokenExpiresAt) {
     return cachedToken;
@@ -38,7 +45,7 @@ async function getAuthToken(baseUrl = DEFAULT_BASE_URL, email = DEFAULT_EMAIL, p
   const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email: targetEmail, password: targetPassword }),
     signal: AbortSignal.timeout(15000)
   });
 
@@ -95,7 +102,8 @@ async function generateRealChapter(params = {}) {
   let retryCount = 0;
   let lastError = null;
 
-  while (retryCount < 5) {
+  const MAX_RETRIES = 2;
+  while (retryCount <= MAX_RETRIES) {
     try {
       const chatRes = await fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
@@ -120,14 +128,21 @@ async function generateRealChapter(params = {}) {
 
       if (!chatRes.ok) {
         const errText = await chatRes.text();
-        throw new Error(`模型调用 HTTP ${chatRes.status}: ${errText}`);
+        const status = chatRes.status;
+        const err = new Error(`模型调用 HTTP ${status}: ${errText}`);
+        err.status = status;
+        // 4xx (非429) 不可重试
+        if ([400, 401, 403, 404, 409, 413, 422].includes(status)) {
+          throw err;
+        }
+        throw err;
       }
 
       const rawStream = await chatRes.text();
       const parsed = parseDecoupledStream(rawStream);
 
-      if (!parsed.content || parsed.content.trim().length < 50) {
-        throw new Error(`模型返回正文为空或过短 (${parsed.content?.length || 0} 字符)`);
+      if (parsed.status === STREAM_STATUS.STREAM_INTERRUPTED || !parsed.content || parsed.content.trim().length < 50) {
+        throw new Error(`模型返回流中断或正文过短 (${parsed.content?.length || 0} 字符, 状态: ${parsed.status}, 错误: ${parsed.streamErrors.join('; ') || '无'})`);
       }
 
       const durationMs = Date.now() - startTime;
@@ -158,15 +173,19 @@ async function generateRealChapter(params = {}) {
 
       return result;
     } catch (err) {
-      retryCount += 1;
       lastError = err;
-      const is429 = err.message && err.message.includes('429');
-      const waitTime = is429 ? 5000 * retryCount : 2000 * retryCount;
+      const status = Number(err.status || 0);
+      const isRetryable = status === 429 || status === 503 || ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND'].includes(err.code);
+      if (!isRetryable || retryCount >= MAX_RETRIES) {
+        throw new Error(`真实模型生成失败: ${lastError?.message}`);
+      }
+      retryCount += 1;
+      const waitTime = status === 429 ? 3000 * retryCount : 1500 * retryCount;
       await new Promise(r => setTimeout(r, waitTime));
     }
   }
 
-  throw new Error(`真实模型生成失败（已重试5次）: ${lastError?.message}`);
+  throw new Error(`真实模型生成失败: ${lastError?.message}`);
 }
 
 module.exports = {

@@ -1,0 +1,54 @@
+{
+  "version": "genre-engine-v4-pipelined",
+  "updatedAt": "2026-09-09T00:03:39.456Z",
+  "families": [
+    {
+      "familyId": "xuanhuan",
+      "familyName": "玄幻修真",
+      "booksCount": 156,
+      "scenesCount": 1787
+    },
+    {
+      "familyId": "urban_martial",
+      "familyName": "都市高武",
+      "booksCount": 146,
+      "scenesCount": 1528
+    },
+    {
+      "familyId": "scifi_apocalypse",
+      "familyName": "科幻末世",
+      "booksCount": 87,
+      "scenesCount": 913
+    },
+    {
+      "familyId": "suspense",
+      "familyName": "悬疑惊悚",
+      "booksCount": 110,
+      "scenesCount": 1129
+    },
+    {
+      "familyId": "history",
+      "familyName": "历史古代",
+      "booksCount": 108,
+      "scenesCount": 1216
+    },
+    {
+      "familyId": "western_fantasy",
+      "familyName": "西方奇幻",
+      "booksCount": 232,
+      "scenesCount": 2609
+    },
+    {
+      "familyId": "ancient_romance",
+      "familyName": "古言世情",
+      "booksCount": 128,
+      "scenesCount": 1225
+    },
+    {
+      "familyId": "modern_romance",
+      "familyName": "现代言情",
+      "booksCount": 147,
+      "scenesCount": 1394
+    }
+  ]
+}

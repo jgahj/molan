@@ -1,0 +1,55 @@
+{
+  "experimentId": "EXP-PACING-001",
+  "targetVariable": "Scene Planner 场景规划与转场契约编译器",
+  "verdict": "ROLLBACK",
+  "passedSuccessCriteria": false,
+  "triggeredFailureCriteria": true,
+  "triggeredSideEffect": true,
+  "triggeredRollback": true,
+  "controlMetrics": {
+    "charCount": 3190,
+    "abruptTransitionCount": 1,
+    "sceneCount": 30,
+    "avgSceneLength": 106,
+    "downtimeMatchesCount": 3,
+    "estimatedDowntimeRatio": 0.011,
+    "conflictMatchesCount": 8,
+    "conflictDensity": 0.25078369905956116
+  },
+  "treatmentMetrics": {
+    "charCount": 3149,
+    "abruptTransitionCount": 0,
+    "sceneCount": 28,
+    "avgSceneLength": 112,
+    "downtimeMatchesCount": 3,
+    "estimatedDowntimeRatio": 0.011,
+    "conflictMatchesCount": 5,
+    "conflictDensity": 0.15878056525881232
+  },
+  "metricsDelta": {
+    "abruptTransitionChange": -1,
+    "avgSceneLengthChange": 6,
+    "downtimeRatioChange": 0,
+    "conflictDensityChange": -0.092
+  },
+  "criteriaEvaluation": {
+    "success": {
+      "target": "硬切归零且呼吸留白>=10%",
+      "met": false,
+      "details": {
+        "successAbruptEliminated": true,
+        "successSceneExpanded": false,
+        "successDowntimeMet": false
+      }
+    },
+    "sideEffect": {
+      "target": "冲突烈度衰退不得超过35%",
+      "triggered": true,
+      "conflictDropRatio": "36.7%"
+    },
+    "rollback": {
+      "target": "字数无腰斩截断且无死锁",
+      "triggered": true
+    }
+  }
+}

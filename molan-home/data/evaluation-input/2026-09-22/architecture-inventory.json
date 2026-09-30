@@ -1,0 +1,292 @@
+{
+  "generatedAt": "2026-09-22T11:16:29.980Z",
+  "projectRoot": "C:\\Users\\lyh\\Desktop\\小说专属网页\\molan-home",
+  "workspaceRoot": "C:\\Users\\lyh\\Desktop\\小说专属网页",
+  "entrypoints": [
+    "server.js",
+    "app.js",
+    "pages/editor.js",
+    "pages/dissect.js"
+  ],
+  "areas": [
+    {
+      "path": "lib",
+      "exists": true,
+      "fileCount": 63,
+      "totalBytes": 176386417,
+      "extensions": {
+        ".js": 44,
+        ".cjs": 1,
+        ".mjs": 2,
+        ".json": 16
+      }
+    },
+    {
+      "path": "pages",
+      "exists": true,
+      "fileCount": 44,
+      "totalBytes": 1909266,
+      "extensions": {
+        ".html": 19,
+        ".css": 11,
+        ".js": 14
+      }
+    },
+    {
+      "path": "data",
+      "exists": true,
+      "fileCount": 2680,
+      "totalBytes": 1179316173,
+      "extensions": {
+        ".json": 2517,
+        ".db": 5,
+        ".db-shm": 4,
+        ".db-wal": 4,
+        "[none]": 1,
+        ".jsonl": 2,
+        ".log": 8,
+        ".md": 138,
+        ".txt": 1
+      }
+    },
+    {
+      "path": "scripts",
+      "exists": true,
+      "fileCount": 94,
+      "totalBytes": 1643645,
+      "extensions": {
+        ".mjs": 76,
+        ".cjs": 4,
+        ".js": 1,
+        ".json": 9,
+        ".jsonl": 2,
+        ".md": 1,
+        ".py": 1
+      }
+    },
+    {
+      "path": "skills",
+      "exists": true,
+      "fileCount": 27,
+      "totalBytes": 168029,
+      "extensions": {
+        ".yaml": 3,
+        ".md": 20,
+        ".json": 3,
+        "[none]": 1
+      }
+    },
+    {
+      "path": "test",
+      "exists": true,
+      "fileCount": 85,
+      "totalBytes": 892957,
+      "extensions": {
+        ".js": 66,
+        ".mjs": 19
+      }
+    },
+    {
+      "path": "docs",
+      "exists": true,
+      "fileCount": 11,
+      "totalBytes": 285597,
+      "extensions": {
+        ".md": 7,
+        ".json": 2,
+        ".mjs": 2
+      }
+    },
+    {
+      "path": "editor-sources",
+      "exists": true,
+      "fileCount": 8,
+      "totalBytes": 104810,
+      "extensions": {
+        ".md": 7,
+        ".yaml": 1
+      }
+    },
+    {
+      "path": "ops",
+      "exists": true,
+      "fileCount": 2,
+      "totalBytes": 1429,
+      "extensions": {
+        ".conf": 1,
+        ".service": 1
+      }
+    }
+  ],
+  "excludedFromRecursiveScan": [
+    ".git",
+    "node_modules",
+    "scratch",
+    "tmp-booktest",
+    "deploy_tmp",
+    "raws"
+  ],
+  "observedModules": [
+    {
+      "path": "server.js",
+      "exists": true,
+      "bytes": 1115543,
+      "modifiedAt": "2026-09-21T09:56:16.602Z"
+    },
+    {
+      "path": "package.json",
+      "exists": true,
+      "bytes": 1879,
+      "modifiedAt": "2026-09-17T11:54:55.259Z"
+    },
+    {
+      "path": "completion-editor.js",
+      "exists": true,
+      "bytes": 385149,
+      "modifiedAt": "2026-09-22T03:09:50.952Z"
+    },
+    {
+      "path": "completion-import.js",
+      "exists": true,
+      "bytes": 327475,
+      "modifiedAt": "2026-09-15T15:23:07.905Z"
+    },
+    {
+      "path": "completion-platform.js",
+      "exists": true,
+      "bytes": 70123,
+      "modifiedAt": "2026-09-14T18:30:11.291Z"
+    },
+    {
+      "path": "correction-policy.js",
+      "exists": true,
+      "bytes": 41070,
+      "modifiedAt": "2026-09-22T06:26:40.817Z"
+    },
+    {
+      "path": "lib/benchmark-metrics.js",
+      "exists": true,
+      "bytes": 16380,
+      "modifiedAt": "2026-09-10T13:39:19.571Z"
+    },
+    {
+      "path": "lib/benchmark-pipeline.js",
+      "exists": true,
+      "bytes": 28252,
+      "modifiedAt": "2026-09-22T06:25:25.731Z"
+    },
+    {
+      "path": "lib/benchmark-experiments.js",
+      "exists": true,
+      "bytes": 31839,
+      "modifiedAt": "2026-09-10T13:58:55.626Z"
+    },
+    {
+      "path": "lib/benchmark-receipts.js",
+      "exists": true,
+      "bytes": 1805,
+      "modifiedAt": "2026-09-11T12:21:34.243Z"
+    },
+    {
+      "path": "lib/ai-flavor-detector.js",
+      "exists": true,
+      "bytes": 16443,
+      "modifiedAt": "2026-09-21T15:11:41.051Z"
+    },
+    {
+      "path": "lib/evidence-review.js",
+      "exists": true,
+      "bytes": 13770,
+      "modifiedAt": "2026-09-22T03:14:11.913Z"
+    },
+    {
+      "path": "lib/causal-debt-tracker.js",
+      "exists": true,
+      "bytes": 16377,
+      "modifiedAt": "2026-09-18T14:40:58.328Z"
+    },
+    {
+      "path": "lib/memory-system.js",
+      "exists": true,
+      "bytes": 54737,
+      "modifiedAt": "2026-09-16T17:27:35.185Z"
+    },
+    {
+      "path": "lib/memory-commit-guard.js",
+      "exists": true,
+      "bytes": 14185,
+      "modifiedAt": "2026-09-16T13:49:10.647Z"
+    },
+    {
+      "path": "lib/character-material.js",
+      "exists": true,
+      "bytes": 90676,
+      "modifiedAt": "2026-09-22T06:24:09.138Z"
+    },
+    {
+      "path": "lib/style-system.js",
+      "exists": true,
+      "bytes": 18376,
+      "modifiedAt": "2026-09-16T13:04:16.503Z"
+    },
+    {
+      "path": "lib/genre-engine.js",
+      "exists": true,
+      "bytes": 116129,
+      "modifiedAt": "2026-09-13T08:51:08.727Z"
+    },
+    {
+      "path": "pages/editor.js",
+      "exists": true,
+      "bytes": 649741,
+      "modifiedAt": "2026-09-16T11:22:24.194Z"
+    },
+    {
+      "path": "pages/dissect.js",
+      "exists": true,
+      "bytes": 34772,
+      "modifiedAt": "2026-09-15T17:34:43.434Z"
+    },
+    {
+      "path": "skills/humanizer/SKILL.md",
+      "exists": true,
+      "bytes": 9064,
+      "modifiedAt": "2026-09-22T06:26:17.958Z"
+    },
+    {
+      "path": "skills/write-high-tension-fiction/SKILL.md",
+      "exists": true,
+      "bytes": 11367,
+      "modifiedAt": "2026-09-22T06:26:08.664Z"
+    },
+    {
+      "path": "scripts/build-industrial-benchmark-system.mjs",
+      "exists": true,
+      "bytes": 23010,
+      "modifiedAt": "2026-09-22T03:15:16.102Z"
+    },
+    {
+      "path": "scripts/run-local-benchmark-session.mjs",
+      "exists": true,
+      "bytes": 7107,
+      "modifiedAt": "2026-09-10T14:34:59.866Z"
+    },
+    {
+      "path": "scripts/run-longform-eval.mjs",
+      "exists": true,
+      "bytes": 13397,
+      "modifiedAt": "2026-09-10T13:38:08.835Z"
+    }
+  ],
+  "documentedFlow": [
+    "resource corpus -> genre baselines -> generation runs -> deterministic metrics -> evidence review",
+    "completion-editor -> character material / style / memory / causal modules",
+    "pages and server -> editor workflow and benchmark endpoints"
+  ],
+  "git": {
+    "head": "e34d0ca4f650b4ec50bd3bee62663bfd4d412096",
+    "branch": "main",
+    "worktreeStatusLineCount": 218,
+    "worktreeStatus": "DIRTY_OR_MODIFIED"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "date": "2026-09-10",
+  "scope": "local-files-only; no deployment or source-data modifications",
+  "overallAcceptance": "incomplete",
+  "automatedTests": {
+    "runtime": "../tools/node22_runtime/node.exe",
+    "arguments": ["--experimental-sqlite", "--no-warnings", "--test", "test/**/*.test.{js,mjs,cjs}"],
+    "isolatedDataAndConfig": true,
+    "total": 670,
+    "passed": 668,
+    "failed": 0,
+    "skipped": 2,
+    "optionalSlowRun": "stopped-after-25-plus-minutes-without-completion; not passed"
+  },
+  "syntaxCheckedFiles": 13,
+  "gitDiffCheck": "passed",
+  "dryRun": {
+    "P0": { "expectedGenerations": 36, "executed": false },
+    "P3": { "expectedGenerations": 36, "executed": false },
+    "P4": { "expectedGenerations": 20, "executed": false }
+  },
+  "realGeneration": {
+    "P0": {
+      "directory": "runs/p0-provider-pilot-20260910",
+      "recorded": 1,
+      "expectedGenerations": 36,
+      "status": "audit_failed",
+      "reason": "unverified_ledger_evidence",
+      "totalTokens": 18175,
+      "localCredits": 3.27,
+      "finalPipelineEvidence": false
+    },
+    "P3": { "executed": false, "humanReview": "not_started" },
+    "P4": {
+      "directory": "runs/p4-candidate-pilot-20260910",
+      "recorded": 1,
+      "expectedGenerations": 20,
+      "status": "audit_failed",
+      "reason": "coverage_payoff",
+      "totalTokens": 14463,
+      "localCredits": 2.6,
+      "genreAssetStatus": "ready",
+      "ledgerInvalidEvidenceCount": 0
+    }
+  },
+  "fullChapterSemanticReading": "pending",
+  "humanReview": "pending",
+  "limitations": [
+    "Automated tests use local mocks and do not certify literary quality.",
+    "Local credits are not a provider currency invoice.",
+    "Model aliases do not prove upstream model identity.",
+    "No failed generation was retried automatically or marked passed."
+  ]
+}

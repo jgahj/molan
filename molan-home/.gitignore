@@ -11,7 +11,10 @@ data/token_usage.json
 data/user_skills.json
 data/global_skills.json
 data/admin_audit.json
-data/xuanhuan-lab/
+data/xuanhuan-lab/*.db*
+data/character-material-*/
+data/genre-lab/extracted-triplets/
+lib/character-material/index.json
 data/watchdog.lock
 data/benchmark-local-runtime/
 data/benchmark-runs/

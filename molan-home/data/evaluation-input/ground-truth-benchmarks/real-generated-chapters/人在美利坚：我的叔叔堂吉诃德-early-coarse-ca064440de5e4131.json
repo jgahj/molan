@@ -1,0 +1,510 @@
+{
+  "ok": true,
+  "model": "gpt-5.6-luna",
+  "promptHash": "ca064440de5e4131",
+  "bookTitle": "人在美利坚：我的叔叔堂吉诃德",
+  "genre": "都市",
+  "stage": "early",
+  "variant": "coarse",
+  "content": "# 《叔叔在皇后区等我》\n\n我到纽约那天，飞机晚了三个小时。\n\n航空公司说这是“不可预见的运营调整”，我听了半天，觉得这句话和“你叔叔最近手头有点紧”大概属于同一种语言体系：事情已经坏了，但说话的人希望你保持礼貌。\n\n我拖着两个箱子走出肯尼迪机场，第一眼看见的不是自由女神，也不是曼哈顿天际线，而是一辆出租车司机举着纸牌，上面写着我的名字：**李伟国**。\n\n我姓李，名伟，不叫李伟国。\n\n司机见我停下，立刻把纸牌翻到背面。背面写着：**李伟？**\n\n我点头。\n\n他接过我的箱子，问：“皇后区？”\n\n“对。”\n\n“现金还是刷卡？”\n\n“叔叔已经付过了。”\n\n司机停住，像听见有人在赌场说自己带了好运。他拿出手机拨了个号码，叽里咕噜说了几句，随后告诉我：“你叔叔说，到了地方再给。”\n\n我问：“给什么？”\n\n司机没有回答，只把箱子塞进后备厢。\n\n纽约的车开得很有教育意义。它让我明白，交通规则不是用来遵守的，而是用来在发生事故后判断谁赔钱的。车窗外，高架桥一层压着一层，广告牌上全是牙医、律师、移民顾问和卖公寓的人。每个人都在告诉你，只要肯花钱，人生还有补救机会。\n\n叔叔住在法拉盛栋旧公寓里。司机把我放在街口，指着前方那家卖奶茶的店说：“你叔叔在那里。”\n\n我推门进去，看见一个穿着羽绒背心的中年男人。他正坐在角落里，用算盘核对一叠外卖单。\n\n“叔叔？”我试着叫了一声。\n\n他抬头看我，先看箱子，再看我的鞋，最后看我的脸。\n\n“机票谁买的？”\n\n“我自己。”\n\n“手机卡呢？”\n\n“还没办。”\n\n“银行卡呢？”\n\n“有一张国内的。”\n\n叔叔把算盘往旁边一推：“那你目前在美国拥有的资产，就是两个箱子、一张不能在这里直接使用的银行卡，还有一张随时会失联的脸。”\n\n我说：“我还年轻。”\n\n“年轻不算资产，年轻只是雇主愿意少给钱的理由。”\n\n他带我回家。公寓门口贴着一张物业通知，提醒住户不要把鞋放在走廊。我刚把鞋脱下来，叔叔就把它们拎进屋里。\n\n“这里不兴门口放鞋。”\n\n“为什么？”\n\n“会影响消防通道。”\n\n“那邻居家的婴儿车呢？”\n\n“婴儿车有人投诉，鞋子没人投诉。纽约的规矩不是看谁有理，是看谁先打电话。”\n\n他的房间不大，客厅里摆着一张折叠床，床边堆着洗衣店的塑料袋。叔叔把我的行李推到墙角，递给我一碗微波炉加热的炒饭。\n\n“先吃，明天去餐馆试工。”\n\n“做什么？”\n\n“洗碗。”\n\n“我大学毕业了。”\n\n叔叔点点头：“那你洗碗的时候，可以思考美国高等教育为什么没有教你付房租。”\n\n夜里，我躺在折叠床上，听见楼上有人拖家具，楼下有人争吵，街边救护车经过三次。手机突然震动，是国内同学发来的消息：**纽约生活怎么样？是不是遍地机会？**\n\n我想了想，回复他：\n\n**机会很多，刚才有个机会让我洗碗，明天还有一个。**\n\n发完消息，叔叔在黑暗里问：“睡了吗？”\n\n“还没有。”\n\n“那正好。明天早上五点起床，别迟到。老板最讨厌两种人，一种是迟到的，另一种是没有合法身份还要求准时下班的。”\n\n我望着天花板，觉得纽约的夜色并不浪漫。\n\n它只是把所有账单都藏在黑暗里，等你天一亮，挨个签字。",
+  "charCount": 1296,
+  "durationMs": 23637,
+  "usage": {
+    "requestId": "req_77e389d2e2e1ac93393e3df9557114d5",
+    "userEmail": "1271055010@qq.com",
+    "userId": "usr_69045981613f27cb496923a120d17758",
+    "workspaceId": "",
+    "projectId": "",
+    "modelId": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "contextWindowTokens": 131072,
+    "promptTokens": 18312,
+    "completionTokens": 1047,
+    "reasoningTokens": 61,
+    "totalTokens": 19359,
+    "cachedTokens": 17152,
+    "cacheWriteTokens": null,
+    "usageSource": "upstream",
+    "status": "completed",
+    "finishReason": null,
+    "createdAt": 1790091487946,
+    "durationMs": 23310,
+    "creditCost": 0,
+    "reservedCost": 0,
+    "estimatedTokens": 19359,
+    "estimatedCreditCost": 0,
+    "correctionAudit": {
+      "version": "universal-v3.8-2026-09-10",
+      "libraryVersion": "f4d035d0d608",
+      "enabled": true,
+      "status": "needs_review",
+      "findings": [
+        {
+          "ruleId": "R-08-formulaic-reasoning",
+          "label": "工整二分或完整心理链",
+          "severity": "medium",
+          "text": "不是自由女神，也不是曼哈顿天际线，而是",
+          "index": 130,
+          "suggestion": {
+            "ruleId": "R-08",
+            "label": "关键动作指代模糊与越界推断",
+            "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+            "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+          }
+        },
+        {
+          "ruleId": "R-08-formulaic-reasoning",
+          "label": "工整二分或完整心理链",
+          "severity": "medium",
+          "text": "不是用来遵守的，而是",
+          "index": 395,
+          "suggestion": {
+            "ruleId": "R-08",
+            "label": "关键动作指代模糊与越界推断",
+            "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+            "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+            "caseId": null,
+            "before": null,
+            "after": null,
+            "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+          }
+        }
+      ],
+      "matchedRuleIds": [
+        "R-08-formulaic-reasoning"
+      ],
+      "findingCount": 2,
+      "metrics": {
+        "chars": 1202,
+        "charLimitMin": 2000,
+        "charLimitMax": 3000,
+        "metaphorWords": 0,
+        "metaphorLimit": 4,
+        "decorativeQuantity": 2,
+        "decorativeQuantityLimit": 2,
+        "shortParagraphs": 19,
+        "shortParagraphLimit": 3,
+        "exceeded": [
+          "shortParagraphs"
+        ]
+      },
+      "repetition": [],
+      "genre": "都市",
+      "genreFamily": "urban_modern",
+      "skippedRuleIds": [
+        "R-23-modern-legal-bureaucracy",
+        "R-30-lore-announcement",
+        "R-33-pseudo-precision",
+        "R-38-game-meter-ticking",
+        "R-44-quest-penalty-staccato"
+      ],
+      "checkedAt": 1790091511255
+    },
+    "characterMaterial": {
+      "enabled": false,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "auto",
+      "downgradeReason": "",
+      "archetype": "",
+      "archetypes": [],
+      "archetypeSource": "none",
+      "archetypeConfidence": 0,
+      "dimensions": [
+        "appearance",
+        "expression",
+        "action",
+        "dialogue",
+        "catchphrase",
+        "psychology"
+      ],
+      "scene": "",
+      "relationship": "",
+      "emotionalState": [],
+      "intent": "",
+      "humanTextureSignals": [],
+      "contextFallback": true,
+      "rankingWeights": null,
+      "profileKey": "",
+      "profileBucket": "",
+      "profileFocusSlice": "",
+      "profileAvailable": false,
+      "profileFallback": true,
+      "profileReason": "profiles_not_published",
+      "profileSampleCount": 0,
+      "ruleCount": 0,
+      "sampleCount": 0,
+      "fallback": true,
+      "samplesRemovedByBudget": false,
+      "rulesReducedByBudget": false,
+      "sampleSources": [],
+      "reason": "disabled_by_work",
+      "overlap": {
+        "checkedSampleCount": 0,
+        "overlapFragments": [],
+        "leakedTerms": [],
+        "blocked": false
+      },
+      "rhythmDeviation": {
+        "available": false,
+        "exceeded": false
+      },
+      "blocked": false
+    },
+    "qualityScan": {
+      "maxChars": 200000,
+      "scannedChars": 1297,
+      "truncated": false
+    },
+    "skillAudit": {
+      "version": 1,
+      "audited": true,
+      "status": "verified",
+      "promptHash": "7ab7b21ccc94d352e1b3a1b88606f1159e5f4b1750fde430d5401b5562896c7c",
+      "actualSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "declaredSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "skills": [
+        {
+          "id": "write-high-tension-fiction",
+          "name": "write-high-tension-fiction",
+          "source": "builtin",
+          "occurrences": 1,
+          "files": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "fileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12602
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 12351
+            }
+          ],
+          "fileHashes": [
+            {
+              "path": "agents/openai.yaml",
+              "sha256": "c9a7972cd91f5541015caa27365ce95ba3b8b10f2b8e6e47aa5cef6cde981a41",
+              "size": 431
+            },
+            {
+              "path": "references/canon-template.md",
+              "sha256": "87b2208f519a9a618c7fe960b6ed5bfe9f72fb3f6ad4863a16cf0de48565b09c",
+              "size": 1071
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "sha256": "7c763d8551941600e6bcd08ee56443745dcdeb0a0c560767094eb88bf7101fcb",
+              "size": 1710
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "sha256": "94acb0793912aed519ebbcea118cb99bfd7f544f5d5b464dc3689feee3ec50b5",
+              "size": 1632
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "sha256": "9eac1d8356a192483afead707d66f00c083c1ebca0c0e37c6f66922d3d55e806",
+              "size": 4818
+            },
+            {
+              "path": "references/style-profile.md",
+              "sha256": "119fa92fbdda319d61a2fa816b448e1e4da0e04f52d88e98cfd47f644ca76707",
+              "size": 1743
+            },
+            {
+              "path": "SKILL.md",
+              "sha256": "c41b3ffbd1f32d01a890a83a8ab102dacce4ab75e89898d1868e648ebde92195",
+              "size": 5101
+            }
+          ],
+          "instructionHash": "e29c9c6f414a25c90212f560b41cac08e25f85887d0d440522367e53be95ae75",
+          "expectedInstructionHash": "e29c9c6f414a25c90212f560b41cac08e25f85887d0d440522367e53be95ae75",
+          "promptFiles": [
+            "SKILL.md",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md"
+          ],
+          "promptInstructionHash": "79fd231a0b7a81220a1e7ff482f5ea87d7c2283ecd01a52148a6f8f9ce8c83c4",
+          "promptFilesProvided": false,
+          "declaredPromptFiles": [],
+          "declaredFiles": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "declaredFileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12602
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 12351
+            }
+          ],
+          "verification": "server-match"
+        }
+      ],
+      "stage": "writing",
+      "editorOnly": false,
+      "defaultWritingSkill": {
+        "id": "write-high-tension-fiction",
+        "applied": true
+      },
+      "forwarding": {
+        "status": "verified",
+        "skills": [
+          {
+            "id": "write-high-tension-fiction",
+            "status": "verified",
+            "instructionForwarded": true,
+            "promptFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "promptFilesProvided": false,
+            "auditedFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "forwardedTextFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md"
+            ],
+            "omittedTextFiles": [],
+            "omittedBinaryFiles": []
+          }
+        ]
+      },
+      "correctionPolicy": {
+        "version": "universal-v3.8-2026-09-10",
+        "scope": "all-users-all-novels",
+        "stages": [
+          "skill_analysis",
+          "writing",
+          "humanizer",
+          "single"
+        ]
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "needs_review",
+        "findings": [
+          {
+            "ruleId": "R-08-formulaic-reasoning",
+            "label": "工整二分或完整心理链",
+            "severity": "medium",
+            "text": "不是自由女神，也不是曼哈顿天际线，而是",
+            "index": 130,
+            "suggestion": {
+              "ruleId": "R-08",
+              "label": "关键动作指代模糊与越界推断",
+              "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+              "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+            }
+          },
+          {
+            "ruleId": "R-08-formulaic-reasoning",
+            "label": "工整二分或完整心理链",
+            "severity": "medium",
+            "text": "不是用来遵守的，而是",
+            "index": 395,
+            "suggestion": {
+              "ruleId": "R-08",
+              "label": "关键动作指代模糊与越界推断",
+              "must": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判",
+              "badExample": "“擦去妹妹脸上的泪水”，单一迹象提前断定唯一真相",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "关键动作优先使用姓名，线索不足只表达信息边界，不越界预判"
+            }
+          }
+        ],
+        "matchedRuleIds": [
+          "R-08-formulaic-reasoning"
+        ],
+        "findingCount": 2,
+        "metrics": {
+          "chars": 1202,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 0,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 2,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 19,
+          "shortParagraphLimit": 3,
+          "exceeded": [
+            "shortParagraphs"
+          ]
+        },
+        "repetition": [],
+        "genre": "都市",
+        "genreFamily": "urban_modern",
+        "skippedRuleIds": [
+          "R-23-modern-legal-bureaucracy",
+          "R-30-lore-announcement",
+          "R-33-pseudo-precision",
+          "R-38-game-meter-ticking",
+          "R-44-quest-penalty-staccato"
+        ],
+        "checkedAt": 1790091511255
+      }
+    },
+    "messagesHash": "7ab7b21ccc94d352e1b3a1b88606f1159e5f4b1750fde430d5401b5562896c7c",
+    "editorOnly": false,
+    "billingStatus": "exact"
+  },
+  "removedBillingEvents": 97,
+  "generatedAt": "2026-09-22T15:38:31.261Z",
+  "isFromCache": false
+}

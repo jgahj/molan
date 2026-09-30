@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "molan-evaluation-input-package-v1",
+  "generatedAt": "2026-09-22T11:16:39.172Z",
+  "scope": "只生成原始评测材料；不输出跨对象比较、质量排名或优化结论。",
+  "projectRoot": "C:\\Users\\lyh\\Desktop\\小说专属网页\\molan-home",
+  "files": [
+    "architecture-inventory.json",
+    "corpus-manifest.json",
+    "benchmark-pools.json",
+    "generation-runs.json",
+    "deterministic-evaluations.json",
+    "evidence-index.json",
+    "regression-input.json",
+    "version-manifest.json",
+    "evaluation-input.md",
+    "comparison-prompt.md"
+  ],
+  "counts": {
+    "corpusGenres": 48,
+    "corpusBooks": 1276,
+    "benchmarkPools": 6,
+    "generationRuns": 12,
+    "measuredRuns": 9,
+    "evidenceItems": 38
+  },
+  "unknowns": [
+    "章节级全量拆书结果未在本材料包中重新生成",
+    "人工评审、盲选和 Judge Agreement 未发现可复核输入",
+    "生成模型、温度、TopP、最大 Token、Seed 等运行条件部分缺失",
+    "未执行本包之外的跨版本因果比较"
+  ]
+}
