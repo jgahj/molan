@@ -364,7 +364,7 @@ async function generateDraft(options = {}) {
     scenePlan = null,
     scenes = [],
     context = '',
-    contextPlan = {},
+    contextPlan: inputContextPlan = {},
     genre = 'universal',
     style = '',
     signal,
@@ -376,6 +376,7 @@ async function generateDraft(options = {}) {
   }
 
   const calls = [];
+  let contextPlan = inputContextPlan && typeof inputContextPlan === 'object' ? inputContextPlan : {};
   let callNo = 0;
   const runId = String(request.generationId || request.runId || 'run_' + Date.now());
   const projectId = String(request.projectId || request.novelId || '');
@@ -409,15 +410,37 @@ async function generateDraft(options = {}) {
   ].join('\n\n');
 
   // 4. 校验上下文预算
-  assertContextBudget({
-    system: systemPrompt,
-    context,
-    contract,
-    prompt: userPrompt,
+  const writerMaxTokens = Math.min(6000, Math.ceil(targetChars * 1.8));
+  const promptBudget = assertContextBudget({
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    modelId: request.modelId,
+    providerContextLimit: request.providerContextLimit || request.modelParams && request.modelParams.contextWindow,
     targetChars,
-    targetWords: targetChars,
-    modelId: request.modelId
+    outputReserve: writerMaxTokens,
+    maxOutputTokens: writerMaxTokens
   });
+  contextPlan = {
+    ...contextPlan,
+    renderedPromptBudget: {
+      estimator: 'model-capability-cjk-ratio-v1',
+      limit: promptBudget.limit,
+      totalRequired: promptBudget.totalRequired,
+      margin: promptBudget.margin,
+      breakdown: promptBudget.breakdown
+    },
+    replayManifest: contextPlan.replayManifest ? {
+      ...contextPlan.replayManifest,
+      budget: {
+        ...contextPlan.replayManifest.budget,
+        finalRenderedPromptTokens: promptBudget.breakdown.promptTokens,
+        finalTotalRequired: promptBudget.totalRequired,
+        finalMargin: promptBudget.margin
+      }
+    } : contextPlan.replayManifest
+  };
 
   if (typeof onProgress === 'function') onProgress({ stage: 'writing', message: '正在起草正文' });
 
@@ -444,7 +467,7 @@ async function generateDraft(options = {}) {
       temperature: (request.modelParams && request.modelParams.temperature) ?? 0.75,
       topP: (request.modelParams && request.modelParams.topP) ?? null,
       seed: (request.modelParams && request.modelParams.seed) ?? null,
-      maxTokens: Math.min(6000, Math.ceil(targetChars * 1.8)),
+      maxTokens: writerMaxTokens,
       jsonMode: false
     });
     draftRecord.status = 'completed';
