@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { compareQualityVectors } = require('../lib/evolution/quality-vector-ab.js');
+const { compareQualityVectors, validatePromotion } = require('../lib/evolution/quality-vector-ab.js');
 
 /** 解析 CLI 的命名参数。 */
 function readOption(name) {
@@ -31,6 +31,18 @@ function writeReport(report, outputPath) {
 
 /** 只比较落盘结果，不发起模型请求或产生推理费用。 */
 function main() {
+  if (process.argv.includes('--verify-promotion')) {
+    const reportPath = readOption('--report');
+    const candidateConfigPath = readOption('--candidate-config');
+    if (!reportPath || !candidateConfigPath) throw new TypeError('--verify-promotion 必须同时提供 --report 与 --candidate-config');
+    const receipt = validatePromotion(readInput(reportPath), readInput(candidateConfigPath));
+    writeReport(receipt, readOption('--out'));
+    if (receipt.status !== 'PASS') process.exitCode = 2;
+    return;
+  }
+  if (readOption('--report') || readOption('--candidate-config')) {
+    throw new TypeError('--report 与 --candidate-config 只能用于 --verify-promotion');
+  }
   const inputPath = readOption('--input');
   if (!inputPath) throw new TypeError('必须提供 --input <saved-results.json>');
   const input = readInput(inputPath);

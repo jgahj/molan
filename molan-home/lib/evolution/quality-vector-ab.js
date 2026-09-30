@@ -11,7 +11,6 @@ const VECTOR_SCHEMA = 'quality-vector-v2';
 const EVIDENCE_STATUSES = new Set(['NOT_MEASURED', 'ESTIMATED', 'MEASURED', 'JUDGED', 'HUMAN_REVIEWED']);
 const COMPARABLE_STATUSES = new Set(['MEASURED', 'JUDGED', 'HUMAN_REVIEWED']);
 const VERSION_FIELDS = ['pipelineVersion', 'promptVersion', 'genreProfileVersion', 'styleVersion'];
-const REQUIRED_SAFETY_METRICS = ['continuity', 'originality', 'genreFit', 'styleFit', 'stability'];
 const DECLINE_LIMIT = 0.03;
 
 /** 判断必填标识是否是非空字符串。 */
@@ -115,8 +114,11 @@ function validateScore(pair, arm, dimension, scoreScale) {
   }
   if (!EVIDENCE_STATUSES.has(status)) reasons.push('evidence_status_invalid');
   if (!evidenceRefs.length) reasons.push('evidence_refs_missing');
-  if (status === 'NOT_MEASURED') reasons.push('dimension_not_measured');
-  if (status === 'ESTIMATED') reasons.push('estimated_evidence_not_promotion_grade');
+  if (!COMPARABLE_STATUSES.has(status)) {
+    if (status === 'NOT_MEASURED') reasons.push('dimension_not_measured');
+    else if (status === 'ESTIMATED') reasons.push('estimated_evidence_not_promotion_grade');
+    else if (EVIDENCE_STATUSES.has(status)) reasons.push('evidence_status_not_comparable');
+  }
   return { value: reasons.length ? null : value, status, evidenceRefs, reasons };
 }
 
@@ -233,7 +235,6 @@ function buildExistingGate(input, dimensions, scoreScale, cost) {
 }
 
 /** 比较同一批固定输入的质量向量，并将完整证据与既有安全门禁绑定到晋级结论。 */
-/** 比较同一批固定输入的质量向量，并将完整证据与既有安全门禁绑定到晋级结论。 */
 function compareQualityVectors(input = {}) {
   const reasons = [];
   if (input.schemaVersion !== INPUT_SCHEMA) reasons.push('input_schema_invalid');
@@ -253,10 +254,18 @@ function compareQualityVectors(input = {}) {
   for (const pair of tasks) {
     if (!nonEmpty(pair?.baseline?.generationId) || !/^[a-f0-9]{64}$/.test(String(pair?.baseline?.outputHash || ''))) reasons.push(`baseline_run_binding_missing:${pair?.task_id || 'unknown'}`);
     if (!nonEmpty(pair?.candidate?.generationId) || !/^[a-f0-9]{64}$/.test(String(pair?.candidate?.outputHash || ''))) reasons.push(`candidate_run_binding_missing:${pair?.task_id || 'unknown'}`);
-    for (const run of [pair?.baseline, pair?.candidate]) {
+    for (const arm of ['baseline', 'candidate']) {
+      const run = pair?.[arm];
       const generationId = String(run?.generationId || '').trim();
       if (generationId && generationIds.has(generationId)) reasons.push(`generation_id_reused:${generationId}`);
       if (generationId) generationIds.add(generationId);
+      if (run?.input_hash !== pair?.input_hash) reasons.push(`run_input_mismatch:${pair?.task_id || 'unknown'}:${arm}`);
+      for (const field of ['model', 'modelParametersHash', 'evaluatorVersion', 'reviewerVersion']) {
+        if (run?.binding?.[field] !== input.binding?.[field]) reasons.push(`run_binding_mismatch:${pair?.task_id || 'unknown'}:${arm}:${field}`);
+      }
+      for (const field of VERSION_FIELDS) {
+        if (run?.versions?.[field] !== input.versions?.[arm]?.[field]) reasons.push(`run_version_mismatch:${pair?.task_id || 'unknown'}:${arm}:${field}`);
+      }
     }
   }
 
@@ -281,6 +290,7 @@ function compareQualityVectors(input = {}) {
     schemaVersion: REPORT_SCHEMA,
     createdAt: new Date().toISOString(),
     inputHash: hashJson(input),
+    qualityVectorVersion: VECTOR_SCHEMA,
     status,
     promotionEligible: status === 'PROMOTION_READY',
     evaluationMode: 'saved_results_only',
@@ -306,6 +316,45 @@ function compareQualityVectors(input = {}) {
   return { ...reportBody, reportHash: hashJson(hashPayload) };
 }
 
+/** 校验待晋级配置是否精确引用一份有效且匹配版本的评测报告。 */
+function validatePromotion(report, target = {}) {
+  const reasons = [];
+  if (report?.schemaVersion !== REPORT_SCHEMA) reasons.push('quality_report_schema_invalid');
+  if (report?.status !== 'PROMOTION_READY' || report?.promotionEligible !== true) reasons.push('quality_report_not_promotion_eligible');
+  if (!/^[a-f0-9]{64}$/.test(String(report?.reportHash || ''))) reasons.push('quality_report_hash_missing');
+  if (!/^[a-f0-9]{64}$/.test(String(report?.inputHash || ''))) reasons.push('quality_input_hash_missing');
+  if (target?.schemaVersion !== 'quality-promotion-target-v1') reasons.push('promotion_target_schema_invalid');
+  if (target?.qualityReportHash !== report?.reportHash) reasons.push('promotion_report_hash_mismatch');
+  if (target?.inputHash !== report?.inputHash) reasons.push('promotion_input_hash_mismatch');
+  if (target?.model !== report?.binding?.model) reasons.push('promotion_model_mismatch');
+  if (target?.modelParametersHash !== report?.binding?.modelParametersHash) reasons.push('promotion_model_parameters_mismatch');
+  if (!report?.versions?.candidate || !target?.versions ||
+      VERSION_FIELDS.some(field => !nonEmpty(target.versions[field]) || target.versions[field] !== report.versions.candidate[field])) {
+    reasons.push('promotion_candidate_version_mismatch');
+  }
+
+  if (report?.schemaVersion === REPORT_SCHEMA && /^[a-f0-9]{64}$/.test(String(report.reportHash || ''))) {
+    const hashPayload = { ...report };
+    delete hashPayload.createdAt;
+    delete hashPayload.reportHash;
+    try {
+      if (hashJson(hashPayload) !== report.reportHash) reasons.push('quality_report_hash_mismatch');
+    } catch {
+      reasons.push('quality_report_unhashable');
+    }
+  }
+  const blockingReasons = block(reasons);
+  return {
+    schemaVersion: 'quality-promotion-binding-v1',
+    status: blockingReasons.length ? 'BLOCKED' : 'PASS',
+    accepted: blockingReasons.length === 0,
+    reportHash: report?.reportHash || null,
+    inputHash: report?.inputHash || null,
+    candidateVersions: target?.versions || null,
+    blockingReasons
+  };
+}
+
 module.exports = {
   INPUT_SCHEMA,
   REPORT_SCHEMA,
@@ -313,5 +362,6 @@ module.exports = {
   EVIDENCE_STATUSES: Object.freeze([...EVIDENCE_STATUSES]),
   COMPARABLE_STATUSES: Object.freeze([...COMPARABLE_STATUSES]),
   DECLINE_LIMIT,
-  compareQualityVectors
+  compareQualityVectors,
+  validatePromotion
 };

@@ -9,10 +9,20 @@ const { spawnSync } = require('node:child_process');
 const { hashJson } = require('../lib/evolution/replay-manifest');
 const { QUALITY_DIMENSIONS } = require('../lib/quality-vectors');
 const { DEFAULT_POLICY } = require('../lib/evolution/regression-gate');
-const { INPUT_SCHEMA, compareQualityVectors } = require('../lib/evolution/quality-vector-ab');
+const { INPUT_SCHEMA, compareQualityVectors, validatePromotion } = require('../lib/evolution/quality-vector-ab');
 
 /** 构造 80 条固定输入的离线评测夹具，不代表真实模型评测结果。 */
 function fixture() {
+  const binding = {
+    model: 'fixture-model',
+    modelParametersHash: 'b'.repeat(64),
+    evaluatorVersion: 'fixture-evaluator-v1',
+    reviewerVersion: 'fixture-reviewer-v1'
+  };
+  const versions = {
+    baseline: { pipelineVersion: 'p1', promptVersion: 'r1', genreProfileVersion: 'g1', styleVersion: 's1' },
+    candidate: { pipelineVersion: 'p2', promptVersion: 'r2', genreProfileVersion: 'g1', styleVersion: 's1' }
+  };
   const tasks = Array.from({ length: 80 }, (_, index) => {
     const taskId = `case-${String(index + 1).padStart(3, '0')}`;
     const inputHash = String(index + 1).toString(16).padStart(64, '0');
@@ -32,6 +42,9 @@ function fixture() {
       }]));
       return {
         generationId: `${arm}-${taskId}`,
+        input_hash: inputHash,
+        binding: { ...binding },
+        versions: { ...versions[arm] },
         outputHash: 'a'.repeat(64),
         qualityVector: { schemaVersion: 'quality-vector-v2', values: nextValues, dimensions },
         cost: { amount: 0.01, currency: 'USD', evidence_refs: [`cost:${arm}:${taskId}`] }
@@ -56,16 +69,8 @@ function fixture() {
   return {
     schemaVersion: INPUT_SCHEMA,
     evaluationMode: 'saved_results_only',
-    binding: {
-      model: 'fixture-model',
-      modelParametersHash: 'b'.repeat(64),
-      evaluatorVersion: 'fixture-evaluator-v1',
-      reviewerVersion: 'fixture-reviewer-v1'
-    },
-    versions: {
-      baseline: { pipelineVersion: 'p1', promptVersion: 'r1', genreProfileVersion: 'g1', styleVersion: 's1' },
-      candidate: { pipelineVersion: 'p2', promptVersion: 'r2', genreProfileVersion: 'g1', styleVersion: 's1' }
-    },
+    binding,
+    versions,
     scoreScale: 1,
     golden,
     targetDimensions: ['dialogue'],
@@ -137,8 +142,34 @@ test('versions, task snapshots, and the existing safety gate must remain compara
   const report = compareQualityVectors(input);
   assert.equal(report.status, 'REJECTED');
   assert.ok(report.blockingReasons.includes('version_missing:candidate:promptVersion'));
+  assert.ok(report.blockingReasons.includes('run_version_mismatch:case-001:candidate:promptVersion'));
   assert.ok(report.blockingReasons.includes('paired_input_mismatch:case-001'));
+  assert.ok(report.blockingReasons.includes('run_input_mismatch:case-001:baseline'));
   assert.equal(report.existingRegressionGate.status, 'REJECT');
+});
+
+test('run results cannot be relabeled and promotion must cite the exact report and candidate config', () => {
+  const relabeled = fixture();
+  relabeled.binding.model = 'replacement-model';
+  const blocked = compareQualityVectors(relabeled);
+  assert.equal(blocked.status, 'BLOCKED');
+  assert.ok(blocked.blockingReasons.includes('run_binding_mismatch:case-001:candidate:model'));
+
+  const report = compareQualityVectors(fixture());
+  const target = {
+    schemaVersion: 'quality-promotion-target-v1',
+    qualityReportHash: report.reportHash,
+    inputHash: report.inputHash,
+    model: report.binding.model,
+    modelParametersHash: report.binding.modelParametersHash,
+    versions: report.versions.candidate
+  };
+  assert.equal(validatePromotion(report, target).status, 'PASS');
+  const mismatch = validatePromotion(report, { ...target, versions: { ...target.versions, promptVersion: 'other' } });
+  assert.equal(mismatch.status, 'BLOCKED');
+  assert.ok(mismatch.blockingReasons.includes('promotion_candidate_version_mismatch'));
+  const tampered = validatePromotion({ ...report, dimensions: [] }, target);
+  assert.ok(tampered.blockingReasons.includes('quality_report_hash_mismatch'));
 });
 
 test('schema and fixed corpus provenance are mandatory and incomplete evidence stays blocked', () => {
@@ -162,7 +193,18 @@ test('offline CLI writes a new report and refuses to overwrite it', () => {
     fs.writeFileSync(inputPath, JSON.stringify(fixture()), 'utf8');
     const first = spawnSync(process.execPath, ['--no-warnings', cliPath, '--input', inputPath, '--out', reportPath], { encoding: 'utf8' });
     assert.equal(first.status, 0, first.stderr);
-    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).status, 'PROMOTION_READY');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.status, 'PROMOTION_READY');
+    const targetPath = path.join(directory, 'candidate-config.json');
+    const receiptPath = path.join(directory, 'promotion-receipt.json');
+    fs.writeFileSync(targetPath, JSON.stringify({
+      schemaVersion: 'quality-promotion-target-v1', qualityReportHash: report.reportHash,
+      inputHash: report.inputHash, model: report.binding.model,
+      modelParametersHash: report.binding.modelParametersHash, versions: report.versions.candidate
+    }), 'utf8');
+    const verified = spawnSync(process.execPath, ['--no-warnings', cliPath, '--verify-promotion', '--report', reportPath, '--candidate-config', targetPath, '--out', receiptPath], { encoding: 'utf8' });
+    assert.equal(verified.status, 0, verified.stderr);
+    assert.equal(JSON.parse(fs.readFileSync(receiptPath, 'utf8')).status, 'PASS');
     const second = spawnSync(process.execPath, ['--no-warnings', cliPath, '--input', inputPath, '--out', reportPath], { encoding: 'utf8' });
     assert.equal(second.status, 1);
     assert.match(second.stderr, /already exists|已存在/i);
