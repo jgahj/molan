@@ -22,11 +22,17 @@ function createNativeDissectionWorker({ repository, phases, callStage, getAccoun
           if (attempt.alreadyCompleted) throw Object.assign(new Error('Provider 已完成但阶段未持久化，需要人工恢复'), { code: 'PROVIDER_RESULT_REVIEW_REQUIRED' });
           const user = await getAccount(actorUserId);
           let output;
-          try { output = await callStage({ record: current, stageId, user, authToken, requestId }); }
+          const controller = new AbortController();
+          let renewal = Promise.resolve();
+          const renewalTimer = setInterval(() => {
+            renewal = renewal.then(() => repository.renewLease({ ...leased, leaseMs }))
+              .catch(error => { controller.abort(error); });
+          }, Math.min(30000, Math.max(1, Math.floor(leaseMs / 3))));
+          try { output = await callStage({ record: current, stageId, user, authToken, requestId, controller }); }
           catch (error) {
             await repository.endProvider({ ...leased, requestId, requestHash, attemptToken: attempt.attemptToken, receipt: { status: 'unknown', error: String(error.code || error.message) } });
             throw error;
-          }
+          } finally { clearInterval(renewalTimer); await renewal; }
           const usage = { prompt_tokens: output.usage?.promptTokens, completion_tokens: output.usage?.completionTokens };
           const receipt = await repository.endProvider({ ...leased, requestId, requestHash, attemptToken: attempt.attemptToken,
             receipt: { status: 'succeeded', usage, providerRequestId: output.usage?.providerRequestId || '', resultHash: hashJson(output.json) } });

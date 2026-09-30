@@ -1349,6 +1349,15 @@ function createSkillService({
       return { source: 'editor-canonical', skill: canonical };
     }
     const email = String(auth && auth.user && auth.user.email || '').trim().toLowerCase();
+    if (options.catalog) {
+      if (!Array.isArray(options.catalog.userSkills) || !Array.isArray(options.catalog.globalSkills)) throw new Error('原生 Skill 目录未完整加载');
+      const userSkill = options.catalog.userSkills.find(skill => skill?.id === id);
+      if (userSkill) return { source: 'user', skill: userSkill };
+      const globalSkill = options.catalog.globalSkills.find(skill => skill?.id === id);
+      if (globalSkill) return { source: 'global', skill: globalSkill };
+      const builtin = loadBuiltinSkills().find(skill => skill?.id === id);
+      return builtin ? { source: 'builtin', skill: builtin } : null;
+    }
     const userSkill = email ? loadUserSkills(email).find(skill => skill && skill.id === id) : null;
     if (userSkill) return { source: 'user', skill: userSkill };
     const globalSkill = loadGlobalSkills().find(skill => skill && skill.id === id);
