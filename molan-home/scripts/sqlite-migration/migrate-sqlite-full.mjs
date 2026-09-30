@@ -8,8 +8,8 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require('node:sqlite');
 const { Pool } = require('pg');
-const { readConfig, internalUuid } = require('../lib/postgres-repository.js');
-const projectScope = require('../lib/project-scope.js');
+const { readConfig, internalUuid } = require('../../lib/postgres-repository.js');
+const projectScope = require('../../lib/project-scope.js');
 
 const SOURCE_TABLES_FOR_LIVE = new Set([
   'character_library', 'dissection_batch_tasks', 'dissection_chapter_facts',

@@ -27,11 +27,11 @@
     "db:pg:billing-smoke": "node scripts/postgres-billing-smoke.mjs",
     "db:pg:worker": "node scripts/pg-job-worker.mjs",
     "db:pg:worker-smoke": "node scripts/postgres-worker-smoke.mjs",
-    "db:pg:reconcile": "node scripts/postgres-migration-reconcile.mjs",
-    "db:pg:migrate-sqlite-full": "node scripts/migrate-sqlite-full.mjs",
-    "db:pg:reconcile-sqlite-full": "node scripts/reconcile-sqlite-full.mjs",
-    "db:sqlite:clone": "node scripts/clone-sqlite-database.mjs",
-    "db:pg:migrate-sqlite": "node scripts/migrate-sqlite-projects.mjs"
+    "db:pg:reconcile": "node scripts/sqlite-migration/postgres-migration-reconcile.mjs",
+    "db:pg:migrate-sqlite-full": "node scripts/sqlite-migration/migrate-sqlite-full.mjs",
+    "db:pg:reconcile-sqlite-full": "node scripts/sqlite-migration/reconcile-sqlite-full.mjs",
+    "db:sqlite:clone": "node scripts/sqlite-migration/clone-sqlite-database.mjs",
+    "db:pg:migrate-sqlite": "node scripts/sqlite-migration/migrate-sqlite-projects.mjs"
   },
   "engines": {
     "node": ">=22.5.0"

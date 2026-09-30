@@ -6,7 +6,7 @@ import { scanSource } from './migrate-sqlite-full.mjs';
 
 const require = createRequire(import.meta.url);
 const { Pool } = require('pg');
-const { readConfig } = require('../lib/postgres-repository.js');
+const { readConfig } = require('../../lib/postgres-repository.js');
 
 function stableJson(value) {
   if (Array.isArray(value)) return value.map(stableJson);

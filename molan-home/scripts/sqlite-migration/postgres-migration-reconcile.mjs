@@ -6,9 +6,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require('node:sqlite');
 const { Pool } = require('pg');
-const projectPackage = require('../lib/project-package.js');
-const projectScope = require('../lib/project-scope.js');
-const { readConfig } = require('../lib/postgres-repository.js');
+const projectPackage = require('../../lib/project-package.js');
+const projectScope = require('../../lib/project-scope.js');
+const { readConfig } = require('../../lib/postgres-repository.js');
 
 /** 解析只读对账参数。 */
 function parseArguments(argv) {
