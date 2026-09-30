@@ -7,6 +7,7 @@ const { assembleContext } = require('./context');
 const { normalizeChapterContract, contractHash } = require('./contract');
 const { auditDraft } = require('./deterministic-audit');
 const { applyLocalRevision, MAX_REVISION_ROUNDS } = require('./revision');
+const scenePlanner = require('../scene-planner');
 const LEASE_TTL_MS = 90000;
 
 const ACTIVE_STATES = new Set([
@@ -222,13 +223,50 @@ function createGenerationOrchestrator(options = {}) {
       if (Object.hasOwn(authoritative.storyContext, 'previousEnding')) request.previousEnding = authoritative.storyContext.previousEnding;
       if (Object.hasOwn(authoritative.storyContext, 'planText')) request.planText = authoritative.storyContext.planText;
       const sourceContext = { ...(request.storyContext || {}), sceneContract: contract };
-      let context = assembleContext(sourceContext, {
-        maxChars: request.modelParams && request.modelParams.contextChars,
-        model: request.modelId,
-        provider: request.provider,
-        hardLimit: request.providerContextLimit,
-        targetWords: contract.wordBudget && contract.wordBudget.targetChars || 2400
-      });
+      const mechanismCandidates = request.genreMechanisms || genre.mechanisms || style.mechanisms;
+      if (mechanismCandidates != null && sourceContext.genreMechanisms == null) sourceContext.genreMechanisms = mechanismCandidates;
+      const targetChars = Number(contract.wordBudget && contract.wordBudget.targetChars) || 2400;
+      const taskText = request.userInstruction || request.prompt || contract.chapterGoal || '推进当前章节核心目标';
+      const genreTitle = typeof genre === 'object' ? genre.genre || genre.id || '通用文学' : String(genre || '通用文学');
+      const styleText = typeof style === 'object' ? style.style || style.prompt || '' : String(style || '');
+      const compileContext = (scenes = [], scenePlan = null) => {
+        const sceneDirectives = scenePlan
+          ? scenePlanner.compileSceneDirectives(scenePlan)
+          : (scenes.length ? scenes.map((scene, index) => `场景 ${index + 1}: ${scene.goal || scene.purpose || scene.summary || ''}`).join('\n') : '');
+        const system = [
+          `你是专业小说创作者。当前题材归属为【${genreTitle}】。`,
+          styleText ? `【文风指导】\n${styleText}` : '',
+          '只写原创中文小说正文，不输出提纲、前言或总结。紧扣当下人物目标、阻力与现场因果，拒绝空洞套话。',
+          sceneDirectives ? `【场景执行合同】\n${sceneDirectives}` : ''
+        ].filter(Boolean).join('\n\n');
+        const userSuffix = `\n\n【本章创作任务】\n${taskText}\n\n目标篇幅：${targetChars} 字符。请直接输出正文。`;
+        const declaredScenes = request.chapterContract && Array.isArray(request.chapterContract.scenes)
+          ? request.chapterContract.scenes : [];
+        const sceneTags = [
+          ...(Array.isArray(request.sceneTags) ? request.sceneTags : []),
+          ...(Array.isArray(contract.sceneTags) ? contract.sceneTags : []),
+          ...declaredScenes.flatMap(scene => [scene && scene.sceneTags, scene && scene.tags, scene && scene.sceneType]),
+          ...scenes.flatMap(scene => [scene && scene.sceneTags, scene && scene.tags, scene && scene.sceneType])
+        ];
+        return assembleContext(sourceContext, {
+          maxChars: request.modelParams && request.modelParams.contextChars,
+          model: request.modelId,
+          provider: request.provider,
+          hardLimit: request.providerContextLimit,
+          targetChars,
+          maxOutputTokens: Math.min(6000, Math.ceil(targetChars * 1.8)),
+          system,
+          contextWrapperPrefix: '【只读故事上下文】\n',
+          contextWrapperSuffix: userSuffix,
+          reservedInputTokens: request.modelParams && request.modelParams.contextReserveTokens != null
+            ? request.modelParams.contextReserveTokens : 1024,
+          sceneTags,
+          currentVolumeId: request.currentVolumeId || sourceContext.currentVolumeId || sourceContext.volumeId,
+          currentChapterNo: contract.chapterNo || sourceContext.chapterContext && sourceContext.chapterContext.chapterNo,
+          currentCharacterIds: contract.characters || []
+        });
+      };
+      let context = compileContext(Array.isArray(contract.scenes) ? contract.scenes : []);
       current = await move(scope, id, 'context_built', { message: '故事上下文已编译', contextPlan: context.contextPlan }, {
         genreResolution: genre, styleResolution: style, contract, contextPlan: context.contextPlan,
         authoritativeStoryContext: request.storyContext,
@@ -271,6 +309,8 @@ function createGenerationOrchestrator(options = {}) {
         if (!scenes.length) throw new GenerationError('MODEL_CONTENT_BLOCKED', 'Scene Planner 未能生成有效场景计划');
         await stage(scope, id, 'scene_planning', 'completed', contract, scenes);
       }
+
+      context = compileContext(scenes, scenePlan);
 
       const promptInput = { request, contract, context: context.text, contextPlan: context.contextPlan, genre, style, scenes, scenePlan };
       const startedAt = Date.now();

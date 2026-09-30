@@ -17,6 +17,7 @@ const { sanitizeAiFlavor, detectAiFlavorFindings } = require('./genre-engine');
 const benchmarkDatabase = require('./benchmark-database');
 const { auditDraft } = require('./generation/deterministic-audit');
 const { assembleContext } = require('./generation/context');
+const { assertContextBudget } = require('./generation/context-budget');
 const { buildGenerationManifest, hashValue } = require('./generation/manifest');
 const { resolveGenre } = require('./genre/resolver');
 const { buildGenreProfile } = require('./genre/profile');
@@ -601,6 +602,17 @@ function buildPipelineStyleBundle(params, contract, genreProfile) {
   return result.status === 'resolved' ? result : null;
 }
 
+function stripMechanismCatalogs(value) {
+  if (Array.isArray(value)) return value.map(stripMechanismCatalogs);
+  if (!value || typeof value !== 'object') return value;
+  const output = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (/^(?:genre)?mechanisms?$|^(?:scene)?mechanism(?:catalog|candidates)$/i.test(key)) continue;
+    output[key] = stripMechanismCatalogs(item);
+  }
+  return output;
+}
+
 async function generateChapter(deps, auth, params = {}) {
   const calls = [];
   const tracked = trackedDependencies(deps, calls);
@@ -651,6 +663,23 @@ async function generateChapter(deps, auth, params = {}) {
   const maxSystemBudget = isLargeContextModel ? 64000 : 32000;
   const maxContextBudget = isLargeContextModel ? 48000 : 32000;
   const maxPromptBudget = isLargeContextModel ? 24000 : 16000;
+  const runtimeBlock = runtime.writingBlock || '';
+  const baselineBlock = buildBaselineTargetBlock(baseline);
+  const extraBlocks = [];
+  if (runtimeBlock && (!params.writingSystem || !params.writingSystem.includes(runtimeBlock.slice(0, 30)))) extraBlocks.push(runtimeBlock);
+  if (baselineBlock && (!params.writingSystem || !params.writingSystem.includes(baselineBlock.slice(0, 30)))) extraBlocks.push(baselineBlock);
+  if (genreProfile) extraBlocks.push('【GENRE PROFILE】\n' + JSON.stringify(stripMechanismCatalogs(genreProfile)));
+  if (styleBundle && styleBundle.prompt && (!params.writingSystem || !params.writingSystem.includes(styleBundle.prompt.slice(0, 40))) ) extraBlocks.push(styleBundle.prompt);
+  if (sceneDirectiveBlock) extraBlocks.push(sceneDirectiveBlock);
+  let system = sanitizeSystemForUpstream(params.control === true ? String(params.controlSystem || '') : [params.writingSystem || '只写原创中文小说正文，不输出提纲或说明。先落实当下人物目标、行动阻力、认知边界和局面变化。', ...extraBlocks].filter(Boolean).join('\n\n'));
+  if (system.length > maxSystemBudget && system.length <= maxSystemBudget * 1.15) system = system.replace(/\n{3,}/g, '\n\n').trim();
+  const isReasoning = Boolean(generationReasoningEffort && generationReasoningEffort !== 'none');
+  const maxTokensClamped = (isReasoning || /^gpt-6-luna$/i.test(String(params.modelId || '')))
+    ? Math.min(12000, Math.max(8000, Math.ceil(targetWords * 3.5)))
+    : Math.min(4800, Math.ceil(targetWords * 1.5));
+  const minTargetWords = Math.ceil(targetWords * 0.85);
+  const maxTargetWords = Math.floor(targetWords * 1.15);
+  const promptSuffix = '\n【本章任务】\n' + String(params.prompt || '') + '\n目标篇幅：' + targetWords + ' 字；字数校验区间：' + minTargetWords + '～' + maxTargetWords + ' 字。按本章合同和叙事任务收束，不为凑字数扩写，也不因固定通用字数删去必要内容。';
   let compiledContext;
   try {
     compiledContext = assembleContext({
@@ -669,8 +698,24 @@ async function generateChapter(deps, auth, params = {}) {
       recentChapters: params.recentChapters || params.recentText || null,
       foreshadows: params.foreshadows || null,
       distantPlot: params.planText || null,
-      historicalFacts: params.memoryContext || null
-    }, { maxChars: maxContextBudget, outputReserve: Math.ceil(targetWords * 1.5) });
+      historicalFacts: params.memoryContext || null,
+      genreMechanisms: params.genreMechanisms || params.mechanismCandidates || genreProfile && genreProfile.mechanisms || null,
+      sceneTags: params.sceneTags || null
+    }, {
+      maxChars: maxContextBudget,
+      model: params.modelId,
+      provider: params.provider,
+      hardLimit: params.providerContextLimit,
+      targetChars: targetWords,
+      outputReserve: maxTokensClamped,
+      system,
+      contextWrapperPrefix: '【只读上下文】\n',
+      contextWrapperSuffix: promptSuffix,
+      reservedInputTokens: params.contextReserveTokens || 0,
+      currentVolumeId: params.currentVolumeId || params.volumeId,
+      currentChapterNo: params.chapterNo || contract.chapterNo,
+      currentCharacterIds: params.currentCharacterIds || contract.characters || []
+    });
   } catch (error) {
     if (error && error.code === 'CONTEXT_OVERFLOW') {
       throw Object.assign(new Error('必要的章节合同或硬状态超过上下文预算，未静默裁剪'), { code: 'context_budget_exceeded', cause: error });
@@ -678,7 +723,7 @@ async function generateChapter(deps, auth, params = {}) {
     throw error;
   }
   const context = compiledContext.text;
-  const contextPlan = compiledContext.contextPlan;
+  let contextPlan = compiledContext.contextPlan;
   const auditParams = {
     ...params,
     contract,
@@ -693,25 +738,7 @@ async function generateChapter(deps, auth, params = {}) {
     compiledContextText: context,
     contextPlan
   };
-  const runtimeBlock = runtime.writingBlock || '';
-  const baselineBlock = buildBaselineTargetBlock(baseline);
-  const extraBlocks = [];
-  if (runtimeBlock && (!params.writingSystem || !params.writingSystem.includes(runtimeBlock.slice(0, 30)))) {
-    extraBlocks.push(runtimeBlock);
-  }
-  if (baselineBlock && (!params.writingSystem || !params.writingSystem.includes(baselineBlock.slice(0, 30)))) {
-    extraBlocks.push(baselineBlock);
-  }
-  if (genreProfile) extraBlocks.push('【GENRE PROFILE】\n' + JSON.stringify(genreProfile));
-  if (styleBundle && styleBundle.prompt && (!params.writingSystem || !params.writingSystem.includes(styleBundle.prompt.slice(0, 40)))) {
-    extraBlocks.push(styleBundle.prompt);
-  }
-  if (sceneDirectiveBlock) extraBlocks.push(sceneDirectiveBlock);
-  let system = sanitizeSystemForUpstream(params.control === true ? String(params.controlSystem || '') : [params.writingSystem || '只写原创中文小说正文，不输出提纲或说明。先落实当下人物目标、行动阻力、认知边界和局面变化。', ...extraBlocks].filter(Boolean).join('\n\n'));
   if (!system.trim() || context.length > maxContextBudget || system.length > maxSystemBudget || String(params.prompt || '').length > maxPromptBudget) {
-    if (system.length > maxSystemBudget && system.length <= maxSystemBudget * 1.15) {
-      system = system.replace(/\n{3,}/g, '\n\n').trim();
-    }
     if (!system.trim() || context.length > maxContextBudget || system.length > maxSystemBudget || String(params.prompt || '').length > maxPromptBudget) {
       console.error(`[generateChapter Budget Exceeded] system: ${system.length}/${maxSystemBudget}, context: ${context.length}/${maxContextBudget}, prompt: ${String(params.prompt || '').length}/${maxPromptBudget}`);
       throw Object.assign(new Error('上下文超过预算或对照提示缺失，未静默裁剪'), { code: 'context_budget_exceeded' });
@@ -724,13 +751,34 @@ async function generateChapter(deps, auth, params = {}) {
     genre: effectiveGenre,
     characters: Array.isArray(params.characters) ? params.characters : Array.isArray(contract.characters) ? contract.characters : Array.isArray(params.continuity?.characters) ? params.continuity.characters : []
   };
-  const isReasoning = Boolean(generationReasoningEffort && generationReasoningEffort !== 'none');
-  const maxTokensClamped = (isReasoning || /^gpt-6-luna$/i.test(String(params.modelId || '')))
-    ? Math.min(12000, Math.max(8000, Math.ceil(targetWords * 3.5)))
-    : Math.min(4800, Math.ceil(targetWords * 1.5));
-  const minTargetWords = Math.ceil(targetWords * 0.85);
-  const maxTargetWords = Math.floor(targetWords * 1.15);
-  const chapterPrompt = '【只读上下文】\n' + context + '\n【本章任务】\n' + params.prompt + '\n目标篇幅：' + targetWords + ' 字；字数校验区间：' + minTargetWords + '～' + maxTargetWords + ' 字。按本章合同和叙事任务收束，不为凑字数扩写，也不因固定通用字数删去必要内容。';
+  const chapterPrompt = '【只读上下文】\n' + context + promptSuffix;
+  const promptBudget = assertContextBudget({
+    messages: [{ role: 'system', content: system }, { role: 'user', content: chapterPrompt }],
+    modelId: params.modelId,
+    providerContextLimit: params.providerContextLimit,
+    outputReserve: maxTokensClamped,
+    maxOutputTokens: maxTokensClamped
+  });
+  contextPlan = {
+    ...contextPlan,
+    renderedPromptBudget: {
+      estimator: 'model-capability-cjk-ratio-v1',
+      limit: promptBudget.limit,
+      totalRequired: promptBudget.totalRequired,
+      margin: promptBudget.margin,
+      breakdown: promptBudget.breakdown
+    },
+    replayManifest: {
+      ...contextPlan.replayManifest,
+      budget: {
+        ...contextPlan.replayManifest.budget,
+        finalRenderedPromptTokens: promptBudget.breakdown.promptTokens,
+        finalTotalRequired: promptBudget.totalRequired,
+        finalMargin: promptBudget.margin
+      }
+    }
+  };
+  auditParams.contextPlan = contextPlan;
   try {
     draft = await tracked.callModel(auth, {
       system,
