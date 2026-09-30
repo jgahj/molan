@@ -32,6 +32,7 @@
     "db:pg:migrate-sqlite-full": "node scripts/sqlite-migration/migrate-sqlite-full.mjs",
     "db:pg:reconcile-sqlite-full": "node scripts/sqlite-migration/reconcile-sqlite-full.mjs",
     "db:sqlite:clone": "node scripts/sqlite-migration/clone-sqlite-database.mjs",
+    "db:sqlite:test": "node scripts/sqlite-migration/run-tests.mjs",
     "db:pg:migrate-sqlite": "node scripts/sqlite-migration/migrate-sqlite-projects.mjs"
   },
   "engines": {

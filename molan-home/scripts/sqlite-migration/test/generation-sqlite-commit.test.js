@@ -4,10 +4,10 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const test = require('node:test');
 const { DatabaseSync } = require('node:sqlite');
-const generationStore = require('../lib/generation/sqlite-store');
-const projectResources = require('../lib/project-resources');
-const { initializeCommitReceipts } = require('../lib/benchmark-commit');
-const { commitSqliteChapter } = require('../lib/generation/sqlite-commit');
+const generationStore = require('../../../lib/generation/sqlite-store');
+const projectResources = require('../../../lib/project-resources');
+const { initializeCommitReceipts } = require('../../../lib/benchmark-commit');
+const { commitSqliteChapter } = require('../../../lib/generation/sqlite-commit');
 
 function hash(value) {
   return crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
