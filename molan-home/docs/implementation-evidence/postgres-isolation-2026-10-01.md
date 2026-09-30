@@ -11,5 +11,6 @@
 - `scripts/postgres-billing-smoke.mjs`：预算预占和结算幂等、释放账本、超额保护。
 - `scripts/postgres-worker-smoke.mjs`：独立worker进程、Bible落库、provider attempt、预算结算与未知成本、旧fencing拒绝。使用本地stub供应商，未调用模型，不是文学质量验证。
 - `scripts/postgres-memory-smoke.mjs`：原生记忆标准表适配、跨用户隔离、作者审批、版本冲突、正文与记忆同事务、提交幂等重放、非法操作回滚及数据库异常后的完整回滚；projection 同步通过。
+- `scripts/postgres-style-smoke.mjs`：原生文风版本历史、CAS 冲突拒绝、无效写入后版本保持、跨用户读取及写入拒绝；实际保存内容与版本一致。
 
 执行Node24.19.0，环境配置 `MOLAN_PG_ENABLED=1`、host/port/database如上、`MOLAN_PG_USER=novel_runtime`、`MOLAN_PG_PASSWORD_FILE`指向临时runtime密码文件；worker使用 `novel_worker_runtime` 和临时worker密码文件。真实角色与事务检查由 `pg` 驱动发往该隔离实例，无mock替代。
