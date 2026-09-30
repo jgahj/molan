@@ -35,7 +35,21 @@ jobs:
         run: npm run audit:production-imports
 
       - name: Run Unit & Integration Tests
-        run: npm test
+        run: |
+          set +e
+          npm test > test_output.log 2>&1
+          TEST_EXIT_CODE=$?
+          if [ $TEST_EXIT_CODE -ne 0 ]; then
+            FAIL_SUMMARY=$(grep -E '✖' test_output.log | head -n 10 | tr '\n' '; ')
+            echo "::error title=Test Failures::$FAIL_SUMMARY"
+            echo "================ TEST FAILURES TAIL ================"
+            tail -n 80 test_output.log
+            echo "================ DETAILED FAILURES ================"
+            grep -B 2 -A 8 -E "✖|ERR_" test_output.log | head -n 100
+            exit $TEST_EXIT_CODE
+          else
+            tail -n 30 test_output.log
+          fi
 
       - name: Run Golden Suite Audit
         run: npm run audit:golden
