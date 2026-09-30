@@ -33,6 +33,8 @@ async function dispatch(req, res, pathname, getAuthUser, services) {
     const query = Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
     const data = req.method === 'POST' ? await body(req) : {};
     const input = { ...query, ...data, userId: auth.user.userId, bookId };
+    delete input.projectId;
+    delete input.workspaceId;
     if (req.method !== 'GET' && req.method !== 'POST') fail('METHOD_NOT_ALLOWED', 405);
     let result, status = 200, response;
     const cs = route.match(/^memory\/changesets\/([A-Za-z0-9_-]+)(?:\/(approve|commit))?$/);
@@ -59,9 +61,10 @@ async function dispatch(req, res, pathname, getAuthUser, services) {
     else if (req.method === 'GET' && route === 'generations') response = { ok: true, run: await store.getGeneration(input) };
     else if (req.method === 'POST' && cancel) response = { ok: true, run: await store.cancelGeneration({ ...input, runId: cancel[1] }) };
     else if (req.method === 'POST' && ['generations', 'context/assemble'].includes(route)) {
-      const scope = await store.getAccess(input);
-      const styleProfiles = services.styleProfileStore ? await services.styleProfileStore.getStyleProfiles({ ...scope, ...input }) : [];
-      const contextInput = { ...input, styleProfiles };
+      const scope = await store.getAccess({ ...input, bookId });
+      const trustedInput = { ...input, ...scope, userId: auth.user.userId, bookId };
+      const styleProfiles = services.styleProfileStore ? await services.styleProfileStore.getStyleProfiles({ ...trustedInput, projectId: scope.projectId, bookId }) : [];
+      const contextInput = { ...trustedInput, styleProfiles };
       response = route === 'generations' ? { ok: true, run: await store.generate(contextInput, services.generate ? (params, guard) => services.generate(auth.user, params, guard) : null) }
         : { ok: true, bookId, manifest: await store.assembleContext(contextInput) };
     }
@@ -71,7 +74,7 @@ async function dispatch(req, res, pathname, getAuthUser, services) {
       const scope = await store.getAccess(input);
       const manuscript = input.manuscriptRevisionId ? await store.getManuscript({ ...input, manuscriptId: input.manuscriptRevisionId }) : null;
       if (!services.styleProfileStore) fail('STYLE_PROFILE_STORE_UNAVAILABLE', 503);
-      const profiles = await services.styleProfileStore.getStyleProfiles({ ...scope, ...input, branchId: manuscript?.branchId || input.branchId || 'main' });
+      const profiles = await services.styleProfileStore.getStyleProfiles({ ...input, ...scope, userId: auth.user.userId, bookId, projectId: scope.projectId, branchId: manuscript?.branchId || input.branchId || 'main' });
       const style = require('./style-system');
       const bundle = style.compileStyleBundle(profiles, input.sceneContext || {});
       const text = manuscript ? manuscript.content : input.text;

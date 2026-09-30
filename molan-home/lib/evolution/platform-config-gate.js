@@ -3,6 +3,16 @@
 const { hashJson } = require('./replay-manifest');
 const { compareQualityVectors, validatePromotion } = require('./quality-vector-ab');
 
+function canonicalGlobalPrompts(value) {
+  if (!Array.isArray(value)) return value;
+  return value.map(skill => {
+    if (!skill || typeof skill !== 'object' || Array.isArray(skill)) return skill;
+    const copy = structuredClone(skill);
+    for (const field of ['createdAt', 'updatedAt', 'downloads']) delete copy[field];
+    return copy;
+  });
+}
+
 /** Gate platform rollout only; callers pass the exact normalized value they will persist. */
 function validatePlatformConfigPromotion({ kind, proposed, evidence } = {}) {
   const reasons = [];
@@ -18,7 +28,8 @@ function validatePlatformConfigPromotion({ kind, proposed, evidence } = {}) {
       const configuration = evidence.target.configuration;
       const expected = kind === 'default-model' ? evidence.target.model
         : configuration?.[{ 'global-prompts': 'prompt', 'genre-profile': 'genreProfile', 'style-profile': 'style', pipeline: 'pipeline' }[kind]];
-      if (expected === undefined || hashJson(expected) !== hashJson(proposed)) reasons.push('platform_proposed_content_mismatch');
+      const canonical = kind === 'global-prompts' ? canonicalGlobalPrompts : value => value;
+      if (expected === undefined || hashJson(canonical(expected)) !== hashJson(canonical(proposed))) reasons.push('platform_proposed_content_mismatch');
     } catch (error) {
       reasons.push(`platform_evidence_invalid:${error.message}`);
     }
@@ -38,4 +49,4 @@ function assertPlatformConfigPromotion(options) {
   return result;
 }
 
-module.exports = { validatePlatformConfigPromotion, assertPlatformConfigPromotion };
+module.exports = { validatePlatformConfigPromotion, assertPlatformConfigPromotion, canonicalGlobalPrompts };

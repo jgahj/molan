@@ -31,6 +31,12 @@ test('JSON application repository enforces project ACL, CAS, soft deletion and i
   assert.equal((await app.getAuthSession(tokenHash)).user.email, owner.email);
   await app.revokeAuthSession(tokenHash);
   assert.equal(await app.getAuthSession(tokenHash), null);
+  await app.createAuthSession({ userId: owner.userId, tokenHash: 'c'.repeat(64), expiresAt: Date.now() + 60000 });
+  const activeOwner = await app.getAccount(owner.userId);
+  const disabledOwner = await app.saveAccount({ ...activeOwner, disabled: true }, activeOwner.revision);
+  assert.equal(await app.getAuthSession('c'.repeat(64)), null);
+  await assert.rejects(app.createAuthSession({ userId: owner.userId, tokenHash: 'd'.repeat(64), expiresAt: Date.now() + 60000 }), { code: 'ACCOUNT_DISABLED' });
+  await app.saveAccount({ ...disabledOwner, disabled: false }, disabledOwner.revision);
   const reservation = { userId: owner.userId, userEmail: owner.email, projectId: created.id,
     workspaceId: created.workspaceId, modelId: 'test', providerModel: 'test', messagesHash: 'b'.repeat(64),
     requestId: 'provider-call-1', reservedCost: 2 };

@@ -3,6 +3,17 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { compareQualityVectors } = require('../lib/evolution/quality-vector-ab');
 const { validatePlatformConfigPromotion, assertPlatformConfigPromotion } = require('../lib/evolution/platform-config-gate');
+const { canonicalGlobalPrompts } = require('../lib/evolution/platform-config-gate');
+
+test('global prompt canonicalization ignores only timestamps and downloads without mutation', () => {
+  const runtime = { id: 'one', instruction: 'draft', files: ['SKILL.md'], runtimeFiles: { 'SKILL.md': 'draft' }, targets: ['writer'], enabled: true };
+  const source = [{ ...runtime, createdAt: 1, updatedAt: 2, downloads: 3 }];
+  assert.deepEqual(canonicalGlobalPrompts(source), [runtime]);
+  assert.equal(source[0].updatedAt, 2);
+  for (const field of ['id', 'instruction', 'files', 'targets', 'enabled']) {
+    assert.notDeepEqual(canonicalGlobalPrompts([{ ...source[0], [field]: null }]), [runtime]);
+  }
+});
 
 test('platform config writes require complete source evidence', () => {
   for (const kind of ['default-model', 'global-prompts', 'genre-profile', 'style-profile', 'pipeline']) {
