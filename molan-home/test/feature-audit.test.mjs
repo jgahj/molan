@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { auditContracts, evaluateFeatureGate, findUnknownFeatureMarkers, scanInteractiveControls } from '../scripts/audit-features.mjs';
+import { auditContracts, evaluateFeatureGate, findUnknownFeatureMarkers, loadAuditSources, scanInteractiveControls } from '../scripts/audit-features.mjs';
+
+test('功能审计加载模块化路由、服务和仓储源码', async () => {
+  const sources = await loadAuditSources();
+  assert.ok(sources.has('routes/auth.js'));
+  assert.ok(sources.has('services/auth-attempt-limiter.js'));
+  assert.ok(sources.has('lib/repositories/assert-json-source.js'));
+});
 
 test('功能契约区分能力缺失 FAIL 与证据缺失 PARTIAL', () => {
   const contracts = {
