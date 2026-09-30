@@ -228,8 +228,8 @@ function createJsonGenerationStore(directory, options = {}) {
         promptTokens: nullableNumber(input.promptTokens), completionTokens: nullableNumber(input.completionTokens),
         reasoningTokens: nullableNumber(input.reasoningTokens), cachedTokens: nullableNumber(input.cachedTokens),
         reservedCostMinor: Number(input.reservedCostMinor) || 0, actualCostMinor: Number(input.actualCostMinor) || 0,
-        costStatus: input.costStatus === 'settled' && input.actualCostMinor != null &&
-          Number.isFinite(Number(input.actualCostMinor)) && Number(input.actualCostMinor) >= 0 ? 'settled' : 'pending',
+        costStatus: stageName.startsWith('provider:') ? input.costStatus === 'settled' && input.actualCostMinor != null &&
+          Number.isFinite(Number(input.actualCostMinor)) && Number(input.actualCostMinor) >= 0 ? 'settled' : 'pending' : undefined,
         providerRequestId: String(input.providerRequestId || ''), errorCode: String(input.errorCode || ''),
         startedAt: previous ? previous.startedAt : Number(input.startedAt) || now,
         finishedAt: input.finishedAt == null ? null : Number(input.finishedAt)

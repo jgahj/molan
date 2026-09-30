@@ -176,6 +176,8 @@ test('native provider costs distinguish settled zero usage from missing or unkno
   assert.equal((await store.getRun(input)).costStatus, 'pending');
   await store.recordStage({ ...provider, costStatus: 'settled' });
   assert.equal((await store.getRun(input)).costStatus, 'settled');
+  await store.recordStage({ ...worker, stage: 'contract', status: 'completed', now: 2600 });
+  assert.equal((await store.getRun(input)).costStatus, 'settled');
   await store.recordStage({ ...provider, stage: 'provider:judge', status: 'unknown', costStatus: 'settled' });
   assert.equal((await store.getRun(input)).costStatus, 'pending');
 });
