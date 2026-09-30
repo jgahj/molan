@@ -9,6 +9,7 @@ const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'u
 const importSource = fs.readFileSync(path.join(__dirname, '..', 'completion-import.js'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'completion-editor.js'), 'utf8');
 const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const novelWriteSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'novel-write-handlers.js'), 'utf8');
 
 test('创书有独立任务入口并展示可持续查看的实时进度', () => {
   assert.match(indexSource, /data-page="creation"/);
@@ -177,7 +178,16 @@ test('平台级体验：离线横幅、网络错误文案与云端作品删除�
   assert.match(indexSource, /网络已断开，请检查网络连接后重试/);
   assert.match(indexSource, /data-backend-delete=/);
   assert.match(indexSource, /function deleteBackendNovel\(id\)/);
-  assert.match(serverSource, /function handleNovelDelete\(req, res, id\)/);
+  assert.match(novelWriteSource, /function handleNovelSave\(req, res, id\)/);
+  assert.match(novelWriteSource, /AND revision = \?'/);
+  assert.match(novelWriteSource, /小说已在其他设备更新，请先同步最新版本/);
+  assert.match(novelWriteSource, /function handleNovelDelete\(req, res, id\)/);
+  assert.match(novelWriteSource, /projectScope\.DELETE_ROLES/);
+  assert.match(novelWriteSource, /function handleNovelRestore\(req, res, id\)/);
+  assert.match(novelWriteSource, /pm\.role = 'owner'/);
+  assert.match(serverSource, /novelSave: novelWriteHandlers\.handleNovelSave/);
+  assert.match(serverSource, /novelDelete: novelWriteHandlers\.handleNovelDelete/);
+  assert.match(serverSource, /novelRestore: novelWriteHandlers\.handleNovelRestore/);
 });
 
 test('编辑器长篇防漂移：文风工坊/全局规则账/事实账本注入起草与审计', () => {

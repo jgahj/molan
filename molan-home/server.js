@@ -17948,102 +17948,6 @@ async function handlePostgresCreationBookDebts(req, res, id) {
   json(res, 200, { ok: true, bookId: id, chapterNo, block: buildDebtPromptInjection(result.allDebts, chapterNo).slice(0, 1800), ...result });
 }
 
-/** PUT /api/novels/:id —— 覆盖式保存（自动保存用，整本 state 覆盖） */
-function handleNovelSave(req, res, id) {
-  const a = getAuthUser(req);
-  if (!a) return json(res, 401, { error: '未登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  let novelWriteTransaction = false;
-  readBody(req).then(p => {
-    const rawState = p.state;
-    const title = String(p.title || (rawState && rawState.title) || '未命名小说').slice(0, 200);
-    if (!rawState || typeof rawState !== 'object' || !Array.isArray(rawState.volumes)) throw new Error('state 非法');
-    const state = sanitizeNovelStateForStorage(rawState);
-    const stateJson = JSON.stringify(state);
-    const stateBytes = Buffer.byteLength(stateJson, 'utf8');
-    if (stateBytes > MAX_NOVEL_STATE_BYTES) throw requestError(413, '单本小说数据过大，最多支持 ' + Math.floor(MAX_NOVEL_STATE_BYTES / 1024 / 1024) + ' MB');
-    const requestedRevision = p.revision == null ? null : Number(p.revision);
-    if (requestedRevision !== null && (!Number.isInteger(requestedRevision) || requestedRevision < 0)) throw new Error('revision 非法');
-    const now = Date.now();
-    const wc = calcWordCount(state);
-    // 校验 id 是否属于该用户，不存在则用 INSERT（首次云端同步）
-    const exists = db.prepare('SELECT user_email, owner_user_id, title, project_id FROM novels WHERE id = ?').get(id);
-    let access = exists ? projectScope.getNovelAccess(db, id, a.user.userId) : null;
-    if (exists && !access && (!exists.owner_user_id && exists.user_email === a.user.email)) {
-      projectScope.ensureNovelProject(db, a.user, id, exists.title);
-      access = projectScope.getNovelAccess(db, id, a.user.userId);
-    }
-    if (exists && !projectScope.canAccess(access, projectScope.WRITE_ROLES)) throw requestError(403, '无权修改此小说');
-    if (exists) require('./lib/memory-workflow').guardNovelWrite(db, id, requestedRevision);
-    db.exec('BEGIN IMMEDIATE');
-    novelWriteTransaction = true;
-    let revision = 0;
-    if (exists) {
-      let result;
-      if (requestedRevision === null) {
-        result = db.prepare('UPDATE novels SET title = ?, state_json = ?, word_count = ?, updated_at = ?, revision = revision + 1, owner_user_id = ? WHERE id = ? AND project_id = ?')
-          .run(title, stateJson, wc, now, a.user.userId, id, id);
-      } else {
-        result = db.prepare('UPDATE novels SET title = ?, state_json = ?, word_count = ?, updated_at = ?, revision = revision + 1, owner_user_id = ? WHERE id = ? AND project_id = ? AND revision = ?')
-          .run(title, stateJson, wc, now, a.user.userId, id, id, requestedRevision);
-      }
-      if (Number(result.changes || 0) !== 1) throw requestError(409, '小说已在其他设备更新，请先同步最新版本');
-      db.prepare('UPDATE novel_projects SET title = ?, updated_at = ? WHERE project_id = ?').run(title, now, id);
-      revision = Number(db.prepare('SELECT revision FROM novels WHERE id = ?').get(id).revision) || 0;
-    } else {
-      const count = Number(db.prepare(`SELECT COUNT(*) AS n FROM novels
-        WHERE owner_user_id = ? OR (owner_user_id = '' AND user_email = ?)`).get(a.user.userId, a.user.email).n) || 0;
-      if (count >= MAX_NOVELS_PER_USER) throw requestError(409, '已达到单个账户的小说数量上限');
-      db.prepare('INSERT INTO novels (id, user_email, owner_user_id, title, state_json, word_count, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)')
-        .run(id, a.user.email, a.user.userId, title, stateJson, wc, now, now);
-      projectScope.ensureNovelProject(db, a.user, id, title);
-    }
-    require('./lib/memory-workflow').invalidateChangedSources(db, id);
-    db.exec('COMMIT');
-    novelWriteTransaction = false;
-    json(res, 200, { ok: true, id, workspaceId: (projectScope.getNovelAccess(db, id, a.user.userId) || {}).workspace_id || '', projectId: id, wordCount: wc, updatedAt: now, revision });
-  }).catch(e => {
-    if (novelWriteTransaction) db.exec('ROLLBACK');
-    respondError(res, e);
-  });
-}
-
-/** DELETE /api/novels/:id —— 软删除（仅项目owner），保留正文与资料以便恢复。 */
-function handleNovelDelete(req, res, id) {
-  const a = getAuthUser(req);
-  if (!a) return json(res, 401, { error: '未登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  try {
-    const access = projectScope.getNovelAccess(db, id, a.user.userId);
-    if (!projectScope.canAccess(access, projectScope.DELETE_ROLES)) return json(res, 403, { error: '只有作品所有者可以删除小说' });
-    const r = db.prepare("UPDATE novel_projects SET status = 'deleted', updated_at = ? WHERE project_id = ? AND status = 'active'").run(Date.now(), id);
-    json(res, 200, { ok: true, deleted: r.changes || 0 });
-  } catch (e) { json(res, 500, { error: e.message }); }
-}
-
-/** POST /api/novels/:id/restore —— 恢复软删除作品，避免历史正文和资料被物理删除。 */
-function handleNovelRestore(req, res, id) {
-  const a = getAuthUser(req);
-  if (!a) return json(res, 401, { error: '未登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  try {
-    const row = db.prepare(`SELECT np.workspace_id, np.project_id
-      FROM novel_projects np
-      JOIN project_members pm ON pm.workspace_id = np.workspace_id AND pm.project_id = np.project_id
-      WHERE np.project_id = ? AND np.status = 'deleted' AND pm.user_id = ? AND pm.active = 1 AND pm.role = 'owner'`).get(id, a.user.userId);
-    if (!row) return json(res, 404, { error: '小说不存在或无权恢复' });
-    const result = db.prepare("UPDATE novel_projects SET status = 'active', updated_at = ? WHERE workspace_id = ? AND project_id = ? AND status = 'deleted'")
-      .run(Date.now(), row.workspace_id, row.project_id);
-    json(res, 200, { ok: true, restored: Number(result.changes || 0) === 1, id, workspaceId: row.workspace_id, projectId: row.project_id });
-  } catch (e) { json(res, 500, { error: e.message }); }
-}
-
 /** GET /api/novels/:id/package —— 导出当前项目的完整本地资料包。 */
 function handleNovelPackageExport(req, res, id) {
   const auth = getAuthUser(req);
@@ -19818,6 +19722,7 @@ function handleLocalStyleBaseline(req, res, params) {
     calcWordCount,
     requestError,
     projectScope,
+    memoryWorkflow: require('./lib/memory-workflow'),
     json,
     respondError,
     now: Date.now,
@@ -19894,8 +19799,8 @@ function handleLocalStyleBaseline(req, res, params) {
       workspaceCreate: handleWorkspaceCreate, workspaceMembers: handleWorkspaceMembers,
       workspaceProjectList: handleWorkspaceProjectList, novelMembers: handleNovelMembers,
       respondError, novelPackageExport: handleNovelPackageExport, novelPackageImport: handleNovelPackageImport,
-      novelPackageRestore: handleNovelPackageRestore, novelGet: novelReadHandlers.handleNovelGet, novelSave: handleNovelSave,
-      novelDelete: handleNovelDelete, novelRestore: handleNovelRestore, novelList: novelReadHandlers.handleNovelList,
+      novelPackageRestore: handleNovelPackageRestore, novelGet: novelReadHandlers.handleNovelGet, novelSave: novelWriteHandlers.handleNovelSave,
+      novelDelete: novelWriteHandlers.handleNovelDelete, novelRestore: novelWriteHandlers.handleNovelRestore, novelList: novelReadHandlers.handleNovelList,
       novelCreate: novelWriteHandlers.handleNovelCreate
     }})
   };
