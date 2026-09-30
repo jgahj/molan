@@ -9,6 +9,7 @@
   };
   var searchTimer = null;
   var toastTimer = null;
+  var pendingDownloads = new Map();
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (value) { return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
 
@@ -418,7 +419,10 @@
   function downloadSkill(id) {
     if (!state.token) { showToast('请先登录后下载，下载内容会保存到你的私有 Skill'); return; }
     var requestSession = sessionKey();
-    api('/api/open-skills/' + encodeURIComponent(id) + '/download', { method: 'POST', body: '{}' }).then(function () {
+    var key = requestSession + ':' + id;
+    if (!pendingDownloads.has(key)) pendingDownloads.set(key, Array.from(crypto.getRandomValues(new Uint8Array(16)), function (byte) { return byte.toString(16).padStart(2, '0'); }).join(''));
+    api('/api/open-skills/' + encodeURIComponent(id) + '/download', { method: 'POST', body: JSON.stringify({ requestId: pendingDownloads.get(key) }) }).then(function () {
+      pendingDownloads.delete(key);
       if (!isCurrentSession(requestSession)) throw sessionChangedError();
       showToast('已下载到我的 Skill'); closeDetail(); return Promise.all([loadOpenSkills(), loadPrivateSkills()]);
     }).catch(function (error) { if (error.code !== 'SESSION_CHANGED') showToast(error.message || '下载失败'); });
