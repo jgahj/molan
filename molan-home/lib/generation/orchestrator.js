@@ -148,12 +148,11 @@ function createGenerationOrchestrator(options = {}) {
       }
     }).finally(async () => {
       if (renewTimer) clearInterval(renewTimer);
-      if (lease && typeof store.releaseLease === 'function') {
-        try { await store.releaseLease(db, { ...scope, id, leaseOwner, fencingToken: lease.fencingToken }); } catch (error) {
-          if (typeof options.onError === 'function') options.onError(error, id);
+      try {
+        if (lease && typeof store.releaseLease === 'function') {
+          await store.releaseLease(db, { ...scope, id, leaseOwner, fencingToken: lease.fencingToken });
         }
-      }
-      workers.delete(id);
+      } finally { workers.delete(id); }
     });
     workers.set(id, worker);
     return worker.promise;
@@ -618,7 +617,7 @@ function createGenerationOrchestrator(options = {}) {
       if (renewTimer) clearInterval(renewTimer);
       await renewal.catch(() => {});
       if (lease && !retainLeaseForRecovery && typeof store.releaseLease === 'function') {
-        try { await store.releaseLease(db, { ...scope, id: run.id, leaseOwner: workerScope.leaseOwner, fencingToken: lease.fencingToken }); } catch (_) {}
+        await store.releaseLease(db, { ...scope, id: run.id, leaseOwner: workerScope.leaseOwner, fencingToken: lease.fencingToken });
       }
     }
   }

@@ -71,6 +71,17 @@ test('native generation cancellation waits for asynchronous lease release', asyn
   }
 });
 
+test('asynchronous lease persistence failures reach the generation caller', async t => {
+  const { store } = fixture(t);
+  const input = runInput({ id: 'release-write-failure' });
+  await store.createRun(input);
+  const adapter = { ...store, async releaseLease() {
+    throw Object.assign(new Error('lease write failed'), { code: 'JSON_COMMIT_FAILED' });
+  } };
+  const orchestrator = createGenerationOrchestrator({ store: adapter, db: {} });
+  await assert.rejects(orchestrator.execute(input, input.id), { code: 'JSON_COMMIT_FAILED' });
+});
+
 async function acquire(store, input, leaseOwner = 'worker-1', now = 2000, ttlMs = 15000) {
   return store.acquireLease(null, { ...input, leaseOwner, now, ttlMs });
 }
