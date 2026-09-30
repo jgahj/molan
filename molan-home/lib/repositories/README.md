@@ -20,3 +20,17 @@ callback 内不要调用仓储的异步域方法。记录 revision 从 1 递增�
 本地仅支持单实例，租约在同一事务内检查 owner、有效期与 fencing token；已有数据库文件不会自动转换。
 质量评测可将 `lib/evolution/quality-loop-json-store.js` 的 `createJsonQualityLoopStore(directory)` 作为 store 注入 `runQualityLoop`。
 结算与不可变账本同事务保存，同输入幂等重放，已结算的不同报告禁止覆盖。
+
+## 应用领域适配器
+
+`JsonAppRepository` 在上述内部接口上提供账户、哈希会话、小说、成员权限、资料版本及费用预占与结算。
+显式设置 `MOLAN_APP_STORE=json` 后，服务器认证及小说接口使用 `data/app-json/`；目录可由 `MOLAN_DATA_DIR` 移至隔离位置。
+应用仓储、记忆、文风和生成任务共享同一实例时须传入 `repository`，关闭时只由持有者释放进程锁。
+
+普通聊天的预占使用按账户 ID 哈希派生的独立作用域，项目调用仍校验项目消费权限。
+预占与账户扣款、结算退款与不可变流水、过期预占释放均在跨文件事务内完成；实际费用不能超过预占额度。
+充值通过 `adjustCredits` 使用账户 CAS 并记录不可变调整流水。`listTokenUsage` 是最多 1000 项的列表，累计统计使用完整的 `summarizeTokenUsage`。
+会话仅存令牌哈希，支持撤销和有效期检查；普通及管理会话用途保持分离。
+
+本次接入为显式模式。旧库不会自动导入到新目录，启动发现旧权威数据时须先执行明确迁移流程。
+尚有未迁移业务，不能将该开关等同于整个运行链已清除 SQL，也不要直接切换已有数据的服务。
