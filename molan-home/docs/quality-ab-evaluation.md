@@ -22,11 +22,19 @@ node scripts/compare-quality-vectors.mjs --input path\to\quality-ab-input.json
 node scripts/compare-quality-vectors.mjs --input path\to\quality-ab-input.json --out path\to\quality-ab-report.json
 ```
 
-对配置晋级目标再做一次明确绑定核验：
+只生成校验回执，不修改候选配置：
 
 ```powershell
 node scripts/compare-quality-vectors.mjs --verify-promotion --report path\to\quality-ab-report.json --candidate-config path\to\promotion-target.json --out path\to\promotion-receipt.json
 ```
+
+受门禁约束的晋级命令会重新核验报告与候选版本，只在 `PASS` 时原子更新命令明确指定的候选配置文件，并写入报告哈希；`BLOCKED`、`REJECTED` 或版本不匹配时不修改候选配置：
+
+```powershell
+node scripts/promote-quality-config.mjs --report path\to\quality-ab-report.json --candidate-config path\to\promotion-target.json
+```
+
+当前 canonical Golden 仍为 `metadata_only`，因此晋级命令会返回退出码 `2`，并保留候选配置原样。它只记录候选配置的晋级凭据，不自动部署或切换生产配置。
 
 `--out` 只新建文件，已有文件会报错，不会被覆盖。退出码 `0` 表示 `PROMOTION_READY`，`1` 表示 `REJECTED`，`2` 表示 `BLOCKED`。报告写到标准输出时也包含状态、阻断原因、19 维差异和既有门禁结果。
 
@@ -40,7 +48,7 @@ node scripts/compare-quality-vectors.mjs --verify-promotion --report path\to\qua
 
 离线比较器不会启动真实 A/B 生成。任何真实模型评测必须先在执行端展示任务数、模型调用数和预估费用，并设置最大费用上限；结果保存后才能交给本 CLI 做离线核验。本工具不把示例或 fixture 报告标记为真实评测。
 
-晋级目标 JSON 使用 `schemaVersion: "quality-promotion-target-v1"`，并填写 `qualityReportHash`、`inputHash`、`model`、`modelParametersHash` 和完整候选 `versions`。核验器重算报告哈希并逐项匹配候选模型与版本，只有 `PASS` 回执才可供晋级流程接受。仓库当前没有统一的模型/Prompt/题材配置变更入口；此命令只生成回执，不直接改动配置，接入任何晋级写路径时必须在写入前强制检查回执并保存报告哈希。
+晋级目标 JSON 使用 `schemaVersion: "quality-promotion-target-v1"`，并填写 `qualityReportHash`、`inputHash`、`model`、`modelParametersHash` 和完整候选 `versions`。晋级命令重算报告哈希、逐项匹配候选模型与版本，并将通过报告哈希写入该候选文件；它不触碰其他配置文件，也不代表生产部署。
 
 ## 质量循环的本地存储
 

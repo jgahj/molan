@@ -177,6 +177,9 @@ function evaluateDimension(input, dimension, scoreScale) {
     if (baseline.status !== candidate.status) reasons.push('evidence_status_mismatch');
     return { task_id: String(pair?.task_id || ''), baseline, candidate, reasons };
   });
+  if (!rows.length) {
+    return { dimension, status: 'BLOCKED', reason_codes: ['paired_tasks_missing'], baseline: null, candidate: null, delta: null, normalized_delta: null, decline_limit: DECLINE_LIMIT, evidence_status: null, evidence_refs: [] };
+  }
   const reasons = block(rows.flatMap(row => row.reasons.map(reason => `${row.task_id}:${reason}`)));
   if (reasons.length) {
     return { dimension, status: 'BLOCKED', reason_codes: reasons, baseline: null, candidate: null, delta: null, normalized_delta: null, decline_limit: DECLINE_LIMIT, evidence_status: null, evidence_refs: [] };
