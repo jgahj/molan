@@ -56,8 +56,10 @@ import {
 } from '../scripts/build-character-material-index.mjs';
 
 const resourceRoot = path.resolve(import.meta.dirname, '..', '..', '资源库');
-const quotaConfig = JSON.parse(fs.readFileSync(path.join(resourceRoot, 'quota-config.json'), 'utf8'));
-const blocklist = JSON.parse(fs.readFileSync(path.join(resourceRoot, 'ip-blocklist.json'), 'utf8'));
+const quotaConfigFile = path.join(resourceRoot, 'quota-config.json');
+const blocklistFile = path.join(resourceRoot, 'ip-blocklist.json');
+const quotaConfig = fs.existsSync(quotaConfigFile) ? JSON.parse(fs.readFileSync(quotaConfigFile, 'utf8')) : {};
+const blocklist = fs.existsSync(blocklistFile) ? JSON.parse(fs.readFileSync(blocklistFile, 'utf8')) : {};
 const testCorpusConfig = {
   ...quotaConfig,
   requireCompletedWork: false,
