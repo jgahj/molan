@@ -387,9 +387,10 @@ function hasScopedFormControlBinding(formId, kind, bundle) {
 
 function enclosingFormId(source, index, attributes) {
   if (attributes.has('form')) return attributes.get('form');
-  const before = source.slice(0, index);
-  const open = before.lastIndexOf('<form');
-  if (open < 0 || before.lastIndexOf('</form') > open) return '';
+  const open = source.lastIndexOf('<form', index);
+  if (open < 0) return '';
+  const closeForm = source.lastIndexOf('</form', index);
+  if (closeForm > open) return '';
   const close = source.indexOf('>', open);
   const id = source.slice(open, close + 1).match(/\bid\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
   return id ? id[1] || id[2] || '' : '';
@@ -397,25 +398,27 @@ function enclosingFormId(source, index, attributes) {
 
 function enclosingFormClasses(source, index, attributes) {
   if (attributes.has('form')) return '';
-  const before = source.slice(0, index);
-  const open = before.lastIndexOf('<form');
-  if (open < 0 || before.lastIndexOf('</form') > open) return '';
+  const open = source.lastIndexOf('<form', index);
+  if (open < 0) return '';
+  const closeForm = source.lastIndexOf('</form', index);
+  if (closeForm > open) return '';
   const close = source.indexOf('>', open);
   const classes = source.slice(open, close + 1).match(/\bclass\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
   return classes ? classes[1] || classes[2] || '' : '';
 }
 
 function enclosingParentClasses(source, index) {
-  let before = source.slice(0, index);
-  while (before) {
-    const open = before.lastIndexOf('<div');
+  let cur = index;
+  while (cur > 0) {
+    const open = source.lastIndexOf('<div', cur);
     if (open < 0) return [];
-    if (before.lastIndexOf('</div>') < open) {
+    const closeTag = source.lastIndexOf('</div>', cur);
+    if (closeTag < open) {
       const close = source.indexOf('>', open);
       const match = source.slice(open, close + 1).match(/\bclass\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
       return String(match && (match[1] || match[2]) || '').split(/\s+/).filter(Boolean);
     }
-    before = before.slice(0, open);
+    cur = open - 1;
   }
   return [];
 }

@@ -40,3 +40,37 @@ test('Provider 连接复用校验后的固定 DNS 地址，不再次解析主机
   });
   assert.deepEqual(result, { address: '1.1.1.1', family: 4 });
 });
+
+test('Provider endpoint 支持 TUN 代理 Fake-IP (198.18.0.0/15) 解析，同时防范字面量 IP 与纯内网地址', async () => {
+  // 域名解析为 TUN 假 IP (198.18.0.12) 应放行
+  const tunTarget = await validateProviderTarget('https://codex.xiaoguo.work/v1', {
+    lookup: async () => [{ address: '198.18.0.12', family: 4 }]
+  });
+  assert.equal(tunTarget.hostname, 'codex.xiaoguo.work');
+  assert.equal(tunTarget.addresses[0].address, '198.18.0.12');
+
+  // 字面量假 IP 地址默认拒绝
+  await assert.rejects(validateProviderTarget('https://198.18.0.12/v1'), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
+
+  // 若显式禁用 TUN 假 IP 则拒绝
+  await assert.rejects(validateProviderTarget('https://codex.xiaoguo.work/v1', {
+    allowTunFakeIp: false,
+    lookup: async () => [{ address: '198.18.0.12', family: 4 }]
+  }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
+
+  // 哪怕是域名，若解析为真正内网/元数据/回环地址依然严格拦截
+  for (const badIp of ['127.0.0.1', '10.0.1.2', '192.168.1.1', '169.254.169.254']) {
+    await assert.rejects(validateProviderTarget('https://codex.xiaoguo.work/v1', {
+      lookup: async () => [{ address: badIp, family: 4 }]
+    }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
+  }
+});
+
+test('Provider endpoint 支持在配置 allowLocal 时访问本地模型服务', async () => {
+  const localTarget = await validateProviderTarget('http://127.0.0.1:11434/v1', {
+    allowLocal: true
+  });
+  assert.equal(localTarget.hostname, '127.0.0.1');
+  assert.equal(localTarget.port, 11434);
+  assert.equal(localTarget.url.protocol, 'http:');
+});
