@@ -19,6 +19,8 @@ test('JSON application repository enforces project ACL, CAS, soft deletion and i
   await assert.rejects(app.saveCAS({ userId: owner.userId, projectId: created.id, title: '冲突', state: { volumes: [] }, expectedRevision: 9 }), { code: 'REVISION_CONFLICT' });
   const updated = await app.saveCAS({ userId: owner.userId, projectId: created.id, title: '第二版', state: { volumes: [] }, expectedRevision: 0 });
   assert.equal(updated.revision, 1);
+  await assert.rejects(app.create({ user: owner, id: created.id, expectedRevision: 0,
+    state: { volumes: [] } }), { code: 'REVISION_CONFLICT' });
   const first = await app.settleLedger({ userId: owner.userId, projectId: created.id, idempotencyKey: 'cost-1', costMinor: 125, detail: { provider: 'test' } });
   const replay = await app.settleLedger({ userId: owner.userId, projectId: created.id, idempotencyKey: 'cost-1', costMinor: 125, detail: { provider: 'test' } });
   assert.equal(first.idempotent, false);
