@@ -2280,7 +2280,6 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
       });
     }
     const startedAt = Date.now();
-    let usageBuf = '';
     let lastUsage = null;
     let upstreamFinishReason = null;
     let finalized = false;
@@ -2288,7 +2287,6 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
     let responseClosed = false;
     let keepAliveTimer = null;
     let requestDeadlineTimer = null;
-    let upstreamResponseBytes = 0;
     function cleanupKeepAlive() {
       if (keepAliveTimer) {
         clearInterval(keepAliveTimer);
@@ -2706,6 +2704,16 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
      * 发起上游流式请求。opts.passthrough=false 时不向前端透传（两遍模式第一遍缓冲），
      * opts.onStreamEnd/onError 覆盖默认的收尾行为，opts.fallbackBody 覆盖缓存降级请求体。
      */
+    const chatStreamRuntime = require('./services/chat-stream-runtime').createChatStreamRuntime({
+      maxResponseBytes: UPSTREAM_MAX_RESPONSE_BYTES, maxBufferBytes: UPSTREAM_SSE_BUFFER_BYTES,
+      onLimit: (code, message) => abortUpstreamRequest(code, code, message, 502),
+      onChunk: chunk => {
+        if (canWriteResponse()) {
+          try { res.write(chunk); } catch (_) { closeClientResponse(); return false; }
+        }
+      },
+      onLine: (line, tail) => { parseStreamLine(line); if (!tail) sendBilling('streaming', false); }
+    });
     function sendUpstream(requestBody, opts) {
       const options = opts || {};
       const passthrough = options.passthrough !== false;
@@ -2802,33 +2810,11 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
             }
           }
           upRes.on('data', chunk => {
-            const chunkBytes = Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(String(chunk));
-            upstreamResponseBytes += chunkBytes;
-            if (upstreamResponseBytes > UPSTREAM_MAX_RESPONSE_BYTES) {
-              abortUpstreamRequest('upstream_response_too_large', 'upstream_response_too_large', '上游模型响应超过服务端安全上限', 502);
-              return;
-            }
-            const chunkText = chunk.toString();
-            usageBuf += chunkText;
-            if (Buffer.byteLength(usageBuf) > UPSTREAM_SSE_BUFFER_BYTES) {
-              abortUpstreamRequest('upstream_sse_buffer_overflow', 'upstream_sse_buffer_overflow', '上游模型流未按 SSE 分帧，缓冲超过服务端安全上限', 502);
-              return;
-            }
-            if (passthrough && canWriteResponse()) {
-              try { res.write(chunk); } catch (_) { closeClientResponse(); return; }
-            }
-            let nl;
-            while ((nl = usageBuf.indexOf('\n')) >= 0) {
-              const line = usageBuf.slice(0, nl).trim();
-              usageBuf = usageBuf.slice(nl + 1);
-              parseStreamLine(line);
-              sendBilling('streaming', false);
-            }
+            chatStreamRuntime.push(chunk, passthrough);
           });
           upRes.on('end', () => {
             if (finalized || responseClosed) return;
-            const tail = usageBuf.trim();
-            if (tail) parseStreamLine(tail);
+            chatStreamRuntime.finish();
             onStreamEnd();
           });
           upRes.on('error', () => {
