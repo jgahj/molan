@@ -49,7 +49,7 @@ async function load(client, scope, b, branchId) {
       case 'commit_receipts': for (const r of list) b.receipts[digest([r.actorId, r.requestKey])] = r; break;
       case 'operations': b.operations = list.map(r => ({ ...r, actorId: r.createdBy, before: r.beforeState?.id ? r.beforeState : null, after: r.afterState })); break;
       case 'outbox': b.outbox = list; break;
-      case 'context_manifests': for (const r of list) b.manifests[r.id] = r; break;
+      case 'context_manifests': for (const r of list) b.manifests[r.id] = { ...r, bookId: scope.bookId, outputReserve: r.auditPackage?.inputMetadata?.outputReserve || 0, estimatedInputTokens: r.auditPackage?.inputMetadata?.estimatedInputTokens, estimator: r.auditPackage?.inputMetadata?.estimator }; break;
       case 'invalidations': b.invalidations = list; break;
       case 'extractions': for (const r of list) b.extractions[r.manuscriptId] = r.result; break;
       case 'projection_snapshots': b.projection = list[0]; break;

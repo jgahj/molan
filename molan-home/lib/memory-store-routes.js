@@ -45,7 +45,11 @@ async function dispatch(req, res, pathname, getAuthUser, services) {
     else if (req.method === 'GET' && route === 'timeline') response = { ok: true, bookId, timeline: await store.getTimeline(input) };
     else if (req.method === 'POST' && route === 'memory/extract') response = { ok: true, bookId, ...await store.extract(input) };
     else if (req.method === 'POST' && route === 'memory/changesets') { response = { ok: true, changeset: await store.createChangeset(input) }; status = 201; }
-    else if (cs && req.method === 'GET' && !cs[2]) response = { ok: true, changeset: await store.getChangeset({ ...input, changesetId: cs[1] }) };
+    else if (cs && req.method === 'GET' && !cs[2]) {
+      const changeset = await store.getChangeset({ ...input, changesetId: cs[1] });
+      if (changeset.source) changeset.source = { ...changeset.source, manuscript_id: changeset.source.manuscriptId };
+      response = { ok: true, changeset };
+    }
     else if (cs && req.method === 'POST' && cs[2] === 'approve') response = await store.approveChangeset({ ...input, changesetId: cs[1] });
     else if (cs && req.method === 'POST' && cs[2] === 'commit') {
       const raw = req.headers['if-match']; if (raw !== undefined && (String(raw).trim() === '*' || String(raw).startsWith('W/') || !/^"?([A-Za-z0-9_.-]+)"?$/.test(String(raw).trim()))) fail('INVALID_IF_MATCH', 400);
@@ -89,9 +93,14 @@ async function dispatch(req, res, pathname, getAuthUser, services) {
     else if (req.method === 'GET' && route === 'projections') response = { ok: true, bookId, projections: await store.getProjections(input) };
     else if (req.method === 'POST' && route === 'projections/verify') response = { ok: true, bookId, verification: await store.getProjections(input) };
     else if (req.method === 'POST' && route === 'projections/process') response = { ok: true, projections: await store.processProjections(input) };
-    else if (req.method === 'GET' && route === 'workbench') response = { ok: true, ...await store.workbenchState(input) };
-    else if (req.method === 'POST' && route === 'manuscripts') { response = { ok: true, manuscript: await store.saveManuscript(input) }; status = 201; }
-    else if (req.method === 'GET' && route.startsWith('manuscripts/')) response = { ok: true, manuscript: await store.getManuscript({ ...input, manuscriptId: route.slice(12) }) };
+    else if (req.method === 'GET' && route === 'workbench') {
+      const state = await store.workbenchState(input);
+      state.manuscripts = state.manuscripts.map(m => ({ ...m, text: m.content }));
+      state.changesets = state.changesets.map(cs => ({ ...cs, committed_at: cs.committedAt || null, approval_status: cs.approvalStatus, base_state_version: cs.baseStateVersion, candidate_hash: cs.candidateHash, created_at: cs.createdAt, source: cs.source ? { manuscript_id: cs.source.manuscriptId } : null }));
+      response = { ok: true, ...state };
+    }
+    else if (req.method === 'POST' && route === 'manuscripts') { const manuscript = await store.saveManuscript(input); response = { ok: true, manuscript: { ...manuscript, text: manuscript.content } }; status = 201; }
+    else if (req.method === 'GET' && route.startsWith('manuscripts/')) { const manuscript = await store.getManuscript({ ...input, manuscriptId: route.slice(12) }); response = { ok: true, manuscript: { ...manuscript, text: manuscript.content } }; }
     else fail('ROUTE_NOT_FOUND', 404);
     json(res, status, response); return true;
   } catch (error) { json(res, error.statusCode || error.status || 500, { ok: false, code: error.code || 'MEMORY_INTERNAL_ERROR', error: error.statusCode ? error.message : '记忆服务处理失败' }); return true; }
