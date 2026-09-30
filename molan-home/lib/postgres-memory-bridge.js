@@ -1,7 +1,10 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync = null;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch {}
 const projectScope = require('./project-scope');
 const memorySystem = require('./memory-system');
 const memoryWorkflow = require('./memory-workflow');
