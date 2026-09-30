@@ -41,6 +41,10 @@ test('native main starts, persists sessions and skills, and restarts without cre
     const registered = await request('POST', '/api/auth/register', { email: 'restart@example.test', password: 'test-password' });
     assert.equal(registered.status, 200);
     const token = registered.data.token;
+    const capabilities = await request('GET', '/api/generation-runs/capabilities', null, token);
+    assert.equal(capabilities.status, 200);
+    assert.equal(capabilities.data.storageMode, 'json');
+    assert.equal(capabilities.data.commit, false);
     assert.equal((await request('POST', '/api/admin/auth/login', { email: 'restart@example.test', password: 'test-password' })).status, 403);
     assert.equal((await request('POST', '/api/auth/code', { email: 'restart@example.test' })).status, 503);
     assert.equal((await request('POST', '/api/auth/login-code', { email: 'restart@example.test', code: '123456' })).status, 503);
