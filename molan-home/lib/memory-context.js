@@ -58,6 +58,7 @@ function assembleContext(db, bookId, query = {}, styleProfilesOverride) {
 }
 
 function compileContext({ bookId, branchId, version, facts, cognitions, policies, profiles = [], plans = [], sourceCurrent }, query = {}) {
+  const sourceInput = { facts, cognitions, policies, profiles, plans };
   const timelineId = query.timelineId || 't0', cycleId = query.cycleId || 'c0';
   policies = policies.filter(policy => policyApplies(policy, query));
   facts = facts.filter(f => (f.timelineId || 't0') === timelineId && (f.cycleId || 'c0') === cycleId && applicableTime(f, query.storyTime));
@@ -111,19 +112,35 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
   if (!Number.isInteger(budget) || budget <= 0 || !Number.isInteger(reserve) || reserve < 0 || reserve >= budget) workflow.fail('INVALID_CONTEXT_BUDGET', 422);
   const estimate = value => Math.ceil(JSON.stringify(value).length * 2);
   if (estimate(writingPackage) > budget - reserve) workflow.fail('CONTEXT_BUDGET_EXCEEDED', 422);
+  let compiled;
+  try {
+    compiled = require('./generation/context').assembleContext({
+      currentTask: query.currentTask || query.prompt || '',
+      hardState: writingFacts,
+      povKnowledge: writingCognitions,
+      styleSamples: styleBundle
+    }, { model: query.modelId || 'default', provider: query.provider || 'default', hardLimit: budget,
+      outputReserve: reserve, reservedInputTokens: 0 });
+  } catch (error) {
+    if (error.code === 'CONTEXT_OVERFLOW') workflow.fail('CONTEXT_BUDGET_EXCEEDED', 422);
+    throw error;
+  }
+  const selectionInput = Object.fromEntries(Object.entries(query).filter(([key]) => !['userId', 'projectId', 'workspaceId', 'bookId'].includes(key)));
   const id = `manif_${crypto.randomUUID()}`;
   const manifest = {
-    id, bookId, branchId, stateVersion: version, writingPackage,
+    id, bookId, branchId, stateVersion: version, writingPackage, compiledContext: compiled.text, contextPlan: compiled.contextPlan,
     auditPackage: { facts, cognitions, plans,
       inputMetadata: { timelineId, cycleId, storyTime: query.storyTime || '', povId: query.povId || '',
         policyVersions: policies.map(policy => ({ id: policy.id, revision: policy.revision })),
         styleVersions: profiles.map(profile => ({ id: profile.id, revision: profile.revision })),
-        templateVersion: 'memory-context-v1', outputReserve: reserve,
+        templateVersion: 'memory-context-v2', outputReserve: reserve,
+        selectionInput, sourceInputHash: workflow.digest(sourceInput), compiledContext: compiled.text, contextPlan: compiled.contextPlan,
         estimatedInputTokens: estimate(writingPackage), estimator: 'conservative-utf16-v1' } },
     includedReasons, excludedReasons, budgetTokens: budget, outputReserve: reserve,
     estimatedInputTokens: estimate(writingPackage), estimator: 'conservative-utf16-v1',
-    inputHash: workflow.digest({ writingPackage, version, timelineId, cycleId, storyTime: query.storyTime || '',
-      policyVersions: policies.map(policy => [policy.id, policy.revision]), styleVersions: profiles.map(profile => [profile.id, profile.revision]) }),
+    inputHash: workflow.digest({ bookId, branchId, version, selectionInput, sourceInput, writingPackage,
+      templateVersion: 'memory-context-v2', estimator: 'conservative-utf16-v1', compilerStrategy: compiled.contextPlan.contextStrategyVersion,
+      compilerEstimator: compiled.contextPlan.replayManifest.budget.estimator }),
     modelId: query.modelId || '', createdAt: Date.now()
   };
   return manifest;

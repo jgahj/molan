@@ -22,4 +22,8 @@ test('native Postgres generation executes guarded calls and persists run history
   const history = await store.getRun({ userId, runId: run.id, events: true });
   assert.equal(history.events.some(e => e.type === 'MODEL_CALL_COMPLETED'), true);
   assert.equal((await store.getRun({ userId, runId: run.id })).result.text, 'candidate');
+  const manifest = await store.getContextManifest({ userId, bookId, manifestId: run.manifestId });
+  assert.match(manifest.compiledContext, /write/);
+  assert.equal(manifest.contextPlan.fits, true);
+  assert.equal(manifest.contextPlan.replayManifest.strategyVersion, require('../lib/generation/context').CONTEXT_STRATEGY_VERSION);
 });
