@@ -157,6 +157,9 @@ class JsonAppRepository {
       if (old) {
         const access = accessFrom(old, userId);
         if (!canAccess(access, WRITE_ROLES)) fail('FORBIDDEN', 403, '无权修改此小说');
+        if (old.workspaceId !== workspaceId) fail('FORBIDDEN', 403);
+        if (input.expectedRevision != null && (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0)) fail('INVALID_REVISION', 422);
+        if (input.expectedRevision != null && old.contentRevision !== input.expectedRevision) fail('REVISION_CONFLICT', 409);
         if (this.guardNovelWrite) await this.guardNovelWrite(tx, old, input);
         const updated = tx.put(id, 'novels', { ...old, title: String(input.title || input.state.title || '未命名小说').slice(0, 200),
           state: clone(input.state), wordCount: countWords(input.state), contentRevision: old.contentRevision + 1, updatedAt: this.now() }, old.revision);
