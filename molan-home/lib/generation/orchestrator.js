@@ -76,6 +76,8 @@ function usageForProviderCall(call) {
     cachedTokens: Number(usage.cachedTokens ?? usage.cached_tokens ?? usage.cachedInputTokens) || 0,
     reservedCostMinor: creditsToMinor(usage.reservedCost),
     actualCostMinor: creditsToMinor(usage.creditCost),
+    costStatus: usage.creditCost != null && Number.isFinite(Number(usage.creditCost)) && Number(usage.creditCost) >= 0 &&
+      ['exact', 'settled'].includes(usage.billingStatus) && call.status === 'completed' ? 'settled' : 'pending',
     providerRequestId: String(usage.requestId || call && call.providerRequestId || ''),
     status: String(call && call.status || '')
   };
@@ -105,6 +107,7 @@ function createGenerationOrchestrator(options = {}) {
       cachedTokens: details.usage && details.usage.cachedTokens,
       reservedCostMinor: details.reservedCostMinor,
       actualCostMinor: details.actualCostMinor,
+      costStatus: details.costStatus,
       providerRequestId: details.providerRequestId,
       errorCode: details.errorCode,
       startedAt: details.startedAt,
@@ -344,6 +347,7 @@ function createGenerationOrchestrator(options = {}) {
               } : null,
               reservedCostMinor: details.reservedCostMinor,
               actualCostMinor: details.actualCostMinor,
+              costStatus: details.costStatus,
               providerRequestId: details.providerRequestId,
               startedAt: call && call.startedAt ? Date.parse(call.startedAt) : startedAt,
               errorCode: callStatus === 'unknown' ? 'PROVIDER_UNKNOWN' : ''
@@ -504,6 +508,7 @@ function createGenerationOrchestrator(options = {}) {
                 } : null,
                 reservedCostMinor: details.reservedCostMinor,
                 actualCostMinor: details.actualCostMinor,
+                costStatus: details.costStatus,
                 providerRequestId: details.providerRequestId,
                 startedAt: call && call.startedAt ? Date.parse(call.startedAt) : Date.now(),
                 errorCode: 'PROVIDER_UNKNOWN'

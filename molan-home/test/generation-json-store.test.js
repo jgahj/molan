@@ -165,6 +165,21 @@ test('stage summaries preserve retry identity, aggregate costs, and require the 
   assert.deepEqual((await store.listEvents({ ...input, generationId: input.id, after: 1, limit: 10 })).map(event => event.sequence), [2]);
 });
 
+test('native provider costs distinguish settled zero usage from missing or unknown evidence', async t => {
+  const { store } = fixture(t);
+  const input = runInput();
+  await store.createRun(input);
+  const lease = await acquire(store, input);
+  const worker = { ...input, generationId: input.id, leaseOwner: 'worker-1', fencingToken: lease.fencingToken };
+  const provider = { ...worker, stage: 'provider:writer', status: 'completed', actualCostMinor: 0, now: 2600 };
+  await store.recordStage(provider);
+  assert.equal((await store.getRun(input)).costStatus, 'pending');
+  await store.recordStage({ ...provider, costStatus: 'settled' });
+  assert.equal((await store.getRun(input)).costStatus, 'settled');
+  await store.recordStage({ ...provider, stage: 'provider:judge', status: 'unknown', costStatus: 'settled' });
+  assert.equal((await store.getRun(input)).costStatus, 'pending');
+});
+
 test('pause and recovery preserve Provider boundaries and prevent stale workers from writing', async t => {
   const { store } = fixture(t);
   const input = runInput();

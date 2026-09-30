@@ -36,6 +36,7 @@ function publicRun(row) {
     manifest: cloneJson(row.manifest || {}), result: cloneJson(row.result || {}),
     errorCode: String(row.errorCode || ''), errorDetail: String(row.errorDetail || ''),
     reservedCostMinor: Number(row.reservedCostMinor) || 0, actualCostMinor: Number(row.actualCostMinor) || 0,
+    costStatus: row.costStatus || 'pending',
     cancelRequested: row.cancelRequested === true, pauseRequested: row.pauseRequested === true,
     fencingToken: Number(row.fencingToken) || 0,
     createdAt: Number(row.createdAt) || 0, updatedAt: Number(row.updatedAt) || 0,
@@ -227,6 +228,8 @@ function createJsonGenerationStore(directory, options = {}) {
         promptTokens: nullableNumber(input.promptTokens), completionTokens: nullableNumber(input.completionTokens),
         reasoningTokens: nullableNumber(input.reasoningTokens), cachedTokens: nullableNumber(input.cachedTokens),
         reservedCostMinor: Number(input.reservedCostMinor) || 0, actualCostMinor: Number(input.actualCostMinor) || 0,
+        costStatus: input.costStatus === 'settled' && input.actualCostMinor != null &&
+          Number.isFinite(Number(input.actualCostMinor)) && Number(input.actualCostMinor) >= 0 ? 'settled' : 'pending',
         providerRequestId: String(input.providerRequestId || ''), errorCode: String(input.errorCode || ''),
         startedAt: previous ? previous.startedAt : Number(input.startedAt) || now,
         finishedAt: input.finishedAt == null ? null : Number(input.finishedAt)
@@ -237,6 +240,9 @@ function createJsonGenerationStore(directory, options = {}) {
         ...row, stages,
         reservedCostMinor: stages.reduce((total, stage) => total + (Number(stage.reservedCostMinor) || 0), 0),
         actualCostMinor: stages.reduce((total, stage) => total + (Number(stage.actualCostMinor) || 0), 0),
+        costStatus: stages.some(stage => stage.stage.startsWith('provider:')) &&
+          stages.filter(stage => stage.stage.startsWith('provider:')).every(stage => stage.status === 'completed' && stage.costStatus === 'settled')
+          ? 'settled' : 'pending',
         updatedAt: Math.max(Number(row.updatedAt) || 0, stageNow)
       };
       tx.put(scope, 'generation', updated, row.revision);
