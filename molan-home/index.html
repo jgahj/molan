@@ -2191,14 +2191,18 @@
       }
     }
 
+    const pendingSkillDownloads = new Map();
     async function useBackendSkill(id) {
       if (!backendState.token) {
         renderPage('login');
         showToast('请先登录后下载 Skill');
         return;
       }
+      const key = backendState.token + ':' + id;
+      if (!pendingSkillDownloads.has(key)) pendingSkillDownloads.set(key, Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join(''));
       try {
-        const data = await backendRequest('/api/open-skills/' + encodeURIComponent(id) + '/download', { method: 'POST', body: {} });
+        const data = await backendRequest('/api/open-skills/' + encodeURIComponent(id) + '/download', { method: 'POST', body: { requestId: pendingSkillDownloads.get(key) } });
+        pendingSkillDownloads.delete(key);
         await loadBackendSkills();
         showToast(`已下载「${data.skill?.name || 'Skill'}」到我的 Skill`);
         refreshCurrentPage();
