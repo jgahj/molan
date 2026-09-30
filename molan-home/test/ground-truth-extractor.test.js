@@ -14,7 +14,7 @@ const {
 const CORPUS_BASE_DIR = path.resolve(__dirname, '../../资源库/小说原本');
 
 test('Ground Truth Extractor：扫描题材名家小说（每题材 >= 6 本）', (t) => {
-  if (!fs.existsSync(CORPUS_BASE_DIR)) {
+  if (!fs.existsSync(CORPUS_BASE_DIR) || !fs.existsSync(path.join(CORPUS_BASE_DIR, '玄幻'))) {
     t.skip('未包含受保护的本地原始小说归档，跳过回查测试');
     return;
   }
@@ -30,7 +30,7 @@ test('Ground Truth Extractor：扫描题材名家小说（每题材 >= 6 本）'
 });
 
 test('Ground Truth Extractor：抽取前、中、后三阶段章节', (t) => {
-  if (!fs.existsSync(CORPUS_BASE_DIR)) {
+  if (!fs.existsSync(CORPUS_BASE_DIR) || !fs.existsSync(path.join(CORPUS_BASE_DIR, '玄幻'))) {
     t.skip('未包含受保护的本地原始小说归档，跳过回查测试');
     return;
   }

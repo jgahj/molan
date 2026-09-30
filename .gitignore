@@ -10,6 +10,7 @@ tmp-booktest/
 extracted/
 *.txt
 !molan-deploy-current.txt
+!molan-home/data/genre-lab/benchmark-suite/control-prompt.txt
 *.epub
 *.mobi
 *.azw3
@@ -43,7 +44,8 @@ molan-home/data/admin_audit.json
 molan-home/lib/character-material/index.json
 molan-home/scratch/*.sqlite
 molan-home/scratch/*.sqlite-*
-molan-home/generated/
+molan-home/generated/*
+!molan-home/generated/月圆夜前的布局-20260910/
 
 # ==========================================
 # 工具链二进制、构建归档与敏感备份

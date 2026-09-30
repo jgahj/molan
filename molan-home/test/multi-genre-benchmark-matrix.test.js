@@ -12,7 +12,7 @@ const {
 
 test('Multi-Genre Benchmark Matrix：多题材大样本覆盖（每题材 >= 6 本）', async (t) => {
   const corpusDir = path.resolve(__dirname, '../../资源库/小说原本');
-  if (!fs.existsSync(corpusDir)) {
+  if (!fs.existsSync(corpusDir) || !fs.existsSync(path.join(corpusDir, '玄幻'))) {
     t.skip('未包含受保护的本地原始小说归档，跳过回查测试');
     return;
   }
