@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const {
   CORE_BENCHMARK_GENRES,
@@ -9,11 +10,16 @@ const {
   generateMultiGenreReportMarkdown
 } = require('../lib/multi-genre-benchmark-matrix');
 
-test('Multi-Genre Benchmark Matrix：多题材大样本覆盖（每题材 >= 6 本）', async () => {
+test('Multi-Genre Benchmark Matrix：多题材大样本覆盖（每题材 >= 6 本）', async (t) => {
+  const corpusDir = path.resolve(__dirname, '../../资源库/小说原本');
+  if (!fs.existsSync(corpusDir)) {
+    t.skip('未包含受保护的本地原始小说归档，跳过回查测试');
+    return;
+  }
   // 测试运行 2 个核心题材，每题材测试 6 本书
   const testGenres = CORE_BENCHMARK_GENRES.slice(0, 2); // 玄幻与都市
   const matrix = await buildMultiGenreBenchmarkMatrix({
-    corpusDir: path.resolve(__dirname, '../../资源库/小说原本'),
+    corpusDir,
     booksPerGenre: 6,
     genres: testGenres
   });

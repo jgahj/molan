@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "experiment-plan-v1",
+  "experiment_id": "EXP-PACING-001",
+  "title": "Scene Planner 时空转场过渡契约与单章容量留白 A/B 质量对照实验",
+  "generatedAt": "2026-09-23T13:54:00.000Z",
+  "controller": "小说生成质量实验控制器",
+  "primary_hypothesis": "引入 Scene Planner 时空转场过渡契约（Transition Bridge Contract）与 12% 呼吸留白预算，能够将跨 3 日时空转场中的孤立硬切（'三日后，'）归零，并将场景平均长度从 218 字符提升至 600~800 字符，情绪呼吸留白比例提升至 10%~15%，且核心冲突烈度不发生显著衰退（降幅 < 20%）。",
+  "target_variable": {
+    "name": "Scene Planner 场景规划与转场契约编译器",
+    "module": "molan-home/lib/scene-planner.js",
+    "layer": "Level 6 (Scene Planner) + Level 5 (Planner)",
+    "description": "在大纲传递给 Writer 时，自动进行场景切片，注入环境视点锚点契约与 12% 战后呼吸留白指令，而非仅将 7 个大纲事件平铺输出。"
+  },
+  "fixed_variables": {
+    "genre": "东方玄幻 / 帝尊做局流",
+    "creative_brief": "《万古神帝》同人/续写：罗祖云山界月圆夜前夕布局，借天魔石刻开启日晷，暗流涌动引见蚩刑天",
+    "story_bible_id": "SB-WANGC-YUENIGHT-01",
+    "story_bible_characters": ["张若尘", "姑射静", "姑射云琉", "地姥", "木灵希"],
+    "story_bible_artifacts": ["天魔石刻", "日晷", "魔窟镇物黑晶"],
+    "outline_hash": "sha256-7events-standard-flow",
+    "outline_nodes": [
+      "张若尘强闯魔窟故意惹事",
+      "姑射静被迫当救火队长从神灵手中救回",
+      "伪神设宴抢着结拜",
+      "姑射静向母神抱怨，姑射云琉点破逼退婚算计",
+      "三日后，张若尘主动来到云琉神殿借出天魔石刻开启日晷",
+      "张若尘对木灵希吐露真实目的，月圆夜第二天必须离开"
+    ],
+    "model": "gpt-5.6-luna",
+    "generation_parameters": {
+      "temperature": 0.82,
+      "top_p": 1.0,
+      "max_tokens": 6500,
+      "target_word_bounds": [2400, 3200]
+    },
+    "benchmark": "《一世之尊》（爱潜水的乌贼）"
+  },
+  "control_group": {
+    "group_id": "GROUP-A-CONTROL",
+    "version": "v1.0-pre-opt",
+    "description": "未引入 Scene Planner 的原始单步平铺生成版本",
+    "source_file": "molan-home/generated/月圆夜前的布局-20260910/luna-original.txt",
+    "genre": "东方玄幻 / 帝尊做局流",
+    "model": "gpt-5.6-luna",
+    "temperature": 0.82,
+    "story_bible_id": "SB-WANGC-YUENIGHT-01",
+    "outline_hash": "sha256-7events-standard-flow",
+    "benchmark": "《一世之尊》（爱潜水的乌贼）",
+    "prompt_characteristics": "直接平铺 7 个大纲事件，无场景切片，无转场缓冲句指引，无留白预算约束"
+  },
+  "treatment_group": {
+    "group_id": "GROUP-B-TREATMENT",
+    "version": "v2.0-scene-opt",
+    "description": "仅注入 Scene Planner 时空转场过渡契约与呼吸留白预算的新生成版本",
+    "source_pipeline": "molan-home/lib/generation-pipeline-coordinator.js",
+    "genre": "东方玄幻 / 帝尊做局流",
+    "model": "gpt-5.6-luna",
+    "temperature": 0.82,
+    "story_bible_id": "SB-WANGC-YUENIGHT-01",
+    "outline_hash": "sha256-7events-standard-flow",
+    "benchmark": "《一世之尊》（爱潜水的乌贼）",
+    "prompt_characteristics": "包含 Scene Planner 自动生成的 Transition Bridge Contract 与 12% Downtime 呼吸留白约束"
+  },
+  "sample_size": {
+    "chapters_per_group": 1,
+    "word_count_target": 2800,
+    "parallel_replications": 3,
+    "replication_seeds": [42, 1024, 20260910]
+  },
+  "random_seed": 42,
+  "generation_version": "v2.0.0-scene-planner",
+  "evaluation_metrics": [
+    {
+      "metric": "abrupt_transition_count",
+      "label": "时空硬切次数",
+      "definition": "无过渡标点或环境视点缓冲，直接以'三日后，'/'次日，'硬切开篇的频次",
+      "baseline_control": 1,
+      "target_treatment": 0
+    },
+    {
+      "metric": "avg_scene_length",
+      "label": "场景平均字符篇幅",
+      "definition": "全文章节总字数除以有效场景镜头切片数",
+      "baseline_control": 218,
+      "target_treatment": "600~800"
+    },
+    {
+      "metric": "downtime_ratio",
+      "label": "情绪呼吸与环境留白比率",
+      "definition": "景物光影、心绪沉淀、茶盏器物与生理调息等从容笔墨占全文的比例",
+      "baseline_control": "2.8%",
+      "target_treatment": "10%~15%"
+    },
+    {
+      "metric": "conflict_intensity_score",
+      "label": "核心冲突推进烈度",
+      "definition": "交锋、神威压迫与智谋博弈词频密度与剧情前行阻力评分",
+      "baseline_control": 82.5,
+      "target_treatment": ">= 78.0 (降幅 <= 5%)"
+    },
+    {
+      "metric": "ai_flavor_score",
+      "label": "AI套话与陈词滥调率",
+      "definition": "空洞修辞、假大空抒情与AI高频词占比",
+      "baseline_control": 18.2,
+      "target_treatment": "<= 18.0"
+    }
+  ],
+  "success_criteria": {
+    "max_abrupt_transitions": 0,
+    "min_avg_scene_length": 500,
+    "min_downtime_ratio": 0.10,
+    "description": "时空硬切彻底清零，场景均长突破 500 字，呼吸留白达标 10% 以上，达成心流从容舒展。"
+  },
+  "failure_criteria": {
+    "max_allowed_abrupt": 1,
+    "min_allowed_scene_length": 300,
+    "description": "实验组仍出现生硬硬切，或场景均长未能拉开与对照组差距（仍低于 300 字）。"
+  },
+  "side_effect_criteria": {
+    "max_conflict_drop_ratio": 0.35,
+    "min_chapter_words": 1800,
+    "description": "留白注入导致主线冲突被过度冲淡（烈度暴跌 > 35%），或因提示词冗长导致正文严重缩水（< 1800 字）。"
+  },
+  "rollback_criteria": {
+    "critical_min_words": 1500,
+    "critical_abrupt_threshold": 3,
+    "trigger_conditions": [
+      "生成任务发生超时中断或产出 1394 字以下残卷",
+      "单章有效冲突暴跌 40% 以上被判定为废话注水",
+      "模型产生死循环重复输出"
+    ],
+    "action": "立即熔断 Scene Planner 契约注入，回滚至旧版平铺大纲生成流程，并记录异常告警。"
+  }
+}

@@ -1,0 +1,892 @@
+{
+  "timestamp": "2026-09-08T11:06:47.815Z",
+  "genre": "玄幻",
+  "route": "jianzhu",
+  "charCount": 4226,
+  "durationMs": 215873,
+  "generationStatus": "completed",
+  "endpoint": "http://127.0.0.1:3000/api/chat",
+  "dataMode": "cloud-proxy",
+  "orchestration": "script",
+  "localServerDetectorApplied": false,
+  "calls": [
+    {
+      "startedAt": "2026-09-08T11:03:11.780Z",
+      "completedAt": "2026-09-08T11:05:14.583Z",
+      "streamSha256": "ae3bd905fc9fe707fdd5b2339ef8d13c8ee9756d19ca4e26294c1d8f69865dbf",
+      "usage": {
+        "requestId": "req_5dba37614228f442f9b6bbcf4831eaf8",
+        "userEmail": "1271055010@qq.com",
+        "modelId": "gpt-5.6-luna",
+        "providerModel": "gpt-5.6-luna",
+        "contextWindowTokens": 131072,
+        "promptTokens": 16966,
+        "completionTokens": 5291,
+        "reasoningTokens": 108,
+        "totalTokens": 22257,
+        "cachedTokens": null,
+        "cacheWriteTokens": null,
+        "usageSource": "upstream",
+        "status": "completed",
+        "finishReason": null,
+        "createdAt": 1788865389838,
+        "durationMs": 122126,
+        "creditCost": 0,
+        "reservedCost": 0,
+        "estimatedTokens": 22257,
+        "estimatedCreditCost": 0,
+        "correctionAudit": {
+          "version": "universal-v2-2026-08-21",
+          "enabled": true,
+          "status": "needs_review",
+          "findings": [
+            {
+              "ruleId": "R-06-postposed-state",
+              "label": "状态后置表达不自然",
+              "severity": "medium",
+              "text": "说得很轻",
+              "index": 2899
+            }
+          ],
+          "matchedRuleIds": [
+            "R-06-postposed-state"
+          ],
+          "findingCount": 1,
+          "checkedAt": 1788865511964
+        },
+        "characterMaterial": {
+          "enabled": false,
+          "corpusVersion": "character-material-raw-v3.1-1",
+          "corpus": "general",
+          "mode": "auto",
+          "downgradeReason": "",
+          "archetype": "",
+          "archetypes": [],
+          "archetypeSource": "none",
+          "archetypeConfidence": 0,
+          "dimensions": [
+            "appearance",
+            "expression",
+            "action",
+            "dialogue",
+            "catchphrase",
+            "psychology"
+          ],
+          "scene": "",
+          "relationship": "",
+          "emotionalState": [],
+          "intent": "",
+          "humanTextureSignals": [],
+          "contextFallback": true,
+          "rankingWeights": null,
+          "profileKey": "",
+          "profileBucket": "",
+          "profileFocusSlice": "",
+          "profileAvailable": false,
+          "profileFallback": true,
+          "profileReason": "profiles_not_published",
+          "profileSampleCount": 0,
+          "ruleCount": 0,
+          "sampleCount": 0,
+          "fallback": true,
+          "samplesRemovedByBudget": false,
+          "rulesReducedByBudget": false,
+          "sampleSources": [],
+          "reason": "disabled_by_work",
+          "overlap": {
+            "checkedSampleCount": 0,
+            "overlapFragments": [],
+            "leakedTerms": [],
+            "blocked": false
+          },
+          "rhythmDeviation": {
+            "available": false,
+            "exceeded": false
+          },
+          "blocked": false
+        },
+        "skillAudit": {
+          "version": 1,
+          "audited": true,
+          "status": "verified",
+          "promptHash": "3c16c9471b9f9e70d9d609b1795529ae2aa4e8ad248819872b000e78423809c7",
+          "actualSkillIds": [
+            "write-high-tension-fiction"
+          ],
+          "declaredSkillIds": [
+            "write-high-tension-fiction"
+          ],
+          "skills": [
+            {
+              "id": "write-high-tension-fiction",
+              "name": "write-high-tension-fiction",
+              "source": "builtin",
+              "occurrences": 1,
+              "files": [
+                "agents/openai.yaml",
+                "references/canon-template.md",
+                "references/chapter-contract.md",
+                "references/character-triad-framework.md",
+                "references/logic-style-rules.md",
+                "references/style-profile.md",
+                "SKILL.md"
+              ],
+              "fileManifest": [
+                {
+                  "path": "agents/openai.yaml",
+                  "type": "text",
+                  "size": 535
+                },
+                {
+                  "path": "references/canon-template.md",
+                  "type": "text",
+                  "size": 2469
+                },
+                {
+                  "path": "references/chapter-contract.md",
+                  "type": "text",
+                  "size": 4176
+                },
+                {
+                  "path": "references/character-triad-framework.md",
+                  "type": "text",
+                  "size": 4406
+                },
+                {
+                  "path": "references/logic-style-rules.md",
+                  "type": "text",
+                  "size": 12193
+                },
+                {
+                  "path": "references/style-profile.md",
+                  "type": "text",
+                  "size": 4507
+                },
+                {
+                  "path": "SKILL.md",
+                  "type": "text",
+                  "size": 9846
+                }
+              ],
+              "fileHashes": [
+                {
+                  "path": "agents/openai.yaml",
+                  "sha256": "c9a7972cd91f5541015caa27365ce95ba3b8b10f2b8e6e47aa5cef6cde981a41",
+                  "size": 431
+                },
+                {
+                  "path": "references/canon-template.md",
+                  "sha256": "87b2208f519a9a618c7fe960b6ed5bfe9f72fb3f6ad4863a16cf0de48565b09c",
+                  "size": 1071
+                },
+                {
+                  "path": "references/chapter-contract.md",
+                  "sha256": "7c763d8551941600e6bcd08ee56443745dcdeb0a0c560767094eb88bf7101fcb",
+                  "size": 1710
+                },
+                {
+                  "path": "references/character-triad-framework.md",
+                  "sha256": "94acb0793912aed519ebbcea118cb99bfd7f544f5d5b464dc3689feee3ec50b5",
+                  "size": 1632
+                },
+                {
+                  "path": "references/logic-style-rules.md",
+                  "sha256": "7c17ec25494b37e382104cbfabe886ce0d412157358ec82d2d596ace92cd768d",
+                  "size": 4667
+                },
+                {
+                  "path": "references/style-profile.md",
+                  "sha256": "119fa92fbdda319d61a2fa816b448e1e4da0e04f52d88e98cfd47f644ca76707",
+                  "size": 1743
+                },
+                {
+                  "path": "SKILL.md",
+                  "sha256": "e6486cc57c77a0b4704fc272ac7f29f4307c33001cccffd90fe81235fbe5d5ee",
+                  "size": 4124
+                }
+              ],
+              "instructionHash": "d82bdc866f757a9fee2e50712a27df65e3c05b7b89f939a7e2cc2d0dc47120de",
+              "expectedInstructionHash": "d82bdc866f757a9fee2e50712a27df65e3c05b7b89f939a7e2cc2d0dc47120de",
+              "promptFiles": [
+                "SKILL.md",
+                "references/canon-template.md",
+                "references/chapter-contract.md",
+                "references/character-triad-framework.md",
+                "references/logic-style-rules.md",
+                "references/style-profile.md"
+              ],
+              "promptInstructionHash": "5f4cac3d9a842091b359642468e4a0f5b4c5873e9d77a29e3f0e7148c37bf1d8",
+              "promptFilesProvided": false,
+              "declaredPromptFiles": [],
+              "declaredFiles": [
+                "agents/openai.yaml",
+                "references/canon-template.md",
+                "references/chapter-contract.md",
+                "references/character-triad-framework.md",
+                "references/logic-style-rules.md",
+                "references/style-profile.md",
+                "SKILL.md"
+              ],
+              "declaredFileManifest": [
+                {
+                  "path": "agents/openai.yaml",
+                  "type": "text",
+                  "size": 535
+                },
+                {
+                  "path": "references/canon-template.md",
+                  "type": "text",
+                  "size": 2469
+                },
+                {
+                  "path": "references/chapter-contract.md",
+                  "type": "text",
+                  "size": 4176
+                },
+                {
+                  "path": "references/character-triad-framework.md",
+                  "type": "text",
+                  "size": 4406
+                },
+                {
+                  "path": "references/logic-style-rules.md",
+                  "type": "text",
+                  "size": 12193
+                },
+                {
+                  "path": "references/style-profile.md",
+                  "type": "text",
+                  "size": 4507
+                },
+                {
+                  "path": "SKILL.md",
+                  "type": "text",
+                  "size": 9846
+                }
+              ],
+              "verification": "server-match"
+            }
+          ],
+          "stage": "writing",
+          "editorOnly": false,
+          "defaultWritingSkill": {
+            "id": "write-high-tension-fiction",
+            "applied": true
+          },
+          "forwarding": {
+            "status": "verified",
+            "skills": [
+              {
+                "id": "write-high-tension-fiction",
+                "status": "verified",
+                "instructionForwarded": true,
+                "promptFiles": [
+                  "agents/openai.yaml",
+                  "references/canon-template.md",
+                  "references/chapter-contract.md",
+                  "references/character-triad-framework.md",
+                  "references/logic-style-rules.md",
+                  "references/style-profile.md",
+                  "SKILL.md"
+                ],
+                "promptFilesProvided": false,
+                "auditedFiles": [
+                  "agents/openai.yaml",
+                  "references/canon-template.md",
+                  "references/chapter-contract.md",
+                  "references/character-triad-framework.md",
+                  "references/logic-style-rules.md",
+                  "references/style-profile.md",
+                  "SKILL.md"
+                ],
+                "forwardedTextFiles": [
+                  "agents/openai.yaml",
+                  "references/canon-template.md",
+                  "references/chapter-contract.md",
+                  "references/character-triad-framework.md",
+                  "references/logic-style-rules.md",
+                  "references/style-profile.md"
+                ],
+                "omittedTextFiles": [],
+                "omittedBinaryFiles": []
+              }
+            ]
+          },
+          "correctionPolicy": {
+            "version": "universal-v2-2026-08-21",
+            "scope": "all-users-all-novels",
+            "stages": [
+              "skill_analysis",
+              "writing",
+              "humanizer",
+              "single"
+            ]
+          },
+          "characterMaterial": {
+            "enabled": false,
+            "corpusVersion": "character-material-raw-v3.1-1",
+            "corpus": "general",
+            "mode": "auto",
+            "downgradeReason": "",
+            "archetype": "",
+            "archetypes": [],
+            "archetypeSource": "none",
+            "archetypeConfidence": 0,
+            "dimensions": [
+              "appearance",
+              "expression",
+              "action",
+              "dialogue",
+              "catchphrase",
+              "psychology"
+            ],
+            "scene": "",
+            "relationship": "",
+            "emotionalState": [],
+            "intent": "",
+            "humanTextureSignals": [],
+            "contextFallback": true,
+            "rankingWeights": null,
+            "profileKey": "",
+            "profileBucket": "",
+            "profileFocusSlice": "",
+            "profileAvailable": false,
+            "profileFallback": true,
+            "profileReason": "profiles_not_published",
+            "profileSampleCount": 0,
+            "ruleCount": 0,
+            "sampleCount": 0,
+            "fallback": true,
+            "samplesRemovedByBudget": false,
+            "rulesReducedByBudget": false,
+            "sampleSources": [],
+            "reason": "disabled_by_work",
+            "overlap": {
+              "checkedSampleCount": 0,
+              "overlapFragments": [],
+              "leakedTerms": [],
+              "blocked": false
+            },
+            "rhythmDeviation": {
+              "available": false,
+              "exceeded": false
+            },
+            "blocked": false
+          },
+          "correctionAudit": {
+            "version": "universal-v2-2026-08-21",
+            "enabled": true,
+            "status": "needs_review",
+            "findings": [
+              {
+                "ruleId": "R-06-postposed-state",
+                "label": "状态后置表达不自然",
+                "severity": "medium",
+                "text": "说得很轻",
+                "index": 2899
+              }
+            ],
+            "matchedRuleIds": [
+              "R-06-postposed-state"
+            ],
+            "findingCount": 1,
+            "checkedAt": 1788865511964
+          }
+        },
+        "messagesHash": "3c16c9471b9f9e70d9d609b1795529ae2aa4e8ad248819872b000e78423809c7",
+        "editorOnly": false,
+        "billingStatus": "exact"
+      },
+      "billing": {
+        "requestId": "req_5dba37614228f442f9b6bbcf4831eaf8",
+        "status": "streaming",
+        "modelId": "gpt-5.6-luna",
+        "contextWindowTokens": 131072,
+        "promptTokens": 28314,
+        "fixedPromptTokens": 28314,
+        "dynamicPromptTokens": 0,
+        "dynamicPromptTruncated": false,
+        "characterMaterial": {
+          "enabled": false,
+          "ruleCount": 0,
+          "sampleCount": 0,
+          "samplesRemovedByBudget": false
+        },
+        "maxOutputTokens": 8192,
+        "cappedByContext": false,
+        "estimatedTokens": 36162,
+        "estimatedCreditCost": 0,
+        "reservedCost": 0,
+        "cappedByBalance": false,
+        "remainingReserved": 0,
+        "remainingCredits": null,
+        "skillAuditStatus": "verified",
+        "skillForwardingStatus": "verified",
+        "skillForwardedFileCount": 6,
+        "correctionPolicyVersion": "universal-v2-2026-08-21",
+        "correctionStatus": "not_checked",
+        "twoPassHumanize": false,
+        "editorOnly": false
+      },
+      "rewriteEvents": []
+    },
+    {
+      "startedAt": "2026-09-08T11:05:14.588Z",
+      "completedAt": "2026-09-08T11:06:47.650Z",
+      "streamSha256": "5066c0c0be0b8f3b93742bd46349bc42504aca1eb4698acd7ac9583aee360553",
+      "usage": {
+        "requestId": "req_229521ac57eaaf6cbe70bd30ce38bbc0",
+        "userEmail": "1271055010@qq.com",
+        "modelId": "gpt-5.6-luna",
+        "providerModel": "gpt-5.6-luna",
+        "contextWindowTokens": 131072,
+        "promptTokens": 22844,
+        "completionTokens": 5021,
+        "reasoningTokens": 177,
+        "totalTokens": 27865,
+        "cachedTokens": 16128,
+        "cacheWriteTokens": null,
+        "usageSource": "upstream",
+        "status": "completed",
+        "finishReason": null,
+        "createdAt": 1788865512620,
+        "durationMs": 92408,
+        "creditCost": 0,
+        "reservedCost": 0,
+        "estimatedTokens": 27865,
+        "estimatedCreditCost": 0,
+        "correctionAudit": {
+          "version": "universal-v2-2026-08-21",
+          "enabled": true,
+          "status": "passed",
+          "findings": [],
+          "matchedRuleIds": [],
+          "findingCount": 0,
+          "checkedAt": 1788865605027
+        },
+        "characterMaterial": {
+          "enabled": false,
+          "corpusVersion": "character-material-raw-v3.1-1",
+          "corpus": "general",
+          "mode": "auto",
+          "downgradeReason": "",
+          "archetype": "",
+          "archetypes": [],
+          "archetypeSource": "none",
+          "archetypeConfidence": 0,
+          "dimensions": [
+            "appearance",
+            "expression",
+            "action",
+            "dialogue",
+            "catchphrase",
+            "psychology"
+          ],
+          "scene": "",
+          "relationship": "",
+          "emotionalState": [],
+          "intent": "",
+          "humanTextureSignals": [],
+          "contextFallback": true,
+          "rankingWeights": null,
+          "profileKey": "",
+          "profileBucket": "",
+          "profileFocusSlice": "",
+          "profileAvailable": false,
+          "profileFallback": true,
+          "profileReason": "profiles_not_published",
+          "profileSampleCount": 0,
+          "ruleCount": 0,
+          "sampleCount": 0,
+          "fallback": true,
+          "samplesRemovedByBudget": false,
+          "rulesReducedByBudget": false,
+          "sampleSources": [],
+          "reason": "disabled_by_work",
+          "overlap": {
+            "checkedSampleCount": 0,
+            "overlapFragments": [],
+            "leakedTerms": [],
+            "blocked": false
+          },
+          "rhythmDeviation": {
+            "available": false,
+            "exceeded": false
+          },
+          "blocked": false
+        },
+        "skillAudit": {
+          "version": 1,
+          "audited": true,
+          "status": "verified",
+          "promptHash": "34f903373d22f69e9bf46c056aa275d00d2556d1b8decc2b28bf3e62a18f9b09",
+          "actualSkillIds": [
+            "write-high-tension-fiction"
+          ],
+          "declaredSkillIds": [
+            "write-high-tension-fiction"
+          ],
+          "skills": [
+            {
+              "id": "write-high-tension-fiction",
+              "name": "write-high-tension-fiction",
+              "source": "builtin",
+              "occurrences": 1,
+              "files": [
+                "agents/openai.yaml",
+                "references/canon-template.md",
+                "references/chapter-contract.md",
+                "references/character-triad-framework.md",
+                "references/logic-style-rules.md",
+                "references/style-profile.md",
+                "SKILL.md"
+              ],
+              "fileManifest": [
+                {
+                  "path": "agents/openai.yaml",
+                  "type": "text",
+                  "size": 535
+                },
+                {
+                  "path": "references/canon-template.md",
+                  "type": "text",
+                  "size": 2469
+                },
+                {
+                  "path": "references/chapter-contract.md",
+                  "type": "text",
+                  "size": 4176
+                },
+                {
+                  "path": "references/character-triad-framework.md",
+                  "type": "text",
+                  "size": 4406
+                },
+                {
+                  "path": "references/logic-style-rules.md",
+                  "type": "text",
+                  "size": 12193
+                },
+                {
+                  "path": "references/style-profile.md",
+                  "type": "text",
+                  "size": 4507
+                },
+                {
+                  "path": "SKILL.md",
+                  "type": "text",
+                  "size": 9846
+                }
+              ],
+              "fileHashes": [
+                {
+                  "path": "agents/openai.yaml",
+                  "sha256": "c9a7972cd91f5541015caa27365ce95ba3b8b10f2b8e6e47aa5cef6cde981a41",
+                  "size": 431
+                },
+                {
+                  "path": "references/canon-template.md",
+                  "sha256": "87b2208f519a9a618c7fe960b6ed5bfe9f72fb3f6ad4863a16cf0de48565b09c",
+                  "size": 1071
+                },
+                {
+                  "path": "references/chapter-contract.md",
+                  "sha256": "7c763d8551941600e6bcd08ee56443745dcdeb0a0c560767094eb88bf7101fcb",
+                  "size": 1710
+                },
+                {
+                  "path": "references/character-triad-framework.md",
+                  "sha256": "94acb0793912aed519ebbcea118cb99bfd7f544f5d5b464dc3689feee3ec50b5",
+                  "size": 1632
+                },
+                {
+                  "path": "references/logic-style-rules.md",
+                  "sha256": "7c17ec25494b37e382104cbfabe886ce0d412157358ec82d2d596ace92cd768d",
+                  "size": 4667
+                },
+                {
+                  "path": "references/style-profile.md",
+                  "sha256": "119fa92fbdda319d61a2fa816b448e1e4da0e04f52d88e98cfd47f644ca76707",
+                  "size": 1743
+                },
+                {
+                  "path": "SKILL.md",
+                  "sha256": "e6486cc57c77a0b4704fc272ac7f29f4307c33001cccffd90fe81235fbe5d5ee",
+                  "size": 4124
+                }
+              ],
+              "instructionHash": "d82bdc866f757a9fee2e50712a27df65e3c05b7b89f939a7e2cc2d0dc47120de",
+              "expectedInstructionHash": "d82bdc866f757a9fee2e50712a27df65e3c05b7b89f939a7e2cc2d0dc47120de",
+              "promptFiles": [
+                "SKILL.md",
+                "references/canon-template.md",
+                "references/chapter-contract.md",
+                "references/character-triad-framework.md",
+                "references/logic-style-rules.md",
+                "references/style-profile.md"
+              ],
+              "promptInstructionHash": "5f4cac3d9a842091b359642468e4a0f5b4c5873e9d77a29e3f0e7148c37bf1d8",
+              "promptFilesProvided": false,
+              "declaredPromptFiles": [],
+              "declaredFiles": [
+                "agents/openai.yaml",
+                "references/canon-template.md",
+                "references/chapter-contract.md",
+                "references/character-triad-framework.md",
+                "references/logic-style-rules.md",
+                "references/style-profile.md",
+                "SKILL.md"
+              ],
+              "declaredFileManifest": [
+                {
+                  "path": "agents/openai.yaml",
+                  "type": "text",
+                  "size": 535
+                },
+                {
+                  "path": "references/canon-template.md",
+                  "type": "text",
+                  "size": 2469
+                },
+                {
+                  "path": "references/chapter-contract.md",
+                  "type": "text",
+                  "size": 4176
+                },
+                {
+                  "path": "references/character-triad-framework.md",
+                  "type": "text",
+                  "size": 4406
+                },
+                {
+                  "path": "references/logic-style-rules.md",
+                  "type": "text",
+                  "size": 12193
+                },
+                {
+                  "path": "references/style-profile.md",
+                  "type": "text",
+                  "size": 4507
+                },
+                {
+                  "path": "SKILL.md",
+                  "type": "text",
+                  "size": 9846
+                }
+              ],
+              "verification": "server-match"
+            }
+          ],
+          "stage": "writing",
+          "editorOnly": false,
+          "defaultWritingSkill": {
+            "id": "write-high-tension-fiction",
+            "applied": true
+          },
+          "forwarding": {
+            "status": "verified",
+            "skills": [
+              {
+                "id": "write-high-tension-fiction",
+                "status": "verified",
+                "instructionForwarded": true,
+                "promptFiles": [
+                  "agents/openai.yaml",
+                  "references/canon-template.md",
+                  "references/chapter-contract.md",
+                  "references/character-triad-framework.md",
+                  "references/logic-style-rules.md",
+                  "references/style-profile.md",
+                  "SKILL.md"
+                ],
+                "promptFilesProvided": false,
+                "auditedFiles": [
+                  "agents/openai.yaml",
+                  "references/canon-template.md",
+                  "references/chapter-contract.md",
+                  "references/character-triad-framework.md",
+                  "references/logic-style-rules.md",
+                  "references/style-profile.md",
+                  "SKILL.md"
+                ],
+                "forwardedTextFiles": [
+                  "agents/openai.yaml",
+                  "references/canon-template.md",
+                  "references/chapter-contract.md",
+                  "references/character-triad-framework.md",
+                  "references/logic-style-rules.md",
+                  "references/style-profile.md"
+                ],
+                "omittedTextFiles": [],
+                "omittedBinaryFiles": []
+              }
+            ]
+          },
+          "correctionPolicy": {
+            "version": "universal-v2-2026-08-21",
+            "scope": "all-users-all-novels",
+            "stages": [
+              "skill_analysis",
+              "writing",
+              "humanizer",
+              "single"
+            ]
+          },
+          "characterMaterial": {
+            "enabled": false,
+            "corpusVersion": "character-material-raw-v3.1-1",
+            "corpus": "general",
+            "mode": "auto",
+            "downgradeReason": "",
+            "archetype": "",
+            "archetypes": [],
+            "archetypeSource": "none",
+            "archetypeConfidence": 0,
+            "dimensions": [
+              "appearance",
+              "expression",
+              "action",
+              "dialogue",
+              "catchphrase",
+              "psychology"
+            ],
+            "scene": "",
+            "relationship": "",
+            "emotionalState": [],
+            "intent": "",
+            "humanTextureSignals": [],
+            "contextFallback": true,
+            "rankingWeights": null,
+            "profileKey": "",
+            "profileBucket": "",
+            "profileFocusSlice": "",
+            "profileAvailable": false,
+            "profileFallback": true,
+            "profileReason": "profiles_not_published",
+            "profileSampleCount": 0,
+            "ruleCount": 0,
+            "sampleCount": 0,
+            "fallback": true,
+            "samplesRemovedByBudget": false,
+            "rulesReducedByBudget": false,
+            "sampleSources": [],
+            "reason": "disabled_by_work",
+            "overlap": {
+              "checkedSampleCount": 0,
+              "overlapFragments": [],
+              "leakedTerms": [],
+              "blocked": false
+            },
+            "rhythmDeviation": {
+              "available": false,
+              "exceeded": false
+            },
+            "blocked": false
+          },
+          "correctionAudit": {
+            "version": "universal-v2-2026-08-21",
+            "enabled": true,
+            "status": "passed",
+            "findings": [],
+            "matchedRuleIds": [],
+            "findingCount": 0,
+            "checkedAt": 1788865605027
+          }
+        },
+        "messagesHash": "34f903373d22f69e9bf46c056aa275d00d2556d1b8decc2b28bf3e62a18f9b09",
+        "editorOnly": false,
+        "billingStatus": "exact"
+      },
+      "billing": {
+        "requestId": "req_229521ac57eaaf6cbe70bd30ce38bbc0",
+        "status": "streaming",
+        "modelId": "gpt-5.6-luna",
+        "contextWindowTokens": 131072,
+        "promptTokens": 37214,
+        "fixedPromptTokens": 37214,
+        "dynamicPromptTokens": 0,
+        "dynamicPromptTruncated": false,
+        "characterMaterial": {
+          "enabled": false,
+          "ruleCount": 0,
+          "sampleCount": 0,
+          "samplesRemovedByBudget": false
+        },
+        "maxOutputTokens": 8192,
+        "cappedByContext": false,
+        "estimatedTokens": 44473,
+        "estimatedCreditCost": 0,
+        "reservedCost": 0,
+        "cappedByBalance": false,
+        "remainingReserved": 0,
+        "remainingCredits": null,
+        "skillAuditStatus": "verified",
+        "skillForwardingStatus": "verified",
+        "skillForwardedFileCount": 6,
+        "correctionPolicyVersion": "universal-v2-2026-08-21",
+        "correctionStatus": "not_checked",
+        "twoPassHumanize": false,
+        "editorOnly": false
+      },
+      "rewriteEvents": []
+    }
+  ],
+  "chapterSha256": "5f6870270dd72d6c2f4d81db193976af8ff607f84160281280665029f85f7df4",
+  "checks": {
+    "overlap": {
+      "ok": true,
+      "passed": true,
+      "issues": []
+    },
+    "hitAiPhrases": [],
+    "firstPassScore": {
+      "score": 0,
+      "passed": true,
+      "metrics": {
+        "sentenceStdRatio": null,
+        "ttrRatio": null,
+        "paragraphUniformity": 0.927,
+        "structuralRiskTotal": 0,
+        "structuralSignalsAdvisory": true,
+        "lexiconBlockPerKilo": 0,
+        "lexiconWatchPerKilo": 0
+      },
+      "details": {
+        "blockHits": [],
+        "watchHits": [],
+        "structuralRisks": {
+          "pseudoFragCount": 0,
+          "turnTakingCount": 0,
+          "binarySymmetryCount": 0,
+          "isolatedExplanatoryCount": 0,
+          "singleNarrativeCount": 41
+        }
+      }
+    },
+    "secondPassScore": {
+      "score": 0,
+      "passed": true,
+      "metrics": {
+        "sentenceStdRatio": null,
+        "ttrRatio": null,
+        "paragraphUniformity": 0.9158,
+        "structuralRiskTotal": 0,
+        "structuralSignalsAdvisory": true,
+        "lexiconBlockPerKilo": 0,
+        "lexiconWatchPerKilo": 0
+      },
+      "details": {
+        "blockHits": [],
+        "watchHits": [],
+        "structuralRisks": {
+          "pseudoFragCount": 0,
+          "turnTakingCount": 0,
+          "binarySymmetryCount": 0,
+          "isolatedExplanatoryCount": 0,
+          "singleNarrativeCount": 50
+        }
+      }
+    }
+  },
+  "literaryReview": "pending_human_review"
+}

@@ -250,7 +250,12 @@ test('规则：六题材可选方法都有已评摘段来源，旧数值门禁�
   }
 });
 
-test('基线资产：固定候选窗口不补样，来源与新度量重算一致且不写data', async () => {
+test('基线资产：固定候选窗口不补样，来源与新度量重算一致且不写data', async (t) => {
+  const archive = path.resolve(ROOT, '..', '资源库', '小说原本');
+  if (!fs.existsSync(archive)) {
+    t.skip('本地受保护小说原本归档不存在，跳过回查测试');
+    return;
+  }
   const { buildGenreBaseline } = await import('../scripts/build-genre-baselines.mjs');
   const index = readJson('data/genre-baselines/index.json');
   assert.equal(index.measurementVersion, metrics.MEASUREMENT_VERSION);
@@ -273,7 +278,12 @@ test('基线资产：固定候选窗口不补样，来源与新度量重算一�
   }
 });
 
-test('来源验收：原始字节、解码、章边界及全部段落均回查，仅只读明确范本路径', () => {
+test('来源验收：原始字节、解码、章边界及全部段落均回查，仅只读明确范本路径', (t) => {
+  const archive = path.resolve(ROOT, '..', '资源库', '小说原本');
+  if (!fs.existsSync(archive)) {
+    t.skip('本地受保护小说原本归档不存在，跳过回查测试');
+    return;
+  }
   for (const genre of evidenceLib.GENRES) {
     const evidence = readJson(`data/genre-evidence/${genre}.json`);
     const sourceBuffers = {};

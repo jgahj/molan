@@ -2,61 +2,67 @@
     xuanhuan: {
       title: '玄幻修真',
       routes: [
-        { value: 'yuanshi', label: '《元始法则》飞天鱼 · 重型巨舰与修真工业' },
-        { value: 'jianzhu', label: '《剑烛大荒》乌贼 · 大荒机关与市井互嵌' },
-        { value: 'xuanjian', label: '《玄鉴仙族》季越人 · 宗族谱系与族运牺牲' },
-        { value: 'fanren', label: '《凡人修仙传》忘语 · 散修生计与谨慎藏拙' }
+        { value: 'cautious_survival', legacyValue: 'fanren', label: '《凡人修仙传》· 散修生计与谨慎藏拙' },
+        { value: 'clan_lineage_sacrifice', legacyValue: 'xuanjian', label: '《家族修仙》· 宗族谱系与族运牺牲' },
+        { value: 'industrial_cultivation', legacyValue: 'yuanshi', label: '《元始法则》· 重型战舰与修真工业' },
+        { value: 'ancient_market_mechanic', legacyValue: 'jianzhu', label: '《剑主沉浮》· 大荒机关与市井互嵌' }
       ]
     },
     urban_martial: {
       title: '都市高武',
       routes: [
-        { value: 'urban_grind', label: '《以神通之名》猪心虾仁 · 官方规制与实战攻防' },
-        { value: 'yucun_1982', label: '《重回1982小渔村》米饭的米 · 沿海捕捞与潮汐考据' },
-        { value: 'daguo_junken', label: '《大国军垦》大强67 · 重工拓荒与集体纪律' }
+        { value: 'official_regulation_tactics', legacyValue: 'urban_grind', label: '《以神通之名》猪心虾仁 · 官方规制与实战攻防' },
+        { value: 'coastal_harvest_fieldwork', legacyValue: 'yucun_1982', label: '《重回1982小渔村》米饭的米 · 沿海捕捞与潮汐考据' },
+        { value: 'heavy_industry_pioneering', legacyValue: 'daguo_junken', label: '《大国军垦》大强67 · 重工拓荒与集体纪律' }
       ]
     },
     scifi_apocalypse: {
       title: '科幻末世',
       routes: [
-        { value: 'hard_survival', label: '《这游戏也太真实了》晨星LL · 废土避难所工业复苏' },
-        { value: 'dawn_blade', label: '《黎明之剑》远瞳 · 魔导工业化与深空神明去魅' },
-        { value: 'swallow_star', label: '《吞噬星空》番茄 · 基因武者考核与深空尺度' }
+        { value: 'wasteland_industrial_recovery', legacyValue: 'hard_survival', label: '《这游戏也太真实了》晨星LL · 废土避难所工业复苏' },
+        { value: 'magic_industrial_enlightenment', legacyValue: 'dawn_blade', label: '《黎明之剑》远瞳 · 魔导工业化与深空神明去魅' },
+        { value: 'genetic_deep_space_scale', legacyValue: 'swallow_star', label: '《吞噬星空》番茄 · 基因武者考核与深空尺度' }
       ]
     },
     suspense: {
       title: '悬疑惊悚',
       routes: [
-        { value: 'laoshiren', label: '《捞尸人》纯洁滴小龙 · 黄河捞尸门道与民俗禁忌' },
-        { value: 'rule_horror', label: '《玩家请上车》海晏山 · 空间规则怪谈与心理压榨' },
-        { value: 'folklore_investigation', label: '悬疑惊悚 · 民俗异闻与心理递进通用' }
+        { value: 'river_folk_secrets', legacyValue: 'laoshiren', label: '《捞尸人》纯洁滴小龙 · 黄河捞尸门道与民俗禁忌' },
+        { value: 'spatial_rule_horror', legacyValue: 'rule_horror', label: '《玩家请上车》海晏山 · 空间规则怪谈与心理压榨' },
+        { value: 'folklore_investigation', legacyValue: 'folklore_investigation', label: '悬疑惊悚 · 民俗异闻与心理递进通用' }
       ]
     },
     history: {
       title: '历史古代',
       routes: [
-        { value: 'dynasty_friction', label: '《神话版三国》坟土荒草 · 军团大阵与天下大势' },
-        { value: 'spy_years', label: '《我的谍战岁月》猪头七 · 隐蔽战线密电破译与伪装' }
+        { value: 'dynasty_legion_grand_strategy', legacyValue: 'dynasty_friction', label: '《神话版三国》坟土荒草 · 军团大阵与天下大势' },
+        { value: 'covert_cipher_camouflage', legacyValue: 'spy_years', label: '《我的谍战岁月》猪头七 · 隐蔽战线密电破译与伪装' }
       ]
     },
     western_fantasy: {
       title: '西方奇幻',
       routes: [
-        { value: 'sequence_cost', label: '《诡秘序列》乌贼 · 秩序隐秘与魔药代价' },
-        { value: 'super_mechanic', label: '《超神机械师》齐佩甲 · 机械图纸锻造与智械军团' },
-        { value: 'reincarnation_paradise', label: '《轮回乐园》蚊子 · 猎杀者契约与刀术搏杀' }
+        { value: 'potion_sequence_order_cost', legacyValue: 'sequence_cost', label: '《诡秘序列》乌贼 · 秩序隐秘与魔药代价' },
+        { value: 'machinist_blueprint_forging', legacyValue: 'super_mechanic', label: '《超神机械师》齐佩甲 · 机械图纸锻造与智械军团' },
+        { value: 'hunter_contract_combat', legacyValue: 'reincarnation_paradise', label: '《轮回乐园》蚊子 · 猎杀者契约与刀术搏杀' }
       ]
     },
     ancient_romance: {
       title: '古言世情',
       routes: [
-        { value: 'mansion_secrets', label: '《深宅利益世情》· 月例账目与内宅生存策略' }
+        { value: 'mansion_financial_survival', legacyValue: 'mansion_secrets', label: '《深宅利益世情》· 月例账目与内宅生存策略' }
       ]
     },
     modern_romance: {
       title: '现代言情',
       routes: [
-        { value: 'urban_emotion', label: '《职场博弈心动》· 投行对赌与势均力敌情感' }
+        { value: 'corporate_duel_subtle_romance', legacyValue: 'urban_emotion', label: '《职场博弈心动》· 投行对赌与势均力敌情感' }
+      ]
+    },
+    universal: {
+      title: '通用现实',
+      routes: [
+        { value: 'neutral_dramatic_realism', legacyValue: 'neutral_dramatic', label: '通用现实 · 生活本相与克制叙事' }
       ]
     }
   };
@@ -77,12 +83,12 @@
     if (curFamily && curFamily !== 'all' && GENRE_FAMILY_MAP[curFamily]) {
       const fam = GENRE_FAMILY_MAP[curFamily];
       const autoOption = `<option value="auto" ${currentRoute === 'auto' || !currentRoute ? 'selected' : ''}>自动 / 智能识别 (auto) · ${fam.title}优选</option>`;
-      const routesOptions = fam.routes.map(r => `<option value="${r.value}" ${currentRoute === r.value ? 'selected' : ''}>${r.label}</option>`).join('');
+      const routesOptions = fam.routes.map(r => `<option value="${r.value}" ${(currentRoute === r.value || currentRoute === r.legacyValue) ? 'selected' : ''}>${r.label}</option>`).join('');
       return autoOption + routesOptions;
     }
 
     const autoOption = `<option value="auto" ${currentRoute === 'auto' || !currentRoute ? 'selected' : ''}>自动 / 智能识别 (auto) · 题材智能匹配 (推荐兜底)</option>`;
-    const groupsMarkup = Object.values(GENRE_FAMILY_MAP).map(g => `<optgroup label="${g.title}">${g.routes.map(r => `<option value="${r.value}" ${currentRoute === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}</optgroup>`).join('');
+    const groupsMarkup = Object.values(GENRE_FAMILY_MAP).map(g => `<optgroup label="${g.title}">${g.routes.map(r => `<option value="${r.value}" ${(currentRoute === r.value || currentRoute === r.legacyValue) ? 'selected' : ''}>${r.label}</option>`).join('')}</optgroup>`).join('');
     return autoOption + groupsMarkup;
   }
 (function () {
@@ -1569,6 +1575,13 @@
   function scheduleSave(options) {
     const saveOptions = options || {};
     runtime.editorScheduledSaveOptions = saveOptions;
+    // 延迟分层：WAL 本地毫秒级（250ms）快速落地防护崩溃，云端异步持久化保持 700ms 防抖
+    if (saveOptions.sceneRef) {
+      scheduleEditorWalSave(saveOptions.sceneRef);
+    } else if (saveOptions.patchSave) {
+      const current = activeRefs(editorState(false));
+      if (current && current.scene) scheduleEditorWalSave(current.scene);
+    }
     window.clearTimeout(runtime.editorSaveTimer);
     runtime.editorSaveTimer = window.setTimeout(() => {
       runtime.editorScheduledSaveOptions = null;
@@ -7551,7 +7564,7 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
           state.genreRoute = xuanhuanRoute.value;
           if (xuanhuanRoute.value !== 'auto') {
             for (const [fKey, fVal] of Object.entries(GENRE_FAMILY_MAP)) {
-              if (fVal.routes.some(r => r.value === xuanhuanRoute.value)) {
+              if (fVal.routes.some(r => r.value === xuanhuanRoute.value || r.legacyValue === xuanhuanRoute.value)) {
                 state.genreFamily = fKey;
                 const stageNode = getStage();
                 const famSelect = stageNode && stageNode.querySelector && stageNode.querySelector('[data-completion-genre-family]');

@@ -1,33 +1,17 @@
 'use strict';
 
 const { GenerationError } = require('./errors');
+const { getModelCapability, estimateTokensWithCapability } = require('../model/model-registry');
 
-const DEFAULT_PROVIDER_CONTEXT_LIMITS = Object.freeze({
-  'gpt-4o': 128000,
-  'gpt-4o-mini': 128000,
-  'gpt-4': 32768,
-  'claude-3-5-sonnet': 200000,
-  'claude-3-opus': 200000,
-  'deepseek-chat': 64000,
-  'deepseek-reasoner': 64000,
-  'qwen-plus': 32768,
-  'qwen-max': 32768,
-  'standard-local': 32768,
-  'default': 32768
+const DEFAULT_PROVIDER_CONTEXT_LIMITS = new Proxy({}, {
+  get: (_, prop) => getModelCapability(String(prop)).contextWindow
 });
 
 /**
- * 估算文本 Token 数量。
- * 中文字符约 1.2~1.5 chars/token，标点与空白约 1 char/token，英文单词约 1 word/1.3 tokens。
+ * 估算文本 Token 数量（结合模型真实能力分布）。
  */
-function estimateTokens(value) {
-  if (value == null) return 0;
-  const str = typeof value === 'string' ? value : JSON.stringify(value);
-  if (!str) return 0;
-  const cjkMatches = str.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
-  const cjkCount = cjkMatches ? cjkMatches.length : 0;
-  const nonCjkCount = str.length - cjkCount;
-  return Math.ceil(cjkCount * 0.75 + nonCjkCount * 0.3);
+function estimateTokens(value, modelId = 'default') {
+  return estimateTokensWithCapability(value, modelId);
 }
 
 /**
@@ -37,7 +21,8 @@ function estimateTokens(value) {
 function calculateContextBudget(options = {}) {
   if (options && options.contextPlan) {
     const cp = options.contextPlan;
-    const limit = Number(cp.hardLimit) || DEFAULT_PROVIDER_CONTEXT_LIMITS[cp.model] || DEFAULT_PROVIDER_CONTEXT_LIMITS.default;
+    const modelCap = getModelCapability(cp.model || 'default');
+    const limit = Number(cp.hardLimit) || modelCap.contextWindow;
     const outputReserve = Number(cp.outputReserve) || 0;
     const systemTokens = Number(cp.systemTokens) || 0;
     const contractTokens = Number(cp.contractTokens) || 0;
@@ -74,21 +59,20 @@ function calculateContextBudget(options = {}) {
     context = '',
     contract = null,
     prompt = '',
-    targetWords = 2400,
+    targetChars = options.targetChars ?? options.targetWords ?? 2400,
     modelId = '',
     providerContextLimit = null
   } = options;
 
-  const systemTokens = estimateTokens(system);
-  const contextTokens = estimateTokens(context);
-  const contractTokens = contract ? estimateTokens(contract) : 0;
-  const promptTokens = estimateTokens(prompt);
-  const targetChars = Number(targetWords) || 2400;
-  const outputReserve = Math.ceil(targetChars * 1.6);
+  const targetCharsNumber = Number(targetChars) || 2400;
+  const modelCap = getModelCapability(modelId);
+  const systemTokens = estimateTokens(system, modelId);
+  const contextTokens = estimateTokens(context, modelId);
+  const contractTokens = contract ? estimateTokens(contract, modelId) : 0;
+  const promptTokens = estimateTokens(prompt, modelId);
+  const outputReserve = Math.ceil(targetCharsNumber * 1.6);
 
-  const limit = Number(providerContextLimit) ||
-    DEFAULT_PROVIDER_CONTEXT_LIMITS[modelId] ||
-    DEFAULT_PROVIDER_CONTEXT_LIMITS.default;
+  const limit = Number(providerContextLimit) || modelCap.contextWindow;
 
   const totalRequired = systemTokens + contextTokens + contractTokens + promptTokens + outputReserve;
   const margin = limit - totalRequired;

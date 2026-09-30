@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node --experimental-sqlite --no-warnings server.js",
     "test": "node --experimental-sqlite --no-warnings --test \"test/**/*.test.{js,mjs,cjs}\"",
-    "ci": "node --experimental-sqlite --no-warnings --test \"test/**/*.test.{js,mjs,cjs}\" && node scripts/audit-golden-suite.mjs && node scripts/audit-features.mjs && node scripts/record-baseline.mjs",
+    "ci": "node --experimental-sqlite --no-warnings --test \"test/**/*.test.{js,mjs,cjs}\" && node scripts/production-import-audit.mjs && node scripts/audit-golden-suite.mjs && node scripts/audit-features.mjs && node scripts/record-baseline.mjs",
+    "audit:production-imports": "node scripts/production-import-audit.mjs",
     "audit:features": "node scripts/audit-features.mjs",
     "audit:golden": "node scripts/audit-golden-suite.mjs",
     "baseline:build": "node scripts/build-generation-baseline.mjs --write",

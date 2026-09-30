@@ -1,0 +1,764 @@
+{
+  "cycle": 5,
+  "evaluatedAt": "2026-09-23T10:29:02.870Z",
+  "postgresStatus": {
+    "enabled": true,
+    "available": true,
+    "status": "ready",
+    "database": "molan_v2_dev_20260915",
+    "serverVersion": "18.6",
+    "tableCount": 77
+  },
+  "engine": "gpt-5.6-luna (live online inference)",
+  "fantasy_optimal_v5": {
+    "title": "万古神帝-神武破壁-live-cycle5",
+    "charCount": 2847,
+    "durationMs": 61311,
+    "requestId": "req_e7a9a212e79d6a5f1d3912b2c28faf5e",
+    "tokens": {
+      "requestId": "req_e7a9a212e79d6a5f1d3912b2c28faf5e",
+      "userEmail": "1271055010@qq.com",
+      "userId": "usr_69045981613f27cb496923a120d17758",
+      "workspaceId": "",
+      "projectId": "",
+      "modelId": "gpt-5.6-luna",
+      "providerModel": "gpt-5.6-luna",
+      "contextWindowTokens": 131072,
+      "promptTokens": 12646,
+      "completionTokens": 3280,
+      "reasoningTokens": 516,
+      "totalTokens": 15926,
+      "cachedTokens": null,
+      "cacheWriteTokens": null,
+      "usageSource": "upstream",
+      "status": "completed",
+      "finishReason": null,
+      "createdAt": 1790159228183,
+      "durationMs": 60851,
+      "creditCost": 0,
+      "reservedCost": 0,
+      "estimatedTokens": 15926,
+      "estimatedCreditCost": 0,
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "needs_review",
+        "findings": [],
+        "matchedRuleIds": [],
+        "findingCount": 0,
+        "metrics": {
+          "chars": 2732,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 0,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 0,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 6,
+          "shortParagraphLimit": 3,
+          "exceeded": [
+            "shortParagraphs"
+          ]
+        },
+        "repetition": [],
+        "genre": "玄幻",
+        "genreFamily": "ancient_cultivation",
+        "skippedRuleIds": [],
+        "checkedAt": 1790159289033
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "qualityScan": {
+        "maxChars": 200000,
+        "scannedChars": 2847,
+        "truncated": false
+      },
+      "skillAudit": {
+        "version": 1,
+        "audited": true,
+        "status": "verified",
+        "promptHash": "445644ad32c53722243c14292e5e89c003a379278312e0228062300ba06671b9",
+        "actualSkillIds": [
+          "mars-style-pure-xuanhuan-writing"
+        ],
+        "declaredSkillIds": [
+          "mars-style-pure-xuanhuan-writing"
+        ],
+        "skills": [
+          {
+            "id": "mars-style-pure-xuanhuan-writing",
+            "name": "mars-style-pure-xuanhuan-writing",
+            "source": "builtin",
+            "occurrences": 1,
+            "files": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "fileManifest": [
+              {
+                "path": "agents/openai.yaml",
+                "type": "text",
+                "size": 265
+              },
+              {
+                "path": "references/correction-library.md",
+                "type": "text",
+                "size": 13330
+              },
+              {
+                "path": "SKILL.md",
+                "type": "text",
+                "size": 5477
+              }
+            ],
+            "fileHashes": [
+              {
+                "path": "agents/openai.yaml",
+                "sha256": "48e8a021a66de37aa5e39093d4e4f6610ef0d857c6cd81140056b8b4b7bf20b6",
+                "size": 161
+              },
+              {
+                "path": "references/correction-library.md",
+                "sha256": "cfc9a86e6ca5a874e826ccd51820be824fabe798aa33e1c56723ecefbc907581",
+                "size": 5648
+              },
+              {
+                "path": "SKILL.md",
+                "sha256": "a9df8d3b0c43c658391fa9931104daf75c675a762c2d9179dda07c859079eed6",
+                "size": 2103
+              }
+            ],
+            "instructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+            "expectedInstructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+            "promptFiles": [
+              "SKILL.md",
+              "references/correction-library.md"
+            ],
+            "promptInstructionHash": "34491ece7cc334cdb23f7f059597f7fbd2d36400d6216f916294959e32961fa9",
+            "promptFilesProvided": false,
+            "declaredPromptFiles": [],
+            "declaredFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "declaredFileManifest": [
+              {
+                "path": "agents/openai.yaml",
+                "type": "text",
+                "size": 265
+              },
+              {
+                "path": "references/correction-library.md",
+                "type": "text",
+                "size": 13330
+              },
+              {
+                "path": "SKILL.md",
+                "type": "text",
+                "size": 5477
+              }
+            ],
+            "verification": "server-match"
+          }
+        ],
+        "stage": "writing",
+        "editorOnly": false,
+        "defaultWritingSkill": {
+          "id": "mars-style-pure-xuanhuan-writing",
+          "applied": true
+        },
+        "forwarding": {
+          "status": "verified",
+          "skills": [
+            {
+              "id": "mars-style-pure-xuanhuan-writing",
+              "status": "verified",
+              "instructionForwarded": true,
+              "promptFiles": [
+                "agents/openai.yaml",
+                "references/correction-library.md",
+                "SKILL.md"
+              ],
+              "promptFilesProvided": false,
+              "auditedFiles": [
+                "agents/openai.yaml",
+                "references/correction-library.md",
+                "SKILL.md"
+              ],
+              "forwardedTextFiles": [
+                "agents/openai.yaml",
+                "references/correction-library.md"
+              ],
+              "omittedTextFiles": [],
+              "omittedBinaryFiles": []
+            }
+          ]
+        },
+        "correctionPolicy": {
+          "version": "universal-v3.8-2026-09-10",
+          "scope": "all-users-all-novels",
+          "stages": [
+            "skill_analysis",
+            "writing",
+            "humanizer",
+            "single"
+          ]
+        },
+        "characterMaterial": {
+          "enabled": false,
+          "corpusVersion": "character-material-raw-v3.1-1",
+          "corpus": "general",
+          "mode": "auto",
+          "downgradeReason": "",
+          "archetype": "",
+          "archetypes": [],
+          "archetypeSource": "none",
+          "archetypeConfidence": 0,
+          "dimensions": [
+            "appearance",
+            "expression",
+            "action",
+            "dialogue",
+            "catchphrase",
+            "psychology"
+          ],
+          "scene": "",
+          "relationship": "",
+          "emotionalState": [],
+          "intent": "",
+          "humanTextureSignals": [],
+          "contextFallback": true,
+          "rankingWeights": null,
+          "profileKey": "",
+          "profileBucket": "",
+          "profileFocusSlice": "",
+          "profileAvailable": false,
+          "profileFallback": true,
+          "profileReason": "profiles_not_published",
+          "profileSampleCount": 0,
+          "ruleCount": 0,
+          "sampleCount": 0,
+          "fallback": true,
+          "samplesRemovedByBudget": false,
+          "rulesReducedByBudget": false,
+          "sampleSources": [],
+          "reason": "disabled_by_work",
+          "overlap": {
+            "checkedSampleCount": 0,
+            "overlapFragments": [],
+            "leakedTerms": [],
+            "blocked": false
+          },
+          "rhythmDeviation": {
+            "available": false,
+            "exceeded": false
+          },
+          "blocked": false
+        },
+        "correctionAudit": {
+          "version": "universal-v3.8-2026-09-10",
+          "libraryVersion": "f4d035d0d608",
+          "enabled": true,
+          "status": "needs_review",
+          "findings": [],
+          "matchedRuleIds": [],
+          "findingCount": 0,
+          "metrics": {
+            "chars": 2732,
+            "charLimitMin": 2000,
+            "charLimitMax": 3000,
+            "metaphorWords": 0,
+            "metaphorLimit": 4,
+            "decorativeQuantity": 0,
+            "decorativeQuantityLimit": 2,
+            "shortParagraphs": 6,
+            "shortParagraphLimit": 3,
+            "exceeded": [
+              "shortParagraphs"
+            ]
+          },
+          "repetition": [],
+          "genre": "玄幻",
+          "genreFamily": "ancient_cultivation",
+          "skippedRuleIds": [],
+          "checkedAt": 1790159289033
+        }
+      },
+      "messagesHash": "445644ad32c53722243c14292e5e89c003a379278312e0228062300ba06671b9",
+      "editorOnly": false,
+      "billingStatus": "exact"
+    },
+    "conflictDensity": 0.07024938531787847,
+    "fangfuCount": 0
+  },
+  "xianxia_optimal_v5": {
+    "title": "凡人修仙传-神手谷考验-live-cycle5",
+    "charCount": 3041,
+    "durationMs": 53740,
+    "requestId": "req_7ac04978dce86a79ded56d6372e1409d",
+    "tokens": {
+      "requestId": "req_7ac04978dce86a79ded56d6372e1409d",
+      "userEmail": "1271055010@qq.com",
+      "userId": "usr_69045981613f27cb496923a120d17758",
+      "workspaceId": "",
+      "projectId": "",
+      "modelId": "gpt-5.6-luna",
+      "providerModel": "gpt-5.6-luna",
+      "contextWindowTokens": 131072,
+      "promptTokens": 12285,
+      "completionTokens": 2891,
+      "reasoningTokens": 248,
+      "totalTokens": 15176,
+      "cachedTokens": 11008,
+      "cacheWriteTokens": null,
+      "usageSource": "upstream",
+      "status": "completed",
+      "finishReason": null,
+      "createdAt": 1790159289367,
+      "durationMs": 53439,
+      "creditCost": 0,
+      "reservedCost": 0,
+      "estimatedTokens": 15176,
+      "estimatedCreditCost": 0,
+      "correctionAudit": {
+        "version": "universal-v3.8-2026-09-10",
+        "libraryVersion": "f4d035d0d608",
+        "enabled": true,
+        "status": "needs_review",
+        "findings": [
+          {
+            "ruleId": "R-45-chapter-length-standard",
+            "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+            "severity": "high",
+            "text": "# 神手谷的考验\n\n神手谷的偏厢房常年关着半扇窗，屋里没有多少阳光，药材的气味却积得很厚。苦参、黄精、蛇涎草混在一起，沉沉压在鼻端，连木架上的灰尘都带着药味。\n\n韩立站在长案前，面前摆着十七只小碟。碟中药材形状相近，颜色却各有差别。墨大夫坐",
+            "index": 0,
+            "suggestion": {
+              "ruleId": "R-45",
+              "label": "商业单章篇幅硬标准（2000~3000字）",
+              "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+              "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+              "caseId": null,
+              "before": null,
+              "after": null,
+              "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+            }
+          }
+        ],
+        "matchedRuleIds": [
+          "R-45-chapter-length-standard"
+        ],
+        "findingCount": 1,
+        "metrics": {
+          "chars": 2826,
+          "charLimitMin": 2000,
+          "charLimitMax": 3000,
+          "metaphorWords": 1,
+          "metaphorLimit": 4,
+          "decorativeQuantity": 1,
+          "decorativeQuantityLimit": 2,
+          "shortParagraphs": 34,
+          "shortParagraphLimit": 3,
+          "exceeded": [
+            "shortParagraphs"
+          ]
+        },
+        "repetition": [],
+        "genre": "仙侠",
+        "genreFamily": "ancient_cultivation",
+        "skippedRuleIds": [],
+        "checkedAt": 1790159342806
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "qualityScan": {
+        "maxChars": 200000,
+        "scannedChars": 3041,
+        "truncated": false
+      },
+      "skillAudit": {
+        "version": 1,
+        "audited": true,
+        "status": "verified",
+        "promptHash": "f2414a7a7a112ce3d7bd903297cb9c5740a99a869c61243e6475cbf33f201fd3",
+        "actualSkillIds": [
+          "mars-style-pure-xuanhuan-writing"
+        ],
+        "declaredSkillIds": [
+          "mars-style-pure-xuanhuan-writing"
+        ],
+        "skills": [
+          {
+            "id": "mars-style-pure-xuanhuan-writing",
+            "name": "mars-style-pure-xuanhuan-writing",
+            "source": "builtin",
+            "occurrences": 1,
+            "files": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "fileManifest": [
+              {
+                "path": "agents/openai.yaml",
+                "type": "text",
+                "size": 265
+              },
+              {
+                "path": "references/correction-library.md",
+                "type": "text",
+                "size": 13330
+              },
+              {
+                "path": "SKILL.md",
+                "type": "text",
+                "size": 5477
+              }
+            ],
+            "fileHashes": [
+              {
+                "path": "agents/openai.yaml",
+                "sha256": "48e8a021a66de37aa5e39093d4e4f6610ef0d857c6cd81140056b8b4b7bf20b6",
+                "size": 161
+              },
+              {
+                "path": "references/correction-library.md",
+                "sha256": "cfc9a86e6ca5a874e826ccd51820be824fabe798aa33e1c56723ecefbc907581",
+                "size": 5648
+              },
+              {
+                "path": "SKILL.md",
+                "sha256": "a9df8d3b0c43c658391fa9931104daf75c675a762c2d9179dda07c859079eed6",
+                "size": 2103
+              }
+            ],
+            "instructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+            "expectedInstructionHash": "555e468d428c71e68d9be009fd8ab98ee67c3aa2a014c86ba6ae39796496bb37",
+            "promptFiles": [
+              "SKILL.md",
+              "references/correction-library.md"
+            ],
+            "promptInstructionHash": "34491ece7cc334cdb23f7f059597f7fbd2d36400d6216f916294959e32961fa9",
+            "promptFilesProvided": false,
+            "declaredPromptFiles": [],
+            "declaredFiles": [
+              "agents/openai.yaml",
+              "references/correction-library.md",
+              "SKILL.md"
+            ],
+            "declaredFileManifest": [
+              {
+                "path": "agents/openai.yaml",
+                "type": "text",
+                "size": 265
+              },
+              {
+                "path": "references/correction-library.md",
+                "type": "text",
+                "size": 13330
+              },
+              {
+                "path": "SKILL.md",
+                "type": "text",
+                "size": 5477
+              }
+            ],
+            "verification": "server-match"
+          }
+        ],
+        "stage": "writing",
+        "editorOnly": false,
+        "defaultWritingSkill": {
+          "id": "mars-style-pure-xuanhuan-writing",
+          "applied": true
+        },
+        "forwarding": {
+          "status": "verified",
+          "skills": [
+            {
+              "id": "mars-style-pure-xuanhuan-writing",
+              "status": "verified",
+              "instructionForwarded": true,
+              "promptFiles": [
+                "agents/openai.yaml",
+                "references/correction-library.md",
+                "SKILL.md"
+              ],
+              "promptFilesProvided": false,
+              "auditedFiles": [
+                "agents/openai.yaml",
+                "references/correction-library.md",
+                "SKILL.md"
+              ],
+              "forwardedTextFiles": [
+                "agents/openai.yaml",
+                "references/correction-library.md"
+              ],
+              "omittedTextFiles": [],
+              "omittedBinaryFiles": []
+            }
+          ]
+        },
+        "correctionPolicy": {
+          "version": "universal-v3.8-2026-09-10",
+          "scope": "all-users-all-novels",
+          "stages": [
+            "skill_analysis",
+            "writing",
+            "humanizer",
+            "single"
+          ]
+        },
+        "characterMaterial": {
+          "enabled": false,
+          "corpusVersion": "character-material-raw-v3.1-1",
+          "corpus": "general",
+          "mode": "auto",
+          "downgradeReason": "",
+          "archetype": "",
+          "archetypes": [],
+          "archetypeSource": "none",
+          "archetypeConfidence": 0,
+          "dimensions": [
+            "appearance",
+            "expression",
+            "action",
+            "dialogue",
+            "catchphrase",
+            "psychology"
+          ],
+          "scene": "",
+          "relationship": "",
+          "emotionalState": [],
+          "intent": "",
+          "humanTextureSignals": [],
+          "contextFallback": true,
+          "rankingWeights": null,
+          "profileKey": "",
+          "profileBucket": "",
+          "profileFocusSlice": "",
+          "profileAvailable": false,
+          "profileFallback": true,
+          "profileReason": "profiles_not_published",
+          "profileSampleCount": 0,
+          "ruleCount": 0,
+          "sampleCount": 0,
+          "fallback": true,
+          "samplesRemovedByBudget": false,
+          "rulesReducedByBudget": false,
+          "sampleSources": [],
+          "reason": "disabled_by_work",
+          "overlap": {
+            "checkedSampleCount": 0,
+            "overlapFragments": [],
+            "leakedTerms": [],
+            "blocked": false
+          },
+          "rhythmDeviation": {
+            "available": false,
+            "exceeded": false
+          },
+          "blocked": false
+        },
+        "correctionAudit": {
+          "version": "universal-v3.8-2026-09-10",
+          "libraryVersion": "f4d035d0d608",
+          "enabled": true,
+          "status": "needs_review",
+          "findings": [
+            {
+              "ruleId": "R-45-chapter-length-standard",
+              "label": "商业单章篇幅硬标准（2000~3000字，当前已超标）",
+              "severity": "high",
+              "text": "# 神手谷的考验\n\n神手谷的偏厢房常年关着半扇窗，屋里没有多少阳光，药材的气味却积得很厚。苦参、黄精、蛇涎草混在一起，沉沉压在鼻端，连木架上的灰尘都带着药味。\n\n韩立站在长案前，面前摆着十七只小碟。碟中药材形状相近，颜色却各有差别。墨大夫坐",
+              "index": 0,
+              "suggestion": {
+                "ruleId": "R-45",
+                "label": "商业单章篇幅硬标准（2000~3000字）",
+                "must": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离",
+                "badExample": "单章低于 2000 字或超过 3000 字大段注水",
+                "caseId": null,
+                "before": null,
+                "after": null,
+                "principle": "全管线商业单章正文篇幅严格控制在 2,000 ~ 3,000 汉字，严禁严重偏离"
+              }
+            }
+          ],
+          "matchedRuleIds": [
+            "R-45-chapter-length-standard"
+          ],
+          "findingCount": 1,
+          "metrics": {
+            "chars": 2826,
+            "charLimitMin": 2000,
+            "charLimitMax": 3000,
+            "metaphorWords": 1,
+            "metaphorLimit": 4,
+            "decorativeQuantity": 1,
+            "decorativeQuantityLimit": 2,
+            "shortParagraphs": 34,
+            "shortParagraphLimit": 3,
+            "exceeded": [
+              "shortParagraphs"
+            ]
+          },
+          "repetition": [],
+          "genre": "仙侠",
+          "genreFamily": "ancient_cultivation",
+          "skippedRuleIds": [],
+          "checkedAt": 1790159342806
+        }
+      },
+      "messagesHash": "f2414a7a7a112ce3d7bd903297cb9c5740a99a869c61243e6475cbf33f201fd3",
+      "editorOnly": false,
+      "billingStatus": "exact"
+    },
+    "fangfuCount": 0
+  },
+  "regressionReport": {
+    "verdict": "FAIL",
+    "passed": 7,
+    "total": 10,
+    "rationale": "检出 3 项质量回归用例（REG-CASE-02）：最新优化 OPT-SCENE-001 在消除时空硬切的同时，导致开篇第一幕冲突烈度衰退 36.7%，突破了 35.0% 的安全容差红线，触发新缺陷 DEF-PACING-REG-001。依据严谨回归门禁准则，判定回归测试为 FAIL，阻止带病上线。"
+  },
+  "generalizationReport": {
+    "judgment": "当前系统在底层工程与人设因果上‘真正提升了通用写作能力’；但在场景转场层面上，陷入了‘为了向 Benchmark 的从容文风靠拢而误伤玄幻即时冲突’的局部形式拟合偏差。禁止单凭硬切清零就盲目推进，必须对 OPT-SCENE-001 进行反过度平滑（De-smoothing）调优。",
+    "qualityGain": {
+      "transition_smoothness": {
+        "metric": "转场平滑度与心流连续性",
+        "status": "SIGNIFICANT_IMPROVEMENT",
+        "description": "跨3日时空硬切完全消除（1 -> 0），由环境风向与调息做过渡锚点，阅读体验由拼贴走向自然。"
+      },
+      "character_subtext": {
+        "metric": "人物对话机锋与人味",
+        "status": "MODERATE_IMPROVEMENT",
+        "description": "打破纯功能性对白，增加自嘲、护短与机锋反讽，生动度提升。"
+      },
+      "conflict_intensity": {
+        "metric": "核心冲突压迫感与即时爽感",
+        "status": "REGRESSION",
+        "description": "开篇冲突动词密度下降 72.1%，动作物理交锋被言语对峙弱化，存在即时爽感回退。"
+      },
+      "overall_net_gain": "ASYMMETRIC_GAIN (非对称收益：结构连贯性上升，但局部交锋烈度受损)"
+    },
+    "overfittingRisk": {
+      "level": "MEDIUM_LOW (形式局部拟合，本质未过拟合)",
+      "justification": "系统没有在情节、世界观或语言风格上死记硬背 Benchmark；但确实在转场节奏的‘表面形态’上，被过度导向了 Benchmark 的‘慢条斯理’，导致动作冲突密度发生非预期衰减。"
+    }
+  },
+  "evolutionDecision": {
+    "status": "REJECTED",
+    "reason": "裁决拒绝合入主线 (REJECTED)：冲突动词降幅达 72.1%，超出 35.0% 安全容差红线，即时爽感发生显著回退；回归测试未通过（REG-CASE-02 失败，出现质量回退）。严禁将带回归缺陷的代码并入主干！",
+    "next_target": {
+      "candidate_id": "OPT-DESC-002",
+      "target_defect": "DEF-DESC-001 (高潮受力描写与骨肉形变微修补自动化率)",
+      "description": "将神威受力描写从‘战后补丁’前移至‘起草期实时注入’，进一步提高战斗场面实体打击感",
+      "severity": 3,
+      "scope": 3,
+      "frequency": 4,
+      "fixability": 5,
+      "validationValue": 4,
+      "calculated_priority": 720
+    }
+  }
+}

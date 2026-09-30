@@ -1,0 +1,10 @@
+{
+  "kind": "fixed_control_prompt",
+  "sourceCommit": "e34d0ca4f650b4ec50bd3bee62663bfd4d412096",
+  "sourcePath": "completion-editor.js",
+  "sourceSymbol": "baseWritingDirectives",
+  "promptFile": "control-prompt.txt",
+  "normalization": "UTF-8; CRLF to LF; trim file newline",
+  "historicalPipelineReplay": false,
+  "limitations": "仅固定起草system prompt。未重演历史动态上下文、范文检索、角色演绎、执行卡、审计和修订主链路；不可宣称完整旧版主链路实测。"
+}

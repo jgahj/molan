@@ -1,0 +1,762 @@
+{
+  "schemaVersion": "molan-deterministic-evaluations-v1",
+  "generatedAt": "2026-09-22T11:16:39.178Z",
+  "evaluations": [
+    {
+      "runId": "25b2fbd06ab3b7bc9966f2065c175fc23643f876928848bcded53aaab0eaaa8f",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/25b2fbd06ab3b7bc9966f2065c175fc23643f876928848bcded53aaab0eaaa8f.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 17.6724,
+        "sentenceLenStd": 11.1351,
+        "paragraphLenMean": 24.6,
+        "paragraphLenStd": 22.7909,
+        "dialogueRatio": 0.198699,
+        "dialogueTurnMean": 8.9853,
+        "commaPeriodRatio": 1.089,
+        "ttr": 0.793478,
+        "similePerKilo": 0.3252,
+        "totalChars": 3075
+      },
+      "structure": {
+        "chars": 3075,
+        "paragraphCount": 125,
+        "sentenceCount": 174,
+        "singleSentenceParagraphRatio": 0.704,
+        "directPsychRatio": 0.0287,
+        "onomatopoeiaParagraphRatio": 0,
+        "dialogueParagraphRatio": 0.528,
+        "openingMode": "scene",
+        "endingMode": "fulfil",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [
+          {
+            "code": "word_count",
+            "severity": "warning",
+            "detail": "字数 3075，目标 2500±15%"
+          },
+          {
+            "code": "name_char_overlap",
+            "severity": "info",
+            "detail": "1 对人名共享汉字",
+            "samples": [
+              {
+                "a": "没有人",
+                "b": "没人知",
+                "shared": [
+                  "没",
+                  "人"
+                ]
+              }
+            ]
+          }
+        ],
+        "newNameCount": 3,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 26,
+        "passed": true,
+        "metrics": {
+          "sentenceStdRatio": 0.6354,
+          "ttrRatio": 1.1887,
+          "paragraphUniformity": 0.9265,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 0.3252,
+          "lexiconWatchPerKilo": 0.3252
+        },
+        "details": {
+          "blockHits": [
+            {
+              "term": "一种",
+              "count": 1
+            }
+          ],
+          "watchHits": [
+            {
+              "term": "话音刚落",
+              "count": 1
+            }
+          ],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 37,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    },
+    {
+      "runId": "35372707a9dbab6a585c05993cdb9fb9c3465c6d2bb7aaf5a1d0cc8923df5158",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/35372707a9dbab6a585c05993cdb9fb9c3465c6d2bb7aaf5a1d0cc8923df5158.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 30,
+        "sentenceLenStd": 2,
+        "paragraphLenMean": 60,
+        "paragraphLenStd": 0,
+        "dialogueRatio": 0,
+        "dialogueTurnMean": 0,
+        "commaPeriodRatio": 1,
+        "ttr": 0.942308,
+        "similePerKilo": 0,
+        "totalChars": 60
+      },
+      "structure": {
+        "chars": 60,
+        "paragraphCount": 1,
+        "sentenceCount": 2,
+        "singleSentenceParagraphRatio": 0,
+        "directPsychRatio": 0,
+        "onomatopoeiaParagraphRatio": 0,
+        "dialogueParagraphRatio": 0,
+        "openingMode": "scene",
+        "endingMode": "unknown",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [
+          {
+            "code": "word_count",
+            "severity": "warning",
+            "detail": "字数 60，目标 2500±15%"
+          }
+        ],
+        "newNameCount": 0,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 50,
+        "passed": false,
+        "metrics": {
+          "sentenceStdRatio": 0.1113,
+          "ttrRatio": 1.4117,
+          "paragraphUniformity": 0,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 0,
+          "lexiconWatchPerKilo": 0
+        },
+        "details": {
+          "blockHits": [],
+          "watchHits": [],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 0,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    },
+    {
+      "runId": "56031f943ef9bdba4d513fa1cb8645e43bda3cfe4e1b7b8712418d765eb3be1e",
+      "status": "INSUFFICIENT_DATA",
+      "sourceFile": "data/benchmark-runs/56031f943ef9bdba4d513fa1cb8645e43bda3cfe4e1b7b8712418d765eb3be1e.json",
+      "metrics": null
+    },
+    {
+      "runId": "61a2f63930edfc10c42049f84a072c8b7ee9da728da3bb9bffb5aa194fbe47f3",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/61a2f63930edfc10c42049f84a072c8b7ee9da728da3bb9bffb5aa194fbe47f3.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 18.6044,
+        "sentenceLenStd": 10.0048,
+        "paragraphLenMean": 28.9402,
+        "paragraphLenStd": 26.6334,
+        "dialogueRatio": 0.25635,
+        "dialogueTurnMean": 15.2281,
+        "commaPeriodRatio": 0.8363,
+        "ttr": 0.744761,
+        "similePerKilo": 0.5907,
+        "totalChars": 3386
+      },
+      "structure": {
+        "chars": 3386,
+        "paragraphCount": 117,
+        "sentenceCount": 182,
+        "singleSentenceParagraphRatio": 0.6496,
+        "directPsychRatio": 0.022,
+        "onomatopoeiaParagraphRatio": 0,
+        "dialogueParagraphRatio": 0.4103,
+        "openingMode": "scene",
+        "endingMode": "fulfil",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [
+          {
+            "code": "word_count",
+            "severity": "warning",
+            "detail": "字数 3386，目标 2500±15%"
+          }
+        ],
+        "newNameCount": 3,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 30,
+        "passed": true,
+        "metrics": {
+          "sentenceStdRatio": 0.5584,
+          "ttrRatio": 1.1157,
+          "paragraphUniformity": 0.9203,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 0,
+          "lexiconWatchPerKilo": 0
+        },
+        "details": {
+          "blockHits": [],
+          "watchHits": [],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 47,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    },
+    {
+      "runId": "7b39b69e99756101fe1386f0ef9a9aab80b109acd2fdfc27fdb2f5618f852ed8",
+      "status": "INSUFFICIENT_DATA",
+      "sourceFile": "data/benchmark-runs/7b39b69e99756101fe1386f0ef9a9aab80b109acd2fdfc27fdb2f5618f852ed8.json",
+      "metrics": null
+    },
+    {
+      "runId": "892243e744e02c3520cdd35fe52e78873f9e2d48111d4a101e1955457dc79d70",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/892243e744e02c3520cdd35fe52e78873f9e2d48111d4a101e1955457dc79d70.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 24.6552,
+        "sentenceLenStd": 10.315,
+        "paragraphLenMean": 45.3968,
+        "paragraphLenStd": 31.4196,
+        "dialogueRatio": 0.001748,
+        "dialogueTurnMean": 5,
+        "commaPeriodRatio": 1.5439,
+        "ttr": 0.843421,
+        "similePerKilo": 0,
+        "totalChars": 2860
+      },
+      "structure": {
+        "chars": 2860,
+        "paragraphCount": 63,
+        "sentenceCount": 116,
+        "singleSentenceParagraphRatio": 0.5079,
+        "directPsychRatio": 0.069,
+        "onomatopoeiaParagraphRatio": 0.0159,
+        "dialogueParagraphRatio": 0.0159,
+        "openingMode": "scene",
+        "endingMode": "turn",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [],
+        "newNameCount": 0,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 30,
+        "passed": true,
+        "metrics": {
+          "sentenceStdRatio": 0.5749,
+          "ttrRatio": 1.2636,
+          "paragraphUniformity": 0.6921,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 0.3497,
+          "lexiconWatchPerKilo": 0
+        },
+        "details": {
+          "blockHits": [
+            {
+              "term": "从这一刻起",
+              "count": 1
+            }
+          ],
+          "watchHits": [],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 31,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    },
+    {
+      "runId": "959377cb26e7b6c95c8e5689b238d73a104c5409807392e855b479a82f0adfa7",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/959377cb26e7b6c95c8e5689b238d73a104c5409807392e855b479a82f0adfa7.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 18.4663,
+        "sentenceLenStd": 9.9064,
+        "paragraphLenMean": 25.4806,
+        "paragraphLenStd": 19.2926,
+        "dialogueRatio": 0.180712,
+        "dialogueTurnMean": 12.6383,
+        "commaPeriodRatio": 1.2597,
+        "ttr": 0.785588,
+        "similePerKilo": 2.7381,
+        "totalChars": 3287
+      },
+      "structure": {
+        "chars": 3287,
+        "paragraphCount": 129,
+        "sentenceCount": 178,
+        "singleSentenceParagraphRatio": 0.6822,
+        "directPsychRatio": 0.0899,
+        "onomatopoeiaParagraphRatio": 0,
+        "dialogueParagraphRatio": 0.3178,
+        "openingMode": "scene",
+        "endingMode": "fulfil",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [
+          {
+            "code": "word_count",
+            "severity": "warning",
+            "detail": "字数 3287，目标 2500±15%"
+          }
+        ],
+        "newNameCount": 2,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 30,
+        "passed": true,
+        "metrics": {
+          "sentenceStdRatio": 0.5718,
+          "ttrRatio": 1.1769,
+          "paragraphUniformity": 0.7571,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 0.6085,
+          "lexiconWatchPerKilo": 0.3042
+        },
+        "details": {
+          "blockHits": [
+            {
+              "term": "一种",
+              "count": 1
+            },
+            {
+              "term": "笑意",
+              "count": 1
+            }
+          ],
+          "watchHits": [
+            {
+              "term": "不由自主地",
+              "count": 1
+            }
+          ],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 63,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    },
+    {
+      "runId": "a6ff3d1a23b12c3306ea7d4565c9ea313f244029925dd0feacc55ad32d22655a",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/a6ff3d1a23b12c3306ea7d4565c9ea313f244029925dd0feacc55ad32d22655a.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 16.0718,
+        "sentenceLenStd": 8.2746,
+        "paragraphLenMean": 19.6433,
+        "paragraphLenStd": 14.4819,
+        "dialogueRatio": 0.170586,
+        "dialogueTurnMean": 11.9375,
+        "commaPeriodRatio": 0.8226,
+        "ttr": 0.729037,
+        "similePerKilo": 1.4885,
+        "totalChars": 3359
+      },
+      "structure": {
+        "chars": 3359,
+        "paragraphCount": 171,
+        "sentenceCount": 209,
+        "singleSentenceParagraphRatio": 0.7953,
+        "directPsychRatio": 0.0335,
+        "onomatopoeiaParagraphRatio": 0,
+        "dialogueParagraphRatio": 0.2749,
+        "openingMode": "scene",
+        "endingMode": "unknown",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [
+          {
+            "code": "word_count",
+            "severity": "warning",
+            "detail": "字数 3359，目标 2500±15%"
+          }
+        ],
+        "newNameCount": 2,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 51,
+        "passed": false,
+        "metrics": {
+          "sentenceStdRatio": 0.4604,
+          "ttrRatio": 1.0922,
+          "paragraphUniformity": 0.7372,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 2.3817,
+          "lexiconWatchPerKilo": 0.2977
+        },
+        "details": {
+          "blockHits": [
+            {
+              "term": "一缕",
+              "count": 4
+            },
+            {
+              "term": "笑意",
+              "count": 2
+            },
+            {
+              "term": "一丝",
+              "count": 1
+            },
+            {
+              "term": "一股",
+              "count": 1
+            }
+          ],
+          "watchHits": [
+            {
+              "term": "骤然",
+              "count": 1
+            }
+          ],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 101,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    },
+    {
+      "runId": "aede083801c207a0ec76b12a3cea504e01fe9e0c2d1564b8934b0e3e53f82895",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/aede083801c207a0ec76b12a3cea504e01fe9e0c2d1564b8934b0e3e53f82895.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 19.3448,
+        "sentenceLenStd": 9.8998,
+        "paragraphLenMean": 29.2188,
+        "paragraphLenStd": 23.4184,
+        "dialogueRatio": 0.251337,
+        "dialogueTurnMean": 17.625,
+        "commaPeriodRatio": 0.9549,
+        "ttr": 0.788692,
+        "similePerKilo": 0.3565,
+        "totalChars": 2805
+      },
+      "structure": {
+        "chars": 2805,
+        "paragraphCount": 96,
+        "sentenceCount": 145,
+        "singleSentenceParagraphRatio": 0.6146,
+        "directPsychRatio": 0.0207,
+        "onomatopoeiaParagraphRatio": 0,
+        "dialogueParagraphRatio": 0.4167,
+        "openingMode": "scene",
+        "endingMode": "newProblem",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [],
+        "newNameCount": 1,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 30,
+        "passed": true,
+        "metrics": {
+          "sentenceStdRatio": 0.5462,
+          "ttrRatio": 1.1816,
+          "paragraphUniformity": 0.8015,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 0.3565,
+          "lexiconWatchPerKilo": 0
+        },
+        "details": {
+          "blockHits": [
+            {
+              "term": "从这一刻起",
+              "count": 1
+            }
+          ],
+          "watchHits": [],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 32,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    },
+    {
+      "runId": "c712e13ca07acee05c64735a0bb659f59691ddd49b77d0562994bdfe860dbcfb",
+      "status": "INSUFFICIENT_DATA",
+      "sourceFile": "data/benchmark-runs/c712e13ca07acee05c64735a0bb659f59691ddd49b77d0562994bdfe860dbcfb.json",
+      "metrics": null
+    },
+    {
+      "runId": "cb603b0f974528f4ceaf5a98a06303ec5b0285423bf7bd690bbbde34d6068947",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/cb603b0f974528f4ceaf5a98a06303ec5b0285423bf7bd690bbbde34d6068947.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 19.8525,
+        "sentenceLenStd": 11.122,
+        "paragraphLenMean": 30.0248,
+        "paragraphLenStd": 28.454,
+        "dialogueRatio": 0.12469,
+        "dialogueTurnMean": 12.2432,
+        "commaPeriodRatio": 1.152,
+        "ttr": 0.767141,
+        "similePerKilo": 0.8258,
+        "totalChars": 3633
+      },
+      "structure": {
+        "chars": 3633,
+        "paragraphCount": 121,
+        "sentenceCount": 183,
+        "singleSentenceParagraphRatio": 0.6777,
+        "directPsychRatio": 0.0055,
+        "onomatopoeiaParagraphRatio": 0,
+        "dialogueParagraphRatio": 0.2975,
+        "openingMode": "scene",
+        "endingMode": "turn",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [
+          {
+            "code": "word_count",
+            "severity": "warning",
+            "detail": "字数 3633，目标 2500±15%"
+          }
+        ],
+        "newNameCount": 2,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 27,
+        "passed": true,
+        "metrics": {
+          "sentenceStdRatio": 0.6256,
+          "ttrRatio": 1.1493,
+          "paragraphUniformity": 0.9477,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 0.5505,
+          "lexiconWatchPerKilo": 0
+        },
+        "details": {
+          "blockHits": [
+            {
+              "term": "一缕",
+              "count": 2
+            }
+          ],
+          "watchHits": [],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 56,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    },
+    {
+      "runId": "d3d37379e8cf9fc91ddcdae6807c1fe2f306272cd7604d1cb02dbcd90137c995",
+      "status": "MEASURED",
+      "sourceFile": "data/benchmark-runs/d3d37379e8cf9fc91ddcdae6807c1fe2f306272cd7604d1cb02dbcd90137c995.json",
+      "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
+      "genreUsedForDetector": "玄幻",
+      "baselineInputUsedOnlyByDetector": true,
+      "fingerprint": {
+        "sentenceLenMean": 19.5362,
+        "sentenceLenStd": 12.1932,
+        "paragraphLenMean": 27.8897,
+        "paragraphLenStd": 23.9059,
+        "dialogueRatio": 0.156034,
+        "dialogueTurnMean": 13.1458,
+        "commaPeriodRatio": 1.1694,
+        "ttr": 0.752444,
+        "similePerKilo": 0.2473,
+        "totalChars": 4044
+      },
+      "structure": {
+        "chars": 4044,
+        "paragraphCount": 145,
+        "sentenceCount": 207,
+        "singleSentenceParagraphRatio": 0.6276,
+        "directPsychRatio": 0.0193,
+        "onomatopoeiaParagraphRatio": 0,
+        "dialogueParagraphRatio": 0.3034,
+        "openingMode": "scene",
+        "endingMode": "turn",
+        "endingModeMethod": "last-three-paragraphs-keyword-heuristic-not-semantic-review",
+        "measurementVersion": "2-utf16-nonwhitespace-line-sentences"
+      },
+      "hardConstraints": {
+        "passed": true,
+        "issues": [
+          {
+            "code": "word_count",
+            "severity": "warning",
+            "detail": "字数 4044，目标 2500±15%"
+          }
+        ],
+        "newNameCount": 2,
+        "repeatedSentences": 0,
+        "duplicateParagraphs": 0
+      },
+      "aiFlavor": {
+        "score": 31,
+        "passed": true,
+        "metrics": {
+          "sentenceStdRatio": 0.6643,
+          "ttrRatio": 1.1273,
+          "paragraphUniformity": 0.8572,
+          "structuralRiskTotal": 0,
+          "structuralSignalsAdvisory": true,
+          "lexiconBlockPerKilo": 1.4837,
+          "lexiconWatchPerKilo": 0
+        },
+        "details": {
+          "blockHits": [
+            {
+              "term": "一缕",
+              "count": 3
+            },
+            {
+              "term": "一股",
+              "count": 1
+            },
+            {
+              "term": "从这一刻起",
+              "count": 1
+            },
+            {
+              "term": "更重要的是",
+              "count": 1
+            }
+          ],
+          "watchHits": [],
+          "structuralRisks": {
+            "pseudoFragCount": 0,
+            "turnTakingCount": 0,
+            "binarySymmetryCount": 0,
+            "isolatedExplanatoryCount": 0,
+            "singleNarrativeCount": 59,
+            "somaticOverreactionCount": 0
+          }
+        }
+      },
+      "styleDistance": "DEFERRED_TO_COMPARISON_MODEL",
+      "confidence": "UNMEASURED"
+    }
+  ]
+}

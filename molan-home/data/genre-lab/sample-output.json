@@ -1,0 +1,397 @@
+{
+  "generatedAt": "2026-09-08T05:27:37.601Z",
+  "route": "jianzhu",
+  "genre": "玄幻",
+  "charCount": 2982,
+  "durationMs": 255442,
+  "usage": {
+    "requestId": "req_52eb2d3e5435108aedfb1e3aa7b1af29",
+    "userEmail": "1271055010@qq.com",
+    "modelId": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "contextWindowTokens": 131072,
+    "promptTokens": 15405,
+    "completionTokens": 3549,
+    "reasoningTokens": 73,
+    "totalTokens": 18954,
+    "cachedTokens": 15104,
+    "cacheWriteTokens": null,
+    "usageSource": "upstream",
+    "status": "completed",
+    "finishReason": null,
+    "createdAt": 1788845001601,
+    "durationMs": 254759,
+    "creditCost": 0,
+    "reservedCost": 0,
+    "estimatedTokens": 18954,
+    "estimatedCreditCost": 0,
+    "correctionAudit": {
+      "version": "universal-v2-2026-08-21",
+      "enabled": false,
+      "status": "disabled",
+      "findings": [],
+      "matchedRuleIds": [],
+      "findingCount": 0,
+      "checkedAt": null
+    },
+    "characterMaterial": {
+      "enabled": false,
+      "corpusVersion": "character-material-raw-v3.1-1",
+      "corpus": "general",
+      "mode": "auto",
+      "downgradeReason": "",
+      "archetype": "",
+      "archetypes": [],
+      "archetypeSource": "none",
+      "archetypeConfidence": 0,
+      "dimensions": [
+        "appearance",
+        "expression",
+        "action",
+        "dialogue",
+        "catchphrase",
+        "psychology"
+      ],
+      "scene": "",
+      "relationship": "",
+      "emotionalState": [],
+      "intent": "",
+      "humanTextureSignals": [],
+      "contextFallback": true,
+      "rankingWeights": null,
+      "profileKey": "",
+      "profileBucket": "",
+      "profileFocusSlice": "",
+      "profileAvailable": false,
+      "profileFallback": true,
+      "profileReason": "profiles_not_published",
+      "profileSampleCount": 0,
+      "ruleCount": 0,
+      "sampleCount": 0,
+      "fallback": true,
+      "samplesRemovedByBudget": false,
+      "rulesReducedByBudget": false,
+      "sampleSources": [],
+      "reason": "disabled_by_work",
+      "overlap": {
+        "checkedSampleCount": 0,
+        "overlapFragments": [],
+        "leakedTerms": [],
+        "blocked": false
+      },
+      "rhythmDeviation": {
+        "available": false,
+        "exceeded": false
+      },
+      "blocked": false
+    },
+    "skillAudit": {
+      "version": 1,
+      "audited": true,
+      "status": "verified",
+      "promptHash": "d665a707f325f7623ea4d1f98d8b9da635c5e5dcc720f48aba82e462f4002c3f",
+      "actualSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "declaredSkillIds": [
+        "write-high-tension-fiction"
+      ],
+      "skills": [
+        {
+          "id": "write-high-tension-fiction",
+          "name": "write-high-tension-fiction",
+          "source": "builtin",
+          "occurrences": 1,
+          "files": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "fileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12193
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 9846
+            }
+          ],
+          "fileHashes": [
+            {
+              "path": "agents/openai.yaml",
+              "sha256": "c9a7972cd91f5541015caa27365ce95ba3b8b10f2b8e6e47aa5cef6cde981a41",
+              "size": 431
+            },
+            {
+              "path": "references/canon-template.md",
+              "sha256": "87b2208f519a9a618c7fe960b6ed5bfe9f72fb3f6ad4863a16cf0de48565b09c",
+              "size": 1071
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "sha256": "7c763d8551941600e6bcd08ee56443745dcdeb0a0c560767094eb88bf7101fcb",
+              "size": 1710
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "sha256": "94acb0793912aed519ebbcea118cb99bfd7f544f5d5b464dc3689feee3ec50b5",
+              "size": 1632
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "sha256": "7c17ec25494b37e382104cbfabe886ce0d412157358ec82d2d596ace92cd768d",
+              "size": 4667
+            },
+            {
+              "path": "references/style-profile.md",
+              "sha256": "119fa92fbdda319d61a2fa816b448e1e4da0e04f52d88e98cfd47f644ca76707",
+              "size": 1743
+            },
+            {
+              "path": "SKILL.md",
+              "sha256": "e6486cc57c77a0b4704fc272ac7f29f4307c33001cccffd90fe81235fbe5d5ee",
+              "size": 4124
+            }
+          ],
+          "instructionHash": "d82bdc866f757a9fee2e50712a27df65e3c05b7b89f939a7e2cc2d0dc47120de",
+          "expectedInstructionHash": "d82bdc866f757a9fee2e50712a27df65e3c05b7b89f939a7e2cc2d0dc47120de",
+          "promptFiles": [
+            "SKILL.md",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md"
+          ],
+          "promptInstructionHash": "5f4cac3d9a842091b359642468e4a0f5b4c5873e9d77a29e3f0e7148c37bf1d8",
+          "promptFilesProvided": false,
+          "declaredPromptFiles": [],
+          "declaredFiles": [
+            "agents/openai.yaml",
+            "references/canon-template.md",
+            "references/chapter-contract.md",
+            "references/character-triad-framework.md",
+            "references/logic-style-rules.md",
+            "references/style-profile.md",
+            "SKILL.md"
+          ],
+          "declaredFileManifest": [
+            {
+              "path": "agents/openai.yaml",
+              "type": "text",
+              "size": 535
+            },
+            {
+              "path": "references/canon-template.md",
+              "type": "text",
+              "size": 2469
+            },
+            {
+              "path": "references/chapter-contract.md",
+              "type": "text",
+              "size": 4176
+            },
+            {
+              "path": "references/character-triad-framework.md",
+              "type": "text",
+              "size": 4406
+            },
+            {
+              "path": "references/logic-style-rules.md",
+              "type": "text",
+              "size": 12193
+            },
+            {
+              "path": "references/style-profile.md",
+              "type": "text",
+              "size": 4507
+            },
+            {
+              "path": "SKILL.md",
+              "type": "text",
+              "size": 9846
+            }
+          ],
+          "verification": "server-match"
+        }
+      ],
+      "stage": "writing",
+      "editorOnly": false,
+      "defaultWritingSkill": {
+        "id": "write-high-tension-fiction",
+        "applied": true
+      },
+      "forwarding": {
+        "status": "verified",
+        "skills": [
+          {
+            "id": "write-high-tension-fiction",
+            "status": "verified",
+            "instructionForwarded": true,
+            "promptFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "promptFilesProvided": false,
+            "auditedFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md",
+              "SKILL.md"
+            ],
+            "forwardedTextFiles": [
+              "agents/openai.yaml",
+              "references/canon-template.md",
+              "references/chapter-contract.md",
+              "references/character-triad-framework.md",
+              "references/logic-style-rules.md",
+              "references/style-profile.md"
+            ],
+            "omittedTextFiles": [],
+            "omittedBinaryFiles": []
+          }
+        ]
+      },
+      "correctionPolicy": {
+        "enabled": false
+      },
+      "characterMaterial": {
+        "enabled": false,
+        "corpusVersion": "character-material-raw-v3.1-1",
+        "corpus": "general",
+        "mode": "auto",
+        "downgradeReason": "",
+        "archetype": "",
+        "archetypes": [],
+        "archetypeSource": "none",
+        "archetypeConfidence": 0,
+        "dimensions": [
+          "appearance",
+          "expression",
+          "action",
+          "dialogue",
+          "catchphrase",
+          "psychology"
+        ],
+        "scene": "",
+        "relationship": "",
+        "emotionalState": [],
+        "intent": "",
+        "humanTextureSignals": [],
+        "contextFallback": true,
+        "rankingWeights": null,
+        "profileKey": "",
+        "profileBucket": "",
+        "profileFocusSlice": "",
+        "profileAvailable": false,
+        "profileFallback": true,
+        "profileReason": "profiles_not_published",
+        "profileSampleCount": 0,
+        "ruleCount": 0,
+        "sampleCount": 0,
+        "fallback": true,
+        "samplesRemovedByBudget": false,
+        "rulesReducedByBudget": false,
+        "sampleSources": [],
+        "reason": "disabled_by_work",
+        "overlap": {
+          "checkedSampleCount": 0,
+          "overlapFragments": [],
+          "leakedTerms": [],
+          "blocked": false
+        },
+        "rhythmDeviation": {
+          "available": false,
+          "exceeded": false
+        },
+        "blocked": false
+      },
+      "correctionAudit": {
+        "version": "universal-v2-2026-08-21",
+        "enabled": false,
+        "status": "disabled",
+        "findings": [],
+        "matchedRuleIds": [],
+        "findingCount": 0,
+        "checkedAt": null
+      }
+    },
+    "messagesHash": "d665a707f325f7623ea4d1f98d8b9da635c5e5dcc720f48aba82e462f4002c3f",
+    "editorOnly": false,
+    "aiFlavor": {
+      "twoPass": true,
+      "firstPass": {
+        "score": 20,
+        "passed": true,
+        "metrics": {
+          "sentenceStdRatio": null,
+          "ttrRatio": null,
+          "paragraphUniformity": 0.3595,
+          "lexiconBlockPerKilo": 0,
+          "lexiconWatchPerKilo": 0
+        },
+        "blockHitTerms": []
+      },
+      "secondPass": null,
+      "rewrite": {
+        "applied": false,
+        "reason": "first_pass_passed"
+      }
+    },
+    "billingStatus": "exact"
+  },
+  "overlapPassed": true,
+  "overlapIssuesCount": 0,
+  "correctionRiskCount": 0,
+  "hitBanned": [],
+  "matchedAnchors": [
+    "地秤",
+    "铅封",
+    "铁匣",
+    "雨",
+    "公文",
+    "重铠",
+    "刀"
+  ],
+  "text": "## 第七章　铅封冒烟\n\n雨从城关的黑檐上倾下来，顺着砖缝灌进暗巷，泥水已经淹过贺砚的靴帮。他抬脚时，鞋底被湿泥拖住，破皮里灌满了凉水，每走一步都像踩着一团发胀的棉絮。那辆油布货车横在巷心，车轮陷进积水，后轴压得木梁弯折，黑铁地秤的秤砣沉到了第三格，秤杆还在细微地颤。\n\n陈七蹲在车尾，老手按着秤盘边缘，指甲缝里全是黑泥。他咳了两声，把含在喉头的寒气咽回去，才抬头对贺砚说：“校尉，三格沉秤，公验上可没有这一笔。若是北仓司的私货，咱们拿得住；若是水运司押记做过手脚，咱们今晚便算替人顶凶。”\n\n贺砚没有接话。他用刀鞘挑开车轮旁的泥，露出被雨水冲亮的车轴铁钉。钉头没有磨损，车身却压得如此深，里头装的东西不是粮，不是油，至少不该是公验上写的“粗炼铁料”。\n\n赵管事站在车头，身上披着青灰油蓑，袖口没有沾泥。他年近五十，脸上被雨水冲得发白，手里捏着一方叠好的公验，纸角浸湿后起了酸腐的味道。他把公验朝前递了递，动作很慢，像在桌边推一盏不值钱的劣茶。\n\n“贺校尉，北仓司的货，例银已经缴过，水运司也验过押记。您若还要查，照规矩封车拿人，回头我去转运使衙门递一句话，免得咱们都难做。”\n\n贺砚接过公验，没有翻开，只把纸边对着雨幕看了一眼。墨迹被潮气洇开，货名那一栏写的是“西陂沉铁十二担”，落款的司库私印却缺了一角。\n\n“赵管事怕我难做，倒把路替我想好了。”他说着，将公验折回去递还，“可惜我只认眼前的车，不认转运使衙门的闲话。”\n\n赵管事接住公验，拇指压住那枚私印，脸上的肉随着手指略微收紧：“校尉年轻，肯照章办事是好事。只是城关巡防一月才几两例银，北仓司一夜能过多少车，您比我清楚。若这车里真有差池，出了巷口，便是官道关防；若没差池，您今日挑破封缄，便要拿自己的画押去填这桩死案。”\n\n陈七把手从秤盘边挪开，袖子蹭过湿泥，低声咳了一声：“赵管事说得不差，公验缺一角私印，最多算文书受潮，尚不足封缉。校尉，咱们不如记下车号，叫他明日到巡防司补验，也算给北仓司留个脸面。”\n\n“陈老，这车若能明日再验，您何必把秤盘按得这么紧？”贺砚看着他，“您手下压着的不是秤，是车底那根暗梁。”\n\n陈七的指节松开，秤盘随即往下沉了半寸。他把手藏回袖里，浑浊的眼睛盯着车尾缝隙，脸上挤出苦笑：“老朽一把骨头，吃的是衙门里发酸的公文饭，哪敢和谁过不去。只是这车轴沉得不像铁，若真是沉铁，车底便该有水运司的第二道铅封。如今只见外封，不见副牒，校尉若硬挑，先要说清楚凭什么。”\n\n贺砚伸手进胸甲内侧，摸到那份已经折起的副牒。方才验车时，副牒从车夫腰间滑出，他已抽走塞入胸甲，湿气正沿着皮纸边缘浸进来。副牒上盖着北仓司的半枚押印，装货时辰却比城门闭锁早了半个时辰，车号也与公验相差一笔。\n\n他没有把副牒拿出来，只按住胸甲说：“凭这辆车不该在子时过关，凭你们的货名少了一担，凭车轴底下另有铅封。至于为何要挑，等封缄破了，赵管事自然会替我说清。”\n\n赵管事看着他的手，脸上那层客气终于薄了。他身后站着五名脚夫，衣服被雨浇得贴在身上，肩背宽厚，手掌没有搬货留下的裂口，腰间佩刀却都用粗麻布裹住刀柄。那不是脚夫，是带着私货走官道的顶凶。\n\n“校尉，”赵管事把公验收入袖中，“北仓司的账，查到司库便算尽头；转运使的车，封到城关便算越权。您今日若真要把铅封挑开，明日有人问起，我未必能替您挡住。您家中若有老母，或有弟妹要吃药，这一笔例银也不该拿命去换。”\n\n贺砚抬刀，刀鞘尖抵住车尾的铅封。封泥被雨水泡软，外层缠着的麻绳却干净得不合情理，绳结内侧还粘着细白粉末。他看了陈七一眼。\n\n陈七嘴唇动了动，没有出声，只把左手拇指压在右掌虎口，随后又将手藏进袖中。他跟了衙门四十年，知道这个手势是旧吏之间的暗语：封上有毒，别让人靠近；车里不止私货，还有要命的东西。\n\n贺砚把刀鞘往前一送，铅封应声裂开。白烟从缝里挤出，贴着雨水爬上油布，发出细密的腐蚀声，铁扣立刻浮起灰白泡沫。刺鼻的铅腥钻进鼻腔，他胃里猛地翻滚，牙根发酸，像吞下一口熬焦的旧钱。车厢里的油布先被烧穿，露出一方沉黑铁匣，匣面铸着层层水纹，纹路并未随雨水冲淡，反而像活物一样向四周缓慢舒展。\n\n陈七撑着车架站起来，湿咳压在胸口，半晌才挤出话：“校尉，封缄既破，便不是查验，是封缉。别碰匣子，别让活人的血落上去。老朽只护账，不护尸。”\n\n赵管事的脸色变了。他没有再看贺砚，抬手在蓑衣下压了一下。\n\n最靠近车尾的脚夫立即扑来，短刀从麻布中抽出，刀刃贴着雨水直取贺砚喉口。贺砚侧过身，刀锋擦过他的肩甲，甲片向内凹下，铁屑刮破皮肉，热血顺着腋下流进衣服。那脚夫一击不中，肘部撞向他胸口，贺砚被逼得脚跟陷入泥水，后背撞在车板上，胸骨被重甲压得发闷。\n\n他没有抬臂硬挡那柄刀，而是用左手抓住对方的腕骨，借车板的阻力将刀刃往外推。刀锋在肩甲上拖出一串刺耳的刮痕，甲片被压得更深，右臂几乎失去知觉。贺砚咬住牙，腰腹发力把人拽近，右膝顶进对方大腿根，趁那脚夫重心塌下时，刀鞘从下往上撞在其下颌，骨头闷响，短刀脱手坠入积水。\n\n另一名脚夫踩着车轮跃来，刀尖先刺陈七。老吏躲得慢，刀锋挑破他的袖口，皮肉裂开一道口子。他踉跄撞在秤杆上，寒气呛进肺里，弯腰咳得肩背发颤，带血的唾沫落在泥里。贺砚转身已来不及，只能将手里的短刀甩出，刀背撞偏那人的手腕，刀尖擦过陈七肋下，扎进车板。\n\n陈七捂住伤口，没有倒下。他抓起秤盘上的铁砣，用两手抱住，砸向那脚夫的膝弯。铁砣沉重，落下时被雨水带偏，只砸中胫骨。那人腿一软，贺砚扑上去，肩甲狠狠撞在他胸前，将他压进车轮下的泥水。脚夫挣扎着拔刀，贺砚用膝盖压住他的肘关节，刀刃终于卷在粗生铁护腕上，弯成一段发白的残片。\n\n巷口有人吹了一声短哨，赵管事转身便走。留下的三人没有追随，他们知道货车和铁匣比命值钱，也知道今日若不能把巡防校尉留在巷中，自己回到北仓司同样要死。\n\n贺砚拔出车板上的短刀，脚下积水被奔跑的脚夫踩得四散。他抬刀格开迎面一劈，刀锋撞在刀锋上，右手虎口裂开，鲜血立刻淌满刀柄。那名死士借势贴身，肩膀顶进他的胸甲，贺砚胸口像被石柱撞中，肺里的气被挤尽，重铠中央向内陷了一块，边缘压住肋骨，疼得他眼前发黑。\n\n死士的刀从两人之间往上挑，刀尖钻进甲片接缝。贺砚没有后退，双手扣住对方持刀的前臂，边军操练过的阵刀法不讲漂亮，讲的是在甲胄相撞时先把人压住。他用肩膀抵住对方肘弯，脚跟插进泥里，沸腾气血沿着脖颈冲上头顶，耳中只剩雨声和粗重喘息，筋骨在重压下发出涩滞的摩擦。\n\n那柄短刀刺进半寸，再也送不进去。贺砚拧住死士的手臂，刀刃被生铁护腕卡住，双方在泥里僵持片刻，死士突然张口咬向他的脸。贺砚偏头躲开，额角仍被牙齿磕破，温热的血顺着眉骨流进眼眶。他抬起刀柄，狠狠砸向死士的腕骨，第一次只让刀锋颤了一下，第二下落下时，腕骨在护腕里折断，短刀脱手。\n\n死士发出压在喉头的闷声，用左手去摸腰间匕首。贺砚抓住他衣襟，将人拖到车尾，刀刃横过喉咙。那人还在挣扎，匕首已经拔出半截，贺砚便用全身重量压住他的肩，短刀割开皮肉，滚烫的血从断裂的动脉里喷出，溅在贺砚的手背、破损的铅封和铁匣水纹上。\n\n血珠沿着匣面滑落，没有被雨水冲散。铁匣里的水纹先是停住，随后从血迹处向外扩开，车底积水竟逆着巷坡往回流，泥浆里凝出一颗颗黑水珠，圆润得不沾尘土，挤在车轮周围，像死鱼睁着的眼珠。\n\n贺砚的胃骤然抽紧，酸水涌到喉头。他抬手想擦脸，手背上的血却在皮肤上自行收拢，细小的血珠朝掌心聚去。后颈寒毛全部炸开，骨髓深处传来冰片刮骨的恶心，连握刀的手指也失去了温度。\n\n赵管事刚跑出两步，便听见车后传来沉闷的敲击。那声音不是从耳边来，仿佛铁匣内部有东西隔着厚重匣壁，以指节一下下叩问外面的活人。他回头看见水纹交错，脸上的血色退得干干净净，脚下被泥水绊住，整个人跪进官道边的积水。\n\n“别开匣！”他失声喊道，“谁都别让它开——”\n\n话未说完，铁匣上的最后一圈水纹裂开。白烟从铅封残口喷起，雨水在匣边聚成细长水线，竟不再往低处流，而是沿着匣面一寸寸向上攀爬。陈七扶住车架，手指抖得抓不住木头，喉间发出湿重的咳声；贺砚看着那道缓慢撑开的黑缝，胸甲压住裂痛，伸手去抓赵管事留下的缰绳。\n\n远处官道尽头，铜铃忽然破开雨幕，急促而密集地响起来。来骑尚在数十丈外，铃声却像贴着巷门撞入，车底那些黑水珠同时转向，所有圆黑的珠面都朝着那条官道。贺砚握紧缰绳，听见铁匣里面传出第二次敲击，裂缝中随即伸出一根沾满水锈的黑色指节。"
+}

@@ -28,11 +28,9 @@ molan-home/data/*.db
 molan-home/data/*.db-*
 molan-home/data/*.sqlite
 molan-home/data/*.sqlite-*
-molan-home/data/xuanhuan-lab/
-molan-home/data/character-material*
-molan-home/data/genre-lab/
-molan-home/data/paragraph-samples.json
-molan-home/data/evaluation-input/
+molan-home/data/xuanhuan-lab/*.db*
+molan-home/data/character-material-*/
+molan-home/data/genre-lab/extracted-triplets/
 molan-home/data/benchmark-runs/
 molan-home/data/benchmark-local-runtime/
 molan-home/data/watchdog.lock
@@ -42,7 +40,7 @@ molan-home/data/token_usage.json
 molan-home/data/user_skills.json
 molan-home/data/global_skills.json
 molan-home/data/admin_audit.json
-molan-home/lib/character-material/
+molan-home/lib/character-material/index.json
 molan-home/scratch/*.sqlite
 molan-home/scratch/*.sqlite-*
 molan-home/generated/

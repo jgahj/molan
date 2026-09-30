@@ -1,0 +1,149 @@
+{
+  "bookId": "fanren_consecutive_10_book",
+  "debts": [
+    {
+      "id": "debt_1788928414926_7pukc",
+      "originChapter": 1,
+      "type": "major",
+      "seed": "季安在赤崖坊市黑市暗巷欠下赤脚怪客枯竹翁半块中品灵石，赊购带微瑕的残破金髓丹方与三颗干瘪药种，立下三个月债务凭条",
+      "immediateCost": "三月内若无法凑齐四块纯色下品灵石与一盒灵砂，便由枯竹翁抓去七峰山深矿当三年苦力抵债",
+      "status": "settled",
+      "maturationChapter": 9,
+      "payoffTier": 3,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788928414926
+    },
+    {
+      "id": "debt_1788929207242_ybct9",
+      "originChapter": 2,
+      "type": "arc",
+      "seed": "催熟十年黄精异香险些逸出，以劣质艾草焦烟掩盖，隔壁练气五层刀客产生疑心",
+      "immediateCost": "隔壁刀客在房门外泥地留下半道深足印暗中窥探",
+      "status": "settled",
+      "maturationChapter": 4,
+      "payoffTier": 2,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788929207242
+    },
+    {
+      "id": "debt_1788929317160_i6j3l",
+      "originChapter": 3,
+      "type": "arc",
+      "seed": "典当草药换取灵石时衣角沾染黑市掌柜暗下的无色银尾磷粉，引来暗中两名截杀恶修",
+      "immediateCost": "被两名练气六层修士暗中尾随至荒山",
+      "status": "settled",
+      "maturationChapter": 4,
+      "payoffTier": 2,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788929317160
+    },
+    {
+      "id": "debt_1788929610744_yt58u",
+      "originChapter": 4,
+      "type": "major",
+      "seed": "重伤濒死的栖霞门内门弟子将装有筑基残卷与宗门密令的玉盒甩入季安藏身的草坑",
+      "immediateCost": "背负栖霞门同门内讧的血案因果",
+      "status": "settled",
+      "maturationChapter": 6,
+      "payoffTier": 3,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788929610744
+    },
+    {
+      "id": "debt_1788929709638_l21at",
+      "originChapter": 5,
+      "type": "major",
+      "seed": "死者储物袋中藏有名门栖霞门大修士直系的本命血煞阴魄玉符，沾染潜伏血咒",
+      "immediateCost": "被血煞追魂秘法锁定神魂气息",
+      "status": "settled",
+      "maturationChapter": 9,
+      "payoffTier": 3,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788929709638
+    },
+    {
+      "id": "debt_1788929934454_7pzv0",
+      "originChapter": 7,
+      "type": "arc",
+      "seed": "更名严平潜入七峰山赤铜矿脉，领下三号极潮毒气废洞，立下每日两块赤铜精矿的苦役凭条",
+      "immediateCost": "每日需上缴定量矿石否则扣发月俸并受阴鞭之刑",
+      "status": "settled",
+      "maturationChapter": 8,
+      "payoffTier": 2,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788929934454
+    },
+    {
+      "id": "debt_1788931443422_gcp42",
+      "originChapter": 1,
+      "type": "major",
+      "seed": "季安在赤崖坊市黑市暗巷欠下赤脚怪客枯竹翁半块中品灵石，赊购带微瑕的残破金髓丹方与三颗干瘪药种，立下三个月债务凭条",
+      "immediateCost": "三月内若无法凑齐四块纯色下品灵石与一盒灵砂，便由枯竹翁抓去七峰山深矿当三年苦力抵债",
+      "status": "active",
+      "maturationChapter": 9,
+      "payoffTier": 3,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788931443422
+    },
+    {
+      "id": "debt_1788931516934_6f9kk",
+      "originChapter": 2,
+      "type": "arc",
+      "seed": "催熟十年黄精异香险些逸出，以劣质艾草焦烟掩盖，隔壁练气五层刀客产生疑心",
+      "immediateCost": "隔壁刀客在房门外泥地留下半道深足印暗中窥探",
+      "status": "active",
+      "maturationChapter": 4,
+      "payoffTier": 2,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788931516934
+    },
+    {
+      "id": "debt_1788931665100_7mh3a",
+      "originChapter": 3,
+      "type": "arc",
+      "seed": "典当草药换取灵石时衣角沾染黑市掌柜暗下的无色银尾磷粉，引来暗中两名截杀恶修",
+      "immediateCost": "被两名练气六层修士暗中尾随至荒山",
+      "status": "active",
+      "maturationChapter": 4,
+      "payoffTier": 2,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788931665100
+    },
+    {
+      "id": "debt_1788931901784_lipo4",
+      "originChapter": 4,
+      "type": "major",
+      "seed": "荒山断魂崖下飞剑对轰削塌山崖，波及季安藏身坑洼，被迫卷入名门栖霞门同门内讧血案",
+      "immediateCost": "身陷两名练气后期精锐与两名截杀恶修的多方绞杀漩涡",
+      "status": "active",
+      "maturationChapter": 6,
+      "payoffTier": 3,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788931901784
+    },
+    {
+      "id": "debt_1788932106763_0iqoj",
+      "originChapter": 5,
+      "type": "major",
+      "seed": "死者储物袋中藏有名门栖霞门大修士直系的本命血煞阴魄玉符，沾染潜伏血咒",
+      "immediateCost": "被血煞追魂秘法锁定神魂气息",
+      "status": "active",
+      "maturationChapter": 9,
+      "payoffTier": 3,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788932106763
+    },
+    {
+      "id": "debt_1788932481390_z94es",
+      "originChapter": 7,
+      "type": "arc",
+      "seed": "更名严平潜入七峰山赤铜矿脉，领下三号极潮毒气废洞，立下每日两块赤铜精矿的苦役凭条",
+      "immediateCost": "每日需上缴定量矿石否则扣发月俸并受阴鞭之刑",
+      "status": "active",
+      "maturationChapter": 8,
+      "payoffTier": 2,
+      "suggestedPayoffAction": "",
+      "recordedAt": 1788932481390
+    }
+  ]
+}

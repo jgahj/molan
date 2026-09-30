@@ -1,0 +1,422 @@
+{
+  "summary": {
+    "evaluatedAt": "2026-09-10T02:13:22.458Z",
+    "targetDirectory": "C:\\Users\\lyh\\Desktop\\小说专属网页\\molan-home\\data\\genre-lab\\fanren-10-chapters",
+    "genre": "玄幻",
+    "baselineLoaded": true,
+    "totalChapters": 10,
+    "totalChars": 31151,
+    "avgCharsPerChapter": 3115,
+    "passRate": "90%",
+    "statusBreakdown": {
+      "pass": 9,
+      "warn": 1,
+      "fail": 0
+    },
+    "avgStyleScore": 83,
+    "totalUniqueEntities": 5,
+    "entityProgression": [
+      {
+        "chapter": 1,
+        "newEntityCount": 0,
+        "newEntities": [],
+        "cumulativeTotal": 0
+      },
+      {
+        "chapter": 2,
+        "newEntityCount": 1,
+        "newEntities": [
+          "季安"
+        ],
+        "cumulativeTotal": 1
+      },
+      {
+        "chapter": 3,
+        "newEntityCount": 1,
+        "newEntities": [
+          "换容"
+        ],
+        "cumulativeTotal": 2
+      },
+      {
+        "chapter": 4,
+        "newEntityCount": 0,
+        "newEntities": [],
+        "cumulativeTotal": 2
+      },
+      {
+        "chapter": 5,
+        "newEntityCount": 0,
+        "newEntities": [],
+        "cumulativeTotal": 2
+      },
+      {
+        "chapter": 6,
+        "newEntityCount": 1,
+        "newEntities": [
+          "他只知"
+        ],
+        "cumulativeTotal": 3
+      },
+      {
+        "chapter": 7,
+        "newEntityCount": 0,
+        "newEntities": [],
+        "cumulativeTotal": 3
+      },
+      {
+        "chapter": 8,
+        "newEntityCount": 1,
+        "newEntities": [
+          "石魁"
+        ],
+        "cumulativeTotal": 4
+      },
+      {
+        "chapter": 9,
+        "newEntityCount": 1,
+        "newEntities": [
+          "枯竹翁"
+        ],
+        "cumulativeTotal": 5
+      },
+      {
+        "chapter": 10,
+        "newEntityCount": 0,
+        "newEntities": [],
+        "cumulativeTotal": 5
+      }
+    ],
+    "charOverlapConflicts": [],
+    "overallVerdict": "SATISFACTORY"
+  },
+  "chapterReports": [
+    {
+      "file": "ch01.md",
+      "chapterIndex": 1,
+      "chars": 3191,
+      "paragraphsCount": 94,
+      "sentencesCount": 135,
+      "singleSentenceRatio": 0.4894,
+      "fingerprint": {
+        "sentenceLenMean": 23.7985,
+        "sentenceLenStd": 18.1568,
+        "paragraphLenMean": 33.9468,
+        "paragraphLenStd": 29.7594,
+        "dialogueRatio": 0.087747,
+        "dialogueTurnMean": 14,
+        "commaPeriodRatio": 1.3359,
+        "ttr": 0.821825,
+        "similePerKilo": 0.3134,
+        "totalChars": 3191
+      },
+      "styleScore": 85,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [],
+      "openingMode": "scene",
+      "endingMode": "fulfil",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": []
+    },
+    {
+      "file": "ch02.md",
+      "chapterIndex": 2,
+      "chars": 3391,
+      "paragraphsCount": 86,
+      "sentencesCount": 133,
+      "singleSentenceRatio": 0.5116,
+      "fingerprint": {
+        "sentenceLenMean": 25.6818,
+        "sentenceLenStd": 16.4944,
+        "paragraphLenMean": 39.4302,
+        "paragraphLenStd": 34.5316,
+        "dialogueRatio": 0.038632,
+        "dialogueTurnMean": 11.9091,
+        "commaPeriodRatio": 1.4615,
+        "ttr": 0.81003,
+        "similePerKilo": 1.1796,
+        "totalChars": 3391
+      },
+      "styleScore": 84,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [
+        "季安"
+      ],
+      "openingMode": "scene",
+      "endingMode": "newProblem",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": [
+        "季安"
+      ]
+    },
+    {
+      "file": "ch03.md",
+      "chapterIndex": 3,
+      "chars": 2959,
+      "paragraphsCount": 70,
+      "sentencesCount": 123,
+      "singleSentenceRatio": 0.3286,
+      "fingerprint": {
+        "sentenceLenMean": 24.0569,
+        "sentenceLenStd": 18.4207,
+        "paragraphLenMean": 42.2714,
+        "paragraphLenStd": 29.532,
+        "dialogueRatio": 0.247719,
+        "dialogueTurnMean": 27.1481,
+        "commaPeriodRatio": 1.4786,
+        "ttr": 0.81797,
+        "similePerKilo": 0,
+        "totalChars": 2959
+      },
+      "styleScore": 82,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [
+        "换容",
+        "季安"
+      ],
+      "openingMode": "scene",
+      "endingMode": "newProblem",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": [
+        "换容"
+      ]
+    },
+    {
+      "file": "ch04.md",
+      "chapterIndex": 4,
+      "chars": 3108,
+      "paragraphsCount": 74,
+      "sentencesCount": 114,
+      "singleSentenceRatio": 0.5135,
+      "fingerprint": {
+        "sentenceLenMean": 27.2632,
+        "sentenceLenStd": 19.9033,
+        "paragraphLenMean": 42,
+        "paragraphLenStd": 33.8798,
+        "dialogueRatio": 0.043758,
+        "dialogueTurnMean": 13.6,
+        "commaPeriodRatio": 1.5405,
+        "ttr": 0.78055,
+        "similePerKilo": 0.3218,
+        "totalChars": 3108
+      },
+      "styleScore": 83,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [
+        "季安"
+      ],
+      "openingMode": "scene",
+      "endingMode": "fulfil",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": []
+    },
+    {
+      "file": "ch05.md",
+      "chapterIndex": 5,
+      "chars": 2418,
+      "paragraphsCount": 64,
+      "sentencesCount": 94,
+      "singleSentenceRatio": 0.6094,
+      "fingerprint": {
+        "sentenceLenMean": 25.7234,
+        "sentenceLenStd": 17.7125,
+        "paragraphLenMean": 37.7813,
+        "paragraphLenStd": 30.5514,
+        "dialogueRatio": 0.014475,
+        "dialogueTurnMean": 8.75,
+        "commaPeriodRatio": 1.4731,
+        "ttr": 0.809036,
+        "similePerKilo": 0.4136,
+        "totalChars": 2418
+      },
+      "styleScore": 81,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [],
+      "openingMode": "scene",
+      "endingMode": "ease",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": []
+    },
+    {
+      "file": "ch06.md",
+      "chapterIndex": 6,
+      "chars": 2878,
+      "paragraphsCount": 77,
+      "sentencesCount": 112,
+      "singleSentenceRatio": 0.6104,
+      "fingerprint": {
+        "sentenceLenMean": 25.6964,
+        "sentenceLenStd": 18.8063,
+        "paragraphLenMean": 37.3766,
+        "paragraphLenStd": 31.7985,
+        "dialogueRatio": 0,
+        "dialogueTurnMean": 0,
+        "commaPeriodRatio": 1.4107,
+        "ttr": 0.823944,
+        "similePerKilo": 0.3475,
+        "totalChars": 2878
+      },
+      "styleScore": 78,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [
+        "他只知"
+      ],
+      "openingMode": "scene",
+      "endingMode": "ease",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": [
+        "他只知"
+      ]
+    },
+    {
+      "file": "ch07.md",
+      "chapterIndex": 7,
+      "chars": 3341,
+      "paragraphsCount": 94,
+      "sentencesCount": 138,
+      "singleSentenceRatio": 0.4362,
+      "fingerprint": {
+        "sentenceLenMean": 24.2101,
+        "sentenceLenStd": 18.8289,
+        "paragraphLenMean": 35.5426,
+        "paragraphLenStd": 31.1672,
+        "dialogueRatio": 0.101167,
+        "dialogueTurnMean": 13,
+        "commaPeriodRatio": 1.4436,
+        "ttr": 0.807811,
+        "similePerKilo": 0.5986,
+        "totalChars": 3341
+      },
+      "styleScore": 86,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [],
+      "openingMode": "scene",
+      "endingMode": "ease",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": []
+    },
+    {
+      "file": "ch08.md",
+      "chapterIndex": 8,
+      "chars": 3284,
+      "paragraphsCount": 84,
+      "sentencesCount": 143,
+      "singleSentenceRatio": 0.369,
+      "fingerprint": {
+        "sentenceLenMean": 22.965,
+        "sentenceLenStd": 16.655,
+        "paragraphLenMean": 39.0952,
+        "paragraphLenStd": 29.812,
+        "dialogueRatio": 0.321255,
+        "dialogueTurnMean": 31.0294,
+        "commaPeriodRatio": 1.2667,
+        "ttr": 0.801188,
+        "similePerKilo": 0.3045,
+        "totalChars": 3284
+      },
+      "styleScore": 79,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [
+        "石魁"
+      ],
+      "openingMode": "scene",
+      "endingMode": "fulfil",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": [
+        "石魁"
+      ]
+    },
+    {
+      "file": "ch09.md",
+      "chapterIndex": 9,
+      "chars": 3578,
+      "paragraphsCount": 106,
+      "sentencesCount": 156,
+      "singleSentenceRatio": 0.5566,
+      "fingerprint": {
+        "sentenceLenMean": 22.9359,
+        "sentenceLenStd": 16.2286,
+        "paragraphLenMean": 33.7547,
+        "paragraphLenStd": 29.0493,
+        "dialogueRatio": 0.0545,
+        "dialogueTurnMean": 16.25,
+        "commaPeriodRatio": 1.3595,
+        "ttr": 0.777707,
+        "similePerKilo": 0.559,
+        "totalChars": 3578
+      },
+      "styleScore": 85,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [
+        "枯竹翁"
+      ],
+      "openingMode": "scene",
+      "endingMode": "newProblem",
+      "duplicateParagraphs": 0,
+      "status": "WARN",
+      "issues": [
+        "字数偏多(3578>3500)"
+      ],
+      "newEntitiesThisChapter": [
+        "枯竹翁"
+      ]
+    },
+    {
+      "file": "ch10.md",
+      "chapterIndex": 10,
+      "chars": 3003,
+      "paragraphsCount": 83,
+      "sentencesCount": 119,
+      "singleSentenceRatio": 0.5422,
+      "fingerprint": {
+        "sentenceLenMean": 25.2353,
+        "sentenceLenStd": 19.1622,
+        "paragraphLenMean": 36.1807,
+        "paragraphLenStd": 30.0318,
+        "dialogueRatio": 0.074592,
+        "dialogueTurnMean": 22.4,
+        "commaPeriodRatio": 1.5614,
+        "ttr": 0.78356,
+        "similePerKilo": 0,
+        "totalChars": 3003
+      },
+      "styleScore": 84,
+      "clicheHits": [],
+      "somaticHits": [],
+      "names": [
+        "季安"
+      ],
+      "openingMode": "scene",
+      "endingMode": "ease",
+      "duplicateParagraphs": 0,
+      "status": "PASS",
+      "issues": [],
+      "newEntitiesThisChapter": []
+    }
+  ]
+}
