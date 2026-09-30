@@ -48,7 +48,7 @@ function createNovelDomainHandlers({ repository, getAuthUser, readBody, json, re
       const body = await readBody(req);
       if (body.id && !validateId(res, body.id)) return;
       const result = await repository.create({ user, id: body.id, workspaceId: String(body.workspaceId || '').trim(),
-        title: body.title, state: prepareState(body) });
+        title: body.title, state: prepareState(body), expectedRevision: body.revision });
       return json(res, 200, savedResponse(result));
     });
   }
@@ -59,7 +59,7 @@ function createNovelDomainHandlers({ repository, getAuthUser, readBody, json, re
       const state = prepareState(body);
       const access = await repository.getAccess({ userId: user.userId, projectId: id });
       if (!access) {
-        const result = await repository.create({ user, id, title: body.title, state });
+        const result = await repository.create({ user, id, title: body.title, state, expectedRevision: body.revision });
         return json(res, 200, savedResponse(result));
       }
       const expectedRevision = body.revision == null ? null : Number(body.revision);

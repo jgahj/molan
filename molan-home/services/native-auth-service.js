@@ -47,6 +47,7 @@ function createNativeAuthService({ repository, crypto, readBody, json, respondEr
         let user = await repository.getAccount({ email: String(body.email || '').trim().toLowerCase() });
         const verification = user && verifyPassword(String(body.password || ''), user);
         if (!verification?.ok) fail(400, '邮箱或密码错误');
+        if (user.disabled || user.status === 'disabled') fail(403, '该账户已停用');
         if (scope === 'admin' && !isAdminUser(user)) fail(403, '该账户没有管理员权限');
         if (verification.needsUpgrade) user = await repository.saveAccount({ ...user, ...createPasswordRecord(String(body.password || '')) }, user.revision);
         return json(res, 200, { ok: true, token: await issueToken(user, scope), user: await publicUser(user) });

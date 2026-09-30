@@ -7,6 +7,29 @@ const os = require('node:os');
 const path = require('node:path');
 const { JsonAppRepository } = require('../lib/repositories/json-app-repository');
 
+test('workspace revocation and owner transfer preserve explicit project grants atomically', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-json-members-'));
+  const app = new JsonAppRepository(directory);
+  t.after(async () => { await app.close(); fs.rmSync(directory, { recursive: true, force: true }); });
+  const owner = await app.saveAccount({ userId: 'owner', email: 'owner@test.local' });
+  await app.saveAccount({ userId: 'next', email: 'next@test.local' });
+  const project = await app.create({ user: owner, id: 'n_acl', state: { volumes: [] } });
+  await app.upsertWorkspaceMember('owner', project.workspaceId, 'next', 'member');
+  await app.upsertProjectMember({ userId: 'owner', projectId: project.id, targetUserId: 'next', role: 'editor', expectedAclRevision: 1 });
+  assert.equal((await app.listWorkspaceMembers('next', project.workspaceId)).length, 2);
+  await app.deactivateWorkspaceMember('owner', project.workspaceId, 'next');
+  assert.equal(await app.getAccess({ userId: 'next', projectId: project.id }), null);
+  await app.upsertWorkspaceMember('owner', project.workspaceId, 'next', 'member');
+  assert.equal((await app.getAccess({ userId: 'next', projectId: project.id })).role, 'editor');
+  await app.upsertProjectMember({ userId: 'owner', projectId: project.id, targetUserId: 'next', role: 'admin' });
+  await assert.rejects(app.upsertProjectMember({ userId: 'next', projectId: project.id, targetUserId: 'owner', role: 'admin' }), { code: 'FORBIDDEN' });
+  const access = await app.getAccess({ userId: 'owner', projectId: project.id });
+  await app.upsertProjectMember({ userId: 'owner', projectId: project.id, targetUserId: 'next', role: 'owner', transferOwner: true, expectedAclRevision: access.acl_revision });
+  assert.equal((await app.getAccess({ userId: 'next', projectId: project.id })).owner_user_id, 'next');
+  await assert.rejects(app.softDelete({ userId: 'owner', projectId: project.id }), { code: 'FORBIDDEN' });
+  await app.softDelete({ userId: 'next', projectId: project.id });
+});
+
 test('JSON application repository enforces project ACL, CAS, soft deletion and idempotent ledger', async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-json-app-'));
   const app = new JsonAppRepository(directory);

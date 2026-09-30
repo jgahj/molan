@@ -108,14 +108,58 @@ class JsonAppRepository {
   }
   async upsertWorkspaceMember(userId, workspaceId, targetUserId, role) {
     if (!['admin', 'member'].includes(role)) fail('INVALID_ROLE', 422);
-    return this.repository.transaction([null, INDEX], tx => {
+    const scopes = (await this.repository.novels.list(INDEX)).filter(row => row.kind === 'project-index' && row.workspaceId === workspaceId).map(row => row.projectId).sort();
+    return this.repository.transaction([null, INDEX, ...scopes], tx => {
+      const actual = tx.list(INDEX, 'novels').filter(row => row.kind === 'project-index' && row.workspaceId === workspaceId).map(row => row.projectId).sort();
+      if (JSON.stringify(actual) !== JSON.stringify(scopes)) fail('REVISION_CONFLICT', 409);
       const workspace = tx.get(INDEX, 'novels', key('workspace', workspaceId));
       if (!workspace?.members[userId]?.active || !['owner', 'admin'].includes(workspace.members[userId].role)) fail('FORBIDDEN', 403);
+      if (workspace.members[userId].role === 'admin' && (role === 'admin' || workspace.members[targetUserId]?.role === 'admin')) fail('FORBIDDEN', 403);
       if (targetUserId === workspace.ownerUserId) fail('OWNER_REQUIRED', 409);
       if (!tx.get(null, 'accounts', key('account', targetUserId))) fail('ACCOUNT_NOT_FOUND', 404);
       workspace.members[targetUserId] = { role, active: true };
       tx.put(INDEX, 'novels', workspace, workspace.revision);
+      for (const projectId of scopes) {
+        const project = tx.get(projectId, 'novels', projectId);
+        if (!project?.members[targetUserId]?.revokedByWorkspace) continue;
+        const { revokedByWorkspace, ...member } = project.members[targetUserId];
+        project.members[targetUserId] = { ...member, active: true };
+        project.aclRevision++;
+        tx.put(projectId, 'novels', project, project.revision);
+      }
       return { ok: true, userId: targetUserId, role };
+    });
+  }
+  async listWorkspaceMembers(userId, workspaceId) {
+    return this.repository.transaction([null, INDEX], tx => {
+      const workspace = tx.get(INDEX, 'novels', key('workspace', workspaceId));
+      if (!workspace?.members[userId]?.active) fail('FORBIDDEN', 403);
+      return Object.entries(workspace.members).filter(([, member]) => member.active).map(([memberId, member]) => {
+        const account = tx.get(null, 'accounts', key('account', memberId));
+        return { userId: memberId, email: account?.email || '', name: account?.name || '', ...member };
+      });
+    });
+  }
+  async deactivateWorkspaceMember(userId, workspaceId, targetUserId) {
+    const scopes = (await this.repository.novels.list(INDEX)).filter(row => row.kind === 'project-index' && row.workspaceId === workspaceId).map(row => row.projectId).sort();
+    return this.repository.transaction([INDEX, ...scopes], tx => {
+      const actual = tx.list(INDEX, 'novels').filter(row => row.kind === 'project-index' && row.workspaceId === workspaceId).map(row => row.projectId).sort();
+      if (JSON.stringify(actual) !== JSON.stringify(scopes)) fail('REVISION_CONFLICT', 409);
+      const workspace = tx.get(INDEX, 'novels', key('workspace', workspaceId));
+      const actor = workspace?.members[userId], member = workspace?.members[targetUserId];
+      if (!actor?.active || !['owner', 'admin'].includes(actor.role)) fail('FORBIDDEN', 403);
+      if (!member?.active) fail('MEMBER_NOT_FOUND', 404);
+      if (member.role === 'owner' || actor.role === 'admin' && member.role === 'admin') fail('OWNER_REQUIRED', 409);
+      workspace.members[targetUserId] = { ...member, active: false };
+      tx.put(INDEX, 'novels', workspace, workspace.revision);
+      for (const projectId of scopes) {
+        const project = tx.get(projectId, 'novels', projectId);
+        if (!project) continue;
+        if (project.members[targetUserId]?.active) project.members[targetUserId] = { ...project.members[targetUserId], active: false, revokedByWorkspace: true };
+        project.aclRevision++;
+        tx.put(projectId, 'novels', project, project.revision);
+      }
+      return { ok: true, workspaceId, userId: targetUserId };
     });
   }
 
@@ -193,18 +237,27 @@ class JsonAppRepository {
       return { ok: true, ...publicNovel(row, access) };
     });
   }
-  async upsertProjectMember({ userId, projectId, targetUserId, role, canSpend = false, canExport = false, expectedAclRevision }) {
-    if (!['admin', 'editor', 'reviewer', 'viewer'].includes(role)) fail('INVALID_ROLE', 422);
-    return this.repository.transaction([INDEX, projectId], tx => {
+  async upsertProjectMember({ userId, projectId, targetUserId, role, canSpend = false, canExport = false, transferOwner = false, expectedAclRevision }) {
+    if (!['owner', 'admin', 'editor', 'reviewer', 'viewer'].includes(role) || transferOwner && role !== 'owner') fail('INVALID_ROLE', 422);
+    return this.repository.transaction([null, INDEX, projectId], tx => {
       const project = tx.get(projectId, 'novels', projectId);
       const access = accessFrom(project, userId);
       if (!canAccess(access, new Set(['owner', 'admin']))) fail('FORBIDDEN', 403);
-      if (project.aclRevision !== expectedAclRevision) fail('ACL_REVISION_CONFLICT', 409);
-      if (targetUserId === project.ownerUserId) fail('OWNER_REQUIRED', 409);
+      if (access.role !== 'owner' && (role === 'owner' || role === 'admin' || project.members[targetUserId]?.role === 'admin')) fail('FORBIDDEN', 403);
+      if (expectedAclRevision != null && project.aclRevision !== expectedAclRevision) fail('ACL_REVISION_CONFLICT', 409);
+      if (role === 'owner' && targetUserId !== project.ownerUserId && !transferOwner) fail('OWNER_TRANSFER_REQUIRED', 409);
+      if (targetUserId === project.ownerUserId && role !== 'owner') fail('OWNER_REQUIRED', 409);
       const workspace = tx.get(INDEX, 'novels', key('workspace', project.workspaceId));
       if (!workspace?.members[targetUserId]?.active) fail('WORKSPACE_MEMBER_REQUIRED', 409);
-      project.members[targetUserId] = { role, active: true, canSpend: ['admin', 'editor'].includes(role) && Boolean(canSpend),
-        canExport: ['admin', 'editor'].includes(role) && Boolean(canExport) };
+      if (transferOwner && project.ownerUserId !== targetUserId) {
+        project.members[project.ownerUserId] = { role: 'admin', active: true, canSpend: true, canExport: true };
+        project.ownerUserId = targetUserId;
+        project.userEmail = tx.get(null, 'accounts', key('account', targetUserId))?.email || '';
+        const index = tx.get(INDEX, 'novels', key('project', projectId));
+        tx.put(INDEX, 'novels', { ...index, ownerUserId: targetUserId }, index.revision);
+      }
+      project.members[targetUserId] = { role, active: true, canSpend: role === 'owner' || ['admin', 'editor'].includes(role) && Boolean(canSpend),
+        canExport: role === 'owner' || ['admin', 'editor'].includes(role) && Boolean(canExport) };
       project.aclRevision++;
       tx.put(projectId, 'novels', project, project.revision);
       return { ok: true, aclRevision: project.aclRevision };
@@ -230,8 +283,9 @@ class JsonAppRepository {
       if (!canAccess(accessFrom(project, userId), new Set(['owner', 'admin']))) fail('FORBIDDEN', 403);
       if (project.ownerUserId === targetUserId) fail('OWNER_REQUIRED', 409);
       const member = project.members[targetUserId];
+      if (project.members[userId].role === 'admin' && member?.role === 'admin') fail('FORBIDDEN', 403);
       if (member?.active) {
-        project.members[targetUserId] = { ...member, active: false };
+        project.members[targetUserId] = { ...member, active: false, revokedByWorkspace: false };
         project.aclRevision++;
         tx.put(projectId, 'novels', project, project.revision);
       }

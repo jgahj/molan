@@ -1048,6 +1048,8 @@ function createSkillService({
   }
   
   function makeGlobalSkill(body, existing) {
+    const requestedId = String(body.id || '').trim();
+    if (requestedId && !/^[A-Za-z0-9_\u4e00-\u9fa5-]{1,240}$/.test(requestedId)) throw new Error('Skill id 非法');
     const name = String(body.name !== undefined ? body.name : (existing && existing.name) || '').trim().slice(0, 120);
     const description = String(body.description !== undefined ? body.description : (existing && existing.description) || '').trim().slice(0, 500);
     const instruction = String(body.instruction !== undefined ? body.instruction : (existing && existing.instruction) || '').trim().slice(0, 1000000);
@@ -1056,7 +1058,7 @@ function createSkillService({
     const files = skillFileNames(runtimeFiles, body.files !== undefined ? body.files : (existing && existing.files));
     const fileManifest = Array.isArray(body.fileManifest) ? body.fileManifest : (existing && existing.fileManifest) || [];
     return decorateSkillPrompt({
-      id: existing ? existing.id : 'global-' + Date.now().toString(36) + crypto.randomBytes(4).toString('hex'),
+      id: existing ? existing.id : requestedId || 'global-' + Date.now().toString(36) + crypto.randomBytes(4).toString('hex'),
       name, description, instruction, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest),
       targets: normalizeSkillTargets(body.targets !== undefined ? body.targets : (existing && existing.targets)),
       enabled: body.enabled === undefined ? (existing ? existing.enabled !== false : true) : body.enabled !== false,

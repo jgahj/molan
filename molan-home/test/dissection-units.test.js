@@ -6,7 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { __test } = require('../server');
 
-const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-store.js'), 'utf8');
+const querySource = fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-query-service.js'), 'utf8');
 
 // —— 单元模型：无标题长文本生成 segment，绝不按 0 章丢弃 ——
 test('builds stable segment units for title-less text without dropping content', () => {
@@ -140,12 +141,12 @@ test('pipeline usage is persisted by stage with exact token checks', () => {
 
 test('relationship state changes become relationship claims and dissection APIs enforce ownership', () => {
   assert.match(serverSource, /pushClaim\(isRelationship \? 'relationship' : 'state_change'/);
-  assert.match(serverSource, /function handleDissectionUnitsPage/);
-  assert.match(serverSource, /function handleDissectionEntitiesPage/);
-  assert.match(serverSource, /function handleDissectionSearch/);
-  assert.match(serverSource, /拆书任务不存在或无权访问/);
-  assert.match(serverSource, /mention_count < \?/);
-  assert.match(serverSource, /canonical_name > \?/);
+  assert.match(querySource, /function handleDissectionUnitsPage/);
+  assert.match(querySource, /function handleDissectionEntitiesPage/);
+  assert.match(querySource, /function handleDissectionSearch/);
+  assert.match(querySource, /拆书任务不存在或无权访问/);
+  assert.match(querySource, /mention_count < \?/);
+  assert.match(querySource, /canonical_name > \?/);
 });
 
 // —— 事件类型归一化 ——
