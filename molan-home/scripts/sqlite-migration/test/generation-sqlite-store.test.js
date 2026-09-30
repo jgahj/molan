@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { DatabaseSync } = require('node:sqlite');
 const test = require('node:test');
-const store = require('../lib/generation/sqlite-store');
+const store = require('../../../lib/generation/sqlite-store');
 
 function createRun(db, id, now = 5000) {
   return store.createRun(db, {
