@@ -2,8 +2,10 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { DatabaseSync } = require('node:sqlite');
-const store = require('../lib/generation/sqlite-store');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { createJsonGenerationStore } = require('../lib/generation/json-store');
 const { createGenerationOrchestrator } = require('../lib/generation/orchestrator');
 
 /** 创建用于控制异步阶段时序的测试门闩。 */
@@ -13,17 +15,27 @@ function deferred() {
   return { promise, resolve };
 }
 
-/** 在内存 SQLite 中创建一条待运行任务。 */
-function createRun(db, id) {
+function fixture(t) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-cancel-json-'));
+  const store = createJsonGenerationStore(directory);
+  t.after(async () => {
+    await store.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+  return store;
+}
+
+/** 在临时 JSON 仓储中创建一条待运行任务。 */
+async function createRun(store, id) {
   const scope = { workspaceId: 'ws-cancel', projectId: 'project-cancel', actorUserId: 'author-cancel' };
   const request = {
     projectId: scope.projectId, chapterId: 'chapter_1', genre: 'fantasy', style: 'direct',
     chapterContract: { chapterId: 'chapter_1', chapterNo: 1, chapterGoal: '推进事件', scenes: [{ id: 'scene_1' }] }
   };
-  const created = store.createRun(db, {
+  const created = (await store.createRun({
     ...scope, id, chapterId: request.chapterId, idempotencyKey: `key-${id}`,
     requestHash: 'a'.repeat(64), request
-  }).run;
+  })).run;
   return { scope, request, created };
 }
 
@@ -37,14 +49,13 @@ function baseDependencies() {
   };
 }
 
-test('cancellation before the Provider boundary is terminally cancelled and idempotent', async () => {
-  const db = new DatabaseSync(':memory:');
-  store.ensureSqliteSchema(db);
-  const { scope, created } = createRun(db, 'cancel-before-provider');
+test('cancellation before the Provider boundary is terminally cancelled and idempotent', async t => {
+  const store = fixture(t);
+  const { scope, created } = await createRun(store, 'cancel-before-provider');
   const resolving = deferred();
   const entered = deferred();
   const orchestrator = createGenerationOrchestrator({
-    store, db,
+    store, db: {},
     dependencies: {
       ...baseDependencies(),
       resolveStyle: async () => { entered.resolve(); await resolving.promise; return { status: 'resolved', style: 'direct' }; }
@@ -61,17 +72,15 @@ test('cancellation before the Provider boundary is terminally cancelled and idem
     assert.equal((await running).state, 'cancelled');
   } finally {
     resolving.resolve();
-    db.close();
   }
 });
 
-test('cancellation after a Provider request starts becomes provider_unknown without retry', async () => {
-  const db = new DatabaseSync(':memory:');
-  store.ensureSqliteSchema(db);
-  const { scope, created } = createRun(db, 'cancel-after-provider');
+test('cancellation after a Provider request starts becomes provider_unknown without retry', async t => {
+  const store = fixture(t);
+  const { scope, created } = await createRun(store, 'cancel-after-provider');
   const entered = deferred();
   const orchestrator = createGenerationOrchestrator({
-    store, db,
+    store, db: {},
     dependenciesForRun: executionContext => ({
       ...baseDependencies(),
       writer: ({ signal }) => new Promise((resolve, reject) => {
@@ -83,15 +92,11 @@ test('cancellation after a Provider request starts becomes provider_unknown with
       })
     })
   });
-  try {
-    const running = orchestrator.execute(scope, created.id);
-    await entered.promise;
-    assert.equal((await orchestrator.cancel({ ...scope, id: created.id })).state, 'cancel_requested');
-    const finalRun = await running;
-    assert.equal(finalRun.state, 'provider_unknown');
-    assert.equal(finalRun.errorCode, 'PROVIDER_UNKNOWN');
-    assert.equal((await orchestrator.execute(scope, created.id)).state, 'provider_unknown');
-  } finally {
-    db.close();
-  }
+  const running = orchestrator.execute(scope, created.id);
+  await entered.promise;
+  assert.equal((await orchestrator.cancel({ ...scope, id: created.id })).state, 'cancel_requested');
+  const finalRun = await running;
+  assert.equal(finalRun.state, 'provider_unknown');
+  assert.equal(finalRun.errorCode, 'PROVIDER_UNKNOWN');
+  assert.equal((await orchestrator.execute(scope, created.id)).state, 'provider_unknown');
 });
