@@ -10,6 +10,7 @@
     "audit:production-imports": "node scripts/production-import-audit.mjs",
     "audit:features": "node scripts/audit-features.mjs",
     "audit:golden": "node scripts/audit-golden-suite.mjs",
+    "quality:promote": "node scripts/promote-quality-config.mjs",
     "baseline:build": "node scripts/build-generation-baseline.mjs --write",
     "baseline:record": "node scripts/record-baseline.mjs",
     "soak:run": "node --no-warnings scripts/run-soak-test.mjs",

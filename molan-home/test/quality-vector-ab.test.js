@@ -104,6 +104,13 @@ test('quality vector A/B keeps scores but blocks self-reported Golden provenance
   assert.equal(report.dimensions.find(item => item.dimension === 'dialogue').signed_improvement, 0.05);
 });
 
+test('empty saved-result input is reported as blocked instead of throwing', () => {
+  const report = compareQualityVectors({});
+  assert.equal(report.status, 'BLOCKED');
+  assert.ok(report.blockingReasons.includes('golden_corpus_unapproved'));
+  assert.ok(report.dimensions.every(item => item.reason_codes.includes('paired_tasks_missing')));
+});
+
 test('missing or estimated dimension evidence blocks promotion without filling a score', () => {
   const input = fixture();
   input.tasks[0].candidate.qualityVector.dimensions.opening.evidence_refs = [];
