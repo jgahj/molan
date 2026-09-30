@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { QUALITY_DIMENSIONS } = require('../quality-vectors');
 const { DEFAULT_POLICY, evaluateRegressionGate } = require('./regression-gate');
 const { POLICY: EXPERIMENT_POLICY } = require('./experiment-acceptance');
@@ -12,6 +14,7 @@ const EVIDENCE_STATUSES = new Set(['NOT_MEASURED', 'ESTIMATED', 'MEASURED', 'JUD
 const COMPARABLE_STATUSES = new Set(['MEASURED', 'JUDGED', 'HUMAN_REVIEWED']);
 const VERSION_FIELDS = ['pipelineVersion', 'promptVersion', 'genreProfileVersion', 'styleVersion'];
 const DECLINE_LIMIT = 0.03;
+const CANONICAL_GOLDEN_PATH = path.resolve(__dirname, '../../data/evolution/golden/manifest.json');
 
 /** 判断必填标识是否是非空字符串。 */
 function nonEmpty(value) {
@@ -34,6 +37,35 @@ function block(reasons) {
 function mean(values) {
   if (!values.length || values.some(value => !Number.isFinite(value))) return null;
   return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+/** 晋级只接受仓库中完整、显式批准且哈希一致的固定语料清单。 */
+function approvedGoldenHash() {
+  let manifest;
+  try { manifest = JSON.parse(fs.readFileSync(CANONICAL_GOLDEN_PATH, 'utf8')); }
+  catch (_) { return null; }
+  // 保留现有 quality-loop 的 manifestVersion 契约；批准记录另行固定 A/B 输入摘要。
+  if (!manifest || manifest.manifestVersion !== 1 || manifest.fixtureStatus !== 'ready' ||
+      manifest.promotionEligible !== true || manifest.taskRecordsIncluded !== true ||
+      manifest.replaySnapshotsIncluded !== true || !Number.isInteger(manifest.taskCount) ||
+      manifest.taskCount < EXPERIMENT_POLICY.minimumPairedTasks ||
+      !/^[a-f0-9]{64}$/.test(String(manifest.qualityAbManifestHash || ''))) return null;
+  return manifest.qualityAbManifestHash;
+}
+
+function isApprovedGolden(golden) {
+  const canonicalHash = approvedGoldenHash();
+  return Boolean(canonicalHash && golden?.manifestHash === canonicalHash &&
+    golden?.fixtureStatus === 'ready' && golden?.dataStatus === 'complete' &&
+    golden?.taskCount > 0 && golden?.taskCount === golden?.tasks?.length);
+}
+
+function isApprovedGoldenSummary(golden) {
+  const canonicalHash = approvedGoldenHash();
+  return Boolean(canonicalHash && golden?.manifestHash === canonicalHash &&
+    golden?.schemaVersion === 'quality-ab-golden-manifest-v1' &&
+    golden?.fixtureStatus === 'ready' && golden?.dataStatus === 'complete' &&
+    golden?.taskCount > 0);
 }
 
 /** 校验 Golden 清单哈希、任务覆盖和每条输入快照绑定。 */
@@ -59,6 +91,7 @@ function validateGolden(golden, tasks) {
   } catch {
     reasons.push('golden_manifest_unhashable');
   }
+  if (!isApprovedGolden(golden)) reasons.push('golden_corpus_unapproved');
 
   const pairs = Array.isArray(tasks) ? tasks : [];
   if (pairs.length !== manifestTasks.length) reasons.push('paired_task_count_mismatch');
@@ -321,6 +354,7 @@ function validatePromotion(report, target = {}) {
   const reasons = [];
   if (report?.schemaVersion !== REPORT_SCHEMA) reasons.push('quality_report_schema_invalid');
   if (report?.status !== 'PROMOTION_READY' || report?.promotionEligible !== true) reasons.push('quality_report_not_promotion_eligible');
+  if (!isApprovedGoldenSummary(report?.golden)) reasons.push('golden_corpus_unapproved');
   if (!/^[a-f0-9]{64}$/.test(String(report?.reportHash || ''))) reasons.push('quality_report_hash_missing');
   if (!/^[a-f0-9]{64}$/.test(String(report?.inputHash || ''))) reasons.push('quality_input_hash_missing');
   if (target?.schemaVersion !== 'quality-promotion-target-v1') reasons.push('promotion_target_schema_invalid');

@@ -90,12 +90,13 @@ function fixture() {
   };
 }
 
-test('quality vector A/B accepts complete comparable evidence only after the existing gate passes', () => {
+test('quality vector A/B keeps scores but blocks self-reported Golden provenance', () => {
   const input = fixture();
   const report = compareQualityVectors(input);
   const replay = compareQualityVectors(input);
-  assert.equal(report.status, 'PROMOTION_READY');
-  assert.equal(report.promotionEligible, true);
+  assert.equal(report.status, 'BLOCKED');
+  assert.equal(report.promotionEligible, false);
+  assert.ok(report.blockingReasons.includes('golden_corpus_unapproved'));
   assert.equal(report.inputHash, hashJson(input));
   assert.equal(report.reportHash, replay.reportHash);
   assert.equal(report.dimensions.length, QUALITY_DIMENSIONS.length);
@@ -164,7 +165,9 @@ test('run results cannot be relabeled and promotion must cite the exact report a
     modelParametersHash: report.binding.modelParametersHash,
     versions: report.versions.candidate
   };
-  assert.equal(validatePromotion(report, target).status, 'PASS');
+  const unapproved = validatePromotion(report, target);
+  assert.equal(unapproved.status, 'BLOCKED');
+  assert.ok(unapproved.blockingReasons.includes('golden_corpus_unapproved'));
   const mismatch = validatePromotion(report, { ...target, versions: { ...target.versions, promptVersion: 'other' } });
   assert.equal(mismatch.status, 'BLOCKED');
   assert.ok(mismatch.blockingReasons.includes('promotion_candidate_version_mismatch'));
@@ -192,9 +195,9 @@ test('offline CLI writes a new report and refuses to overwrite it', () => {
   try {
     fs.writeFileSync(inputPath, JSON.stringify(fixture()), 'utf8');
     const first = spawnSync(process.execPath, ['--no-warnings', cliPath, '--input', inputPath, '--out', reportPath], { encoding: 'utf8' });
-    assert.equal(first.status, 0, first.stderr);
+    assert.equal(first.status, 2, first.stderr);
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    assert.equal(report.status, 'PROMOTION_READY');
+    assert.equal(report.status, 'BLOCKED');
     const targetPath = path.join(directory, 'candidate-config.json');
     const receiptPath = path.join(directory, 'promotion-receipt.json');
     fs.writeFileSync(targetPath, JSON.stringify({
@@ -203,8 +206,8 @@ test('offline CLI writes a new report and refuses to overwrite it', () => {
       modelParametersHash: report.binding.modelParametersHash, versions: report.versions.candidate
     }), 'utf8');
     const verified = spawnSync(process.execPath, ['--no-warnings', cliPath, '--verify-promotion', '--report', reportPath, '--candidate-config', targetPath, '--out', receiptPath], { encoding: 'utf8' });
-    assert.equal(verified.status, 0, verified.stderr);
-    assert.equal(JSON.parse(fs.readFileSync(receiptPath, 'utf8')).status, 'PASS');
+    assert.equal(verified.status, 2, verified.stderr);
+    assert.equal(JSON.parse(fs.readFileSync(receiptPath, 'utf8')).status, 'BLOCKED');
     const second = spawnSync(process.execPath, ['--no-warnings', cliPath, '--input', inputPath, '--out', reportPath], { encoding: 'utf8' });
     assert.equal(second.status, 1);
     assert.match(second.stderr, /already exists|已存在/i);

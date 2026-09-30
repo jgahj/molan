@@ -6,6 +6,9 @@
 
 候选与基线必须使用相同任务、输入哈希、模型、模型参数、评测器版本和评审版本。报告还要绑定双方各自的流水线、Prompt、题材配置、文风配置版本。Golden Manifest 至少有 80 条完整、可回放任务，并带有匹配任务集的 SHA-256 指纹；`test_fixture`、`metadata_only` 或输入不完整的语料不能晋级。
 
+晋级还要求仓库 `data/evolution/golden/manifest.json` 的原有 `manifestVersion: 1` 清单完成真实语料审批：`fixtureStatus: "ready"`、`promotionEligible: true`、`taskRecordsIncluded: true`、`replaySnapshotsIncluded: true`，并以 `qualityAbManifestHash` 固定经审核的 A/B 任务清单摘要。现有清单仍是 `metadata_only`，所以当前所有报告都不能晋级；本次没有改写清单状态或补造真实语料。
+摘要校验用于检测版本和内容错配，不是来源签名。评分、费用和证据引用须来自可信生成及评审记录；当前离线工具尚未自动解析这些记录，不能单凭自报 JSON 宣称真实质量改善。
+
 每个任务的两臂都必须提供正文哈希、完整 `quality-vector-v2`、19 个维度的数值、证据状态和证据引用。每个生成结果还要重复绑定共享模型、参数、评测器、评审版本，声明所属的基线/候选版本，并复述任务输入哈希；无法与报告顶层绑定逐项匹配时阻断。证据状态仅接受 `MEASURED`、`JUDGED` 或 `HUMAN_REVIEWED` 参与晋级；`ESTIMATED`、`NOT_MEASURED`、缺少证据或两臂状态不一致都会阻断。分数必须显式声明统一量表 `scoreScale: 1` 或 `100`，每维变化先换算到 0–1，再应用 0.03 最大下降门槛。目标维度必须改善；`ai_flavor` 按越低越好计算。
 
 报告同时重新计算 `data/evolution/regressions/policy.json` 中的既有回归门禁。所有 8 个类别、continuity、originality、genreFit、styleFit、stability、cost 和目标指标都要有证据；其门槛比逐维 0.03 检查更严格时，按既有门禁处理。成本按配对任务累加，并保留货币和账本证据。
