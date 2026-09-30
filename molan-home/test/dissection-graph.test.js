@@ -7,7 +7,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { __test } = require('../server');
 
-const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-store.js'), 'utf8');
+const querySource = fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-query-service.js'), 'utf8');
+const analysisSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-analysis-service.js'), 'utf8');
 const dissectionRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'dissections.js'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.js'), 'utf8');
 
@@ -73,7 +75,7 @@ test('arc and book summaries are stored as layered summaries', () => {
   assert.match(serverSource, /async function buildBookSummary/);
   assert.match(serverSource, /summary_type = 'book'/);
   assert.match(serverSource, /result\.arcSummaries = arcSummaries/);
-  assert.match(serverSource, /function attachPipelineCoverage/);
+  assert.match(analysisSource, /function attachPipelineCoverage/);
   assert.match(serverSource, /chapterFrom: band\.from, chapterTo: band\.to/);
   assert.match(serverSource, /result\.bookSummary = await buildBookSummary/);
 });
@@ -135,15 +137,19 @@ test('rebuild graph also rebuilds states, edges and foreshadows', () => {
 
 // —— 覆盖率接口：返回新增图谱统计 ——
 test('coverage stats expose foreshadow/edge/state counts', () => {
-  assert.match(serverSource, /foreshadows = db\.prepare\('SELECT COUNT\(\*\) n FROM dissection_foreshadows/);
-  assert.match(serverSource, /edges = db\.prepare\('SELECT COUNT\(\*\) n FROM dissection_event_edges/);
-  assert.match(serverSource, /states = db\.prepare\('SELECT COUNT\(\*\) n FROM dissection_entity_states/);
+  const { createDissectionQueryService } = require('../services/dissection-query-service');
+  const service = createDissectionQueryService({ dbReady: () => true,
+    getDatabase: () => ({ prepare: sql => ({ get: () => ({ n: sql.includes('foreshadows') ? 3 : sql.includes('event_edges') ? 4 : sql.includes('entity_states') ? 5 : 0 }) }) }) });
+  const stats = service.dissectionPipelineStats({ id: 'd' });
+  assert.equal(stats.foreshadows, 3);
+  assert.equal(stats.edges, 4);
+  assert.equal(stats.states, 5);
 });
 
 // —— 汇总页支持 arc/book 类型查询 ——
 test('summaries page supports arc and book types', () => {
-  assert.match(serverSource, /else if \(type === 'arc'\) list = result\.arcSummaries \|\| \[\]/);
-  assert.match(serverSource, /else if \(type === 'book'\) list = result\.bookSummary \? \[result\.bookSummary\] : \[\]/);
+  assert.match(querySource, /else if \(type === 'arc'\) list = result\.arcSummaries \|\| \[\]/);
+  assert.match(querySource, /else if \(type === 'book'\) list = result\.bookSummary \? \[result\.bookSummary\] : \[\]/);
 });
 
 // —— 阶段0 · unitId 规范化：模型把「unitId·标题」连在一起返回时不应误判漏返回 ——
@@ -291,9 +297,9 @@ test('POST handlers read bodies via readBody, never raw req.body', () => {
 
 test('pipeline character aggregation is evidence-backed and gated on model coverage', () => {
   assert.doesNotMatch(serverSource, /name: '（待聚合）'/);
-  assert.match(serverSource, /samplePipelineCharacterAppearances\(c\.appearances, 32\)/);
+  assert.match(serverSource + analysisSource, /samplePipelineCharacterAppearances\(c\.appearances, 32\)/);
   assert.match(serverSource, /result\.characterAggregation = \{/);
-  assert.match(serverSource, /characters aggregation coverage/);
+  assert.match(serverSource + analysisSource, /characters aggregation coverage/);
   assert.match(serverSource, /chapterCount: factUnitCount/);
 });
 

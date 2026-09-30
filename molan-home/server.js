@@ -6856,43 +6856,18 @@ const DISSECTION_PHASES_BY_DEPTH = {
   standard: ['map', 'structure', 'entities', 'plot', 'style', 'dna', 'emotion', 'validate'],
   deep: ['map', 'structure', 'entities', 'plot', 'style', 'dna', 'emotion', 'validate']
 };
-const activeDissections = new Map();
-const activeDissectionsByUser = new Map();
 const DISSECTION_MAX_CONCURRENT = envPositiveInt('MOLAN_DISSECTION_MAX_CONCURRENT', 2, 1, 8);
-let dissectionRunningCount = 0;
+const dissectionScheduler = require('./services/dissection-scheduler').createDissectionScheduler({
+  maxConcurrent: DISSECTION_MAX_CONCURRENT, loadRecord: (...args) => loadDissectionRecord(...args)
+});
+const { activeDissections, activeDissectionsByUser, waitForDissectionCapacity,
+  acquireDissectionUserSlot, releaseDissectionUserSlot } = dissectionScheduler;
 
-async function waitForDissectionCapacity(id, userEmail, controller) {
-  while (dissectionRunningCount >= DISSECTION_MAX_CONCURRENT) {
-    const latest = loadDissectionRecord(id, userEmail);
-    if (!latest || latest.cancelRequested || latest.status === 'cancelled' || controller.signal.aborted) {
-      throw Object.assign(new Error('拆书任务已取消'), { cancelled: true });
-    }
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  if (controller.signal.aborted) throw Object.assign(new Error('拆书任务已取消'), { cancelled: true });
-  dissectionRunningCount += 1;
-}
 
 /** 尝试为用户占用一个拆书运行槽位，返回是否成功占用。 */
-function acquireDissectionUserSlot(email) {
-  const key = String(email || '').trim().toLowerCase();
-  if (!key || (activeDissectionsByUser.get(key) || 0) >= 1) return false;
-  activeDissectionsByUser.set(key, (activeDissectionsByUser.get(key) || 0) + 1);
-  return true;
-}
 
 /** 释放用户占用的拆书运行槽位，避免任务结束后残留占用状态。 */
-function releaseDissectionUserSlot(email) {
-  const key = String(email || '').trim().toLowerCase();
-  if (!key) return;
-  const remaining = Math.max(0, (activeDissectionsByUser.get(key) || 1) - 1);
-  if (remaining) activeDissectionsByUser.set(key, remaining);
-  else activeDissectionsByUser.delete(key);
-}
 
-function dissectionId() {
-  return 'd_' + Date.now().toString(36) + crypto.randomBytes(4).toString('hex');
-}
 
 // 旧任务续跑时按 phase 名定位索引，避免阶段数组变更导致错位（老数据 phaseIndex 基于旧阶段表）
 function resumePhaseIndex(record) {
@@ -6908,9 +6883,6 @@ function resumePhaseIndex(record) {
   return Math.max(0, Math.min(fallback, ids.length - 1));
 }
 
-function dissectionWordCount(text) {
-  return String(text || '').replace(/\s/g, '').length;
-}
 
 // ★ F002 文本清洗：去除网文搬运常见的干扰内容，提升拆书准确率。
 // 只删除「确定是噪音」的行（短行 + 无句末标点 + 明确标记词），不碰正文，避免误删剧情。
@@ -6931,80 +6903,9 @@ const DISSECTION_NOISE_ANCHORED = new RegExp(
 const DISSECTION_NOISE_ANYWHERE = new RegExp(
   '(?:本书首发|最新网址|请记住本站|欢迎访问|手机阅读|http://|https://|www\\.|qq群|QQ群|群号[:：]|作者有话说|p\\.?s[:：]|ps[:：]|（ps|\\(ps|上一章|下一章|返回目录)'
 );
-function cleanDissectionText(text) {
-  const value = String(text || '').replace(/\uFEFF/g, '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n').trim();
-  if (!value) return '';
-  const lines = value.split('\n');
-  const kept = [];
-  for (let line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) { kept.push(''); continue; }
-    const short = trimmed.length <= 80;
-    // 无句末标点才可能被视为噪音行（正文短句一般带 。！？…）
-    const noSentenceEnd = !/[。！？…!?…]/.test(trimmed.replace(/[「」“”‘’【】《》（）()]/g, ''));
-    // 行首锚定噪音（短行 + 无句末标点）：整行删除
-    if (short && noSentenceEnd && DISSECTION_NOISE_ANCHORED.test(trimmed)) continue;
-    // 行内强噪音（网址/群号/ps/有话说/导航，且整行很短）：整行删除
-    if (short && noSentenceEnd && DISSECTION_NOISE_ANYWHERE.test(trimmed)) continue;
-    // 行首网址/广告前缀裁剪：仅裁掉行首的前缀片段，保留后续正文
-    const inline = trimmed.match(/^[^\u4e00-\u9fff]{0,4}(?:本书首发|最新网址|请记住本站|欢迎访问|http:\/\/|https:\/\/|www\.)[^\s，。；！？、,]{0,20}[\s，。；！？、,]{0,2}/);
-    if (inline && inline[0] && inline[0].length <= 40) line = trimmed.slice(inline[0].length).trim();
-    // 统一折叠行内多余空格（不影响中文语义）
-    line = line.replace(/[ \t\u3000]{2,}/g, ' ');
-    if (line) kept.push(line);
-  }
-  // 折叠连续空行：最多保留一个空行（段间隔）
-  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-}
 
-function splitDissectionText(text, maxChars) {
-  const value = String(text || '');
-  const out = [];
-  for (let start = 0; start < value.length; start += maxChars) {
-    out.push(value.slice(start, start + maxChars));
-  }
-  return out.length ? out : [''];
-}
 
-function dissectionChapterTitle(line) {
-  const value = String(line || '').trim();
-  const match = value.match(/^(?:[#>*-]\s*)?(?:(?:第\s*[0-9零一二三四五六七八九十百千万两〇○]+\s*(?:章|节|回|卷|部|篇))(?:\s*[-:：.、]?\s*[^\n]{0,120})?|(?:(?:chapter|part|book)\s*(?:no\.?\s*)?[0-9ivxlc]+)(?:\s*[-:：.、]?\s*[^\n]{0,120})?)$/i);
-  return match ? value.replace(/^[#>*-]\s*/, '').trim() : '';
-}
 
-function buildDissectionChunks(text) {
-  const source = String(text || '').replace(/\r\n?/g, '\n').trim();
-  const markers = [];
-  let offset = 0;
-  source.split('\n').forEach(line => {
-    const title = dissectionChapterTitle(line);
-    if (title) markers.push({ index: offset, title });
-    offset += line.length + 1;
-  });
-  const chunks = [];
-  if (markers.length) {
-    if (markers[0].index > 0) {
-      const preface = source.slice(0, markers[0].index).trim();
-      if (preface) splitDissectionText(preface, DISSECTION_CHUNK_CHARS).forEach((part, partIndex) => {
-        chunks.push({ index: chunks.length + 1, label: '开篇前置' + (partIndex ? '（续）' : ''), text: part, chapterId: 'preface', chapterPart: partIndex });
-      });
-    }
-    for (let i = 0; i < markers.length; i += 1) {
-      const start = markers[i].index;
-      const end = i + 1 < markers.length ? markers[i + 1].index : source.length;
-      const chapter = source.slice(start, end).trim();
-      if (!chapter) continue;
-      splitDissectionText(chapter, DISSECTION_CHUNK_CHARS).forEach((part, partIndex) => {
-        chunks.push({ index: chunks.length + 1, label: markers[i].title + (partIndex ? '（续）' : ''), text: part, chapterId: 'chapter-' + (i + 1), chapterPart: partIndex });
-      });
-    }
-  } else {
-    splitDissectionText(source, DISSECTION_CHUNK_CHARS).forEach((part, index) => {
-      chunks.push({ index: index + 1, label: '片段 ' + (index + 1), text: part, chapterId: 'segment-' + (index + 1), chapterPart: 0 });
-    });
-  }
-  return chunks;
-}
 
 // ★ 阶段0 · 统一文本单元模型：不把所有输入强制叫"章节"。
 // 单元类型：preface / volume / chapter / scene / segment。
@@ -7014,116 +6915,12 @@ const DISSECTION_MAX_UNITS = envPositiveInt('MOLAN_DISSECTION_MAX_UNITS', 30000,
 const UNIT_TYPES = new Set(['preface', 'volume', 'chapter', 'scene', 'segment']);
 
 // 识别标题行并区分 卷/部/篇(volume) 与 章/节/回(chapter)；scene 预留（章节内场景边界，首版不强制切分）
-function dissectionUnitHeader(line) {
-  const value = String(line || '').trim();
-  if (!value || value.length > 80) return null;
-  const norm = value.replace(/^[#>*-]\s*/, '');
-  if (/^第\s*[0-9零一二三四五六七八九十百千万两〇○]+\s*(?:卷|部|篇)(?:\s*[-:：.、]?\s*[^\n]{0,60})?$/.test(norm)) return { type: 'volume', title: norm };
-  if (/^(?:第\s*[0-9零一二三四五六七八九十百千万两〇○]+\s*(?:章|节|回)(?:\s*[-:：.、]?\s*[^\n]{0,80})?|(?:chapter|part|book)\s*(?:no\.?\s*)?[0-9ivxlc]+(?:\s*[-:：.、]?\s*[^\n]{0,80})?)$/i.test(norm)) return { type: 'chapter', title: norm };
-  return null;
-}
 
 // 按段落边界（\n\n）优先切分，尽量不切断自然段；单段超长再按字符上限切。
 // 返回 [{ text, start, end }]，start/end 为相对 baseOffset 的字符偏移。
-function splitUnitParts(text, baseOffset) {
-  const parts = [];
-  let start = 0;
-  const len = text.length;
-  while (start < len) {
-    if (len - start <= DISSECTION_CHUNK_CHARS) { parts.push({ text: text.slice(start), start: baseOffset + start, end: baseOffset + len }); break; }
-    const windowStart = start + 4000;
-    const windowEnd = Math.min(start + DISSECTION_CHUNK_CHARS, len);
-    const boundary = text.slice(windowStart, windowEnd).lastIndexOf('\n\n');
-    if (boundary >= 2000) {
-      const cut = windowStart + boundary;
-      parts.push({ text: text.slice(start, cut), start: baseOffset + start, end: baseOffset + cut });
-      start = cut;
-    } else {
-      parts.push({ text: text.slice(start, windowEnd), start: baseOffset + start, end: baseOffset + windowEnd });
-      start = windowEnd;
-    }
-  }
-  return parts.filter(p => p.text.trim());
-}
 
 // 构建全量单元清单（千万字流水线使用；quick/standard 仍走 buildDissectionChunks 采样）
-function buildDissectionUnits(text) {
-  const source = String(text || '').replace(/\r\n?/g, '\n').trim();
-  if (!source) return [];
-  const lines = source.split('\n');
-  const headers = [];
-  let offset = 0;
-  lines.forEach(line => {
-    const info = dissectionUnitHeader(line);
-    if (info) headers.push({ type: info.type, title: info.title, offset });
-    offset += line.length + 1;
-  });
-  const units = [];
-  const pushUnits = (segText, baseOffset, type, title, parentId) => {
-    if (!String(segText || '').trim()) return;
-    splitUnitParts(segText, baseOffset).forEach((p, pi) => {
-      const ordinal = units.length + 1;
-      const text = p.text.trim();
-      if (!text) return;
-      const baseTitle = pi === 0 ? title : (title + '（续' + pi + '）');
-      units.push({
-        unitId: type + '-' + String(ordinal).padStart(4, '0'),
-        ordinal,
-        unitType: type,
-        title: baseTitle || (type === 'preface' ? '前言' : (type === 'segment' ? '片段 ' + ordinal : '第 ' + ordinal + ' 单元')),
-        parentId: parentId || '',
-        text,
-        sourceStart: p.start,
-        sourceEnd: p.end,
-        textHash: crypto.createHash('sha1').update(text).digest('hex').slice(0, 16),
-        charCount: dissectionWordCount(text),
-        tokenEstimate: Math.ceil(text.length / 1.3)
-      });
-    });
-  };
-  if (!headers.length) {
-    // 无任何标题：按段落边界生成 segment，绝不丢弃、不按 0 章处理
-    pushUnits(source, 0, 'segment', '', '');
-    if (units.length > DISSECTION_MAX_UNITS) throw new Error('输入单元数 ' + units.length + ' 超出当前容量上限 ' + DISSECTION_MAX_UNITS + '，请分段输入');
-    return units;
-  }
-  if (headers[0].offset > 0) pushUnits(source.slice(0, headers[0].offset), 0, 'preface', '前言', '');
-  let currentVolume = '';
-  for (let i = 0; i < headers.length; i += 1) {
-    const h = headers[i];
-    const start = h.offset;
-    const end = i + 1 < headers.length ? headers[i + 1].offset : source.length;
-    if (h.type === 'volume') {
-      const before = units.length;
-      pushUnits(source.slice(start, end), start, 'volume', h.title, '');
-      currentVolume = units[before] ? units[before].unitId : '';
-    } else {
-      pushUnits(source.slice(start, end), start, 'chapter', h.title, currentVolume);
-    }
-  }
-  if (units.length > DISSECTION_MAX_UNITS) throw new Error('输入单元数 ' + units.length + ' 超出当前容量上限 ' + DISSECTION_MAX_UNITS + '，请分段输入');
-  return units;
-}
 
-function chooseDissectionChunks(chunks, depth) {
-  const base = DISSECTION_DEPTH_LIMITS[depth] || DISSECTION_DEPTH_LIMITS.standard;
-  let limit = Math.min(chunks.length, base);
-  if (depth === 'deep') {
-    // ★ 千万字级深拆：采样片数随全书规模提升（约 8%，封顶 240 片），
-    // 避免"深拆千万字仍只抽样固定 60 片、大量区域从未进入分析"。
-    limit = Math.min(chunks.length, Math.max(base, Math.min(240, Math.ceil(chunks.length * 0.08))));
-  }
-  if (chunks.length <= limit) return chunks.slice();
-  const indexes = new Set();
-  // 先锁定开篇、首个危机附近、中段、后段和结尾，再用均匀采样补齐，
-  // 避免“抽样数量很多但只集中在书前”的失真结果。
-  const anchors = [0, 1, 2, Math.floor(chunks.length * 0.1), Math.floor(chunks.length * 0.25), Math.floor(chunks.length * 0.5), Math.floor(chunks.length * 0.75), Math.floor(chunks.length * 0.9), chunks.length - 1];
-  anchors.forEach(index => { if (index >= 0 && index < chunks.length && indexes.size < limit) indexes.add(index); });
-  for (let i = 0; indexes.size < limit && i < limit * 3; i += 1) {
-    indexes.add(Math.round(i * (chunks.length - 1) / Math.max(1, limit * 3 - 1)));
-  }
-  return [...indexes].sort((a, b) => a - b).map(index => chunks[index]);
-}
 
 // ★ 章节目录树（F003）：从分片标记中确定性提取章节标题与分段数，无需模型调用。
 function buildChapterIndex(chunks) {
@@ -7140,19 +6937,6 @@ function buildChapterIndex(chunks) {
   return [...seen.values()];
 }
 
-function dissectionContext(chunks, maxChars = 220000) {
-  let output = '';
-  for (const chunk of chunks) {
-    const block = '\n\n===== ' + chunk.label + ' / #' + chunk.index + ' =====\n' + chunk.text;
-    if (output.length + block.length > maxChars) {
-      const remaining = maxChars - output.length;
-      if (remaining > 300) output += block.slice(0, remaining);
-      break;
-    }
-    output += block;
-  }
-  return output;
-}
 
 const DISSECTION_STAGE_CONTEXT_CHARS = {
   map: 220000,
@@ -7176,18 +6960,6 @@ const DISSECTION_STAGE_FRACTION = {
   validate: 0.8
 };
 
-function dissectionContextForStage(stage, chunks, depth) {
-  const maxChars = DISSECTION_STAGE_CONTEXT_CHARS[stage] || 180000;
-  if (depth === 'deep') {
-    const fraction = DISSECTION_STAGE_FRACTION[stage] || 0;
-    if (fraction > 0 && chunks.length > 12) {
-      const offset = Math.floor(chunks.length * fraction);
-      const rotated = chunks.slice(offset).concat(chunks.slice(0, offset));
-      return dissectionContext(rotated, maxChars);
-    }
-  }
-  return dissectionContext(chunks, maxChars);
-}
 
 /* ============================================================================
  * 千万字拆书 · 分层增量流水线
@@ -7205,81 +6977,15 @@ const PIPELINE_BATCH_MAX_CHAPTERS = 12; // 每批最多连续章节数
 const PIPELINE_MIN_CHAPTERS = 80;     // 达到该章节数才启用全量流水线（小书仍走原采样直出）
 const PIPELINE_FACT_UNIT_TYPES = new Set(['preface', 'chapter', 'scene', 'segment']);
 
-function isPipelineFactUnit(unit) {
-  return !!unit && PIPELINE_FACT_UNIT_TYPES.has(String(unit.unitType || ''));
-}
 
 // ★ 批次大小按模型上下文窗口自适应：小窗口模型（如 gpt-luna 32768）批次过大会被 /api/chat
 // 以 context_window_exceeded 拒绝（实测 10 章 41.5k token 超 32k 窗口）。输入 token 预算取窗口的 68%
 // 并扣除固定提示与输出余量，再按中文 1 字符 ≈ 1.3 token 折算为字符数；大窗口模型封顶 24k 字符。
-function pipelineBatchCharsFor(record) {
-  let ctx = 128000;
-  try {
-    const pm = findPlatformModel(record && record.selectedModel);
-    if (pm && Number(pm.contextWindowTokens) > 0) ctx = Number(pm.contextWindowTokens);
-  } catch (_) {}
-  const inputTokens = Math.max(6000, Math.floor(ctx * 0.68) - 5000);
-  const chars = Math.min(24000, Math.max(4000, Math.floor(inputTokens / 1.3)));
-  return chars;
-}
 
-function pipelineEstimatedTokensFor(record, unitCount) {
-  const batchChars = pipelineBatchCharsFor(record);
-  const perBatchUnits = Math.max(1, Math.floor(batchChars / 3500));
-  const batchCount = Math.max(1, Math.ceil(Math.max(1, Number(unitCount) || 0) / perBatchUnits));
-  return Math.round(batchCount * (batchChars * 0.55 + 4500)) + 120000;
-}
 
-function pipelineAggregationInputChars(record) {
-  let ctx = 128000;
-  try {
-    const pm = findPlatformModel(record && record.selectedModel);
-    if (pm && Number(pm.contextWindowTokens) > 0) ctx = Number(pm.contextWindowTokens);
-  } catch (_) {}
-  return Math.min(24000, Math.max(7000, Math.floor(ctx * 0.32)));
-}
 
-function pipelineTextChunks(text, maxChars) {
-  const source = String(text || '');
-  const limit = Math.max(1000, Number(maxChars) || 10000);
-  if (!source) return [];
-  const lines = source.split('\n');
-  const chunks = [];
-  let current = '';
-  lines.forEach(line => {
-    const value = String(line || '');
-    if (value.length > limit) {
-      if (current) { chunks.push(current); current = ''; }
-      for (let i = 0; i < value.length; i += limit) chunks.push(value.slice(i, i + limit));
-      return;
-    }
-    if (current && current.length + value.length + 1 > limit) {
-      chunks.push(current);
-      current = '';
-    }
-    current += (current ? '\n' : '') + value;
-  });
-  if (current) chunks.push(current);
-  return chunks;
-}
 
 // —— 章节库 / 事实库 / 批次库 的读写辅助 ——
-function loadDissectionChapters(id) {
-  if (!dbReady()) return [];
-  return db.prepare('SELECT id,chapter_id,chapter_no,title,text FROM dissection_chapters WHERE dissection_id = ? ORDER BY chapter_no ASC').all(id);
-}
-function loadAllChapterFacts(id) {
-  if (!dbReady()) return [];
-  return db.prepare('SELECT chapter_id,chapter_no,fact_json FROM dissection_chapter_facts WHERE dissection_id = ? ORDER BY chapter_no ASC').all(id).map(r => {
-    let fact = {};
-    try { fact = JSON.parse(r.fact_json || '{}'); } catch (_) {}
-    return { chapterId: String(r.chapter_id || ''), chapterNo: Number(r.chapter_no) || 0, fact };
-  });
-}
-function loadDissectionBatches(id) {
-  if (!dbReady()) return [];
-  return db.prepare('SELECT batch_no,chapter_from,chapter_to,status,tokens,error FROM dissection_batch_tasks WHERE dissection_id = ? ORDER BY batch_no ASC').all(id);
-}
 function pipelineEnabled(record) {
   if (!record || record.depth !== 'deep') return false;
   if (!dbReady()) return false;
@@ -7290,186 +6996,15 @@ function pipelineEnabled(record) {
 // 预处理：把已分片、已清洗的 chunks 按 chapterId 聚合为「逐章原始文本」并落库
 // ★ 阶段0/1 · 全量单元存储：所有单元类型（preface/volume/chapter/segment）写入 dissection_units，
 // 章节类型同时写入 dissection_chapters（兼容旧聚合），保证无标题文本与卷/前置不丢失。
-function storeDissectionUnits(record, units) {
-  if (!dbReady()) return 0;
-  // ★ P1-6 · 批量入库事务化：node:sqlite 的 DatabaseSync 虽无 db.transaction()，
-  // 但支持手工 BEGIN/COMMIT。逐条自动提交会让千万字拆书（上万条 INSERT）在事件循环上
-  // 阻塞数百毫秒且中途失败会留下半套数据；事务化后一次提交，既快又保证原子性。
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    db.prepare('DELETE FROM dissection_units WHERE dissection_id = ?').run(record.id);
-    db.prepare('DELETE FROM dissection_chapters WHERE dissection_id = ?').run(record.id);
-    db.prepare('DELETE FROM dissection_chapter_facts WHERE dissection_id = ?').run(record.id);
-    db.prepare('DELETE FROM dissection_claims WHERE dissection_id = ?').run(record.id);
-    const now = Date.now();
-    const insUnit = db.prepare('INSERT INTO dissection_units (id,dissection_id,parent_id,unit_type,ordinal,title,source_file,source_start,source_end,text_hash,char_count,token_estimate,text,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    const insChapter = db.prepare('INSERT OR REPLACE INTO dissection_chapters (id,dissection_id,chapter_id,chapter_no,title,text,created_at) VALUES (?,?,?,?,?,?,?)');
-    let chapterNo = 0;
-    units.forEach(u => {
-      insUnit.run(String(u.unitId), record.id, String(u.parentId || ''), String(u.unitType || 'chapter'), Number(u.ordinal) || 0, String(u.title || ''), String(u.sourceFile || ''), Number(u.sourceStart) || 0, Number(u.sourceEnd) || 0, String(u.textHash || ''), Number(u.charCount) || 0, Number(u.tokenEstimate) || 0, String(u.text || ''), now);
-      if (isPipelineFactUnit(u)) {
-        chapterNo += 1;
-        const fallbackTitle = String(u.unitType) === 'segment' ? '片段 ' + chapterNo : (String(u.unitType) === 'preface' ? '前言' : '第 ' + chapterNo + ' 章');
-        insChapter.run('dc_' + record.id + '_' + chapterNo, record.id, String(u.unitId), chapterNo, String(u.title || fallbackTitle), String(u.text || ''), now);
-      }
-    });
-    // ★ 阶段4 · 同步 FTS5 检索索引（trigram 中文子串匹配）
-    try {
-      db.prepare('DELETE FROM dissection_units_fts WHERE dissection_id = ?').run(record.id);
-      const insFts = db.prepare('INSERT INTO dissection_units_fts (dissection_id, unit_type, ordinal, title, body) VALUES (?,?,?,?,?)');
-      units.forEach(u => {
-        if (!String(u.text || '').trim()) return;
-        insFts.run(record.id, String(u.unitType || 'chapter'), Number(u.ordinal) || 0, String(u.title || ''), String(u.text || ''));
-      });
-    } catch (error) { console.error('[拆书] FTS 索引同步失败 task=' + record.id + ':', error && error.message || error); }
-    db.exec('COMMIT');
-  } catch (error) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
-    throw error;
-  }
-  return units.length;
-}
 
-function loadDissectionUnits(dissectionId) {
-  if (!dbReady()) return [];
-  return db.prepare('SELECT id,parent_id,unit_type,ordinal,title,source_start,source_end,text_hash,char_count,token_estimate,text FROM dissection_units WHERE dissection_id = ? ORDER BY ordinal ASC').all(dissectionId).map(r => ({
-    unitId: r.id, parentId: r.parent_id, unitType: r.unit_type, ordinal: r.ordinal, title: r.title,
-    sourceStart: r.source_start, sourceEnd: r.source_end, textHash: r.text_hash, charCount: r.char_count,
-    tokenEstimate: r.token_estimate, text: r.text
-  }));
-}
 
 // 阶段0 兼容层：保留旧函数名（部分调用方仍按章节处理），转用单元模型
-function storeDissectionChapters(record, chunks) {
-  return storeDissectionUnits(record, chunks.map((c, i) => ({
-    unitId: 'chapter-' + String(i + 1).padStart(4, '0'),
-    unitType: 'chapter', ordinal: i + 1, title: String(c.label || '').replace(/（续.*/, ''),
-    parentId: '', text: String(c.text || ''), sourceStart: 0, sourceEnd: String(c.text || '').length,
-    textHash: crypto.createHash('sha1').update(String(c.text || '')).digest('hex').slice(0, 16),
-    charCount: dissectionWordCount(String(c.text || '')), tokenEstimate: Math.ceil(String(c.text || '').length / 1.3)
-  })));
-}
 
 // 预处理：按「连续单元 + 字符上限（按模型窗口自适应）」把单元库划分为批次任务
-function createDissectionBatches(record, units) {
-  if (!dbReady()) return 0;
-  db.prepare('DELETE FROM dissection_batch_tasks WHERE dissection_id = ?').run(record.id);
-  const batchChars = pipelineBatchCharsFor(record);
-  const batches = [];
-  let cur = null;
-  units.forEach((u, i) => {
-    const len = String(u.text || '').length;
-    if (!cur || cur.chars + len > batchChars || (i - cur.from) >= PIPELINE_BATCH_MAX_CHAPTERS) {
-      cur = { from: i, to: i, chars: len };
-      batches.push(cur);
-    } else {
-      cur.to = i;
-      cur.chars += len;
-    }
-  });
-  const now = Date.now();
-  let n = 0;
-  // ★ P1-6 · 批次划分事务化：一次提交，避免逐条自动提交阻塞事件循环
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    batches.forEach((b, idx) => {
-      db.prepare('INSERT INTO dissection_batch_tasks (id,dissection_id,batch_no,chapter_from,chapter_to,status,tokens,error,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
-        .run('db_' + record.id + '_' + (idx + 1), record.id, idx + 1, b.from + 1, b.to + 1, 'queued', 0, '', now, now);
-      n += 1;
-    });
-    db.exec('COMMIT');
-  } catch (error) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
-    throw error;
-  }
-  return n;
-}
 
-function initializeDissectionPipeline(record, pipelineCandidate) {
-  if (!pipelineCandidate || !dbReady()) return null;
-  const units = buildDissectionUnits(record.sourceText);
-  storeDissectionUnits(record, units);
-  const batchTotal = createDissectionBatches(record, units);
-  const factUnitCount = units.filter(isPipelineFactUnit).length;
-  record.meta = {
-    ...(record.meta || {}),
-    pipeline: {
-      unitTotal: units.length,
-      unitCompleted: 0,
-      factCoverage: 0,
-      chapterCount: factUnitCount,
-      batchTotal,
-      batchDone: 0,
-      phase: 'queued',
-      aggregated: false,
-      aggregationComplete: false,
-      failedBatches: []
-    },
-    unitCount: units.length
-  };
-  return { units, batchTotal, factUnitCount };
-}
 
 // ★ Q2 · 模型用量账本：按 requestId 幂等写入 model_usage（token / 费用 / 重试 / 延迟），供成本报告与预算暂停。
-function recordModelUsage(opts) {
-  if (!dbReady() || !opts || !opts.requestId) return;
-  try {
-    const usage = opts.usage && typeof opts.usage === 'object' ? opts.usage : {};
-    const inputTokens = toTokenCount(usage.totalTokens) === null && usage.promptTokens != null ? Number(usage.promptTokens) || 0 : 0;
-    const outTokens = usage.completionTokens != null ? Number(usage.completionTokens) || 0 : 0;
-    const creditCost = Number(usage.creditCost);
-    const creditKnown = Number.isFinite(creditCost) && creditCost >= 0;
-    const costSource = creditKnown ? (usage.creditCostSource || usage.costSource || 'upstream_usage') : 'unknown';
-    db.prepare('INSERT OR IGNORE INTO model_usage (request_id,user_id,workspace_id,project_id,record_id,workflow_id,stage,unit_id,model,prompt_version,input_tokens,output_tokens,cached_input_tokens,retry_count,latency_ms,credit_cost,status,created_at,credit_known,cost_source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(
-        String(opts.requestId).slice(0, 200),
-        String(opts.userId || '').slice(0, 160),
-        String(opts.workspaceId || '').slice(0, 160),
-        String(opts.projectId || '').slice(0, 160),
-        String(opts.recordId || '').slice(0, 200),
-        String(opts.workflowId || '').slice(0, 200),
-        String(opts.stage || '').slice(0, 60),
-        String(opts.unitId || '').slice(0, 200),
-        String(opts.model || '').slice(0, 120),
-        String(opts.promptVersion || '').slice(0, 80),
-        Math.max(0, inputTokens || Number(usage.promptTokens) || 0),
-        Math.max(0, outTokens || Number(usage.completionTokens) || 0),
-        Math.max(0, Number(usage.cachedInputTokens) || 0),
-        Math.max(0, Number(opts.retryCount) || 0),
-        Math.max(0, Number(opts.latencyMs) || 0),
-        creditKnown ? creditCost : 0,
-        String(usage.status || opts.status || '').slice(0, 40),
-        Date.now(),
-        creditKnown ? 1 : 0,
-        costSource
-      );
-  } catch (e) {
-    console.error('[model_usage] 记账失败:', e.message);
-  }
-}
 
-function recordPipelineUsage(record, usage, stage) {
-  if (!record) return;
-  const key = String(stage || 'pipeline');
-  const meta = { ...(record.meta || {}) };
-  const stageUsage = { ...(meta.stageUsage || {}) };
-  const prior = stageUsage[key] && typeof stageUsage[key] === 'object' ? stageUsage[key] : {};
-  const totalTokens = toTokenCount(usage && usage.totalTokens);
-  const creditCost = Number(usage && usage.creditCost);
-  if (Number.isFinite(creditCost) && creditCost >= 0) {
-    record.actualCredits = Math.round(((Number(record.actualCredits) || 0) + creditCost) * 100) / 100;
-  }
-  stageUsage[key] = {
-    mode: 'pipeline',
-    requestCount: (Number(prior.requestCount) || 0) + 1,
-    creditCost: Math.round(((Number(prior.creditCost) || 0) + (Number.isFinite(creditCost) && creditCost >= 0 ? creditCost : 0)) * 100) / 100,
-    totalTokens: totalTokens === null ? (prior.totalTokens == null ? null : Number(prior.totalTokens)) : (Number(prior.totalTokens) || 0) + totalTokens,
-    usageUnavailableCount: (Number(prior.usageUnavailableCount) || 0) + (totalTokens === null ? 1 : 0),
-    status: String((usage && usage.status) || (totalTokens === null ? 'usage_unavailable' : 'completed'))
-  };
-  record.meta = { ...meta, stageUsage };
-  updateDissectionRecord(record);
-}
 
 // ★ 局部解析层：事实抽取系统/用户提示（只抽客观事实，禁止全局总结/人物弧光/全书评价）
 const PIPELINE_FACT_SYSTEM =
@@ -7506,45 +7041,12 @@ const PIPELINE_EVENT_TYPE_MAP = {
   '谈判': '对话', '交谈': '对话', '商谈': '对话', '质问': '对话', '揭穿': '反转', '身份揭露': '反转', '背叛': '反转', '反杀': '反转',
   '获得功法': '金手指', '获得斗技': '金手指', '拜师': '金手指', '系统': '金手指', '外挂': '金手指'
 };
-function normalizePipelineEventType(value) {
-  const v = String(value || '').trim();
-  if (!v) return '日常';
-  if (PIPELINE_EVENT_TYPE_MAP[v]) return PIPELINE_EVENT_TYPE_MAP[v];
-  if (/冲突|战斗|对战|打脸|虐|危机|阴谋|陷害|追杀|挑衅|羞辱|获胜|胜利|碾压/.test(v)) return '冲突';
-  if (/突破|升级|修炼|进阶|实力|强化/.test(v)) return '升级';
-  if (/伏笔|秘密|线索|真相|身世|戒指|异火|地图|传承|身份/.test(v)) return '伏笔推进';
-  if (/金手指|外挂|系统|功法|斗技|拜师/.test(v)) return '金手指';
-  if (/对话|交谈|谈判|商谈|质问/.test(v)) return '对话';
-  if (/反转|背叛|反杀|揭露|揭穿/.test(v)) return '反转';
-  return '日常';
-}
 
 // 记录/复用一次拆书运行（runs 表），版本化重算的基础
-function ensurePipelineRun(record, units) {
-  if (!dbReady()) return '';
-  const now = Date.now();
-  const run = db.prepare('SELECT id FROM dissection_runs WHERE dissection_id = ? ORDER BY created_at DESC LIMIT 1').get(record.id);
-  if (run) return run.id;
-  const runId = 'run_' + record.id + '_' + now;
-  db.prepare('INSERT INTO dissection_runs (id,dissection_id,pipeline_version,skill_version,prompt_version,model_policy_version,source_hash,status,unit_total,unit_completed,fact_coverage,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(runId, record.id, '2', '2', '2', '1', String(record.sourceHash || ''), 'running', units.length, 0, 0, now, now);
-  return runId;
-}
 
-function updatePipelineRunProgress(dissectionId, runId, doneUnits, totalUnits) {
-  if (!dbReady() || !runId) return;
-  const coverage = totalUnits > 0 ? Math.min(1, Number((doneUnits / totalUnits).toFixed(4))) : 0;
-  db.prepare('UPDATE dissection_runs SET unit_completed = ?, fact_coverage = ?, updated_at = ? WHERE id = ?').run(doneUnits, coverage, Date.now(), runId);
-  db.prepare('UPDATE dissection_runs SET status = ?, updated_at = ? WHERE id = ? AND status = ?').run(coverage >= 1 ? 'completed' : 'running', Date.now(), runId, 'running');
-}
 
 // ★ unitId 规范化：模型常把「unitId·标题」连在一起返回（如 chapter-0002·第1章 陨落的天才），
 // 取匹配单元 ID 模式的片段，避免把全部单元误判为"漏返回"；也兼容 model 返回的纯 ID。
-function normalizeDissectionUnitId(raw) {
-  const v = String(raw || '').trim();
-  const m = v.match(/^(preface|volume|chapter|scene|segment)-\d+/i);
-  return m ? m[0] : v;
-}
 
 // ★ 阶段0/1 · 局部解析层：按单元抽取客观事实（claims 化 + 覆盖校验 + 兼容旧聚合表）
 async function extractBatchFacts(authToken, user, record, batch, units, skillAudit) {
@@ -7633,392 +7135,34 @@ async function extractBatchFacts(authToken, user, record, batch, units, skillAud
   return saved;
 }
 
-function updateBatchStatus(record, batchNo, status, tokens, error) {
-  db.prepare('UPDATE dissection_batch_tasks SET status = ?, tokens = ?, error = ?, updated_at = ? WHERE dissection_id = ? AND batch_no = ?')
-    .run(status, tokens || 0, String(error || '').slice(0, 500), Date.now(), record.id, batchNo);
-}
 
 // ★ 阶段1 · 实体消歧（三级中的前两级：本地规范化 + 规则合并），候选实体保留不强行合并。
 // 第三级"低置信候选交强模型复核"在分层聚合层处理，避免让强模型重复处理全部原文。
-function normalizeEntityName(name) {
-  let v = String(name || '').trim();
-  v = v.replace(/\(candidate\)/gi, '').trim();
-  v = v.replace(/[\s，。！？、；：·'"“”]/g, '');
-  v = v.replace(/^(?:老头|老丈|少年|少女|老者|青年|男子|女子|小孩|丫鬟|老仆|护卫|首领|长老|宗主|家主|城主|院长|老师|师父|师尊|族长|少爷|小姐|姑娘|小子|那人|此人)/, '');
-  return v;
-}
 
-function buildDissectionEntities(record) {
-  if (!dbReady()) return { entities: 0, aliases: 0, mentions: 0, candidates: 0 };
-  const rows = db.prepare("SELECT unit_id, subject_id, status FROM dissection_claims WHERE dissection_id = ? AND claim_type = 'entity_mention'").all(record.id);
-  // 第一级：本地规范化分组
-  const groups = new Map();
-  rows.forEach(r => {
-    const name = String(r.subject_id || '').trim();
-    if (!name) return;
-    const norm = normalizeEntityName(name);
-    if (!groups.has(norm)) groups.set(norm, { names: new Map(), units: new Set(), anyCandidate: false });
-    const g = groups.get(norm);
-    g.names.set(name, (g.names.get(name) || 0) + 1);
-    g.units.add(r.unit_id);
-    if (/candidate/i.test(String(r.status || ''))) g.anyCandidate = true;
-  });
-  // 第二级：规则合并 —— 名称包含 + 共同出场（同单元同现 ≥1 且量级接近），拒绝仅靠描述前缀误合并
-  const shareUnit = (a, b) => {
-    let shared = 0;
-    for (const u of a.units) { if (b.units.has(u)) { shared += 1; if (shared >= 3) return true; } }
-    return shared >= 1 && a.units.size <= b.units.size * 2;
-  };
-  const norms = [...groups.keys()];
-  const mergeTo = new Map();
-  norms.forEach(n => {
-    const target = norms.find(m => m !== n && m.length > n.length && m.includes(n) && groups.get(m).units.size >= 2 && shareUnit(groups.get(n), groups.get(m)));
-    if (target) mergeTo.set(n, target);
-  });
-  // 第三级：写入 entities / aliases / mentions
-  db.prepare('DELETE FROM dissection_entities WHERE dissection_id = ?').run(record.id);
-  db.prepare('DELETE FROM dissection_entity_aliases WHERE dissection_id = ?').run(record.id);
-  db.prepare('DELETE FROM dissection_entity_mentions WHERE dissection_id = ?').run(record.id);
-  const insEntity = db.prepare('INSERT OR REPLACE INTO dissection_entities (id,dissection_id,canonical_name,entity_type,first_unit_id,last_unit_id,mention_count,status,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)');
-  const insAlias = db.prepare('INSERT OR REPLACE INTO dissection_entity_aliases (id,dissection_id,entity_id,alias,first_unit_id,created_at) VALUES (?,?,?,?,?,?)');
-  const insMention = db.prepare('INSERT OR REPLACE INTO dissection_entity_mentions (id,dissection_id,entity_id,alias,unit_id,role,created_at) VALUES (?,?,?,?,?,?,?)');
-  const now = Date.now();
-  const seen = new Map();
-  let e = 0, a = 0, m = 0, candidates = 0;
-  rows.forEach(r => {
-    const name = String(r.subject_id || '').trim();
-    if (!name) return;
-    let norm = normalizeEntityName(name);
-    const canonNorm = mergeTo.get(norm) || norm;
-    let entityId = seen.get(canonNorm);
-    if (!entityId) {
-      e += 1;
-      entityId = 'ent_' + record.id + '_' + e;
-      seen.set(canonNorm, entityId);
-      const g = groups.get(canonNorm) || groups.get(norm);
-      const canonicalName = g ? ([...g.names.entries()].sort((x, y) => y[1] - x[1])[0] || [name])[0] : name;
-      const status = g && g.anyCandidate ? 'candidate' : 'confirmed';
-      if (status === 'candidate') candidates += 1;
-      insEntity.run(entityId, record.id, canonicalName, 'character', r.unit_id, r.unit_id, 0, status, '', now);
-    }
-    const g = groups.get(canonNorm) || groups.get(norm);
-    const canonicalName = g ? ([...g.names.entries()].sort((x, y) => y[1] - x[1])[0] || [name])[0] : name;
-    if (name !== canonicalName) {
-      a += 1;
-      insAlias.run('al_' + record.id + '_' + a, record.id, entityId, name, r.unit_id, now);
-    }
-    m += 1;
-    insMention.run('me_' + record.id + '_' + m, record.id, entityId, name, r.unit_id, '', now);
-  });
-  // 回填 first/last/mention_count
-  const upd = db.prepare('UPDATE dissection_entities SET first_unit_id = ?, last_unit_id = ?, mention_count = ? WHERE id = ?');
-  db.prepare('SELECT entity_id, COUNT(*) n, MIN(unit_id) f, MAX(unit_id) l FROM dissection_entity_mentions WHERE dissection_id = ? GROUP BY entity_id').all(record.id).forEach(r2 => upd.run(r2.f, r2.l, r2.n, r2.entity_id));
-  return { entities: e, aliases: a, mentions: m, candidates };
-}
 
 // ★ 阶段1 · 事件落库：每条 event claim → dissection_events（带证据偏移/参与者/叙事位置）
-function buildDissectionEvents(record) {
-  if (!dbReady()) return 0;
-  const claims = db.prepare("SELECT unit_id, subject_id, predicate, object_value, source_start, source_end FROM dissection_claims WHERE dissection_id = ? AND claim_type = 'event'").all(record.id);
-  db.prepare('DELETE FROM dissection_events WHERE dissection_id = ?').run(record.id);
-  db.prepare('DELETE FROM dissection_event_edges WHERE dissection_id = ?').run(record.id);
-  const ins = db.prepare('INSERT OR REPLACE INTO dissection_events (id,dissection_id,unit_id,title,summary,participants_json,narrative_volume,narrative_unit,world_time,pre_state,post_state,result,evidence_offset_start,evidence_offset_end,related_event_ids,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-  const now = Date.now();
-  let n = 0;
-  claims.forEach(r => {
-    n += 1;
-    const title = String(r.object_value || r.predicate || '').slice(0, 80);
-    ins.run('ev_' + record.id + '_' + n, record.id, r.unit_id, title, String(r.predicate || ''), JSON.stringify([r.subject_id].filter(Boolean)), '', r.unit_id, '', '', '', '', Number(r.source_start) || 0, Number(r.source_end) || 0, '[]', now);
-  });
-  return n;
-}
 
 // 单元 ID → 章节序号映射（chapter 单元取 dissection_chapters；segment/preface/volume 用 ordinal 兜底，
 // 保证无标题文本的 segment 也能按"伪章号"进入时间线/状态快照）。
-function dissectionUnitChapterMap(record) {
-  const map = new Map();
-  if (dbReady()) {
-    try { db.prepare('SELECT chapter_id, chapter_no FROM dissection_chapters WHERE dissection_id = ?').all(record.id).forEach(r => map.set(r.chapter_id, Number(r.chapter_no) || 0)); } catch (_) {}
-  }
-  try { loadDissectionUnits(record.id).forEach(u => { if (!map.has(u.unitId)) map.set(u.unitId, u.ordinal); }); } catch (_) {}
-  return map;
-}
 
 // ★ 阶段2 · 伏笔生命周期落库：把全局聚合后的伏笔台账写入 dissection_foreshadows。
 // 已回收必须有回收章证据；未知状态保留 unknown；每条带相关实体与置信度，供前端/编辑器按状态查询。
-function storeDissectionForeshadows(record, foreshadowing) {
-  if (!dbReady()) return 0;
-  const list = Array.isArray(foreshadowing) ? foreshadowing : [];
-  db.prepare('DELETE FROM dissection_foreshadows WHERE dissection_id = ?').run(record.id);
-  if (!list.length) return 0;
-  const now = Date.now();
-  const runId = record.pipelineRunId || '';
-  const unitToChapter = dissectionUnitChapterMap(record);
-  const chapterToUnit = new Map();
-  if (dbReady()) {
-    try { db.prepare('SELECT chapter_id, chapter_no FROM dissection_chapters WHERE dissection_id = ?').all(record.id).forEach(r => chapterToUnit.set(Number(r.chapter_no), r.chapter_id)); } catch (_) {}
-  }
-  const ins = db.prepare('INSERT OR REPLACE INTO dissection_foreshadows (id,dissection_id,title,description,status,strength,setup_chapter,payoff_chapter,first_unit_id,last_reinforced_unit_id,payoff_unit_id,related_entity_ids,evidence_ids,confidence,run_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-  let n = 0;
-  list.forEach((f, i) => {
-    const id = String(f.id || 'foreshadow-' + (i + 1)).slice(0, 80);
-    const status = String(f.status || 'planned');
-    const setupChapter = Number(f.setupChapter) || Number(f.plantedChapter) || 0;
-    const payoffChapter = Number(f.payoffChapter) || Number(f.recoveredChapter) || 0;
-    const firstUnit = chapterToUnit.get(setupChapter) || String(f.firstUnitId || '');
-    const payoffUnit = chapterToUnit.get(payoffChapter) || String(f.payoffUnitId || '');
-    ins.run(
-      'fs_' + record.id + '_' + n,
-      record.id,
-      String(f.title || f.id || ('伏笔 ' + (i + 1))).slice(0, 80),
-      String(f.description || f.expectedPayoff || '').slice(0, 500),
-      status,
-      String(f.strength || 'medium'),
-      setupChapter,
-      payoffChapter,
-      firstUnit,
-      String(f.lastReinforcedUnitId || firstUnit || ''),
-      payoffUnit,
-      JSON.stringify(Array.isArray(f.relatedEntityIds) ? f.relatedEntityIds.slice(0, 40) : []),
-      JSON.stringify(Array.isArray(f.evidenceIds) ? f.evidenceIds.slice(0, 80) : []),
-      Number(f.confidence) > 0 && Number(f.confidence) <= 1 ? Number(f.confidence) : 0.6,
-      runId,
-      now
-    );
-    n += 1;
-  });
-  return n;
-}
 
 // ★ 阶段2 · 人物状态快照落库：按真实事实章节号（优先卷边界，否则每 50 章）对每个实体生成
 // 能力/关系/位置/身份的状态快照，写入 dissection_entity_states，供编辑器续写时读取"截至当前章的人物状态"。
-function buildEntityStates(record) {
-  if (!dbReady()) return 0;
-  const unitToChapter = dissectionUnitChapterMap(record);
-  const units = loadDissectionUnits(record.id);
-  const factUnits = units
-    .filter(isPipelineFactUnit)
-    .map(unit => ({ unit, chapterNo: Number(unitToChapter.get(unit.unitId) || 0) }))
-    .filter(item => item.chapterNo > 0);
-  const maxChapter = Math.max(1, ...factUnits.map(item => item.chapterNo));
-  // 阶段边界统一使用 chapterNo；不能把 volume 的全局 ordinal 写入状态表，
-  // 否则 creation-context?chapterNo= 会在多卷作品中读到错误阶段。
-  const stages = [];
-  try {
-    const volUnits = db.prepare("SELECT ordinal, title FROM dissection_units WHERE dissection_id = ? AND unit_type = 'volume' ORDER BY ordinal ASC").all(record.id);
-    if (volUnits.length >= 2) {
-      volUnits.forEach((v, i) => {
-        const nextOrdinal = i + 1 < volUnits.length ? Number(volUnits[i + 1].ordinal) : Number.MAX_SAFE_INTEGER;
-        const inVolume = factUnits.filter(item => {
-          const ordinal = Number(item.unit.ordinal) || 0;
-          return ordinal > Number(v.ordinal) && ordinal < nextOrdinal;
-        }).map(item => item.chapterNo);
-        const previous = stages[stages.length - 1];
-        const from = inVolume.length ? Math.min(...inVolume) : (previous ? previous.to + 1 : 1);
-        const to = inVolume.length ? Math.max(...inVolume) : Math.max(from, previous ? Math.min(maxChapter, from + 49) : maxChapter);
-        if (from <= maxChapter) stages.push({ key: String(v.title || ('第' + (i + 1) + '卷')).slice(0, 40), from, to: Math.min(maxChapter, Math.max(from, to)) });
-      });
-    }
-  } catch (_) {}
-  if (!stages.length) {
-    const per = 50;
-    for (let s = 1; s <= maxChapter; s += per) stages.push({ key: '第 ' + Math.floor((s - 1) / per + 1) + ' 阶段', from: s, to: Math.min(maxChapter, s + per - 1) });
-  }
-  db.prepare('DELETE FROM dissection_entity_states WHERE dissection_id = ?').run(record.id);
-  const now = Date.now();
-  const ins = db.prepare('INSERT OR REPLACE INTO dissection_entity_states (id,dissection_id,entity_id,stage_key,unit_from,unit_to,state_snapshot_json,created_at) VALUES (?,?,?,?,?,?,?,?)');
-  // 每个实体的 state_change + 关系 claims 按阶段聚合
-  const entities = db.prepare('SELECT id, canonical_name FROM dissection_entities WHERE dissection_id = ?').all(record.id);
-  const stateChanges = db.prepare("SELECT unit_id, subject_id, predicate, object_value, status FROM dissection_claims WHERE dissection_id = ? AND claim_type = 'state_change'").all(record.id);
-  const relClaims = db.prepare("SELECT unit_id, subject_id, predicate, object_value, status FROM dissection_claims WHERE dissection_id = ? AND claim_type = 'relationship'").all(record.id);
-  let n = 0;
-  entities.forEach(ent => {
-    const id = String(ent.id || '');
-    const changeFor = stateChanges.filter(c => String(c.subject_id || '').trim() === ent.canonical_name);
-    const relFor = relClaims.filter(c => String(c.subject_id || '').trim() === ent.canonical_name);
-    if (!changeFor.length && !relFor.length) return;
-    stages.forEach(stage => {
-      const changes = changeFor.filter(c => {
-        const no = unitToChapter.get(c.unit_id) || 0;
-        return no >= stage.from && no <= stage.to;
-      }).map(c => String(c.predicate || '').slice(0, 120));
-      const rels = relFor.filter(c => {
-        const no = unitToChapter.get(c.unit_id) || 0;
-        return no >= stage.from && no <= stage.to;
-      }).map(c => (c.object_value ? c.subject_id + ' ↔ ' + c.object_value : c.predicate)).slice(0, 40);
-      const snapshot = {
-        statusChanges: changes.slice(0, 60),
-        relationships: rels,
-        at: '第' + stage.from + '-' + stage.to + '章',
-        source: 'state_change/relationship claims'
-      };
-      if (!changes.length && !rels.length) return;
-      n += 1;
-      ins.run('es_' + record.id + '_' + n, record.id, id, stage.key, stage.from, stage.to, JSON.stringify(snapshot), now);
-    });
-  });
-  return n;
-}
 
 // ★ 阶段2 · 事件关系图落库：同单元事件（共同参与者 → co_occur）与相邻单元同参与者事件
 // （→ carries_over，承接上一事件的结果），写入 dissection_event_edges。
-function buildEventEdges(record) {
-  if (!dbReady()) return 0;
-  const events = db.prepare('SELECT id, unit_id, participants_json FROM dissection_events WHERE dissection_id = ? ORDER BY rowid ASC').all(record.id);
-  db.prepare('DELETE FROM dissection_event_edges WHERE dissection_id = ?').run(record.id);
-  if (events.length < 2) return 0;
-  const unitToChapter = dissectionUnitChapterMap(record);
-  const now = Date.now();
-  const ins = db.prepare('INSERT OR REPLACE INTO dissection_event_edges (id,dissection_id,source_event_id,target_event_id,relation_type,description,created_at) VALUES (?,?,?,?,?,?,?)');
-  const byUnit = new Map();
-  events.forEach(ev => {
-    if (!byUnit.has(ev.unit_id)) byUnit.set(ev.unit_id, []);
-    byUnit.get(ev.unit_id).push(ev);
-  });
-  const participants = ev => { try { const v = JSON.parse(ev.participants_json || '[]'); return Array.isArray(v) ? v.map(String) : []; } catch (_) { return []; } };
-  const shared = (a, b) => { const pa = new Set(participants(a)); return participants(b).some(p => pa.has(p)); };
-  let n = 0;
-  // 同单元共现
-  byUnit.forEach(list => {
-    for (let i = 1; i < list.length; i += 1) {
-      if (shared(list[i - 1], list[i])) {
-        n += 1;
-        ins.run('de_' + record.id + '_' + n, record.id, list[i - 1].id, list[i].id, 'co_occurs', '同单元共同参与者', now);
-      }
-    }
-  });
-  // 相邻单元同参与者承接（因果/连续）
-  const ordered = events.slice().sort((a, b) => (unitToChapter.get(a.unit_id) || 0) - (unitToChapter.get(b.unit_id) || 0) || (a.id < b.id ? -1 : 1));
-  for (let i = 1; i < ordered.length; i += 1) {
-    const prev = ordered[i - 1], cur = ordered[i];
-    const dPrev = unitToChapter.get(prev.unit_id) || 0, dCur = unitToChapter.get(cur.unit_id) || 0;
-    if (dCur - dPrev <= 2 && dCur > 0 && shared(prev, cur)) {
-      n += 1;
-      ins.run('de_' + record.id + '_' + n, record.id, prev.id, cur.id, 'carries_over', '跨章节承接（共同参与者）', now);
-    }
-  }
-  return n;
-}
 
-function attachPipelineCoverage(list, expected) {
-  const items = Array.isArray(list) ? list : [];
-  const expectedCount = Math.max(0, Number(expected) || 0);
-  const completed = items.filter(item => item && item.covered === true && item.status !== 'needs_review').length;
-  const coverage = {
-    expected: expectedCount,
-    completed,
-    missing: Math.max(0, expectedCount - completed),
-    ratio: expectedCount ? Number((completed / expectedCount).toFixed(4)) : 0,
-    complete: expectedCount === completed
-  };
-  Object.defineProperty(items, 'coverage', { value: coverage, enumerable: false, configurable: true });
-  return items;
-}
 
-function pipelineSummaryCoverage(list, expected) {
-  if (list && list.coverage) return list.coverage;
-  return attachPipelineCoverage(list, expected).coverage;
-}
 
 // 兼容早期流水线结果：旧结果已经保存人物档案，但没有单独保存人物聚合元数据。
 // 只有人物档案真实可用且结果其余部分完整时才允许推断，空数组或显式的不完整元数据不能通过。
-function legacyPipelineCharacterAggregation(result) {
-  const view = result && typeof result === 'object' && !Array.isArray(result) ? result : {};
-  if (Object.prototype.hasOwnProperty.call(view, 'characterAggregation')) return null;
-  if (!Array.isArray(view.characters)) return null;
-  const characters = view.characters.filter(item => hasMeaningfulDissectionContent(item, 'character'));
-  if (!characters.length) return null;
-  return {
-    expected: characters.length,
-    completed: characters.length,
-    batchTotal: 0,
-    batchCompleted: 0,
-    sourceCount: characters.length,
-    status: 'legacy',
-    source: 'legacy-character-records',
-    complete: true
-  };
-}
 
-function normalizePipelineAggregationResult(result) {
-  const view = dissectionResultView(result);
-  const legacy = legacyPipelineCharacterAggregation(view);
-  const normalized = legacy ? { ...view, characterAggregation: legacy } : view;
-  return ensureDissectionAuthorDna(normalized);
-}
 
-function pipelineAggregationMissingFields(result) {
-  const view = normalizePipelineAggregationResult(result);
-  const required = ['overview', 'framework', 'dissectionMap', 'architecture', 'opening', 'goldenFinger', 'evidenceLedger', 'timeline', 'outline', 'foreshadowing', 'styleProfile', 'authorDna', 'craftConstraints', 'emotion'];
-  const missing = required.filter(key => !dissectionFieldHasUsableContent(key, view[key]));
-  if (!dissectionFieldHasUsableContent('characters', view.characters) && !dissectionFieldHasUsableContent('worldbuilding', view.worldbuilding)) missing.push('characters / worldbuilding');
-  const coverage = view.summaryCoverage && typeof view.summaryCoverage === 'object' ? view.summaryCoverage : {};
-  ['chapter', 'arc', 'volume', 'book'].forEach(key => {
-    const item = coverage[key];
-    if (!item || item.complete !== true) missing.push(key + 'Summaries coverage');
-  });
-  if (coverage.volumeDigestComplete !== true) missing.push('volumeDigest coverage');
-  if (!view.bookSummary || !view.bookSummary.coverage || view.bookSummary.coverage.complete !== true) missing.push('bookSummary');
-  if (!view.characterAggregation || view.characterAggregation.complete !== true) missing.push('characters aggregation coverage');
-  return [...new Set(missing)];
-}
 
 // 将只缺历史人物聚合元数据、但事实/摘要/核心结构均已完成的任务一次性升级。
 // 这是确定性兼容迁移，不会放行缺批次、空人物或其它聚合字段缺失的结果。
-function normalizeLegacyPipelineRecord(record) {
-  if (!record || !record.meta || typeof record.meta !== 'object' || !record.meta.pipeline) return null;
-  if (!['needs_review', 'completed'].includes(String(record.status || ''))) return null;
-  const pipeline = record.meta.pipeline;
-  const unitTotal = Number(pipeline.unitTotal) || 0;
-  const unitCompleted = Number(pipeline.unitCompleted) || 0;
-  const rawResult = dissectionResultView(record.result);
-  const legacy = legacyPipelineCharacterAggregation(rawResult);
-  if (!legacy || unitTotal <= 0 || unitCompleted < unitTotal) return null;
-  const priorValidation = rawResult.validation && typeof rawResult.validation === 'object' && !Array.isArray(rawResult.validation)
-    ? rawResult.validation
-    : null;
-  const failedBatchCount = Array.isArray(pipeline.failedBatches)
-    ? pipeline.failedBatches.length
-    : Math.max(0, Number(pipeline.failedBatches ?? (priorValidation && priorValidation.failedBatches)) || 0);
-  if (failedBatchCount > 0) return null;
-  const normalizedResult = normalizePipelineAggregationResult(rawResult);
-  if (!priorValidation || dissectionResultMissingFields(normalizedResult, record.depth).length || pipelineAggregationMissingFields(normalizedResult).length) return null;
-  const validation = {
-    ...priorValidation,
-    conclusion: 'passed',
-    missingFields: [],
-    coverage: Math.max(0, Math.min(1, Number(priorValidation.coverage) || (unitTotal ? unitCompleted / unitTotal : 0))),
-    unitTotal,
-    unitCompleted,
-    failedBatches: 0,
-    notes: [...(Array.isArray(priorValidation.notes) ? priorValidation.notes : []), '兼容历史结果：根据已有角色档案补齐人物聚合元数据。']
-  };
-  const next = {
-    ...record,
-    result: { ...normalizedResult, validation },
-    meta: {
-      ...record.meta,
-      pipeline: {
-        ...pipeline,
-        aggregated: true,
-        aggregationComplete: true,
-        validationStatus: 'passed',
-        needsReview: false,
-        unitCompleted,
-        factCoverage: Math.max(0, Math.min(1, Number(pipeline.factCoverage) || (unitTotal ? unitCompleted / unitTotal : 0))),
-        failedBatches: [],
-        missingFields: [],
-        legacyCharacterAggregation: true
-      }
-    }
-  };
-  if (String(record.status) === 'needs_review') {
-    next.status = 'completed';
-    next.phase = 'completed';
-    next.progress = 100;
-  }
-  return next;
-}
 
 function migrateLegacyPipelineRecord(record) {
   const upgraded = normalizeLegacyPipelineRecord(record);
@@ -8203,165 +7347,12 @@ async function buildBookSummary(record, authToken, owner, volumeSummaries, extra
 }
 
 // ★ 全局聚合层 · 本地规则统计（不调模型，零成本）
-function buildPipelineEmotionCurve(facts) {
-  const curve = [];
-  facts.forEach(item => {
-    const spots = Array.isArray(item.fact.spot_feeling) ? item.fact.spot_feeling : [];
-    let intensity = 5;
-    let type = '平稳';
-    if (spots.length) {
-      const peak = spots.reduce((a, b) => Math.max(a, Number(b && b.intensity) || 0), 0);
-      intensity = Math.max(1, Math.min(10, peak || 5));
-      const big = spots.find(s => (s && s.type) === '大高潮');
-      if (big) type = '高潮';
-      else if (spots.some(s => (s && s.type) === '虐点')) type = '悲伤';
-      else if (spots.some(s => (s && s.type) === '爽点')) type = '满足';
-    }
-    const events = Array.isArray(item.fact.chapter_events) ? item.fact.chapter_events : [];
-    if (type === '平稳' && events.some(e => ['冲突', '反转'].includes(e && e.type))) type = '紧张';
-    curve.push({ position: '第' + item.chapterNo + '章', intensity, type });
-  });
-  return curve;
-}
-function buildPipelineConflictStats(facts) {
-  const counts = { 人际冲突: 0, 实力冲突: 0, 阴谋冲突: 0, 内心冲突: 0 };
-  const TYPE_MAP = { 冲突: '人际冲突', 反转: '阴谋冲突' };
-  const examples = {};
-  facts.forEach(item => {
-    const events = Array.isArray(item.fact.chapter_events) ? item.fact.chapter_events : [];
-    events.forEach(e => {
-      const t = TYPE_MAP[e && e.type] || '';
-      if (!t) return;
-      counts[t] += 1;
-      if (!examples[t]) examples[t] = '第' + item.chapterNo + '章';
-    });
-    (Array.isArray(item.fact.spot_feeling) ? item.fact.spot_feeling : []).forEach(s => {
-      if (s && (s.type === '爽点' || s.type === '大高潮')) {
-        counts['实力冲突'] += 1;
-        if (!examples['实力冲突']) examples['实力冲突'] = '第' + item.chapterNo + '章';
-      }
-    });
-  });
-  const types = Object.keys(counts).filter(k => counts[k] > 0).map(k => ({ type: k, count: counts[k], examplePosition: examples[k] || '' }));
-  return { types, total: types.reduce((a, t) => a + t.count, 0) };
-}
-function buildPipelineSpotStats(facts) {
-  const typeCount = {};
-  const examples = {};
-  facts.forEach(item => {
-    (Array.isArray(item.fact.spot_feeling) ? item.fact.spot_feeling : []).forEach(s => {
-      const t = String(s && s.type || '爽点');
-      typeCount[t] = (typeCount[t] || 0) + 1;
-      if (!examples[t]) examples[t] = '第' + item.chapterNo + '章';
-    });
-  });
-  return {
-    sellingPointTypes: Object.keys(typeCount).map(t => ({ type: t, count: typeCount[t], examplePosition: examples[t] })),
-    total: Object.values(typeCount).reduce((a, b) => a + b, 0)
-  };
-}
-function buildPipelineCharacters(facts) {
-  // name -> { name, appearances: [{chapter_no, behavior, emotion}], newAt: 首次登场章 }
-  const map = new Map();
-  facts.forEach(item => {
-    (Array.isArray(item.fact.character_appear) ? item.fact.character_appear : []).forEach(c => {
-      const name = String(c && c.name || '').trim();
-      if (!name) return;
-      if (!map.has(name)) map.set(name, { name, appearances: [], newAt: 0, count: 0 });
-       const rec = map.get(name);
-       rec.count += 1;
-       if (!rec.newAt) rec.newAt = item.chapterNo;
-       rec.appearances.push({ chapter_no: item.chapterNo, behavior: String(c.behavior || ''), emotion: String(c.emotion || '') });
-     });
-   });
-   return [...map.values()];
- }
 
 // 人物聚合只需要覆盖性行为样本，不应把同一角色数千次出场全部塞进一次提示词。
 // 保留首末证据，并在中间按位置均匀取样，避免只看到开篇而丢失后期变化。
-function samplePipelineCharacterAppearances(appearances, maxItems) {
-  const rows = Array.isArray(appearances) ? appearances : [];
-  const limit = Math.max(2, Number(maxItems) || 32);
-  if (rows.length <= limit) return rows.slice();
-  const indexes = new Set([0, rows.length - 1]);
-  const slots = limit - 2;
-  for (let i = 1; i <= slots; i += 1) indexes.add(Math.round(i * (rows.length - 1) / (slots + 1)));
-  return [...indexes].sort((a, b) => a - b).map(index => rows[index]);
-}
 
-function buildPipelineCharacterFallback(character) {
-  const samples = samplePipelineCharacterAppearances(character && character.appearances, 8);
-  const evidence = samples.map(item => {
-    const behavior = String(item && item.behavior || '').trim();
-    const emotion = String(item && item.emotion || '').trim();
-    const detail = [behavior, emotion ? '情绪：' + emotion : ''].filter(Boolean).join('；');
-    return detail ? '第' + (Number(item && item.chapter_no) || 0) + '章：' + detail.slice(0, 90) : '';
-  }).filter(Boolean);
-  return {
-    name: String(character && character.name || ''),
-    function: '事实记录角色',
-    goal: '',
-    conflict: '',
-    arc: evidence.length ? '基于事实行为样本：' + evidence.join('；') : '仅有出场提及，暂无足够证据归纳人物弧光',
-    firstAppearance: character && character.newAt ? '第' + character.newAt + '章' : '未知'
-  };
-}
-function buildPipelineClues(facts) {
-  const clues = [];
-  facts.forEach(item => {
-    (Array.isArray(item.fact.plot_clue) ? item.fact.plot_clue : []).forEach(c => {
-      clues.push({
-        desc: String(c && c.desc || '').trim(),
-        planted: item.chapterNo,
-        recoveredAt: (c && c.recovered) ? item.chapterNo : 0,
-        ref: String(c && c.ref || '')
-      });
-    });
-  });
-  return clues.filter(c => c.desc);
-}
 
-function buildPipelineOutline(facts) {
-  return facts.map(item => {
-    const events = Array.isArray(item.fact && item.fact.chapter_events) ? item.fact.chapter_events.filter(e => e && (e.event || e.result)) : [];
-    if (!events.length) return null;
-    const first = events[0] || {};
-    const last = events[events.length - 1] || first;
-    return {
-      position: '第' + item.chapterNo + '章',
-      goal: String(first.event || '').slice(0, 120),
-      obstacle: String(first.preState || '').slice(0, 120),
-      result: String(last.result || last.postState || last.event || '').slice(0, 120),
-      line: '主线',
-      evidenceRefs: item.chapterId ? [item.chapterId] : []
-    };
-  }).filter(Boolean);
-}
 
-function buildPipelineEvidenceLedger(record, facts) {
-  if (!dbReady()) return [];
-  const rows = db.prepare('SELECT unit_id,claim_type,predicate,object_value,evidence_type,source_start,source_end,confidence,status FROM dissection_claims WHERE dissection_id = ? ORDER BY source_start ASC, rowid ASC').all(record.id);
-  if (rows.length) return rows.map(row => ({
-    type: String(row.claim_type || 'claim'),
-    source: String(row.unit_id || ''),
-    observation: String(row.object_value || row.predicate || '').slice(0, 240),
-    inferredRule: String(row.predicate || '').slice(0, 240),
-    evidenceType: String(row.evidence_type || 'direct'),
-    sourceStart: Number(row.source_start) || 0,
-    sourceEnd: Number(row.source_end) || 0,
-    confidence: Number(row.confidence) > 0 ? Number(row.confidence) : 0.6,
-    status: String(row.status || 'confirmed')
-  }));
-  return facts.flatMap(item => (Array.isArray(item.fact && item.fact.chapter_events) ? item.fact.chapter_events : []).map(event => ({
-    type: 'event',
-    source: item.chapterId || 'chapter-' + item.chapterNo,
-    observation: String(event && (event.event || event.result) || '').slice(0, 240),
-    inferredRule: '章节事件',
-    evidenceType: 'direct',
-    confidence: 0.5,
-    status: 'candidate'
-  }))).filter(item => item.observation);
-}
 
 // —— 全局聚合：基于事实库生成报告（模型调用，失败逐项降级为本地规则） ——
 async function pipelineChat(record, authToken, owner, system, userPrompt, maxTokens) {
@@ -8380,36 +7371,7 @@ async function pipelineChat(record, authToken, owner, system, userPrompt, maxTok
   } catch (_) { return null; }
 }
 
-function pipelineSpotDistribution(facts) {
-  const bucket = {};
-  const BUCKET = 20;
-  facts.forEach(item => {
-    const b = Math.ceil(item.chapterNo / BUCKET) * BUCKET;
-    const key = '第' + Math.max(1, b - BUCKET + 1) + '-' + b + '章';
-    const n = (Array.isArray(item.fact.spot_feeling) ? item.fact.spot_feeling : []).length;
-    bucket[key] = (bucket[key] || 0) + n;
-  });
-  return Object.keys(bucket).map(k => ({ position: k, count: bucket[k] }));
-}
 
-function pipelineTensionFromCurve(curve) {
-  const tensionPeaks = [];
-  const coolPoints = [];
-  for (let i = 0; i < curve.length; i += 1) {
-    const c = curve[i];
-    const v = Number(c.intensity) || 5;
-    const prev = i > 0 ? Number(curve[i - 1].intensity) || 5 : 5;
-    const next = i < curve.length - 1 ? Number(curve[i + 1].intensity) || 5 : 5;
-    if (v >= 8 && v > prev) tensionPeaks.push({ peak: c.position, setup: '', pressure: '', turn: '', release: '', lengthChars: 0 });
-    if (v <= 3 && v <= prev && v <= next) coolPoints.push({ position: c.position, cause: '', duration: '约 ' + Math.max(1, countBelow3(curve, i)) + ' 章', recovery: '' });
-  }
-  return { tensionPeaks, coolPoints };
-}
-function countBelow3(curve, from) {
-  let n = 0;
-  for (let i = from; i < curve.length && (Number(curve[i].intensity) || 5) <= 3; i += 1) n += 1;
-  return n;
-}
 
 async function runPipelineAggregation(record, authToken, owner, opts) {
   const chapters = loadDissectionChapters(record.id);
@@ -8644,346 +7606,14 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
   return result;
 }
 
-function safeJsonParse(text) {
-  let value = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-  try { return JSON.parse(value); } catch (_) {}
-  const first = value.indexOf('{');
-  const last = value.lastIndexOf('}');
-  if (first >= 0 && last > first) {
-    try { return JSON.parse(value.slice(first, last + 1)); } catch (_) {}
-  }
-  return null;
-}
 
 // ★ 从混合文本中兜底提取 JSON 对象：模型偶尔在 JSON 前后输出散文时，
 // 按「{...}」边界做括号配对切取，再交给 safeJsonParse。
-function extractJsonFromMixedText(text) {
-  const value = String(text || '').trim();
-  if (!value) return null;
-  let start = value.indexOf('{');
-  while (start >= 0) {
-    let depth = 0, inString = false, escape = false, end = -1;
-    for (let i = start; i < value.length; i += 1) {
-      const ch = value[i];
-      if (inString) {
-        if (escape) escape = false;
-        else if (ch === '\\') escape = true;
-        else if (ch === '"') inString = false;
-        continue;
-      }
-      if (ch === '"') { inString = true; continue; }
-      if (ch === '{') depth += 1;
-      else if (ch === '}') {
-        depth -= 1;
-        if (depth === 0) { end = i; break; }
-      }
-    }
-    if (end > start) {
-      const candidate = value.slice(start, end + 1);
-      const parsed = safeJsonParse(candidate);
-      if (parsed) return parsed;
-      start = value.indexOf('{', start + 1);
-    } else break;
-  }
-  return null;
-}
 
 // ★ JSON 自动修复：处理模型长输出常见的轻量语法损坏（尾逗号、缺失冒号、缺引号、括号未闭合）。
 // 只做「可逆且明确」的修复；修复后仍解析失败则返回 null，交给上层重试。
-function autoFixJson(text) {
-  // 分段验证模式：每执行一个修复步骤后立即尝试 JSON.parse，成功即返回，
-  // 避免多个修复规则互相干扰（例如「值缺引号」修复后再被「值内引号转义」破坏）。
-  const original = String(text || '').trim();
-  if (!original) return null;
-  const stripFence = v => v.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-  const sliceJson = v => {
-    const first = v.indexOf('{');
-    return first < 0 ? null : v.slice(first);
-  };
-  const tryParse = v => {
-    if (!v) return null;
-    try { return JSON.parse(v); } catch (_) { return null; }
-  };
 
-  // 部分中转模型会把对象键写成 sellingPoints"：只漏掉左引号。
-  // 仅在字符串外、且紧跟对象开始/逗号的位置修复，避免改动正文字符串。
-  const repairUnquotedKeyStarts = value => {
-    const source = String(value || '');
-    const out = [];
-    let inString = false;
-    let escaped = false;
-    for (let index = 0; index < source.length;) {
-      const ch = source[index];
-      if (inString) {
-        out.push(ch);
-        if (escaped) escaped = false;
-        else if (ch === '\\') escaped = true;
-        else if (ch === '"') inString = false;
-        index += 1;
-        continue;
-      }
-      if (ch === '"') {
-        inString = true;
-        out.push(ch);
-        index += 1;
-        continue;
-      }
-      if (ch === '{' || ch === ',') {
-        let cursor = index + 1;
-        while (cursor < source.length && /\s/.test(source[cursor])) cursor += 1;
-        const rest = source.slice(cursor);
-        const quotedEnd = rest.match(/^([A-Za-z_\u4e00-\u9fff][A-Za-z0-9_\u4e00-\u9fff-]*)(\s*)"/);
-        const bareEnd = rest.match(/^([A-Za-z_\u4e00-\u9fff][A-Za-z0-9_\u4e00-\u9fff-]*)(\s*):/);
-        if (quotedEnd && /^\s*:/.test(rest.slice(quotedEnd[0].length))) {
-          out.push(ch, source.slice(index + 1, cursor), '"', quotedEnd[1], quotedEnd[2], '"');
-          index = cursor + quotedEnd[0].length;
-          continue;
-        }
-        if (bareEnd) {
-          out.push(ch, source.slice(index + 1, cursor), '"', bareEnd[1], bareEnd[2], '"');
-          index = cursor + bareEnd[0].length - 1;
-          continue;
-        }
-      }
-      out.push(ch);
-      index += 1;
-    }
-    return out.join('');
-  };
 
-  const repairBrokenObjectMembers = value => {
-    let output = String(value || '');
-    // 值的结束引号和下一个键的开始引号被模型合并："value" "nextKey":。
-    output = output.replace(/"([A-Za-z_][A-Za-z0-9_]*)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*:/g, '"$1": "$2", "$3":');
-    // 键名与值之间漏写冒号和左引号："cost "代价"。
-    output = output.replace(/"([A-Za-z_][A-Za-z0-9_]*)\s+"(?=[\u4e00-\u9fffA-Za-z])/g, '"$1": "');
-    // 字符串值漏掉结束引号，但仍在逗号或对象结束前结束。
-    output = output.replace(/"([A-Za-z_][A-Za-z0-9_]*)"\s*:\s*"([^"\r\n{}\[\]]*)(?=\s*[,}])/g, '"$1": "$2"');
-    // 裸中文/英文值只缺少开始引号，结束引号仍然存在。
-    output = output.replace(/"([A-Za-z_][A-Za-z0-9_]*)"\s*:\s*([\u4e00-\u9fffA-Za-z][^,}\]\n"]*?)(?="\s*[,}\]])/g, '"$1": "$2');
-    // 空键通常是模型删除了字段名但保留了值；该阶段唯一可能的空键是 cost。
-    output = output.replace(/""\s*:/g, '"cost":');
-    return output;
-  };
-
-  // 候选集合：每步修复后的文本
-  const candidates = [];
-
-  // 0) 原始（去围栏 + 截取 JSON 起点）
-  let base = sliceJson(stripFence(original));
-  if (!base) return null;
-  candidates.push(base);
-
-  // 1) 尾逗号修复
-  candidates.push(base.replace(/,\s*([}\]])/g, '$1'));
-
-  // 2) 相邻字符串缺逗号
-  candidates.push(base.replace(/"(?:[^"\\]|\\.)*"\s+(?="(?:[^"\\]|\\.)*")/g, m => m.replace(/^(.*?)\s+$/, '$1, ')));
-
-  // 3) 修复对象键漏写左引号，再处理键值合并。
-  const repairedKeys = repairBrokenObjectMembers(repairUnquotedKeyStarts(base));
-  candidates.push(repairedKeys);
-  let v3 = repairedKeys.replace(/"([A-Za-z][A-Za-z0-9_]*)\s*(?=[\u4e00-\u9fff])/g, '"$1": "');
-  v3 = v3.replace(/"([A-Za-z][A-Za-z0-9_]*)"\s*(?=[\u4e00-\u9fff])/g, '"$1": "');
-  // 场景C：key 闭合后直接跟英文值（"name"observation → "name": "observation），
-  //       仅当 key 后不是 : , } ] 且紧跟的单词非 true/false/null 时修复
-  v3 = v3.replace(/"([A-Za-z][A-Za-z0-9_]*)"\s*(?=[a-zA-Z](?!rue\b|alse\b|ull\b))/g, '"$1": "');
-  candidates.push(v3);
-
-  // 4) 值缺起始引号
-  candidates.push(v3.replace(/"([A-Za-z][A-Za-z0-9_]*)"\s*:\s*(?=[\u4e00-\u9fffA-Za-z])(?!true|false|null)\s*([^"{}[\],]*?)("[,}\]:])/g, '"$1": "$2"$3'));
-
-  // 5) 数组元素缺左花括号（栈扫描）
-  {
-    const input = v3;
-    const chars = input.split('');
-    const stack = [];
-    const out = [];
-    let i = 0;
-    const n = chars.length;
-    while (i < n) {
-      const ch = chars[i];
-      if (stack[stack.length - 1] === 'o' && ch === '{') {
-        let previous = out.length - 1;
-        while (previous >= 0 && /\s/.test(out[previous])) previous -= 1;
-        if (previous >= 0 && out[previous] === '"') {
-          out.push('}, ');
-          stack.pop();
-        }
-      }
-      if (stack[stack.length - 1] === 'a' && ch === '"') {
-        let k = i + 1; let keyStr = '';
-        let esc2 = false;
-        while (k < n && !(chars[k] === '"' && !esc2)) {
-          if (chars[k] === '\\') esc2 = !esc2;
-          else esc2 = false;
-          keyStr += chars[k]; k += 1;
-        }
-        const afterKey = k + 1;
-        let m = afterKey;
-        while (m < n && /\s/.test(chars[m])) m += 1;
-        if (m < n && chars[m] === ':' && keyStr.trim()) {
-          out.push('{ ');
-          stack.push('o');
-          continue;
-        }
-      }
-      if (ch === '"') {
-        let j = i; let esc = false;
-        while (j < n) {
-          out.push(chars[j]);
-          if (esc) esc = false;
-          else if (chars[j] === '\\') esc = true;
-          else if (chars[j] === '"' && j > i) break;
-          j += 1;
-        }
-        i = j + 1;
-        continue;
-      }
-      if (ch === '{') { stack.push('o'); out.push(ch); i += 1; continue; }
-      if (ch === '[') { stack.push('a'); out.push(ch); i += 1; continue; }
-      if (ch === '}') { if (stack.length) stack.pop(); out.push(ch); i += 1; continue; }
-      if (ch === ']') { if (stack.length) stack.pop(); out.push(ch); i += 1; continue; }
-      out.push(ch);
-      i += 1;
-    }
-    candidates.push(out.join(''));
-  }
-
-  // 6) 括号错配修复（去多余右括号 + 补缺失）
-  {
-    const run = input => {
-      const chars = input.split('');
-      const filtered = [];
-      let dc = 0, ds = 0, inStr = false, esc2 = false;
-      for (let i = 0; i < chars.length; i += 1) {
-        const ch = chars[i];
-        if (inStr) { filtered.push(ch); if (esc2) esc2 = false; else if (ch === '\\') esc2 = true; else if (ch === '"') inStr = false; continue; }
-        if (ch === '"') { inStr = true; filtered.push(ch); continue; }
-        if (ch === '{') { dc += 1; filtered.push(ch); continue; }
-        if (ch === '[') { ds += 1; filtered.push(ch); continue; }
-        if (ch === '}') { if (dc <= 0) continue; dc -= 1; filtered.push(ch); continue; }
-        if (ch === ']') { if (ds <= 0) continue; ds -= 1; filtered.push(ch); continue; }
-        filtered.push(ch);
-      }
-      let out = filtered.join('');
-      if (ds > 0) out += ']'.repeat(ds);
-      if (dc > 0) out += '}'.repeat(dc);
-      return out;
-    };
-    // 对 base、v3、数组修复结果各做一次括号修复
-    candidates.push(run(base));
-    candidates.push(run(v3));
-    candidates.push(run(candidates[candidates.length - 3] || base));
-  }
-
-  // 逐个尝试
-  for (const candidate of candidates) {
-    const parsed = tryParse(candidate);
-    if (parsed) return parsed;
-  }
-
-  // 7) 最后：括号配对子串提取（尾部可能被截断）
-  return extractJsonFromMixedText(base);
-}
-
-function salvageDissectionStageResult(text, stage) {
-  const source = String(text || '');
-  if (!source.trim()) return null;
-  const fieldsByStage = {
-    map: ['overview', 'framework', 'dissectionMap', 'timeline', 'storyStructure'],
-    structure: ['architecture', 'opening', 'goldenFinger'],
-    entities: ['characters', 'relationships', 'worldbuilding', 'antagonists', 'minorRoles', 'evidenceLedger'],
-    plot: ['outline', 'foreshadowing', 'conflictStats', 'logicFlaws', 'evidenceLedger'],
-    style: ['styleProfile', 'craftConstraints', 'canonConstraints', 'genre', 'sellingPoints', 'sentenceFingerprint', 'reusableTemplates', 'reversalPatterns', 'evidenceLedger'],
-    emotion: ['emotion'],
-    validate: ['taskConstraints', 'validation', 'evidenceLedger']
-  };
-  const stageFields = fieldsByStage[stage] || [];
-  if (!stageFields.length) return null;
-  const allAliases = Object.values(DISSECTION_RESULT_ALIASES).flat();
-  const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const marker = aliases => new RegExp(
-    '(?:^|[,{\\n])\\s*(?:"(?:' + aliases.map(escapeRegExp).join('|') + ')"|(?:' + aliases.map(escapeRegExp).join('|') + '))\\s*:',
-    'gi'
-  );
-  const output = {};
-  stageFields.forEach(field => {
-    const aliases = DISSECTION_RESULT_ALIASES[field] || [field];
-    const startMatch = marker(aliases).exec(source);
-    if (!startMatch) return;
-    const valueStart = startMatch.index + startMatch[0].length;
-    const endPattern = marker(allAliases);
-    endPattern.lastIndex = valueStart;
-    const nextMatch = endPattern.exec(source);
-    const valueEnd = nextMatch ? nextMatch.index : source.length;
-    const value = source.slice(valueStart, valueEnd).trim();
-    if (!value) return;
-    const parsed = autoFixJson('{"' + field + '":' + value + '}');
-    if (parsed && Object.prototype.hasOwnProperty.call(parsed, field)) output[field] = parsed[field];
-  });
-  return Object.keys(output).length ? output : null;
-}
-
-function emptyDissectionResult() {
-  return {
-    schemaVersion: '1.1',
-    overview: {},
-    framework: {},
-    dissectionMap: {},
-    // ★ F021 结构划分：起承转合各阶段（起止位置/目标/关键事件）
-    storyStructure: [],
-    characters: [],
-    // ★ F042 反派体系：动机/层级/冲突升级/是否脸谱化
-    antagonists: [],
-    // ★ F044 次要功能角色：炮灰/挑衅者/传话人/工具人
-    minorRoles: [],
-    relationships: [],
-    worldbuilding: [],
-    timeline: [],
-    outline: [],
-    foreshadowing: [],
-    // ★ 三类核心结果：开篇节奏 / 金手指 / 文章架构
-    opening: {},            // 开篇节奏：字数窗口/钩子/危机节奏/爆点分布
-    goldenFinger: {},       // 金手指：类型/激活条件/成长曲线/限制与代价
-    architecture: {},       // 文章架构：卷/阶段/章节规模/叙事结构与可迁移骨架
-    styleProfile: { version: '1.1', summary: '', dimensions: [], evidence: [], confidence: 0 },
-    authorDna: {},
-    craftConstraints: [],
-    // ★ F073 高频反转套路：类型/铺垫/回收/实例
-    reversalPatterns: [],
-    canonConstraints: [],
-    taskConstraints: [],
-    evidenceLedger: [],
-    genre: {},
-    sellingPoints: [],
-    sentenceFingerprint: {},
-    reusableTemplates: {},
-    emotion: {},
-    conflictStats: {},
-    logicFlaws: [],
-    chapterIndex: [],
-    // ★ 阶段2 · 四级分层摘要（章节/故事弧/分卷/全书）
-    chapterSummaries: [],
-    arcSummaries: [],
-    volumeSummaries: [],
-    bookSummary: {},
-    summaryCoverage: {},
-    characterLibrary: [],
-    mainline: {},
-    storyTree: [],
-    conflictChain: [],
-    rewardChain: [],
-    volumePlan: [],
-    arcPlan: [],
-    chapterPlan: [],
-    scenePlan: [],
-    foreshadowPlan: [],
-    worldRules: [],
-    reviewPlan: {},
-    validation: { uncertain: [], conflicts: [], notes: [] }
-  };
-}
 
 const DISSECTION_RESULT_ALIASES = {
   overview: ['overview', 'workOverview', 'work_overview', '作品概览', '作品定位'],
@@ -9039,18 +7669,6 @@ const DISSECTION_RESULT_ALIASES = {
   reviewPlan: ['reviewPlan', 'review_plan', '审核计划']
 };
 
-function hasDissectionContent(value, key) {
-  if (value === null || value === undefined) return false;
-  if (typeof value === 'string') return value.trim().length > 0;
-  if (typeof value === 'number') return Number.isFinite(value) && value > 0;
-  if (typeof value === 'boolean') return true;
-  if (Array.isArray(value)) return value.some(item => hasDissectionContent(item));
-  if (typeof value !== 'object') return false;
-  return Object.entries(value).some(([childKey, childValue]) => {
-    if (childKey === 'version' || childKey === 'schemaVersion' || childKey === 'confidence') return false;
-    return hasDissectionContent(childValue, childKey);
-  });
-}
 
 const DISSECTION_ARRAY_FIELDS = new Set([
   'characters', 'relationships', 'worldbuilding', 'timeline', 'outline',
@@ -9061,231 +7679,17 @@ const DISSECTION_ARRAY_FIELDS = new Set([
   'arcPlan', 'chapterPlan', 'scenePlan', 'foreshadowPlan', 'worldRules'
 ]);
 
-function isDissectionPlaceholder(value) {
-  const text = String(value == null ? '' : value).trim().toLowerCase();
-  if (!text) return true;
-  return /^(unknown|candidate|n\/a|none|null|待定|未知|暂无|无|未提供|待提供)$/.test(text) ||
-    /未提供正文|未提供设定|未收到小说|缺少必要材料|无法完成真实拆书|无法提取稳定文风/.test(text);
-}
 
-function hasMeaningfulDissectionContent(value, key) {
-  if (value === null || value === undefined) return false;
-  if (typeof value === 'string') return !isDissectionPlaceholder(value);
-  if (typeof value === 'number') return Number.isFinite(value);
-  if (typeof value === 'boolean') return key === 'exists' || value;
-  if (Array.isArray(value)) return value.some(item => hasMeaningfulDissectionContent(item, key));
-  if (typeof value !== 'object') return false;
-  if (key === 'goldenFinger' && value.exists === false && (value.type === 'none' || value.kind === 'none')) return true;
-  return Object.entries(value).some(([childKey, childValue]) => {
-    if (['version', 'schemaVersion', 'confidence', 'status'].includes(childKey)) return false;
-    return hasMeaningfulDissectionContent(childValue, childKey);
-  });
-}
 
 // 归一化作者 DNA，统一证据、适用范围、置信度和可迁移规则的字段形态。
-function normalizeAuthorDna(value) {
-  const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const text = (source, max) => String(source == null ? '' : source).trim().slice(0, max);
-  const list = (source, max, itemMax) => (Array.isArray(source) ? source : [])
-    .map(item => text(item, itemMax))
-    .filter(Boolean)
-    .slice(0, max);
-  const refs = source => list(source, 16, 120);
-  const confidence = source => {
-    const valueNumber = Number(source);
-    return Number.isFinite(valueNumber) ? Math.max(0, Math.min(1, valueNumber)) : 0;
-  };
-  const rawDimensions = Array.isArray(input.dimensions)
-    ? input.dimensions
-    : input.dimensions && typeof input.dimensions === 'object'
-      ? Object.entries(input.dimensions).map(([name, item]) => ({ name, ...(item && typeof item === 'object' ? item : { observation: item }) }))
-      : [];
-  const dimensions = rawDimensions.map(item => {
-    const source = item && typeof item === 'object' ? item : { observation: item };
-    return {
-      name: text(source.name || source.axis || source.feature, 80),
-      observation: text(source.observation || source.finding || source.description, 600),
-      transferable: source.transferable !== false,
-      scope: list(source.scope, 8, 120),
-      exceptions: list(source.exceptions || source.exception, 8, 180),
-      evidenceRefs: refs(source.evidenceRefs || source.evidence || source.sources),
-      confidence: confidence(source.confidence)
-    };
-  }).filter(item => item.name || item.observation).slice(0, 18);
-  const rawRules = Array.isArray(input.rules)
-    ? input.rules
-    : Array.isArray(input.transferableRules)
-      ? input.transferableRules
-      : Array.isArray(input.constraints)
-        ? input.constraints
-        : [];
-  const rules = rawRules.map((item, index) => {
-    const source = item && typeof item === 'object' ? item : { rule: item };
-    const ruleType = ['hard_rule', 'preference', 'tendency', 'avoidance', 'open_choice'].includes(String(source.ruleType || source.rule_type))
-      ? String(source.ruleType || source.rule_type)
-      : 'preference';
-    const status = ['candidate', 'confirmed', 'hard_rule', 'conflicted', 'retired', 'unknown'].includes(String(source.status))
-      ? String(source.status)
-      : 'candidate';
-    return {
-      id: text(source.id || ('dna-rule-' + (index + 1)), 80),
-      axis: text(source.axis || source.feature || source.name, 80),
-      rule: text(source.rule || source.instruction || source.observation, 800),
-      ruleType,
-      scope: list(source.scope, 8, 120),
-      exceptions: list(source.exceptions || source.exception, 8, 180),
-      evidenceRefs: refs(source.evidenceRefs || source.evidence || source.sources),
-      evidenceCount: Math.max(0, Math.floor(Number(source.evidenceCount) || refs(source.evidenceRefs || source.evidence || source.sources).length)),
-      confidence: confidence(source.confidence),
-      priority: Math.max(0, Math.min(100, Math.floor(Number(source.priority) || 50))),
-      status,
-      positiveExample: text(source.positiveExample || source.positive_example, 360),
-      counterExample: text(source.counterExample || source.counterexample || source.negativeExample, 360)
-    };
-  }).filter(item => item.rule).slice(0, 40);
-  const rawForbidden = Array.isArray(input.forbiddenPatterns) ? input.forbiddenPatterns : (Array.isArray(input.avoidList) ? input.avoidList : []);
-  const forbiddenPatterns = rawForbidden.map(item => {
-    const source = item && typeof item === 'object' ? item : { pattern: item };
-    return {
-      pattern: text(source.pattern || source.type || source.name, 160),
-      problem: text(source.problem || source.note || source.description, 500),
-      replacement: text(source.replacement || source.preferred || source.alternative, 500),
-      scope: list(source.scope, 8, 120),
-      exceptions: list(source.exceptions || source.exception, 8, 180),
-      evidenceRefs: refs(source.evidenceRefs || source.evidence || source.sources),
-      confidence: confidence(source.confidence)
-    };
-  }).filter(item => item.pattern || item.problem).slice(0, 30);
-  const evidence = Array.isArray(input.evidenceLedger) ? input.evidenceLedger : (Array.isArray(input.evidence) ? input.evidence : []);
-  const evidenceLedger = evidence.map(item => {
-    const source = item && typeof item === 'object' ? item : { observation: item };
-    return {
-      sourceType: text(source.sourceType || source.type, 60),
-      observation: text(source.observation || source.pattern || source.note, 600),
-      inferredRule: text(source.inferredRule || source.rule, 600),
-      evidenceRefs: refs(source.evidenceRefs || source.source || source.sources),
-      scope: list(source.scope, 8, 120),
-      confidence: confidence(source.confidence),
-      status: text(source.status || 'candidate', 30)
-    };
-  }).filter(item => item.observation || item.inferredRule).slice(0, 60);
-  return {
-    schemaVersion: '1.0',
-    summary: text(input.summary || input.profile || input.description, 1200),
-    dimensions,
-    rules,
-    forbiddenPatterns,
-    evidenceLedger,
-    unknowns: list(input.unknowns || input.openQuestions, 30, 300),
-    confidence: confidence(input.confidence),
-    boundary: input.boundary && typeof input.boundary === 'object' ? {
-      canonExcluded: input.boundary.canonExcluded !== false,
-      excluded: list(input.boundary.excluded, 20, 160),
-      note: text(input.boundary.note, 500)
-    } : { canonExcluded: true, excluded: [], note: '仅保留可迁移写法，不携带原书专属设定。' }
-  };
-}
 
 // 根据已有文风档案和创作技法构造作者 DNA，供历史拆书结果和流水线结果兼容升级。
-function buildAuthorDnaFromDissectionParts(styleProfile, craftConstraints, reusableTemplates, sentenceFingerprint, evidenceLedger) {
-  const style = styleProfile && typeof styleProfile === 'object' ? styleProfile : {};
-  const dimensions = Array.isArray(style.dimensions) ? style.dimensions : [];
-  const rules = Array.isArray(craftConstraints) ? craftConstraints : [];
-  if (!String(style.summary || '').trim() && !dimensions.length && !rules.length) return {};
-  return normalizeAuthorDna({
-    summary: style.summary || '根据拆书文风与创作技法聚合出的可迁移作者 DNA。',
-    dimensions,
-    rules,
-    forbiddenPatterns: reusableTemplates && Array.isArray(reusableTemplates.avoidList) ? reusableTemplates.avoidList : [],
-    evidenceLedger,
-    confidence: Number(style.confidence) || 0.5,
-    boundary: { canonExcluded: true, excluded: [], note: '由文风、技法和句式观察推导，不迁移原书人物、事件或专名。' }
-  });
-}
 
 // 为公开结果补齐作者 DNA，避免旧版本只保存 styleProfile 时创书链路丢失中间资产。
-function ensureDissectionAuthorDna(result) {
-  const source = result && typeof result === 'object' && !Array.isArray(result) ? result : {};
-  const explicit = source.authorDna || source.authorDNA || source.author_dna;
-  if (explicit && typeof explicit === 'object' && !Array.isArray(explicit) && hasMeaningfulDissectionContent(explicit, 'authorDna')) {
-    return { ...source, authorDna: normalizeAuthorDna(explicit) };
-  }
-  const derived = buildAuthorDnaFromDissectionParts(source.styleProfile, source.craftConstraints, source.reusableTemplates, source.sentenceFingerprint, source.evidenceLedger);
-  return Object.keys(derived).length ? { ...source, authorDna: derived } : source;
-}
 
-function dissectionFieldHasUsableContent(key, value) {
-  if (key === 'validation') {
-    const fields = ['uncertain', 'conflicts', 'notes', 'missingFields', 'portableRules'];
-    return !!(value && typeof value === 'object' && !Array.isArray(value) && (
-      (typeof value.conclusion === 'string' && !isDissectionPlaceholder(value.conclusion)) ||
-      fields.every(field => Array.isArray(value[field])) ||
-      fields.some(field => Array.isArray(value[field]) && value[field].some(item => hasMeaningfulDissectionContent(item, field)))
-    ));
-  }
-  if (DISSECTION_ARRAY_FIELDS.has(key) && !Array.isArray(value)) return false;
-  if (!DISSECTION_ARRAY_FIELDS.has(key) && key && typeof value === 'string') return false;
-  return hasMeaningfulDissectionContent(value, key);
-}
 
-function dissectionResultHasContent(result) {
-  if (!result || typeof result !== 'object' || Array.isArray(result)) return false;
-  const normalized = normalizeDissectionStageResult(result);
-  const view = normalized ? { ...result, ...normalized } : result;
-  return Object.keys(DISSECTION_RESULT_ALIASES).some(key => hasDissectionContent(view[key], key));
-}
 
-function dissectionResultView(result) {
-  if (!result || typeof result !== 'object' || Array.isArray(result)) return {};
-  const normalized = normalizeDissectionStageResult(result);
-  return ensureDissectionAuthorDna(normalized ? { ...result, ...normalized } : result);
-}
 
-function normalizeDissectionStageResult(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const candidates = [
-    value,
-    value.result,
-    value.analysis,
-    value.dissection,
-    value.dissectionResult,
-    value.dissection_map,
-    value.dissectionMap,
-    value.data
-  ].filter(candidate => candidate && typeof candidate === 'object' && !Array.isArray(candidate));
-  // ★ 模糊匹配：模型偶尔把字段名简写/漂移（如 overview→view、goldenFinger→goldenfinger），
-  // 在精确匹配失败时按「包含/小写前缀」兜底，避免整阶段结果丢失。
-  function findAlias(candidate, aliases) {
-    let fallback = null;
-    for (const alias of aliases) {
-      if (Object.prototype.hasOwnProperty.call(candidate, alias) && candidate[alias] !== undefined && candidate[alias] !== null) {
-        if (hasDissectionContent(candidate[alias], alias)) return alias;
-        if (!fallback) fallback = alias;
-      }
-    }
-    const keys = Object.keys(candidate);
-    for (const alias of aliases) {
-      const low = alias.toLowerCase();
-      const hit = keys.find(k => k.toLowerCase() === low || k.toLowerCase().includes(low) || low.includes(k.toLowerCase()));
-      if (hit && candidate[hit] !== undefined && candidate[hit] !== null) {
-        if (hasDissectionContent(candidate[hit], hit)) return hit;
-        if (!fallback) fallback = hit;
-      }
-    }
-    return fallback;
-  }
-  const normalized = {};
-  Object.entries(DISSECTION_RESULT_ALIASES).forEach(([key, aliases]) => {
-    for (const candidate of candidates) {
-      const alias = findAlias(candidate, aliases);
-      if (alias) { normalized[key] = candidate[alias]; break; }
-    }
-  });
-  if (!normalized.overview && typeof value.summary === 'string' && value.summary.trim()) normalized.overview = { summary: value.summary.trim() };
-  if (!normalized.styleProfile && value.style && typeof value.style === 'object') normalized.styleProfile = value.style;
-  if (!Object.keys(normalized).length) return null;
-  return normalized;
-}
 
 // 每个阶段都必须留下可用的结构化产出，避免“任意一个字段有内容”就被标记为完成。
 // 可选数组（例如关系、伏笔）允许为空，但阶段的核心观察不能缺失。
@@ -9300,64 +7704,11 @@ const DISSECTION_STAGE_REQUIREMENTS = {
   validate: [['validation']]
 };
 
-function dissectionStageMissingFields(stage, result) {
-  const normalized = normalizeDissectionStageResult(result);
-  const view = normalized ? { ...(result && typeof result === 'object' ? result : {}), ...normalized } : (result || {});
-  const requirements = DISSECTION_STAGE_REQUIREMENTS[stage] || [];
-  return requirements
-    .filter(group => !group.some(key => dissectionFieldHasUsableContent(key, view[key])))
-    .map(group => group.join(' / '));
-}
 
-function dissectionPhaseIdsForDepth(depth) {
-  return DISSECTION_PHASES_BY_DEPTH[String(depth)] || DISSECTION_PHASES_BY_DEPTH.standard;
-}
 
-function dissectionResultMissingFields(result, depth) {
-  const ids = depth ? dissectionPhaseIdsForDepth(depth) : DISSECTION_PHASES.map(stage => stage.id);
-  // 兼容旧版拆书记录：旧结果没有作者 DNA 阶段，不能因为新增字段把历史结果全部判为不完整。
-  const legacyResultWithoutDna = result && typeof result === 'object'
-    && !Object.prototype.hasOwnProperty.call(result, 'authorDna')
-    && !Object.prototype.hasOwnProperty.call(result, 'schemaVersion');
-  return ids.flatMap(stage =>
-    (legacyResultWithoutDna && stage === 'dna' ? [] : dissectionStageMissingFields(stage, result).map(fields => `${stage}: ${fields}`))
-  );
-}
 
-function dissectionResultHasCompleteContent(result, depth) {
-  return dissectionResultMissingFields(result, depth).length === 0;
-}
 
-function mergeDissectionResult(previous, next) {
-  const merged = { ...emptyDissectionResult(), ...(previous && typeof previous === 'object' ? previous : {}) };
-  const normalized = normalizeDissectionStageResult(next);
-  if (!normalized) return merged;
-  Object.keys(normalized).forEach(key => {
-    const value = normalized[key];
-    const prior = merged[key];
-    if (!dissectionFieldHasUsableContent(key, value) && dissectionFieldHasUsableContent(key, prior)) return;
-    if (Array.isArray(value)) {
-      if (!value.length && Array.isArray(prior) && prior.length) return;
-      merged[key] = value;
-    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const output = { ...(prior && typeof prior === 'object' && !Array.isArray(prior) ? prior : {}) };
-      Object.entries(value).forEach(([childKey, childValue]) => {
-        const priorChild = output[childKey];
-        if (Array.isArray(childValue) && !childValue.length && Array.isArray(priorChild) && priorChild.length) return;
-        if (!hasMeaningfulDissectionContent(childValue, childKey) && hasMeaningfulDissectionContent(priorChild, childKey)) return;
-        output[childKey] = childValue;
-      });
-      merged[key] = output;
-    } else if (value !== undefined && value !== null) merged[key] = value;
-  });
-  return merged;
-}
 
-function firstIncompleteDissectionPhase(result, depth) {
-  const ids = dissectionPhaseIdsForDepth(depth);
-  const index = ids.findIndex(stage => dissectionStageMissingFields(stage, result).length > 0);
-  return index >= 0 ? index : ids.length - 1;
-}
 
 function dissectionSkillRecord() {
   const skill = loadBuiltinSkills().find(item => item && item.id === 'extract-transform-fiction-style');
@@ -9526,170 +7877,13 @@ function updateDissectionRecord(record) {
   writeJsonFile(DISSECTION_FILE, rows);
 }
 
-function normalizeDissectionSource(body) {
-  return normalizeDissectionInput(body).source;
-}
 
-function parseDissectionChineseNumber(value) {
-  const clean = String(value || '').replace(/[\s　]/g, '');
-  if (!clean || !/^[零〇○一二三四五六七八九十百千万两]+$/u.test(clean)) return null;
-  const digits = { 零: 0, 〇: 0, '○': 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
-  const units = { 十: 10, 百: 100, 千: 1000, 万: 10000 };
-  let total = 0;
-  let section = 0;
-  for (const char of clean) {
-    if (Object.prototype.hasOwnProperty.call(units, char)) {
-      total += (section || 1) * units[char];
-      section = 0;
-    } else section = section * 10 + digits[char];
-  }
-  return total + section;
-}
 
-function parseDissectionOrderNumber(value) {
-  const clean = String(value || '').trim().replace(/[０-９]/gu, char => String.fromCharCode(char.charCodeAt(0) - 0xfee0));
-  if (/^\d+$/.test(clean)) return Number(clean);
-  const chinese = parseDissectionChineseNumber(clean);
-  if (chinese !== null) return chinese;
-  const roman = clean.toUpperCase();
-  if (!/^[IVXLCDM]+$/.test(roman)) return null;
-  const values = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
-  let total = 0;
-  for (let index = 0; index < roman.length; index += 1) total += values[roman[index]] < (values[roman[index + 1]] || 0) ? -values[roman[index]] : values[roman[index]];
-  return total;
-}
 
-function dissectionFileOrderNumbers(value) {
-  const pathValue = String(value || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  const numbers = [];
-  pathValue.split('/').filter(Boolean).forEach((segment, index, segments) => {
-    const clean = index === segments.length - 1 ? segment.replace(/\.[^.]+$/, '') : segment;
-    const heading = clean.match(/第\s*([0-9０-９零〇○一二三四五六七八九十百千万两]+)\s*(?:章|节|回|集|卷|部|篇)/u);
-    const named = clean.match(/(?:chapter|part|book|volume|vol)[\s_-]*(?:no\.?[\s_-]*)?([0-9０-９ivxlcdm]+)/i);
-    const generic = clean.match(/(?:^|[^0-9０-９])([0-9０-９]+)(?=[^0-9０-９]|$)/u);
-    const match = heading || named || generic;
-    const number = match ? parseDissectionOrderNumber(match[1]) : null;
-    if (number !== null) numbers.push(number);
-  });
-  return numbers;
-}
 
-function dissectionPathHasVolume(value) {
-  return String(value || '').replace(/\\/g, '/').split('/').some(segment => {
-    const clean = segment.replace(/\.[^.]+$/, '');
-    return /第\s*[0-9０-９零〇○一二三四五六七八九十百千万两]+\s*(?:卷|部|篇)/u.test(clean)
-      || /(?:volume|vol)[\s_-]*[0-9０-９ivxlcdm]+/i.test(clean);
-  });
-}
 
-function firstDissectionChapterNumber(value) {
-  for (const line of String(value || '').replace(/\r\n?/g, '\n').split('\n')) {
-    const title = dissectionChapterTitle(line);
-    if (!title) continue;
-    const match = title.match(/^第\s*([0-9０-９零〇○一二三四五六七八九十百千万两]+)\s*(?:章|节|回|集|卷|部|篇)/u)
-      || title.match(/^(?:chapter|part|book)\s*(?:no\.?\s*)?([0-9０-９ivxlcdm]+)/i);
-    if (match) return parseDissectionOrderNumber(match[1]);
-  }
-  return null;
-}
 
-function compareDissectionFileOrder(left, right) {
-  const leftNumber = firstDissectionChapterNumber(left.text);
-  const rightNumber = firstDissectionChapterNumber(right.text);
-  const leftPathNumbers = dissectionFileOrderNumbers(left.name);
-  const rightPathNumbers = dissectionFileOrderNumbers(right.name);
-  const leftNumbers = leftNumber === null
-    ? leftPathNumbers
-    : dissectionPathHasVolume(left.name) && leftPathNumbers.length
-      ? leftPathNumbers.length > 1 ? [...leftPathNumbers.slice(0, -1), leftNumber] : [...leftPathNumbers, leftNumber]
-      : [leftNumber];
-  const rightNumbers = rightNumber === null
-    ? rightPathNumbers
-    : dissectionPathHasVolume(right.name) && rightPathNumbers.length
-      ? rightPathNumbers.length > 1 ? [...rightPathNumbers.slice(0, -1), rightNumber] : [...rightPathNumbers, rightNumber]
-      : [rightNumber];
-  if (leftNumbers.length !== rightNumbers.length || leftNumbers.some((value, index) => value !== rightNumbers[index])) {
-    if (!leftNumbers.length) return 1;
-    if (!rightNumbers.length) return -1;
-    for (let index = 0; index < Math.min(leftNumbers.length, rightNumbers.length); index += 1) {
-      if (leftNumbers[index] !== rightNumbers[index]) return leftNumbers[index] - rightNumbers[index];
-    }
-    return leftNumbers.length - rightNumbers.length;
-  }
-  if (leftNumbers.length || rightNumbers.length) return 0;
-  return String(left.name || '').localeCompare(String(right.name || ''), 'zh-CN', { numeric: true, sensitivity: 'base' });
-}
 
-function normalizeDissectionInput(body) {
-  const parts = [];
-  const seen = new Set();
-  const sourceFiles = [];
-  let duplicateFileCount = 0;
-  let ignoredFileCount = 0;
-  const files = Array.isArray(body && body.files) ? body.files.slice(0, 500).filter(file => file && typeof file === 'object') : [];
-  const orderedFiles = files.map((file, index) => ({ file, index }))
-    .sort((left, right) => compareDissectionFileOrder(left.file, right.file) || left.index - right.index)
-    .map(item => item.file);
-  // F002：清洗统计（去噪行数/去噪字符）
-  let removedNoiseChars = 0;
-  orderedFiles.forEach(file => {
-    const name = String(file.name || '未命名文件').replace(/[\r\n]+/g, ' ').slice(0, 200);
-    const rawText = String(file.text || '').replace(/\uFEFF/g, '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n').trim();
-    const text = cleanDissectionText(rawText);
-    removedNoiseChars += Math.max(0, dissectionWordCount(rawText) - dissectionWordCount(text));
-    const sha1 = crypto.createHash('sha1').update(text).digest('hex');
-    const meta = {
-      name,
-      size: Math.max(0, Number(file.size) || 0),
-      lastModified: Math.max(0, Number(file.lastModified) || 0),
-      encoding: String(file.encoding || 'utf-8').slice(0, 24),
-      chars: text.length,
-      sha1,
-      included: false,
-      reason: ''
-    };
-    if (!text) {
-      meta.reason = 'empty';
-      ignoredFileCount += 1;
-      sourceFiles.push(meta);
-      return;
-    }
-    if (seen.has(sha1)) {
-      meta.reason = 'duplicate';
-      duplicateFileCount += 1;
-      sourceFiles.push(meta);
-      return;
-    }
-    seen.add(sha1);
-    meta.included = true;
-    sourceFiles.push(meta);
-    parts.push('===== 文件：' + name + ' =====\n' + text);
-  });
-  const pastedRaw = String(body && body.text || '').replace(/\uFEFF/g, '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n').trim();
-  const pasted = cleanDissectionText(pastedRaw);
-  removedNoiseChars += Math.max(0, dissectionWordCount(pastedRaw) - dissectionWordCount(pasted));
-  let pastedIncluded = false;
-  let pastedSha1 = '';
-  if (pasted) {
-    pastedSha1 = crypto.createHash('sha1').update(pasted).digest('hex');
-    if (!seen.has(pastedSha1)) {
-      parts.push('===== 粘贴内容 =====\n' + pasted);
-      pastedIncluded = true;
-    } else {
-      duplicateFileCount += 1;
-    }
-  }
-  return {
-    source: parts.join('\n\n'),
-    sourceFiles,
-    duplicateFileCount,
-    ignoredFileCount,
-    pastedChars: pasted.length,
-    pastedSha1,
-    pastedIncluded,
-    removedNoiseChars
-  };
-}
 
 function dissectionStagePrompt(stage, record, context, priorResult) {
   const common = [
@@ -10204,7 +8398,7 @@ async function startDissectionJob(id, userEmail, authToken) {
   } finally {
     activeDissections.delete(id);
     releaseDissectionUserSlot(userEmail);
-    if (runSlotHeld) dissectionRunningCount = Math.max(0, dissectionRunningCount - 1);
+    if (runSlotHeld) dissectionScheduler.releaseCapacity();
   }
 }
 
@@ -14029,174 +12223,14 @@ function computeRetentionCompliance(payload, snapshots, sourceStructure) {
 }
 
 // ★ 阶段4 · 拆书分页 / 覆盖率 / 校验 / 检索 / 重建 API（大数组按需加载，不一次塞全量结果）
-function queryParamsFromUrl(url) {
-  const idx = String(url || '').indexOf('?');
-  const out = {};
-  if (idx < 0) return out;
-  new URLSearchParams(String(url).slice(idx + 1)).forEach((v, k) => { out[k] = v; });
-  return out;
-}
 
-function dissectionPipelineStats(record) {
-  const p = (record.meta && record.meta.pipeline) || {};
-  let entities = 0, candidates = 0, mentions = 0, events = 0, summaries = 0, claims = 0, units = 0, foreshadows = 0, edges = 0, states = 0;
-  if (dbReady()) {
-    try { entities = db.prepare('SELECT COUNT(*) n FROM dissection_entities WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-    try { candidates = db.prepare("SELECT COUNT(*) n FROM dissection_entities WHERE dissection_id=? AND status='candidate'").get(record.id).n || 0; } catch (_) {}
-    try { mentions = db.prepare('SELECT COUNT(*) n FROM dissection_entity_mentions WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-    try { events = db.prepare('SELECT COUNT(*) n FROM dissection_events WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-    try { summaries = db.prepare('SELECT COUNT(*) n FROM dissection_summaries WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-    try { claims = db.prepare('SELECT COUNT(*) n FROM dissection_claims WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-    try { units = db.prepare('SELECT COUNT(*) n FROM dissection_units WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-    try { foreshadows = db.prepare('SELECT COUNT(*) n FROM dissection_foreshadows WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-    try { edges = db.prepare('SELECT COUNT(*) n FROM dissection_event_edges WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-    try { states = db.prepare('SELECT COUNT(*) n FROM dissection_entity_states WHERE dissection_id=?').get(record.id).n || 0; } catch (_) {}
-  }
-  return {
-    unitTotal: p.unitTotal || units, unitCompleted: p.unitCompleted || 0,
-    factCoverage: Number(p.factCoverage || 0), batchTotal: p.batchTotal || 0, batchDone: p.batchDone || 0,
-    failedBatches: p.failedBatches || [], aggregated: !!p.aggregated, validationStatus: p.validationStatus || null,
-    entities, candidates, mentions, events, summaries, claims, foreshadows, edges, states
-  };
-}
 
-function handleDissectionCoverage(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
-  if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  json(res, 200, { ok: true, coverage: dissectionPipelineStats(record) });
-}
 
-function handleDissectionUnitsPage(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
-  if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  const q = queryParamsFromUrl(req.url);
-  const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
-  const cursor = Number(q.cursor) || 0;
-  if (!dbReady()) return json(res, 200, { ok: true, items: [], next: '' });
-  const rows = db.prepare('SELECT id,parent_id,unit_type,ordinal,title,source_start,source_end,char_count,token_estimate FROM dissection_units WHERE dissection_id=? AND ordinal > ? ORDER BY ordinal ASC LIMIT ?').all(id, cursor, limit + 1);
-  const hasMore = rows.length > limit;
-  const items = rows.slice(0, limit);
-  json(res, 200, { ok: true, items, next: hasMore ? items[items.length - 1].ordinal : '' });
-}
 
-function handleDissectionEntitiesPage(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
-  if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  const q = queryParamsFromUrl(req.url);
-  const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
-  if (!dbReady()) return json(res, 200, { ok: true, items: [], next: '' });
-  let cursor = null;
-  const rawCursor = String(q.cursor || '').trim();
-  if (rawCursor) {
-    try {
-      const decoded = JSON.parse(Buffer.from(rawCursor, 'base64url').toString('utf8'));
-      if (decoded && Number.isFinite(Number(decoded.mentionCount))) cursor = { mentionCount: Number(decoded.mentionCount), canonicalName: String(decoded.canonicalName || ''), id: String(decoded.id || '') };
-    } catch (_) {
-      const legacy = Number(rawCursor);
-      if (Number.isFinite(legacy)) cursor = { mentionCount: legacy, canonicalName: '', id: '' };
-    }
-  }
-  const sql = cursor
-    ? 'SELECT id,canonical_name,entity_type,first_unit_id,last_unit_id,mention_count,status FROM dissection_entities WHERE dissection_id=? AND (mention_count < ? OR (mention_count = ? AND (canonical_name > ? OR (canonical_name = ? AND id > ?)))) ORDER BY mention_count DESC, canonical_name ASC, id ASC LIMIT ?'
-    : 'SELECT id,canonical_name,entity_type,first_unit_id,last_unit_id,mention_count,status FROM dissection_entities WHERE dissection_id=? ORDER BY mention_count DESC, canonical_name ASC, id ASC LIMIT ?';
-  const rows = cursor
-    ? db.prepare(sql).all(id, cursor.mentionCount, cursor.mentionCount, cursor.canonicalName, cursor.canonicalName, cursor.id, limit + 1)
-    : db.prepare(sql).all(id, limit + 1);
-  const hasMore = rows.length > limit;
-  const items = rows.slice(0, limit);
-  const last = items[items.length - 1];
-  const next = hasMore && last
-    ? Buffer.from(JSON.stringify({ mentionCount: Number(last.mention_count) || 0, canonicalName: String(last.canonical_name || ''), id: String(last.id || '') })).toString('base64url')
-    : '';
-  json(res, 200, { ok: true, items, next });
-}
 
-function handleDissectionForeshadowsPage(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
-  if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  const q = queryParamsFromUrl(req.url);
-  const limit = Math.min(300, Math.max(1, Number(q.limit) || 50));
-  const cursor = Number(q.cursor) || 0;
-  // ★ 阶段2 · 伏笔生命周期：优先读 dissection_foreshadows 台账（含埋设/回收章、相关实体、置信度），回退 result
-  let list = [];
-  if (dbReady()) {
-    try {
-      list = db.prepare('SELECT id,title,description,status,strength,setup_chapter,payoff_chapter,related_entity_ids,evidence_ids,confidence FROM dissection_foreshadows WHERE dissection_id = ?').all(id)
-        .map(r => ({ id: r.id, title: r.title, description: r.description, status: r.status, strength: r.strength, setupChapter: r.setup_chapter, payoffChapter: r.payoff_chapter, relatedEntityIds: JSON.parse(r.related_entity_ids || '[]'), evidenceIds: JSON.parse(r.evidence_ids || '[]'), confidence: r.confidence }));
-    } catch (_) { list = []; }
-  }
-  if (!list.length) {
-    const result = dissectionResultView(record.result);
-    list = Array.isArray(result.foreshadowing) ? result.foreshadowing : [];
-  }
-  if (q.status) list = list.filter(f => String(f.status) === q.status);
-  const items = list.slice(cursor, cursor + limit);
-  json(res, 200, { ok: true, total: list.length, items, next: cursor + items.length < list.length ? cursor + items.length : '' });
-}
 
-function handleDissectionSummariesPage(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
-  if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  const q = queryParamsFromUrl(req.url);
-  const limit = Math.min(300, Math.max(1, Number(q.limit) || 50));
-  const cursor = Number(q.cursor) || 0;
-  const type = String(q.type || 'volume');
-  // ★ 阶段2 · 四级分层摘要查询：chapter / arc / volume / book
-  // 优先读 summaries 表（result_json 只是物化视图，不作为唯一事实来源），缺省回退到 result。
-  let list = [];
-  if (dbReady()) {
-    try {
-      const rows = db.prepare('SELECT id, owner_id, content_json, child_ids_json FROM dissection_summaries WHERE dissection_id = ? AND summary_type = ? ORDER BY rowid ASC').all(record.id, type);
-      list = rows.map(r => { let c = {}; try { c = JSON.parse(r.content_json || '{}'); } catch (_) {} return { id: r.id, ownerId: r.owner_id, childIds: JSON.parse(r.child_ids_json || '[]'), ...c }; });
-    } catch (_) { list = []; }
-  }
-  if (!list.length) {
-    const result = dissectionResultView(record.result);
-    if (type === 'chapter') list = result.chapterSummaries || [];
-    else if (type === 'arc') list = result.arcSummaries || [];
-    else if (type === 'book') list = result.bookSummary ? [result.bookSummary] : [];
-    else list = result.volumeSummaries || [];
-  }
-  const items = list.slice(cursor, cursor + limit);
-  json(res, 200, { ok: true, type, total: list.length, items, next: cursor + items.length < list.length ? cursor + items.length : '' });
-}
 
-function handleDissectionValidation(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
-  if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  const result = dissectionResultView(record.result);
-  json(res, 200, { ok: true, validation: result.validation || { conclusion: 'unknown' }, stats: dissectionPipelineStats(record) });
-}
 
-function handleDissectionSearch(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
-  if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  const q = queryParamsFromUrl(req.url);
-  const keyword = String(q.q || '').trim();
-  if (!dbReady() || keyword.length < 2) return json(res, 200, { ok: true, items: [], query: keyword });
-  try {
-    const rows = db.prepare("SELECT ordinal, unit_type, title, snippet(dissection_units_fts, 4, '[', ']', '…', 28) AS snip FROM dissection_units_fts WHERE dissection_units_fts MATCH ? AND dissection_id = ? ORDER BY rank LIMIT 30").all('"' + keyword.replace(/"/g, '') + '"', id);
-    json(res, 200, { ok: true, items: rows.map(r => ({ ordinal: r.ordinal, unitType: r.unit_type, title: r.title, snippet: r.snip })), query: keyword });
-  } catch (_) {
-    // FTS 语法错误时降级 LIKE 模糊匹配
-    const rows = db.prepare("SELECT id, unit_type, ordinal, title FROM dissection_units WHERE dissection_id=? AND text LIKE ? ORDER BY ordinal ASC LIMIT 30").all(id, '%' + keyword + '%');
-    json(res, 200, { ok: true, items: rows.map(r => ({ ordinal: r.ordinal, unitType: r.unit_type, title: r.title, snippet: r.title })), query: keyword });
-  }
-}
 
 // 重建图谱/实体阶段（本地重算，无需模型；聚合阶段重建请走 retry 断点续跑）
 function handleDissectionRebuild(req, res, id) {
@@ -16633,6 +14667,16 @@ function handleCausalDebtsExtract(req, res, bookId) {
   }).catch(error => respondError(res, error));
 }
 
+const { dissectionId, dissectionWordCount, cleanDissectionText, splitDissectionText, dissectionChapterTitle, buildDissectionChunks, dissectionUnitHeader, splitUnitParts, buildDissectionUnits, chooseDissectionChunks, dissectionContext, dissectionContextForStage, normalizeDissectionSource, parseDissectionChineseNumber, parseDissectionOrderNumber, dissectionFileOrderNumbers, dissectionPathHasVolume, firstDissectionChapterNumber, compareDissectionFileOrder, normalizeDissectionInput } = require('./services/dissection-input-service').createDissectionInputService({ DISSECTION_CHUNK_CHARS, DISSECTION_DEPTH_LIMITS, DISSECTION_MAX_UNITS, DISSECTION_NOISE_ANCHORED, DISSECTION_NOISE_ANYWHERE, DISSECTION_STAGE_CONTEXT_CHARS, DISSECTION_STAGE_FRACTION, crypto });
+
+const { queryParamsFromUrl, dissectionPipelineStats, handleDissectionCoverage, handleDissectionUnitsPage, handleDissectionEntitiesPage, handleDissectionForeshadowsPage, handleDissectionSummariesPage, handleDissectionValidation, handleDissectionSearch } = require('./services/dissection-query-service').createDissectionQueryService({ dbReady, dissectionResultView: (...args) => dissectionResultView(...args), getAuthUser, json, loadDissectionRecord, getDatabase: () => db });
+
+const { safeJsonParse, extractJsonFromMixedText, autoFixJson, salvageDissectionStageResult, emptyDissectionResult, hasDissectionContent, isDissectionPlaceholder, hasMeaningfulDissectionContent, normalizeAuthorDna, buildAuthorDnaFromDissectionParts, ensureDissectionAuthorDna, dissectionFieldHasUsableContent, dissectionResultHasContent, dissectionResultView, normalizeDissectionStageResult, dissectionStageMissingFields, dissectionPhaseIdsForDepth, dissectionResultMissingFields, dissectionResultHasCompleteContent, mergeDissectionResult, firstIncompleteDissectionPhase } = require('./services/dissection-result-service').createDissectionResultService({ DISSECTION_ARRAY_FIELDS, DISSECTION_PHASES, DISSECTION_PHASES_BY_DEPTH, DISSECTION_RESULT_ALIASES, DISSECTION_STAGE_REQUIREMENTS });
+
+const { isPipelineFactUnit, pipelineBatchCharsFor, pipelineEstimatedTokensFor, pipelineAggregationInputChars, pipelineTextChunks, normalizePipelineEventType, normalizeDissectionUnitId, normalizeEntityName, attachPipelineCoverage, pipelineSummaryCoverage, legacyPipelineCharacterAggregation, normalizePipelineAggregationResult, pipelineAggregationMissingFields, normalizeLegacyPipelineRecord, buildPipelineEmotionCurve, buildPipelineConflictStats, buildPipelineSpotStats, buildPipelineCharacters, samplePipelineCharacterAppearances, buildPipelineCharacterFallback, buildPipelineClues, buildPipelineOutline, buildPipelineEvidenceLedger, pipelineSpotDistribution, pipelineTensionFromCurve, countBelow3 } = require('./services/dissection-pipeline-analysis-service').createDissectionPipelineAnalysisService({ PIPELINE_EVENT_TYPE_MAP, PIPELINE_FACT_UNIT_TYPES, db, dbReady, dissectionFieldHasUsableContent, dissectionResultMissingFields, dissectionResultView, ensureDissectionAuthorDna, findPlatformModel, hasMeaningfulDissectionContent , getDatabase: () => db });
+
+const { loadDissectionChapters, loadAllChapterFacts, loadDissectionBatches, storeDissectionUnits, loadDissectionUnits, storeDissectionChapters, createDissectionBatches, initializeDissectionPipeline, recordModelUsage, recordPipelineUsage, ensurePipelineRun, updatePipelineRunProgress, updateBatchStatus, buildDissectionEntities, buildDissectionEvents, dissectionUnitChapterMap, storeDissectionForeshadows, buildEntityStates, buildEventEdges } = require('./services/dissection-pipeline-store').createDissectionPipelineStore({ buildDissectionUnits, dbReady, dissectionWordCount, isPipelineFactUnit, normalizeEntityName, pipelineBatchCharsFor, toTokenCount, updateDissectionRecord, PIPELINE_BATCH_MAX_CHAPTERS, crypto, getDatabase: () => db });
+
 const skillService = require('./services/skill-service').createSkillService({
   DATA_DIR,
   DEFAULT_WRITING_SKILL_ID,
@@ -16830,6 +14874,23 @@ const nativeDomain = require('./services/native-domain-service').createNativeDom
 });
 const { appRepository, memoryDomainStore, nativeBillingService, nativeAuthService,
   nativeUsageSummary, nativePublicUser, summarizeNativeNovel } = nativeDomain;
+let nativeSkills;
+let nativeProjects;
+function nativeProjectService() {
+  if (!nativeProjects) nativeProjects = require('./services/native-project-service').createNativeProjectService({
+    repository: appRepository(), getAuthUser, readBody, json
+  });
+  return nativeProjects;
+}
+function nativeSkillService() {
+  if (!nativeSkills) nativeSkills = require('./services/native-skill-service').createNativeSkillService({
+    repository: new (require('./lib/repositories/json-skill-repository').JsonSkillRepository)(appRepository().repository),
+    getAuthUser, readBody, json, respondError, crypto, decorateSkillPrompt, normalizeSkillRuntimeFiles,
+    skillFileNames, skillRuntimeFilesComplete, makeOpenSkill, makeGlobalSkill, loadBuiltinSkills, uniqueSkillsById,
+    openSkillListView, openSkillDetailView, parseOpenSkillListParams, decodePathParam, isAdminUser
+  });
+  return nativeSkills;
+}
 
 const server = http.createServer((req, res) => {
   void dispatchRequest(req, res).catch(error => respondError(res, error));
@@ -16841,6 +14902,15 @@ async function dispatchRequest(req, res) {
     req.molanNativeAuth = await nativeAuthService().resolve(req);
   }
   const u = req.url.split('?')[0];
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' &&
+      (u.startsWith('/api/workspaces') || /^\/api\/novels\/[^/]+\/resources(?:\/|$)/.test(u))) {
+    if (await nativeProjectService().dispatch(req, res, u)) return;
+    return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
+  }
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/')) {
+    const supported = /^\/api\/(?:auth\/(?:register|login|me|profile|logout|logout-all)$|admin\/(?:auth\/(?:login|me|logout)|skills(?:\/[^/]+)?)$|skills(?:\/import)?$|open-skills(?:\/[^/]+(?:\/download)?)?$|novels(?:\/[^/]+(?:\/restore)?)?$|books\/|runs\/|generation-runs(?:\/|$)|models$|health$|usage$|billing\/(?:estimate|topup)$|local-sync\/status$|local-style\/)/.test(u);
+    if (!supported) return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
+  }
   if (req.method === 'GET' && u === '/api/local-sync/status') return handleLocalSyncStatus(req, res);
 
 // ★ 本地文风对齐数据（仅本地服务提供，不随代理转发到云端）：
@@ -16922,11 +14992,16 @@ async function dispatchRequest(req, res) {
       characterAudit: handleCharacterMaterialAudit, characterAuditPatch: handleCharacterMaterialAuditPatch,
       dataList: adminDataList, dataPatch: adminDataPatch, dataDelete: adminDataDelete,
       userPatch: handleAdminUserPatch, skillPatch: handleAdminSkillPatch, skillDelete: handleAdminSkillDelete
+      , ...(!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? {
+        skills: nativeSkillService().adminSkills, skillCreate: nativeSkillService().adminSkillCreate,
+        skillPatch: nativeSkillService().adminSkillPatch, skillDelete: nativeSkillService().adminSkillDelete
+      } : {})
     }),
     skills: createSkillRoutes({
       list: handleSkills, import: handleSkillImport, openList: handleOpenSkillList, openCreate: handleOpenSkillCreate,
       openGet: handleOpenSkillGet, openPatch: handleOpenSkillPatch, openDelete: handleOpenSkillDelete,
       openDownload: handleOpenSkillDownload
+      , ...(!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? nativeSkillService() : {})
     }),
     generation: createGenerationRoutes({
       benchmark: handleBenchmark, generationRuns: handleGenerationRuns, generationRunError,
@@ -17075,8 +15150,9 @@ if (require.main === module) {
     error.code = 'PRODUCTION_POSTGRES_REQUIRED';
     throw error;
   }
-  initDB();
-  if (!POSTGRES_MODE && process.env.MOLAN_STYLE_STORE === 'json') styleProfileStore();
+  const nativeJsonMode = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json';
+  if (!nativeJsonMode) initDB();
+  if (!POSTGRES_MODE && (process.env.MOLAN_STYLE_STORE === 'json' || nativeJsonMode)) styleProfileStore();
   let stopMemoryProjections = null;
   if (!POSTGRES_MODE && dbReady()) {
     stopMemoryProjections = require('./lib/memory-projection-worker').start(db);
@@ -17105,7 +15181,7 @@ if (require.main === module) {
   server.maxConnections = envPositiveInt('MOLAN_MAX_CONNECTIONS', 1024, 64, 10000);
   const startListening = () => {
     const onListen = () => {
-      console.log('🖌  墨阑落地页已启动 → http://localhost:' + PORT + ' (http://127.0.0.1:' + PORT + ')');
+      console.log('🖌  墨阑落地页已启动 → http://localhost:' + server.address().port + ' (http://127.0.0.1:' + server.address().port + ')');
       if (POSTGRES_MODE && postgresRepository.enabled) {
         console.log('   🐘 PostgreSQL 权威数据库已启用');
       } else {
@@ -17188,19 +15264,19 @@ if (require.main === module) {
       process.exitCode = 1;
     });
   } else {
-    if (dbReady()) {
+    if (!nativeJsonMode && dbReady()) {
       recoverDissectionJobs();
       loadSessions();
       recoverPostgresCreationJobs();
-    } else {
+    } else if (!nativeJsonMode) {
       recoverDissectionJobs();
       loadSessions();
       recoverPostgresCreationJobs();
     }
-    if (PUBLIC_MODE && !dbReady()) {
+    if (PUBLIC_MODE && !nativeJsonMode && !dbReady()) {
       console.error('Production storage is unavailable: Node 22.5+ with --experimental-sqlite is required. AI and cloud novel APIs will stay disabled.');
     }
-    if (process.env.MOLAN_GENERATION_STORE === 'json') {
+    if (process.env.MOLAN_GENERATION_STORE === 'json' || nativeJsonMode) {
       generationRunStore().recoverExpiredRuns(null, { now: Date.now() }).then(startListening).catch(async error => {
         console.error('JSON generation storage recovery failed; service will not listen:', error);
         await closeStorageStores().catch(closeError => console.error('Storage cleanup after startup failure failed:', closeError));

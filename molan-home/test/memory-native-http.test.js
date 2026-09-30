@@ -25,6 +25,7 @@ test('native memory routes preserve API envelopes and preconditions', async t =>
   result = await invoke(request('POST', `/api/books/n_http/memory/changesets/${id}/approve`, {}), store); assert.equal(result.status, 200);
   result = await invoke(request('POST', `/api/books/n_http/memory/changesets/${id}/commit`, {}, { 'if-match': 'bad' }), store); assert.equal(result.status, 412); assert.equal(result.body.code, 'PRECONDITION_FAILED');
   result = await invoke(request('POST', `/api/books/n_http/memory/changesets/${id}/commit`, {}, { 'idempotency-key': 'http-one' }), store); assert.equal(result.status, 200); assert.equal(result.body.ok, true);
+  result = await invoke(request('GET', '/api/books/n_http/workbench'), store); assert.equal(result.body.changesets[0].approval_status, 'approved'); assert.equal(result.body.changesets[0].base_state_version, 1); assert.equal(typeof result.body.changesets[0].committed_at, 'number');
   result = await invoke(request('GET', '/api/books/n_http/projections'), store); assert.equal(result.status, 200); assert.equal(result.body.projections.status, 'PENDING_PROJECTION');
   let calls = 0;
   const generationServices = { styleProfileStore, generate: async (user, params, guard) => { assert.equal(params.novelId, 'n_http'); await guard(async () => { calls++; return { usage: { totalTokens: 2 } }; }); return { status: 'passed', text: '阿青走进房间。' }; } };
