@@ -182,7 +182,7 @@ function createJsonStyleProfileStore(directory, options = {}) {
 
   return {
     backend: 'json', upsertStyleProfile, getStyleProfiles, getStyleProfileVersions,
-    close: () => repository.close()
+    close: () => options.repository ? Promise.resolve() : repository.close()
   };
 }
 

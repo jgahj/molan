@@ -450,7 +450,7 @@ function createJsonGenerationStore(directory, options = {}) {
   return {
     createRun, getRun, getRunById, getRunInput, updateRun, appendEvent, recordStage, listStages, listEvents,
     acquireLease, renewLease, releaseLease, beginProvider, requestPause, resumeRun, recoverExpiredRuns,
-    close: () => repository.close()
+    close: () => options.repository ? Promise.resolve() : repository.close()
   };
 }
 
