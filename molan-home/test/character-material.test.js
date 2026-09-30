@@ -174,6 +174,7 @@ test('两个管理员入口都暴露人物素材审批操作和服务端门禁',
   const standaloneScript = fs.readFileSync(path.join(__dirname, '..', 'pages', 'admin.js'), 'utf8');
   const dynamicScript = fs.readFileSync(path.join(__dirname, '..', 'completion-admin.js'), 'utf8');
   const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const adminRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'admin.js'), 'utf8');
   assert.match(standaloneHtml, /data-view="character-material"/);
   assert.match(standaloneHtml, /id="materialAuditApproveBtn"/);
   assert.match(standaloneScript, /\/api\/admin\/character-material\/audit/);
@@ -181,7 +182,9 @@ test('两个管理员入口都暴露人物素材审批操作和服务端门禁',
   assert.match(dynamicScript, /data-admin-material-action="approve"/);
   assert.match(dynamicScript, /data-admin-view="character-material"/);
   assert.match(dynamicScript, /node\.dataset\.adminMaterialAction === 'revoke'/);
-  assert.match(serverSource, /PATCH.*\/api\/admin\/character-material\/audit/);
+  assert.match(adminRoutes, /method === 'PATCH' && url === '\/api\/admin\/character-material\/audit'/);
+  assert.match(serverSource, /admin: createAdminRoutes\(/);
+  assert.match(serverSource, /characterAuditPatch: handleCharacterMaterialAuditPatch/);
   assert.match(serverSource, /readBody\(req\)/);
   assert.match(serverSource, /evaluateCharacterMaterialApprovalGates/);
   assert.match(serverSource, /publicationApprovalReady/);

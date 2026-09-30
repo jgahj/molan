@@ -8,6 +8,7 @@ const path = require('node:path');
 const { __test } = require('../server');
 
 const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const dissectionRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'dissections.js'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.js'), 'utf8');
 
 // —— 结果结构：四级分层摘要字段进入默认结果与别名表（merge/view 不丢）——
@@ -86,9 +87,14 @@ test('aggregation wires entity states, event edges and foreshadow persistence', 
 
 // —— 阶段3 · 多阶段创书接口：动态上下文 / 章节合同 / 连续性审计 ——
 test('registers stage-3 creation endpoints', () => {
-  assert.match(serverSource, /\/creation-context/);
-  assert.match(serverSource, /\/chapter-contract/);
-  assert.match(serverSource, /\/audit\$/);
+  assert.match(dissectionRoutes, /method === 'GET'.*\/creation-context/);
+  assert.match(dissectionRoutes, /method === 'POST'.*\/chapter-contract/);
+  assert.match(dissectionRoutes, /method === 'POST'.*\/audit/);
+  assert.match(serverSource, /dissections: createDissectionRoutes\(/);
+  assert.match(serverSource, /creationContext: handleDissectionCreationContext/);
+  assert.match(serverSource, /chapterContract: handleDissectionChapterContract/);
+  assert.match(serverSource, /audit: handleDissectionAudit/);
+  assert.match(serverSource, /domainRoutes\.dissections\(req, res, u\)/);
 });
 
 test('dissectionContextForChapter assembles arc/state/timeline/foreshadow snapshot', () => {
