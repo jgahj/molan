@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
 
 import * as metrics from '../lib/benchmark-metrics.js';
 import * as detector from '../lib/ai-flavor-detector.js';
@@ -16,7 +15,6 @@ const CORPUS_ROOT = path.join(WORKSPACE_ROOT, '资源库', '小说原本');
 const DATA_DIR = path.join(PROJECT_ROOT, 'data');
 const BASELINE_DIR = path.join(DATA_DIR, 'genre-baselines');
 const RUNS_DIR = path.join(DATA_DIR, 'benchmark-runs');
-const DB_PATH = path.join(DATA_DIR, 'molan.db');
 
 console.log('=== [Molan AI Novel Industrial Quality Benchmark & Optimization System] ===');
 console.log('Initializing industrial-grade evaluation and optimization run...');
@@ -446,20 +444,22 @@ fs.writeFileSync(path.join(PROJECT_ROOT, 'evidence-index.json'), JSON.stringify(
 const regressionReportData = {
   schemaVersion: 'molan-regression-report-v1',
   generatedAt: new Date().toISOString(),
-  testSuitePass: true,
-  totalSuites: 83,
-  totalTests: 812,
-  passingTests: 809,
-  failingTests: 0,
-  skippedTests: 3,
-  aiFlavorDetectorFixed: true,
+  testSuitePass: null,
+  totalSuites: null,
+  totalTests: null,
+  passingTests: null,
+  failingTests: null,
+  skippedTests: null,
+  aiFlavorDetectorFixed: null,
+  evidenceState: 'NOT_MEASURED',
   antiRegressionGates: {
-    settingConflict: 'PASSED (0 blocker)',
-    causalBreak: 'PASSED (Entity grounding contract verified)',
-    aiFlavorScore: 'PASSED (23.5 < 40.0 threshold)',
-    testSuiteRegression: 'ZERO_REGRESSION'
+    settingConflict: 'BLOCKED',
+    causalBreak: 'BLOCKED',
+    aiFlavorScore: 'BLOCKED',
+    testSuiteRegression: 'BLOCKED'
   },
-  verdict: 'IMPROVED'
+  verdict: 'BLOCKED',
+  reason: 'This descriptive corpus script does not execute tests or a comparable model A/B evaluation.'
 };
 fs.writeFileSync(path.join(PROJECT_ROOT, 'regression-report.json'), JSON.stringify(regressionReportData, null, 2), 'utf8');
 
@@ -469,7 +469,7 @@ const qualityReportJson = {
   generatedAt: new Date().toISOString(),
   executiveSummary: {
     overallStatus: 'STABILIZING_TOWARDS_BENCHMARK',
-    verdict: 'IMPROVED',
+    verdict: 'BLOCKED',
     evaluatedSamples: validRuns.length,
     corpusScope: `${totalBooks} books, 48 genres, 2.39 GB`,
     criticalGaps: ['dialogueTurnMean (-58.2%)', 'similePerKilo (-69.4%)', 'pacingOvershoot (+41.9%)'],
@@ -487,117 +487,6 @@ const qualityReportJson = {
 fs.writeFileSync(path.join(PROJECT_ROOT, 'quality-report.json'), JSON.stringify(qualityReportJson, null, 2), 'utf8');
 
 // ==========================================
-// 7. Write to SQLite Database Tables
+// 7. Report evidence boundaries
 // ==========================================
-console.log('\n--- [Step 7] Writing to SQLite (molan.db) Tables ---');
-try {
-  const db = new DatabaseSync(DB_PATH);
-  
-  // Create tables if not exist
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS benchmark_runs (
-      id TEXT PRIMARY KEY,
-      genre TEXT,
-      book_count INTEGER,
-      status TEXT,
-      created_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS benchmark_books (
-      id TEXT PRIMARY KEY,
-      genre TEXT,
-      title TEXT,
-      total_chars INTEGER,
-      created_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS generation_runs (
-      id TEXT PRIMARY KEY,
-      request_id TEXT,
-      genre TEXT,
-      text_len INTEGER,
-      audit_passed INTEGER,
-      created_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS evaluation_results (
-      id TEXT PRIMARY KEY,
-      generation_run_id TEXT,
-      ai_flavor_score REAL,
-      style_distance_score REAL,
-      verified_issues_count INTEGER,
-      created_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS quality_gaps (
-      id TEXT PRIMARY KEY,
-      dimension TEXT,
-      molan_val REAL,
-      bench_val REAL,
-      gap REAL,
-      severity TEXT,
-      created_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS root_causes (
-      id TEXT PRIMARY KEY,
-      issue_code TEXT,
-      module_path TEXT,
-      cause_detail TEXT,
-      created_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS optimization_tasks (
-      id TEXT PRIMARY KEY,
-      task_name TEXT,
-      priority REAL,
-      layer TEXT,
-      status TEXT,
-      created_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS regression_results (
-      id TEXT PRIMARY KEY,
-      verdict TEXT,
-      pass_count INTEGER,
-      fail_count INTEGER,
-      created_at TEXT
-    );
-  `);
-
-  // Insert Benchmark run
-  const now = new Date().toISOString();
-  const runId = 'bench_' + Date.now();
-  db.prepare('INSERT OR REPLACE INTO benchmark_runs (id, genre, book_count, status, created_at) VALUES (?, ?, ?, ?, ?)').run(
-    runId, 'MULTI_GENRE', totalBooks, 'COMPLETED', now
-  );
-
-  // Insert Generation runs & evaluation
-  for (const r of validRuns) {
-    db.prepare('INSERT OR REPLACE INTO generation_runs (id, request_id, genre, text_len, audit_passed, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
-      r.file.replace('.json', ''), r.requestId || '', r.genre || '玄幻', r.textLen, r.auditPassed ? 1 : 0, now
-    );
-    db.prepare('INSERT OR REPLACE INTO evaluation_results (id, generation_run_id, ai_flavor_score, style_distance_score, verified_issues_count, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
-      'eval_' + r.file.replace('.json', ''), r.file.replace('.json', ''), r.aiScore.score, r.styleDist?.score || 0, r.verifiedIssues.length, now
-    );
-  }
-
-  // Insert Gaps
-  let gapIdx = 0;
-  for (const g of gapMatrix) {
-    db.prepare('INSERT OR REPLACE INTO quality_gaps (id, dimension, molan_val, bench_val, gap, severity, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-      'gap_' + (++gapIdx), g.dimension, g.molan, g.benchmarkP50, g.gap, g.severity, now
-    );
-  }
-
-  // Insert Optimization tasks
-  for (const t of optimizationBacklog) {
-    db.prepare('INSERT OR REPLACE INTO optimization_tasks (id, task_name, priority, layer, status, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
-      t.id, t.task, t.priorityScore, t.layer, t.status, now
-    );
-  }
-
-  // Insert Regression result
-  db.prepare('INSERT OR REPLACE INTO regression_results (id, verdict, pass_count, fail_count, created_at) VALUES (?, ?, ?, ?, ?)').run(
-    'reg_' + Date.now(), 'IMPROVED', 669, 0, now
-  );
-
-  console.log('  Successfully wrote records into 8 benchmark sqlite tables.');
-} catch (dbErr) {
-  console.error('  Database write error:', dbErr.message);
-}
-
-console.log('\n=== All benchmark pipeline steps completed successfully! ===');
+console.log('\nDescriptive reports written. Quality promotion remains BLOCKED without a comparable A/B report.');
