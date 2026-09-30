@@ -18833,7 +18833,7 @@ function generationRunOrchestrator() {
           const outlineNodes = Array.isArray(chapter.scenePlan) && chapter.scenePlan.length
             ? chapter.scenePlan
             : [chapter.goal || contract.chapterGoal];
-          return require('./scene-planner').planScenes(outlineNodes, {
+          return require('./lib/scene-planner').planScenes(outlineNodes, {
             targetWordCount: Number(runRequest.targetWords || contract.wordBudget.targetChars) || 2400
           });
         },
