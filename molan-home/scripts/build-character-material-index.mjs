@@ -30,13 +30,7 @@ import {
   splitRawGenres
 } from '../../资源库/scripts/corpus-utils.mjs';
 
-// node:sqlite 内置（Node 22.5+，需 --experimental-sqlite 标志）；不可用则降级为无数据库人名词典
-let DatabaseSync = null;
-try {
-  ({ DatabaseSync } = await import('node:sqlite'));
-} catch (_) {
-  DatabaseSync = null;
-}
+import { loadCharacterLibraryNames } from './character-library-names.mjs';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '..');
 const RESOURCE_ROOT = path.resolve(REPOSITORY_ROOT, '..', '资源库');
@@ -2302,42 +2296,7 @@ function candidateNameTerms(value) {
   return [...new Set(candidates)].filter(term => !COMMON_TERMS.has(term) && term.length >= 2 && term.length <= 3);
 }
 
-// === 人名词典：复用 server.js 的数据库打开逻辑，从 character_library 表导出真实人名 ===
-
-// 复用 server.js 的数据库打开逻辑：在 DATA_DIR 下打开同一份 molan.db（只读）
-function openMolanDatabase() {
-  if (!DatabaseSync) return null;
-  try {
-    const dataDir = process.env.MOLAN_DATA_DIR || path.join(REPOSITORY_ROOT, 'data');
-    if (!fs.existsSync(dataDir)) return null;
-    const dbPath = path.join(dataDir, 'molan.db');
-    if (!fs.existsSync(dbPath)) return null;
-    const db = new DatabaseSync(dbPath);
-    db.exec('PRAGMA journal_mode = WAL');
-    db.exec('PRAGMA busy_timeout = 5000');
-    return db;
-  } catch (_) {
-    return null;
-  }
-}
-
-// 从拆书角色库导出真实人名词典（user_email + name 唯一，故 DISTINCT 即可去重）
-function loadCharacterLibraryNames() {
-  const names = new Set();
-  const db = openMolanDatabase();
-  if (!db) return names;
-  try {
-    const rows = db.prepare('SELECT DISTINCT name FROM character_library').all();
-    for (const row of rows) {
-      const name = String(row && row.name || '').trim();
-      if (name.length >= 2 && name.length <= 6) names.add(name);
-    }
-  } catch (_) {
-    // 旧库无 character_library 表时静默跳过
-  }
-  try { db.close(); } catch (_) {}
-  return names;
-}
+// The CLI loads the optional native dictionary asynchronously before the pure build.
 
 // 引号/对话标记集合：人名常出现在引语前后，用于高频组合的邻接验证
 const QUOTE_MARKERS = new Set(['"', '“', '”', '‘', '’', '「', '」', '『', '』', '：', '—']);
@@ -3581,7 +3540,7 @@ function buildIndex(markdown, options = {}) {
   const profileRows = [];
   // 人名词典：数据库真实人名 + 语料高频引号邻接组合，供匿名化精确替换
   const nameDictionary = new Set([
-    ...loadCharacterLibraryNames(),
+    ...(options.characterLibraryNames || []),
     ...scanCorpusNameCombos([markdown, ...archiveCandidateRows.map(row => row.text || '')].join('\n'))
   ]);
   const counts = {
@@ -4021,6 +3980,7 @@ export {
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly) {
   const options = readOptions(process.argv.slice(2));
-  const report = writeBuild(options);
+  const characterLibraryNames = await loadCharacterLibraryNames();
+  const report = writeBuild({ ...options, characterLibraryNames });
   console.log(JSON.stringify({ version: report.version, counts: report.counts, manualReview: report.manualReview }, null, 2));
 }

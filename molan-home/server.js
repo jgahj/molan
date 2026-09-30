@@ -11686,7 +11686,17 @@ function nativeCreationRepository() {
 function nativeCreationService() {
   if (!nativeCreationHttp) nativeCreationHttp = require('./services/native-creation-service').createNativeCreationService({
     repository: nativeCreationRepository(), getAuthUser, readBody, json,
-    normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms
+    normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms,
+    creationChapterContext, deterministicContractValidation, contractFieldsSubstantive,
+    generateChapterContract: ({ auth, authToken, body, chapterNo, context, previous, debts, attempt, previousEnding, prompt }) => callMolanChat(authToken, auth.user, {
+      thinking: false, reasoningEffort: 'none',
+      system: '你是原创长篇小说章节合同策划器。只使用新书创作圣经，不得引用来源原文、来源人物或来源专属事件。只返回 JSON。字段必须包含 chapterNo,goal,protagonistAction,opposition,informationChange,escalation,irreversibleResult,characterStateChanges,foreshadowActions,continuityInputs,continuityOutputs,mustAvoid。' +
+        (attempt ? '合同字段必须包含具体人物名、具体行动和具体后果，禁止空泛表述。' : '主线优先于副线，副线只能服务主线。'),
+      userPrompt: '新书创作圣经上下文：\n' + JSON.stringify(context) + '\n上一章持久化状态：\n' + JSON.stringify(previous) +
+        '\n因果债务：\n' + String(debts.block || '') + '\n上一章结尾：\n' + previousEnding + '\n用户本章要求：\n' + prompt + '\n请生成第 ' + chapterNo + ' 章合同。',
+      maxTokens: 2400, jsonMode: true, modelId: resolveModelForUser(auth.user, resolveCreationModelId(body)),
+      internalModel: true, temperature: 0.35, stage: 'writing', disableTimeout: true
+    })
   });
   return nativeCreationHttp;
 }
