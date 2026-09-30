@@ -46,9 +46,21 @@ node scripts/promote-quality-config.mjs --report path\to\quality-ab-report.json 
 - `tasks`: 与 Golden 任务逐条匹配的 `task_id`、`genre`、`input_hash`；两臂各有 `generationId`、64 位 `outputHash`、`qualityVector` 和带证据的 `cost`。
 - `targetDimensions`: 至少一个 `quality-vector-v2` 维度；`safety_gate.categoryResults` 和 `safety_gate.metricValues` 提供既有回归门禁所需的类别与安全指标证据。
 
-离线比较器不会启动真实 A/B 生成。任何真实模型评测必须先在执行端展示任务数、模型调用数和预估费用，并设置最大费用上限；结果保存后才能交给本 CLI 做离线核验。本工具不把示例或 fixture 报告标记为真实评测。
+离线比较器不会启动真实 A/B 生成。真实模型执行入口 `scripts/run-quality-ab.mjs` 默认展示任务数、生成/评审调用数及费用上界估算；仅 `--execute --max-cost <amount> --out <new-directory>` 发起请求。费用币种和单价由固定计划显式声明。未知用量、网络错误或超额会保留失败并停止后续调用；费用是供应商Token用量乘显式单价，不是支付账单。此轮未调用真实模型。
 
-晋级目标 JSON 使用 `schemaVersion: "quality-promotion-target-v1"`，并填写 `qualityReportHash`、`inputHash`、`model`、`modelParametersHash` 和完整候选 `versions`。晋级命令重算报告哈希、逐项匹配候选模型与版本，并将通过报告哈希写入该候选文件；它不触碰其他配置文件，也不代表生产部署。
+```powershell
+node scripts/run-quality-ab.mjs --plan path\to\live-plan.json
+node scripts/run-quality-ab.mjs --plan path\to\live-plan.json --execute --max-cost 5 --out path\to\new-run
+node scripts/compare-quality-vectors.mjs --input path\to\new-run\results.json --artifacts path\to\new-run --out path\to\report.json
+```
+
+显式执行还需 `MOLAN_AB_ENDPOINT`（完整chat-completions兼容URL）和 `MOLAN_AB_API_KEY`。计划schema为 `quality-ab-live-plan-v1`，共享 `binding`、`versions`、`modelParameters`，其摘要须匹配 `modelParametersHash`；`maxOutputTokens` 和 `pricing {currency,inputPerMillion,outputPerMillion}` 必填。每任务提供 `task_id`、`genre`、`snapshot`、`input_hash=hashJson(snapshot)`、`prompts {baseline,candidate}` 和固定 `judgePrompt`。评审必须返回 `quality-vector-v2` 的19维数值，每维状态只能为 `JUDGED`，并提供 `explanation`；不接受模型冒称人工或实测。Golden与安全门禁证据未批准时依旧BLOCKED。
+
+比较器现在必须提供 `--artifacts` 才能验收证据。目录 `artifacts.json` 使用 `quality-ab-artifact-index-v1`，每项含唯一 `id`、目录内相对 `path`、`kind`（json/text）和文件字节 `sha256`；绝对路径、越界及符号链接拒绝。每臂 `artifact_id` 对应 `quality-ab-generation-artifact-v1`，固定正文文件、输入快照、生成binding、质量向量及成本。证据引用使用 `artifact-id#/JSON/pointer` 或文本文件整件 `artifact-id#`。哈希不证明评分正确，但可检出文件篡改与虚构引用；人工批准语料与可信评审仍需真实证据。本工具不把示例或fixture标成真实评测。
+
+晋级目标 JSON 使用 `schemaVersion: "quality-promotion-target-v1"`，并填写 `qualityReportHash`、`inputHash`、`model`、`modelParametersHash`、完整候选 `versions`、`configuration` 和 `configurationHash`。A/B 输入必须显式提供 `configurations.baseline/candidate` 快照（包含 `pipeline`、`prompt`、`genreProfile`、`style`）及对应 `configurationHashes`，缺失或哈希不一致阻断晋级。候选配置内容哈希必须与报告中的候选哈希一致。
+
+晋级命令还必须指定 `--input <results.json> --artifacts <artifact目录>`，从原始输入和保存证据重新计算报告并核对报告哈希；仅有报告和候选文件不能晋级。Provider 账本记录实际请求参数、消息、模型和版本，参数哈希及评估输入必须与保存的输入和生成内容匹配。安全分类证据必须引用包含匹配 `status` 的对象，指标证据必须引用包含匹配 `baseline`、`candidate` 的对象；任意文本引用不能作为安全放行依据。通过后将报告哈希写入指定候选文件，不代表生产部署。
 
 ## 质量循环的本地存储
 

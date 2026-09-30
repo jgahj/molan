@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { validatePromotion } = require('../lib/evolution/quality-vector-ab.js');
+const { validatePromotion, compareQualityVectors } = require('../lib/evolution/quality-vector-ab.js');
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -56,6 +56,14 @@ function main() {
   }
 
   const receipt = validatePromotion(reportFile.value, candidateFile.value);
+  const inputPath = option('--input');
+  const artifactRoot = option('--artifacts');
+  if (!inputPath || !artifactRoot) receipt.blockingReasons.push('promotion_source_evidence_required');
+  else {
+    const recomputed = compareQualityVectors(readJson(inputPath).value, { artifactRoot: path.resolve(artifactRoot) });
+    if (recomputed.status !== 'PROMOTION_READY' || recomputed.reportHash !== reportFile.value.reportHash) receipt.blockingReasons.push('promotion_source_report_mismatch');
+  }
+  if (receipt.blockingReasons.length) { receipt.status = 'BLOCKED'; receipt.accepted = false; }
   if (receipt.status !== 'PASS') {
     process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
     process.exitCode = receipt.status === 'REJECTED' ? 1 : 2;

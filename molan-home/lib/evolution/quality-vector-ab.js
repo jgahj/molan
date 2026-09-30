@@ -6,6 +6,7 @@ const { QUALITY_DIMENSIONS } = require('../quality-vectors');
 const { DEFAULT_POLICY, evaluateRegressionGate } = require('./regression-gate');
 const { POLICY: EXPERIMENT_POLICY } = require('./experiment-acceptance');
 const { hashJson } = require('./replay-manifest');
+const { verifyQualityArtifacts } = require('./quality-ab-artifacts');
 
 const INPUT_SCHEMA = 'quality-vector-ab-input-v1';
 const REPORT_SCHEMA = 'quality-vector-ab-report-v1';
@@ -124,6 +125,9 @@ function validateBindings(input) {
   for (const arm of ['baseline', 'candidate']) {
     const version = input?.versions?.[arm];
     for (const field of VERSION_FIELDS) if (!nonEmpty(version?.[field])) reasons.push(`version_missing:${arm}:${field}`);
+    const configuration = input?.configurations?.[arm];
+    if (!configuration || typeof configuration !== 'object' || ['pipeline', 'prompt', 'genreProfile', 'style'].some(field => configuration[field] === undefined) ||
+        input?.configurationHashes?.[arm] !== hashJson(configuration)) reasons.push(`configuration_content_binding_missing:${arm}`);
   }
   return block(reasons);
 }
@@ -271,7 +275,7 @@ function buildExistingGate(input, dimensions, scoreScale, cost) {
 }
 
 /** 比较同一批固定输入的质量向量，并将完整证据与既有安全门禁绑定到晋级结论。 */
-function compareQualityVectors(input = {}) {
+function compareQualityVectors(input = {}, options = {}) {
   const reasons = [];
   if (input.schemaVersion !== INPUT_SCHEMA) reasons.push('input_schema_invalid');
   if (input.evaluationMode !== 'saved_results_only') reasons.push('live_evaluation_not_supported');
@@ -279,6 +283,8 @@ function compareQualityVectors(input = {}) {
   if (![1, 100].includes(scoreScale)) reasons.push('score_scale_must_be_declared_1_or_100');
   reasons.push(...validateBindings(input));
   reasons.push(...validateGolden(input.golden, input.tasks));
+  const artifactVerification = verifyQualityArtifacts(input, options.artifactRoot);
+  if (artifactVerification.status !== 'PASS') reasons.push(...artifactVerification.reason_codes);
 
   if (!Array.isArray(input.targetDimensions) || !input.targetDimensions.length ||
       input.targetDimensions.some(dimension => !QUALITY_DIMENSIONS.includes(dimension)) ||
@@ -332,6 +338,7 @@ function compareQualityVectors(input = {}) {
     evaluationMode: 'saved_results_only',
     binding: input.binding || null,
     versions: input.versions || null,
+    configurationHashes: input.configurationHashes || null,
     golden: input.golden ? {
       schemaVersion: input.golden.schemaVersion,
       fixtureStatus: input.golden.fixtureStatus,
@@ -342,6 +349,7 @@ function compareQualityVectors(input = {}) {
     scoreScale: [1, 100].includes(scoreScale) ? scoreScale : null,
     targetDimensions: Array.isArray(input.targetDimensions) ? input.targetDimensions : [],
     pairedTaskCount: tasks.length,
+    artifactVerification,
     dimensions,
     costs: cost,
     existingRegressionGate: safetyGate,
@@ -358,6 +366,7 @@ function validatePromotion(report, target = {}) {
   if (report?.schemaVersion !== REPORT_SCHEMA) reasons.push('quality_report_schema_invalid');
   if (report?.status !== 'PROMOTION_READY' || report?.promotionEligible !== true) reasons.push('quality_report_not_promotion_eligible');
   if (!isApprovedGoldenSummary(report?.golden)) reasons.push('golden_corpus_unapproved');
+  if (report?.artifactVerification?.status !== 'PASS' || !/^[a-f0-9]{64}$/.test(String(report?.artifactVerification?.manifestHash || ''))) reasons.push('quality_artifacts_unverified');
   if (!/^[a-f0-9]{64}$/.test(String(report?.reportHash || ''))) reasons.push('quality_report_hash_missing');
   if (!/^[a-f0-9]{64}$/.test(String(report?.inputHash || ''))) reasons.push('quality_input_hash_missing');
   if (target?.schemaVersion !== 'quality-promotion-target-v1') reasons.push('promotion_target_schema_invalid');
@@ -365,6 +374,8 @@ function validatePromotion(report, target = {}) {
   if (target?.inputHash !== report?.inputHash) reasons.push('promotion_input_hash_mismatch');
   if (target?.model !== report?.binding?.model) reasons.push('promotion_model_mismatch');
   if (target?.modelParametersHash !== report?.binding?.modelParametersHash) reasons.push('promotion_model_parameters_mismatch');
+  if (!target?.configuration || !/^[a-f0-9]{64}$/.test(String(target.configurationHash || '')) ||
+      target.configurationHash !== hashJson(target.configuration) || target.configurationHash !== report?.configurationHashes?.candidate) reasons.push('promotion_configuration_content_mismatch');
   if (!report?.versions?.candidate || !target?.versions ||
       VERSION_FIELDS.some(field => !nonEmpty(target.versions[field]) || target.versions[field] !== report.versions.candidate[field])) {
     reasons.push('promotion_candidate_version_mismatch');
