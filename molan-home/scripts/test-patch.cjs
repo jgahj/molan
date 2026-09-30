@@ -1,7 +1,7 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 
-const filePath = path.resolve('molan-home/lib/genre-engine.js');
+const filePath = path.resolve(__dirname, '../lib/genre-engine.js');
 let content = fs.readFileSync(filePath, 'utf8');
 
 const oldBlock = `  // 1. 玄幻修真
