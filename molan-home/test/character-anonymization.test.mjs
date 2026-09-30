@@ -65,8 +65,8 @@ test('语料高频引号邻接组合被识别为人名候选', () => {
   assert.ok(!combos.has('天气'), '天气不应被误判为人名');
 });
 
-test('loadCharacterLibraryNames 在无数据库环境安全返回空集合', () => {
-  const names = loadCharacterLibraryNames();
+test('loadCharacterLibraryNames 在无数据库环境安全返回空集合', async () => {
+  const names = await loadCharacterLibraryNames({ env: {}, dataDir: 'Z:/molan-nonexistent-native-test', onFallback() {} });
   assert.ok(names instanceof Set);
 });
 
