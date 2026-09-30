@@ -51,6 +51,9 @@ class JsonDissectionRepository {
         job.lease.expiresAt <= this.now() || job.lease.actorUserId !== input.actorUserId || job.cancelRequested || job.status !== 'running') fail('LEASE_FENCE_REJECTED');
   }
   revision(input) { if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) fail('EXPECTED_REVISION_REQUIRED', 422); }
+  providerUnresolved(tx, scope, jobId) {
+    return tx.list(scope, 'generation').some(row => row.kind === 'provider-attempt' && row.jobId === jobId && ['inflight', 'unknown'].includes(row.status));
+  }
   async create(input) {
     if (!validKey(input.requestId) || typeof input.sourceText !== 'string' || !input.sourceText.trim()) fail('INVALID_DISSECTION_INPUT', 422);
     if (!this.inputService?.cleanDissectionText || !this.inputService?.buildDissectionUnits) fail('DISSECTION_NORMALIZER_REQUIRED', 503);
@@ -121,6 +124,7 @@ class JsonDissectionRepository {
     if (!validKey(input.workerId) || !Number.isSafeInteger(input.leaseMs) || input.leaseMs < 1 || input.leaseMs > 300000) fail('INVALID_LEASE', 422);
     return this.transact(input, true, (tx, job, scope) => {
       if (!['queued', 'running', 'failed'].includes(job.status) || job.cancelRequested) fail('DISSECTION_NOT_RUNNABLE');
+      if (this.providerUnresolved(tx, scope, job.jobId)) fail('PROVIDER_ATTEMPT_UNKNOWN');
       if (job.lease?.expiresAt > this.now()) fail('LEASE_HELD');
       const lease = { token: crypto.randomUUID(), workerId: input.workerId, actorUserId: input.actorUserId, fence: job.leaseFence + 1, expiresAt: this.now() + input.leaseMs };
       const saved = tx.put(scope, 'novels', { ...job, status: 'running', lease, leaseFence: lease.fence, updatedAt: this.now() }, job.revision);
@@ -139,14 +143,15 @@ class JsonDissectionRepository {
   async releaseLease(input) {
     return this.transact(input, true, (tx, job, scope) => {
       this.fence(job, input);
-      return this.publicJob(tx.put(scope, 'novels', { ...job, lease: null, status: 'queued', updatedAt: this.now() }, job.revision));
+      const unresolved = this.providerUnresolved(tx, scope, job.jobId);
+      return this.publicJob(tx.put(scope, 'novels', { ...job, lease: null, status: unresolved ? 'needs_review' : 'queued', error: unresolved ? 'provider_attempt_unknown' : job.error, updatedAt: this.now() }, job.revision));
     });
   }
   async failRun(input) {
     this.revision(input);
     return this.transact(input, true, (tx, job, scope) => {
       this.fence(job, input);
-      return this.publicJob(tx.put(scope, 'novels', { ...job, status: 'failed', error: String(input.error || 'worker_failed').slice(0, 1000), lease: null, updatedAt: this.now() }, input.expectedRevision));
+      return this.publicJob(tx.put(scope, 'novels', { ...job, status: this.providerUnresolved(tx, scope, job.jobId) ? 'needs_review' : 'failed', error: String(input.error || 'worker_failed').slice(0, 1000), lease: null, updatedAt: this.now() }, input.expectedRevision));
     });
   }
   async appendStageRun(input) {
@@ -155,6 +160,7 @@ class JsonDissectionRepository {
     if (!this.resultService?.normalizeDissectionStageResult || !this.resultService?.mergeDissectionResult || !this.resultService?.dissectionStageMissingFields) fail('DISSECTION_RESULT_NORMALIZER_REQUIRED', 503);
     return this.transact(input, true, (tx, job, scope) => {
       this.fence(job, input);
+      if (this.providerUnresolved(tx, scope, job.jobId)) fail('PROVIDER_ATTEMPT_UNKNOWN');
       const stageId = key('stage', `${job.jobId}:${input.requestId}`);
       const old = tx.get(scope, 'ledger', stageId);
       const result = this.resultService.normalizeDissectionStageResult(input.result);
@@ -176,12 +182,11 @@ class JsonDissectionRepository {
         !Number.isSafeInteger(input.usage?.prompt_tokens) || input.usage.prompt_tokens < 0 || !Number.isSafeInteger(input.usage?.completion_tokens) || input.usage.completion_tokens < 0) fail('INVALID_DISSECTION_COST', 422);
     return this.transact(input, true, (tx, job, scope) => {
       const attemptId = key('provider-attempt', `${job.jobId}:${input.requestId}`);
-      const attempt = tx.get(scope, 'ledger', attemptId);
-      if (!attempt || attempt.requestHash !== input.requestHash || attempt.model !== input.model) fail('PROVIDER_ATTEMPT_REQUIRED');
-      if (attempt.status === 'unknown') fail('PROVIDER_ATTEMPT_UNKNOWN');
-      if (job.cancelRequested) {
-        if (attempt.status !== 'completed') fail('PROVIDER_ATTEMPT_REQUIRED');
-      } else this.fence(job, input);
+      const attempt = tx.get(scope, 'generation', attemptId);
+      if (!attempt || attempt.actorUserId !== input.actorUserId || attempt.tokenHash !== hashJson(input.attemptToken || '') ||
+          attempt.requestHash !== input.requestHash || attempt.model !== input.model) fail('PROVIDER_ATTEMPT_REQUIRED');
+      const receipt = tx.get(scope, 'ledger', key('provider-receipt', `${job.jobId}:${input.requestId}`));
+      if (!receipt || receipt.status !== 'completed' || hashJson(receipt.receipt.usage) !== hashJson(input.usage)) fail('PROVIDER_USAGE_UNVERIFIED');
       const id = key('cost', `${job.jobId}:${input.requestId}`);
       const payload = { requestId: input.requestId, model: input.model, usage: clone(input.usage), amount: input.amount, currency: input.currency };
       const contentHash = hashJson(payload), old = tx.get(scope, 'ledger', id);
@@ -194,41 +199,53 @@ class JsonDissectionRepository {
     });
   }
   async beginProvider(input) {
-    if (!validKey(input.requestId) || !validKey(input.model) || !validKey(input.requestHash)) fail('INVALID_PROVIDER_ATTEMPT', 422);
+    if (!validKey(input.requestId) || !validKey(input.model) || !/^[a-f0-9]{64}$/.test(input.requestHash || '')) fail('INVALID_PROVIDER_ATTEMPT', 422);
     return this.transact(input, true, (tx, job, scope) => {
       this.fence(job, input);
       const id = key('provider-attempt', `${job.jobId}:${input.requestId}`);
-      const old = tx.get(scope, 'ledger', id);
+      const old = tx.get(scope, 'generation', id);
       if (old) {
         if (old.requestHash !== input.requestHash || old.model !== input.model) fail('IDEMPOTENCY_CONFLICT');
-        if (old.status === 'unknown') fail('PROVIDER_ATTEMPT_UNKNOWN');
-        return clone(old);
+        const receipt = tx.get(scope, 'ledger', key('provider-receipt', `${job.jobId}:${input.requestId}`));
+        if (receipt?.status === 'completed') return { alreadyCompleted: true, receipt: clone(receipt) };
+        fail('PROVIDER_ATTEMPT_UNKNOWN');
       }
-      const attempt = { id, kind: 'provider-attempt', jobId: job.jobId, requestId: input.requestId, requestHash: input.requestHash,
+      if (this.providerUnresolved(tx, scope, job.jobId)) fail('PROVIDER_ATTEMPT_UNKNOWN');
+      const attemptToken = crypto.randomUUID();
+      const attempt = { id, kind: 'provider-attempt', jobId: job.jobId, requestId: input.requestId, requestHash: input.requestHash, tokenHash: hashJson(attemptToken),
         model: input.model, status: 'inflight', actorUserId: input.actorUserId, fence: input.fence, createdAt: this.now(), updatedAt: this.now() };
-      return tx.put(scope, 'ledger', attempt, 0);
+      tx.put(scope, 'generation', attempt, 0);
+      tx.put(scope, 'ledger', { ...attempt, id: key('provider-boundary', `${job.jobId}:${input.requestId}`), kind: 'provider-boundary' }, 0);
+      return { requestId: input.requestId, requestHash: input.requestHash, attemptToken, alreadyCompleted: false };
     });
   }
   async endProvider(input) {
-    if (!validKey(input.requestId) || !validKey(input.requestHash) || !input.receipt || typeof input.receipt !== 'object') fail('INVALID_PROVIDER_RECEIPT', 422);
+    if (!validKey(input.requestId) || !/^[a-f0-9]{64}$/.test(input.requestHash || '') || !input.receipt || typeof input.receipt !== 'object') fail('INVALID_PROVIDER_RECEIPT', 422);
     return this.transact(input, true, (tx, job, scope) => {
       const id = key('provider-attempt', `${job.jobId}:${input.requestId}`);
-      const attempt = tx.get(scope, 'ledger', id);
-      if (!attempt || attempt.requestHash !== input.requestHash) fail('PROVIDER_ATTEMPT_REQUIRED');
-      if (attempt.status === 'completed') return clone(attempt);
-      if (attempt.status === 'unknown') fail('PROVIDER_ATTEMPT_UNKNOWN');
-      if (!job.cancelRequested) this.fence(job, input);
+      const attempt = tx.get(scope, 'generation', id);
+      if (!attempt || attempt.actorUserId !== input.actorUserId || attempt.requestHash !== input.requestHash || attempt.tokenHash !== hashJson(input.attemptToken || '')) fail('PROVIDER_ATTEMPT_REQUIRED');
       const receipt = clone(input.receipt);
-      const usageKnown = Number.isInteger(receipt.usage?.prompt_tokens) && Number.isInteger(receipt.usage?.completion_tokens);
+      const receiptId = key('provider-receipt', `${job.jobId}:${input.requestId}`);
+      const previous = tx.get(scope, 'ledger', receiptId);
+      if (previous) {
+        if (hashJson(previous.receipt) !== hashJson(receipt)) fail('IDEMPOTENCY_CONFLICT');
+        return previous;
+      }
+      const usageKnown = Number.isSafeInteger(receipt.usage?.prompt_tokens) && receipt.usage.prompt_tokens >= 0 && Number.isSafeInteger(receipt.usage?.completion_tokens) && receipt.usage.completion_tokens >= 0;
       const status = receipt.status === 'succeeded' && usageKnown ? 'completed' : 'unknown';
-      const saved = { ...attempt, status, receipt, updatedAt: this.now() };
-      return tx.put(scope, 'ledger', saved, attempt.revision);
+      const saved = tx.put(scope, 'ledger', { id: receiptId, kind: 'provider-receipt', jobId: job.jobId, requestId: input.requestId,
+        requestHash: input.requestHash, model: attempt.model, actorUserId: input.actorUserId, status, receipt, createdAt: this.now() }, 0);
+      tx.put(scope, 'generation', { ...attempt, status, updatedAt: this.now() }, attempt.revision);
+      if (status === 'unknown' && !job.cancelRequested) tx.put(scope, 'novels', { ...job, status: 'needs_review', error: 'provider_usage_or_result_unknown', lease: null, updatedAt: this.now() }, job.revision);
+      return saved;
     });
   }
   async complete(input) {
     this.revision(input);
     return this.transact(input, true, (tx, job, scope) => {
       this.fence(job, input);
+      if (this.providerUnresolved(tx, scope, job.jobId)) fail('PROVIDER_ATTEMPT_UNKNOWN');
       if (!this.phases.length || this.phases.some(stageId => !tx.list(scope, 'ledger').some(row => row.kind === 'dissection-stage' && row.jobId === job.jobId && row.stageId === stageId))) fail('DISSECTION_INCOMPLETE');
       return this.publicJob(tx.put(scope, 'novels', { ...job, status: 'completed', phase: 'completed', progress: 100, lease: null, updatedAt: this.now() }, input.expectedRevision));
     });
@@ -242,6 +259,7 @@ class JsonDissectionRepository {
     return this.transact(input, true, (tx, job, scope) => {
       const actor = this.actor(tx, input.actorUserId);
       if (job.ownerUserId !== actor.userId && actor.role !== 'admin') fail('FORBIDDEN', 403);
+      if (this.providerUnresolved(tx, scope, job.jobId)) fail('PROVIDER_ATTEMPT_UNKNOWN');
       if (job.lease?.expiresAt > this.now()) fail('LEASE_HELD');
       tx.remove(scope, 'novels', job.id, input.expectedRevision);
       const index = tx.get(INDEX, 'novels', key('index', job.jobId));
@@ -258,7 +276,7 @@ class JsonDissectionRepository {
     for (const job of jobs) {
       recovered += await this.transact({ actorUserId, jobId: job.id }, true, (tx, current, scope) => {
         if (current.status !== 'running' || !current.lease || current.lease.expiresAt > this.now()) return 0;
-        const inflight = tx.list(scope, 'ledger').some(row => row.kind === 'provider-attempt' && row.jobId === current.jobId && row.status === 'inflight');
+        const inflight = tx.list(scope, 'generation').some(row => row.kind === 'provider-attempt' && row.jobId === current.jobId && ['inflight', 'unknown'].includes(row.status));
         tx.put(scope, 'novels', { ...current, status: inflight ? 'needs_review' : 'queued', lease: null, error: inflight ? 'provider_attempt_unknown' : current.error, updatedAt: this.now() }, current.revision);
         return 1;
       });
