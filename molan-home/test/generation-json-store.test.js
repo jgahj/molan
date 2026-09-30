@@ -100,6 +100,7 @@ test('JSON generation runs enforce scoped idempotency and atomically index IDs a
   let store = fixtureState.store;
   const input = runInput();
   const created = await store.createRun(input);
+  assert.equal(await store.releaseLease(input), false);
   const replay = await store.createRun(input);
   assert.equal(created.idempotent, false);
   assert.equal(replay.idempotent, true);
