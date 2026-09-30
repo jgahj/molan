@@ -765,9 +765,10 @@ function createGenerationService({
     const rootPath = '/api/generation-runs';
     if (req.method === 'GET' && u === `${rootPath}/capabilities`) {
       const selectedStore = generationRunStore();
+      const nativeAppStore = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json';
       const commit = POSTGRES_MODE
         ? typeof postgresRepository.commitChapter === 'function'
-        : dbReady() && ['creation_books', 'creation_state_snapshots', 'creation_chapter_audits', 'benchmark_commit_receipts', 'project_resources', 'novels']
+        : !nativeAppStore && dbReady() && ['creation_books', 'creation_state_snapshots', 'creation_chapter_audits', 'benchmark_commit_receipts', 'project_resources', 'novels']
           .every(name => Boolean(getDatabase().prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name)));
       const generationStatus = generationV2Status(generationV2Enabled(process.env, actorUserId));
       return json(res, 200, {
@@ -775,7 +776,7 @@ function createGenerationService({
         commit,
         pauseResume: !POSTGRES_MODE && typeof selectedStore.requestPause === 'function' && typeof selectedStore.resumeRun === 'function',
         recovery: !POSTGRES_MODE && typeof selectedStore.recoverExpiredRuns === 'function',
-        storageMode: POSTGRES_MODE ? 'postgres' : process.env.MOLAN_GENERATION_STORE === 'json' ? 'json' : 'sqlite'
+        storageMode: POSTGRES_MODE ? 'postgres' : nativeAppStore || process.env.MOLAN_GENERATION_STORE === 'json' ? 'json' : 'sqlite'
       });
     }
     if (!generationV2Enabled(process.env, actorUserId)) return json(res, 404, { ok: false, error: 'Generation V2 未启用', code: 'generation_v2_disabled' });
