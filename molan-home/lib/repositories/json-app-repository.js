@@ -5,6 +5,7 @@ const { JsonFileRepository } = require('./json-file-repository');
 const { stableUserId, personalWorkspaceId, scopePublic, canAccess, WRITE_ROLES } = require('../project-scope');
 const { matchesTokenUsageReservation } = require('../token-usage-idempotency');
 const resourceRules = require('../project-resources');
+const { mergeResourcesIntoState } = require('../project-resource-projection');
 
 const INDEX = '__molan_app_index_v1__';
 const fail = (code, status, message = code) => { throw Object.assign(new Error(message), { code, status, statusCode: status }); };
@@ -12,6 +13,11 @@ const key = (kind, id) => `${kind}:${id}`;
 const clone = value => structuredClone(value);
 const money = value => Math.round(Number(value) * 10000) / 10000;
 const usageScope = input => input.projectId || `__molan_usage_${crypto.createHash('sha256').update(String(input.userId)).digest('hex')}`;
+function publicResource(row, project) {
+  return { id: row.resourceId, kind: row.resourceKind, payload: clone(row.payload), revision: row.contentRevision,
+    workspaceId: project.workspaceId, projectId: project.id, status: row.deleted ? 'deleted' : 'active',
+    deleted: Boolean(row.deleted), createdAt: row.createdAt, updatedAt: row.updatedAt };
+}
 function countWords(state) {
   return (state.volumes || []).reduce((total, volume) => total + (volume.chapters || []).reduce((sum, chapter) =>
     sum + (chapter.scenes || []).reduce((n, scene) => n + String(scene.content || '').replace(/\s/g, '').length, 0), 0), 0);
@@ -171,11 +177,14 @@ class JsonAppRepository {
   }
   async read(input) {
     if (input.projectId === INDEX) return null;
-    const row = await this.repository.novels.get(input.projectId, input.projectId);
-    const access = row?.kind === 'novel' && (!input.workspaceId || row.workspaceId === input.workspaceId)
-      ? accessFrom(row, input.userId) : null;
-    if (!access) return null;
-    return publicNovel(row, access);
+    return this.repository.transaction([input.projectId], tx => {
+      const row = tx.get(input.projectId, 'novels', input.projectId);
+      const access = row?.kind === 'novel' && (!input.workspaceId || row.workspaceId === input.workspaceId)
+        ? accessFrom(row, input.userId) : null;
+      if (!access) return null;
+      const resources = tx.list(input.projectId, 'novels').filter(item => item.kind === 'resource').map(item => publicResource(item, row));
+      return publicNovel({ ...row, state: mergeResourcesIntoState(row.state, resources) }, access);
+    });
   }
   async list({ userId, workspaceId }) {
     const indices = (await this.repository.novels.list(INDEX)).filter(row => row.kind === 'project-index' &&
@@ -509,6 +518,54 @@ class JsonAppRepository {
         resourceId: id, resourceKind: row.resourceKind, payload: row.payload, deleted: true,
         contentRevision: row.contentRevision + 1, changedBy: userId, reason: '删除资料', createdAt: this.now() }, 0);
       return { ok: true, deleted: true, revision: row.contentRevision + 1 };
+    });
+  }
+  async readProjectPackageSnapshot({ userId, projectId }) {
+    return this.repository.transaction([projectId], tx => {
+      const project = tx.get(projectId, 'novels', projectId);
+      const access = accessFrom(project, userId);
+      if (!canAccess(access, WRITE_ROLES, 'export')) fail('PROJECT_NOT_FOUND', 404);
+      const resources = tx.list(projectId, 'novels').filter(row => row.kind === 'resource').map(row => publicResource(row, project));
+      const novel = publicNovel({ ...project, state: mergeResourcesIntoState(project.state, resources) }, access);
+      return { novel, access, resources };
+    });
+  }
+  async restoreProjectPackageSnapshot({ userId, projectId, expectedRevision, state, resources = [] }) {
+    this.validateState(state);
+    if (!Array.isArray(resources) || resources.length > 10000) fail('RESOURCE_COUNT_EXCEEDED', 413);
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) fail('VERSION_REQUIRED', 428);
+    return this.repository.transaction([projectId], async tx => {
+      const project = tx.get(projectId, 'novels', projectId);
+      const access = accessFrom(project, userId);
+      if (!canAccess(access, new Set(['owner', 'admin']))) fail('FORBIDDEN', 403);
+      if (project.contentRevision !== expectedRevision) fail('REVISION_CONFLICT', 409);
+      if (this.guardNovelWrite) await this.guardNovelWrite(tx, project, { state, expectedRevision });
+      const timestamp = this.now(), ids = new Set();
+      const restored = resources.map(source => {
+        if (!source || typeof source !== 'object' || typeof source.id !== 'string' || !source.id.trim() || source.id.length > 160 || /[\u0000-\u001f\u007f]/.test(source.id) || ids.has(source.id)) fail('INVALID_RESOURCE', 422);
+        ids.add(source.id);
+        const kind = resourceRules.normalizeKind(source.kind);
+        resourceRules.normalizePayload(source.payload, access, kind);
+        const previous = tx.get(projectId, 'novels', key('resource', source.id));
+        if (previous && previous.resourceKind !== kind) fail('RESOURCE_KIND_CONFLICT', 409);
+        const deleted = source.status === 'deleted' || source.deleted === true;
+        if (previous && JSON.stringify(previous.payload) === JSON.stringify(source.payload) && Boolean(previous.deleted) === deleted) return previous;
+        const revision = (previous?.contentRevision || 0) + 1;
+        const row = tx.put(projectId, 'novels', { id: key('resource', source.id), kind: 'resource', resourceId: source.id,
+          resourceKind: kind, payload: clone(source.payload), contentRevision: revision, deleted,
+          createdAt: previous?.createdAt || timestamp, updatedAt: timestamp }, previous?.revision || 0);
+        tx.put(projectId, 'ledger', { id: key('resource-version', `${source.id}:${revision}`), kind: 'resource-version',
+          resourceId: source.id, resourceKind: kind, payload: row.payload, deleted, contentRevision: revision,
+          changedBy: userId, reason: '资料包恢复', createdAt: timestamp }, 0);
+        return row;
+      });
+      for (const row of restored) if (!row.deleted) validateReferences(tx, projectId, row.payload, row.resourceKind);
+      const nextState = mergeResourcesIntoState(state, tx.list(projectId, 'novels').filter(row => row.kind === 'resource').map(row => publicResource(row, project)));
+      this.validateState(nextState);
+      const updated = tx.put(projectId, 'novels', { ...project, state: nextState, title: String(nextState.title || project.title).slice(0, 200),
+        wordCount: countWords(nextState), contentRevision: project.contentRevision + 1, updatedAt: timestamp }, project.revision);
+      if (this.onNovelChanged) await this.onNovelChanged(tx, updated, project);
+      return { ok: true, id: projectId, revision: updated.contentRevision, restored: true };
     });
   }
   close() { return this.ownsRepository ? this.repository.close() : Promise.resolve(); }
