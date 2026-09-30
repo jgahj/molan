@@ -16,7 +16,7 @@ class JsonLabJobRepository {
     this.repository = repository;
     this.now = options.now || Date.now;
   }
-  async init({ recover = true } = {}) { return recover ? this.recover() : { recovered: 0 }; }
+  async init({ recover = true, kind } = {}) { return recover ? this.recover({ kind }) : { recovered: 0 }; }
   async load({ owner, kind, id: jobId }) {
     const row = await this.repository.generation.get(scope(owner), jobKey(kind, jobId));
     return row?.kind === 'lab-job' && row.owner === owner ? publicRow(row) : null;
@@ -69,14 +69,15 @@ class JsonLabJobRepository {
       return { ok: true };
     });
   }
-  async recover() {
+  async recover({ kind } = {}) {
+    if (kind != null && !KINDS.has(kind)) fail('INVALID_JOB_KIND', 422);
     const owners = (await this.repository.generation.list(INDEX)).filter(row => row.kind === 'lab-owner-index');
     let recovered = 0;
     for (const entry of owners) {
       const ownerScope = scope(entry.owner);
       await this.repository.transaction([ownerScope], tx => {
         for (const row of tx.list(ownerScope, 'generation')) {
-          if (row.kind !== 'lab-job' || !['running', 'queued'].includes(row.payload.status)) continue;
+          if (row.kind !== 'lab-job' || kind != null && row.jobKind !== kind || !['running', 'queued'].includes(row.payload.status)) continue;
           const job = clone(row.payload);
           const unresolved = (job.attempts || []).some(attempt => ['running', 'provider_started'].includes(attempt.status)) ||
             job.pendingProvider === true || Number(job.callCount || 0) > Object.keys(job.stages || {}).length;

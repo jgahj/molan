@@ -48,7 +48,9 @@ test('restart recovery retains evidence and blocks unresolved provider replay', 
     attempts: [{ stage: 'read', status: 'running' }] }, expectedRevision: 0 });
   await repo.save({ owner: 'alice', kind: 'blind', job: { ...job('alice'), status: 'running', callCount: 1,
     stages: { saved: { text: 'persisted', usage: { creditCost: 1 } } } }, expectedRevision: 0 });
-  assert.deepEqual(await repo.recover(), { recovered: 2 });
+  assert.deepEqual(await repo.init({ kind: 'reading' }), { recovered: 1 });
+  assert.equal((await repo.load({ owner: 'alice', kind: 'blind', id: 'shared-id' })).job.status, 'running');
+  assert.deepEqual(await repo.recover({ kind: 'blind' }), { recovered: 1 });
   const reading = await repo.load({ owner: 'alice', kind: 'reading', id: 'shared-id' });
   assert.equal(reading.job.status, 'needs_review');
   assert.equal(reading.job.attempts[0].status, 'provider_unknown');

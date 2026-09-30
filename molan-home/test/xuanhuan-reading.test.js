@@ -21,11 +21,27 @@ function harness(context, overrides = {}) {
   let owner = 'reader@example.com', calls = 0, lab;
   const deps = { dataDir: directory, sourceDirectory: directory, getAuthUser: async () => owner ? { token: 'test-token-not-real', user: { email: owner } } : null, readBody: async req => req.body, json: (res, status, body) => ({ status, body }), preflight: async () => ({ model: { id: 'test-model', contextWindowTokens: 131072 }, estimate: { modelId: 'test-model', estimatedCredits: 0 } }), callModel: async (auth, options) => { calls += 1; return overrides.model ? overrides.model(options, calls) : model(options); }, ...overrides.deps };
   lab = createReadingLab(deps);
-  const instance = { directory, calls: () => calls, owner: value => { owner = value; }, request: (route, body) => lab.handle({ url: '/api/xuanhuan-reading' + route, method: body ? 'POST' : 'GET', body }, {}), restart: () => { lab.close(); lab = createReadingLab(deps); } };
-  context.after(() => { lab.close(); const resolved = fs.realpathSync(directory); assert.ok(resolved.startsWith(fs.realpathSync(os.tmpdir()) + path.sep)); fs.rmSync(resolved, { recursive: true, force: true }); });
+  const instance = { directory, calls: () => calls, owner: value => { owner = value; }, request: (route, body) => lab.handle({ url: '/api/xuanhuan-reading' + route, method: body ? 'POST' : 'GET', body }, {}), restart: async mutate => {
+    await lab.close();
+    if (mutate) {
+      const storage = new (require('../lib/repositories/json-file-repository').JsonFileRepository)(path.join(directory, 'lab-jobs-json'));
+      try { await mutate(new (require('../lib/repositories/json-lab-job-repository').JsonLabJobRepository)(storage)); } finally { await storage.close(); }
+    }
+    lab = createReadingLab(deps);
+  } };
+  context.after(async () => { await lab.close(); const resolved = fs.realpathSync(directory); assert.ok(resolved.startsWith(fs.realpathSync(os.tmpdir()) + path.sep)); fs.rmSync(resolved, { recursive: true, force: true }); });
   return instance;
 }
 const consent = { modelId: 'test-model', consent: true, maxCalls: 38, maxCredits: 0, chapterCount: 3 };
+test('旧 reading.db 明确拒绝，不创建新空仓储', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'reading-legacy-'));
+  try {
+    fs.mkdirSync(path.join(directory, 'xuanhuan-lab'));
+    fs.writeFileSync(path.join(directory, 'xuanhuan-lab/reading.db'), 'legacy');
+    assert.throws(() => createReadingLab({ dataDir: directory }), error => error.code === 'LEGACY_READING_STORE_PRESENT');
+    assert.equal(fs.existsSync(path.join(directory, 'lab-jobs-json')), false);
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
 async function settled(instance, id) { for (let attempt = 0; attempt < 300; attempt += 1) { const response = await instance.request('/jobs/' + id); if (!['running', 'queued'].includes(response.body.status)) return response.body; await new Promise(resolve => setTimeout(resolve, 5)); } throw new Error('Test job did not settle'); }
 
 test('章节解析完整保留正文，准确定位双CRLF和缩进，不读取后文', () => {
@@ -95,7 +111,7 @@ test('未知计费或上下文不足时零模型调用', async context => {
 test('无效输出不缓存为完成；失败用量保留；恢复复用已完成阶段', async context => {
   const instance = harness(context, { model: (options, calls) => calls === 2 ? { json: {}, usage: { totalTokens: 77, creditCost: 0 } } : model(options) });
   const response = await instance.request('/jobs', consent); let job = await settled(instance, response.body.id); assert.equal(job.status, 'interrupted'); assert.equal(job.callCount, 11); assert.equal(job.usage.length, 11); assert.equal(job.completedChapters, 3); assert.deepEqual(job.attempts[1].rejectedResponse, {});
-  instance.restart(); await instance.request('/jobs/' + job.id + '/resume', {}); job = await settled(instance, job.id); assert.equal(job.status, 'completed', job.error); assert.equal(job.callCount, 21);
+  await instance.restart(); await instance.request('/jobs/' + job.id + '/resume', {}); job = await settled(instance, job.id); assert.equal(job.status, 'completed', job.error); assert.equal(job.callCount, 21);
 });
 test('原文变更使历史笔记标记失效并阻止恢复', async context => {
   const instance = harness(context, { model: () => { throw new Error('模拟网络中断'); } }); const response = await instance.request('/jobs', consent); const job = await settled(instance, response.body.id);
@@ -115,12 +131,14 @@ test('失败尝试计入38次硬上限，耗尽后恢复不再调用', async con
 });
 test('服务重启标记在途尝试为中断，不伪造扣费或完成状态', async context => {
   const instance = harness(context); const response = await instance.request('/jobs', consent); const job = await settled(instance, response.body.id);
-  const { DatabaseSync } = require('node:sqlite'); const database = new DatabaseSync(path.join(instance.directory, 'xuanhuan-lab/reading.db'));
-  const payload = JSON.parse(database.prepare('SELECT payload FROM reading_jobs WHERE id=?').get(job.id).payload);
-  payload.status = 'running'; payload.attempts[0].status = 'running';
-  database.prepare('UPDATE reading_jobs SET payload=? WHERE id=?').run(JSON.stringify(payload), job.id); database.close(); instance.restart();
+  await instance.restart(async repository => {
+    const row = await repository.load({ owner: 'reader@example.com', kind: 'reading', id: job.id });
+    row.job.status = 'running'; row.job.attempts[0].status = 'running';
+    await repository.save({ owner: row.job.owner, kind: 'reading', job: row.job, expectedRevision: row.revision });
+  });
   const restored = (await instance.request('/jobs/' + job.id)).body;
-  assert.equal(restored.status, 'interrupted'); assert.equal(restored.attempts[0].status, 'interrupted'); assert.deepEqual(restored.runningStages, []); assert.equal(restored.usage.length, 20); assert.equal(instance.calls(), 20);
+  assert.equal(restored.status, 'needs_review'); assert.equal(restored.attempts[0].status, 'provider_unknown'); assert.deepEqual(restored.runningStages, []); assert.equal(restored.usage.length, 20); assert.equal(instance.calls(), 20);
+  assert.equal((await instance.request('/jobs/' + job.id + '/resume', {})).status, 409);
 });
 test('当前积分预估超过授权上限时不发起模型调用', async context => {
   const instance = harness(context, { deps: { preflight: async () => ({ model: { id: 'test-model', contextWindowTokens: 131072 }, estimate: { modelId: 'test-model', estimatedCredits: 100 } }) } });
