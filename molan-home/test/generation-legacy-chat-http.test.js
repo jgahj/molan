@@ -73,7 +73,7 @@ test('legacy /api/chat writing handoff requires idempotency, replays safely, and
     assert.ok(firstRunId);
 
     const replay = await request(ownerToken, optionsFor('写第一章'));
-    assert.equal(replay.status, 200);
+    assert.equal(replay.status, 200, await replay.clone().text());
     const replayBody = await replay.text();
     const replayDataLine = replayBody.split(/\r?\n/).find(line => line.startsWith('data: '));
     assert.ok(replayDataLine);

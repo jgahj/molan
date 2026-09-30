@@ -86,6 +86,18 @@ const { runGenreNarrativeAudits } = require('./lib/genre-narrative-audit');
 const postgresMemoryBridge = require('./lib/postgres-memory-bridge').createPostgresMemoryBridge(postgresRepository);
 const POSTGRES_MODE = postgresRepository.enabled;
 let generationOrchestrator = null;
+let jsonGenerationStore = null;
+function generationRunStore() {
+  if (!POSTGRES_MODE && process.env.MOLAN_GENERATION_STORE === 'json') {
+    if (!jsonGenerationStore) {
+      jsonGenerationStore = require('./lib/generation/json-store').createJsonGenerationStore(path.join(DATA_DIR, 'generation-json'));
+    }
+    return jsonGenerationStore;
+  }
+  return POSTGRES_MODE
+    ? require('./lib/generation/postgres-store').createPostgresGenerationStore(postgresRepository)
+    : require('./lib/generation/sqlite-store');
+}
 let postgresHealth = POSTGRES_MODE
   ? { enabled: true, available: false, status: 'starting' }
   : { enabled: false, available: false, status: 'disabled' };
@@ -18713,19 +18725,12 @@ function handleLocalStyleSamples(req, res, params) {
  * POST /api/benchmark/audit             证据审稿（quote 逐字回查 + 确定性硬约束 + 题材纠错）
  * POST /api/benchmark/revise-loop       审稿→局部修订→复核闭环（≤2 轮，未过保留 needs_review）
  */
-function generationRunStore() {
-  return POSTGRES_MODE
-    ? require('./lib/generation/postgres-store').createPostgresGenerationStore(postgresRepository)
-    : require('./lib/generation/sqlite-store');
-}
-
 function generationRunOrchestrator() {
   if (generationOrchestrator) return generationOrchestrator;
   const store = generationRunStore();
   generationOrchestrator = createGenerationOrchestrator({
     store,
     db: POSTGRES_MODE ? postgresRepository : db,
-
     dependenciesForRun(executionContext, request) {
       const auth = executionContext.auth;
       const user = executionContext.user;
@@ -19439,7 +19444,7 @@ async function handleGenerationRuns(req, res, u) {
   const actorUserId = postgresActor(auth);
   const rootPath = '/api/generation-runs';
   if (req.method === 'GET' && u === `${rootPath}/capabilities`) {
-    const sqliteStore = require('./lib/generation/sqlite-store');
+    const selectedStore = generationRunStore();
     const commit = POSTGRES_MODE
       ? typeof postgresRepository.commitChapter === 'function'
       : dbReady() && ['creation_books', 'creation_state_snapshots', 'creation_chapter_audits', 'benchmark_commit_receipts', 'project_resources', 'novels']
@@ -19448,9 +19453,9 @@ async function handleGenerationRuns(req, res, u) {
     return json(res, 200, {
       ...generationStatus,
       commit,
-      pauseResume: !POSTGRES_MODE && typeof sqliteStore.requestPause === 'function' && typeof sqliteStore.resumeRun === 'function',
-      recovery: !POSTGRES_MODE && typeof sqliteStore.recoverExpiredRuns === 'function',
-      storageMode: POSTGRES_MODE ? 'postgres' : 'sqlite'
+      pauseResume: !POSTGRES_MODE && typeof selectedStore.requestPause === 'function' && typeof selectedStore.resumeRun === 'function',
+      recovery: !POSTGRES_MODE && typeof selectedStore.recoverExpiredRuns === 'function',
+      storageMode: POSTGRES_MODE ? 'postgres' : process.env.MOLAN_GENERATION_STORE === 'json' ? 'json' : 'sqlite'
     });
   }
   if (!generationV2Enabled(process.env, actorUserId)) return json(res, 404, { ok: false, error: 'Generation V2 未启用', code: 'generation_v2_disabled' });
@@ -20029,7 +20034,10 @@ if (require.main === module) {
     flushSessionsSync();
     const closePostgres = () => flushPostgresRuntimeWrites()
       .catch(() => {})
-      .finally(() => postgresRepository.close().catch(() => {}));
+      .finally(async () => {
+        if (jsonGenerationStore) await jsonGenerationStore.close();
+        await postgresRepository.close();
+      }).catch(error => { console.error('Storage shutdown failed:', error); process.exitCode = 1; });
     if (server.listening) server.close(closePostgres);
     else closePostgres();
     setTimeout(() => process.exit(0), 5000).unref();
@@ -20138,7 +20146,13 @@ if (require.main === module) {
     if (PUBLIC_MODE && !dbReady()) {
       console.error('Production storage is unavailable: Node 22.5+ with --experimental-sqlite is required. AI and cloud novel APIs will stay disabled.');
     }
-    startListening();
+    if (process.env.MOLAN_GENERATION_STORE === 'json') {
+      generationRunStore().recoverExpiredRuns(null, { now: Date.now() }).then(startListening).catch(async error => {
+        console.error('JSON generation storage recovery failed; service will not listen:', error);
+        if (jsonGenerationStore) await jsonGenerationStore.close().catch(() => {});
+        process.exitCode = 1;
+      });
+    } else startListening();
   }
 }
 

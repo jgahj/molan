@@ -146,10 +146,12 @@ function createGenerationOrchestrator(options = {}) {
         worker.providerInFlight = false;
         if (typeof executionContext.onProviderComplete === 'function') executionContext.onProviderComplete();
       }
-    }).finally(() => {
+    }).finally(async () => {
       if (renewTimer) clearInterval(renewTimer);
       if (lease && typeof store.releaseLease === 'function') {
-        try { store.releaseLease(db, { ...scope, id, leaseOwner, fencingToken: lease.fencingToken }); } catch (_) {}
+        try { await store.releaseLease(db, { ...scope, id, leaseOwner, fencingToken: lease.fencingToken }); } catch (error) {
+          if (typeof options.onError === 'function') options.onError(error, id);
+        }
       }
       workers.delete(id);
     });
