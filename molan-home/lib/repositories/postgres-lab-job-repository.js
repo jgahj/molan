@@ -12,5 +12,6 @@ class PostgresLabJobRepository {
   async referenceVotes(input) { return this.repository.listLabReferenceVotes(input); }
   async recordReferenceVote(input) { return this.repository.recordLabReferenceVote(input); }
   async recover(input = {}) { return this.repository.recoverLabJobs(input); }
+  async recoverScoped(input = {}) { return this.repository.recoverLabJobsScoped(input); }
 }
 module.exports = { PostgresLabJobRepository };

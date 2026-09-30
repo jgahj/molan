@@ -194,8 +194,17 @@ function createReadingLab(deps) {
   const repository = deps.repository || new (require('./repositories/json-lab-job-repository').JsonLabJobRepository)(ownedRepository);
   const revisions = new WeakMap();
   const saves = new WeakMap();
+  const actors = new WeakMap();
+  const scopedRecovery = new Map();
   let initialization;
-  function init() { if (!initialization) initialization = repository.init({ kind: 'reading' }); return initialization; }
+  function init() { if (!initialization) initialization = repository.init({ kind: 'reading', recover: typeof repository.recoverScoped !== 'function' }); return initialization; }
+  async function recoverOwner(owner, actorUserId) {
+    if (typeof repository.recoverScoped !== 'function') return;
+    if (!actorUserId) fail('精读账户缺少稳定身份', 401);
+    const key = actorUserId + ':' + owner;
+    if (!scopedRecovery.has(key)) scopedRecovery.set(key, repository.recoverScoped({ owner, actorUserId, kind: 'reading' }));
+    await scopedRecovery.get(key);
+  }
   const active = new Map();
   const workers = new Set();
   function start(job, auth) {
@@ -207,13 +216,13 @@ function createReadingLab(deps) {
   async function save(job) {
     const snapshot = structuredClone(job);
     const next = (saves.get(job) || Promise.resolve()).then(async () => {
-      const row = await repository.save({ owner: job.owner, kind: 'reading', job: snapshot, expectedRevision: revisions.get(job) || 0 });
+      const row = await repository.save({ owner: job.owner, actorUserId: actors.get(job), kind: 'reading', job: snapshot, expectedRevision: revisions.get(job) || 0 });
       revisions.set(job, row.revision);
     });
     saves.set(job, next);
     return next;
   }
-  async function load(id, owner) { const row = await repository.load({ owner, kind: 'reading', id }); if (!row) fail('精读任务不存在或无权访问', 404); revisions.set(row.job, row.revision); return row.job; }
+  async function load(id, owner, actorUserId) { const row = await repository.load({ owner, actorUserId, kind: 'reading', id }); if (!row) fail('精读任务不存在或无权访问', 404); revisions.set(row.job, row.revision); actors.set(row.job, actorUserId); return row.job; }
   function sources() { return BOOKS.map(book => parseBook(fs.readFileSync(path.join(deps.sourceDirectory, book.filename)), book)); }
   function ensureUnchanged(job) { for (const book of job.books) if (hash(fs.readFileSync(path.join(deps.sourceDirectory, book.filename))) !== book.hash) fail('原文件已变化，笔记版本失效；请创建新任务重新核验', 409); }
   async function refreshParsing(job) {
@@ -318,13 +327,15 @@ function createReadingLab(deps) {
       const auth = await deps.getAuthUser(req);
       if (!auth?.user?.email || !auth.token) fail('请先登录网站', 401);
       const owner = auth.user.email.toLowerCase();
+      const actorUserId = auth.user.userId;
+      await recoverOwner(owner, actorUserId);
       const route = new URL(req.url, 'http://localhost').pathname.replace('/api/xuanhuan-reading', '');
       if (req.method === 'GET' && route === '/status') {
         const books = sources();
         return deps.json(res, 200, { version: VERSION, books: books.map(book => ({ id: book.id, title: book.title, hash: book.hash, totalChapters: book.totalChapters, excludedPreamble: book.excludedPreamble, chapters: book.chapters.map(chapter => ({ title: chapter.title, paragraphs: chapter.paragraphs.length, segments: chapter.segments.length })) })), activeJob: active.get(owner)?.id || null, maxCalls: MAX_CALLS });
       }
       if (req.method === 'POST' && route === '/quote') { const body = await deps.readBody(req); return deps.json(res, 200, await quote(auth, body.modelId, sources())); }
-      if (req.method === 'GET' && route === '/jobs') return deps.json(res, 200, { jobs: (await repository.list({ owner, kind: 'reading' })).map(row => describe(row.job, false)) });
+      if (req.method === 'GET' && route === '/jobs') return deps.json(res, 200, { jobs: (await repository.list({ owner, actorUserId, kind: 'reading' })).map(row => describe(row.job, false)) });
       if (req.method === 'POST' && route === '/jobs') {
         if (preparing.has(owner) || active.has(owner)) fail('已有精读任务运行或正在确认预算', 409);
         const body = await deps.readBody(req);
@@ -334,16 +345,16 @@ function createReadingLab(deps) {
         try {
           const books = sources(); const estimate = await quote(auth, body.modelId, books);
           if (estimate.estimate.estimatedCredits > body.maxCredits) fail('当前预估超过确认积分预算，禁止启动');
-          const existing = (await repository.list({ owner, kind: 'reading', limit: 1000 })).map(row => row.job).find(job => job.version === VERSION && job.modelId === estimate.model.id && job.books.every((book, index) => book.hash === books[index].hash));
+          const existing = (await repository.list({ owner, actorUserId, kind: 'reading', limit: 1000 })).map(row => row.job).find(job => job.version === VERSION && job.modelId === estimate.model.id && job.books.every((book, index) => book.hash === books[index].hash));
           if (existing) return deps.json(res, 200, publicJob(existing));
           const job = { id: crypto.randomUUID(), owner, version: VERSION, createdAt: Date.now(), status: 'queued', modelId: estimate.model.id, quote: estimate, maxCredits: body.maxCredits, books, callCount: 0, maxCalls: MAX_CALLS, currentStage: '', stages: {}, usage: [], attempts: [] };
-          await save(job); start(job, auth); return deps.json(res, 202, publicJob(job));
+          actors.set(job, actorUserId); await save(job); start(job, auth); return deps.json(res, 202, publicJob(job));
         } finally { preparing.delete(owner); }
       }
       if (req.method === 'GET' && route === '/narrative-routes') return deps.json(res, 200, { ok: true, routes: NARRATIVE_ROUTES });
       const match = route.match(/^\/jobs\/([a-f0-9-]+)(?:\/(resume|cancel|export|activate))?$/);
       if (!match) fail('接口不存在', 404);
-      const job = await load(match[1], owner);
+      const job = await load(match[1], owner, actorUserId);
       if (req.method === 'POST' && match[2] === 'activate') {
         if (job.status !== 'completed') fail('只有精读完成的任务才能激活', 400);
         job.activated = true;
