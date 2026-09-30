@@ -30,6 +30,8 @@ test('promotion CLI leaves the explicit candidate config untouched when Golden p
 
   assert.equal(result.status, 2, result.stderr);
   assert.match(result.stdout, /golden_corpus_unapproved/);
+  assert.match(result.stdout, /promotion_source_evidence_required/);
+  assert.match(result.stdout, /promotion_configuration_content_mismatch/);
   assert.equal(fs.readFileSync(candidatePath, 'utf8'), original);
   assert.deepEqual(fs.readdirSync(directory).sort(), ['candidate.json', 'report.json']);
 });

@@ -46,7 +46,7 @@ function main() {
   const inputPath = readOption('--input');
   if (!inputPath) throw new TypeError('必须提供 --input <saved-results.json>');
   const input = readInput(inputPath);
-  const report = compareQualityVectors(input);
+  const report = compareQualityVectors(input, { artifactRoot: readOption('--artifacts') });
   writeReport(report, readOption('--out'));
   if (report.status !== 'PROMOTION_READY') process.exitCode = report.status === 'REJECTED' ? 1 : 2;
 }
