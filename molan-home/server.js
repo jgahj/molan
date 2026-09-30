@@ -11770,8 +11770,9 @@ async function dispatchRequest(req, res) {
   if (u.startsWith('/api/xuanhuan-reading/')) {
     if (!xuanhuanReadingLab) xuanhuanReadingLab = createReadingLab({
       dataDir: DATA_DIR, sourceDirectory: path.resolve(__dirname, '../资源库/小说原本/玄幻'), readBody, json,
-      repository: !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json'
-        ? new (require('./lib/repositories/json-lab-job-repository').JsonLabJobRepository)(appRepository().repository) : undefined,
+      repository: POSTGRES_MODE
+        ? new (require('./lib/repositories/postgres-lab-job-repository').PostgresLabJobRepository)(postgresRepository)
+        : process.env.MOLAN_APP_STORE === 'json' ? new (require('./lib/repositories/json-lab-job-repository').JsonLabJobRepository)(appRepository().repository) : undefined,
       getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req),
       callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options),
       preflight: async (auth, modelId, tokens) => {

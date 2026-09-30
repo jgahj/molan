@@ -102,6 +102,26 @@ function createPostgresLabJobMethods({ withTransaction, withWorkerTransaction, i
         }
         return { recovered: result.rows.length };
       });
+    },
+    recoverLabJobsScoped(input = {}) {
+      const owner = id(input.owner);
+      const actorId = actor(input);
+      if (input.kind != null) kind(input.kind);
+      return withTransaction(actorId, async client => {
+        const result = await client.query(`SELECT * FROM luna.lab_jobs WHERE owner_id=$1::uuid
+          AND owner_legacy_id=$2::text AND payload->>'status' IN ('running','queued')
+          ${input.kind ? 'AND job_kind=$3::text' : ''} FOR UPDATE`, [internalUuid(actorId), owner, ...(input.kind ? [input.kind] : [])]);
+        for (const row of result.rows) {
+          const job = clone(row.payload);
+          const unresolved = (job.attempts || []).some(attempt => ['running', 'provider_started'].includes(attempt.status)) ||
+            job.pendingProvider === true || Number(job.callCount || 0) > Object.keys(job.stages || {}).length;
+          job.status = unresolved ? 'needs_review' : 'interrupted';
+          job.error = unresolved ? 'Provider outcome or usage is unresolved; manual review required before resume.' : 'Service restarted; saved stages preserved.';
+          for (const attempt of job.attempts || []) if (['running', 'provider_started'].includes(attempt.status)) { attempt.status = 'provider_unknown'; attempt.error = 'Service restarted while provider call was unresolved.'; }
+          await client.query(`UPDATE luna.lab_jobs SET payload=$4::jsonb,revision=revision+1,updated_at=now() WHERE owner_id=$1::uuid AND job_kind=$2::text AND job_id=$3::text AND revision=$5::bigint`, [row.owner_id, row.job_kind, row.job_id, JSON.stringify(job), row.revision]);
+        }
+        return { recovered: result.rows.length };
+      });
     }
   };
 }
