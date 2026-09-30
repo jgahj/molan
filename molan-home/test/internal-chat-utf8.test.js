@@ -1,14 +1,9 @@
 'use strict';
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
 const { PassThrough } = require('node:stream');
 const test = require('node:test');
-const source = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-const start = source.indexOf('async function callMolanChat(');
-const end = source.indexOf('async function classifyGenreHint(', start);
+const { createModelCallService } = require('../services/model-call-service');
 
 function caller(payload, statusCode = 200) {
   const context = { Buffer, AbortController, Date, setTimeout, clearTimeout, console: { error: () => {} }, PORT: 3000, DYNAMIC_PROMPT_MARKER: 'test', resolveModelForUser: () => 'test-model', safeJsonParse: value => { try { return JSON.parse(value); } catch (_) { return null; } }, extractJsonFromMixedText: () => null, dissectionStreamText: value => value.content || '', requestError: (status, message) => Object.assign(new Error(message), { status }), recordModelUsage: () => {}, http: { request: (options, callback) => {
@@ -17,8 +12,8 @@ function caller(payload, statusCode = 200) {
   } } };
   context.POSTGRES_MODE = false;
   context.process = { env: {} };
-  vm.createContext(context); vm.runInContext(source.slice(start, end), context);
-  return options => context.callMolanChat('Bearer test-only', { email: 'test@example.com' }, options);
+  const service = createModelCallService({ ...context, parseChatStream: require('../lib/molan-node-client').parseChatStream });
+  return options => service.callMolanChat('Bearer test-only', { email: 'test@example.com' }, options);
 }
 
 test('内部SSE调用遇到逐字节网络分块仍保留中文、引号和emoji', async () => {
