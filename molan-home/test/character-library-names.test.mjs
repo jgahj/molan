@@ -29,11 +29,20 @@ test('optional names reader uses native JSON read-only and reports absent or cor
 test('PG names query is asynchronous, read-only, deduplicated and closes on failure', async () => {
   let ended = 0;
   class Pool {
-    async query(sql) { assert.match(sql, /^SELECT /); assert.match(sql, /deleted_at IS NULL/); return { rows: [{ payload: { name: 'Alice' } }, { payload: { name: 'Alice' } }] }; }
+    async connect() { return this; }
+    release() {}
+    async query(sql, values) {
+      if (sql === 'BEGIN READ ONLY' || sql === 'ROLLBACK') return {};
+      if (sql.startsWith('SET LOCAL ROLE')) return {};
+      if (sql.includes('set_config')) { assert.equal(values[0], 'app.user_id'); assert.match(values[1], /^[a-f0-9-]{36}$/); return {}; }
+      assert.match(sql, /^SELECT /); assert.match(sql, /deleted_at IS NULL/); return { rows: [{ payload: { name: 'Alice' } }, { payload: { name: 'Alice' } }] };
+    }
     async end() { ended++; }
   }
-  assert.deepEqual([...await loadCharacterLibraryNames({ env: { MOLAN_DB_BACKEND: 'postgres' }, Pool })], ['Alice']);
+  const env = { MOLAN_DB_BACKEND: 'postgres', MOLAN_CHARACTER_DICTIONARY_USER_ID: 'dictionary-owner' };
+  await assert.rejects(loadCharacterLibraryNames({ env: { MOLAN_DB_BACKEND: 'postgres' }, Pool }), /MOLAN_CHARACTER_DICTIONARY_USER_ID/);
+  assert.deepEqual([...await loadCharacterLibraryNames({ env, Pool })], ['Alice']);
   class FailingPool extends Pool { async query() { throw new Error('PG unavailable'); } }
-  await assert.rejects(loadCharacterLibraryNames({ env: { MOLAN_DB_BACKEND: 'postgres' }, Pool: FailingPool }), /PG unavailable/);
+  await assert.rejects(loadCharacterLibraryNames({ env, Pool: FailingPool }), /PG unavailable/);
   assert.equal(ended, 2);
 });

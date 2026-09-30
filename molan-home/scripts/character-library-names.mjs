@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 const require = createRequire(import.meta.url);
 const { VERSION } = require('../lib/repositories/json-file-repository');
-const { readConfig } = require('../lib/postgres-repository');
+const { readConfig, internalUuid } = require('../lib/postgres-repository');
 
 function collectNames(payload, names) {
   const add = value => { const name = String(value || '').trim(); if (name.length >= 2 && name.length <= 6) names.add(name); };
@@ -20,12 +20,24 @@ export async function loadCharacterLibraryNames({ env = process.env, dataDir, Po
   const names = new Set();
   const pg = readConfig(env);
   if (pg.enabled) {
+    const actorId = String(env.MOLAN_CHARACTER_DICTIONARY_USER_ID || '').trim();
+    if (!actorId) throw new Error('PostgreSQL character dictionary requires MOLAN_CHARACTER_DICTIONARY_USER_ID');
     const Constructor = Pool || require('pg').Pool;
     const pool = new Constructor(pg.config);
+    let client;
     try {
-      const result = await pool.query("SELECT r.payload FROM luna.project_resources r JOIN luna.projects p ON p.id = r.project_id WHERE r.kind = 'character' AND r.deleted_at IS NULL AND p.status = 'active'");
+      client = await pool.connect();
+      await client.query('BEGIN READ ONLY');
+      const role = String(env.MOLAN_PG_RUNTIME_ROLE || 'novel_app').trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(role)) throw new Error('Invalid MOLAN_PG_RUNTIME_ROLE');
+      await client.query(`SET LOCAL ROLE "${role.replace(/"/g, '""')}"`);
+      await client.query('SELECT set_config($1, $2, true)', ['app.user_id', internalUuid(actorId)]);
+      const result = await client.query("SELECT r.payload FROM luna.project_resources r JOIN luna.projects p ON p.id = r.project_id WHERE r.kind = 'character' AND r.deleted_at IS NULL AND p.status = 'active'");
       for (const row of result.rows) collectNames(row.payload, names);
-    } finally { await pool.end(); }
+    } finally {
+      try { if (client) await client.query('ROLLBACK'); }
+      finally { client?.release(); await pool.end(); }
+    }
     return names;
   }
   const directory = path.join(dataDir || env.MOLAN_DATA_DIR || path.resolve(import.meta.dirname, '../data'), 'app-json');
