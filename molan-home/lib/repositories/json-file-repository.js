@@ -26,6 +26,7 @@ class JsonFileRepository {
     this.io = options.fs || fs;
     this.queue = Promise.resolve();
     this.closed = false;
+    this.accepting = true;
     this.poisoned = false;
     this.lockPath = path.join(this.directory, '.writer.lock');
     this.journalPath = path.join(this.directory, '.commit.json');
@@ -38,6 +39,7 @@ class JsonFileRepository {
 
   acquireLock() {
     const tryLock = () => {
+      if (!this.recoveringLock && this.io.existsSync(`${this.lockPath}.recovery`)) throw error('REPOSITORY_LOCKED', '仓储锁正在恢复');
       const fd = this.io.openSync(this.lockPath, 'wx');
       try { this.io.writeFileSync(fd, JSON.stringify({ pid: process.pid, token: this.token }), 'utf8'); this.io.fsyncSync(fd); }
       finally { this.io.closeSync(fd); }
@@ -50,9 +52,22 @@ class JsonFileRepository {
       if (!Number.isInteger(owner.pid) || owner.pid <= 0) throw error('REPOSITORY_LOCKED', '锁文件无效，需人工检查');
       try { process.kill(owner.pid, 0); throw error('REPOSITORY_LOCKED', '本地仓储已被其他实例占用'); }
       catch (check) { if (check.code !== 'ESRCH') throw check; }
-      // 仅清理已确认死亡的进程锁；wx 仍负责竞争仲裁。
-      this.io.unlinkSync(this.lockPath);
-      tryLock();
+      // 多个恢复进程不能同时删除旧锁；恢复期间再次确认旧 owner。
+      const recoveryPath = `${this.lockPath}.recovery`;
+      let recoveryFd;
+      try { recoveryFd = this.io.openSync(recoveryPath, 'wx'); }
+      catch (check) { if (check.code === 'EEXIST') throw error('REPOSITORY_LOCKED', '另一个进程正在恢复仓储锁'); throw check; }
+      try {
+        const current = JSON.parse(this.io.readFileSync(this.lockPath, 'utf8'));
+        if (current.pid !== owner.pid || current.token !== owner.token) throw error('REPOSITORY_LOCKED', '仓储锁已改变');
+        this.io.unlinkSync(this.lockPath);
+        this.recoveringLock = true;
+        tryLock();
+      } finally {
+        this.recoveringLock = false;
+        this.io.closeSync(recoveryFd);
+        this.io.unlinkSync(recoveryPath);
+      }
     }
   }
 
@@ -128,6 +143,7 @@ class JsonFileRepository {
 
   /** callback 返回前所有更改只存在隔离副本中；日志落盘后失败必须启动恢复。 */
   transaction(scopes, callback, expectedRevisions = {}) {
+    if (!this.accepting) return Promise.reject(error('REPOSITORY_CLOSED', '仓储正在关闭'));
     const work = async () => {
       this.check();
       const keys = [...new Set(scopes.map(scope => scope === null ? null : identifier(scope)))];
@@ -216,10 +232,15 @@ class JsonFileRepository {
   }
 
   async close() {
-    await this.queue;
-    if (this.closed) return;
-    this.releaseLock();
-    this.closed = true;
+    if (this.closing) return this.closing;
+    this.accepting = false;
+    this.closing = (async () => {
+      await this.queue;
+      if (this.closed) return;
+      this.releaseLock();
+      this.closed = true;
+    })();
+    return this.closing;
   }
 }
 
