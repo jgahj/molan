@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
-const { createSqliteSoakStore } = require('../lib/evolution/soak-sqlite-store.js');
+const { createJsonSoakStore } = require('../lib/evolution/soak-json-store.js');
 const { runSoakTask } = require('../lib/evolution/soak-runner.js');
 
 /** 解析 Soak CLI 参数并要求显式指定输入、执行适配器和状态数据库。 */
@@ -27,7 +27,7 @@ function parseOptions(argv) {
   return options;
 }
 
-/** 调用外部 Generation V2 适配器并将长篇状态保存到用户指定的 SQLite 文件。 */
+/** 调用外部 Generation V2 适配器并将长篇状态保存到用户指定的 JSON 目录。 */
 export async function main(argv = process.argv.slice(2)) {
   const options = parseOptions(argv);
   const manifestPath = path.resolve(ROOT, options.manifest);
@@ -37,7 +37,7 @@ export async function main(argv = process.argv.slice(2)) {
   const replayManifest = JSON.parse(manifestText);
   const loaded = await import(pathToFileURL(adapterPath).href);
   const adapter = loaded.default && typeof loaded.default === 'object' ? { ...loaded.default, ...loaded } : loaded;
-  const store = createSqliteSoakStore(statePath, {
+  const store = createJsonSoakStore(statePath, {
     leaseMs: Number(options.leaseMs) || 30000,
     acquireTimeoutMs: Number(options.waitMs) || 0
   });
@@ -57,7 +57,7 @@ export async function main(argv = process.argv.slice(2)) {
     if (report.status !== 'PASS' || report.execution_status !== 'completed') process.exitCode = 1;
     return report;
   } finally {
-    store.close();
+    await store.close();
   }
 }
 

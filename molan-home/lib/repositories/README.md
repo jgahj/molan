@@ -15,3 +15,8 @@ callback 内不要调用仓储的异步域方法。记录 revision 从 1 递增�
 
 `fsync` 保证临时文件内容先落盘，文件名切换由 rename 执行；目录元数据在掉电时的耐久性依赖宿主文件系统。
 不提供网络共享盘上的原子性或硬件断电的绝对保证。
+
+长篇 Soak CLI 已接入 `lib/evolution/soak-json-store.js`：`--state` 现在指定新 JSON 仓储目录，不能指向旧数据库文件。
+本地仅支持单实例，租约在同一事务内检查 owner、有效期与 fencing token；已有数据库文件不会自动转换。
+质量评测可将 `lib/evolution/quality-loop-json-store.js` 的 `createJsonQualityLoopStore(directory)` 作为 store 注入 `runQualityLoop`。
+结算与不可变账本同事务保存，同输入幂等重放，已结算的不同报告禁止覆盖。
