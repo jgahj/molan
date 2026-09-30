@@ -15,6 +15,8 @@ function caller(payload, statusCode = 200) {
     const request = new EventEmitter(); request.destroy = error => request.emit('error', error);
     request.end = () => queueMicrotask(() => { const response = new PassThrough(); response.statusCode = statusCode; callback(response); for (const byte of Buffer.from(payload, 'utf8')) response.write(Buffer.from([byte])); response.end(); }); return request;
   } } };
+  context.POSTGRES_MODE = false;
+  context.process = { env: {} };
   vm.createContext(context); vm.runInContext(source.slice(start, end), context);
   return options => context.callMolanChat('Bearer test-only', { email: 'test@example.com' }, options);
 }
