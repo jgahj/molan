@@ -472,6 +472,12 @@ function trackedDependencies(deps, calls) {
       return output;
     } catch (error) {
       record.status = 'failed_or_unknown';
+      const status = Number(error && error.status);
+      record.failure = {
+        code: String(error && error.code || 'model_call_failed').slice(0, 80),
+        status: Number.isInteger(status) && status > 0 ? status : null,
+        unknown: Boolean(error && (error.unknown === true || error.code === 'PROVIDER_UNKNOWN'))
+      };
       throw error;
     } finally { record.finishedAt = new Date().toISOString(); }
   } };

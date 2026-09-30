@@ -47,6 +47,7 @@ const {
 } = require('./lib/character-material');
 const { resolveFingerprintProfile, buildRhythmTargetBlock } = require('./lib/style-fingerprint');
 const benchmarkPipeline = require('./lib/benchmark-pipeline');
+const { calculateBenchmarkCallTimeoutMs } = require('./lib/benchmark-call-timeout');
 const contentEngine = require('./lib/generation/content-engine');
 const { resolveGenre: canonicalResolveGenre } = require('./lib/genre/resolver');
 const { applyAuthSessionInvalidation, sessionEventUserId } = require('./lib/auth-session-events');
@@ -19794,7 +19795,7 @@ async function handleBenchmark(req, res, u) {
     res.once('close', () => { if (!res.writableEnded) controller.abort(new Error('本地评测连接已中断')); });
     const deps = { callModel: (_auth, options) => {
       if (controller.signal.aborted) throw new Error('本地评测已中断');
-      return callMolanChat(String(req.headers.authorization || ''), user, { ...options, controller, requireComplete: true, timeoutMs: Math.max(30000, Math.min(900000, Number(process.env.MOLAN_BENCHMARK_CALL_TIMEOUT_MS) || 180000)) });
+      return callMolanChat(String(req.headers.authorization || ''), user, { ...options, controller, requireComplete: true, timeoutMs: calculateBenchmarkCallTimeoutMs(options) });
     } };
     const requestedModelId = String(body.modelId || '').trim();
     const resolvedModelId = resolveModelForUser(user, requestedModelId || currentDefaultModel());
