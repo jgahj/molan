@@ -46,12 +46,20 @@ test('native main starts, persists sessions and skills, and restarts without cre
     assert.equal((await request('POST', '/api/auth/login-code', { email: 'restart@example.test', code: '123456' })).status, 503);
     assert.equal((await request('POST', '/api/novels', { id: 'n_restart', state: { title: 'Restart', volumes: [] } }, token)).status, 200);
     assert.equal((await request('POST', '/api/skills/import', { name: 'Personal', instruction: 'Private instructions' }, token)).status, 200);
+    const dissection = await request('POST', '/api/dissections', { id: 'd_native', requestId: 'create_native', text: '第一章 开始\n故事开始了。', title: 'Native', run: false }, token);
+    assert.equal(dissection.status, 200);
+    assert.equal(dissection.data.dissection.status, 'queued');
+    assert.equal((await request('GET', '/api/dissections/d_native', null, token)).data.dissection.status, 'queued');
+    const units = await request('GET', '/api/dissections/d_native/units', null, token);
+    assert.equal(units.status, 200);
+    assert.ok(units.data.items.length > 0);
     assert.equal((await request('POST', '/api/creation-books', {}, token)).status, 503);
     await stop();
     assert.equal((await fs.readdir(directory)).some(name => /^(?:molan\.db|users\.json|sessions\.json)/.test(name)), false);
     await start();
     assert.equal((await request('GET', '/api/auth/me', null, token)).status, 200);
     assert.equal((await request('GET', '/api/novels/n_restart', null, token)).status, 200);
+    assert.equal((await request('GET', '/api/dissections/d_native', null, token)).data.dissection.status, 'queued');
     assert.ok((await request('GET', '/api/skills', null, token)).data.some(s => s.name === 'Personal'));
   } finally { await stop(); await fs.rm(directory, { recursive: true, force: true }); }
 });
