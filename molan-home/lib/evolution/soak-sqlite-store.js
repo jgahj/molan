@@ -3,7 +3,10 @@
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync = null;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch {}
 
 /** 创建带持久化正文、租约续期和 fencing token 的 Soak SQLite 存储。 */
 function createSqliteSoakStore(filePath, options = {}) {
