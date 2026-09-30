@@ -158,6 +158,7 @@ async function getStoredStyleProfiles(store, db, user, bookId, options = {}) {
  * 匹配返回 true 并处理，未匹配返回 false。
  */
 async function dispatch(req, res, urlPath, db, getAuthUser, services = {}) {
+  if (services.memoryStore && await require('./memory-store-routes').dispatch(req, res, urlPath, getAuthUser, services)) return true;
   if (services.styleProfileStore) {
     try {
       if (await dispatchStyleProfileStore(req, res, urlPath, db, getAuthUser, services)) return true;
