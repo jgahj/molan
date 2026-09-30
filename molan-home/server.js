@@ -89,13 +89,13 @@ const POSTGRES_MODE = postgresRepository.enabled;
 const postgresStyleProfileStore = POSTGRES_MODE
   ? require('./lib/style-profile-store').createPostgresStyleProfileStore(postgresRepository)
   : null;
-let generationOrchestrator = null;
 let jsonGenerationStore = null;
 let jsonStyleProfileStore = null;
 function generationRunStore() {
-  if (!POSTGRES_MODE && process.env.MOLAN_GENERATION_STORE === 'json') {
+  if (!POSTGRES_MODE && (process.env.MOLAN_GENERATION_STORE === 'json' || process.env.MOLAN_APP_STORE === 'json')) {
     if (!jsonGenerationStore) {
-      jsonGenerationStore = require('./lib/generation/json-store').createJsonGenerationStore(path.join(DATA_DIR, 'generation-json'));
+      jsonGenerationStore = require('./lib/generation/json-store').createJsonGenerationStore(path.join(DATA_DIR, 'generation-json'),
+        process.env.MOLAN_APP_STORE === 'json' ? { repository: appRepository().repository } : {});
     }
     return jsonGenerationStore;
   }
@@ -105,10 +105,11 @@ function generationRunStore() {
 }
 function styleProfileStore() {
   if (POSTGRES_MODE) return postgresStyleProfileStore;
-  if (process.env.MOLAN_STYLE_STORE !== 'json') return null;
+  if (process.env.MOLAN_STYLE_STORE !== 'json' && process.env.MOLAN_APP_STORE !== 'json') return null;
   if (!jsonStyleProfileStore) {
     jsonStyleProfileStore = require('./lib/style-profile-store')
-      .createJsonStyleProfileStore(path.join(DATA_DIR, 'style-profiles-json'));
+      .createJsonStyleProfileStore(path.join(DATA_DIR, 'style-profiles-json'),
+        process.env.MOLAN_APP_STORE === 'json' ? { repository: appRepository().repository } : {});
   }
   return jsonStyleProfileStore;
 }
@@ -125,6 +126,7 @@ async function closeStorageStores() {
       })
       : Promise.resolve()
   ]);
+  await nativeDomain.close();
   const failures = results.filter(result => result.status === 'rejected').map(result => result.reason);
   if (failures.length) throw new AggregateError(failures, 'One or more storage stores failed to close');
 }
@@ -2037,8 +2039,10 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
     const requestedProjectId = String(input.projectId || input.novelId || '').trim();
     let chatScope = null;
     if (requestedProjectId) {
-      let access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
-      if (!access && db) {
+      let access = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json'
+        ? await appRepository().getAccess({ userId: auth.user.userId, projectId: requestedProjectId })
+        : projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
+      if (!access && db && process.env.MOLAN_APP_STORE !== 'json') {
         try {
           const novel = db.prepare('SELECT id, user_email, owner_user_id, title FROM novels WHERE id = ?').get(requestedProjectId);
           if (novel) {
@@ -2424,9 +2428,7 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
     }
     const requestId = requestedRequestId || 'req_' + crypto.randomBytes(16).toString('hex');
     const requestPayloadHash = crypto.createHash('sha256').update(JSON.stringify(bodyObj), 'utf8').digest('hex');
-    const existingReservation = POSTGRES_MODE
-      ? await reserveCredits(auth.user, modelId, model, requestId, 0, skillAudit, requestPayloadHash, chatScope, { lookupOnly: true })
-      : reserveCredits(auth.user, modelId, model, requestId, 0, skillAudit, requestPayloadHash, chatScope, { lookupOnly: true });
+    const existingReservation = await reserveCredits(auth.user, modelId, model, requestId, 0, skillAudit, requestPayloadHash, chatScope, { lookupOnly: true });
     if (!existingReservation.ok) {
       releaseSlot();
       if (existingReservation.conflict) {
@@ -2464,9 +2466,7 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
     const body = JSON.stringify(bodyObj);
 
     const reservedCost = creditPlan.reservedCost;
-    const reservation = POSTGRES_MODE
-      ? await reserveCredits(auth.user, modelId, model, requestId, reservedCost, skillAudit, requestPayloadHash, chatScope)
-      : reserveCredits(auth.user, modelId, model, requestId, reservedCost, skillAudit, requestPayloadHash, chatScope);
+    const reservation = await reserveCredits(auth.user, modelId, model, requestId, reservedCost, skillAudit, requestPayloadHash, chatScope);
     if (!reservation.ok) {
       releaseSlot();
       if (reservation.conflict) {
@@ -3121,6 +3121,8 @@ function handleBillingTopup(req, res) {
         actorUserId: userId, userId, delta: credits, spentDelta: 0
       });
       user = cachePostgresRuntimeUser(postgresRuntimeUserFromRow(row)) || getUserByEmail(email);
+    } else if (process.env.MOLAN_APP_STORE === 'json') {
+      user = await appRepository().adjustCredits({ userId: auth.user.userId, delta: credits });
     } else if (dbReady()) {
       db.prepare('UPDATE accounts SET credits = credits + ? WHERE email = ? AND role <> \'admin\'').run(credits, email);
       user = getUserByEmail(email);
@@ -3129,63 +3131,11 @@ function handleBillingTopup(req, res) {
       user.credits = Math.round(((Number(user.credits) || 0) + credits) * 100) / 100;
       saveUser(user);
     }
-    json(res, 200, { ok: true, creditsAdded: credits, user: publicUser(user) });
+    json(res, 200, { ok: true, creditsAdded: credits, user: !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? await nativePublicUser(user) : publicUser(user) });
   }).catch(error => respondError(res, error));
 }
 
-function handleAdminModels(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  const safe = PLATFORM_MODELS.map(m => ({
-    id: m.id, name: m.name, group: m.group, provider: m.provider,
-    model: m.model, supportsThinking: m.supportsThinking, supportsReasoning: m.supportsReasoning,
-    reasoningEfforts: reasoningEffortsForModel(m), promptCaching: !!m.promptCaching,
-    creditsPer1k: m.creditsPer1k,
-    contextWindowTokens: contextWindowTokensForModel(m)
-  }));
-  json(res, 200, { ok: true, models: safe, defaultModel: currentDefaultModel(), vipCanChooseModel: true });
-}
 
-function handleAdminModelsPatch(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  readBody(req).then(async body => {
-    if (body && Object.prototype.hasOwnProperty.call(body, 'rates')) {
-      const updates = savePlatformModelRates(body.rates);
-      updates.filter(item => item.previousCreditsPer1k !== item.creditsPer1k).forEach(item => {
-        appendAdminAudit(auth.user.email, 'model.rate.update', item.modelId, {
-          modelId: item.modelId,
-          previousCreditsPer1k: item.previousCreditsPer1k,
-          creditsPer1k: item.creditsPer1k,
-          source: 'bulk'
-        });
-      });
-      return json(res, 200, {
-        ok: true,
-        changedCount: updates.filter(item => item.previousCreditsPer1k !== item.creditsPer1k).length,
-        models: updates.map(item => ({ id: item.modelId, creditsPer1k: item.creditsPer1k }))
-      });
-    }
-    const modelId = String(body && body.modelId || '').trim();
-    if (modelId || (body && Object.prototype.hasOwnProperty.call(body, 'creditsPer1k'))) {
-      const model = findPlatformModel(modelId);
-      if (!model) throw new Error('模型不存在或未配置');
-      const previousCreditsPer1k = model.creditsPer1k;
-      const updated = savePlatformModelRate(modelId, body.creditsPer1k);
-      appendAdminAudit(auth.user.email, 'model.rate.update', modelId, {
-        modelId,
-        previousCreditsPer1k,
-        creditsPer1k: updated.creditsPer1k
-      });
-      return json(res, 200, { ok: true, model: { id: modelId, creditsPer1k: updated.creditsPer1k } });
-    }
-    const requested = String(body && body.defaultModel || '').trim();
-    if (!requested || !findPlatformModel(requested)) throw new Error('默认模型不存在或未配置');
-    const defaultModel = saveModelPolicy(requested);
-    appendAdminAudit(auth.user.email, 'model.update', defaultModel, { defaultModel });
-    json(res, 200, { ok: true, defaultModel });
-  }).catch(e => respondError(res, e));
-}
 
 /* ===================== 写作技能装载（只读 .codex/skills，不修改原文件） ===================== */
 // 技能目录：优先 MOLAN_SKILL_DIRS（逗号分隔），始终合并应用内置的 ./skills；
@@ -3196,33 +3146,6 @@ const SKILL_DIRS_FALLBACK = [
   'C:/Users/lyh/.codex/skills/mars-style-pure-xuanhuan-writing',
   'C:/Users/lyh/.codex/skills/humanizer'
 ];
-function resolveSkillDirs() {
-  const env = (process.env.MOLAN_SKILL_DIRS || '').split(',').map(s => s.trim()).filter(Boolean);
-  const dirs = [];
-  if (env.length) dirs.push(...env);
-  // 应用自身的 skills 目录：编辑器「固化」的永久技能写入这里，始终参与扫描
-  const local = path.join(__dirname, 'skills');
-  const localNames = new Set();
-  if (fs.existsSync(local) && fs.statSync(local).isDirectory()) {
-    for (const n of fs.readdirSync(local)) {
-      const p = path.join(local, n);
-      if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
-        localNames.add(String(n).toLowerCase());
-        dirs.push(p);
-      }
-    }
-  }
-  // 公网部署包会把可用 Skill 放在 ./skills；本机开发时补充用户明确要求的
-  // 默认写作/润色 Skill。显式设置 MOLAN_SKILL_DIRS 时保留其隔离语义。
-  if (!env.length) {
-    SKILL_DIRS_FALLBACK.forEach(dir => {
-      if (!localNames.has(path.basename(dir).toLowerCase())) dirs.push(dir);
-    });
-  }
-  return [...new Set(dirs.map(value => path.resolve(value)))].filter(dir => {
-    try { return fs.existsSync(dir) && fs.statSync(dir).isDirectory(); } catch (_) { return false; }
-  });
-}
 
 const SKILL_MAX_FILES = envPositiveInt('MOLAN_SKILL_MAX_FILES', 500, 1, 2000);
 const SKILL_MAX_FILE_BYTES = envPositiveInt('MOLAN_SKILL_MAX_FILE_BYTES', 5 * 1024 * 1024, 1024, 32 * 1024 * 1024);
@@ -3230,69 +3153,7 @@ const SKILL_MAX_TOTAL_BYTES = envPositiveInt('MOLAN_SKILL_MAX_TOTAL_BYTES', 12 *
 const SKILL_BINARY_EXT = /\.(?:png|jpe?g|gif|bmp|webp|ico|pdf|zip|rar|7z|exe|dll|docx?|xlsx?|pptx?|mp3|mp4|wav|avi|mov|mkv|bin|dat|woff2?|ttf|eot|skp|psd)$/i;
 const SKILL_IGNORED_DIRS = new Set(['.git', '.svn', 'node_modules', '__MACOSX', 'dist', 'build']);
 
-function readSkillDirectoryFiles(dir) {
-  const files = [];
-  let totalBytes = 0;
-  const visit = current => {
-    const entries = fs.readdirSync(current, { withFileTypes: true })
-      .sort((a, b) => a.name.localeCompare(b.name));
-    for (const entry of entries) {
-      if (entry.isDirectory() && SKILL_IGNORED_DIRS.has(entry.name)) continue;
-      if (entry.isSymbolicLink()) continue;
-      const abs = path.join(current, entry.name);
-      const rel = path.relative(dir, abs).replace(/\\/g, '/');
-      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
-      if (entry.isDirectory()) {
-        visit(abs);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      if (files.length >= SKILL_MAX_FILES) throw new Error('Skill 文件数量超过上限');
-      const size = Number(fs.statSync(abs).size) || 0;
-      totalBytes += size;
-      if (totalBytes > SKILL_MAX_TOTAL_BYTES) throw new Error('Skill 文件总大小超过上限');
-      if (size > SKILL_MAX_FILE_BYTES || SKILL_BINARY_EXT.test(rel)) {
-        files.push({ path: rel, type: 'binary', size, content: null });
-        continue;
-      }
-      const buffer = fs.readFileSync(abs);
-      files.push(buffer.includes(0)
-        ? { path: rel, type: 'binary', size, content: null }
-        : { path: rel, type: 'text', size, content: buffer.toString('utf8') });
-    }
-  };
-  visit(dir);
-  return files;
-}
 
-function parseSkillMd(raw) {
-  const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---/);
-  let name = '', description = '', body = raw;
-  if (fmMatch) {
-    const fm = fmMatch[1];
-    const nameM = fm.match(/^name:\s*(.+)$/m);
-    if (nameM) name = nameM[1].trim();
-    const descM = fm.match(/^description:\s*(\||>)?\s*(.*)$/m);
-    if (descM) {
-      if (descM[2].trim() === '' && descM[1]) {
-        const after = fm.slice(fm.indexOf('description:') + 'description:'.length);
-        const block = [];
-        for (const ln of after.split('\n')) {
-          if (/^[A-Za-z_]/.test(ln)) break;
-          const t = ln.trim();
-          if (t === '|' || t === '>') continue;
-          if (t) block.push(t);
-        }
-        description = block.join(' ').trim();
-      } else {
-        description = descM[2].trim();
-      }
-    }
-    const secondDash = raw.indexOf('---', raw.indexOf('---') + 3);
-    if (secondDash >= 0) body = raw.slice(secondDash + 3).trim();
-  }
-  return { name, description, body };
-}
 
 // Keep the complete Skill directory available for cloud sync and audit. A Skill
 // is a directory contract: references, schemas and templates are part of its
@@ -3305,87 +3166,9 @@ function parseSkillMd(raw) {
 const SKILL_PROMPT_EXCLUDE_EXACT = new Set(['README.md', 'AGENTS.md', 'CLAUDE.md', 'readme.md', 'agents.md']);
 const SKILL_PROMPT_EXCLUDE_NAMES = [/^LICENSE(\..+)?$/i, /^NOTICE(\..+)?$/i, /^CHANGELOG(\..+)?$/i];
 const SKILL_PROMPT_EXCLUDE_DIRS = new Set(['.claude-plugin', 'agents', '.github', '.vscode', '.idea']);
-function isSkillPromptExcluded(filePath) {
-  const p = String(filePath || '');
-  if (!p) return true;
-  if (SKILL_PROMPT_EXCLUDE_EXACT.has(p)) return true;
-  if (SKILL_PROMPT_EXCLUDE_NAMES.some(re => re.test(p))) return true;
-  const top = p.split('/')[0];
-  return SKILL_PROMPT_EXCLUDE_DIRS.has(top);
-}
-function skillPromptFiles(skill) {
-  const runtimeFiles = skill && skill.runtimeFiles && typeof skill.runtimeFiles === 'object' ? skill.runtimeFiles : {};
-  const listed = Array.isArray(skill && skill.files) && skill.files.length
-    ? skill.files
-    : Object.keys(runtimeFiles);
-  const files = [...new Set(listed.map(value => normalizeSkillFilePath(value)).filter(Boolean))];
-  const textFiles = files.filter(filePath => typeof runtimeFiles[filePath] === 'string' && !isSkillPromptExcluded(filePath));
-  return textFiles.sort((left, right) => {
-    if (left === 'SKILL.md') return -1;
-    if (right === 'SKILL.md') return 1;
-    return left.localeCompare(right);
-  });
-}
 
-function skillPromptInstruction(skill, promptFiles) {
-  const runtimeFiles = skill && skill.runtimeFiles && typeof skill.runtimeFiles === 'object' ? skill.runtimeFiles : {};
-  const raw = typeof runtimeFiles['SKILL.md'] === 'string' ? runtimeFiles['SKILL.md'] : '';
-  if (!raw) return String(skill && (skill.promptInstruction || skill.instruction) || '').trim();
-  const parsed = parseSkillMd(raw);
-  const files = Array.isArray(promptFiles) ? promptFiles : skillPromptFiles(skill);
-  const parts = [parsed.body];
-  files.forEach(filePath => {
-    if (filePath === 'SKILL.md') return;
-    const content = runtimeFiles[filePath];
-    if (typeof content !== 'string' || !content.trim()) return;
-    parts.push('### Skill file: `' + filePath + '`\n\n' + content);
-  });
-  const output = parts.filter(Boolean).join('\n\n').trim();
-  return output || String(skill && (skill.promptInstruction || skill.instruction) || '').trim();
-}
 
-function decorateSkillPrompt(skill) {
-  const value = skill && typeof skill === 'object' ? skill : {};
-  const promptFiles = skillPromptFiles(value);
-  return {
-    ...value,
-    promptFiles,
-    promptInstruction: skillPromptInstruction(value, promptFiles)
-  };
-}
 
-function composeSkill(dir) {
-  const raw = fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf-8');
-  const { name, description, body } = parseSkillMd(raw);
-  const entries = readSkillDirectoryFiles(dir);
-  const runtimeFiles = Object.create(null);
-  const composedParts = [body];
-  for (const entry of entries) {
-    if (entry.type === 'text') runtimeFiles[entry.path] = entry.content;
-    if (entry.path === 'SKILL.md') continue;
-    if (entry.type === 'text') {
-      composedParts.push('\n\n### Skill file: `' + entry.path + '`\n\n' + entry.content);
-    } else {
-      composedParts.push('\n\n### Skill asset: `' + entry.path + '`\n\n[Non-text asset retained in the Skill manifest; it is not inserted into the text prompt.]');
-    }
-  }
-  runtimeFiles['SKILL.md'] = raw;
-  const instruction = composedParts.join('');
-  return decorateSkillPrompt({
-    id: path.basename(dir),
-    name: name || path.basename(dir),
-    description,
-    instruction,
-    files: entries.map(entry => entry.path),
-    runtimeFiles,
-    fileManifest: entries.map(entry => ({ path: entry.path, type: entry.type, size: entry.size })),
-    complete: true,
-    size: instruction.length,
-    source: 'builtin',
-    editable: false,
-    global: false
-  });
-}
 
 /* ===================== AI 编辑器固定来源 ===================== */
 // 本机开发优先读取用户指定的绝对路径；发布包内的同源副本只作为云端回退，
@@ -3406,15 +3189,6 @@ function firstExistingEditorSource(candidates, predicate) {
   return '';
 }
 
-function resolveEditorOnlySkillDir(options = {}) {
-  const configured = String(options.skillDir || process.env.MOLAN_EDITOR_WRITING_SKILL_DIR || '').trim();
-  return firstExistingEditorSource([
-    configured,
-    EDITOR_ONLY_SKILL_DIR_DEFAULT,
-    EDITOR_ONLY_LOCAL_SKILL_DIR,
-    EDITOR_ONLY_BUNDLED_SKILL_DIR
-  ], value => fs.statSync(value).isDirectory() && fs.existsSync(path.join(value, 'SKILL.md')));
-}
 
 function resolveEditorOnlyCorrectionFile(options = {}) {
   const configured = String(options.correctionFile || process.env.MOLAN_EDITOR_CORRECTION_LIBRARY_FILE || '').trim();
@@ -3426,30 +3200,6 @@ function resolveEditorOnlyCorrectionFile(options = {}) {
   ], value => fs.statSync(value).isFile());
 }
 
-function loadEditorOnlyWritingSkill(options = {}) {
-  const dir = resolveEditorOnlySkillDir(options);
-  if (!dir) {
-    throw requestError(503, '编辑器固定写作 Skill 不可用，请检查指定的 write-high-tension-fiction 目录');
-  }
-  let skill;
-  try {
-    skill = composeSkill(dir);
-  } catch (error) {
-    throw requestError(503, '编辑器固定写作 Skill 加载失败：' + String(error && error.message || error));
-  }
-  if (!skill || !String(skill.instruction || '').trim()) {
-    throw requestError(503, '编辑器固定写作 Skill 内容为空');
-  }
-  return {
-    ...skill,
-    id: EDITOR_ONLY_SKILL_ID,
-    source: 'editor-canonical',
-    canonicalPath: dir,
-    complete: true,
-    editable: false,
-    global: false
-  };
-}
 
 function loadEditorOnlyCorrectionLibrary(options = {}) {
   const filePath = resolveEditorOnlyCorrectionFile(options);
@@ -3482,53 +3232,8 @@ function loadEditorOnlyCorrectionLibrary(options = {}) {
   };
 }
 
-function editorOnlySkillAuditRequest(skill) {
-  const value = skill && typeof skill === 'object' ? skill : loadEditorOnlyWritingSkill();
-  return {
-    version: SKILL_AUDIT_VERSION,
-    skills: [{
-      id: EDITOR_ONLY_SKILL_ID,
-      name: value.name || EDITOR_ONLY_SKILL_ID,
-      files: Array.isArray(value.files) ? value.files.slice() : [],
-      fileManifest: Array.isArray(value.fileManifest) ? value.fileManifest.map(item => ({ ...item })) : []
-    }]
-  };
-}
 
-function ensureEditorOnlyWritingSkill(messages, skill) {
-  const canonical = skill && typeof skill === 'object' ? skill : loadEditorOnlyWritingSkill();
-  // 先清除客户端带来的所有可审计 Skill block，再注入唯一 canonical block。
-  const source = stripEditorSkillBlocks(Array.isArray(messages) ? messages : []);
-  const output = source.map(message => copyPromptMessageFlags(message, { ...message }));
-  const block = wrapSkillBlock(EDITOR_ONLY_SKILL_ID, canonical.instruction);
-  const systemIndex = output.findIndex(message => message && message.role === 'system');
-  if (systemIndex < 0) output.unshift({ role: 'system', content: block });
-  else output[systemIndex].content = String(output[systemIndex].content || '') + '\n\n' + block;
-  return { messages: validateChatMessages(output), skill: canonical };
-}
 
-function stripEditorSkillBlocks(messages) {
-  const source = Array.isArray(messages) ? messages : [];
-  return source.map(message => {
-    if (!message || typeof message !== 'object') return message;
-    const stripText = value => {
-      if (typeof value !== 'string') return value;
-      EDITOR_SKILL_BLOCK_PATTERN.lastIndex = 0;
-      return value.replace(EDITOR_SKILL_BLOCK_PATTERN, '');
-    };
-    let content = message.content;
-    if (typeof content === 'string') {
-      content = stripText(content);
-    } else if (Array.isArray(content)) {
-      content = content.map(part => {
-        if (!part || typeof part !== 'object' || Array.isArray(part) || typeof part.text !== 'string') return part;
-        return { ...part, text: stripText(part.text) };
-      });
-    }
-    if (content === message.content) return message;
-    return copyPromptMessageFlags(message, { ...message, content });
-  });
-}
 
 function removeUniversalCorrectionPolicy(messages) {
   const source = Array.isArray(messages) ? messages : [];
@@ -3604,109 +3309,18 @@ function emptyEditorOnlyCharacterMaterialResult() {
   };
 }
 
-function skillPriority(skill) {
-  const source = String(skill && skill.source || '').toLowerCase();
-  if (source === 'user') return 3;
-  if (source === 'global') return 2;
-  if (source === 'builtin') return 1;
-  return 0;
-}
 
-function skillIdentityKey(skill) {
-  const name = String(skill && skill.name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  if (name) return 'name:' + name;
-  const id = String(skill && skill.id || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^user-[0-9a-f]{12}-/, '')
-    .replace(/^local-/, '')
-    .replace(/-copy-\d+$/, '');
-  return 'id:' + id;
-}
 
-function uniqueSkillsById(list) {
-  const byId = new Map();
-  (Array.isArray(list) ? list : []).forEach(skill => {
-    if (!skill || !String(skill.id || '').trim()) return;
-    const identity = skillIdentityKey(skill);
-    const previous = byId.get(identity);
-    if (!previous || skillPriority(skill) > skillPriority(previous)) byId.set(identity, skill);
-  });
-  return [...byId.values()];
-}
 
-function publicSkillSummary(skill) {
-  const value = skill && typeof skill === 'object' ? skill : {};
-  const payload = {
-    id: value.id,
-    name: value.name,
-    description: value.description,
-    source: value.source,
-    global: !!value.global,
-    enabled: value.enabled !== false,
-    editable: false,
-    autoApply: false,
-    files: Array.isArray(value.files) ? value.files : [],
-    fileManifest: Array.isArray(value.fileManifest) ? value.fileManifest : [],
-    complete: value.complete !== false,
-    targets: Array.isArray(value.targets) ? value.targets : ['all'],
-    updatedAt: value.updatedAt || 0
-  };
-}
 
-function handleSkills(req, res) {
-  if (!requireSqliteForPublic(req, res)) return;
-  const out = loadBuiltinSkills().slice();
-  const auth = getAuthUser(req);
-  if (auth) {
-    loadGlobalSkills().filter(s => s.enabled !== false).forEach(s => {
-      out.push({ ...s, source: 'global', editable: false, global: true, autoApply: true });
-    });
-    out.push(...loadUserSkills(auth.user.email).map(s => ({ ...s, source: 'user', global: false, autoApply: false })));
-  }
-  // 未登录用户只需要看到可用 Skill 的名称和简介，不能匿名下载完整提示词。
-  json(res, 200, uniqueSkillsById(auth ? out : out.map(publicSkillSummary)));
-}
 
 /* ===================== 技能固化导入（把前端导入的本地技能永久落盘为 SKILL.md） ===================== */
-function handleSkillImport(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录后保存个人 Skill' });
-  if (!requireSqliteForPublic(req, res)) return;
-  readBody(req).then(body => {
-    const name = String(body.name || '').trim();
-    const description = String(body.description || '').trim().slice(0, 500);
-    const instruction = String(body.instruction || '').trim().slice(0, 1000000);
-    if (!name || !instruction) return json(res, 400, { error: '缺少 name 或 instruction' });
-    // slug 仅保留字母/数字/下划线/中文/连字符，杜绝目录穿越
-    const slug = String(body.slug || name)
-      .trim()
-      .replace(/[^A-Za-z0-9_\u4e00-\u9fa5-]/g, '')
-      .slice(0, 60) ||
-      'skill';
-    const userHash = crypto.createHash('sha256').update(String(auth.user.email).toLowerCase()).digest('hex').slice(0, 12);
-    const id = 'user-' + userHash + '-' + slug;
-    const skills = loadAllUserSkillRecords();
-    const key = String(auth.user.email).trim().toLowerCase();
-    const existing = Array.isArray(skills[key]) ? skills[key] : [];
-    const runtimeFiles = normalizeSkillRuntimeFiles(body.runtimeFiles, body.files, { strict: true });
-    const files = skillFileNames(runtimeFiles, body.files);
-    const fileManifest = Array.isArray(body.fileManifest) ? body.fileManifest : [];
-    const record = decorateSkillPrompt({ id, name: name.slice(0, 120), description, instruction, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest), size: instruction.length, updatedAt: Date.now() });
-    const index = existing.findIndex(item => item && item.id === id);
-    if (index >= 0) existing[index] = record; else existing.push(record);
-    skills[key] = existing;
-    saveAllUserSkillRecords(skills);
-    json(res, 200, { ok: true, id, skill: record });
-  }).catch(e => respondError(res, e));
-}
 
 /* ===================== 账号体系（本地 JSON 存储，零依赖） ===================== */
 const DATA_DIR = path.resolve(process.env.MOLAN_DATA_DIR || path.join(__dirname, 'data'));
+if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
+  require('./services/native-domain-service').assertNoLegacyAppData({ fs, path, dataDir: DATA_DIR });
+}
 const CHARACTER_MATERIAL_REPORT_FILE = path.join(__dirname, 'lib', 'character-material', 'quality-report.json');
 const CHARACTER_MATERIAL_APPROVAL_FILE = path.join(DATA_DIR, 'character-material-audit.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -3725,111 +3339,7 @@ const SKILL_CACHE_TTL_MS = envPositiveInt('MOLAN_SKILL_CACHE_TTL_MS', 30000, 100
 let usersCache = null;
 let usersCacheMtimeMs = 0;
 let usersCacheCheckedAt = 0;
-let userSkillRecordsCache = null;
-let userSkillRecordsCacheAt = 0;
-let globalSkillsCache = null;
-let globalSkillsCacheAt = 0;
-let builtinSkillsCache = null;
-let openSkillsCache = null;
-let openSkillsCacheAt = 0;
 
-function loadAllUserSkillRecords() {
-  if (userSkillRecordsCache && Date.now() - userSkillRecordsCacheAt < SKILL_CACHE_TTL_MS) return userSkillRecordsCache;
-  if (POSTGRES_MODE) {
-    const out = {};
-    postgresRuntimeState.userSkills.forEach((skills, email) => { out[email] = skills.slice(); });
-    userSkillRecordsCache = out;
-    userSkillRecordsCacheAt = Date.now();
-    return userSkillRecordsCache;
-  }
-  if (dbReady()) {
-    const out = {};
-    db.prepare(`SELECT user_email, id, name, description, instruction, files_json, size, updated_at
-      FROM user_skills ORDER BY updated_at DESC`).all().forEach(row => {
-      const key = String(row.user_email || '').toLowerCase();
-      if (!out[key]) out[key] = [];
-      const storedFiles = parseStoredSkillFiles(row.files_json);
-      out[key].push(decorateSkillPrompt({ id: row.id, name: row.name, description: row.description, instruction: row.instruction, files: storedFiles.files, runtimeFiles: storedFiles.runtimeFiles, fileManifest: storedFiles.fileManifest, complete: storedFiles.complete, size: Number(row.size) || 0, updatedAt: Number(row.updated_at) || 0 }));
-    });
-    userSkillRecordsCache = out;
-    userSkillRecordsCacheAt = Date.now();
-    return userSkillRecordsCache;
-  }
-  try {
-    const data = JSON.parse(fs.readFileSync(USER_SKILLS_FILE, 'utf-8'));
-    userSkillRecordsCache = data && typeof data === 'object' && !Array.isArray(data) ? Object.fromEntries(Object.entries(data).map(([email, list]) => [email, Array.isArray(list) ? list.filter(Boolean).map(item => {
-      const storedFiles = parseStoredSkillFiles(item.files_json || { files: item.files, runtimeFiles: item.runtimeFiles, fileManifest: item.fileManifest });
-      return decorateSkillPrompt({ ...item, files: storedFiles.files, runtimeFiles: storedFiles.runtimeFiles, fileManifest: storedFiles.fileManifest, complete: storedFiles.complete });
-    }) : []])) : {};
-  } catch (_) { return {}; }
-  userSkillRecordsCacheAt = Date.now();
-  return userSkillRecordsCache;
-}
-function saveAllUserSkillRecords(data, actorUserId = '') {
-  if (POSTGRES_MODE) {
-    const next = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
-    const previousOwners = new Set(postgresRuntimeState.userSkills.keys());
-    userSkillRecordsCache = next;
-    userSkillRecordsCacheAt = Date.now();
-    postgresRuntimeState.userSkills.clear();
-    for (const [email, list] of Object.entries(next)) {
-      postgresRuntimeState.userSkills.set(String(email).trim().toLowerCase(), Array.isArray(list) ? list : []);
-    }
-    const write = enqueuePostgresRuntimeWrite('user-skills', async () => {
-      const ownerEmails = new Set([...previousOwners, ...Object.keys(next).map(email => String(email).trim().toLowerCase())]);
-      for (const email of ownerEmails) {
-        const list = next[email] || [];
-        const owner = postgresRuntimeState.accountsByEmail.get(String(email).trim().toLowerCase());
-        const ownerUserId = String(owner && owner.userId || projectScope.stableUserId(email));
-        await postgresRepository.runtimeReplaceUserSkills({
-          actorUserId: actorUserId || ownerUserId,
-          ownerUserId,
-          ownerEmail: String(email).trim().toLowerCase(),
-          skills: Array.isArray(list) ? list : []
-        });
-      }
-    });
-    return write;
-  }
-  if (dbReady()) {
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      const upsert = db.prepare(`INSERT INTO user_skills
-        (user_email, id, name, description, instruction, files_json, size, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(user_email, id) DO UPDATE SET
-          name = excluded.name, description = excluded.description, instruction = excluded.instruction,
-          files_json = excluded.files_json, size = excluded.size, updated_at = excluded.updated_at`);
-      const emails = Object.keys(data && typeof data === 'object' ? data : {});
-      for (const email of emails) {
-        const rows = Array.isArray(data[email]) ? data[email] : [];
-        db.prepare('DELETE FROM user_skills WHERE user_email = ?').run(email);
-        for (const item of rows) {
-          if (!item || !item.id || !item.instruction) continue;
-          upsert.run(String(email).toLowerCase(), String(item.id), String(item.name || item.id).slice(0, 120), String(item.description || '').slice(0, 500), String(item.instruction).slice(0, 1000000), serializeSkillFiles(item), Math.max(0, Number(item.size) || String(item.instruction).length), Number(item.updatedAt) || Date.now());
-        }
-      }
-      db.exec('COMMIT');
-    } catch (error) {
-      try { db.exec('ROLLBACK'); } catch (_) {}
-      throw error;
-    }
-    userSkillRecordsCache = data && typeof data === 'object' ? data : {};
-    userSkillRecordsCacheAt = Date.now();
-    return;
-  }
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = USER_SKILLS_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tmp, USER_SKILLS_FILE);
-  userSkillRecordsCache = data;
-  userSkillRecordsCacheAt = Date.now();
-}
-function loadUserSkills(email) {
-  const all = loadAllUserSkillRecords();
-  const key = String(email || '').trim().toLowerCase();
-  return Array.isArray(all[key]) ? all[key].filter(item => item && item.id && item.instruction) : [];
-}
 
 function loadUsers() {
   if (POSTGRES_MODE) return postgresRuntimeState.accounts.slice();
@@ -4711,12 +4221,7 @@ function hydratePostgresRuntimeMirror(snapshot) {
         .map(row => [String(row.id), postgresRuntimeDissectionBaselineFromRow(row)])
     );
     postgresRuntimeDirtyTables.clear();
-    userSkillRecordsCache = null;
-    userSkillRecordsCacheAt = 0;
-    globalSkillsCache = null;
-    globalSkillsCacheAt = 0;
-    openSkillsCache = null;
-    openSkillsCacheAt = 0;
+    skillService.resetCaches();
   } finally {
     postgresRuntimeHydrating = false;
   }
@@ -4944,12 +4449,7 @@ function finishPostgresRuntimeChunkHydration() {
     postgresRuntimeState.ready = true;
     postgresRuntimeLastWriteError = '';
     postgresRuntimeDirtyTables.clear();
-    userSkillRecordsCache = null;
-    userSkillRecordsCacheAt = 0;
-    globalSkillsCache = null;
-    globalSkillsCacheAt = 0;
-    openSkillsCache = null;
-    openSkillsCacheAt = 0;
+    skillService.resetCaches();
   } catch (error) {
     try { db.exec('ROLLBACK'); } catch (_) {}
     try { db.exec('PRAGMA synchronous = NORMAL'); } catch (_) {}
@@ -5049,520 +4549,37 @@ function writeJsonFile(file, data) {
   try { fs.chmodSync(file, 0o600); } catch (_) {}
 }
 
-function loadGlobalSkills() {
-  if (globalSkillsCache && Date.now() - globalSkillsCacheAt < SKILL_CACHE_TTL_MS) return globalSkillsCache;
-  if (dbReady()) {
-    const skills = db.prepare(`SELECT id, name, description, instruction, files_json, targets_json, enabled, created_at, updated_at
-      FROM global_skills ORDER BY updated_at DESC`).all().map(row => {
-      let targets = [];
-      try { targets = JSON.parse(row.targets_json || '["all"]'); } catch (_) {}
-      const storedFiles = parseStoredSkillFiles(row.files_json);
-      return decorateSkillPrompt({ id: row.id, name: row.name, description: row.description, instruction: row.instruction, files: storedFiles.files, runtimeFiles: storedFiles.runtimeFiles, fileManifest: storedFiles.fileManifest, complete: storedFiles.complete, targets: Array.isArray(targets) ? targets : ['all'], enabled: !!row.enabled, global: true, createdAt: Number(row.created_at) || 0, updatedAt: Number(row.updated_at) || 0 });
-    });
-    globalSkillsCache = skills;
-    globalSkillsCacheAt = Date.now();
-    return skills;
-  }
-  const data = readJsonFile(GLOBAL_SKILLS_FILE, []);
-  globalSkillsCache = Array.isArray(data) ? data.filter(s => s && s.id && s.name && s.instruction).map(s => {
-    const runtimeFiles = normalizeSkillRuntimeFiles(s.runtimeFiles, s.files);
-    const files = skillFileNames(runtimeFiles, s.files);
-    const fileManifest = Array.isArray(s.fileManifest) ? s.fileManifest : [];
-    return decorateSkillPrompt({ ...s, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest) });
-  }) : [];
-  globalSkillsCacheAt = Date.now();
-  return globalSkillsCache;
-}
 
-function saveGlobalSkills(skills) {
-  if (dbReady()) {
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      db.exec('DELETE FROM global_skills');
-      const insert = db.prepare(`INSERT INTO global_skills
-        (id, name, description, instruction, files_json, targets_json, enabled, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-      (Array.isArray(skills) ? skills : []).forEach(skill => {
-        if (!skill || !skill.id || !skill.name || !skill.instruction) return;
-        insert.run(String(skill.id), String(skill.name).slice(0, 120), String(skill.description || '').slice(0, 500), String(skill.instruction).slice(0, 1000000), serializeSkillFiles(skill), JSON.stringify(Array.isArray(skill.targets) && skill.targets.length ? skill.targets : ['all']), skill.enabled === false ? 0 : 1, Number(skill.createdAt) || Date.now(), Number(skill.updatedAt) || Date.now());
-      });
-      db.exec('COMMIT');
-    } catch (error) {
-      try { db.exec('ROLLBACK'); } catch (_) {}
-      throw error;
-    }
-    globalSkillsCache = Array.isArray(skills) ? skills : [];
-    globalSkillsCacheAt = Date.now();
-    return;
-  }
-  writeJsonFile(GLOBAL_SKILLS_FILE, skills);
-  globalSkillsCache = skills;
-  globalSkillsCacheAt = Date.now();
-}
 
-function loadBuiltinSkills() {
-  if (builtinSkillsCache) return builtinSkillsCache;
-  const out = [];
-  resolveSkillDirs().forEach(dir => {
-    try { out.push(composeSkill(dir)); }
-    catch (_) { /* 读取失败时跳过该技能，绝不修改原文件 */ }
-  });
-  builtinSkillsCache = out;
-  return builtinSkillsCache;
-}
 
-function normalizeSkillFilePath(value) {
-  const rel = String(value == null ? '' : value).replace(/\\/g, '/').replace(/^\.\//, '').trim();
-  if (!rel || rel.length > 500 || rel.startsWith('/') || /^[A-Za-z]:\//.test(rel)) return '';
-  const parts = rel.split('/');
-  if (parts.some(part => !part || part === '..' || part === '.')) return '';
-  return parts.join('/');
-}
 
-function normalizeSkillRuntimeFiles(value, legacyNames, options = {}) {
-  const strict = options.strict === true;
-  const files = Object.create(null);
-  let totalBytes = 0;
-  const add = (rawPath, rawContent, hasContent) => {
-    const filePath = normalizeSkillFilePath(rawPath);
-    if (!filePath || Object.prototype.hasOwnProperty.call(files, filePath)) return;
-    if (Object.keys(files).length >= SKILL_MAX_FILES) {
-      if (strict) throw requestError(413, 'Skill 文件数量超过上限');
-      return;
-    }
-    if (!hasContent || rawContent === null || rawContent === undefined) {
-      files[filePath] = null;
-      return;
-    }
-    const content = String(rawContent).replace(/\u0000/g, '');
-    const size = Buffer.byteLength(content, 'utf8');
-    if (size > SKILL_MAX_FILE_BYTES || totalBytes + size > SKILL_MAX_TOTAL_BYTES) {
-      if (strict) throw requestError(413, 'Skill 文件内容超过上限');
-      return;
-    }
-    totalBytes += size;
-    files[filePath] = content;
-  };
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const source = value.runtimeFiles && typeof value.runtimeFiles === 'object' ? value.runtimeFiles : value.files && typeof value.files === 'object' && !Array.isArray(value.files) ? value.files : value;
-    Object.entries(source).forEach(([filePath, content]) => add(filePath, content, true));
-  } else if (Array.isArray(value)) {
-    value.forEach(item => {
-      if (typeof item === 'string') add(item, null, false);
-      else if (item && typeof item === 'object') add(item.path || item.relPath || item.name, item.content, Object.prototype.hasOwnProperty.call(item, 'content'));
-    });
-  }
-  if (Array.isArray(legacyNames)) legacyNames.forEach(filePath => add(filePath, null, false));
-  return files;
-}
 
-function skillFileNames(runtimeFiles, legacyNames) {
-  return [...new Set([
-    ...Object.keys(runtimeFiles && typeof runtimeFiles === 'object' ? runtimeFiles : {}),
-    ...(Array.isArray(legacyNames) ? legacyNames : [])
-  ].map(normalizeSkillFilePath).filter(Boolean))].slice(0, SKILL_MAX_FILES);
-}
 
-function parseStoredSkillFiles(value) {
-  let stored = value;
-  if (typeof stored === 'string') {
-    try { stored = JSON.parse(stored || '[]'); } catch (_) { stored = []; }
-  }
-  if (Array.isArray(stored)) {
-    const runtimeFiles = normalizeSkillRuntimeFiles(stored);
-    return { files: skillFileNames(runtimeFiles, stored), runtimeFiles, fileManifest: [], complete: stored.length === 0 };
-  }
-  if (!stored || typeof stored !== 'object') return { files: [], runtimeFiles: {}, fileManifest: [] };
-  const legacyNames = Array.isArray(stored.files) ? stored.files : Array.isArray(stored.names) ? stored.names : [];
-  const runtimeFiles = normalizeSkillRuntimeFiles(stored.runtimeFiles || (stored.files && !Array.isArray(stored.files) ? stored.files : {}), legacyNames);
-  const fileManifest = Array.isArray(stored.fileManifest) ? stored.fileManifest.slice(0, SKILL_MAX_FILES).map(item => ({
-    path: normalizeSkillFilePath(item && item.path),
-    type: item && item.type === 'binary' ? 'binary' : 'text',
-    size: Math.max(0, Number(item && item.size) || 0)
-  })).filter(item => item.path) : [];
-  const names = skillFileNames(runtimeFiles, legacyNames);
-  const complete = skillRuntimeFilesComplete(names, runtimeFiles, fileManifest);
-  return { files: names, runtimeFiles, fileManifest, complete };
-}
 
-function skillRuntimeFilesComplete(files, runtimeFiles, fileManifest) {
-  const manifestByPath = new Map((Array.isArray(fileManifest) ? fileManifest : []).map(item => [item.path, item]));
-  return !files.length || files.every(filePath => typeof (runtimeFiles || {})[filePath] === 'string' || manifestByPath.get(filePath)?.type === 'binary');
-}
 
-function serializeSkillFiles(skill) {
-  const runtimeFiles = normalizeSkillRuntimeFiles(skill && skill.runtimeFiles, skill && skill.files, { strict: true });
-  const files = skillFileNames(runtimeFiles, skill && skill.files);
-  const fileManifest = Array.isArray(skill && skill.fileManifest) && skill.fileManifest.length ? skill.fileManifest : files.map(filePath => ({ path: filePath, type: runtimeFiles[filePath] === null ? 'unknown' : 'text', size: runtimeFiles[filePath] == null ? 0 : Buffer.byteLength(runtimeFiles[filePath], 'utf8') }));
-  return JSON.stringify({ version: 2, files, runtimeFiles, fileManifest });
-}
 
-function makeOpenSkill(body, existing, ownerEmail) {
-  const source = body && typeof body === 'object' ? body : {};
-  const name = String(source.name !== undefined ? source.name : (existing && existing.name) || '').replace(/\u0000/g, '').trim().slice(0, 120);
-  const description = String(source.description !== undefined ? source.description : (existing && existing.description) || '').replace(/\u0000/g, '').trim().slice(0, 500);
-  const instruction = String(source.instruction !== undefined ? source.instruction : (existing && existing.instruction) || '').replace(/\u0000/g, '').trim().slice(0, 1000000);
-  const owner = String(existing && existing.ownerEmail || ownerEmail || '').trim().toLowerCase();
-  if (!owner) throw requestError(400, '缺少 Skill 所属账户');
-  if (!name || !instruction) throw requestError(400, 'Skill 名称和指令内容不能为空');
-  const rawStatus = String(source.status !== undefined ? source.status : (existing && existing.status) || 'published').trim().toLowerCase();
-  const status = rawStatus === 'withdrawn' ? 'withdrawn' : 'published';
-  const runtimeFiles = normalizeSkillRuntimeFiles(source.runtimeFiles !== undefined ? source.runtimeFiles : (existing && existing.runtimeFiles), source.files !== undefined ? source.files : (existing && existing.files), { strict: true });
-  const files = skillFileNames(runtimeFiles, source.files !== undefined ? source.files : (existing && existing.files));
-  const fileManifest = Array.isArray(source.fileManifest) ? source.fileManifest : (existing && existing.fileManifest) || [];
-  return decorateSkillPrompt({
-    id: existing ? existing.id : 'open-' + Date.now().toString(36) + crypto.randomBytes(4).toString('hex'),
-    ownerEmail: owner,
-    name,
-    description,
-    instruction,
-    files,
-    runtimeFiles,
-    fileManifest,
-    complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest),
-    status,
-    downloads: Math.max(0, Math.floor(Number(existing && existing.downloads) || 0)),
-    createdAt: existing ? Number(existing.createdAt) || Date.now() : Date.now(),
-    updatedAt: Date.now()
-  });
-}
 
-function openSkillFromDbRow(row) {
-  const storedFiles = parseStoredSkillFiles(row.files_json);
-  return decorateSkillPrompt({
-    id: row.id,
-    ownerEmail: row.owner_email,
-    name: row.name,
-    description: row.description,
-    instruction: row.instruction,
-    files: storedFiles.files,
-    runtimeFiles: storedFiles.runtimeFiles,
-    fileManifest: storedFiles.fileManifest,
-    complete: storedFiles.complete,
-    status: row.status === 'withdrawn' ? 'withdrawn' : 'published',
-    downloads: Math.max(0, Number(row.downloads) || 0),
-    createdAt: Number(row.created_at) || 0,
-    updatedAt: Number(row.updated_at) || 0
-  });
-}
 
-function loadOpenSkills() {
-  if (openSkillsCache && Date.now() - openSkillsCacheAt < SKILL_CACHE_TTL_MS) return openSkillsCache;
-  if (dbReady()) {
-    openSkillsCache = db.prepare(`SELECT id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at
-      FROM open_skills ORDER BY updated_at DESC`).all().map(openSkillFromDbRow);
-    openSkillsCacheAt = Date.now();
-    return openSkillsCache;
-  }
-  const data = readJsonFile(OPEN_SKILLS_FILE, []);
-  openSkillsCache = Array.isArray(data) ? data.filter(skill => skill && skill.id && skill.ownerEmail && skill.name && skill.instruction).map(skill => {
-    const runtimeFiles = normalizeSkillRuntimeFiles(skill.runtimeFiles, skill.files);
-    const files = skillFileNames(runtimeFiles, skill.files);
-    const fileManifest = Array.isArray(skill.fileManifest) ? skill.fileManifest : [];
-    return decorateSkillPrompt({
-      id: String(skill.id), ownerEmail: String(skill.ownerEmail).toLowerCase(), name: String(skill.name), description: String(skill.description || ''), instruction: String(skill.instruction), files, runtimeFiles, fileManifest,
-      complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest), status: skill.status === 'withdrawn' ? 'withdrawn' : 'published', downloads: Math.max(0, Number(skill.downloads) || 0), createdAt: Number(skill.createdAt) || 0, updatedAt: Number(skill.updatedAt) || 0
-    });
-  }) : [];
-  openSkillsCacheAt = Date.now();
-  return openSkillsCache;
-}
 
-function saveOpenSkills(skills) {
-  const list = Array.isArray(skills) ? skills : [];
-  if (dbReady()) {
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      db.exec('DELETE FROM open_skills');
-      const insert = db.prepare(`INSERT INTO open_skills
-        (id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-      list.forEach(skill => {
-        if (!skill || !skill.id || !skill.ownerEmail || !skill.name || !skill.instruction) return;
-        insert.run(String(skill.id), String(skill.ownerEmail).toLowerCase(), String(skill.name).slice(0, 120), String(skill.description || '').slice(0, 500), String(skill.instruction).slice(0, 1000000), serializeSkillFiles(skill), skill.status === 'withdrawn' ? 'withdrawn' : 'published', Math.max(0, Math.floor(Number(skill.downloads) || 0)), Number(skill.createdAt) || Date.now(), Number(skill.updatedAt) || Date.now());
-      });
-      db.exec('COMMIT');
-    } catch (error) {
-      try { db.exec('ROLLBACK'); } catch (_) {}
-      throw error;
-    }
-    openSkillsCache = list;
-    openSkillsCacheAt = Date.now();
-    return;
-  }
-  writeJsonFile(OPEN_SKILLS_FILE, list);
-  openSkillsCache = list;
-  openSkillsCacheAt = Date.now();
-}
 
-function invalidateOpenSkillsCache() {
-  openSkillsCache = null;
-  openSkillsCacheAt = 0;
-}
 
-function findOpenSkill(id) {
-  const key = String(id || '');
-  if (!key) return null;
-  if (dbReady()) {
-    const row = db.prepare(`SELECT id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at
-      FROM open_skills WHERE id = ?`).get(key);
-    return row ? openSkillFromDbRow(row) : null;
-  }
-  return loadOpenSkills().find(skill => skill.id === key) || null;
-}
 
-function openSkillAuthorName(email) {
-  const user = getUserByEmail(email);
-  const name = String(user && user.name || '').trim();
-  return name ? name.slice(0, 24) : '墨阑作者';
-}
 
-function openSkillListView(skill, auth) {
-  const isOwner = !!(auth && auth.user && String(auth.user.email || '').toLowerCase() === String(skill.ownerEmail || '').toLowerCase());
-  return {
-    id: skill.id,
-    name: skill.name,
-    description: skill.description,
-    author: openSkillAuthorName(skill.ownerEmail),
-    downloads: skill.downloads,
-    status: skill.status,
-    createdAt: skill.createdAt,
-    updatedAt: skill.updatedAt,
-    isOwner,
-    editable: isOwner || !!(auth && isAdminUser(auth.user))
-  };
-}
 
-function openSkillDetailView(skill, auth) {
-  const isOwner = !!(auth && auth.user && String(auth.user.email || '').toLowerCase() === String(skill.ownerEmail || '').toLowerCase());
-  const canReadInstruction = isOwner || !!(auth && isAdminUser(auth.user));
-  const detail = {
-    ...openSkillListView(skill, auth),
-    files: skillFileNames(skill.runtimeFiles, skill.files),
-    fileManifest: Array.isArray(skill.fileManifest) ? skill.fileManifest : [],
-    complete: skill.complete !== false
-  };
-  // Published Skill content is intentionally public; withdrawn/private Skill
-  // details remain restricted to the owner/administrator.
-  if (skill.status === 'published' || canReadInstruction) {
-    detail.instruction = skill.instruction;
-    detail.runtimeFiles = normalizeSkillRuntimeFiles(skill.runtimeFiles, skill.files);
-  }
-  return detail;
-}
 
-function canViewOpenSkill(skill, auth) {
-  if (!skill) return false;
-  if (skill.status === 'published') return true;
-  return !!(auth && auth.user && (String(auth.user.email || '').toLowerCase() === String(skill.ownerEmail || '').toLowerCase() || isAdminUser(auth.user)));
-}
 
-function openSkillRecordValues(skill) {
-  return [skill.id, skill.ownerEmail, skill.name, skill.description, skill.instruction, serializeSkillFiles(skill), skill.status === 'withdrawn' ? 'withdrawn' : 'published', Math.max(0, Math.floor(Number(skill.downloads) || 0)), Number(skill.createdAt) || Date.now(), Number(skill.updatedAt) || Date.now()];
-}
 
-function insertOpenSkill(skill) {
-  if (dbReady()) {
-    db.prepare(`INSERT INTO open_skills
-      (id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(...openSkillRecordValues(skill));
-    invalidateOpenSkillsCache();
-    return;
-  }
-  const list = loadOpenSkills();
-  list.unshift(skill);
-  saveOpenSkills(list);
-}
 
-function updateOpenSkill(skill) {
-  if (dbReady()) {
-    db.prepare(`UPDATE open_skills SET name = ?, description = ?, instruction = ?, files_json = ?, status = ?, updated_at = ? WHERE id = ?`).run(
-    skill.name, skill.description, skill.instruction, serializeSkillFiles(skill), skill.status, skill.updatedAt, skill.id
-    );
-    invalidateOpenSkillsCache();
-    return;
-  }
-  const list = loadOpenSkills();
-  const index = list.findIndex(item => item.id === skill.id);
-  if (index >= 0) list[index] = skill;
-  saveOpenSkills(list);
-}
 
-function deleteOpenSkill(id) {
-  if (dbReady()) {
-    const result = db.prepare('DELETE FROM open_skills WHERE id = ?').run(String(id));
-    invalidateOpenSkillsCache();
-    return Number(result.changes || 0);
-  }
-  const list = loadOpenSkills();
-  const next = list.filter(skill => skill.id !== String(id));
-  if (next.length !== list.length) saveOpenSkills(next);
-  return list.length - next.length;
-}
 
-function makeDownloadedSkillId(email, name, exists) {
-  const userHash = crypto.createHash('sha256').update(String(email).toLowerCase()).digest('hex').slice(0, 12);
-  const slug = String(name || 'skill').trim().replace(/[^A-Za-z0-9_\u4e00-\u9fa5-]/g, '').slice(0, 60) || 'skill';
-  const base = 'user-' + userHash + '-' + slug;
-  let id = base;
-  let index = 0;
-  while (exists(id)) {
-    index += 1;
-    id = base + '-copy-' + index;
-  }
-  return id;
-}
 
-function downloadOpenSkillForUser(skill, email) {
-  const owner = String(email || '').trim().toLowerCase();
-  const now = Date.now();
-  const description = String(skill.description || '').slice(0, 500);
-  const instruction = String(skill.instruction || '').slice(0, 1000000);
-  if (dbReady()) {
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      const id = makeDownloadedSkillId(owner, skill.name, value => !!db.prepare('SELECT 1 FROM user_skills WHERE user_email = ? AND id = ?').get(owner, value));
-      db.prepare(`INSERT INTO user_skills (user_email, id, name, description, instruction, files_json, size, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(owner, id, skill.name, description, instruction, serializeSkillFiles(skill), instruction.length, now);
-      db.prepare('UPDATE open_skills SET downloads = downloads + 1 WHERE id = ?').run(skill.id);
-      db.exec('COMMIT');
-      userSkillRecordsCache = null; userSkillRecordsCacheAt = 0; invalidateOpenSkillsCache();
-      const copiedFiles = skillFileNames(skill.runtimeFiles, skill.files);
-      const copiedRuntimeFiles = normalizeSkillRuntimeFiles(skill.runtimeFiles, skill.files);
-      const copiedManifest = skill.fileManifest || [];
-      return decorateSkillPrompt({ id, name: skill.name, description, instruction, files: copiedFiles, runtimeFiles: copiedRuntimeFiles, fileManifest: copiedManifest, complete: skillRuntimeFilesComplete(copiedFiles, copiedRuntimeFiles, copiedManifest), size: instruction.length, updatedAt: now });
-    } catch (error) {
-      try { db.exec('ROLLBACK'); } catch (_) {}
-      throw error;
-    }
-  }
-  const all = loadAllUserSkillRecords();
-  const list = Array.isArray(all[owner]) ? all[owner] : [];
-  const id = makeDownloadedSkillId(owner, skill.name, value => list.some(item => item && item.id === value));
-  const runtimeFiles = normalizeSkillRuntimeFiles(skill.runtimeFiles, skill.files);
-  const files = skillFileNames(runtimeFiles, skill.files);
-  const fileManifest = skill.fileManifest || [];
-  const record = decorateSkillPrompt({ id, name: skill.name, description, instruction, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest), size: instruction.length, updatedAt: now });
-  list.push(record); all[owner] = list; saveAllUserSkillRecords(all);
-  const openList = loadOpenSkills();
-  const source = openList.find(item => item.id === skill.id);
-  if (source) source.downloads += 1;
-  saveOpenSkills(openList);
-  return record;
-}
 
-function parseOpenSkillListParams(req) {
-  const params = new URL(req.url, 'http://localhost').searchParams;
-  const page = Math.max(1, Math.floor(Number(params.get('page')) || 1));
-  const pageSize = Math.min(50, Math.max(1, Math.floor(Number(params.get('pageSize')) || 12)));
-  const query = String(params.get('q') || '').trim().slice(0, 120);
-  const sort = params.get('sort') === 'downloads' ? 'downloads' : 'updated';
-  const scope = params.get('scope') === 'mine' ? 'mine' : 'public';
-  return { page, pageSize, query, sort, scope };
-}
 
-function handleOpenSkillList(req, res) {
-  if (!requireSqliteForPublic(req, res)) return;
-  const auth = getAuthUser(req);
-  let params;
-  try { params = parseOpenSkillListParams(req); } catch (error) { return respondError(res, error); }
-  if (params.scope === 'mine' && !auth) return json(res, 401, { error: '请先登录后查看自己的开放 Skill' });
-  const owner = auth && auth.user ? String(auth.user.email || '').trim().toLowerCase() : '';
-  if (dbReady()) {
-    const conditions = [params.scope === 'mine' ? 'owner_email = ?' : "status = 'published'"];
-    const args = [ ...(params.scope === 'mine' ? [owner] : []) ];
-    if (params.query) {
-      const like = '%' + params.query.toLowerCase().replace(/[\\%_]/g, '\\$&') + '%';
-      conditions.push("(LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(description) LIKE ? ESCAPE '\\' OR LOWER(id) LIKE ? ESCAPE '\\')");
-      args.push(like, like, like);
-    }
-    const where = 'WHERE ' + conditions.join(' AND ');
-    const total = Number(db.prepare('SELECT COUNT(*) AS n FROM open_skills ' + where).get(...args).n) || 0;
-    const order = params.sort === 'downloads' ? 'downloads DESC, updated_at DESC' : 'updated_at DESC';
-    const rows = db.prepare(`SELECT id, owner_email, name, description, status, downloads, created_at, updated_at
-      FROM open_skills ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...args, params.pageSize, (params.page - 1) * params.pageSize);
-    return json(res, 200, { ok: true, skills: rows.map(row => openSkillListView({ id: row.id, ownerEmail: row.owner_email, name: row.name, description: row.description, status: row.status, downloads: Number(row.downloads) || 0, createdAt: Number(row.created_at) || 0, updatedAt: Number(row.updated_at) || 0 }, auth)), pagination: { page: params.page, pageSize: params.pageSize, total, totalPages: Math.max(1, Math.ceil(total / params.pageSize)) } });
-  }
-  let list = loadOpenSkills().filter(skill => params.scope === 'mine' ? skill.ownerEmail === owner : skill.status === 'published');
-  if (params.query) {
-    const q = params.query.toLowerCase();
-    list = list.filter(skill => (skill.name + ' ' + skill.description + ' ' + skill.id).toLowerCase().includes(q));
-  }
-  list.sort((a, b) => params.sort === 'downloads' ? (b.downloads - a.downloads || b.updatedAt - a.updatedAt) : b.updatedAt - a.updatedAt);
-  const total = list.length;
-  const start = (params.page - 1) * params.pageSize;
-  json(res, 200, { ok: true, skills: list.slice(start, start + params.pageSize).map(skill => openSkillListView(skill, auth)), pagination: { page: params.page, pageSize: params.pageSize, total, totalPages: Math.max(1, Math.ceil(total / params.pageSize)) } });
-}
 
-function handleOpenSkillGet(req, res, id) {
-  if (!requireSqliteForPublic(req, res)) return;
-  const auth = getAuthUser(req);
-  let skillId;
-  try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-  const skill = findOpenSkill(skillId);
-  if (!canViewOpenSkill(skill, auth)) return json(res, 404, { error: '开放 Skill 不存在或已撤回' });
-  json(res, 200, { ok: true, skill: openSkillDetailView(skill, auth) });
-}
 
-function handleOpenSkillCreate(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录后发布开放 Skill' });
-  if (!requireSqliteForPublic(req, res)) return;
-  readBody(req).then(body => {
-    const skill = makeOpenSkill(body, null, auth.user.email);
-    insertOpenSkill(skill);
-    if (isAdminUser(auth.user)) appendAdminAudit(auth.user.email, 'open-skill.create', skill.id, { owner: skill.ownerEmail, name: skill.name });
-    json(res, 200, { ok: true, skill: openSkillDetailView(skill, auth) });
-  }).catch(error => respondError(res, error));
-}
 
-function handleOpenSkillPatch(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录后修改开放 Skill' });
-  if (!requireSqliteForPublic(req, res)) return;
-  let skillId;
-  try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-  const existing = findOpenSkill(skillId);
-  if (!existing) return json(res, 404, { error: '开放 Skill 不存在' });
-  const owner = String(auth.user.email || '').toLowerCase() === String(existing.ownerEmail || '').toLowerCase();
-  if (!owner && !isAdminUser(auth.user)) return json(res, 403, { error: '只有 Skill 创建者或管理员可以修改' });
-  readBody(req).then(body => {
-    const skill = makeOpenSkill(body, existing, existing.ownerEmail);
-    updateOpenSkill(skill);
-    if (isAdminUser(auth.user)) appendAdminAudit(auth.user.email, 'open-skill.update', skill.id, { owner: skill.ownerEmail, name: skill.name, status: skill.status });
-    json(res, 200, { ok: true, skill: openSkillDetailView(skill, auth) });
-  }).catch(error => respondError(res, error));
-}
 
-function handleOpenSkillDelete(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录后撤回开放 Skill' });
-  if (!requireSqliteForPublic(req, res)) return;
-  let skillId;
-  try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-  const existing = findOpenSkill(skillId);
-  if (!existing) return json(res, 404, { error: '开放 Skill 不存在' });
-  const owner = String(auth.user.email || '').toLowerCase() === String(existing.ownerEmail || '').toLowerCase();
-  if (!owner && !isAdminUser(auth.user)) return json(res, 403, { error: '只有 Skill 创建者或管理员可以撤回' });
-  const changes = deleteOpenSkill(skillId);
-  if (!changes) return json(res, 404, { error: '开放 Skill 不存在' });
-  if (isAdminUser(auth.user)) appendAdminAudit(auth.user.email, 'open-skill.delete', skillId, { owner: existing.ownerEmail, name: existing.name });
-  json(res, 200, { ok: true, id: skillId });
-}
 
-function handleOpenSkillDownload(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录后下载 Skill' });
-  if (!requireSqliteForPublic(req, res)) return;
-  let skillId;
-  try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-  const source = findOpenSkill(skillId);
-  if (!canViewOpenSkill(source, auth)) return json(res, 404, { error: '开放 Skill 不存在或已撤回' });
-  try {
-    const skill = downloadOpenSkillForUser(source, auth.user.email);
-    json(res, 200, { ok: true, skill, source: { id: source.id, name: source.name, downloads: source.downloads + 1 } });
-  } catch (error) { respondError(res, error); }
-}
 
 function loadAdminAudit(limit = 100) {
   if (dbReady()) {
@@ -5840,6 +4857,9 @@ function issueToken(email, scope = 'client') {
   return token;
 }
 function getAuthUser(req, expectedScope = 'client') {
+  if (process.env.MOLAN_APP_STORE === 'json' && !POSTGRES_MODE) {
+    return nativeAuthService().getAuthUser(req, expectedScope);
+  }
   const auth = req.headers['authorization'] || '';
   const token = auth.replace(/^Bearer\s+/i, '').trim();
   if (!token || token.length > 256) return null;
@@ -6052,6 +5072,10 @@ function handleUsage(req, res) {
     const value = Number(new URL(req.url, 'http://localhost').searchParams.get('limit'));
     if (Number.isFinite(value)) limit = Math.min(100, Math.max(1, Math.floor(value)));
   } catch (_) {}
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
+    return nativeUsageSummary(a.user.userId, limit).then(usage => json(res, 200, { ok: true, usage }))
+      .catch(error => respondError(res, error));
+  }
   json(res, 200, { ok: true, usage: getUsageSummary(a.user.email, limit) });
 }
 
@@ -6224,19 +5248,6 @@ function handleCorrectionLibraryMerge(req, res) {
 }
 
 /** GET /api/admin/correction-library：后台命中看板 + 待合并回流条目。 */
-function handleAdminCorrectionLibrary(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  const library = getCorrectionLibrary();
-  const hits = loadCorrectionHits();
-  const rules = Object.entries(hits.rules || {}).map(([id, entry]) => ({ id, ...entry })).sort((a, b) => b.hits - a.hits);
-  json(res, 200, {
-    ok: true,
-    library: correctionLibrarySummary(library),
-    hits: { totalRequests: hits.totalRequests || 0, passedRequests: hits.passedRequests || 0, updatedAt: hits.updatedAt || 0, rules },
-    inbox: correctionLibraryLib.readInbox(CORRECTION_INBOX_FILE).slice(-200)
-  });
-}
 
 /** 退出登录：POST /api/auth/logout 或 POST /api/admin/auth/logout */
 function handleLogout(req, res, expectedScope = 'client') {
@@ -6284,66 +5295,10 @@ function handleLogoutAll(req, res) {
   json(res, 200, { ok: true, removed });
 }
 
-function requireAdmin(req, res) {
-  const auth = getAuthUser(req, 'admin');
-  if (!auth) {
-    json(res, 401, { error: '请先登录' });
-    return null;
-  }
-  if (!requireSqliteForPublic(req, res)) return null;
-  if (!isAdminUser(auth.user)) {
-    json(res, 403, { error: '仅管理员可以访问管理后台' });
-    return null;
-  }
-  return auth;
-}
 
-function adminUserView(user, usageOverride) {
-  const role = normalizeUserRole(user);
-  const usage = usageOverride || getUsageSummary(user.email, false);
-  return {
-    email: user.email,
-    name: user.name || '',
-    role,
-    level: role,
-    credits: role === 'admin' ? null : Math.round((Number(user.credits) || 0) * 100) / 100,
-    unlimitedCredits: role === 'admin',
-    costMultiplier: role === 'admin' ? 0 : (role === 'vip' ? 1 : 2),
-    creditSpent: Math.round((Number(user.spent) || 0) * 100) / 100,
-    tokenUsage: usage,
-    createdAt: user.createdAt || null
-  };
-}
 
-function normalizeSkillTargets(value) {
-  const list = Array.isArray(value) ? value.map(v => String(v)) : [];
-  if (!list.length || list.includes('all')) return ['all'];
-  const out = [...new Set(list.filter(v => SKILL_TARGETS.has(v) && v !== 'all'))];
-  return out.length ? out : ['all'];
-}
 
-function makeGlobalSkill(body, existing) {
-  const name = String(body.name !== undefined ? body.name : (existing && existing.name) || '').trim().slice(0, 120);
-  const description = String(body.description !== undefined ? body.description : (existing && existing.description) || '').trim().slice(0, 500);
-  const instruction = String(body.instruction !== undefined ? body.instruction : (existing && existing.instruction) || '').trim().slice(0, 1000000);
-  if (!name || !instruction) throw new Error('Skill 名称和指令不能为空');
-  const runtimeFiles = normalizeSkillRuntimeFiles(body.runtimeFiles !== undefined ? body.runtimeFiles : (existing && existing.runtimeFiles), body.files !== undefined ? body.files : (existing && existing.files), { strict: true });
-  const files = skillFileNames(runtimeFiles, body.files !== undefined ? body.files : (existing && existing.files));
-  const fileManifest = Array.isArray(body.fileManifest) ? body.fileManifest : (existing && existing.fileManifest) || [];
-  return decorateSkillPrompt({
-    id: existing ? existing.id : 'global-' + Date.now().toString(36) + crypto.randomBytes(4).toString('hex'),
-    name, description, instruction, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest),
-    targets: normalizeSkillTargets(body.targets !== undefined ? body.targets : (existing && existing.targets)),
-    enabled: body.enabled === undefined ? (existing ? existing.enabled !== false : true) : body.enabled !== false,
-    global: true,
-    createdAt: existing ? existing.createdAt : Date.now(),
-    updatedAt: Date.now()
-  });
-}
 
-function builtinSkillsForAdmin() {
-  return loadBuiltinSkills().map(skill => ({ ...skill, editable: false, global: false, source: 'builtin' }));
-}
 
 function globalUsageSummary() {
   if (dbReady()) {
@@ -6379,189 +5334,12 @@ function globalUsageSummary() {
   return summary;
 }
 
-function handleAdminOverview(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  if (!requireSqliteForPublic(req, res)) return;
-  let page = 1, pageSize = 100, query = '', roleFilter = 'all';
-  try {
-    const params = new URL(req.url, 'http://localhost').searchParams;
-    page = Math.max(1, Math.floor(Number(params.get('page')) || 1));
-    pageSize = Math.min(200, Math.max(20, Math.floor(Number(params.get('pageSize')) || 100)));
-    query = String(params.get('q') || '').trim().slice(0, 120);
-    roleFilter = String(params.get('role') || 'all').trim().toLowerCase();
-    if (!ACCOUNT_ROLES.has(roleFilter) && roleFilter !== 'all') roleFilter = 'all';
-  } catch (_) {}
-  const usageByUser = getUsageSummariesByUser();
-  let users = [];
-  let totalUsers = 0;
-  const counts = { admin: 0, vip: 0, normal: 0 };
-  if (dbReady()) {
-    const rows = db.prepare('SELECT role, COUNT(*) AS n FROM accounts GROUP BY role').all();
-    rows.forEach(row => { const key = ACCOUNT_ROLES.has(String(row.role)) ? String(row.role) : 'normal'; counts[key] += Number(row.n) || 0; });
-    const where = [], args = [];
-    if (roleFilter !== 'all') { where.push('role = ?'); args.push(roleFilter); }
-    if (query) { where.push("(LOWER(email) LIKE ? ESCAPE '\\' OR LOWER(name) LIKE ? ESCAPE '\\')"); const like = '%' + query.toLowerCase().replace(/[\\%_]/g, '\\$&') + '%'; args.push(like, like); }
-    const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
-    totalUsers = Number(db.prepare('SELECT COUNT(*) AS n FROM accounts' + whereSql).get(...args).n) || 0;
-    const rowsPage = db.prepare(`SELECT email, name, avatar, salt, pwd, role, level, plan, credits, spent, created_at AS createdAt
-      FROM accounts${whereSql} ORDER BY created_at ASC LIMIT ? OFFSET ?`).all(...args, pageSize, (page - 1) * pageSize);
-    users = rowsPage.map(user => adminUserView(userFromDbRow(user), usageByUser.get(user.email)));
-  } else {
-    const allUsers = loadUsers().filter(Boolean);
-    allUsers.forEach(user => { const key = normalizeUserRole(user); counts[key] = (counts[key] || 0) + 1; });
-    const filtered = allUsers.filter(user => {
-      const matchesRole = roleFilter === 'all' || normalizeUserRole(user) === roleFilter;
-      const value = String(user.email || '') + ' ' + String(user.name || '');
-      return matchesRole && (!query || value.toLowerCase().includes(query.toLowerCase()));
-    });
-    totalUsers = filtered.length;
-    users = filtered.slice((page - 1) * pageSize, page * pageSize).map(user => adminUserView(user, usageByUser.get(user.email)));
-  }
-  const usage = globalUsageSummary();
-  const globals = loadGlobalSkills();
-  json(res, 200, {
-    ok: true,
-    stats: {
-      totalUsers: counts.admin + counts.vip + counts.normal,
-      adminUsers: counts.admin,
-      vipUsers: counts.vip,
-      normalUsers: counts.normal,
-      totalTokens: usage.totalTokens,
-      requestCount: usage.requestCount,
-      creditSpent: usage.creditSpent,
-      cacheHitRate: usage.cacheHitRate
-    },
-    pagination: { page, pageSize, total: totalUsers, totalPages: Math.max(1, Math.ceil(totalUsers / pageSize)), query, role: roleFilter },
-    usage,
-    users,
-    skills: { global: globals.length, enabled: globals.filter(s => s.enabled !== false).length, builtin: builtinSkillsForAdmin().length },
-    audit: loadAdminAudit(8)
-  });
-}
 
-function handleAdminUserPatch(req, res, email) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  let targetEmail;
-  try { targetEmail = decodePathParam(email).trim().toLowerCase(); }
-  catch (e) { return respondError(res, e); }
-  const users = loadUsers();
-  const user = users.find(u => String(u.email || '').toLowerCase() === targetEmail);
-  if (!user) return json(res, 404, { error: '用户不存在' });
-  readBody(req).then(async body => {
-    const currentRole = normalizeUserRole(user);
-    const nextRole = body.role === undefined ? currentRole : String(body.role).trim().toLowerCase();
-    if (!ACCOUNT_ROLES.has(nextRole)) throw new Error('用户等级只能是 admin、vip 或 normal');
-    if (isConfiguredAdminEmail(user.email) && nextRole !== 'admin') throw new Error('系统管理员邮箱不能降级');
-    if (currentRole === 'admin' && nextRole !== 'admin') {
-      const adminCount = users.filter(u => normalizeUserRole(u) === 'admin').length;
-      if (adminCount <= 1) throw new Error('不能删除最后一个管理员');
-    }
-    if (body.name !== undefined) {
-      const name = String(body.name).trim().slice(0, 24);
-      if (!name) throw new Error('用户名称不能为空');
-      user.name = name;
-    }
-    if (body.credits !== undefined) {
-      const credits = Number(body.credits);
-      if (!Number.isFinite(credits) || credits < 0 || credits > 1000000000000) throw new Error('积分必须是 0 到 1e12 之间的数字');
-      user.credits = Math.round(credits * 100) / 100;
-    } else if (currentRole === 'admin' && nextRole !== 'admin' && !Number.isFinite(Number(user.credits))) {
-      user.credits = 500;
-    }
-    user.role = nextRole;
-    user.level = nextRole;
-    user.plan = nextRole;
-    // Persist only the edited account so a concurrent AI settlement cannot
-    // be overwritten by a stale full-user snapshot.
-    if (POSTGRES_MODE) {
-      const row = await postgresRepository.runtimeUpdateAccount({
-        actorUserId: auth.user.userId,
-        userId: user.userId,
-        name: user.name,
-        avatar: user.avatar,
-        bio: user.bio,
-        defaultModel: user.defaultModel,
-        salt: user.salt,
-        pwd: user.pwd,
-        role: user.role,
-        level: user.level,
-        plan: user.plan,
-        credits: user.credits,
-        spent: user.spent,
-        createdAtText: user.createdAt,
-        preserveFinancials: body.credits === undefined
-      });
-      const saved = cachePostgresRuntimeUser(postgresRuntimeUserFromRow(row));
-      if (saved && saved !== user) Object.assign(user, saved);
-    } else {
-      saveUser(user, auth.user.userId);
-    }
-    appendAdminAudit(auth.user.email, 'user.update', user.email, { role: nextRole, name: user.name, credits: user.credits });
-    json(res, 200, { ok: true, user: adminUserView(user) });
-  }).catch(e => respondError(res, e));
-}
 
-function handleAdminSkills(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  const globals = loadGlobalSkills().map(s => ({ ...s, editable: true, source: 'global', global: true }));
-  json(res, 200, { ok: true, skills: [...globals, ...builtinSkillsForAdmin()], targets: [...SKILL_TARGETS] });
-}
 
-function handleAdminSkillCreate(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  readBody(req).then(body => {
-    const skill = makeGlobalSkill(body || {});
-    const skills = loadGlobalSkills();
-    skills.unshift(skill);
-    saveGlobalSkills(skills);
-    appendAdminAudit(auth.user.email, 'skill.create', skill.id, { name: skill.name, targets: skill.targets });
-    json(res, 200, { ok: true, skill });
-  }).catch(e => respondError(res, e));
-}
 
-function handleAdminSkillPatch(req, res, id) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  let skillId;
-  try { skillId = decodePathParam(id); }
-  catch (e) { return respondError(res, e); }
-  const skills = loadGlobalSkills();
-  const index = skills.findIndex(s => s.id === skillId);
-  if (index < 0) return json(res, 404, { error: '全局 Skill 不存在或不可编辑' });
-  readBody(req).then(body => {
-    const skill = makeGlobalSkill(body || {}, skills[index]);
-    skills[index] = skill;
-    saveGlobalSkills(skills);
-    appendAdminAudit(auth.user.email, 'skill.update', skill.id, { name: skill.name, enabled: skill.enabled, targets: skill.targets });
-    json(res, 200, { ok: true, skill });
-  }).catch(e => respondError(res, e));
-}
 
-function handleAdminSkillDelete(req, res, id) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  let skillId;
-  try { skillId = decodePathParam(id); }
-  catch (e) { return respondError(res, e); }
-  const skills = loadGlobalSkills();
-  const index = skills.findIndex(s => s.id === skillId);
-  if (index < 0) return json(res, 404, { error: '全局 Skill 不存在或不可编辑' });
-  const [removed] = skills.splice(index, 1);
-  saveGlobalSkills(skills);
-  appendAdminAudit(auth.user.email, 'skill.delete', skillId, { name: removed.name });
-  json(res, 200, { ok: true, id: skillId });
-}
 
-function handleAdminAudit(req, res) {
-  if (!requireAdmin(req, res)) return;
-  let limit = 50;
-  try { limit = Number(new URL(req.url, 'http://localhost').searchParams.get('limit')) || 50; } catch (_) {}
-  json(res, 200, { ok: true, audit: loadAdminAudit(limit) });
-}
 
 /** Load the versioned character-material quality report for administrator review. */
 function loadCharacterMaterialAuditReport() {
@@ -6699,325 +5477,13 @@ function handleCharacterMaterialAuditPatch(req, res) {
 /* ===================== 管理员数据中心 ===================== */
 const ADMIN_DATA_TYPES = new Set(['accounts', 'novels', 'user-skills', 'global-skills', 'open-skills', 'builtin-skills', 'token-usage', 'dissections']);
 
-function adminDataType(value) {
-  const type = String(value || '').trim().toLowerCase();
-  if (!ADMIN_DATA_TYPES.has(type)) throw requestError(400, '不支持的数据类型');
-  return type;
-}
 
-function adminDataJson(value, label, maxBytes = 5 * 1024 * 1024) {
-  const text = JSON.stringify(value == null ? {} : value);
-  if (Buffer.byteLength(text, 'utf8') > maxBytes) throw requestError(413, label + '数据过大');
-  return text;
-}
 
-function adminAccountRecord(row) {
-  const user = row && row.email ? row : getUserByEmail(row);
-  if (!user) return null;
-  const role = normalizeUserRole(user);
-  return {
-    email: user.email,
-    name: user.name || '',
-    avatar: storedAvatar(user.avatar),
-    role,
-    level: role,
-    plan: role,
-    credits: role === 'admin' ? null : roundCreditValue(user.credits),
-    spent: roundCreditValue(user.spent),
-    createdAt: user.createdAt || null,
-    unlimitedCredits: role === 'admin'
-  };
-}
 
-function adminUsageRecord(row) {
-  const skillAudit = storedSkillAudit(row.skill_audit_json);
-  return {
-    requestId: row.request_id,
-    userEmail: row.user_email,
-    modelId: row.model_id,
-    providerModel: row.provider_model,
-    promptTokens: row.prompt_tokens == null ? null : Number(row.prompt_tokens),
-    completionTokens: row.completion_tokens == null ? null : Number(row.completion_tokens),
-    reasoningTokens: row.reasoning_tokens == null ? null : Number(row.reasoning_tokens),
-    totalTokens: row.total_tokens == null ? null : Number(row.total_tokens),
-    cachedTokens: row.cached_tokens == null ? null : Number(row.cached_tokens),
-    cacheWriteTokens: row.cache_write_tokens == null ? null : Number(row.cache_write_tokens),
-    usageSource: row.usage_source,
-    status: row.status,
-    createdAt: Number(row.created_at) || 0,
-    durationMs: Number(row.duration_ms) || 0,
-    creditCost: roundCreditValue(row.credit_cost),
-    reservedCost: roundCreditValue(row.reserved_cost),
-    skillIds: skillIdsFromAudit(row.skill_ids_json || skillAudit),
-    skillAudit,
-    correctionAudit: skillAudit.correctionAudit || emptyCorrectionAudit(false),
-    messagesHash: String(row.messages_sha256 || skillAudit.promptHash || '').slice(0, 64)
-  };
-}
 
-function adminDataList(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  if (!dbReady()) return json(res, 503, { error: '云端数据库不可用' });
-  let type, page = 1, pageSize = 50, query = '';
-  try {
-    const params = new URL(req.url, 'http://localhost').searchParams;
-    type = adminDataType(params.get('type'));
-    page = Math.max(1, Math.floor(Number(params.get('page')) || 1));
-    pageSize = Math.min(100, Math.max(10, Math.floor(Number(params.get('pageSize')) || 50)));
-    query = String(params.get('q') || '').trim().slice(0, 120);
-  } catch (error) { return respondError(res, error); }
-  const like = '%' + query.toLowerCase().replace(/[\\%_]/g, '\\$&') + '%';
-  let rows = [], total = 0;
-  const offset = (page - 1) * pageSize;
-  if (type === 'accounts') {
-    const condition = query ? "WHERE LOWER(email) LIKE ? ESCAPE '\\' OR LOWER(name) LIKE ? ESCAPE '\\'" : '';
-    const args = query ? [like, like] : [];
-    total = Number(db.prepare('SELECT COUNT(*) AS n FROM accounts ' + condition).get(...args).n) || 0;
-    rows = db.prepare(`SELECT email, name, role, credits, spent, created_at AS createdAt
-      FROM accounts ${condition} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...args, pageSize, offset).map(row => ({
-      id: row.email, owner: row.email, title: row.name || row.email, status: normalizeUserRole(row),
-      summary: '积分 ' + (normalizeUserRole(row) === 'admin' ? '无限' : roundCreditValue(row.credits)),
-      updatedAt: row.createdAt, size: 0
-    }));
-  } else if (type === 'novels') {
-    const condition = query ? "WHERE LOWER(title) LIKE ? ESCAPE '\\' OR LOWER(user_email) LIKE ? ESCAPE '\\'" : '';
-    const args = query ? [like, like] : [];
-    total = Number(db.prepare('SELECT COUNT(*) AS n FROM novels ' + condition).get(...args).n) || 0;
-    rows = db.prepare(`SELECT id, user_email, title, word_count, revision, created_at, updated_at, LENGTH(state_json) AS size
-      FROM novels ${condition} ORDER BY updated_at DESC LIMIT ? OFFSET ?`).all(...args, pageSize, offset).map(row => ({
-      id: row.id, owner: row.user_email, title: row.title, status: 'revision ' + (Number(row.revision) || 0),
-      summary: (Number(row.word_count) || 0) + ' 字', updatedAt: row.updated_at, createdAt: row.created_at, size: Number(row.size) || 0
-    }));
-  } else if (type === 'user-skills') {
-    const condition = query ? "WHERE LOWER(user_email) LIKE ? ESCAPE '\\' OR LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(id) LIKE ? ESCAPE '\\'" : '';
-    const args = query ? [like, like, like] : [];
-    total = Number(db.prepare('SELECT COUNT(*) AS n FROM user_skills ' + condition).get(...args).n) || 0;
-    rows = db.prepare(`SELECT user_email, id, name, description, size, updated_at
-      FROM user_skills ${condition} ORDER BY updated_at DESC LIMIT ? OFFSET ?`).all(...args, pageSize, offset).map(row => ({
-      id: row.id, owner: row.user_email, title: row.name, status: '用户 Skill', summary: row.description || '无描述',
-      updatedAt: row.updated_at, size: Number(row.size) || 0
-    }));
-  } else if (type === 'global-skills') {
-    const condition = query ? "WHERE LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(id) LIKE ? ESCAPE '\\'" : '';
-    const args = query ? [like, like] : [];
-    total = Number(db.prepare('SELECT COUNT(*) AS n FROM global_skills ' + condition).get(...args).n) || 0;
-    rows = db.prepare(`SELECT id, name, description, enabled, created_at, updated_at, LENGTH(instruction) AS size
-      FROM global_skills ${condition} ORDER BY updated_at DESC LIMIT ? OFFSET ?`).all(...args, pageSize, offset).map(row => ({
-      id: row.id, title: row.name, status: row.enabled ? '启用' : '停用', summary: row.description || '无描述',
-      updatedAt: row.updated_at, createdAt: row.created_at, size: Number(row.size) || 0
-    }));
-  } else if (type === 'open-skills') {
-    const condition = query ? "WHERE LOWER(owner_email) LIKE ? ESCAPE '\\' OR LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(id) LIKE ? ESCAPE '\\'" : '';
-    const args = query ? [like, like, like] : [];
-    total = Number(db.prepare('SELECT COUNT(*) AS n FROM open_skills ' + condition).get(...args).n) || 0;
-    rows = db.prepare(`SELECT id, owner_email, name, status, downloads, updated_at, LENGTH(instruction) AS size
-      FROM open_skills ${condition} ORDER BY updated_at DESC LIMIT ? OFFSET ?`).all(...args, pageSize, offset).map(row => ({
-      id: row.id, owner: row.owner_email, title: row.name, status: row.status === 'published' ? '已发布' : '已撤回', summary: (Number(row.downloads) || 0) + ' 次下载',
-      updatedAt: row.updated_at, size: Number(row.size) || 0
-    }));
-  } else if (type === 'builtin-skills') {
-    const builtins = builtinSkillsForAdmin().filter(skill => !query || String(skill.name + ' ' + skill.id + ' ' + skill.description).toLowerCase().includes(query.toLowerCase()));
-    total = builtins.length;
-    rows = builtins.slice(offset, offset + pageSize).map(skill => ({
-      id: skill.id, title: skill.name, status: '源文件只读', summary: skill.description || '无描述',
-      updatedAt: null, size: Number(skill.size) || 0
-    }));
-  } else if (type === 'token-usage') {
-    const condition = query ? "WHERE LOWER(request_id) LIKE ? ESCAPE '\\' OR LOWER(user_email) LIKE ? ESCAPE '\\' OR LOWER(model_id) LIKE ? ESCAPE '\\'" : '';
-    const args = query ? [like, like, like] : [];
-    total = Number(db.prepare('SELECT COUNT(*) AS n FROM token_usage ' + condition).get(...args).n) || 0;
-    rows = db.prepare(`SELECT request_id, user_email, model_id, status, total_tokens, credit_cost, skill_ids_json, created_at
-      FROM token_usage ${condition} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...args, pageSize, offset).map(row => ({
-      skillCount: skillIdsFromAudit(row.skill_ids_json).length,
-      id: row.request_id, owner: row.user_email, title: row.model_id, status: row.status,
-      summary: (row.total_tokens == null ? 'Token 待结算' : Number(row.total_tokens) + ' Token') + ' · ' + roundCreditValue(row.credit_cost) + ' 积分' + (skillIdsFromAudit(row.skill_ids_json).length ? ' · Skill ' + skillIdsFromAudit(row.skill_ids_json).length : ''),
-      updatedAt: row.created_at, size: 0
-    }));
-  } else if (type === 'dissections') {
-    const condition = query ? "WHERE LOWER(id) LIKE ? ESCAPE '\\' OR LOWER(user_email) LIKE ? ESCAPE '\\' OR LOWER(title) LIKE ? ESCAPE '\\'" : '';
-    const args = query ? [like, like, like] : [];
-    total = Number(db.prepare('SELECT COUNT(*) AS n FROM dissections ' + condition).get(...args).n) || 0;
-    rows = db.prepare(`SELECT id, user_email, title, status, phase, progress, selected_model, actual_credits, created_at, updated_at, LENGTH(source_text) AS size
-      FROM dissections ${condition} ORDER BY updated_at DESC LIMIT ? OFFSET ?`).all(...args, pageSize, offset).map(row => ({
-      id: row.id, owner: row.user_email, title: row.title, status: row.status, summary: row.phase + ' · ' + (Number(row.progress) || 0) + '% · ' + roundCreditValue(row.actual_credits) + ' 积分',
-      updatedAt: row.updated_at, createdAt: row.created_at, size: Number(row.size) || 0, model: row.selected_model
-    }));
-  }
-  const params = new URL(req.url, 'http://localhost').searchParams;
-  const detailId = params.get('id');
-  if (detailId) {
-    return adminDataGetRecord(type, params, res);
-  }
-  json(res, 200, { ok: true, type, rows, pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) } });
-}
 
-function adminDataGetRecord(type, params, res) {
-  let record = null;
-  const id = String(params.get('id') || '');
-  if (type === 'accounts') record = adminAccountRecord(getUserByEmail(id));
-  else if (type === 'novels') {
-    const row = db.prepare('SELECT id, user_email, title, state_json, word_count, created_at, updated_at, revision FROM novels WHERE id = ?').get(id);
-    if (row) { let state = {}; try { state = JSON.parse(row.state_json); } catch (_) { state = {}; } record = { id: row.id, userEmail: row.user_email, title: row.title, wordCount: Number(row.word_count) || 0, createdAt: row.created_at, updatedAt: row.updated_at, revision: Number(row.revision) || 0, state }; }
-  } else if (type === 'user-skills') {
-    const owner = String(params.get('owner') || params.get('email') || '').trim().toLowerCase();
-    const skillId = String(params.get('skillId') || id);
-    const row = db.prepare('SELECT user_email, id, name, description, instruction, files_json, size, updated_at FROM user_skills WHERE user_email = ? AND id = ?').get(owner, skillId);
-    if (row) { const storedFiles = parseStoredSkillFiles(row.files_json); record = { owner: row.user_email, id: row.id, name: row.name, description: row.description, instruction: row.instruction, files: storedFiles.files, runtimeFiles: storedFiles.runtimeFiles, fileManifest: storedFiles.fileManifest, size: Number(row.size) || 0, updatedAt: row.updated_at }; }
-  } else if (type === 'global-skills') {
-    record = loadGlobalSkills().find(skill => skill.id === id) || null;
-  } else if (type === 'open-skills') {
-    const skill = findOpenSkill(id);
-    if (skill) record = { ...skill, owner: skill.ownerEmail, ownerEmail: skill.ownerEmail };
-  } else if (type === 'builtin-skills') {
-    record = builtinSkillsForAdmin().find(skill => skill.id === id) || null;
-  } else if (type === 'token-usage') {
-    const row = db.prepare('SELECT * FROM token_usage WHERE request_id = ?').get(id);
-    if (row) record = adminUsageRecord(row);
-  } else if (type === 'dissections') {
-    const row = db.prepare('SELECT * FROM dissections WHERE id = ?').get(id);
-    if (row) record = dissectionRecordFromDb(row);
-  }
-  if (!record) return json(res, 404, { error: '数据记录不存在' });
-  json(res, 200, { ok: true, type, record });
-}
 
-function adminDataPatch(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  if (!dbReady()) return json(res, 503, { error: '云端数据库不可用' });
-  readBody(req).then(body => {
-    const type = adminDataType(body && body.type);
-    const record = body && body.record && typeof body.record === 'object' ? body.record : body;
-    const id = String(body && body.id || record && (record.id || record.requestId || record.email) || '').trim();
-    let saved;
-    if (type === 'accounts') {
-      const current = getUserByEmail(id);
-      if (!current) throw requestError(404, '账户不存在');
-      const nextRole = record.role === undefined ? normalizeUserRole(current) : String(record.role).trim().toLowerCase();
-      if (!ACCOUNT_ROLES.has(nextRole)) throw new Error('账户等级不合法');
-      if (isConfiguredAdminEmail(current.email) && nextRole !== 'admin') throw new Error('系统管理员不能降级');
-      if (normalizeUserRole(current) === 'admin' && nextRole !== 'admin' && loadUsers().filter(item => normalizeUserRole(item) === 'admin').length <= 1) throw new Error('不能删除最后一个管理员');
-      if (record.name !== undefined) { current.name = String(record.name).trim().slice(0, 24); if (!current.name) throw new Error('用户名不能为空'); }
-      if (record.avatar !== undefined) current.avatar = normalizeAvatar(record.avatar, current.avatar);
-      if (record.credits !== undefined && nextRole !== 'admin') current.credits = roundCreditValue(record.credits);
-      if (record.spent !== undefined) current.spent = roundCreditValue(record.spent);
-      current.role = nextRole; current.level = nextRole; current.plan = nextRole;
-      saveUser(current); saved = adminAccountRecord(current);
-    } else if (type === 'novels') {
-      const current = db.prepare('SELECT * FROM novels WHERE id = ?').get(id);
-      if (!current) throw requestError(404, '作品不存在');
-      const state = record.state;
-      if (!state || typeof state !== 'object' || !Array.isArray(state.volumes)) throw new Error('作品 state 不合法');
-      const clean = sanitizeNovelStateForStorage(state);
-      const title = String(record.title || clean.title || '未命名小说').trim().slice(0, 200);
-      const owner = String(record.userEmail || current.user_email).trim().toLowerCase();
-      if (!getUserByEmail(owner)) throw new Error('作品所属账户不存在');
-      const stateJson = adminDataJson(clean, '作品', MAX_NOVEL_STATE_BYTES);
-      const now = Date.now();
-      const revision = Math.max(Number(current.revision) || 0, Number(record.revision) || 0) + 1;
-      db.prepare('UPDATE novels SET user_email = ?, title = ?, state_json = ?, word_count = ?, updated_at = ?, revision = ? WHERE id = ?').run(owner, title, stateJson, calcWordCount(clean), now, revision, id);
-      saved = { id, userEmail: owner, title, wordCount: calcWordCount(clean), createdAt: current.created_at, updatedAt: now, revision, state: clean };
-    } else if (type === 'user-skills') {
-      const owner = String(body.owner || record.owner || '').trim().toLowerCase();
-      const skillId = String(body.skillId || record.id || id).trim();
-      if (!owner || !skillId) throw new Error('用户 Skill 缺少所属账户或 id');
-      if (!getUserByEmail(owner)) throw new Error('Skill 所属账户不存在');
-      const allSkills = loadAllUserSkillRecords();
-      const list = Array.isArray(allSkills[owner]) ? allSkills[owner] : [];
-      const index = list.findIndex(item => item && item.id === skillId);
-      if (index < 0) throw requestError(404, '用户 Skill 不存在');
-      const current = list[index];
-      const instruction = String(record.instruction !== undefined ? record.instruction : current.instruction).replace(/\u0000/g, '').trim().slice(0, 200000);
-      if (!instruction) throw new Error('Skill 指令内容不能为空');
-      const runtimeFiles = normalizeSkillRuntimeFiles(record.runtimeFiles !== undefined ? record.runtimeFiles : current.runtimeFiles, record.files !== undefined ? record.files : current.files, { strict: true });
-      const files = skillFileNames(runtimeFiles, record.files !== undefined ? record.files : current.files);
-      const fileManifest = Array.isArray(record.fileManifest) ? record.fileManifest : current.fileManifest || [];
-      const updated = { ...current, id: skillId, name: String(record.name !== undefined ? record.name : current.name || skillId).trim().slice(0, 120), description: String(record.description !== undefined ? record.description : current.description || '').trim().slice(0, 500), instruction, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest), size: instruction.length, updatedAt: Date.now() };
-      if (!updated.name) throw new Error('Skill 名称不能为空');
-      list[index] = updated; allSkills[owner] = list; saveAllUserSkillRecords(allSkills); saved = { owner, ...updated };
-    } else if (type === 'global-skills') {
-      const skills = loadGlobalSkills();
-      const index = skills.findIndex(skill => skill.id === id);
-      if (index < 0) throw requestError(404, '全局 Skill 不存在');
-      const updated = makeGlobalSkill(record, skills[index]);
-      skills[index] = updated; saveGlobalSkills(skills); saved = updated;
-    } else if (type === 'open-skills') {
-      const current = findOpenSkill(id);
-      if (!current) throw requestError(404, '开放 Skill 不存在');
-      const updated = makeOpenSkill(record, current, current.ownerEmail);
-      updateOpenSkill(updated);
-      saved = { ...updated, owner: updated.ownerEmail };
-    } else if (type === 'builtin-skills') {
-      throw requestError(409, '内置 Skill 源文件只读，请复制为全局 Skill 后修改');
-    } else if (type === 'token-usage') {
-      const current = db.prepare('SELECT * FROM token_usage WHERE request_id = ?').get(id);
-      if (!current) throw requestError(404, 'Token 记录不存在');
-      const nextCost = roundCreditValue(record.creditCost === undefined ? current.credit_cost : record.creditCost);
-      const delta = Math.round((nextCost - (Number(current.credit_cost) || 0)) * 100) / 100;
-      db.exec('BEGIN IMMEDIATE');
-      try {
-        if (delta > 0) {
-          const debit = db.prepare('UPDATE accounts SET credits = credits - ?, spent = spent + ? WHERE email = ? AND role <> \'admin\' AND credits >= ?').run(delta, delta, current.user_email, delta);
-          if (Number(debit.changes || 0) !== 1) throw new Error('账户积分不足，无法增加该记录的扣费');
-        } else if (delta < 0) {
-          db.prepare('UPDATE accounts SET credits = credits + ?, spent = MAX(0, spent - ?) WHERE email = ? AND role <> \'admin\'').run(-delta, -delta, current.user_email);
-        }
-        const tokenColumns = { promptTokens: 'prompt_tokens', completionTokens: 'completion_tokens', reasoningTokens: 'reasoning_tokens', totalTokens: 'total_tokens', cachedTokens: 'cached_tokens', cacheWriteTokens: 'cache_write_tokens' };
-        const numberOrNull = key => record[key] === null ? null : (record[key] === undefined ? current[tokenColumns[key]] : Math.max(0, Math.floor(Number(record[key]) || 0)));
-        db.prepare(`UPDATE token_usage SET model_id = ?, provider_model = ?, prompt_tokens = ?, completion_tokens = ?, reasoning_tokens = ?, total_tokens = ?, cached_tokens = ?, cache_write_tokens = ?, usage_source = ?, status = ?, duration_ms = ?, credit_cost = ? WHERE request_id = ?`).run(
-          String(record.modelId === undefined ? current.model_id : record.modelId).slice(0, 160), String(record.providerModel === undefined ? current.provider_model : record.providerModel).slice(0, 200),
-          numberOrNull('promptTokens'), numberOrNull('completionTokens'), numberOrNull('reasoningTokens'), numberOrNull('totalTokens'), numberOrNull('cachedTokens'), numberOrNull('cacheWriteTokens'),
-          String(record.usageSource === undefined ? current.usage_source : record.usageSource).slice(0, 40), String(record.status === undefined ? current.status : record.status).slice(0, 40), Math.max(0, Math.floor(Number(record.durationMs === undefined ? current.duration_ms : record.durationMs) || 0)), nextCost, id
-        );
-        db.exec('COMMIT');
-      } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
-      saved = adminUsageRecord(db.prepare('SELECT * FROM token_usage WHERE request_id = ?').get(id));
-    } else if (type === 'dissections') {
-      const current = db.prepare('SELECT * FROM dissections WHERE id = ?').get(id);
-      if (!current) throw requestError(404, '拆书任务不存在');
-      const selectedModel = String(record.selectedModel === undefined ? current.selected_model : record.selectedModel).trim();
-      if (selectedModel && !findPlatformModel(selectedModel)) throw new Error('拆书任务模型不存在');
-      const resultJson = adminDataJson(record.result === undefined ? safeJsonParse(current.result_json) || {} : record.result, '拆书结果');
-      const metaJson = adminDataJson(record.meta === undefined ? safeJsonParse(current.meta_json) || {} : record.meta, '拆书元数据');
-      const sourceText = String(record.sourceText === undefined ? current.source_text : record.sourceText).replace(/\u0000/g, '');
-      if (Buffer.byteLength(sourceText, 'utf8') > 5 * 1024 * 1024) throw requestError(413, '拆书原文不能超过 5 MB');
-      const now = Date.now();
-      db.prepare(`UPDATE dissections SET title = ?, source_type = ?, source_name = ?, source_text = ?, depth = ?, purpose = ?, selected_model = ?, status = ?, phase = ?, phase_index = ?, progress = ?, estimated_credits = ?, actual_credits = ?, result_json = ?, meta_json = ?, error = ?, cancel_requested = ?, updated_at = ? WHERE id = ?`).run(
-        String(record.title === undefined ? current.title : record.title).trim().slice(0, 200), String(record.sourceType === undefined ? current.source_type : record.sourceType).slice(0, 40), String(record.sourceName === undefined ? current.source_name : record.sourceName).slice(0, 200), sourceText,
-        String(record.depth === undefined ? current.depth : record.depth).slice(0, 40), String(record.purpose === undefined ? current.purpose : record.purpose).slice(0, 80), selectedModel,
-        String(record.status === undefined ? current.status : record.status).slice(0, 40), String(record.phase === undefined ? current.phase : record.phase).slice(0, 40), Math.max(0, Math.floor(Number(record.phaseIndex === undefined ? current.phase_index : record.phaseIndex) || 0)), Math.min(100, Math.max(0, Math.floor(Number(record.progress === undefined ? current.progress : record.progress) || 0))), Math.max(0, Number(record.estimatedCredits === undefined ? current.estimated_credits : record.estimatedCredits) || 0), Math.max(0, Number(record.actualCredits === undefined ? current.actual_credits : record.actualCredits) || 0), resultJson, metaJson, String(record.error === undefined ? current.error : record.error).slice(0, 5000), record.cancelRequested === undefined ? current.cancel_requested : (record.cancelRequested ? 1 : 0), now, id
-      );
-      saved = dissectionRecordFromDb(db.prepare('SELECT * FROM dissections WHERE id = ?').get(id));
-    }
-    appendAdminAudit(auth.user.email, 'data.' + type + '.update', id, { type, id });
-    json(res, 200, { ok: true, type, record: saved });
-  }).catch(e => respondError(res, e));
-}
 
-function adminDataDelete(req, res) {
-  const auth = requireAdmin(req, res);
-  if (!auth) return;
-  if (!dbReady()) return json(res, 503, { error: '云端数据库不可用' });
-  readBody(req).then(body => {
-    const type = adminDataType(body && body.type);
-    const id = String(body && body.id || '').trim();
-    if (!id) throw new Error('缺少数据 id');
-    let changes = 0, detail = { type, id };
-    if (type === 'novels') changes = Number(db.prepare('DELETE FROM novels WHERE id = ?').run(id).changes || 0);
-    else if (type === 'global-skills') { const skills = loadGlobalSkills(); const next = skills.filter(skill => skill.id !== id); changes = skills.length - next.length; if (changes) saveGlobalSkills(next); }
-    else if (type === 'open-skills') changes = deleteOpenSkill(id);
-    else if (type === 'user-skills') {
-      const owner = String(body.owner || '').trim().toLowerCase();
-      const allSkills = loadAllUserSkillRecords(); const list = Array.isArray(allSkills[owner]) ? allSkills[owner] : []; const next = list.filter(skill => skill.id !== String(body.skillId || id));
-      changes = list.length - next.length; if (changes) { allSkills[owner] = next; saveAllUserSkillRecords(allSkills); }
-    } else if (type === 'dissections') changes = deleteDissectionCascade(id);
-    else if (type === 'accounts' || type === 'token-usage' || type === 'builtin-skills') throw requestError(409, '该数据类型不允许删除');
-    if (!changes) return json(res, 404, { error: '数据记录不存在' });
-    appendAdminAudit(auth.user.email, 'data.' + type + '.delete', id, { type, id });
-    json(res, 200, { ok: true, type, id, deleted: changes });
-  }).catch(e => respondError(res, e));
-}
 
 /* ===================== 小说库（SQLite 持久化，按用户隔离） ===================== */
 // 设计：单表 novels，state_json 存整本编辑器 state（与前端 localStorage 完全对齐）。
@@ -7076,23 +5542,8 @@ function migrateUsersToDb() {
   if (Array.isArray(users) && users.length) persistUsersToDb(users);
 }
 
-function migrateSkillsToDb() {
-  if (!dbReady() || Number(db.prepare('SELECT COUNT(*) AS n FROM user_skills').get().n) > 0) return;
-  const data = readJsonFile(USER_SKILLS_FILE, {});
-  if (data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length) saveAllUserSkillRecords(data);
-}
 
-function migrateGlobalSkillsToDb() {
-  if (!dbReady() || Number(db.prepare('SELECT COUNT(*) AS n FROM global_skills').get().n) > 0) return;
-  const data = readJsonFile(GLOBAL_SKILLS_FILE, []);
-  if (Array.isArray(data) && data.length) saveGlobalSkills(data);
-}
 
-function migrateOpenSkillsToDb() {
-  if (!dbReady() || Number(db.prepare('SELECT COUNT(*) AS n FROM open_skills').get().n) > 0) return;
-  const data = readJsonFile(OPEN_SKILLS_FILE, []);
-  if (Array.isArray(data) && data.length) saveOpenSkills(data);
-}
 
 function migrateAdminAuditToDb() {
   if (!dbReady() || Number(db.prepare('SELECT COUNT(*) AS n FROM admin_audit').get().n) > 0) return;
@@ -7812,10 +6263,6 @@ function stableMessageHash(messages) {
   return sha256Text(JSON.stringify(Array.isArray(messages) ? messages : []));
 }
 
-function decodeSkillAuditId(value) {
-  try { return decodeURIComponent(String(value || '')).slice(0, 240); }
-  catch (_) { return ''; }
-}
 
 function uniqueAuditStrings(value, limit = 500, maxLength = 500) {
   const source = Array.isArray(value) ? value : [];
@@ -7862,380 +6309,28 @@ function auditManifestMatch(left, right) {
   return JSON.stringify(auditManifestComparable(left)) === JSON.stringify(auditManifestComparable(right));
 }
 
-function skillAuditRequest(value) {
-  const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const skills = [];
-  const seen = new Set();
-  (Array.isArray(input.skills) ? input.skills : []).slice(0, 100).forEach(item => {
-    if (!item || typeof item !== 'object') return;
-    const id = String(item.id || '').trim().slice(0, 240);
-    if (!id || seen.has(id)) return;
-    seen.add(id);
-    const files = uniqueAuditStrings(item.files, 500, 500);
-    const promptFilesProvided = Object.prototype.hasOwnProperty.call(item, 'promptFiles');
-    skills.push({
-      id,
-      name: String(item.name || id).trim().slice(0, 160),
-      files,
-      fileManifest: normalizeAuditManifest(item.fileManifest, files),
-      promptFiles: uniqueAuditStrings(item.promptFiles, 500, 500),
-      promptFilesProvided
-    });
-  });
-  return { version: SKILL_AUDIT_VERSION, skills };
-}
 
-function extractSkillBlocks(messages) {
-  const blocks = new Map();
-  (Array.isArray(messages) ? messages : []).forEach(message => {
-    if (!message || message.role !== 'system') return;
-    const content = String(message.content || '');
-    SKILL_BLOCK_PATTERN.lastIndex = 0;
-    let match;
-    while ((match = SKILL_BLOCK_PATTERN.exec(content))) {
-      const encodedStart = match[1];
-      const encodedEnd = match[3];
-      if (encodedStart !== encodedEnd) continue;
-      const id = decodeSkillAuditId(encodedStart);
-      if (!id) continue;
-      const current = blocks.get(id) || { id, instruction: String(match[2] || '').trim(), occurrences: 0 };
-      current.occurrences += 1;
-      if (!current.instruction) current.instruction = String(match[2] || '').trim();
-      blocks.set(id, current);
-    }
-  });
-  return blocks;
-}
 
-function stripSkillBlocks(messages) {
-  return (Array.isArray(messages) ? messages : []).map(message => {
-    if (!message || message.role !== 'system') return message;
-    return copyPromptMessageFlags(message, {
-      ...message,
-      content: String(message.content || '')
-        .replace(/\[MOLAN_SKILL_BLOCK_BEGIN id=[^\]\r\n]+\]\r?\n/g, '')
-        .replace(/\r?\n\[MOLAN_SKILL_BLOCK_END id=[^\]\r\n]+\]/g, '')
-    });
-  });
-}
 
 // 审计标记只用于服务端核验，真正发给模型的消息必须保留 Skill 正文。
 // 同时核对 Skill 目录中的文本文件是否都已经拼入指令，避免“只声明文件名”被误认为已调用完整 Skill。
-function prepareSkillMessagesForUpstream(auth, messages, skillAudit, options = {}) {
-  const upstreamMessages = stripSkillBlocks(messages);
-  const audit = skillAudit && typeof skillAudit === 'object' ? skillAudit : { status: 'none', skills: [] };
-  const requestedSkills = Array.isArray(audit.skills) ? audit.skills : [];
-  if (!requestedSkills.length) {
-    return {
-      messages: upstreamMessages,
-      skillAudit: { ...audit, forwarding: { status: 'none', skills: [] } }
-    };
-  }
-  if (audit.status !== 'verified') {
-    throw requestError(422, 'Skill 审计未通过，无法转发到模型');
-  }
 
-  const blocks = extractSkillBlocks(messages);
-  const normalizePromptText = value => String(value == null ? '' : value).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const systemText = normalizePromptText(upstreamMessages
-    .filter(message => message && message.role === 'system')
-    .map(message => String(message.content || ''))
-    .join('\n'));
-  const forwardingSkills = [];
 
-  requestedSkills.forEach(declared => {
-    const id = String(declared && declared.id || '').trim();
-    const block = blocks.get(id);
-    const known = knownSkillForAudit(auth, id, options);
-    if (!block || !String(block.instruction || '').trim()) {
-      throw requestError(422, 'Skill「' + id + '」未将完整指令注入上游请求');
-    }
-    if (!known || !known.skill || known.skill.complete === false) {
-      throw requestError(422, 'Skill「' + id + '」运行文件不完整，无法转发');
-    }
-    const instruction = normalizePromptText(block.instruction);
-    if (!systemText.includes(instruction)) {
-      throw requestError(422, 'Skill「' + id + '」在去除审计标记后未保留指令正文');
-    }
-
-    const runtimeFiles = known.skill.runtimeFiles && typeof known.skill.runtimeFiles === 'object'
-      ? known.skill.runtimeFiles : {};
-    const manifest = Array.isArray(known.skill.fileManifest) ? known.skill.fileManifest : [];
-    const manifestByPath = new Map(manifest.map(item => [String(item && item.path || ''), item]));
-    const files = Array.isArray(known.skill.files) ? known.skill.files : Object.keys(runtimeFiles);
-    const promptFilesProvided = declared.promptFilesProvided === true;
-    const promptFiles = promptFilesProvided ? declared.promptFiles : files;
-    const promptFileSet = new Set(promptFiles);
-    const forwardedTextFiles = [];
-    const omittedTextFiles = [];
-    const omittedBinaryFiles = [];
-    files.forEach(filePath => {
-      const path = String(filePath || '');
-      const content = runtimeFiles[path];
-      const manifestItem = manifestByPath.get(path);
-      const isBinary = manifestItem && manifestItem.type === 'binary';
-      if (isBinary || content === null || content === undefined) {
-        omittedBinaryFiles.push(path);
-        return;
-      }
-      // SKILL.md 的 frontmatter 是元数据，运行指令使用其正文；未选入本次任务的文本文件仍由完整目录审计覆盖，但不进入提示词。
-      if (!promptFileSet.has(path)) {
-        omittedTextFiles.push(path);
-        return;
-      }
-      if (path === 'SKILL.md') return;
-      const text = String(content);
-      const normalizedFileText = normalizePromptText(text).trimEnd();
-      if (normalizedFileText && !instruction.includes(normalizedFileText)) {
-        throw requestError(422, 'Skill「' + id + '」的文件「' + path + '」未被完整注入');
-      }
-      forwardedTextFiles.push(path);
-    });
-    forwardingSkills.push({
-      id,
-      status: 'verified',
-      instructionForwarded: true,
-      promptFiles,
-      promptFilesProvided,
-      auditedFiles: files,
-      forwardedTextFiles,
-      omittedTextFiles,
-      omittedBinaryFiles
-    });
-  });
-
-  return {
-    messages: upstreamMessages,
-    skillAudit: {
-      ...audit,
-      forwarding: {
-        status: 'verified',
-        skills: forwardingSkills
-      }
-    }
-  };
-}
-
-function wrapSkillBlock(id, instruction) {
-  const encodedId = encodeURIComponent(String(id || ''));
-  return '[MOLAN_SKILL_BLOCK_BEGIN id=' + encodedId + ']\n' + String(instruction || '') + '\n[MOLAN_SKILL_BLOCK_END id=' + encodedId + ']';
-}
-
-function defaultWritingSkillRecord() {
-  const skill = loadBuiltinSkills().find(item => item && item.id === DEFAULT_WRITING_SKILL_ID);
-  if (!skill || skill.complete === false || !String(skill.instruction || '').trim()) {
-    throw requestError(503, '默认写作 Skill 未完整加载，请检查 skills/' + DEFAULT_WRITING_SKILL_ID + '');
-  }
-  return skill;
-}
 
 // ★ G0 题材专属默认写作 Skill：按作品题材关键词映射到 skills/ 下的内置技能；未命中或未完整加载时回落通用技能。
 const GENRE_WRITING_SKILL_RULES = [
   { pattern: /玄幻|仙侠|修真|修仙|古言|东方奇幻/, skillId: 'mars-style-pure-xuanhuan-writing' }
 ];
 /** 按题材解析默认写作 Skill 记录；返回 { skill, genreMatched }。 */
-function resolveGenreWritingSkill(genre) {
-  const text = String(genre || '').trim();
-  const rule = text ? GENRE_WRITING_SKILL_RULES.find(item => item.pattern.test(text)) : null;
-  if (rule) {
-    const skill = loadBuiltinSkills().find(item => item && item.id === rule.skillId);
-    if (skill && skill.complete !== false && String(skill.instruction || '').trim()) return { skill, genreMatched: true };
-  }
-  return { skill: defaultWritingSkillRecord(), genreMatched: false };
-}
 
-function resolveHumanizerSkill() {
-  const builtin = loadBuiltinSkills().find(item => item && item.id === 'humanizer');
-  if (builtin && builtin.complete !== false && String(builtin.instruction || '').trim()) {
-    return builtin;
-  }
-  return defaultWritingSkillRecord();
-}
 
-function ensureDefaultWritingSkill(messages, stage, genre) {
-  const source = Array.isArray(messages) ? messages : [];
-  const normalizedStage = String(stage || '').toLowerCase();
-  if (!['writing', 'humanizer'].includes(normalizedStage)) {
-    return { messages: source, skill: null, injected: false };
-  }
-  const skill = normalizedStage === 'humanizer'
-    ? resolveHumanizerSkill()
-    : resolveGenreWritingSkill(genre).skill;
-  const blocks = extractSkillBlocks(source);
-  // 消息中已存在任何 skill block 时，视为用户显式选择了 skill，不再叠加默认写作 skill
-  if (blocks.size > 0) {
-    return { messages: source, skill, injected: false };
-  }
-  const output = source.map(message => copyPromptMessageFlags(message, { ...message }));
-  const block = wrapSkillBlock(skill.id, skill.instruction);
-  const systemIndex = output.findIndex(message => message && message.role === 'system');
-  if (systemIndex < 0) output.unshift({ role: 'system', content: block });
-  else output[systemIndex].content = String(output[systemIndex].content || '') + '\n\n' + block;
-  return { messages: validateChatMessages(output), skill, injected: true };
-}
 
-function addDefaultWritingSkillAudit(value, skill) {
-  if (!skill || !skill.id) return value;
-  const requested = skillAuditRequest(value);
-  if (requested.skills.some(item => item && item.id === skill.id)) return requested;
-  requested.skills.push({
-    id: skill.id,
-    name: skill.name || skill.id,
-    files: Array.isArray(skill.files) ? skill.files.slice(0, 500) : [],
-    fileManifest: Array.isArray(skill.fileManifest) ? skill.fileManifest.slice(0, 500) : []
-  });
-  return requested;
-}
 
-function skillAuditSnapshot(skill, requestedPromptFiles) {
-  if (!skill || typeof skill !== 'object') return null;
-  const runtimeFiles = skill.runtimeFiles && typeof skill.runtimeFiles === 'object' ? skill.runtimeFiles : {};
-  const files = uniqueAuditStrings(
-    Array.isArray(skill.files) && skill.files.length ? skill.files : Object.keys(runtimeFiles),
-    500,
-    500
-  );
-  const fileManifest = normalizeAuditManifest(skill.fileManifest, files);
-  const fileHashes = files.filter(path => Object.prototype.hasOwnProperty.call(runtimeFiles, path)).map(path => ({
-    path,
-    sha256: sha256Text(runtimeFiles[path]),
-    size: String(runtimeFiles[path] == null ? '' : runtimeFiles[path]).length
-  }));
-  const availablePromptFiles = skillPromptFiles(skill);
-  const promptFiles = Array.isArray(requestedPromptFiles)
-    ? uniqueAuditStrings(requestedPromptFiles, 500, 500).filter(filePath => availablePromptFiles.includes(filePath))
-    : availablePromptFiles;
-  const promptInstruction = skillPromptInstruction(skill, promptFiles);
-  return {
-    files,
-    fileManifest,
-    fileHashes,
-    instructionHash: sha256Text(String(skill.instruction || '').trim()),
-    promptFiles,
-    promptInstructionHash: sha256Text(promptInstruction)
-  };
-}
 
-function knownSkillForAudit(auth, id, options = {}) {
-  if (options && options.editorOnly === true) {
-    if (String(id || '').trim() !== EDITOR_ONLY_SKILL_ID) return null;
-    const canonical = options.canonicalSkill || loadEditorOnlyWritingSkill();
-    return { source: 'editor-canonical', skill: canonical };
-  }
-  const email = String(auth && auth.user && auth.user.email || '').trim().toLowerCase();
-  const userSkill = email ? loadUserSkills(email).find(skill => skill && skill.id === id) : null;
-  if (userSkill) return { source: 'user', skill: userSkill };
-  const globalSkill = loadGlobalSkills().find(skill => skill && skill.id === id);
-  if (globalSkill) return { source: 'global', skill: globalSkill };
-  const builtinSkill = loadBuiltinSkills().find(skill => skill && skill.id === id);
-  if (builtinSkill) return { source: 'builtin', skill: builtinSkill };
-  return null;
-}
 
-function buildSkillAudit(auth, messages, requestedValue, options = {}) {
-  const requested = skillAuditRequest(requestedValue);
-  const declared = new Map(requested.skills.map(skill => [skill.id, skill]));
-  const blocks = extractSkillBlocks(messages);
-  const actualIds = [...blocks.keys()];
-  const ids = [...new Set([...actualIds, ...requested.skills.map(skill => skill.id)])];
-  const skills = ids.map(id => {
-    const block = blocks.get(id);
-    const declaredSkill = declared.get(id);
-    const known = knownSkillForAudit(auth, id, options);
-    const expected = known
-      ? skillAuditSnapshot(known.skill, declaredSkill && declaredSkill.promptFilesProvided ? declaredSkill.promptFiles : undefined)
-      : null;
-    const actualInstructionHash = block ? sha256Text(block.instruction) : '';
-    const declaredFiles = declaredSkill ? declaredSkill.files : [];
-    const declaredManifest = declaredSkill ? declaredSkill.fileManifest : [];
-    const declaredPromptFiles = declaredSkill ? declaredSkill.promptFiles : [];
-    const instructionMatch = !!(expected && block && actualInstructionHash === (declaredSkill && declaredSkill.promptFilesProvided ? expected.promptInstructionHash : expected.instructionHash));
-    const filesProvided = !!declaredSkill && declaredFiles.length > 0;
-    const filesMatch = !!(expected && filesProvided && auditFilesMatch(declaredFiles, expected.files));
-    const manifestProvided = !!declaredSkill && declaredManifest.length > 0;
-    const manifestMatch = !!(expected && manifestProvided && auditManifestMatch(declaredManifest, expected.fileManifest));
-    const promptFilesMatch = !!(expected && declaredSkill && declaredSkill.promptFilesProvided && auditFilesMatch(declaredPromptFiles, expected.promptFiles));
-    const promptFilesOk = declaredSkill && declaredSkill.promptFilesProvided ? promptFilesMatch : true;
-    let verification = 'prompt-only';
-    if (!block && declaredSkill) verification = 'declared-not-in-prompt';
-    else if (!known) verification = block ? 'unverified-skill' : 'declared-not-in-prompt';
-    else if (known.skill.complete === false) verification = 'incomplete-skill';
-    else if (instructionMatch && filesMatch && manifestMatch && promptFilesOk) verification = 'server-match';
-    else if (instructionMatch && declaredSkill && declaredSkill.promptFilesProvided && !promptFilesMatch) verification = 'prompt-files-mismatch';
-    else if (instructionMatch) verification = 'instruction-match-files-unverified';
-    else if (block) verification = 'instruction-mismatch';
-    const snapshot = expected || {
-      files: declaredFiles,
-      fileManifest: declaredManifest,
-      fileHashes: [],
-      instructionHash: '',
-      promptFiles: declaredPromptFiles,
-      promptInstructionHash: ''
-    };
-    return {
-      id,
-      name: (known && known.skill.name) || (declaredSkill && declaredSkill.name) || id,
-      source: known ? known.source : (block ? 'prompt' : 'client'),
-      occurrences: block ? block.occurrences : 0,
-      files: snapshot.files,
-      fileManifest: snapshot.fileManifest,
-      fileHashes: snapshot.fileHashes,
-      instructionHash: actualInstructionHash,
-      expectedInstructionHash: snapshot.instructionHash,
-      promptFiles: snapshot.promptFiles,
-      promptInstructionHash: snapshot.promptInstructionHash,
-      promptFilesProvided: !!(declaredSkill && declaredSkill.promptFilesProvided),
-      declaredPromptFiles,
-      declaredFiles,
-      declaredFileManifest: declaredManifest,
-      verification
-    };
-  });
-  const strippedMessages = stripSkillBlocks(messages);
-  let status = 'none';
-  if (ids.length) {
-    const verifications = skills.map(skill => skill.verification);
-    status = verifications.length && verifications.every(value => value === 'server-match')
-      ? 'verified'
-      : verifications.some(value => ['instruction-mismatch', 'incomplete-skill', 'unverified-skill', 'declared-not-in-prompt', 'prompt-files-mismatch'].includes(value))
-        ? 'unverified'
-        : 'partial';
-  }
-  return {
-    version: SKILL_AUDIT_VERSION,
-    audited: true,
-    status,
-    promptHash: stableMessageHash(strippedMessages),
-    actualSkillIds: actualIds,
-    declaredSkillIds: requested.skills.map(skill => skill.id),
-    skills
-  };
-}
 
-function legacySkillAudit() {
-  return { version: SKILL_AUDIT_VERSION, status: 'legacy-unavailable', audited: false, promptHash: '', actualSkillIds: [], declaredSkillIds: [], skills: [] };
-}
 
-function storedSkillAudit(value) {
-  if (!value) return legacySkillAudit();
-  if (typeof value === 'object' && !Array.isArray(value)) return value;
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : legacySkillAudit();
-  } catch (_) { return legacySkillAudit(); }
-}
 
-function skillIdsFromAudit(value) {
-  if (Array.isArray(value)) return uniqueAuditStrings(value, 100, 240);
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return uniqueAuditStrings(parsed, 100, 240);
-    } catch (_) {}
-  }
-  const audit = storedSkillAudit(value);
-  return uniqueAuditStrings(audit.actualSkillIds, 100, 240);
-}
 
 function usageRowFromEvent(event, creditCost, reservedCost) {
   const skillAudit = storedSkillAudit(event && event.skillAudit);
@@ -8298,6 +6393,9 @@ function usageDocumentFromRow(row) {
 }
 
 function reserveCredits(user, modelId, providerModel, requestId, reservedCost, skillAudit, messagesHash, scope = null, options = null) {
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
+    return nativeBillingService().reserveCredits(user, modelId, providerModel, requestId, reservedCost, skillAudit, messagesHash, scope, options);
+  }
   const isAdmin = isAdminUser(user);
   const reserve = isAdmin ? 0 : roundCreditValue(reservedCost);
   const lookupOnly = !!(options && options.lookupOnly === true);
@@ -8388,6 +6486,7 @@ function reserveCredits(user, modelId, providerModel, requestId, reservedCost, s
 }
 
 function settleTokenUsage(event) {
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') return nativeBillingService().settleTokenUsage(event);
   const email = String(event && event.userEmail || '').trim().toLowerCase();
   const user = getUserByEmail(email) || { email };
   const userId = String(user.userId || projectScope.stableUserId(email)).trim();
@@ -8506,6 +6605,9 @@ function recordTokenUsage(event) {
 }
 
 function releaseStaleCreditReservations() {
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
+    return appRepository().releaseStaleTokenUsage({ before: Date.now() - CREDIT_RESERVATION_TTL_MS }).then(result => result.released);
+  }
   const cutoff = Date.now() - CREDIT_RESERVATION_TTL_MS;
   if (POSTGRES_MODE) {
     const admin = postgresRuntimeAdminUser();
@@ -18531,1176 +16633,218 @@ function handleCausalDebtsExtract(req, res, bookId) {
   }).catch(error => respondError(res, error));
 }
 
+const skillService = require('./services/skill-service').createSkillService({
+  DATA_DIR,
+  DEFAULT_WRITING_SKILL_ID,
+  EDITOR_ONLY_BUNDLED_SKILL_DIR,
+  EDITOR_ONLY_LOCAL_SKILL_DIR,
+  EDITOR_ONLY_SKILL_DIR_DEFAULT,
+  EDITOR_ONLY_SKILL_ID,
+  EDITOR_SKILL_BLOCK_PATTERN,
+  GENRE_WRITING_SKILL_RULES,
+  GLOBAL_SKILLS_FILE,
+  OPEN_SKILLS_FILE,
+  POSTGRES_MODE,
+  SKILL_AUDIT_VERSION,
+  SKILL_BINARY_EXT,
+  SKILL_BLOCK_PATTERN,
+  SKILL_CACHE_TTL_MS,
+  SKILL_DIRS_FALLBACK,
+  SKILL_IGNORED_DIRS,
+  SKILL_MAX_FILES,
+  SKILL_MAX_FILE_BYTES,
+  SKILL_MAX_TOTAL_BYTES,
+  SKILL_PROMPT_EXCLUDE_DIRS,
+  SKILL_PROMPT_EXCLUDE_EXACT,
+  SKILL_PROMPT_EXCLUDE_NAMES,
+  SKILL_TARGETS,
+  USER_SKILLS_FILE,
+  appendAdminAudit,
+  auditFilesMatch,
+  auditManifestMatch,
+  copyPromptMessageFlags,
+  crypto,
+  dbReady,
+  decodePathParam,
+  enqueuePostgresRuntimeWrite,
+  firstExistingEditorSource,
+  fs,
+  getAuthUser,
+  getUserByEmail,
+  isAdminUser,
+  json,
+  normalizeAuditManifest,
+  postgresRepository,
+  postgresRuntimeState,
+  projectScope,
+  readBody,
+  readJsonFile,
+  requestError,
+  requireSqliteForPublic,
+  respondError,
+  sha256Text,
+  stableMessageHash,
+  uniqueAuditStrings,
+  validateChatMessages,
+  writeJsonFile,
+  assetDirectory: __dirname,
+  getDatabase: () => db
+});
+const { resolveSkillDirs, readSkillDirectoryFiles, parseSkillMd, isSkillPromptExcluded, skillPromptFiles, skillPromptInstruction, decorateSkillPrompt, composeSkill, resolveEditorOnlySkillDir, loadEditorOnlyWritingSkill, editorOnlySkillAuditRequest, ensureEditorOnlyWritingSkill, stripEditorSkillBlocks, skillPriority, skillIdentityKey, uniqueSkillsById, publicSkillSummary, handleSkills, handleSkillImport, loadAllUserSkillRecords, saveAllUserSkillRecords, loadUserSkills, loadGlobalSkills, saveGlobalSkills, loadBuiltinSkills, normalizeSkillFilePath, normalizeSkillRuntimeFiles, skillFileNames, parseStoredSkillFiles, skillRuntimeFilesComplete, serializeSkillFiles, makeOpenSkill, openSkillFromDbRow, loadOpenSkills, saveOpenSkills, invalidateOpenSkillsCache, findOpenSkill, openSkillAuthorName, openSkillListView, openSkillDetailView, canViewOpenSkill, openSkillRecordValues, insertOpenSkill, updateOpenSkill, deleteOpenSkill, makeDownloadedSkillId, downloadOpenSkillForUser, parseOpenSkillListParams, handleOpenSkillList, handleOpenSkillGet, handleOpenSkillCreate, handleOpenSkillPatch, handleOpenSkillDelete, handleOpenSkillDownload, normalizeSkillTargets, makeGlobalSkill, builtinSkillsForAdmin, migrateSkillsToDb, migrateGlobalSkillsToDb, migrateOpenSkillsToDb, decodeSkillAuditId, skillAuditRequest, extractSkillBlocks, stripSkillBlocks, prepareSkillMessagesForUpstream, wrapSkillBlock, defaultWritingSkillRecord, resolveGenreWritingSkill, resolveHumanizerSkill, ensureDefaultWritingSkill, addDefaultWritingSkillAudit, skillAuditSnapshot, knownSkillForAudit, buildSkillAudit, legacySkillAudit, storedSkillAudit, skillIdsFromAudit } = skillService;
+
+const adminService = require('./services/admin-service').createAdminService({
+  ACCOUNT_ROLES,
+  ADMIN_DATA_TYPES,
+  CORRECTION_INBOX_FILE,
+  MAX_NOVEL_STATE_BYTES,
+  POSTGRES_MODE,
+  SKILL_TARGETS,
+  appendAdminAudit,
+  builtinSkillsForAdmin,
+  cachePostgresRuntimeUser,
+  calcWordCount,
+  contextWindowTokensForModel,
+  correctionLibraryLib,
+  correctionLibrarySummary,
+  currentDefaultModel,
+  dbReady,
+  decodePathParam,
+  deleteDissectionCascade,
+  deleteOpenSkill,
+  dissectionRecordFromDb,
+  emptyCorrectionAudit,
+  findOpenSkill,
+  findPlatformModel,
+  getAuthUser,
+  getCorrectionLibrary,
+  getUsageSummariesByUser,
+  getUsageSummary,
+  getUserByEmail,
+  globalUsageSummary,
+  isAdminUser,
+  isConfiguredAdminEmail,
+  json,
+  loadAdminAudit,
+  loadAllUserSkillRecords,
+  loadCorrectionHits,
+  loadGlobalSkills,
+  loadUsers,
+  makeGlobalSkill,
+  makeOpenSkill,
+  normalizeAvatar,
+  normalizeSkillRuntimeFiles,
+  normalizeUserRole,
+  parseStoredSkillFiles,
+  postgresRepository,
+  postgresRuntimeUserFromRow,
+  readBody,
+  reasoningEffortsForModel,
+  requestError,
+  requireSqliteForPublic,
+  respondError,
+  roundCreditValue,
+  safeJsonParse,
+  sanitizeNovelStateForStorage,
+  saveAllUserSkillRecords,
+  saveGlobalSkills,
+  saveModelPolicy,
+  savePlatformModelRate,
+  savePlatformModelRates,
+  saveUser,
+  skillFileNames,
+  skillIdsFromAudit,
+  skillRuntimeFilesComplete,
+  storedAvatar,
+  storedSkillAudit,
+  updateOpenSkill,
+  userFromDbRow,
+  getDatabase: () => db,
+  getPlatformModels: () => PLATFORM_MODELS
+});
+const { handleAdminModels, handleAdminModelsPatch, handleAdminCorrectionLibrary, requireAdmin, adminUserView, handleAdminOverview, handleAdminUserPatch, handleAdminSkills, handleAdminSkillCreate, handleAdminSkillPatch, handleAdminSkillDelete, handleAdminAudit, adminDataType, adminDataJson, adminAccountRecord, adminUsageRecord, adminDataList, adminDataGetRecord, adminDataPatch, adminDataDelete } = adminService;
+
+const generationService = require('./services/generation-service').createGenerationService({
+  CLOUD_API_BASE,
+  DATA_DIR,
+  GenerationError,
+  MAX_NOVEL_STATE_BYTES,
+  POSTGRES_MODE,
+  attachResponseDisconnect,
+  authenticateXuanhuanCloud,
+  benchmarkPipeline,
+  calcWordCount,
+  calculateBenchmarkCallTimeoutMs,
+  callMolanChat,
+  canonicalResolveGenre,
+  contentEngine,
+  createGenerationOrchestrator,
+  creationChapterContext,
+  crypto,
+  currentDefaultModel,
+  dbReady,
+  decodePathParam,
+  generationManifest,
+  generationProviderRequestId,
+  generationRunContext,
+  generationRunStore,
+  generationScenePatch,
+  generationV2Enabled,
+  generationV2Status,
+  getAuthUser,
+  getUserByEmail,
+  json,
+  loadCreationSnapshots,
+  loadCurrentBiblePayload,
+  path,
+  postgresActor,
+  postgresRepository,
+  projectScope,
+  readBody,
+  recordChapterCausalDebts,
+  requireSqliteForPublic,
+  resolveModelForUser,
+  responseCors,
+  sanitizeNovelStateForStorage,
+  getDatabase: () => db
+});
+const { generationRunOrchestrator, generationRequestAuth, generationRunError, generationSseEvent, streamGenerationEvents, generationProjectAccess, generationChatChunk, streamLegacyGenerationChat, handleLegacyGenerationChat, generationChapterNo, generationPreviousEnding, generationFactLedger, loadAuthoritativeGenerationContext, scenePatchError, validateScenePatchBody, handleNovelScenePatch, handleGenerationRuns, handleBenchmark } = generationService;
+
+const { handleLocalStyleSamples, handleLocalStyleBaseline } = require('./services/local-style-service')
+  .createLocalStyleService({ fs, path, assetDirectory: __dirname, json });
+
+const nativeDomain = require('./services/native-domain-service').createNativeDomainService({
+  postgresqlMode: POSTGRES_MODE, appStore: process.env.MOLAN_APP_STORE, dataDir: DATA_DIR, path,
+  maxNovelsPerUser: MAX_NOVELS_PER_USER, maxNovelStateBytes: MAX_NOVEL_STATE_BYTES,
+  guardNovelWrite: require('./lib/memory-store').guardNovelWrite,
+  onNovelChanged: require('./lib/memory-store').onNovelChanged,
+  postgresRepository,
+  appRepositoryFactory: (directory, options) => new (require('./lib/repositories/json-app-repository').JsonAppRepository)(directory, options),
+  createMemoryStore: require('./lib/memory-store').createMemoryStore,
+  createNativeBillingService: require('./services/native-billing-service').createNativeBillingService,
+  createNativeAuthService: require('./services/native-auth-service').createNativeAuthService,
+  crypto, readBody, json, respondError, createPasswordRecord, verifyPassword, hashSessionToken,
+  allowAuthAttempt, isAdminUser, normalizeAvatar, findPlatformModel, canChooseModel,
+  currentDefaultModel, sessionTtlMs: SESSION_TTL_MS,
+  creditCostForUser, roundCreditValue, toTokenCount, matchesTokenUsageReservation,
+  normalizeUserRole, storedAvatar, buildUsageSummary, publicUsageRow, novelListSummary
+});
+const { appRepository, memoryDomainStore, nativeBillingService, nativeAuthService,
+  nativeUsageSummary, nativePublicUser, summarizeNativeNovel } = nativeDomain;
+
 const server = http.createServer((req, res) => {
+  void dispatchRequest(req, res).catch(error => respondError(res, error));
+});
+async function dispatchRequest(req, res) {
   res.molanCorsHeaders = corsHeadersForOrigin(req.headers.origin);
   if (req.method === 'OPTIONS') { res.writeHead(204, responseCors(res)); return res.end(); }
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
+    req.molanNativeAuth = await nativeAuthService().resolve(req);
+  }
   const u = req.url.split('?')[0];
   if (req.method === 'GET' && u === '/api/local-sync/status') return handleLocalSyncStatus(req, res);
 
 // ★ 本地文风对齐数据（仅本地服务提供，不随代理转发到云端）：
 //   段落样本库（含 sceneType/flavorScore）与题材风格基线，供编辑器起草前检索注入。
-let localStyleCache = { samples: null, samplesAt: 0, fingerprints: null, fingerprintsAt: 0 };
-function loadLocalStyleData(kind) {
-  const now = Date.now();
-  const cacheMs = 30000;
-  if (kind === 'samples') {
-    if (!localStyleCache.samples || now - localStyleCache.samplesAt > cacheMs) {
-      try {
-        const parsed = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'paragraph-samples.json'), 'utf8'));
-        localStyleCache.samples = parsed && Array.isArray(parsed.buckets) ? parsed : null;
-      } catch (_) { localStyleCache.samples = null; }
-      localStyleCache.samplesAt = now;
-    }
-    return localStyleCache.samples;
-  }
-  if (!localStyleCache.fingerprints || now - localStyleCache.fingerprintsAt > cacheMs) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'style-fingerprints.json'), 'utf8'));
-      localStyleCache.fingerprints = parsed && Array.isArray(parsed.books) ? parsed : null;
-    } catch (_) { localStyleCache.fingerprints = null; }
-    localStyleCache.fingerprintsAt = now;
-  }
-  return localStyleCache.fingerprints;
-}
-
-function handleLocalStyleSamples(req, res, params) {
-  // 本地试用：浏览器会话在云端签发，本地不做鉴权（只读数据，来自用户自己的语料库）
-  const data = loadLocalStyleData('samples');
-  if (!data) return json(res, 200, { ok: true, samples: [], buckets: [] });
-  const bucketParam = String(params.get('bucket') || '').trim();
-  const sceneType = String(params.get('sceneType') || '').trim();
-  const dimension = String(params.get('dimension') || '').trim();
-  const limit = Math.min(6, Math.max(1, Number(params.get('limit')) || 3));
-  const buckets = data.buckets || [];
-  const matchedBucket = bucketParam
-    ? buckets.find(b => b.bucket === bucketParam) || buckets.find(b => bucketParam.includes(b.bucket) || b.bucket.includes(bucketParam))
-    : null;
-  const pool = [];
-  (matchedBucket ? [matchedBucket] : buckets.slice(0, 6)).forEach(b => {
-    (b.samples || []).forEach(sample => pool.push({ ...sample, bucket: b.bucket }));
-  });
-  const filtered = pool.filter(sample => {
-    if (sceneType && String(sample.sceneType || '') !== sceneType) return false;
-    if (dimension && String(sample.dimension || '') !== dimension) return false;
-    return true;
-  });
-  // 保底：过滤后不足时放宽场景类型
-  const finalPool = filtered.length >= limit ? filtered : (sceneType || dimension ? pool : filtered);
-  // 均匀抽取，保证多次请求拿到不同样本（按 limit 分段轮转）
-  const offset = Math.floor(Math.random() * Math.max(1, finalPool.length - limit));
-  const picked = finalPool.slice(offset, offset + limit);
-  while (picked.length < limit && finalPool.length) picked.push(finalPool[(offset + picked.length) % finalPool.length]);
-  json(res, 200, {
-    ok: true,
-    bucket: matchedBucket ? matchedBucket.bucket : '',
-    total: finalPool.length,
-    samples: picked.map(sample => ({
-      id: sample.id, bucket: sample.bucket, dimension: sample.dimension, sceneType: sample.sceneType || '日常',
-      dialogueRatio: sample.dialogueRatio, flavorScore: sample.flavorScore ?? null,
-      sourceTitle: sample.anonymizedText ? '匿名样本' : sample.sourceTitle,
-      anonymized: Boolean(sample.anonymizedText),
-      text: String(sample.anonymizedText || sample.text || '').slice(0, 600)
-    }))
-  });
-}
-
-/**
- * 范文对标管线路由：
- * GET  /api/benchmark/baseline?genre=  题材基线与节奏目标块
- * POST /api/benchmark/audit             证据审稿（quote 逐字回查 + 确定性硬约束 + 题材纠错）
- * POST /api/benchmark/revise-loop       审稿→局部修订→复核闭环（≤2 轮，未过保留 needs_review）
- */
-function generationRunOrchestrator() {
-  if (generationOrchestrator) return generationOrchestrator;
-  const store = generationRunStore();
-  generationOrchestrator = createGenerationOrchestrator({
-    store,
-    db: POSTGRES_MODE ? postgresRepository : db,
-    dependenciesForRun(executionContext, request) {
-      const auth = executionContext.auth;
-      const user = executionContext.user;
-      const runId = String(executionContext.generationId || '');
-      const projectId = String(executionContext.projectId || request.projectId || '');
-      const workspaceId = String(executionContext.workspaceId || '');
-      const actorUserId = String(executionContext.actorUserId || auth && auth.user && (auth.user.userId || projectScope.stableUserId(auth.user.email)) || '');
-      const story = request.storyContext && typeof request.storyContext === 'object' ? request.storyContext : {};
-      let pipelineResult = null;
-      let writerCallNo = 0;
-      return {
-        resolveGenre: value => {
-          if (value && value.genre && value.genre !== 'auto') {
-            return { status: 'resolved', confidence: 1, genre: value.genre, subgenre: value.subgenre || '' };
-          }
-          return canonicalResolveGenre({
-            genre: value && value.genre,
-            subgenre: value && value.subgenre,
-            title: story.title || request.novelTitle,
-            userInstruction: request.userInstruction || request.prompt,
-            prompt: request.prompt
-          });
-        },
-        resolveStyle: value => {
-          const style = value.style || story.styleDNA || story.styleProfile || '';
-          return style ? { status: 'resolved', style, source: 'explicit' } : { status: 'needs_choice', style: '', candidates: [] };
-        },
-        loadAuthoritativeContext: async ({ request: runRequest, contract }) => loadAuthoritativeGenerationContext({
-          actorUserId, projectId, workspaceId, request: runRequest, contract
-        }),
-        preGenerationGuard: async ({ request: runRequest, contract, snapshotHash }) => {
-          const latest = await loadAuthoritativeGenerationContext({ actorUserId, projectId, workspaceId, request: runRequest, contract });
-          if (!latest.ok) return { passed: false, snapshotHash: '', blockers: [{ issueId: 'authoritative_context_unavailable', problem: '无法重新读取项目状态或创作圣经' }] };
-          if (String(latest.snapshotHash) !== String(snapshotHash || '')) {
-            return { passed: false, snapshotHash: latest.snapshotHash, blockers: [{ issueId: 'state_snapshot_changed', problem: '生成准备期间作品状态发生变化，请重新读取后发起任务' }] };
-          }
-          const known = new Set((latest.storyContext.characters || []).map(character => String(character && (character.name || character.id) || '')).filter(Boolean));
-          const declared = [...(Array.isArray(contract.characters) ? contract.characters : []), contract.viewpointCharacter].map(String).filter(Boolean);
-          const unknown = known.size ? declared.filter(name => !known.has(name)) : [];
-          return {
-            passed: unknown.length === 0,
-            snapshotHash: latest.snapshotHash,
-            blockers: unknown.map(name => ({ issueId: 'unknown_contract_character', problem: `章节合同中的人物「${name}」不在服务端创作圣经中` }))
-          };
-        },
-        planScenes: async ({ request: runRequest, contract }) => {
-          const chapter = runRequest.storyContext && runRequest.storyContext.chapterContext || {};
-          const outlineNodes = Array.isArray(chapter.scenePlan) && chapter.scenePlan.length
-            ? chapter.scenePlan
-            : [chapter.goal || contract.chapterGoal];
-          return require('./lib/scene-planner').planScenes(outlineNodes, {
-            targetWordCount: Number(runRequest.targetWords || contract.wordBudget.targetChars) || 2400
-          });
-        },
-        writer: async ({ request: runRequest, contract: passedContract, scenePlan, scenes, signal, onProgress, context: passedContext, contextPlan: passedContextPlan, genre: passedGenre, style: passedStyle }) => {
-          const contract = runRequest.chapterContract || runRequest.contract || passedContract || {
-            chapterId: runRequest.chapterId, goal: runRequest.userInstruction || runRequest.prompt
-          };
-          if (typeof onProgress === 'function') onProgress({ stage: 'writing', message: '正在调用生成与审计管线' });
-          try {
-            pipelineResult = await contentEngine.generateDraft({
-              callModel: (_auth, options) => {
-                if (signal.aborted) throw signal.reason || new Error('生成已取消');
-                const stage = String(options.stage || 'writer');
-                return callMolanChat(String(executionContext.authorization || ''), user, {
-                  ...options,
-                  requestId: generationProviderRequestId(runId, 'writer', stage, ++writerCallNo),
-                  modelId: runRequest.modelId,
-                  projectId,
-                  workspaceId,
-                  onProviderStart: executionContext.onProviderStart,
-                  onProviderComplete: executionContext.onProviderComplete,
-                  recordId: runId,
-                  workflowId: runId,
-                  controller: { signal },
-                  requireComplete: true
-                });
-              },
-              auth,
-              request: {
-                ...runRequest,
-                generationId: runId,
-                runId,
-                projectId,
-                workspaceId,
-                novelId: runRequest.novelId || projectId,
-                chapterId: runRequest.chapterId
-              },
-              contract,
-              scenePlan: scenePlan || null,
-              scenes: scenes || [],
-              context: typeof passedContext === 'string' && passedContext ? passedContext : (runRequest.storyContext && runRequest.storyContext.planText) || '',
-              contextPlan: passedContextPlan || null,
-              genre: passedGenre || runRequest.genre || 'universal',
-              style: passedStyle || runRequest.style || story.styleDNA || story.styleProfile || '',
-              signal,
-              onProgress
-            });
-          } catch (error) {
-            if (error && (error.code === 'context_budget_exceeded' || error.code === 'CONTEXT_OVERFLOW')) {
-              throw Object.assign(new Error(error.message || '上下文超过预算'), { code: 'CONTEXT_OVERFLOW', status: 413 });
-            }
-            throw error;
-          }
-
-          const calls = Array.isArray(pipelineResult && pipelineResult.calls) ? pipelineResult.calls : [];
-          if (calls.some(call => !call || ['failed_or_unknown', 'usage_missing'].includes(String(call.status || '')))) {
-            throw Object.assign(new Error('模型调用结果或用量未知；请查询任务状态，不要自动重试'), {
-              code: 'PROVIDER_UNKNOWN', status: 502, unknown: true, generationCalls: calls
-            });
-          }
-          const text = String(pipelineResult && (pipelineResult.text || pipelineResult.draft) || '').trim();
-          if (!text) throw Object.assign(new Error('生成管线没有产出正文'), { code: 'MODEL_EMPTY', status: 502 });
-          const usage = pipelineResult.usage || {};
-          const evidence = pipelineResult.pipeline || {
-            authoritative: true,
-            status: String(pipelineResult.status || 'needs_review'),
-            audit: pipelineResult.semanticAudit && pipelineResult.semanticAudit.audit || pipelineResult.audit || null,
-            deterministicAudit: pipelineResult.deterministicAudit || null,
-            contextPlan: pipelineResult.contextPlan || null,
-            manifest: pipelineResult.manifest || null,
-            usage,
-            calls: calls.map(call => ({
-              stage: String(call && call.stage || ''), modelId: String(call && call.modelId || ''),
-              providerModel: String(call && call.providerModel || ''), status: String(call && call.status || ''),
-              requestHash: String(call && call.requestHash || ''), outputHash: String(call && call.outputHash || ''),
-              startedAt: call && call.startedAt || null, finishedAt: call && call.finishedAt || null,
-              usage: call && call.usage ? {
-                requestId: String(call.usage.requestId || ''),
-                promptTokens: Number(call.usage.promptTokens ?? call.usage.prompt_tokens) || 0,
-                completionTokens: Number(call.usage.completionTokens ?? call.usage.completion_tokens) || 0,
-                reasoningTokens: Number(call.usage.reasoningTokens ?? call.usage.reasoning_tokens) || 0,
-                cachedTokens: Number(call.usage.cachedTokens ?? call.usage.cached_tokens ?? call.usage.cachedInputTokens) || 0,
-                totalTokens: Number(call.usage.totalTokens ?? call.usage.total_tokens) || 0,
-                creditCost: Number(call.usage.creditCost) || 0,
-                reservedCost: Number(call.usage.reservedCost) || 0,
-                billingStatus: String(call.usage.billingStatus || ''),
-                usageSource: String(call.usage.usageSource || ''),
-                status: String(call.usage.status || '')
-              } : null
-            })),
-            candidates: [{ contentHash: hashValue(text), audit: pipelineResult.semanticAudit, deterministicAudit: pipelineResult.deterministicAudit }],
-            selectedHash: hashValue(text),
-            rounds: [{ round: pipelineResult.revisionRound || 0, accepted: true, reason: 'content-engine-draft' }],
-            quality: pipelineResult.quality,
-            qualityVector: pipelineResult.quality && pipelineResult.quality.qualityVector,
-            effectiveGenre: String(pipelineResult.effectiveGenre || (passedGenre && passedGenre.genre) || runRequest.genre || '')
-          };
-          return {
-            text,
-            usage: { totalTokens: usage.totalTokens, creditCost: usage.creditCost, callCount: usage.callCount, complete: usage.complete },
-            providerRequestId: calls.map(call => call && call.usage && call.usage.requestId).filter(Boolean).join(',').slice(0, 240),
-            pipeline: evidence
-          };
-        },
-        revise: async ({ request: runRequest, issue, window, round, signal }) => {
-          const revision = await callMolanChat(String(executionContext.authorization || ''), user, {
-            modelId: runRequest.reviseModelId || runRequest.modelId,
-            projectId, workspaceId, recordId: runId, workflowId: runId,
-            requestId: generationProviderRequestId(runId, 'revision', issue && issue.issueId || 'manual', Number(round) + 1),
-            controller: signal ? { signal } : undefined,
-            onProviderStart: executionContext.onProviderStart,
-            onProviderComplete: executionContext.onProviderComplete,
-            stage: 'revision', jsonMode: true, requireComplete: true,
-            maxTokens: 1800, temperature: 0.25, timeoutMs: 120000,
-            system: '你是局部修订编辑。只返回严格 JSON：{"quote":"给定原句","replacement":"修订后的目标句","preservedFacts":["原文明确包含且必须保留的事实短语"]}。不得改写窗口外内容，不得增加窗口外没有依据的事实，不得改变人物身份、关系、地点、时间、数字或已发生事件。',
-            userPrompt: JSON.stringify({ round: Number(round) + 1, issue: { category: issue.category, severity: issue.severity, problem: issue.problem, fixHint: issue.fixHint }, replacementWindow: window })
-          });
-          const value = revision && revision.json;
-          if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.replacement !== 'string' || !Array.isArray(value.preservedFacts)) {
-            throw new GenerationError('AUDIT_BLOCKED', '局部修订模型没有返回有效的 JSON 补丁', { status: 502 });
-          }
-          return { quote: String(value.quote || ''), replacement: value.replacement, preservedFacts: value.preservedFacts.map(String).slice(0, 32), usage: revision.usage || null };
-        },
-        reaudit: async ({ request: runRequest, contract, draft, signal, attempt }) => {
-          const context = JSON.stringify({ storyContext: runRequest.storyContext || {}, chapterContract: contract || {} });
-          let auditCallNo = 0;
-          const result = await benchmarkPipeline.auditReviseLoop({
-            callModel: (_auditAuth, modelOptions) => callMolanChat(String(executionContext.authorization || ''), user, {
-              ...modelOptions, modelId: runRequest.modelId, projectId, workspaceId,
-              requestId: generationProviderRequestId(runId, 'reaudit', String(modelOptions.stage || 'semantic_audit'), Number(attempt) + ++auditCallNo),
-              controller: signal ? { signal } : undefined,
-              onProviderStart: executionContext.onProviderStart,
-              onProviderComplete: executionContext.onProviderComplete,
-              recordId: runId, workflowId: runId, stage: 'semantic_audit', requireComplete: true
-            })
-          }, auth, {
-            text: draft, context, genre: runRequest.genre, contract, chapterContract: contract,
-            factLedger: runRequest.factLedger || runRequest.storyContext && runRequest.storyContext.factLedger,
-            continuity: runRequest.continuity || runRequest.storyContext && runRequest.storyContext.continuity,
-            previousEnding: runRequest.previousEnding || runRequest.storyContext && runRequest.storyContext.previousEnding,
-            characters: runRequest.characters.length ? runRequest.characters : runRequest.storyContext && runRequest.storyContext.characters,
-            targetWords: runRequest.targetWords, maxRounds: 0, modelId: runRequest.modelId
-          });
-          return { audit: result.audit, deterministicAudit: result.deterministicAudit, passed: result.status === 'passed', usage: result.usage };
-        },
-        commit: POSTGRES_MODE ? async ({ run, request: runRequest, payload, text }) => {
-          const bookId = String(runRequest.creationBookId || '').trim();
-          if (!bookId) throw new GenerationError('STATE_CONFLICT', '生成请求缺少 creationBookId，不能写入正式章节', { status: 409 });
-          const commitInput = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
-          const detail = commitInput.payload && typeof commitInput.payload === 'object' && !Array.isArray(commitInput.payload) ? commitInput.payload : {};
-          if (commitInput.projectId && String(commitInput.projectId) !== String(run.projectId)) {
-            throw new GenerationError('STATE_CONFLICT', '提交项目与生成任务不一致', { status: 409 });
-          }
-          if ((typeof commitInput.content === 'string' && commitInput.content !== text) ||
-              (typeof detail.content === 'string' && detail.content !== text)) {
-            throw new GenerationError('STATE_CONFLICT', '提交正文与 payload.content 不一致', { status: 409 });
-          }
-          const contractValue = run.result && run.result.contract || {};
-          const chapterMatch = String(runRequest.chapterId || '').match(/(\d+)/);
-          const chapterNo = Math.max(1, Number(contractValue.chapterNo || chapterMatch && chapterMatch[1]) || 1);
-          const expectedProjectRevision = Number(commitInput.expectedRevision);
-          if (!Number.isInteger(expectedProjectRevision) || expectedProjectRevision < 1) {
-            throw new GenerationError('STATE_CONFLICT', '提交必须提供已读取的 expectedRevision', { status: 409 });
-          }
-          const expectedStateVersion = commitInput.baseStateVersion ?? (runRequest.storyContext && (runRequest.storyContext.stateVersion ?? runRequest.storyContext.baseRevision));
-          if (!Number.isInteger(Number(expectedStateVersion)) || Number(expectedStateVersion) < 0) {
-            throw new GenerationError('STATE_CONFLICT', '提交必须提供已读取的 baseStateVersion', { status: 409 });
-          }
-          if (Number(expectedProjectRevision) !== Number(runRequest.storyContext && runRequest.storyContext.baseRevision) ||
-              Number(expectedStateVersion) !== Number(runRequest.storyContext && runRequest.storyContext.stateVersion)) {
-            throw new GenerationError('STATE_CONFLICT', '提交版本与服务端生成时读取的故事状态不一致，请重新生成', { status: 409 });
-          }
-          const knownBaseHash = String(runRequest.storyContext && (runRequest.storyContext.baseHash || runRequest.storyContext.contentHash) || '');
-          if (commitInput.baseHash && knownBaseHash && String(commitInput.baseHash) !== knownBaseHash) {
-            throw new GenerationError('STATE_CONFLICT', '提交基线正文已变化，请重新读取后提交', { status: 409 });
-          }
-          const creation = await postgresRepository.getCreationState(postgresActor(auth), bookId, 0);
-          if (!creation || !creation.book || String(creation.book.projectId) !== String(run.projectId) ||
-              String(creation.book.workspaceId) !== String(run.workspaceId) ||
-              Number(creation.book.currentStateVersion) !== Number(expectedStateVersion)) {
-            throw new GenerationError('STATE_CONFLICT', '创作书状态已变化或不属于本次项目，请重新读取后提交', { status: 409 });
-          }
-          const previousSnapshot = (Array.isArray(creation.snapshots) ? creation.snapshots : [])
-            .filter(snapshot => Number(snapshot && snapshot.stateVersion) <= Number(expectedStateVersion))
-            .sort((a, b) => Number(b && b.stateVersion) - Number(a && a.stateVersion))[0] || {};
-          const projection = require('./lib/generation/commit-projection').deriveGenerationCommitProjection({
-            result: run.result, text, previousSnapshot, chapterNo
-          });
-          const contentHash = generationManifest.hashValue(text);
-          const receipt = await postgresRepository.commitChapter({
-            userId: postgresActor(auth), workspaceId: run.workspaceId, projectId: run.projectId,
-            generationId: run.id, runLeaseOwner: run.leaseOwner, fencingToken: run.fencingToken,
-            bookId, chapterNo, content: text, contentHash,
-            auditId: `audit_generation_${run.id}`,
-            baseStateVersion: Number(expectedStateVersion), expectedProjectRevision,
-            actualCost: Math.max(0, Number(run.actualCostMinor) || 0) / 100,
-            contentRef: `manuscript:${bookId}:chapter:${chapterNo}`,
-            projection
-          });
-          return { committed: receipt && receipt.ok === true, ...receipt };
-        } : async ({ run, request: runRequest, payload, text }) => {
-          const actorUserId = String(auth.user.userId || projectScope.stableUserId(auth.user.email));
-          const access = projectScope.getNovelAccess(db, projectId, actorUserId);
-          if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) {
-            throw new GenerationError('STATE_CONFLICT', '当前账户无权提交此项目章节', { status: 403 });
-          }
-          const memoryWorkflow = require('./lib/memory-workflow');
-          return require('./lib/generation/sqlite-commit').commitSqliteChapter(db, {
-            run, request: runRequest, payload, text, projectAccess: access, actorUserId,
-            userEmail: auth.user.email, recordDebts: recordChapterCausalDebts,
-            calcWordCount, sanitizeNovelState: sanitizeNovelStateForStorage,
-            maxNovelStateBytes: MAX_NOVEL_STATE_BYTES,
-            guardNovelWrite: (novelId, revision) => memoryWorkflow.guardNovelWrite(db, novelId, revision),
-            invalidateChangedSources: novelId => memoryWorkflow.invalidateChangedSources(db, novelId)
-          });
-        },
-        getManifest: () => pipelineResult && pipelineResult.manifest || null
-      };
-    },
-    onError: (error, runId) => console.error('[Generation V2 worker]', runId, error && error.code || error)
-  });
-  return generationOrchestrator;
-}
-
-function generationRequestAuth(req) {
-  return CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req);
-}
-
-function generationRunError(res, error) {
-  if (res.headersSent || res.writableEnded) return;
-  const rawCode = String(error && error.code || 'generation_failed');
-  const status = Number(error && error.status) || (rawCode === 'idempotency_conflict' ? 409 : 500);
-  const idempotencyConflict = rawCode === 'idempotency_conflict';
-  json(res, status, {
-    ok: false,
-    error: idempotencyConflict ? '该 Idempotency-Key 已用于其他请求' : String(error && error.message || '生成任务操作失败'),
-    code: idempotencyConflict ? 'IDEMPOTENCY_KEY_REUSED' : rawCode
-  });
-}
-
-function generationSseEvent(res, event) {
-  if (res.destroyed || res.writableEnded) return false;
-  const sequence = Number(event && event.sequence) || 0;
-  const name = String(event && event.state || 'progress').replace(/[^a-z0-9_-]/gi, '_');
-  const payload = JSON.stringify(event || {});
-  return res.write(`id: ${sequence}\nevent: ${name}\ndata: ${payload}\n\n`);
-}
-
-/** 轮询持久事件表并以 SSE 下发，Last-Event-ID/after 可恢复断线游标。 */
-async function streamGenerationEvents(req, res, store, database, scope, initialCursor) {
-  res.writeHead(200, {
-    ...responseCors(res),
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache, no-transform',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no'
-  });
-  res.write('retry: 1000\n\n');
-  let cursor = initialCursor;
-  let lastHeartbeat = Date.now();
-  const disconnect = attachResponseDisconnect(res, () => {
-    void generationRunOrchestrator().cancelOnDisconnect(scope).catch(error => {
-      console.error('[generation] SSE 断开后取消任务失败', scope.id, error && error.code || error);
-    });
-  });
-  try {
-    while (!disconnect.disconnected && !res.writableEnded) {
-      const events = await store.listEvents(database, { ...scope, generationId: scope.id, after: cursor, limit: 500 });
-      for (const event of events) {
-        if (disconnect.disconnected || res.writableEnded) break;
-        generationSseEvent(res, event);
-        cursor = Number(event.sequence) || cursor;
-      }
-      if (disconnect.disconnected || res.writableEnded) break;
-      const run = await store.getRun(database, { ...scope, id: scope.id });
-      if (!run || ['waiting_author', 'needs_human', 'paused', 'committed', 'cancelled', 'failed', 'provider_unknown', 'rejected'].includes(String(run.state))) break;
-      if (Date.now() - lastHeartbeat >= 15000) {
-        res.write(`: heartbeat ${Date.now()}\n\n`);
-        lastHeartbeat = Date.now();
-      }
-      await new Promise(resolve => {
-        const timer = setTimeout(done, 500);
-        function done() {
-          clearTimeout(timer);
-          res.removeListener('close', done);
-          resolve();
-        }
-        res.once('close', done);
-      });
-    }
-  } finally {
-    disconnect.dispose();
-    if (!res.destroyed && !res.writableEnded) res.end();
-  }
-}
-
-async function generationProjectAccess(actorUserId, projectId, workspaceId = '') {
-  if (POSTGRES_MODE) return postgresRepository.getProjectAccess(actorUserId, projectId, workspaceId);
-  const access = projectScope.getNovelAccess(db, projectId, actorUserId);
-  if (access && workspaceId && String(access.workspace_id) !== String(workspaceId)) return null;
-  return access;
-}
-
-function generationChatChunk(runId, content = '', state = '', metadata = {}) {
-  return `data: ${JSON.stringify({
-    id: String(runId), object: 'chat.completion.chunk',
-    choices: [{ index: 0, delta: content ? { content } : {}, finish_reason: null }],
-    generationId: String(runId), generationState: String(state || ''), ...metadata
-  })}\n\n`;
-}
-
-async function streamLegacyGenerationChat(req, res, created, scope) {
-  const store = generationRunStore();
-  const database = POSTGRES_MODE ? postgresRepository : db;
-  const runId = String(created.run && created.run.id || '');
-  res.writeHead(200, {
-    ...responseCors(res),
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache, no-transform',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-    'X-Molan-Generation-Id': runId
-  });
-  res.write(generationChatChunk(runId, '', created.run && created.run.state, { idempotent: created.idempotent === true }));
-  let lastHeartbeat = Date.now();
-  const runScope = { ...scope, id: runId };
-  const disconnect = attachResponseDisconnect(res, () => {
-    void generationRunOrchestrator().cancelOnDisconnect(runScope).catch(error => {
-      console.error('[generation] /api/chat 断开后取消任务失败', runId, error && error.code || error);
-    });
-  });
-  try {
-    let run = created.run;
-    while (!disconnect.disconnected && !res.writableEnded && run && !['waiting_author', 'needs_human', 'committed', 'cancelled', 'failed', 'provider_unknown', 'rejected'].includes(String(run.state))) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      if (disconnect.disconnected || res.writableEnded) break;
-      run = await store.getRun(database, { ...scope, id: runId });
-      if (Date.now() - lastHeartbeat >= 15000 && !disconnect.disconnected && !res.writableEnded) {
-        res.write(': generation heartbeat\n\n');
-        lastHeartbeat = Date.now();
-      }
-    }
-    if (disconnect.disconnected || res.writableEnded || !run) return;
-    const content = String(run.result && run.result.draft || '');
-    for (let index = 0; index < content.length; index += 240) {
-      if (disconnect.disconnected || res.writableEnded) return;
-      res.write(generationChatChunk(runId, content.slice(index, index + 240), run.state));
-    }
-    res.write(generationChatChunk(runId, '', run.state, {
-      generationResult: { state: run.state, outputHash: String(run.result && run.result.outputHash || ''), errorCode: String(run.errorCode || '') }
-    }));
-    res.write('data: [DONE]\n\n');
-  } catch (error) {
-    if (!res.destroyed && !res.writableEnded) {
-      res.write(`data: ${JSON.stringify({ error: { message: String(error && error.message || 'Generation Run 状态读取失败'), code: String(error && error.code || 'generation_failed') }, generationId: runId })}\n\n`);
-      res.write('data: [DONE]\n\n');
-    }
-  } finally {
-    disconnect.dispose();
-    if (!res.destroyed && !res.writableEnded) res.end();
-  }
-}
-
-async function handleLegacyGenerationChat(req, res, auth, input) {
-  const actorUserId = String(auth.user.userId || projectScope.stableUserId(auth.user.email));
-  const key = String(req.headers['idempotency-key'] || input.idempotencyKey || input.requestId || '').trim();
-  if (!key) return json(res, 428, { error: '正式章节生成必须提供稳定的 Idempotency-Key', code: 'IDEMPOTENCY_KEY_REQUIRED' });
-  const projectId = String(input.projectId || input.novelId || '').trim();
-  if (!projectId) return json(res, 422, { error: '正式章节生成必须提供 projectId', code: 'CONTRACT_INVALID' });
-  try {
-    const access = await generationProjectAccess(actorUserId, projectId, String(input.workspaceId || ''));
-    if (!access || !projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) {
-      return json(res, 404, { error: '项目不存在或当前账户无权发起生成', code: 'forbidden' });
-    }
-    const userMessages = Array.isArray(input.messages) ? input.messages.filter(message => message && message.role === 'user') : [];
-    const prompt = String(input.prompt || input.userInstruction || userMessages.map(message => String(message.content || '')).join('\n')).slice(0, 30000);
-    const modelId = resolveModelForUser(auth.user, input.modelId || input.model || currentDefaultModel());
-    const normalized = generationRunContext.normalizeGenerationRequest({
-      ...input, projectId, novelId: input.novelId || projectId, modelId, prompt, userInstruction: input.userInstruction || prompt,
-      idempotencyKey: key
-    });
-    const request = normalized.request;
-    const workspaceId = String(access.workspace_id || '');
-    const id = crypto.randomUUID();
-    const manifest = generationManifest.buildGenerationManifest({
-      generationId: id, projectId, chapterId: request.chapterId, modelId,
-      promptHash: generationManifest.hashValue({ writingSystem: request.writingSystem, prompt: request.prompt })
-    });
-    const created = await generationRunOrchestrator().create({
-      id, actorUserId, workspaceId, projectId, chapterId: request.chapterId,
-      pipelineVersion: 'generation-v2.1', idempotencyKey: normalized.idempotencyKey,
-      requestHash: generationRunContext.requestHash(request), request, manifest, modelId
-    }, { auth, user: auth.user, authorization: String(req.headers.authorization || ''), actorUserId, projectId, workspaceId });
-    const scope = { actorUserId, projectId, workspaceId };
-    return await streamLegacyGenerationChat(req, res, created, scope);
-  } catch (error) {
-    return generationRunError(res, error);
-  }
-}
-
-function generationChapterNo(request, contract, book) {
-  const match = String(request && request.chapterId || '').match(/(\d+)/);
-  return Math.max(1, Number(contract && contract.chapterNo || match && match[1] || Number(book && book.currentChapterNo || book && book.current_chapter_no) + 1) || 1);
-}
-
-function generationPreviousEnding(state, chapterNo) {
-  const chapters = (Array.isArray(state && state.volumes) ? state.volumes : []).flatMap(volume =>
-    (Array.isArray(volume && volume.chapters) ? volume.chapters : []).map(chapter => ({ ...chapter, volumeTitle: chapter.volumeTitle || volume.title || '' }))
-  );
-  const chapterNumber = chapter => Number(chapter && (chapter.number || chapter.chapterNo || chapter.chapterIndex))
-    || Number(String(chapter && (chapter.id || chapter.chapterId || chapter.title) || '').match(/(\d+)/)?.[1]) || 0;
-  const previous = chapters.find(chapter => chapterNumber(chapter) === chapterNo - 1)
-    || chapters.filter(chapter => chapterNumber(chapter) > 0 && chapterNumber(chapter) < chapterNo).sort((a, b) => chapterNumber(b) - chapterNumber(a))[0];
-  if (!previous) return '';
-  const content = Array.isArray(previous.scenes)
-    ? previous.scenes.map(scene => typeof scene === 'string' ? scene : String(scene && (scene.content || scene.text) || '')).join('\n')
-    : String(previous.content || previous.text || '');
-  return content.slice(-2400);
-}
-
-function generationFactLedger(snapshot) {
-  const recent = Array.isArray(snapshot && snapshot.recentFacts) ? snapshot.recentFacts : [];
-  const ledger = { rules: [], promises: [], updates: [], byEntity: {} };
-  for (const fact of recent) {
-    if (!fact || typeof fact !== 'object') continue;
-    const type = String(fact.sourceType || fact.type || '');
-    if (type === 'rule') ledger.rules.push(fact);
-    else if (type === 'promise') ledger.promises.push(fact);
-    else if (type === 'update') ledger.updates.push(fact);
-    else if (type === 'entity' && fact.entity) {
-      const entity = String(fact.entity);
-      if (!ledger.byEntity[entity]) ledger.byEntity[entity] = [];
-      ledger.byEntity[entity].push(fact);
-    }
-  }
-  return ledger;
-}
-
-/** 只从项目权限、创作圣经、持久化快照和作品正文读取生成上下文。 */
-async function loadAuthoritativeGenerationContext(input = {}) {
-  const request = input.request || {};
-  const actorUserId = String(input.actorUserId || '');
-  const projectId = String(input.projectId || request.projectId || '');
-  const workspaceId = String(input.workspaceId || '');
-  const bookId = String(request.creationBookId || '');
-  if (!actorUserId || !projectId || !bookId) return { ok: false, reason: 'generation_scope_incomplete' };
-  const access = await generationProjectAccess(actorUserId, projectId, workspaceId);
-  if (!access || !projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) return { ok: false, reason: 'generation_scope_forbidden' };
-
-  let book;
-  let bible;
-  let snapshots;
-  let novelState = {};
-  let projectRevision = 0;
-  if (POSTGRES_MODE) {
-    const creation = await postgresRepository.getCreationState(actorUserId, bookId, 0);
-    if (!creation || !creation.book || String(creation.book.projectId) !== projectId || String(creation.book.workspaceId) !== workspaceId) {
-      return { ok: false, reason: 'creation_book_missing' };
-    }
-    const profile = await postgresRepository.getProfile(actorUserId, projectId, workspaceId);
-    if (!profile) return { ok: false, reason: 'project_state_missing' };
-    book = creation.book;
-    bible = creation.bible;
-    snapshots = Array.isArray(creation.snapshots) ? creation.snapshots : [];
-    novelState = profile.state && typeof profile.state === 'object' ? profile.state : {};
-    projectRevision = Number(profile.revision) || Number(access.revision) || 0;
-  } else {
-    const row = db.prepare(`SELECT * FROM creation_books
-      WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(bookId, workspaceId, projectId);
-    if (!row) return { ok: false, reason: 'creation_book_missing' };
-    const storedBible = loadCurrentBiblePayload(bookId);
-    if (!storedBible) return { ok: false, reason: 'creation_bible_missing' };
-    const novelId = String(request.novelId || projectId);
-    const novel = db.prepare(`SELECT state_json, revision FROM novels
-      WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(novelId, workspaceId, projectId);
-    if (!novel) return { ok: false, reason: 'project_state_missing' };
-    book = row;
-    bible = { bibleId: storedBible.bibleId, version: storedBible.version, payload: storedBible.payload };
-    snapshots = loadCreationSnapshots(bookId, 0);
-    try { novelState = sanitizeNovelStateForStorage(JSON.parse(String(novel.state_json || '{}'))); }
-    catch (_) { return { ok: false, reason: 'project_state_invalid' }; }
-    projectRevision = Number(novel.revision) || 0;
-  }
-
-  const stateVersion = Math.max(0, Number(book.currentStateVersion ?? book.current_state_version) || 0);
-  const chapterNo = generationChapterNo(request, input.contract, book);
-  const previous = snapshots.filter(snapshot => Number(snapshot && snapshot.stateVersion) <= stateVersion)
-    .sort((a, b) => Number(b && b.stateVersion) - Number(a && a.stateVersion))[0] || {};
-  const biblePayload = bible && bible.payload && typeof bible.payload === 'object' ? bible.payload : {};
-  const chapterContext = creationChapterContext(biblePayload, chapterNo);
-  const factLedger = generationFactLedger(previous);
-  const characters = [...chapterContext.characters, ...chapterContext.characterLibrary];
-  const knownNames = new Set(characters.map(character => String(character && (character.name || character.id) || '')).filter(Boolean));
-  const characterStates = previous.characterStates && typeof previous.characterStates === 'object' ? previous.characterStates : {};
-  for (const [name, state] of Object.entries(characterStates)) {
-    if (!knownNames.has(name)) characters.push({ name, ...(state && typeof state === 'object' ? state : { state }) });
-  }
-  const stateSummary = {
-    chapterNo, stateVersion, baseRevision: projectRevision, storyBibleVersion: Number(bible && bible.version) || 0,
-    characterStates, relationshipStates: previous.relationshipStates || {}, worldStates: previous.worldStates || {},
-    timeline: Array.isArray(previous.timeline) ? previous.timeline : [],
-    openForeshadows: Array.isArray(previous.openForeshadows) ? previous.openForeshadows : [],
-    recentFacts: Array.isArray(previous.recentFacts) ? previous.recentFacts : []
-  };
-  let baseHash = String(previous.contentHash || '');
-  if (request.sceneId) {
-    const located = require('./lib/generation/scene-patch').locateScene(novelState, request.chapterId, request.sceneId);
-    if (!located) return { ok: false, reason: 'generation_scene_missing' };
-    baseHash = require('./lib/generation/scene-patch').hashSceneText(located.scene.content == null ? '' : located.scene.content);
-  }
-  const snapshotHash = generationManifest.hashValue({
-    projectId, workspaceId, bookId, projectRevision, stateVersion,
-    bibleVersion: Number(bible && bible.version) || 0, previous: previous.id || previous.stateVersion || 0,
-    stateSummary
-  });
-  const storyContext = {
-    ...stateSummary,
-    baseStateVersion: stateVersion,
-    baseHash,
-    contentHash: String(previous.contentHash || ''),
-    previousEnding: generationPreviousEnding(novelState, chapterNo),
-    chapterContext,
-    chapterPlan: chapterContext,
-    characters,
-    factLedger,
-    continuity: {
-      characters, characterStates, relationships: previous.relationshipStates || {},
-      worldStates: previous.worldStates || {}, worldRules: chapterContext.rules,
-      timeline: stateSummary.timeline, openForeshadows: stateSummary.openForeshadows
-    },
-    hardState: { factLedger, characterStates, relationshipStates: previous.relationshipStates || {}, worldStates: previous.worldStates || {} },
-    foreshadows: stateSummary.openForeshadows,
-    activeCausalDebts: factLedger.promises,
-    planText: JSON.stringify(chapterContext).slice(0, 12000)
-  };
-  return { ok: true, storyContext, snapshotHash, projectRevision, stateVersion, chapterNo, chapterContext, novelState };
-}
-
-function scenePatchError(res, error) {
-  if (res.headersSent || res.writableEnded) return;
-  const code = String(error && error.code || 'scene_patch_failed');
-  const status = Number(error && error.status) || (code === 'revision_conflict' || code === 'base_hash_conflict' ? 409 : 500);
-  json(res, status, { ok: false, error: String(error && error.message || '场景保存失败'), code });
-}
-
-function validateScenePatchBody(body) {
-  const chapterId = String(body && body.chapterId || '').trim();
-  const revision = Number(body && body.revision);
-  const baseHash = String(body && body.baseHash || '').trim().toLowerCase();
-  if (!chapterId || chapterId.length > 160) throw Object.assign(new Error('chapterId 无效'), { code: 'CONTRACT_INVALID', status: 422 });
-  if (!Number.isInteger(revision) || revision < 0) throw Object.assign(new Error('场景差量必须提供有效 revision'), { code: 'revision_required', status: 428 });
-  if (!/^[a-f0-9]{64}$/.test(baseHash)) throw Object.assign(new Error('场景差量必须提供 SHA-256 baseHash'), { code: 'base_hash_required', status: 428 });
-  return { chapterId, revision, baseHash, operations: body && body.operations };
-}
-
-/** 对单个场景正文应用基于 revision 与正文摘要的差量补丁。 */
-async function handleNovelScenePatch(req, res, novelIdValue, sceneIdValue) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { ok: false, error: '未登录', code: 'unauthorized' });
-  if (!requireSqliteForPublic(req, res)) return;
-  const novelId = decodePathParam(novelIdValue);
-  const sceneId = decodePathParam(sceneIdValue);
-  if (!/^n_[A-Za-z0-9]{1,30}$/.test(novelId)) return json(res, 400, { ok: false, error: '小说 id 非法', code: 'invalid_novel_id' });
-  if (!sceneId || sceneId.length > 160) return json(res, 400, { ok: false, error: 'sceneId 无效', code: 'invalid_scene_id' });
-  try {
-    const body = await readBody(req, generationScenePatch.MAX_SCENE_PATCH_BYTES + 8192);
-    const patch = validateScenePatchBody(body);
-    let state;
-    let currentRevision;
-    let access;
-
-    if (POSTGRES_MODE) {
-      const saved = await postgresRepository.patchProfileScene({
-        userId: postgresActor(auth), projectId: novelId, chapterId: patch.chapterId,
-        sceneId, expectedRevision: patch.revision, baseHash: patch.baseHash,
-        operations: patch.operations, maxStateBytes: MAX_NOVEL_STATE_BYTES
-      });
-      return json(res, 200, { ok: true, ...saved, chapterId: patch.chapterId, sceneId });
-    }
-
-    if (!dbReady()) return json(res, 503, { ok: false, error: '云端存储不可用', code: 'storage_unavailable' });
-    let transaction = false;
-    try {
-      db.exec('BEGIN IMMEDIATE');
-      transaction = true;
-      access = projectScope.getNovelAccess(db, novelId, auth.user.userId);
-      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) {
-        db.exec('ROLLBACK');
-        transaction = false;
-        return json(res, 404, { ok: false, error: '小说不存在或无权访问', code: 'project_not_found' });
-      }
-      const row = db.prepare(`SELECT state_json, revision FROM novels
-        WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(novelId, access.workspace_id, access.project_id);
-      if (!row) {
-        db.exec('ROLLBACK');
-        transaction = false;
-        return json(res, 404, { ok: false, error: '小说不存在或无权访问', code: 'project_not_found' });
-      }
-      currentRevision = Number(row.revision) || 0;
-      if (currentRevision !== patch.revision) {
-        db.exec('ROLLBACK');
-        transaction = false;
-        return json(res, 409, { ok: false, error: '小说 revision 已变化，请重新读取', code: 'revision_conflict', revision: currentRevision });
-      }
-      require('./lib/memory-workflow').guardNovelWrite(db, novelId, patch.revision);
-      try { state = sanitizeNovelStateForStorage(JSON.parse(String(row.state_json || '{}'))); }
-      catch (_) { throw Object.assign(new Error('state_json 解析失败'), { code: 'invalid_state', status: 500 }); }
-      const located = generationScenePatch.locateScene(state, patch.chapterId, sceneId);
-      if (!located) {
-        db.exec('ROLLBACK');
-        transaction = false;
-        return json(res, 404, { ok: false, error: '指定章节或场景不存在', code: 'scene_not_found' });
-      }
-      const currentText = String(located.scene.content == null ? '' : located.scene.content);
-      if (generationScenePatch.hashSceneText(currentText) !== patch.baseHash) {
-        db.exec('ROLLBACK');
-        transaction = false;
-        return json(res, 409, { ok: false, error: '场景正文已变化，请重新读取后合并', code: 'base_hash_conflict', revision: currentRevision });
-      }
-      located.scene.content = generationScenePatch.applySceneOperations(currentText, patch.operations);
-      state = sanitizeNovelStateForStorage(state);
-      const stateJson = JSON.stringify(state);
-      if (Buffer.byteLength(stateJson, 'utf8') > MAX_NOVEL_STATE_BYTES) {
-        db.exec('ROLLBACK');
-        transaction = false;
-        return json(res, 413, { ok: false, error: '单本小说数据过大', code: 'state_too_large' });
-      }
-      const now = Date.now();
-      const result = db.prepare(`UPDATE novels SET state_json = ?, word_count = ?, updated_at = ?,
-        revision = revision + 1, owner_user_id = ?
-        WHERE id = ? AND workspace_id = ? AND project_id = ? AND revision = ?`)
-        .run(stateJson, calcWordCount(state), now, auth.user.userId, novelId,
-          access.workspace_id, access.project_id, patch.revision);
-      if (Number(result.changes || 0) !== 1) {
-        db.exec('ROLLBACK');
-        transaction = false;
-        return json(res, 409, { ok: false, error: '小说 revision 已变化，请重新读取', code: 'revision_conflict' });
-      }
-      db.prepare('UPDATE novel_projects SET updated_at = ? WHERE workspace_id = ? AND project_id = ?')
-        .run(now, access.workspace_id, access.project_id);
-      require('./lib/memory-workflow').invalidateChangedSources(db, novelId);
-      db.exec('COMMIT');
-      transaction = false;
-      return json(res, 200, {
-        ok: true, chapterId: patch.chapterId, sceneId, revision: patch.revision + 1,
-        contentHash: generationScenePatch.hashSceneText(located.scene.content)
-      });
-    } catch (error) {
-      if (transaction) { try { db.exec('ROLLBACK'); } catch (_) {} }
-      throw error;
-    }
-  } catch (error) {
-    return scenePatchError(res, error);
-  }
-}
-
-async function handleGenerationRuns(req, res, u) {
-  const auth = generationRequestAuth(req);
-  if (!auth) return json(res, 401, { ok: false, error: '未登录', code: 'unauthorized' });
-  const actorUserId = postgresActor(auth);
-  const rootPath = '/api/generation-runs';
-  if (req.method === 'GET' && u === `${rootPath}/capabilities`) {
-    const selectedStore = generationRunStore();
-    const commit = POSTGRES_MODE
-      ? typeof postgresRepository.commitChapter === 'function'
-      : dbReady() && ['creation_books', 'creation_state_snapshots', 'creation_chapter_audits', 'benchmark_commit_receipts', 'project_resources', 'novels']
-        .every(name => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name)));
-    const generationStatus = generationV2Status(generationV2Enabled(process.env, actorUserId));
-    return json(res, 200, {
-      ...generationStatus,
-      commit,
-      pauseResume: !POSTGRES_MODE && typeof selectedStore.requestPause === 'function' && typeof selectedStore.resumeRun === 'function',
-      recovery: !POSTGRES_MODE && typeof selectedStore.recoverExpiredRuns === 'function',
-      storageMode: POSTGRES_MODE ? 'postgres' : process.env.MOLAN_GENERATION_STORE === 'json' ? 'json' : 'sqlite'
-    });
-  }
-  if (!generationV2Enabled(process.env, actorUserId)) return json(res, 404, { ok: false, error: 'Generation V2 未启用', code: 'generation_v2_disabled' });
-  if (!requireSqliteForPublic(req, res)) return;
-  const base = u.match(/^\/api\/generation-runs\/([^/]+)$/);
-  const events = u.match(/^\/api\/generation-runs\/([^/]+)\/events$/);
-  const cancel = u.match(/^\/api\/generation-runs\/([^/]+)\/cancel$/);
-  const pause = u.match(/^\/api\/generation-runs\/([^/]+)\/pause$/);
-  const resume = u.match(/^\/api\/generation-runs\/([^/]+)\/resume$/);
-  const revision = u.match(/^\/api\/generation-runs\/([^/]+)\/revision$/);
-  const commit = u.match(/^\/api\/generation-runs\/([^/]+)\/commit$/);
-  try {
-    const orchestrator = generationRunOrchestrator();
-    const store = generationRunStore();
-    const database = POSTGRES_MODE ? postgresRepository : db;
-    if (typeof orchestrator.recover === 'function') await orchestrator.recover();
-    if (req.method === 'POST' && u === rootPath) {
-      const body = await readBody(req, 2 * 1024 * 1024 + 4096);
-      const key = String(req.headers['idempotency-key'] || body.idempotencyKey || body.requestId || '').trim();
-      const requestedModel = String(body.modelId || body.model || '').trim();
-      const modelId = resolveModelForUser(auth.user, requestedModel || currentDefaultModel());
-      if (requestedModel === 'gpt-6-luna' && modelId !== requestedModel) return json(res, 503, { ok: false, error: '平台模型目录未配置 gpt-6-luna，已停止请求以避免回退到其他模型', code: 'model_unavailable' });
-      const normalized = generationRunContext.normalizeGenerationRequest({ ...body, modelId, idempotencyKey: key });
-      const request = normalized.request;
-      const access = await generationProjectAccess(actorUserId, request.projectId, String(body.workspaceId || ''));
-      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) return json(res, 403, { ok: false, error: '当前账户无权在该项目生成正文', code: 'forbidden' });
-      const workspaceId = String(access.workspace_id || '');
-      const id = crypto.randomUUID();
-      const manifest = generationManifest.buildGenerationManifest({
-        generationId: id, projectId: request.projectId, chapterId: request.chapterId,
-        modelId, promptHash: generationManifest.hashValue({ writingSystem: request.writingSystem, prompt: request.prompt })
-      });
-      const created = await orchestrator.create({
-        id, actorUserId, workspaceId, projectId: request.projectId, chapterId: request.chapterId,
-        pipelineVersion: 'generation-v2.1', idempotencyKey: normalized.idempotencyKey,
-        requestHash: generationRunContext.requestHash(request), request, manifest, modelId
-      }, { auth, user: auth.user, authorization: String(req.headers.authorization || ''), projectId: request.projectId, workspaceId });
-      return json(res, created.idempotent ? 200 : 202, { ok: true, idempotent: created.idempotent, run: created.run });
-    }
-
-    if (!base && !events && !cancel && !pause && !resume && !revision && !commit) return json(res, 404, { ok: false, error: 'Not Found' });
-    const id = decodePathParam((events || cancel || pause || resume || revision || commit || base)[1]);
-    const run = await store.getRunById(database, { id, actorUserId });
-    if (!run) return json(res, 404, { ok: false, error: '生成任务不存在或无权访问', code: 'RUN_NOT_FOUND' });
-    const access = await generationProjectAccess(actorUserId, run.projectId, run.workspaceId);
-    if (!access || !projectScope.canAccess(access, projectScope.PROJECT_ROLES)) return json(res, 404, { ok: false, error: '生成任务不存在或无权访问', code: 'RUN_NOT_FOUND' });
-    const scope = { id: run.id, actorUserId, projectId: run.projectId, workspaceId: run.workspaceId };
-    if (req.method === 'GET' && events) {
-      const params = new URL(req.url, 'http://molan.local').searchParams;
-      const afterRaw = params.get('after');
-      const limitRaw = params.get('limit');
-      const lastEventId = String(req.headers['last-event-id'] || '').trim();
-      const cursorRaw = lastEventId || afterRaw;
-      const after = cursorRaw == null || cursorRaw === '' ? 0 : Number(cursorRaw);
-      const requestedLimit = limitRaw == null || limitRaw === '' ? 100 : Number(limitRaw);
-      if (!Number.isSafeInteger(after) || after < 0) return json(res, 400, { ok: false, error: 'after 参数无效', code: 'invalid_cursor' });
-      if (!Number.isInteger(requestedLimit) || requestedLimit < 1) return json(res, 400, { ok: false, error: 'limit 参数无效', code: 'invalid_limit' });
-      const limit = Math.min(500, requestedLimit);
-      if (String(req.headers.accept || '').toLowerCase().includes('text/event-stream')) {
-        return streamGenerationEvents(req, res, store, database, scope, after);
-      }
-      const list = await store.listEvents(database, { ...scope, generationId: run.id, after, limit });
-      return json(res, 200, { ok: true, events: list, hasMore: list.length === limit });
-    }
-    if (req.method === 'GET' && base) {
-      const stages = await store.listStages(database, { ...scope, generationId: run.id });
-      return json(res, 200, { ok: true, run, stages });
-    }
-    if (req.method === 'POST' && cancel) {
-      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权取消此任务', code: 'forbidden' });
-      return json(res, 200, { ok: true, run: await orchestrator.cancel(scope) });
-    }
-    if (req.method === 'POST' && pause) {
-      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权暂停此任务', code: 'forbidden' });
-      return json(res, 200, { ok: true, run: await orchestrator.pause(scope) });
-    }
-    if (req.method === 'POST' && resume) {
-      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权恢复此任务', code: 'forbidden' });
-      const resumed = await orchestrator.resume(scope, {
-        auth, user: auth.user, authorization: String(req.headers.authorization || ''),
-        projectId: run.projectId, workspaceId: run.workspaceId, generationId: run.id
-      });
-      return json(res, 202, { ok: true, run: resumed.run, resumed: true });
-    }
-    if (req.method === 'POST' && revision) {
-      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权修订此任务', code: 'forbidden' });
-      const body = await readBody(req, 256 * 1024 + 4096);
-      const controller = new AbortController();
-      const disconnect = attachResponseDisconnect(res, () => {
-        controller.abort(new Error('修订响应已断开'));
-      });
-      let revised;
-      try {
-        revised = await orchestrator.revise({
-          ...scope,
-          issueId: body.issueId,
-          quote: body.quote,
-          replacementWindow: body.replacementWindow,
-          replacement: body.replacement,
-          preservedFacts: body.preservedFacts,
-          outputHash: body.outputHash
-        }, {
-          auth, user: auth.user, authorization: String(req.headers.authorization || ''),
-          projectId: run.projectId, workspaceId: run.workspaceId, generationId: run.id,
-          signal: controller.signal
-        });
-      } finally {
-        disconnect.dispose();
-      }
-      if (disconnect.disconnected || res.destroyed || res.writableEnded) return;
-      return json(res, 200, { ok: true, run: revised.run, revision: revised.revision, idempotent: revised.idempotent });
-    }
-    if (req.method === 'POST' && commit) {
-      if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 403, { ok: false, error: '当前账户无权提交此任务', code: 'forbidden' });
-      const body = await readBody(req, 1024 * 1024 + 4096);
-      const outputHash = String(body.outputHash || body.payload && body.payload.outputHash || '');
-      const text = String(body.text ?? (body.payload && (body.payload.content || body.payload.text)) ?? '');
-      const committed = await orchestrator.commit({ ...scope, outputHash, text, payload: body }, {
-        auth, user: auth.user, authorization: String(req.headers.authorization || ''),
-        projectId: run.projectId, workspaceId: run.workspaceId, generationId: run.id
-      });
-      return json(res, 200, { ok: true, run: committed.run, receipt: committed.receipt, idempotent: committed.idempotent });
-    }
-    return json(res, 405, { ok: false, error: 'Method Not Allowed' });
-  } catch (error) {
-    return generationRunError(res, error);
-  }
-}
-
-async function handleBenchmark(req, res, u) {
-  if (req.method === 'GET' && u === '/api/benchmark/capabilities') return json(res, 200, { protocol: 'benchmark-local-v2', localStorage: !CLOUD_API_BASE, cloudProxy: !!CLOUD_API_BASE, maxRevisionRounds: 2, humanReviewRequired: true });
-  const isReadOnlyOrCompute = (req.method === 'GET') || u === '/api/benchmark/audit' || u === '/api/benchmark/baseline';
-  if (CLOUD_API_BASE && !isReadOnlyOrCompute) return json(res, 409, { error: '评测批量生成与落盘存储要求仅本地存储，请在本地模式运行，不允许代理写入云端', code: 'local_storage_required' });
-  const auth = await (CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req));
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const url = new URL(req.url, 'http://molan.local');
-  try {
-    if (req.method === 'GET' && u === '/api/benchmark/database/summary') {
-      const benchmarkDatabase = require('./lib/benchmark-database');
-      return json(res, 200, { ok: true, summary: benchmarkDatabase.getDatabaseSummary() });
-    }
-    if (req.method === 'GET' && u === '/api/benchmark/comparable') {
-      const genre = String(url.searchParams.get('genre') || '').trim();
-      const subgenre = String(url.searchParams.get('subgenre') || '').trim();
-      const protagonistType = String(url.searchParams.get('protagonistType') || '').trim();
-      const openingMode = String(url.searchParams.get('openingMode') || '').trim();
-      const prompt = String(url.searchParams.get('prompt') || '').trim();
-      const benchmarkDatabase = require('./lib/benchmark-database');
-      const matched = benchmarkDatabase.findComparableBenchmark({ genre, subgenre, protagonistType, openingMode, prompt });
-      return json(res, 200, { ok: true, benchmark: matched, targetBlock: benchmarkDatabase.buildComparablePromptTarget(matched) });
-    }
-    if (req.method === 'GET' && u === '/api/benchmark/baseline') {
-      let genre = String(url.searchParams.get('genre') || '').trim();
-      if (!genre || genre.toLowerCase() === 'auto') genre = '通用';
-      const subgenre = String(url.searchParams.get('subgenre') || '').trim();
-      const protagonistType = String(url.searchParams.get('protagonistType') || '').trim();
-      const prompt = String(url.searchParams.get('prompt') || '').trim();
-      const pack = benchmarkPipeline.loadGenreBaseline(genre, undefined, { subgenre, protagonistType, prompt });
-      const runtime = benchmarkPipeline.genreRuntime(genre);
-      return json(res, 200, { ok: true, genre, family: benchmarkPipeline.resolveGenreFamily(genre), baseline: pack, targetBlock: benchmarkPipeline.buildBaselineTargetBlock(pack), runtime });
-    }
-    if (req.method === 'GET' && u === '/api/benchmark/profile/distribution') {
-      const benchmarkDatabase = require('./lib/benchmark-database');
-      const genre = String(url.searchParams.get('genre') || '').trim();
-      const dist = benchmarkDatabase.getQualityProfileDistribution();
-      if (genre) {
-        return json(res, 200, { ok: true, genre, baseline: benchmarkDatabase.getQualityProfileBaseline(genre), abnormalBounds: benchmarkDatabase.getQualityBoundaries() });
-      }
-      return json(res, 200, { ok: true, distribution: dist });
-    }
-    if (req.method === 'GET' && u === '/api/benchmark/genre-baselines') {
-      const benchmarkDatabase = require('./lib/benchmark-database');
-      const genre = String(url.searchParams.get('genre') || '').trim();
-      const subgenre = String(url.searchParams.get('subgenre') || '').trim();
-      const classification = benchmarkDatabase.getDetectionModeClassification();
-      if (genre || subgenre) {
-        const baseline = benchmarkDatabase.getGenreQualityBaseline(genre, subgenre);
-        return json(res, 200, { ok: true, genre: genre || '通用现实', subgenre, baseline, classification });
-      }
-      const allDb = benchmarkDatabase.loadGenreQualityBaselines();
-      return json(res, 200, { ok: true, totalGenres: allDb?.totalGenresCovered || 0, baselines: allDb?.baselines || {}, classification });
-    }
-    if (req.method === 'GET' && u === '/api/benchmark/generated/list') {
-      const preprocessor = require('./lib/generated-novel-preprocessor');
-      const packages = preprocessor.scanGeneratedNovels();
-      const list = packages.map(p => ({
-        packageId: p.packageId,
-        title: p.title,
-        versions: p.versions,
-        generationParameters: p.generationParameters,
-        metadata: p.metadata,
-        characters: p.characters,
-        keyProps: p.keyProps,
-        outlineNodesCount: p.outline.length
-      }));
-      return json(res, 200, { ok: true, count: list.length, packages: list });
-    }
-    if (req.method === 'POST' && u === '/api/benchmark/generated/preprocess') {
-      const body = await readBody(req, 1000000);
-      const preprocessor = require('./lib/generated-novel-preprocessor');
-      const packageId = body.packageId || body.target;
-      const packages = preprocessor.scanGeneratedNovels();
-      const targetPkg = packageId
-        ? packages.find(p => p.packageId === packageId || p.title === packageId)
-        : packages[0];
-      if (!targetPkg) {
-        return json(res, 404, { error: '未找到指定的生成套件' });
-      }
-      const profile = preprocessor.generateGeneratedNovelProfile(targetPkg, {
-        title: body.title || targetPkg.title,
-        author: body.author,
-        genre: body.genre,
-        subgenre: body.subgenre
-      });
-      return json(res, 200, { ok: true, profile });
-    }
-    if (req.method === 'POST' && u === '/api/benchmark/blind-review/compare') {
-      const body = await readBody(req, 1000000);
-      const comparator = require('./lib/blind-review-comparator');
-      const inputs = comparator.loadBlindReviewInputs({
-        generatedProfilePath: body.generatedProfilePath,
-        benchmarkProfilePath: body.benchmarkProfilePath,
-        genreBaselinePath: body.genreBaselinePath
-      });
-      const genProfile = body.generatedProfile || inputs.generatedProfile;
-      const bmProfile = body.benchmarkProfile || inputs.benchmarkProfile;
-      const baselines = body.genreBaselines || inputs.genreBaselines;
-      const report = comparator.compareNovelQualityBlind(genProfile, bmProfile, baselines);
-      return json(res, 200, { ok: true, report });
-    }
-    if (req.method === 'POST' && u === '/api/benchmark/defects/detect') {
-      const body = await readBody(req, 1000000);
-      const detector = require('./lib/defect-detector');
-      const inputs = detector.loadDefectDetectionInputs({
-        generatedProfilePath: body.generatedProfilePath,
-        comparisonReportPath: body.comparisonReportPath,
-        genreBaselinePath: body.genreBaselinePath,
-        benchmarkProfilePath: body.benchmarkProfilePath,
-        generationDir: body.generationDir
-      });
-      const result = detector.detectNovelQualityDefects(inputs);
-      return json(res, 200, { ok: true, result });
-    }
-    if (req.method === 'POST' && u === '/api/benchmark/genre-baselines/evaluate') {
-      const body = await readBody(req, 200000);
-      const benchmarkDatabase = require('./lib/benchmark-database');
-      const { metricKey, value, genre, context } = body;
-      if (!metricKey) return json(res, 400, { error: '缺少 metricKey' });
-      const evaluation = benchmarkDatabase.evaluateWithContext(metricKey, value, genre, context);
-      return json(res, 200, { ok: true, evaluation });
-    }
-    if (req.method === 'POST' && u === '/api/benchmark/profile/extract') {
-      const body = await readBody(req, 1000000);
-      const profiler = require('./lib/novel-quality-profiler');
-      const profile = profiler.extractNovelQualityProfile(body.text || body.chapters || body.content, {
-        title: body.title,
-        author: body.author,
-        genre: body.genre,
-        subgenre: body.subgenre
-      });
-      return json(res, 200, { ok: true, profile });
-    }
-    if (req.method === 'POST' && u === '/api/benchmark/profile/compare') {
-      const body = await readBody(req, 1000000);
-      const profiler = require('./lib/novel-quality-profiler');
-      const benchmarkDatabase = require('./lib/benchmark-database');
-      let targetProfile = body.profile;
-      if (!targetProfile && (body.text || body.chapters || body.content)) {
-        targetProfile = profiler.extractNovelQualityProfile(body.text || body.chapters || body.content, {
-          title: body.title,
-          genre: body.genre,
-          subgenre: body.subgenre
-        });
-      }
-      if (!targetProfile) return json(res, 400, { error: '缺少待评测 Profile 或正文' });
-      const dist = benchmarkDatabase.getQualityProfileDistribution();
-      const comparison = profiler.compareQualityProfiles(targetProfile, dist);
-      return json(res, 200, { ok: true, comparison });
-    }
-    if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
-    if (!['/api/benchmark/audit', '/api/benchmark/revise-loop', '/api/benchmark/generate'].includes(u)) return json(res, 404, { error: 'Not Found' });
-    const body = await readBody(req, 160000);
-    const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
-    const controller = new AbortController();
-    res.once('close', () => { if (!res.writableEnded) controller.abort(new Error('本地评测连接已中断')); });
-    const deps = { callModel: (_auth, options) => {
-      if (controller.signal.aborted) throw new Error('本地评测已中断');
-      return callMolanChat(String(req.headers.authorization || ''), user, { ...options, controller, requireComplete: true, timeoutMs: calculateBenchmarkCallTimeoutMs(options) });
-    } };
-    const requestedModelId = String(body.modelId || '').trim();
-    const resolvedModelId = resolveModelForUser(user, requestedModelId || currentDefaultModel());
-    if (requestedModelId === 'gpt-6-luna' && resolvedModelId !== requestedModelId) {
-      return json(res, 503, { error: '平台模型目录未配置 gpt-6-luna，已停止请求以避免回退到其他模型' });
-    }
-    const params = {
-      text: String(body.text || body.content || ''),
-      genre: String(body.genre || '').trim(),
-      contract: body.contract && typeof body.contract === 'object' ? body.contract : null,
-      planText: String(body.planText || ''),
-      previousEnding: String(body.previousEnding || ''),
-      characters: Array.isArray(body.characters) ? body.characters : [],
-      byEntity: body.factLedger && typeof body.factLedger === 'object' ? body.factLedger.byEntity || null : null,
-      factLedger: body.factLedger && typeof body.factLedger === 'object' ? body.factLedger : null,
-      continuity: body.continuity && typeof body.continuity === 'object' ? body.continuity : null,
-      knownEntities: Array.isArray(body.knownEntities) ? body.knownEntities : [],
-      targetWords: Number(body.targetWords) || 0,
-      novelId: String(body.novelId || '').trim(),
-      creationBookId: String(body.creationBookId || '').trim(),
-      modelId: resolvedModelId,
-      reviseModelId: body.reviseModelId ? resolveModelForUser(user, body.reviseModelId) : '',
-      writingSystem: String(body.writingSystem || ''),
-      prompt: String(body.prompt || ''),
-      control: body.control === true,
-      controlSystem: String(body.controlSystem || ''),
-      reasoningEffort: String(body.reasoningEffort || '').trim().toLowerCase(),
-      temperature: Number.isFinite(body.temperature) ? Math.min(1.5, Math.max(0, body.temperature)) : 0.8,
-      maxRounds: body.maxRounds == null ? 2 : Math.min(2, Math.max(0, Number(body.maxRounds) || 0))
-    };
-    if (params.text.length > 32000 || JSON.stringify(params.factLedger).length > 24000) return json(res, 413, { error: '正文或事实上下文超过审稿预算，未静默截断' });
-    if (u === '/api/benchmark/generate') {
-      if (!params.prompt.trim()) return json(res, 400, { error: '缺少本章任务' });
-      const requestId = String(body.requestId || '');
-      if (!/^[A-Za-z0-9_-]{8,100}$/.test(requestId)) return json(res, 400, { error: '生成请求必须提供稳定 requestId' });
-      const result = await require('./lib/benchmark-receipts').runOnce({ directory: path.join(DATA_DIR, 'benchmark-runs'), owner: auth.user.email, requestId, params, execute: () => benchmarkPipeline.generateChapter(deps, auth, params) });
-      return json(res, 200, { ok: true, ...result });
-    }
-    if (!params.text.trim()) return json(res, 400, { error: '正文为空' });
-    if (u === '/api/benchmark/audit') return json(res, 200, { ok: true, audit: await benchmarkPipeline.evidenceAudit(deps, auth, params) });
-    if (u === '/api/benchmark/revise-loop') return json(res, 200, { ok: true, ...(await benchmarkPipeline.auditReviseLoop(deps, auth, params)) });
-    return json(res, 404, { error: 'Not Found' });
-  } catch (error) {
-    console.error('[handleBenchmark Error]:', error && error.stack || error);
-    const errMsg = error.code === 'context_budget_exceeded'
-      ? '上下文超出预算，请精简设定或正文'
-      : (error && error.message) || '本地评测未完成；请查看本地运行记录，不自动重试未知结果';
-    return json(res, error && error.status || 500, { error: errMsg, code: error && error.code || 'benchmark_failed_or_unknown', detail: error && error.message });
-  }
-}
-
-function handleLocalStyleBaseline(req, res, params) {
-  // 本地试用：同上，不鉴权
-  const data = loadLocalStyleData('fingerprints');
-  if (!data) return json(res, 200, { ok: true, baseline: null, bucket: '', matchedBooks: 0 });
-  const bucketParam = String(params.get('bucket') || '').trim();
-  const books = (data.books || []).filter(book => {
-    if (!bucketParam) return true;
-    const genre = String(book.primaryGenre || '') + ' ' + String(book.bucket || '');
-    return genre.includes(bucketParam) || bucketParam.includes(String(book.bucket || ''));
-  });
-  const fields = ['sentenceLenMean', 'sentenceLenStd', 'paragraphLenMean', 'paragraphLenStd', 'dialogueRatio', 'dialogueTurnMean', 'commaPeriodRatio', 'ttr', 'similePerKilo'].filter(f => books.some(book => book.fingerprint && Number.isFinite(Number(book.fingerprint[f]))));
-  const baseline = {};
-  fields.forEach(field => {
-    const values = books.map(book => Number(book.fingerprint[field])).filter(Number.isFinite);
-    if (!values.length) return;
-    const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-    const stdDev = Math.sqrt(values.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) / values.length);
-    baseline[field] = { mean: Number(mean.toFixed(4)), stdDev: Number(stdDev.toFixed(4)), sampleBooks: values.length };
-  });
-  json(res, 200, { ok: true, bucket: bucketParam, matchedBooks: books.length, baseline, availableBuckets: [...new Set((data.books || []).map(book => String(book.bucket || '')).filter(Boolean))].slice(0, 60) });
-}
 
   if (u.startsWith('/api/xuanhuan-reading/')) {
     if (!xuanhuanReadingLab) xuanhuanReadingLab = createReadingLab({
@@ -19726,7 +16870,11 @@ function handleLocalStyleBaseline(req, res, params) {
     return xuanhuanLab.handle(req, res);
   }
 
-  const novelReadHandlers = createNovelReadHandlers({
+  const nativeNovelHandlers = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json'
+    ? require('./routes/novel-domain-handlers').createNovelDomainHandlers({ repository: appRepository(),
+      getAuthUser, readBody, json, respondError, sanitizeNovelState: sanitizeNovelStateForStorage,
+      summarizeNovel: summarizeNativeNovel }) : null;
+  const novelReadHandlers = nativeNovelHandlers || createNovelReadHandlers({
     getDatabase: () => db,
     getAuthUser,
     requireStorage: requireSqliteForPublic,
@@ -19738,7 +16886,7 @@ function handleLocalStyleBaseline(req, res, params) {
     postgresData,
     projectResources
   });
-  const novelWriteHandlers = createNovelWriteHandlers({
+  const novelWriteHandlers = nativeNovelHandlers || createNovelWriteHandlers({
     getDatabase: () => db,
     getAuthUser,
     requireStorage: requireSqliteForPublic,
@@ -19761,7 +16909,8 @@ function handleLocalStyleBaseline(req, res, params) {
     auth: createAuthRoutes({
       register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
       me: handleMe, profile: handleProfile, logout: handleLogout, logoutAll: handleLogoutAll,
-      adminLogin: handleAdminLogin, adminMe: handleAdminMe, usage: handleUsage
+      adminLogin: handleAdminLogin, adminMe: handleAdminMe, usage: handleUsage,
+      ...(!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? nativeAuthService() : {})
     }),
     admin: createAdminRoutes({
       correctionSummary: handleCorrectionLibrarySummary, correctionStats: handleCorrectionLibraryStats,
@@ -19885,11 +17034,12 @@ function handleLocalStyleBaseline(req, res, params) {
   if (domainRoutes.projects(req, res, u)) return;
   if (u.startsWith('/api/books/') || u.startsWith('/api/runs/')) {
     return memoryRoutes.dispatch(req, res, u, db, getAuthUser, {
-      backend: POSTGRES_MODE ? 'postgres' : 'sqlite',
+      backend: POSTGRES_MODE ? 'postgres' : process.env.MOLAN_APP_STORE === 'json' ? 'json' : 'sqlite',
+      memoryStore: memoryDomainStore(),
       postgresMemoryBridge,
       styleProfileStore: styleProfileStore(),
       generate: (user, params, guard) => {
-        const account = getUserByEmail(user.email);
+        const account = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? user : getUserByEmail(user.email);
         const modelId = resolveModelForUser(account, params.modelId || currentDefaultModel());
         return benchmarkPipeline.generateChapter({
           callModel: (_auth, options) => guard(() => callMolanChat(String(req.headers.authorization || ''), account,
@@ -19901,7 +17051,7 @@ function handleLocalStyleBaseline(req, res, params) {
     }).catch(err => respondError(res, err));
   }
   serveStatic(req, res);
-});
+}
 async function initializePostgresRuntime() {
   const info = await postgresRepository.initialize();
   await refreshPostgresRuntimeState();
@@ -20061,6 +17211,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  appRepository,
+  nativeAuthService,
   normalizeUsage,
   buildUsageSummary,
   creditCostForTokens,
