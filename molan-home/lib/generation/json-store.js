@@ -408,8 +408,17 @@ function createJsonGenerationStore(directory, options = {}) {
           if (state === 'committing') {
             const request = cloneJson(row.request || {});
             const outputHash = String(result.outputHash || '').toLowerCase();
-            const receipt = findCommitReceipt && /^[a-f0-9]{64}$/.test(outputHash)
-              ? await findCommitReceipt({ run: publicRun(row), request, result, projectId: scope }) : null;
+            const chapterNo = Number(result.contract?.chapterNo);
+            const savedReceipt = request.creationBookId && Number.isSafeInteger(chapterNo) && chapterNo > 0
+              ? tx.get(scope, 'ledger', `creation-receipt:${request.creationBookId}:${chapterNo}`) : null;
+            const nativeReceipt = savedReceipt?.kind === 'creation-commit-receipt' && savedReceipt.runId === row.id &&
+              savedReceipt.actorUserId === row.actorUserId && savedReceipt.contentHash === outputHash &&
+              crypto.createHash('sha256').update(String(savedReceipt.content), 'utf8').digest('hex') === outputHash &&
+              savedReceipt.receipt?.committed === true && savedReceipt.receipt.contentHash === outputHash
+              ? savedReceipt.receipt : null;
+            const receipt = /^[a-f0-9]{64}$/.test(outputHash)
+              ? nativeReceipt || (findCommitReceipt ? await findCommitReceipt({ run: publicRun(row), request, result, projectId: scope, transaction: tx }) : null)
+              : null;
             if (receipt && String(receipt.contentHash || '').toLowerCase() === outputHash) {
               target = 'committed';
               result.commitReceipt = {
