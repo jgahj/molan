@@ -294,7 +294,8 @@ function createJsonGenerationStore(directory, options = {}) {
 
   async function releaseLease(_db, value) {
     const input = value === undefined ? _db || {} : value || {};
-    if (!runId(input)) return false;
+    if (!runId(input) || !String(input.leaseOwner || '') ||
+        !Number.isInteger(Number(input.fencingToken)) || Number(input.fencingToken) <= 0) return false;
     const index = await repository.generation.get(GENERATION_INDEX_SCOPE, runId(input));
     if (!index || index.kind !== INDEX_RECORD_KIND || (input.projectId && index.projectId !== String(input.projectId)) ||
         (input.actorUserId && index.actorUserId !== actorId(input))) return false;
