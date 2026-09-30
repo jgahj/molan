@@ -8,6 +8,20 @@ const path = require('node:path');
 
 const { createJsonStyleProfileStore } = require('../lib/style-profile-store');
 
+test('borrowed generation and style adapters leave the shared repository open', async t => {
+  const { JsonFileRepository } = require('../lib/repositories/json-file-repository');
+  const { createJsonGenerationStore } = require('../lib/generation/json-store');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-shared-domains-'));
+  const repository = new JsonFileRepository(directory);
+  t.after(async () => { await repository.close(); fs.rmSync(directory, { recursive: true, force: true }); });
+  const styles = createJsonStyleProfileStore(directory, { repository });
+  const generations = createJsonGenerationStore(directory, { repository });
+  await styles.close();
+  await generations.close();
+  await repository.accounts.put(null, { id: 'still-open', credits: 1 }, 0);
+  assert.equal((await repository.accounts.get(null, 'still-open')).credits, 1);
+});
+
 test('JSON 文风档案 CAS、版本快照和项目/分支隔离可在纯 Node 环境运行', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-style-store-'));
   let store = createJsonStyleProfileStore(directory);
