@@ -39,10 +39,21 @@ class JsonFileRepository {
 
   acquireLock() {
     const tryLock = () => {
-      if (!this.recoveringLock && this.io.existsSync(`${this.lockPath}.recovery`)) throw error('REPOSITORY_LOCKED', '仓储锁正在恢复');
-      const fd = this.io.openSync(this.lockPath, 'wx');
-      try { this.io.writeFileSync(fd, JSON.stringify({ pid: process.pid, token: this.token }), 'utf8'); this.io.fsyncSync(fd); }
-      finally { this.io.closeSync(fd); }
+      if (!this.recoveringLock) this.clearStaleRecoveryMarker();
+      let fd;
+      let created = false;
+      try {
+        fd = this.io.openSync(this.lockPath, 'wx');
+        created = true;
+        this.io.writeFileSync(fd, JSON.stringify({ pid: process.pid, token: this.token }), 'utf8');
+        this.io.fsyncSync(fd);
+        this.io.closeSync(fd);
+        fd = undefined;
+      } catch (failure) {
+        if (fd !== undefined) { try { this.io.closeSync(fd); } catch (_) {} }
+        if (created) { try { this.io.unlinkSync(this.lockPath); } catch (_) {} }
+        throw failure;
+      }
     };
     try { tryLock(); } catch (failure) {
       if (failure.code !== 'EEXIST') throw failure;
@@ -54,9 +65,14 @@ class JsonFileRepository {
       catch (check) { if (check.code !== 'ESRCH') throw check; }
       // 多个恢复进程不能同时删除旧锁；恢复期间再次确认旧 owner。
       const recoveryPath = `${this.lockPath}.recovery`;
-      let recoveryFd;
-      try { recoveryFd = this.io.openSync(recoveryPath, 'wx'); }
-      catch (check) { if (check.code === 'EEXIST') throw error('REPOSITORY_LOCKED', '另一个进程正在恢复仓储锁'); throw check; }
+      const recoveryToken = crypto.randomUUID();
+      try { this.createRecoveryMarker(recoveryPath, recoveryToken); }
+      catch (check) {
+        if (check.code !== 'EEXIST') throw check;
+        this.clearStaleRecoveryMarker();
+        try { this.createRecoveryMarker(recoveryPath, recoveryToken); }
+        catch (retry) { if (retry.code === 'EEXIST') throw error('REPOSITORY_LOCKED', '另一个进程正在恢复仓储锁'); throw retry; }
+      }
       try {
         const current = JSON.parse(this.io.readFileSync(this.lockPath, 'utf8'));
         if (current.pid !== owner.pid || current.token !== owner.token) throw error('REPOSITORY_LOCKED', '仓储锁已改变');
@@ -65,10 +81,44 @@ class JsonFileRepository {
         tryLock();
       } finally {
         this.recoveringLock = false;
-        this.io.closeSync(recoveryFd);
-        this.io.unlinkSync(recoveryPath);
+        try {
+          const marker = JSON.parse(this.io.readFileSync(recoveryPath, 'utf8'));
+          if (marker.pid === process.pid && marker.token === recoveryToken) this.io.unlinkSync(recoveryPath);
+        } catch (_) {}
       }
     }
+  }
+
+  createRecoveryMarker(filename, token) {
+    const temporary = `${filename}.${crypto.randomUUID()}.tmp`;
+    const fd = this.io.openSync(temporary, 'wx');
+    let open = true;
+    try {
+      this.io.writeFileSync(fd, JSON.stringify({ pid: process.pid, token }), 'utf8');
+      this.io.fsyncSync(fd);
+      this.io.closeSync(fd);
+      open = false;
+      this.io.linkSync(temporary, filename);
+    } finally {
+      if (open) { try { this.io.closeSync(fd); } catch (_) {} }
+      try { this.io.unlinkSync(temporary); } catch (_) {}
+    }
+  }
+
+  clearStaleRecoveryMarker() {
+    const filename = `${this.lockPath}.recovery`;
+    if (!this.io.existsSync(filename)) return;
+    let owner;
+    try { owner = JSON.parse(this.io.readFileSync(filename, 'utf8')); }
+    catch (_) { throw error('REPOSITORY_LOCKED', '恢复锁损坏，需人工检查'); }
+    if (!Number.isInteger(owner.pid) || owner.pid <= 0 || typeof owner.token !== 'string' || !owner.token) {
+      throw error('REPOSITORY_LOCKED', '恢复锁无效，需人工检查');
+    }
+    try { process.kill(owner.pid, 0); throw error('REPOSITORY_LOCKED', '仓储锁正在恢复'); }
+    catch (check) { if (check.code !== 'ESRCH') throw check; }
+    const current = JSON.parse(this.io.readFileSync(filename, 'utf8'));
+    if (current.pid !== owner.pid || current.token !== owner.token) throw error('REPOSITORY_LOCKED', '恢复锁已改变');
+    this.io.unlinkSync(filename);
   }
 
   releaseLock() {

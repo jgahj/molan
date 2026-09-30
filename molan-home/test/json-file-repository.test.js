@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
+const { once } = require('node:events');
 const { JsonFileRepository } = require('../lib/repositories/json-file-repository');
 
 function directory(t) {
@@ -50,6 +52,49 @@ test('serial concurrent CAS permits exactly one writer and rejects another insta
   ]);
   assert.equal(results.filter(item => item.status === 'fulfilled').length, 1);
   assert.equal(results.find(item => item.status === 'rejected').reason.code, 'REVISION_CONFLICT');
+});
+
+test('a dead recovery owner is reclaimed while a live recovery owner remains protected', async t => {
+  const dir = directory(t);
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { stdio: 'ignore' });
+  const deadPid = child.pid;
+  child.kill();
+  await once(child, 'exit');
+  fs.writeFileSync(path.join(dir, '.writer.lock'), JSON.stringify({ pid: deadPid, token: 'stale-lock' }));
+  fs.writeFileSync(path.join(dir, '.writer.lock.recovery'), JSON.stringify({ pid: deadPid, token: 'stale-recovery' }));
+  const repo = new JsonFileRepository(dir);
+  t.after(() => cleanup(repo));
+  assert.equal(fs.existsSync(path.join(dir, '.writer.lock.recovery')), false);
+  await assert.rejects((async () => {
+    fs.writeFileSync(path.join(dir, '.writer.lock.recovery'), JSON.stringify({ pid: process.pid, token: 'live-recovery' }));
+    try { new JsonFileRepository(dir); }
+    finally { fs.unlinkSync(path.join(dir, '.writer.lock.recovery')); }
+  })(), { code: 'REPOSITORY_LOCKED' });
+});
+
+test('failed writer-lock initialization removes the lock file it created', t => {
+  for (const failureStage of ['write', 'fsync']) {
+    const dir = directory(t);
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const lockPath = path.join(dir, '.writer.lock');
+    let lockFd;
+    const io = Object.create(fs);
+    io.openSync = (filename, flags, mode) => {
+      const fd = fs.openSync(filename, flags, mode);
+      if (filename === lockPath) lockFd = fd;
+      return fd;
+    };
+    io.writeFileSync = (file, content, options) => {
+      if (failureStage === 'write' && file === lockFd) throw Object.assign(new Error('disk full'), { code: 'ENOSPC' });
+      return fs.writeFileSync(file, content, options);
+    };
+    io.fsyncSync = fd => {
+      if (failureStage === 'fsync' && fd === lockFd) throw Object.assign(new Error('disk full'), { code: 'ENOSPC' });
+      return fs.fsyncSync(fd);
+    };
+    assert.throws(() => new JsonFileRepository(dir, { fs: io }), { code: 'ENOSPC' });
+    assert.equal(fs.existsSync(lockPath), false);
+  }
 });
 
 test('interrupted multi-file commit fails explicitly and completes on restart', async t => {
