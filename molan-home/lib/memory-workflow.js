@@ -64,9 +64,12 @@ function initializeSchema(db) {
 
 function stateVersion(db, bookId, branchId = 'main') {
   const head = db.prepare('SELECT state_version FROM memory_branch_heads WHERE book_id = ? AND branch_id = ?').get(bookId, branchId);
-  const legacy = db.prepare(`SELECT MAX(base_state_version + 1) AS version FROM memory_changesets
-    WHERE book_id = ? AND branch_id = ? AND committed_at IS NOT NULL`).get(bookId, branchId);
-  return head ? head.state_version : legacy.version || 1;
+  if (head) return Number(head.state_version) || 1;
+  const legacyVersions = db.prepare(`SELECT base_state_version FROM memory_changesets
+    WHERE book_id = ? AND branch_id = ? AND committed_at IS NOT NULL`).all(bookId, branchId);
+  const legacyVersion = legacyVersions.reduce((version, row) =>
+    Math.max(version, (Number(row.base_state_version) || 0) + 1), 1);
+  return legacyVersion;
 }
 
 function emitEvent(db, bookId, branchId, runId, type, data = {}) {

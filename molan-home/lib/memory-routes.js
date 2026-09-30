@@ -89,11 +89,87 @@ function verifyAccess(req, res, getAuthUser, db, bookId, requireWrite = false) {
   return auth.user;
 }
 
+function styleStoreScope(store, db, user, bookId, options = {}) {
+  if (store.backend === 'postgres') return { ...options, userId: user.userId, bookId };
+  const access = projectScope.getNovelAccess(db, bookId, user.userId);
+  if (!access) workflow.fail('BOOK_NOT_FOUND', 404);
+  return { ...options, projectId: String(access.project_id), bookId };
+}
+
+async function dispatchStyleProfileStore(req, res, urlPath, db, getAuthUser, services) {
+  const store = services.styleProfileStore;
+  if (!store) return false;
+  const profileMatch = urlPath.match(/^\/api\/books\/([A-Za-z0-9_-]+)\/styles$/);
+  const versionsMatch = urlPath.match(/^\/api\/books\/([A-Za-z0-9_-]+)\/styles\/([A-Za-z0-9_-]+)\/versions$/);
+  if (!profileMatch && !versionsMatch) return false;
+  const bookId = (profileMatch || versionsMatch)[1];
+  const supported = profileMatch && (req.method === 'GET' || req.method === 'POST') ||
+    versionsMatch && req.method === 'GET';
+  if (!supported) return false;
+
+  let user;
+  if (store.backend === 'postgres') {
+    const auth = getAuthUser(req);
+    user = auth && auth.user;
+    if (!user || !user.userId) {
+      sendJson(res, 401, { ok: false, error: '未登录', code: 'UNAUTHORIZED' });
+      return true;
+    }
+  } else {
+    user = verifyAccess(req, res, getAuthUser, db, bookId, req.method === 'POST');
+    if (!user) return true;
+  }
+
+  const parsedUrl = new URL(req.url, 'http://localhost');
+  const query = Object.fromEntries(parsedUrl.searchParams.entries());
+  const branchId = String(query.branchId || 'main');
+  if (versionsMatch) {
+    const versions = await store.getStyleProfileVersions(styleStoreScope(store, db, user, bookId, {
+      profileId: versionsMatch[2], branchId
+    }));
+    sendJson(res, 200, { ok: true, bookId, profileId: versionsMatch[2], versions });
+    return true;
+  }
+  if (req.method === 'GET') {
+    const styles = await store.getStyleProfiles(styleStoreScope(store, db, user, bookId, {
+      branchId, level: query.level || undefined
+    }));
+    sendJson(res, 200, { ok: true, bookId, styles });
+    return true;
+  }
+  const body = await requestBody(req);
+  if (body.id && body.expectedRevision === undefined) workflow.fail('VERSION_REQUIRED', 428);
+  const result = await store.upsertStyleProfile(styleStoreScope(store, db, user, bookId, {
+    ...body,
+    bookId,
+    branchId: String(body.branchId || branchId),
+    approvedBy: user.userId || user.email
+  }));
+  sendJson(res, 200, result);
+  return true;
+}
+
+async function getStoredStyleProfiles(store, db, user, bookId, options = {}) {
+  return store.getStyleProfiles(styleStoreScope(store, db, user, bookId, options));
+}
+
 /**
  * 记忆与文风核心路由分发器。
  * 匹配返回 true 并处理，未匹配返回 false。
  */
 async function dispatch(req, res, urlPath, db, getAuthUser, services = {}) {
+  if (services.styleProfileStore) {
+    try {
+      if (await dispatchStyleProfileStore(req, res, urlPath, db, getAuthUser, services)) return true;
+    } catch (error) {
+      sendJson(res, error.statusCode || error.status || 500, {
+        ok: false,
+        code: error.code || 'STYLE_PROFILE_ERROR',
+        error: error.statusCode || error.status ? error.message : '文风档案服务处理失败'
+      });
+      return true;
+    }
+  }
   if (services.backend === 'postgres') {
     if (!services.postgresMemoryBridge || typeof services.postgresMemoryBridge.dispatch !== 'function') {
       sendJson(res, 503, { ok: false, code: 'PG_MEMORY_BRIDGE_UNAVAILABLE', error: 'PostgreSQL 记忆仓储尚未就绪' });
@@ -358,7 +434,10 @@ async function dispatchInternal(req, res, urlPath, db, getAuthUser, services) {
     const user = verifyAccess(req, res, getAuthUser, db, bookId, true);
     if (!user) return true;
     const body = await requestBody(req);
-    const manifest = memorySystem.assembleContext(db, bookId, body);
+    const styleProfiles = services.styleProfileStore
+      ? await getStoredStyleProfiles(services.styleProfileStore, db, user, bookId, { branchId: body.branchId || 'main' })
+      : undefined;
+    const manifest = memorySystem.assembleContext(db, bookId, body, styleProfiles);
     sendJson(res, 200, { ok: true, bookId, manifest });
     return true;
   }
@@ -406,7 +485,10 @@ async function dispatchInternal(req, res, urlPath, db, getAuthUser, services) {
     if (!user) return true;
     const body = await requestBody(req);
     const manuscript = body.manuscriptRevisionId ? workflow.getManuscript(db, bookId, body.manuscriptRevisionId) : null;
-    const profiles = styleSystem.getStyleProfiles(db, bookId, { branchId: manuscript ? manuscript.branch_id : body.branchId });
+    const branchId = manuscript ? manuscript.branch_id : body.branchId || 'main';
+    const profiles = services.styleProfileStore
+      ? await getStoredStyleProfiles(services.styleProfileStore, db, user, bookId, { branchId })
+      : styleSystem.getStyleProfiles(db, bookId, { branchId });
     const bundle = styleSystem.compileStyleBundle(profiles, body.sceneContext || {});
     const audit = styleSystem.auditTextStyle(manuscript ? manuscript.content : body.text, {
       deterministicRules: bundle.checkRules, semanticContext: { voiceConstraints: bundle.voiceConstraints }

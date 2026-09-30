@@ -18,6 +18,10 @@ export function runProductionImportAudit() {
   // 1. 收集生产代码
   const serverPath = path.join(rootDir, 'server.js');
   if (fs.existsSync(serverPath)) productionFiles.push(serverPath);
+  for (const relative of ['lib/style-profile-store.js', 'lib/memory-routes.js', 'lib/memory-context.js', 'lib/memory-workflow.js']) {
+    const filename = path.join(rootDir, relative);
+    if (fs.existsSync(filename)) productionFiles.push(filename);
+  }
 
   // 抽离后的路由和服务同样属于生产链，不能借模块化绕过导入门禁。
   function collect(directory) {

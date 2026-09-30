@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { DatabaseSync } = require('node:sqlite');
 const memory = require('../lib/memory-system');
+const workflow = require('../lib/memory-workflow');
 const styles = require('../lib/style-system');
 
 function fixture(context) {
@@ -23,6 +24,30 @@ function save(db, text = '师妹收下玉佩。') {
     chapterId: 'chapter', sceneId: 'scene', text, expectedRevision: 0, expectedNovelRevision: 1
   });
 }
+
+test('分支 head 命中时不扫描历史 changeset，旧数据仍从历史恢复版本', () => {
+  let historyScanned = false;
+  const currentDb = {
+    prepare() {
+      return {
+        get: () => ({ state_version: 8 }),
+        all: () => { historyScanned = true; throw new Error('history must not be scanned'); }
+      };
+    }
+  };
+  assert.equal(workflow.stateVersion(currentDb, 'book'), 8);
+  assert.equal(historyScanned, false);
+
+  const legacyDb = {
+    prepare() {
+      return {
+        get: () => null,
+        all: () => [{ base_state_version: 4 }, { base_state_version: '8' }, { base_state_version: null }]
+      };
+    }
+  };
+  assert.equal(workflow.stateVersion(legacyDb, 'book'), 9);
+});
 
 test('正文候选与正式稿分离，审批后同事务正式采纳', context => {
   const db = fixture(context);

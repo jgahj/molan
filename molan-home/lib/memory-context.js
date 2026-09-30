@@ -22,7 +22,7 @@ function policyApplies(policy, query) {
   return true;
 }
 
-function assembleContext(db, bookId, query = {}) {
+function assembleContext(db, bookId, query = {}, styleProfilesOverride) {
   const memory = require('./memory-system');
   const branchId = query.branchId || 'main';
   const version = workflow.stateVersion(db, bookId, branchId);
@@ -83,8 +83,9 @@ function assembleContext(db, bookId, query = {}) {
     if (!writingFacts.some(record => record.id === id || record.propositionId === id)) workflow.fail('REQUIRED_CONTEXT_UNAVAILABLE', 422);
   }
   const styles = require('./style-system');
-  const profiles = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'style_profiles'").get()
-    ? styles.getStyleProfiles(db, bookId, { branchId }) : [];
+  const profiles = Array.isArray(styleProfilesOverride) ? styleProfilesOverride
+    : db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'style_profiles'").get()
+      ? styles.getStyleProfiles(db, bookId, { branchId }) : [];
   const styleBundle = styles.compileStyleBundle(profiles, query);
   const writingPackage = { facts: writingFacts, cognitions: writingCognitions, style: styleBundle };
   const budget = query.budgetTokens == null ? 4000 : Number(query.budgetTokens);
