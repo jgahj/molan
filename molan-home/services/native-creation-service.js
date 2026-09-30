@@ -64,11 +64,17 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
         const context = creationChapterContext(snapshot.bible.payload, chapterNo);
         const debtContext = await repository.debts({ ...input, chapterNo });
         let output, contract, validation, retried = false;
+        const providerAttempts = [];
         for (let attempt = 0; attempt < 2; attempt++) {
           output = await generateChapterContract({ auth, authToken: String(req.headers.authorization || ''), body,
             chapterNo, context, previous: snapshot.previous, debts: debtContext,
             baseline: snapshot.baseline, attempt, previousEnding: String(body.previousEnding || '').slice(-2400),
             prompt: String(body.prompt || '').slice(0, 600) });
+          providerAttempts.push({ attempt: attempt + 1, usage: output?.usage || null });
+          if (output?.unknown === true || ['failed_or_unknown', 'usage_missing', 'provider_unknown'].includes(output?.status) ||
+              ['pending', 'unknown', 'provider_unknown'].includes(output?.usage?.billingStatus)) {
+            fail('PROVIDER_UNKNOWN', 502, '供应商结果或费用未知，已停止重试');
+          }
           contract = output?.json || output?.contract;
           if (!object(contract)) contract = {};
           contract = { ...contract, chapterNo, source: 'creation-bible', bibleVersion: snapshot.bible.version,
@@ -81,8 +87,8 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
           json(res, 422, { ok: false, error: '章节合同自校验未通过，已重试仍不合格', validation });
           return true;
         }
-        const saved = await repository.saveContractCAS({ ...input, contract, baseline: snapshot.baseline, validation });
-        value = { ok: true, contract, validation, usage: output?.usage || null, ...saved, ...(retried ? { retried: true } : {}) };
+        const saved = await repository.saveContractCAS({ ...input, contract, baseline: snapshot.baseline, validation, providerAttempts });
+        value = { ok: true, contract, validation, usage: output?.usage || null, providerAttempts, ...saved, ...(retried ? { retried: true } : {}) };
       } else if (!id && req.method === 'GET') value = { ok: true, books: (await repository.list(input)).sort((a, b) => b.updatedAt - a.updatedAt) };
       else if (!id && req.method === 'POST') {
         const bookId = String(body.creationBookId || body.bookId || `cb_${crypto.randomUUID().replace(/-/g, '')}`).trim();
