@@ -1,0 +1,19 @@
+{
+  "title": "月圆夜前的布局",
+  "file": "C:\\Users\\lyh\\Desktop\\小说专属网页\\molan-home\\generated\\月圆夜前的布局-20260910\\月圆夜前的布局-定稿.md",
+  "checkedAt": "2026-09-10T13:01:32.759Z",
+  "status": "passed",
+  "chineseCharacters": 2487,
+  "nonWhitespaceCharacters": 3000,
+  "finalSha256": "db98ecde8782fad72e916d68cd024d22e7346f8c7ff71d6597378a078335abc8",
+  "provenance": {
+    "model": "gpt-5.6-luna",
+    "providerModel": "gpt-5.6-luna",
+    "sourceRequestId": "req_b4d5379e717078c44af9dc987fce694f",
+    "sourceStatus": "completed",
+    "originalSha256Verified": true,
+    "defaultWritingSkillApplied": true,
+    "finalEditing": "Luna完整首稿由当前助手定向校对，非模型未经修改的直接输出"
+  },
+  "note": "确定性检查覆盖模型来源、原文哈希、标题、字数及指定错误修复；剧情与风格另做逐段核读。"
+}

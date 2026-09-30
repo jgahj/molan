@@ -1,0 +1,39 @@
+{
+  "title": "月圆夜前的布局",
+  "endpoint": "http://127.0.0.1:3000/api/chat",
+  "requestedModel": "gpt-5.6-luna",
+  "modelId": "gpt-5.6-luna",
+  "providerModel": "gpt-5.6-luna",
+  "responseModels": [
+    "gpt-5.6-luna"
+  ],
+  "stage": "writing",
+  "startedAt": "2026-09-10T12:46:08.283Z",
+  "completedAt": "2026-09-10T12:47:02.680Z",
+  "requestId": "req_b4d5379e717078c44af9dc987fce694f",
+  "status": "completed",
+  "finishReason": "stop",
+  "tokens": {
+    "prompt": 12690,
+    "completion": 2791,
+    "total": 15481
+  },
+  "durationMs": 54106,
+  "creditCost": 0,
+  "defaultWritingSkill": {
+    "id": "mars-style-pure-xuanhuan-writing",
+    "applied": true
+  },
+  "skillAuditStatus": "verified",
+  "promptSha256": "c30d5e896c16a58432b7158cff7181c2d9958da4d8d459b4c75f637d69cfeb27",
+  "originalSha256": "7427c8f660f17d3abd6475663b6bcaf62f6cb774d98a386669545259c514cce0",
+  "chapterSha256": "4dbeeaf30f591967a5bc27226713c7ca18a382708e23ba1ea30dd1d5887f249a",
+  "chineseCharacters": 2448,
+  "nonWhitespaceCharacters": 2923,
+  "missingTerms": [
+    "神尊",
+    "月圆夜第二天必须离开"
+  ],
+  "streamErrors": [],
+  "postprocessing": "仅统一标题和移除可能的 Markdown 外层代码围栏，正文未人工改写。"
+}

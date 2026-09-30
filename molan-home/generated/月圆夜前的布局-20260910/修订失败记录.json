@@ -1,0 +1,58 @@
+{
+  "title": "月圆夜前的布局",
+  "revision": "定向修订未完成：上游错误，仅存档，不是交付定稿",
+  "endpoint": "http://127.0.0.1:3000/api/chat",
+  "requestedModel": "gpt-5.6-luna",
+  "modelId": "gpt-5.6-luna",
+  "providerModel": "gpt-5.6-luna",
+  "responseModels": [
+    "gpt-5.6-luna"
+  ],
+  "stage": "writing",
+  "startedAt": "2026-09-10T12:52:21.384Z",
+  "completedAt": "2026-09-10T12:57:02.184Z",
+  "requestId": "req_6242b07f78bd83eee0a77bb3394ef1aa",
+  "status": "usage_unavailable",
+  "finishReason": null,
+  "tokens": {
+    "prompt": null,
+    "completion": null,
+    "total": null
+  },
+  "durationMs": 280529,
+  "creditCost": 0,
+  "defaultWritingSkill": {
+    "id": "mars-style-pure-xuanhuan-writing",
+    "applied": true
+  },
+  "skillAuditStatus": "verified",
+  "promptSha256": "d36545a143b774307e60220a443db6df82c06e0ff76ef77fa911912127e8057a",
+  "originalSha256": "2048dd47ee40820f57d9d5c4364e2289e4d66993054d141991796cb4f15f0c32",
+  "chapterSha256": "60ae15c891e74678512b36be3f65d50c50385086435f45e6cbe78a0ba4864439",
+  "chineseCharacters": 370,
+  "nonWhitespaceCharacters": 443,
+  "missingTerms": [
+    "伪神",
+    "神境",
+    "神尊",
+    "十界之战",
+    "元会",
+    "姑射云琉",
+    "云琉神殿",
+    "蚩刑天",
+    "天魔石刻",
+    "天魔贪狼图",
+    "神储卷",
+    "日晷",
+    "地姥欲将天阁目嫁给我",
+    "月圆夜第二天必须离开"
+  ],
+  "streamErrors": [
+    "上游返回错误事件"
+  ],
+  "transport": {
+    "removedBillingEvents": 15,
+    "removedHeartbeats": 0
+  },
+  "postprocessing": "仅统一标题和移除可能的 Markdown 外层代码围栏，正文未人工改写。"
+}
