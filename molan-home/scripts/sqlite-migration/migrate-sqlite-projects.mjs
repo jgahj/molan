@@ -7,9 +7,9 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require('node:sqlite');
-const projectScope = require('../lib/project-scope.js');
-const projectPackage = require('../lib/project-package.js');
-const { createPostgresRepository } = require('../lib/postgres-repository.js');
+const projectScope = require('../../lib/project-scope.js');
+const projectPackage = require('../../lib/project-package.js');
+const { createPostgresRepository } = require('../../lib/postgres-repository.js');
 
 /** 解析旧库迁移参数，默认只读盘点，不执行目标库写入。 */
 function parseArguments(argv) {
