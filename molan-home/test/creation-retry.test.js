@@ -4,7 +4,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'completion-import.js'), 'utf8');
-const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'creation-book-service.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'creation-plan-service.js'), 'utf8');
 const vm = require('node:vm');
 
 test('审核响应丢失后复用持久化结果，不再调用模型', async () => {

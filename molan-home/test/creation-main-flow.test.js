@@ -8,7 +8,7 @@ const server = require('../server');
 const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const importSource = fs.readFileSync(path.join(__dirname, '..', 'completion-import.js'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'completion-editor.js'), 'utf8');
-const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'creation-book-service.js'), 'utf8');
 const novelWriteSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'novel-write-handlers.js'), 'utf8');
 
 test('创书有独立任务入口并展示可持续查看的实时进度', () => {
