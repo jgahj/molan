@@ -2,15 +2,16 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { DatabaseSync } = require('node:sqlite');
+const { readLabJob } = require('./read-lab-job.cjs');
 const { parseBook, validateReading, validateNotes, validateReview } = require('../lib/xuanhuan-reading');
 const root = path.resolve(__dirname, '..');
-const database = new DatabaseSync(path.join(root, 'data/xuanhuan-lab/reading.db'), { readOnly: true });
+async function main() {
 const id = process.argv[2];
-const row = id ? database.prepare('SELECT payload FROM reading_jobs WHERE id=?').get(id) : database.prepare('SELECT payload FROM reading_jobs ORDER BY updated DESC LIMIT 1').get();
-database.close();
-if (!row) throw new Error('没有精读任务');
-const job = JSON.parse(row.payload);
+const dataDir = process.env.MOLAN_DATA_DIR || path.join(root, 'data');
+const directory = process.env.MOLAN_LAB_JOB_DIR || path.join(dataDir, process.env.MOLAN_APP_STORE === 'json' ? 'app-json' : 'lab-jobs-json');
+const job = await readLabJob({ owner: process.env.MOLAN_LAB_AUDIT_OWNER, actorUserId: process.env.MOLAN_LAB_AUDIT_ACTOR_USER_ID,
+  id, directory });
+if (!job) throw new Error('没有当前用户的原生精读任务；旧库需显式迁移');
 const persistedStages = JSON.stringify(job.stages);
 let paragraphs = 0, citations = 0, excluded = 0;
 const errors = [], books = [];
@@ -54,3 +55,5 @@ if (JSON.stringify(job.stages) !== persistedStages) errors.push('持久化笔记
 const report = { id: job.id, status: job.status, passed: errors.length === 0, errors, books, narrativeParagraphs: paragraphs, excludedAppendixParagraphs: excluded, verifiedCitationEntries: citations, completedStages: Object.keys(job.stages).length, calls: job.callCount, maxCalls: job.maxCalls, knownTokens: usageRecords.reduce((sum, item) => sum + item.usage.totalTokens, 0), tokenRecords: usageRecords.length, knownCreditCost: costs.reduce((sum, item) => sum + item.usage.creditCost, 0), creditRecords: costs.length, missingUsageAttempts: job.callCount - usageRecords.length, nextPhase: '等待用户确认扩展预算；没有启动各30章精读或原创试写', limits: '这是完整性和来源核验，不是文学质量评审。模型覆盖回执不能证明理解。作者附言单独保留，未用于叙事方法提炼。' };
 console.log(JSON.stringify(report, null, 2));
 if (errors.length) process.exitCode = 1;
+}
+main().catch(error => { console.error(error.message); process.exitCode = 1; });
