@@ -71,6 +71,15 @@ const projectResources = require('./lib/project-resources');
 const memorySystem = require('./lib/memory-system');
 const styleSystem = require('./lib/style-system');
 const memoryRoutes = require('./lib/memory-routes');
+const { createAuthRoutes } = require('./routes/auth');
+const { createAdminRoutes } = require('./routes/admin');
+const { createSkillRoutes } = require('./routes/skills');
+const { createGenerationRoutes } = require('./routes/generation');
+const { createKnowledgeRoutes } = require('./routes/knowledge');
+const { createDissectionRoutes } = require('./routes/dissections');
+const { createProjectRoutes } = require('./routes/projects');
+const { createNovelReadHandlers } = require('./routes/novel-read-handlers');
+const { createAuthAttemptLimiter } = require('./services/auth-attempt-limiter');
 const postgresData = require('./lib/postgres-repository');
 const postgresRepository = postgresData.createPostgresRepository();
 const { runGenreNarrativeAudits } = require('./lib/genre-narrative-audit');
@@ -131,6 +140,7 @@ try {
 } catch (_) {
   dbEnabled = false;
 }
+const { assertJsonSource } = require('./lib/repositories/assert-json-source');
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.MOLAN_HOST || '0.0.0.0';
@@ -5923,28 +5933,8 @@ function handleAdminLogin(req, res) {
   }).catch(e => respondError(res, e));
 }
 
-const AUTH_RATE_WINDOW_MS = 10 * 60 * 1000;
-const authRate = new Map();
-function allowAuthAttempt(req, scope, limit) {
-  const ip = (req.socket && req.socket.remoteAddress) || 'unknown';
-  const key = scope + '|' + ip;
-  const now = Date.now();
-  const prev = authRate.get(key);
-  if (!prev || now - prev.startedAt >= AUTH_RATE_WINDOW_MS) {
-    authRate.set(key, { startedAt: now, count: 1 });
-    return true;
-  }
-  if (prev.count >= limit) return false;
-  prev.count += 1;
-  return true;
-}
-const authRateCleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [key, item] of authRate.entries()) {
-    if (now - item.startedAt >= AUTH_RATE_WINDOW_MS * 2) authRate.delete(key);
-  }
-}, AUTH_RATE_WINDOW_MS);
-authRateCleanup.unref();
+const authAttemptLimiter = createAuthAttemptLimiter();
+const allowAuthAttempt = authAttemptLimiter.allow;
 
 /** 邮箱验证码暂未开放：没有邮件服务时绝不生成或返回演示验证码。 */
 function handleSendCode(req, res) {
@@ -7089,6 +7079,7 @@ function initDB(options = {}) {
     // PG 运行时缓存必须是进程内内存库，避免误把缓存当成第二个持久化数据源。
     const dbPath = postgresRuntime ? ':memory:' : path.join(DATA_DIR, 'molan.db');
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (DatabaseSync.name === 'PureJsDatabase') assertJsonSource(dbPath);
     db = new DatabaseSync(dbPath);
     if (postgresRuntime) {
       db.exec('PRAGMA foreign_keys = ON');
@@ -7734,7 +7725,8 @@ function initDB(options = {}) {
     return true;
   } catch (e) {
     console.error('❌ SQLite 初始化失败：' + e.message);
-    db = null; dbEnabled = false;
+    db = null;
+    if (e.code === 'LEGACY_SQLITE_REQUIRES_MIGRATION' || e.code === 'JSON_STORE_CORRUPT') throw e;
     return false;
   }
 }
@@ -17943,56 +17935,6 @@ async function handlePostgresCreationBookDebts(req, res, id) {
   json(res, 200, { ok: true, bookId: id, chapterNo, block: buildDebtPromptInjection(result.allDebts, chapterNo).slice(0, 1800), ...result });
 }
 
-/** GET /api/novels —— 我的小说列表（返回轻量摘要，不含 state） */
-function handleNovelList(req, res) {
-  const a = getAuthUser(req);
-  if (!a) return json(res, 401, { error: '未登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  try {
-    const rows = db.prepare(
-      `SELECT n.id, n.workspace_id, n.project_id, n.title, n.state_json, n.word_count, n.created_at, n.updated_at, n.revision,
-        LENGTH(n.state_json) AS state_bytes
-       FROM novels n
-       JOIN project_members pm ON pm.workspace_id = n.workspace_id AND pm.project_id = n.project_id
-       JOIN novel_projects np ON np.workspace_id = n.workspace_id AND np.project_id = n.project_id AND np.status = 'active'
-       WHERE pm.user_id = ? AND pm.active = 1
-       ORDER BY n.updated_at DESC`
-    ).all(a.user.userId);
-    json(res, 200, { ok: true, novels: rows.map(novelListSummary) });
-  } catch (e) { json(res, 500, { error: e.message }); }
-}
-
-/** GET /api/novels/:id —— 取一本小说完整 state */
-function handleNovelGet(req, res, id) {
-  const a = getAuthUser(req);
-  if (!a) return json(res, 401, { error: '未登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  try {
-    const row = db.prepare(
-      `SELECT n.id, n.workspace_id, n.project_id, n.title, n.state_json, n.word_count, n.created_at, n.updated_at, n.revision
-       FROM novels n
-       JOIN project_members pm ON pm.workspace_id = n.workspace_id AND pm.project_id = n.project_id
-       JOIN novel_projects np ON np.workspace_id = n.workspace_id AND np.project_id = n.project_id AND np.status = 'active'
-       WHERE n.id = ? AND pm.user_id = ? AND pm.active = 1`
-    ).get(id, a.user.userId);
-    if (!row) return json(res, 404, { error: '小说不存在或无权访问' });
-    const access = projectScope.getNovelAccess(db, id, a.user.userId);
-    if (!projectScope.canAccess(access)) return json(res, 404, { error: '小说不存在或无权访问' });
-    let state = null;
-    try { state = sanitizeNovelStateForStorage(JSON.parse(row.state_json)); } catch (_) { return json(res, 500, { error: 'state_json 解析失败' }); }
-    try {
-      const resources = db.prepare(`SELECT * FROM project_resources
-        WHERE workspace_id = ? AND project_id = ? ORDER BY kind ASC, updated_at ASC, id ASC`)
-        .all(access.workspace_id, access.project_id).map(projectResources.publicResource);
-      state = postgresData.mergeResourcesIntoState(state, resources);
-    } catch (_) {}
-    json(res, 200, { ok: true, novel: { id: row.id, title: row.title, wordCount: row.word_count, createdAt: row.created_at, updatedAt: row.updated_at, revision: Number(row.revision) || 0, workspaceId: row.workspace_id, projectId: row.project_id, scope: projectScope.scopePublic(access), state } });
-  } catch (e) { json(res, 500, { error: e.message }); }
-}
-
 /** PUT /api/novels/:id —— 覆盖式保存（自动保存用，整本 state 覆盖） */
 function handleNovelSave(req, res, id) {
   const a = getAuthUser(req);
@@ -18783,6 +18725,7 @@ function generationRunOrchestrator() {
   generationOrchestrator = createGenerationOrchestrator({
     store,
     db: POSTGRES_MODE ? postgresRepository : db,
+
     dependenciesForRun(executionContext, request) {
       const auth = executionContext.auth;
       const user = executionContext.user;
@@ -19892,136 +19835,109 @@ function handleLocalStyleBaseline(req, res, params) {
     if (!xuanhuanLab) xuanhuanLab = createXuanhuanLab({ dataDir: DATA_DIR, readBody, getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req), json, callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options) });
     return xuanhuanLab.handle(req, res);
   }
+
+  const novelReadHandlers = createNovelReadHandlers({
+    getDatabase: () => db,
+    getAuthUser,
+    requireStorage: requireSqliteForPublic,
+    isStorageReady: dbReady,
+    json,
+    summarizeNovel: novelListSummary,
+    projectScope,
+    sanitizeNovelState: sanitizeNovelStateForStorage,
+    postgresData,
+    projectResources
+  });
+  const domainRoutes = {
+    auth: createAuthRoutes({
+      register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
+      me: handleMe, profile: handleProfile, logout: handleLogout, logoutAll: handleLogoutAll,
+      adminLogin: handleAdminLogin, adminMe: handleAdminMe, usage: handleUsage
+    }),
+    admin: createAdminRoutes({
+      correctionSummary: handleCorrectionLibrarySummary, correctionStats: handleCorrectionLibraryStats,
+      correctionScan: handleCorrectionLibraryScan, correctionInboxList: handleCorrectionLibraryInboxList,
+      correctionInbox: handleCorrectionLibraryInbox, correctionMerge: handleCorrectionLibraryMerge,
+      adminCorrection: handleAdminCorrectionLibrary, overview: handleAdminOverview,
+      models: handleAdminModels, modelsPatch: handleAdminModelsPatch, skills: handleAdminSkills,
+      skillCreate: handleAdminSkillCreate, audit: handleAdminAudit,
+      characterAudit: handleCharacterMaterialAudit, characterAuditPatch: handleCharacterMaterialAuditPatch,
+      dataList: adminDataList, dataPatch: adminDataPatch, dataDelete: adminDataDelete,
+      userPatch: handleAdminUserPatch, skillPatch: handleAdminSkillPatch, skillDelete: handleAdminSkillDelete
+    }),
+    skills: createSkillRoutes({
+      list: handleSkills, import: handleSkillImport, openList: handleOpenSkillList, openCreate: handleOpenSkillCreate,
+      openGet: handleOpenSkillGet, openPatch: handleOpenSkillPatch, openDelete: handleOpenSkillDelete,
+      openDownload: handleOpenSkillDownload
+    }),
+    generation: createGenerationRoutes({
+      benchmark: handleBenchmark, generationRuns: handleGenerationRuns, generationRunError,
+      chat: handleChat, legacyGenerationChat: handleLegacyGenerationChat, models: handleModels,
+      billingEstimate: handleBillingEstimate, billingTopup: handleBillingTopup, health: handleHealth,
+      webChat: handleWebChat, webChatStatus: handleWebChatStatus
+    }),
+    knowledge: createKnowledgeRoutes({
+      localStyleSamples: handleLocalStyleSamples, localStyleBaseline: handleLocalStyleBaseline,
+      styleDetect: handleStyleDetect, chapterHealthCheck: handleChapterHealthCheck, json,
+      postgresMode: POSTGRES_MODE, respondPostgresError,
+      postgresDebtSettle: handlePostgresCausalDebtSettle, debtSettle: handleCausalDebtSettle,
+      postgresDebtsExtract: handlePostgresCausalDebtsExtract, debtsExtract: handleCausalDebtsExtract,
+      postgresDebtsGet: handlePostgresCausalDebtsGet, debtsGet: handleCausalDebtsGet,
+      postgresDebtCreate: handlePostgresCausalDebtCreate, debtCreate: handleCausalDebtCreate
+    }),
+    dissections: createDissectionRoutes({
+      extract: handleDissectionExtract, create: handleDissectionCreate, list: handleDissectionList,
+      export: handleDissectionExport, apply: handleDissectionApply, respondError,
+      creativeBrief: handleDissectionCreativeBrief, creationContext: handleDissectionCreationContext,
+      chapterContract: handleDissectionChapterContract, audit: handleDissectionAudit,
+      coverage: handleDissectionCoverage, units: handleDissectionUnitsPage, entities: handleDissectionEntitiesPage,
+      foreshadows: handleDissectionForeshadowsPage, summaries: handleDissectionSummariesPage,
+      validation: handleDissectionValidation, search: handleDissectionSearch, rebuild: handleDissectionRebuild,
+      patch: handleDissectionPatch, get: handleDissectionGet, cancel: handleDissectionCancel,
+      retry: handleDissectionRetry, remove: handleDissectionDelete, imitate: handleDissectionImitate,
+      diagnose: handleDissectionDiagnose, syncCharacters: handleDissectionCharactersSync,
+      share: handleDissectionShare, shareDelete: handleDissectionShareDelete,
+      versions: handleDissectionVersions, version: handleDissectionVersion,
+      compare: handleDissectionsCompare, batch: handleDissectionsBatch, sharedList: handleSharedDissectionsList
+    }),
+    projects: createProjectRoutes({ postgresMode: POSTGRES_MODE, handlers: {
+      charactersList: handleCharactersList, charactersExport: handleCharactersExport,
+      charactersMerge: handleCharactersMerge, charactersPatch: handleCharactersPatch,
+      postgresNovelImportCharacters: handlePostgresNovelImportCharacters, respondPostgresError,
+      novelImportCharacters: handleNovelImportCharacters, sharedDissectionGet: handleSharedDissectionGet,
+      postgresNovelExport: handlePostgresNovelExport, novelExport: handleNovelExport,
+      postgresPackageExport: handlePostgresPackageExport, postgresPackageImport: handlePostgresPackageImport,
+      postgresPackageRestore: handlePostgresPackageRestore, postgresResourceHistory: handlePostgresResourceHistory,
+      postgresResources: handlePostgresResources, postgresWorkspaceList: handlePostgresWorkspaceList,
+      postgresWorkspaceCreate: handlePostgresWorkspaceCreate, postgresWorkspaceMembers: handlePostgresWorkspaceMembers,
+      postgresWorkspaceProjectList: handlePostgresWorkspaceProjectList, postgresNovelMembers: handlePostgresNovelMembers,
+      postgresNovelGet: handlePostgresNovelGet, novelScenePatch: handleNovelScenePatch,
+      postgresNovelSave: handlePostgresNovelSave, postgresNovelDelete: handlePostgresNovelDelete,
+      postgresNovelRestore: handlePostgresNovelRestore, postgresNovelList: handlePostgresNovelList,
+      postgresNovelCreate: handlePostgresNovelCreate, novelResourceHistory: handleNovelResourceHistory,
+      novelResources: handleNovelResources, workspaceList: handleWorkspaceList,
+      workspaceCreate: handleWorkspaceCreate, workspaceMembers: handleWorkspaceMembers,
+      workspaceProjectList: handleWorkspaceProjectList, novelMembers: handleNovelMembers,
+      respondError, novelPackageExport: handleNovelPackageExport, novelPackageImport: handleNovelPackageImport,
+      novelPackageRestore: handleNovelPackageRestore, novelGet: novelReadHandlers.handleNovelGet, novelSave: handleNovelSave,
+      novelDelete: handleNovelDelete, novelRestore: handleNovelRestore, novelList: novelReadHandlers.handleNovelList,
+      novelCreate: handleNovelCreate
+    }})
+  };
+
   if (u.startsWith('/api/genre-lab/')) {
     return handleGenreLab(req, res, u);
   }
-  if (req.method === 'GET' && u === '/api/local-style/samples') return handleLocalStyleSamples(req, res, new URL(req.url, 'http://molan.local').searchParams);
-  if (req.method === 'GET' && u === '/api/local-style/baseline') return handleLocalStyleBaseline(req, res, new URL(req.url, 'http://molan.local').searchParams);
-  if (u.startsWith('/api/benchmark/')) return handleBenchmark(req, res, u);
-  if (u === '/api/generation-runs' || u.startsWith('/api/generation-runs/')) {
-    return handleGenerationRuns(req, res, u).catch(error => generationRunError(res, error));
-  }
+  if (domainRoutes.knowledge.dispatchLocal(req, res, u)) return;
+  if (domainRoutes.generation.dispatchBeforeProxy(req, res, u)) return;
   if (shouldProxyCloudRequest(req)) return handleCloudProxy(req, res);
-  if (req.method === 'POST' && u === '/api/style/detect') return handleStyleDetect(req, res);
-  if (req.method === 'POST' && u === '/api/chapter/health-check') return handleChapterHealthCheck(req, res);
-  if (req.method === 'GET' && u === '/api/genre-catalog') {
-    const { getGenreCatalog } = require('./lib/genre/genre-registry');
-    return json(res, 200, { ok: true, catalog: getGenreCatalog() });
-  }
-  if (req.method === 'GET' && u === '/api/model-capabilities') {
-    const { listSupportedModels } = require('./lib/model/model-registry');
-    return json(res, 200, { ok: true, models: listSupportedModels() });
-  }
-  if (req.method === 'GET' && u === '/api/style-catalog') {
-    const { getStyleCatalog } = require('./lib/style/style-registry');
-    return json(res, 200, { ok: true, catalog: getStyleCatalog() });
-  }
-  const causalDebtSettleMatch = u.match(/^\/api\/causal-debts\/([^/]+)\/settle$/);
-  const causalDebtExtractMatch = u.match(/^\/api\/causal-debts\/([^/]+)\/extract$/);
-  const causalDebtMatch = u.match(/^\/api\/causal-debts\/([^/]+)$/);
-  if (POSTGRES_MODE && req.method === 'POST' && causalDebtSettleMatch) return handlePostgresCausalDebtSettle(req, res, causalDebtSettleMatch[1]).catch(error => respondPostgresError(res, error));
-  if (req.method === 'POST' && causalDebtSettleMatch) return handleCausalDebtSettle(req, res, causalDebtSettleMatch[1]);
-  if (POSTGRES_MODE && req.method === 'POST' && causalDebtExtractMatch) return handlePostgresCausalDebtsExtract(req, res, causalDebtExtractMatch[1]).catch(error => respondPostgresError(res, error));
-  if (req.method === 'POST' && causalDebtExtractMatch) return handleCausalDebtsExtract(req, res, causalDebtExtractMatch[1]);
-  if (POSTGRES_MODE && req.method === 'GET' && causalDebtMatch) return handlePostgresCausalDebtsGet(req, res, causalDebtMatch[1]).catch(error => respondPostgresError(res, error));
-  if (req.method === 'GET'  && causalDebtMatch) return handleCausalDebtsGet(req, res, causalDebtMatch[1]);
-  if (POSTGRES_MODE && req.method === 'POST' && causalDebtMatch) return handlePostgresCausalDebtCreate(req, res, causalDebtMatch[1]).catch(error => respondPostgresError(res, error));
-  if (req.method === 'POST' && causalDebtMatch) return handleCausalDebtCreate(req, res, causalDebtMatch[1]);
-  if (req.method === 'POST' && u === '/api/chat') return handleChat(req, res, handleLegacyGenerationChat);
-  if (req.method === 'GET'  && u === '/api/models') return handleModels(req, res);
-  if (req.method === 'POST' && u === '/api/billing/estimate') return handleBillingEstimate(req, res);
-  if (req.method === 'POST' && u === '/api/billing/topup') return handleBillingTopup(req, res);
-  if (req.method === 'GET'  && u === '/api/health') return handleHealth(req, res);
-  if (req.method === 'GET'  && u === '/api/skills') return handleSkills(req, res);
-  if (req.method === 'POST' && u === '/api/skills/import') return handleSkillImport(req, res);
-  const openSkillDownloadMatch = u.match(/^\/api\/open-skills\/([^/]+)\/download$/);
-  const openSkillMatch = u.match(/^\/api\/open-skills\/([^/]+)$/);
-  if (req.method === 'GET'  && u === '/api/open-skills') return handleOpenSkillList(req, res);
-  if (req.method === 'POST' && u === '/api/open-skills') return handleOpenSkillCreate(req, res);
-  if (req.method === 'GET'  && openSkillMatch) return handleOpenSkillGet(req, res, openSkillMatch[1]);
-  if (req.method === 'PATCH' && openSkillMatch) return handleOpenSkillPatch(req, res, openSkillMatch[1]);
-  if (req.method === 'DELETE' && openSkillMatch) return handleOpenSkillDelete(req, res, openSkillMatch[1]);
-  if (req.method === 'POST' && openSkillDownloadMatch) return handleOpenSkillDownload(req, res, openSkillDownloadMatch[1]);
-  if (req.method === 'POST' && u === '/api/auth/register') return handleRegister(req, res);
-  if (req.method === 'POST' && u === '/api/auth/login') return handleLogin(req, res);
-  if (req.method === 'POST' && u === '/api/auth/code') return handleSendCode(req, res);
-  if (req.method === 'POST' && u === '/api/auth/login-code') return handleLoginByCode(req, res);
-  if (req.method === 'GET'  && u === '/api/auth/me') return handleMe(req, res);
-  if (req.method === 'PATCH' && u === '/api/auth/profile') return handleProfile(req, res);
-  if (req.method === 'GET'  && u === '/api/usage') return handleUsage(req, res);
-  if (req.method === 'GET'  && u === '/api/correction-library') return handleCorrectionLibrarySummary(req, res);
-  if (req.method === 'GET'  && u === '/api/correction-library/stats') return handleCorrectionLibraryStats(req, res);
-  if (req.method === 'POST' && u === '/api/correction-library/scan') return handleCorrectionLibraryScan(req, res);
-  if (req.method === 'GET'  && u === '/api/correction-library/inbox') return handleCorrectionLibraryInboxList(req, res);
-  if (req.method === 'POST' && u === '/api/correction-library/inbox') return handleCorrectionLibraryInbox(req, res);
-  if (req.method === 'POST' && u === '/api/correction-library/merge') return handleCorrectionLibraryMerge(req, res);
-  if (req.method === 'GET'  && u === '/api/admin/correction-library') return handleAdminCorrectionLibrary(req, res);
-  if (req.method === 'POST' && u === '/api/auth/logout') return handleLogout(req, res);
-  if (req.method === 'POST' && u === '/api/auth/logout-all') return handleLogoutAll(req, res);
-  if (req.method === 'POST' && u === '/api/admin/auth/login') return handleAdminLogin(req, res);
-  if (req.method === 'GET'  && u === '/api/admin/auth/me') return handleAdminMe(req, res);
-  if (req.method === 'POST' && u === '/api/admin/auth/logout') return handleLogout(req, res, 'admin');
-  const adminUserMatch = u.match(/^\/api\/admin\/users\/(.+)$/);
-  const adminSkillMatch = u.match(/^\/api\/admin\/skills\/(.+)$/);
-  if (req.method === 'GET'  && u === '/api/admin/overview') return handleAdminOverview(req, res);
-  if (req.method === 'GET'  && u === '/api/admin/models') return handleAdminModels(req, res);
-  if (req.method === 'PATCH' && u === '/api/admin/models') return handleAdminModelsPatch(req, res);
-  if (req.method === 'GET'  && u === '/api/admin/skills') return handleAdminSkills(req, res);
-  if (req.method === 'POST' && u === '/api/admin/skills') return handleAdminSkillCreate(req, res);
-  if (req.method === 'GET'  && u === '/api/admin/audit') return handleAdminAudit(req, res);
-  if (req.method === 'GET'  && u === '/api/admin/character-material/audit') return handleCharacterMaterialAudit(req, res);
-  if (req.method === 'PATCH' && u === '/api/admin/character-material/audit') return handleCharacterMaterialAuditPatch(req, res);
-  if (req.method === 'GET'  && u === '/api/admin/data') return adminDataList(req, res);
-  if (req.method === 'PATCH' && u === '/api/admin/data') return adminDataPatch(req, res);
-  if (req.method === 'DELETE' && u === '/api/admin/data') return adminDataDelete(req, res);
-  if (req.method === 'PATCH' && adminUserMatch) return handleAdminUserPatch(req, res, adminUserMatch[1]);
-  if (req.method === 'PATCH' && adminSkillMatch) return handleAdminSkillPatch(req, res, adminSkillMatch[1]);
-  if (req.method === 'DELETE' && adminSkillMatch) return handleAdminSkillDelete(req, res, adminSkillMatch[1]);
-  if (req.method === 'POST' && u === '/api/web-chat') return handleWebChat(req, res);
-  if (req.method === 'GET'  && u === '/api/web-chat/status') return handleWebChatStatus(req, res);
-  let m;
-  const dissectionMatch = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)$/);
-  const dissectionExportMatch = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/export$/);
-  const dissectionApplyMatch = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/apply$/);
-  const dissectionCancelMatch = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/cancel$/);
-  const dissectionRetryMatch = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/retry$/);
-  if (req.method === 'POST' && u === '/api/dissection/extract') return handleDissectionExtract(req, res);
-  if (req.method === 'POST' && u === '/api/dissections') return handleDissectionCreate(req, res);
-  if (req.method === 'GET'  && u === '/api/dissections') return handleDissectionList(req, res);
-  if (req.method === 'GET'  && dissectionExportMatch) return handleDissectionExport(req, res, dissectionExportMatch[1]);
-  if (req.method === 'POST' && dissectionApplyMatch) return handleDissectionApply(req, res, dissectionApplyMatch[1]).catch(error => respondError(res, error, 502));
-  if (req.method === 'POST' && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/creative-brief$/))) return handleDissectionCreativeBrief(req, res, m[1]).catch(error => respondError(res, error, 500));
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/creation-context$/))) return handleDissectionCreationContext(req, res, m[1]);
-  if (req.method === 'POST' && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/chapter-contract$/))) return handleDissectionChapterContract(req, res, m[1]).catch(error => respondError(res, error, 500));
-  if (req.method === 'POST' && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/audit$/))) return handleDissectionAudit(req, res, m[1]).catch(error => respondError(res, error, 500));
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/coverage$/))) return handleDissectionCoverage(req, res, m[1]);
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/units$/))) return handleDissectionUnitsPage(req, res, m[1]);
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/entities$/))) return handleDissectionEntitiesPage(req, res, m[1]);
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/foreshadows$/))) return handleDissectionForeshadowsPage(req, res, m[1]);
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/summaries$/))) return handleDissectionSummariesPage(req, res, m[1]);
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/validation$/))) return handleDissectionValidation(req, res, m[1]);
-  if (req.method === 'GET'  && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/search$/))) return handleDissectionSearch(req, res, m[1]);
-  if (req.method === 'POST' && (m = u.match(/^\/api\/dissections\/([A-Za-z0-9_]+)\/rebuild$/))) return handleDissectionRebuild(req, res, m[1]);
-  if (req.method === 'PATCH' && dissectionMatch) return handleDissectionPatch(req, res, dissectionMatch[1]);
-  if (req.method === 'GET'  && dissectionMatch) return handleDissectionGet(req, res, dissectionMatch[1]);
-  if (req.method === 'POST' && dissectionCancelMatch) return handleDissectionCancel(req, res, dissectionCancelMatch[1]);
-  if (req.method === 'POST' && dissectionRetryMatch) return handleDissectionRetry(req, res, dissectionRetryMatch[1]);
-  if (req.method === 'DELETE' && dissectionMatch) return handleDissectionDelete(req, res, dissectionMatch[1]);
-  // 拆书下游 / 管理 / 对比（F102、F103、F201、F202、F203、F204、F205）
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/imitate$/))) return handleDissectionImitate(req, res, m[1]);
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/diagnose$/))) return handleDissectionDiagnose(req, res, m[1]);
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/sync-characters$/))) return handleDissectionCharactersSync(req, res, m[1]);
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/share$/))) return handleDissectionShare(req, res, m[1]);
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/share$/))) return handleDissectionShare(req, res, m[1]);
-  if (req.method === 'DELETE' && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/share\/([A-Za-z0-9]+)$/))) return handleDissectionShareDelete(req, res, m[1], m[2]);
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/versions$/))) return handleDissectionVersions(req, res, m[1]);
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/versions$/))) return handleDissectionVersions(req, res, m[1]);
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/versions\/([A-Za-z0-9_]+)$/))) return handleDissectionVersion(req, res, m[1], m[2]);
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/versions\/([A-Za-z0-9_]+)$/))) return handleDissectionVersion(req, res, m[1], m[2]);
-  if (req.method === 'DELETE' && (m = u.match(/^\/api\/dissection\/([A-Za-z0-9_]+)\/versions\/([A-Za-z0-9_]+)$/))) return handleDissectionVersion(req, res, m[1], m[2]);
-  if (req.method === 'POST'   && u === '/api/dissections/compare') return handleDissectionsCompare(req, res);
-  if (req.method === 'POST'   && u === '/api/dissections/batch') return handleDissectionsBatch(req, res);
-  if (req.method === 'GET'    && u === '/api/dissections/shared') return handleSharedDissectionsList(req, res);
+  if (domainRoutes.knowledge.dispatch(req, res, u)) return;
+  if (domainRoutes.generation.dispatchCore(req, res, u)) return;
+  if (domainRoutes.skills(req, res, u)) return;
+  if (domainRoutes.auth(req, res, u)) return;
+  if (domainRoutes.admin(req, res, u)) return;
+  if (domainRoutes.generation.dispatchWebChat(req, res, u)) return;
+  if (domainRoutes.dissections(req, res, u)) return;
   // ★ Q1 · 创书域：新书 + 创作圣经 + 状态快照（CAS）
   if (POSTGRES_MODE && req.method === 'GET' && u === '/api/creation-books') return handlePostgresCreationBooksList(req, res).catch(error => respondPostgresError(res, error));
   if (POSTGRES_MODE && req.method === 'POST' && u === '/api/creation-books') return handlePostgresCreationBooksCreate(req, res).catch(error => respondPostgresError(res, error));
@@ -20057,71 +19973,7 @@ function handleLocalStyleBaseline(req, res, params) {
   if (req.method === 'POST' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/regenerate-asset$/))) return handleCreationBookRegenerateAsset(req, res, m[1]).catch(error => respondError(res, error, 502));
   if (req.method === 'POST' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/commit$/))) return handleCreationBookCommit(req, res, m[1]).catch(error => respondError(res, error, 502));
   if (req.method === 'GET'  && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/state$/))) return handleCreationBookState(req, res, m[1]);
-  if (req.method === 'GET'    && u === '/api/characters') return handleCharactersList(req, res);
-  if (req.method === 'GET'    && u === '/api/characters/export') return handleCharactersExport(req, res);
-  if (req.method === 'POST'   && u === '/api/characters/merge') return handleCharactersMerge(req, res);
-  if (req.method === 'PATCH'  && (m = u.match(/^\/api\/characters\/([A-Za-z0-9_]+)$/))) return handleCharactersPatch(req, res, m[1]);
-  if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/import-characters$/))) return handlePostgresNovelImportCharacters(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)\/import-characters$/))) return handleNovelImportCharacters(req, res, m[1]);
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/shared\/dissection\/([A-Za-z0-9]+)$/))) return handleSharedDissectionGet(req, res, m[1]);
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/export$/))) return handlePostgresNovelExport(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (req.method === 'GET' && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)\/export$/))) return handleNovelExport(req, res, m[1]);
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/package$/))) return handlePostgresPackageExport(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/package\/import$/))) return handlePostgresPackageImport(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/package\/restore$/))) return handlePostgresPackageRestore(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)\/history$/))) return handlePostgresResourceHistory(req, res, m[1], m[2], m[3]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)\/history\/(\d+)\/restore$/))) return handlePostgresResourceHistory(req, res, m[1], m[2], m[3], Number(m[4])).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)$/))) return handlePostgresResources(req, res, m[1], m[2]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)$/))) return handlePostgresResources(req, res, m[1], m[2]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/))) return handlePostgresResources(req, res, m[1], m[2], m[3]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/))) return handlePostgresResources(req, res, m[1], m[2], m[3]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'PATCH' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/))) return handlePostgresResources(req, res, m[1], m[2], m[3]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'DELETE' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/))) return handlePostgresResources(req, res, m[1], m[2], m[3]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && u === '/api/workspaces') return handlePostgresWorkspaceList(req, res).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'POST' && u === '/api/workspaces') return handlePostgresWorkspaceCreate(req, res).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/members$/))) return handlePostgresWorkspaceMembers(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && ['POST', 'PATCH', 'DELETE'].includes(req.method) && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/members$/))) return handlePostgresWorkspaceMembers(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects$/))) return handlePostgresWorkspaceProjectList(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects\/(n_[A-Za-z0-9_]+)\/members$/))) return handlePostgresNovelMembers(req, res, m[1], m[2]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && ['POST', 'PATCH', 'DELETE'].includes(req.method) && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects\/(n_[A-Za-z0-9_]+)\/members$/))) return handlePostgresNovelMembers(req, res, m[1], m[2]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)$/))) return handlePostgresNovelGet(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (req.method === 'PATCH' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/scenes\/([^/]+)$/))) {
-    return handleNovelScenePatch(req, res, m[1], m[2]);
-  }
-  if (POSTGRES_MODE && req.method === 'PUT' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)$/))) return handlePostgresNovelSave(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'DELETE' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)$/))) return handlePostgresNovelDelete(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/restore$/))) return handlePostgresNovelRestore(req, res, m[1]).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'GET' && u === '/api/novels') return handlePostgresNovelList(req, res).catch(error => respondPostgresError(res, error));
-  if (POSTGRES_MODE && req.method === 'POST' && u === '/api/novels') return handlePostgresNovelCreate(req, res).catch(error => respondPostgresError(res, error));
-  if (req.method === 'GET' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)\/history$/))) return handleNovelResourceHistory(req, res, m[1], m[2], m[3]).catch(error => respondError(res, error, 502));
-  if (req.method === 'POST' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)\/history\/(\d+)\/restore$/))) return handleNovelResourceHistory(req, res, m[1], m[2], m[3], Number(m[4])).catch(error => respondError(res, error, 502));
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)$/))) return handleNovelResources(req, res, m[1], m[2]).catch(error => respondError(res, error, 502));
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)$/))) return handleNovelResources(req, res, m[1], m[2]).catch(error => respondError(res, error, 502));
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/))) return handleNovelResources(req, res, m[1], m[2], m[3]).catch(error => respondError(res, error, 502));
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/))) return handleNovelResources(req, res, m[1], m[2], m[3]).catch(error => respondError(res, error, 502));
-  if (req.method === 'PATCH'  && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/))) return handleNovelResources(req, res, m[1], m[2], m[3]).catch(error => respondError(res, error, 502));
-  if (req.method === 'DELETE' && (m = u.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/))) return handleNovelResources(req, res, m[1], m[2], m[3]).catch(error => respondError(res, error, 502));
-  if (req.method === 'GET'    && u === '/api/workspaces') return handleWorkspaceList(req, res);
-  if (req.method === 'POST'   && u === '/api/workspaces') return handleWorkspaceCreate(req, res).catch(error => respondError(res, error, 502));
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/members$/))) return handleWorkspaceMembers(req, res, m[1]).catch(error => respondError(res, error, 502));
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/members$/))) return handleWorkspaceMembers(req, res, m[1]).catch(error => respondError(res, error, 502));
-  if (req.method === 'PATCH'  && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/members$/))) return handleWorkspaceMembers(req, res, m[1]).catch(error => respondError(res, error, 502));
-  if (req.method === 'DELETE' && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/members$/))) return handleWorkspaceMembers(req, res, m[1]).catch(error => respondError(res, error, 502));
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects$/))) return handleWorkspaceProjectList(req, res, m[1]);
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects\/(n_[A-Za-z0-9_]+)\/members$/))) return handleNovelMembers(req, res, m[1], m[2]);
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects\/(n_[A-Za-z0-9_]+)\/members$/))) return handleNovelMembers(req, res, m[1], m[2]).catch(error => respondError(res, error, 502));
-  if (req.method === 'PATCH'  && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects\/(n_[A-Za-z0-9_]+)\/members$/))) return handleNovelMembers(req, res, m[1], m[2]).catch(error => respondError(res, error, 502));
-  if (req.method === 'DELETE' && (m = u.match(/^\/api\/workspaces\/([A-Za-z0-9_-]+)\/projects\/(n_[A-Za-z0-9_]+)\/members$/))) return handleNovelMembers(req, res, m[1], m[2]).catch(error => respondError(res, error, 502));
-  // 小说库（SQLite）：路径参数化解析
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)\/package$/))) return handleNovelPackageExport(req, res, m[1]);
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)\/package\/import$/))) return handleNovelPackageImport(req, res, m[1]).catch(error => respondError(res, error, 502));
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)\/package\/restore$/))) return handleNovelPackageRestore(req, res, m[1]).catch(error => respondError(res, error, 502));
-  if (req.method === 'GET'    && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)$/)))  return handleNovelGet(req, res, m[1]);
-  if (req.method === 'PUT'    && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)$/)))  return handleNovelSave(req, res, m[1]);
-  if (req.method === 'DELETE' && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)$/)))  return handleNovelDelete(req, res, m[1]);
-  if (req.method === 'POST'   && (m = u.match(/^\/api\/novels\/([A-Za-z0-9_]+)\/restore$/))) return handleNovelRestore(req, res, m[1]);
-  if (req.method === 'GET'    && u === '/api/novels') return handleNovelList(req, res);
-  if (req.method === 'POST'   && u === '/api/novels') return handleNovelCreate(req, res);
+  if (domainRoutes.projects(req, res, u)) return;
   if (u.startsWith('/api/books/') || u.startsWith('/api/runs/')) {
     return memoryRoutes.dispatch(req, res, u, db, getAuthUser, {
       backend: POSTGRES_MODE ? 'postgres' : 'sqlite',
@@ -20158,6 +20010,11 @@ async function initializePostgresRuntime() {
 }
 
 if (require.main === module) {
+  if (process.env.NODE_ENV === 'production' && !POSTGRES_MODE) {
+    const error = new Error('Production mode requires PostgreSQL; local storage is not an allowed fallback.');
+    error.code = 'PRODUCTION_POSTGRES_REQUIRED';
+    throw error;
+  }
   initDB();
   let stopMemoryProjections = null;
   if (!POSTGRES_MODE && dbReady()) {

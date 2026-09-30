@@ -19,12 +19,17 @@ export function runProductionImportAudit() {
   const serverPath = path.join(rootDir, 'server.js');
   if (fs.existsSync(serverPath)) productionFiles.push(serverPath);
 
-  const genDir = path.join(rootDir, 'lib', 'generation');
-  if (fs.existsSync(genDir)) {
-    const genFiles = fs.readdirSync(genDir).filter(f => f.endsWith('.js') || f.endsWith('.mjs'));
-    for (const f of genFiles) {
-      productionFiles.push(path.join(genDir, f));
+  // 抽离后的路由和服务同样属于生产链，不能借模块化绕过导入门禁。
+  function collect(directory) {
+    if (!fs.existsSync(directory)) return;
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const filename = path.join(directory, entry.name);
+      if (entry.isDirectory()) collect(filename);
+      else if (/\.(?:js|mjs|cjs)$/.test(entry.name)) productionFiles.push(filename);
     }
+  }
+  for (const relative of ['lib/generation', 'lib/repositories', 'routes', 'services']) {
+    collect(path.join(rootDir, relative));
   }
 
   const forbiddenPatterns = [

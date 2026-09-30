@@ -13,7 +13,7 @@ const NON_WORKFLOW_PAGES = new Set([
 /** 在限定的产品代码和测试目录中读取可审计源码。 */
 export async function loadAuditSources(root = ROOT) {
   const files = new Set(['server.js', 'index.html', 'completion-editor.js', 'completion-import.js', 'completion-library.js']);
-  const directories = ['pages', 'lib/client', 'lib/generation', 'lib/quality', 'lib/evolution', 'test'];
+  const directories = ['pages', 'lib/client', 'lib/generation', 'lib/quality', 'lib/evolution', 'lib/repositories', 'routes', 'services', 'test'];
   for (const directory of directories) {
     const absolute = path.join(root, directory);
     let entries;
