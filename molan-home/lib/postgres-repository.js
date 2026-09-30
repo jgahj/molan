@@ -8,6 +8,7 @@ const projectResources = require('./project-resources');
 const { GenerationError } = require('./generation/errors');
 const { hashValue } = require('./generation/manifest');
 const { matchesTokenUsageReservation } = require('./token-usage-idempotency');
+const { createPostgresLabJobMethods } = require('./repositories/postgres-lab-job-methods');
 
 let Pool = null;
 try {
@@ -5634,7 +5635,8 @@ function createPostgresRepository(options = {}) {
     appendGenerationEvent,
     recordGenerationStage,
     listGenerationStages,
-    listGenerationEvents
+    listGenerationEvents,
+    ...createPostgresLabJobMethods({ withTransaction, withWorkerTransaction, internalUuid })
   };
 }
 
