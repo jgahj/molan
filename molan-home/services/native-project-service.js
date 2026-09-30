@@ -1,7 +1,6 @@
 'use strict';
 const resources = require('../lib/project-resources');
 const projectPackage = require('../lib/project-package');
-const postgresData = require('../lib/postgres-repository');
 function fail(code, status) { throw Object.assign(new Error(code), { code, statusCode: status }); }
 const publicResource = row => ({ ...row, status: row.deleted ? 'deleted' : 'active', deletedAt: row.deleted ? row.updatedAt : null, etag: `"resource-${row.id}-${row.revision}"` });
 function revision(req, body, resourceId) {
