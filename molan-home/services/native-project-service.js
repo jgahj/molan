@@ -1,5 +1,7 @@
 'use strict';
 const resources = require('../lib/project-resources');
+const projectPackage = require('../lib/project-package');
+const postgresData = require('../lib/postgres-repository');
 function fail(code, status) { throw Object.assign(new Error(code), { code, statusCode: status }); }
 const publicResource = row => ({ ...row, status: row.deleted ? 'deleted' : 'active', deletedAt: row.deleted ? row.updatedAt : null, etag: `"resource-${row.id}-${row.revision}"` });
 function revision(req, body, resourceId) {
@@ -19,6 +21,21 @@ function revision(req, body, resourceId) {
   return value;
 }
 function createNativeProjectService({ repository, getAuthUser, readBody, json }) {
+  async function packageDispatch(req, res, projectId, action) {
+    const auth = await getAuthUser(req); if (!auth?.user) fail('UNAUTHORIZED', 401);
+    if (!repository.readProjectPackageSnapshot || !repository.restoreProjectPackageSnapshot) fail('PROJECT_PACKAGE_UNAVAILABLE', 503);
+    const snapshot = await repository.readProjectPackageSnapshot({ userId: auth.user.userId, projectId });
+    if (action === 'export') {
+      const state = snapshot.novel.state;
+      return { ok: true, package: projectPackage.exportProjectPackage({ projectId, workspaceId: snapshot.novel.workspaceId, ownerUserId: snapshot.access.owner_user_id, state, assets: { creationAssets: state.creationAssets || {}, projectResources: snapshot.resources }, versions: state.history || [] }) };
+    }
+    const body = await readBody(req); if (!body || typeof body !== 'object' || Array.isArray(body)) fail('INVALID_REQUEST_BODY', 400);
+    const input = body.package || body;
+    const result = projectPackage.importProjectPackage(input, { mode: action === 'restore' ? 'apply' : 'preflight', targetProjectId: projectId, targetWorkspaceId: snapshot.novel.workspaceId, existingIds: { projectIds: action === 'restore' ? [] : [projectId] } });
+    if (action === 'import') return { ok: result.ok, preflight: result };
+    if (!result.ok || !result.state || !Array.isArray(result.state.volumes)) fail('PACKAGE_RESTORE_PREFLIGHT_FAILED', 422);
+    return repository.restoreProjectPackageSnapshot({ userId: auth.user.userId, projectId, expectedRevision: body.revision, state: result.state, resources: result.assets?.projectResources || [] });
+  }
   async function target(body) {
     const account = body.userId ? await repository.getAccount(String(body.userId).trim()) : await repository.getAccount({ email: String(body.email || '').trim().toLowerCase() });
     if (!account) fail('ACCOUNT_NOT_FOUND', 404);
@@ -28,6 +45,10 @@ function createNativeProjectService({ repository, getAuthUser, readBody, json })
     return Promise.all(rows.map(async member => { const account = await repository.getAccount(member.userId); return { userId: member.userId, email: account?.email, name: account?.name, role: member.role, canSpend: Boolean(member.canSpend), canExport: Boolean(member.canExport) }; }));
   }
   async function dispatch(req, res, pathname) {
+    const packageMatch = pathname.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/package(?:\/(import|restore))?$/);
+    if (packageMatch) {
+      try { const action = packageMatch[2] || 'export'; if (action === 'export' && req.method !== 'GET' || action !== 'export' && req.method !== 'POST') fail('METHOD_NOT_ALLOWED', 405); const output = await packageDispatch(req, res, packageMatch[1], action); json(res, action === 'import' && !output.ok ? 409 : 200, output); } catch (error) { json(res, error.code === 'REVISION_CONFLICT' ? 412 : error.statusCode || error.status || 422, { ok: false, code: error.code || 'PROJECT_PACKAGE_FAILED', error: error.message }); } return true;
+    }
     const workspace = pathname.match(/^\/api\/workspaces(?:\/([A-Za-z0-9_-]+)\/(members|projects)(?:\/(n_[A-Za-z0-9_]+)\/members)?)?$/);
     const resource = pathname.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/resources\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+)(?:\/history(?:\/(\d+)\/restore)?)?)?$/);
     if (!workspace && !resource) return false;
@@ -35,6 +56,7 @@ function createNativeProjectService({ repository, getAuthUser, readBody, json })
       const auth = await getAuthUser(req); if (!auth?.user) fail('UNAUTHORIZED', 401);
       const userId = auth.user.userId;
       const body = req.method === 'GET' ? {} : await readBody(req);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) fail('INVALID_REQUEST_BODY', 400);
       let value, status = 200;
       if (workspace) {
         const [, workspaceId, section, projectId] = workspace;
@@ -94,7 +116,7 @@ function createNativeProjectService({ repository, getAuthUser, readBody, json })
       }
       json(res, status, value); return true;
     } catch (error) {
-      const status = error.code === 'REVISION_CONFLICT' || error.code === 'ACL_REVISION_CONFLICT' ? 412 : error.statusCode || error.status || 500;
+      const status = error.code === 'ACL_REVISION_CONFLICT' || error.code === 'REVISION_CONFLICT' && Boolean(resource?.[3]) ? 412 : error.statusCode || error.status || 500;
       json(res, status, { ok: false, error: error.message, code: error.code }); return true;
     }
   }
