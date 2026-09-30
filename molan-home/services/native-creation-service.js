@@ -6,7 +6,8 @@ const resources = require('../lib/project-resources');
 function fail(code, status, message = code) { throw Object.assign(new Error(message), { code, status }); }
 function object(value) { return value && typeof value === 'object' && !Array.isArray(value); }
 function createNativeCreationService({ repository, getAuthUser, readBody, json,
-  normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms }) {
+  normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms,
+  creationChapterContext, deterministicContractValidation, contractFieldsSubstantive, generateChapterContract }) {
   for (const fn of [normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms]) {
     if (typeof fn !== 'function') throw new TypeError('Creation validation dependencies are required');
   }
@@ -33,7 +34,7 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
       hits: gate.hits, missing: gate.missing });
   }
   async function dispatch(req, res, pathname) {
-    const match = pathname.match(/^\/api\/creation-books(?:\/([A-Za-z0-9_]+)(?:\/(bible|state))?)?$/);
+    const match = pathname.match(/^\/api\/creation-books(?:\/([A-Za-z0-9_]+)(?:\/(bible|state|chapter-contract|debts))?)?$/);
     if (!match || match[1] === 'core-jobs') return false;
     try {
       const auth = await getAuthUser(req);
@@ -48,7 +49,41 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
         if (!canAccess(access, WRITE_ROLES) || !resources.canMutate(access, 'manuscript')) fail('FORBIDDEN', 404, '关联小说不存在或无权写入');
       }
       let value;
-      if (!id && req.method === 'GET') value = { ok: true, books: (await repository.list(input)).sort((a, b) => b.updatedAt - a.updatedAt) };
+      if (id && section === 'debts' && req.method === 'GET') {
+        const raw = url.searchParams.get('chapterNo');
+        const chapterNo = raw == null ? undefined : Number(raw);
+        if (chapterNo != null && (!Number.isSafeInteger(chapterNo) || chapterNo < 1)) fail('INVALID_CHAPTER_NO', 422);
+        value = { ok: true, ...(await repository.debts({ ...input, chapterNo })) };
+      } else if (id && section === 'chapter-contract' && req.method === 'POST') {
+        if (![creationChapterContext, deterministicContractValidation, contractFieldsSubstantive, generateChapterContract].every(fn => typeof fn === 'function')) {
+          throw new TypeError('Native creation contract dependencies are required');
+        }
+        const snapshot = await repository.contractContext(input);
+        const chapterNo = body.chapterNo ?? snapshot.book.currentChapterNo + 1;
+        if (!Number.isSafeInteger(chapterNo) || chapterNo < 1) fail('INVALID_CHAPTER_NO', 422);
+        const context = creationChapterContext(snapshot.bible.payload, chapterNo);
+        const debtContext = await repository.debts({ ...input, chapterNo });
+        let output, contract, validation, retried = false;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          output = await generateChapterContract({ auth, authToken: String(req.headers.authorization || ''), body,
+            chapterNo, context, previous: snapshot.previous, debts: debtContext,
+            baseline: snapshot.baseline, attempt, previousEnding: String(body.previousEnding || '').slice(-2400),
+            prompt: String(body.prompt || '').slice(0, 600) });
+          contract = output?.json || output?.contract;
+          if (!object(contract)) contract = {};
+          contract = { ...contract, chapterNo, source: 'creation-bible', bibleVersion: snapshot.bible.version,
+            stateVersion: snapshot.baseline.stateVersion, baseRevision: snapshot.baseline.baseRevision, planHash: snapshot.baseline.planHash };
+          validation = deterministicContractValidation(contract);
+          if (contractFieldsSubstantive(contract).ok && validation.blockerCount === 0) break;
+          retried = true;
+        }
+        if (!contractFieldsSubstantive(contract).ok || validation.blockerCount > 0) {
+          json(res, 422, { ok: false, error: '章节合同自校验未通过，已重试仍不合格', validation });
+          return true;
+        }
+        const saved = await repository.saveContractCAS({ ...input, contract, baseline: snapshot.baseline, validation });
+        value = { ok: true, contract, validation, usage: output?.usage || null, ...saved, ...(retried ? { retried: true } : {}) };
+      } else if (!id && req.method === 'GET') value = { ok: true, books: (await repository.list(input)).sort((a, b) => b.updatedAt - a.updatedAt) };
       else if (!id && req.method === 'POST') {
         const bookId = String(body.creationBookId || body.bookId || `cb_${crypto.randomUUID().replace(/-/g, '')}`).trim();
         if (!/^cb_[A-Za-z0-9_]{1,80}$/.test(bookId)) fail('INVALID_CREATION_BOOK_ID', 400, '创作书请求 id 非法');
@@ -71,7 +106,7 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
           const bible = await repository.readBible(input);
           value = { ok: true, book: { ...book, bibleVersion: bible.version, stateVersion: book.currentStateVersion }, bible: bible.payload };
         }
-      } else if (id && req.method === 'GET') {
+      } else if (id && (!section || ['bible', 'state'].includes(section)) && req.method === 'GET') {
         const book = await repository.read(input);
         const bible = await repository.readBible(input);
         value = { ok: true, book, bible };
