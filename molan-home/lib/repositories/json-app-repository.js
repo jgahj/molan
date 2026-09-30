@@ -274,6 +274,7 @@ class JsonAppRepository {
     return this.repository.transaction([null], tx => {
       const account = tx.get(null, 'accounts', key('account', input.userId));
       if (!account || account.deleted) fail('ACCOUNT_NOT_FOUND', 404);
+      if (account.disabled || account.status === 'disabled') fail('ACCOUNT_DISABLED', 403);
       return tx.put(null, 'accounts', { id: key('session', input.tokenHash), kind: 'session', tokenHash: input.tokenHash,
         userId: account.userId, email: account.email, scope: input.scope || 'client', expiresAt: input.expiresAt,
         revokedAt: null, createdAt: this.now() }, 0);
@@ -283,7 +284,7 @@ class JsonAppRepository {
     const row = await this.repository.accounts.get(null, key('session', tokenHash));
     if (!row || row.kind !== 'session' || row.revokedAt || row.expiresAt <= this.now()) return null;
     const account = await this.getAccount(row.userId);
-    return account ? { ...row, user: account } : null;
+    return account && !account.disabled && account.status !== 'disabled' ? { ...row, user: account } : null;
   }
   async revokeAuthSession(tokenHash) {
     return this.repository.transaction([null], tx => {

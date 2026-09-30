@@ -16,6 +16,10 @@ test('native memory routes preserve API envelopes and preconditions', async t =>
   const styleProfileStore = require('../lib/style-profile-store').createJsonStyleProfileStore(dir, { repository });
   const audit = await invoke(request('POST', '/api/books/n_http/style-audits', { text: '阿青走进房间。' }), store, { styleProfileStore });
   assert.equal(audit.status, 200); assert.equal(audit.body.audit.requiresSemanticReview, true);
+  const scopedStyles = { getStyleProfiles: async input => { assert.equal(input.projectId, 'n_http'); assert.equal(input.bookId, 'n_http'); assert.equal(input.userId, 'u'); return []; } };
+  const injected = { projectId: 'n_other', workspaceId: 'other', userId: 'other', bookId: 'n_other', text: '正文' };
+  assert.equal((await invoke(request('POST', '/api/books/n_http/style-audits', injected), store, { styleProfileStore: scopedStyles })).status, 200);
+  assert.equal((await invoke(request('POST', '/api/books/n_http/context/assemble', injected), store, { styleProfileStore: scopedStyles })).status, 200);
   let result = await invoke(request('GET', '/api/books/n_http/memory'), store); assert.equal(result.status, 200); assert.equal(result.body.ok, true); assert.equal(result.body.bookId, 'n_http');
   result = await invoke(request('POST', '/api/books/n_http/memory/changesets', { operations: [] }), store); assert.equal(result.status, 201); const id = result.body.changeset.id;
   result = await invoke(request('POST', `/api/books/n_http/memory/changesets/${id}/approve`, {}), store); assert.equal(result.status, 200);
@@ -30,6 +34,16 @@ test('native memory routes preserve API envelopes and preconditions', async t =>
   result = await invoke(request('POST', '/api/books/n_http/generations', payload), store, generationServices); assert.equal(result.body.run.replayed, true); assert.equal(calls, 1);
   result = await invoke(request('GET', `/api/runs/${runId}/events`), store); assert.equal(result.status, 200); assert.equal(result.body.events.some(e => e.type === 'MODEL_CALL_COMPLETED'), true);
   result = await invoke(request('GET', `/api/runs/${runId}`), store); assert.equal(result.body.result.text, '阿青走进房间。');
+  let release, entered;
+  const ready = new Promise(resolve => { entered = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const pending = invoke(request('POST', '/api/books/n_http/generations', { requestId: 'request-cancel', prompt: '正文' }), store, {
+    generate: async (user, params, guard) => { entered(); await gate; return { status: 'passed', text: 'cancelled candidate' }; }
+  });
+  await ready;
+  const active = await invoke(request('GET', '/api/books/n_http/generations?requestId=request-cancel'), store);
+  result = await invoke(request('POST', `/api/books/n_http/generations/${active.body.run.id}/cancel`, {}), store); assert.equal(result.body.run.status, 'cancel_requested');
+  release(); assert.equal((await pending).body.run.status, 'cancelled');
 });
 test('novel hooks require CAS and invalidate candidate sources inside the app transaction', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-memory-hooks-'));

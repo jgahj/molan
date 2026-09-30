@@ -1,0 +1,25 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const { createPostgresRepository } = require('../lib/postgres-repository');
+const { createMemoryStore } = require('../lib/memory-store');
+test('native Postgres generation executes guarded calls and persists run history', { skip: process.env.MOLAN_PG_ENABLED !== '1' }, async t => {
+  const repository = createPostgresRepository(process.env);
+  t.after(() => repository.close());
+  const suffix = crypto.randomUUID();
+  const userId = `native-generation-user-${suffix}`, projectId = `native-generation-project-${suffix}`, bookId = `native-generation-book-${suffix}`;
+  const workspaceId = `native-generation-workspace-${suffix}`;
+  await repository.saveProfile({ userId, projectId, workspaceId, title: 'Native generation test', state: { volumes: [] } });
+  await repository.createCreationBook({ userId, projectId, workspaceId, bookId, title: 'Native generation test' });
+  const store = createMemoryStore({ backend: 'postgres', repository });
+  const input = { userId, bookId, requestId: 'native-request-one', prompt: 'write', maxCalls: 1 };
+  let calls = 0;
+  const execute = async (params, guard) => { await guard(async () => { calls++; return { usage: {} }; }); return { status: 'passed', text: 'candidate' }; };
+  const run = await store.generate(input, execute);
+  assert.equal(run.status, 'succeeded');
+  assert.equal((await store.generate(input, execute)).replayed, true); assert.equal(calls, 1);
+  const history = await store.getRun({ userId, runId: run.id, events: true });
+  assert.equal(history.events.some(e => e.type === 'MODEL_CALL_COMPLETED'), true);
+  assert.equal((await store.getRun({ userId, runId: run.id })).result.text, 'candidate');
+});

@@ -116,6 +116,23 @@ function createPostgresMemoryStore(options, makeStore, blank, branch) {
       return result;
     });
   }
-  return makeStore({ backend: 'postgres', repository, read: (input, action) => transact(input, false, action), write: (input, action) => transact(input, true, action), locateRun: input => repository.findStoryMemoryRun(input.userId, input.runId), resolve: input => transact(input, false, (b, novel, scope) => scope), close: async () => {} });
+  const locateRun = async input => {
+    for (const book of await repository.listCreationBooks(input.userId)) {
+      const located = await repository.withCreationBookTransaction({ userId: input.userId, bookId: book.bookId || book.id, write: false }, async (client, scope) => {
+        const params = [scope.workspaceUuid, scope.projectUuid, scope.bookUuid, input.runId];
+        const result = await client.query(`SELECT branch_id FROM (
+          SELECT branch_id,id FROM luna.story_memory_generation_runs WHERE workspace_id=$1 AND project_id=$2 AND book_id=$3
+          UNION ALL SELECT branch_id,id FROM luna.story_memory_changesets WHERE workspace_id=$1 AND project_id=$2 AND book_id=$3
+          UNION ALL SELECT branch_id,id FROM luna.story_memory_manuscripts WHERE workspace_id=$1 AND project_id=$2 AND book_id=$3
+          UNION ALL SELECT branch_id,id FROM luna.story_memory_outbox WHERE workspace_id=$1 AND project_id=$2 AND book_id=$3
+          UNION ALL SELECT branch_id,event_id AS id FROM luna.story_memory_outbox WHERE workspace_id=$1 AND project_id=$2 AND book_id=$3
+        ) runs WHERE id=$4 LIMIT 1`, params);
+        return result.rows[0] ? { bookId: scope.bookId, branchId: result.rows[0].branch_id } : null;
+      });
+      if (located) return located;
+    }
+    return null;
+  };
+  return makeStore({ backend: 'postgres', repository, read: (input, action) => transact(input, false, action), write: (input, action) => transact(input, true, action), locateRun, resolve: input => transact(input, false, (b, novel, scope) => scope), close: async () => {} });
 }
 module.exports = { createPostgresMemoryStore };
