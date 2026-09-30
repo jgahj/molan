@@ -1142,7 +1142,7 @@ function openUpstream(targetURL, proxyURL, reqOptions, cb) {
 
 function openValidatedUpstream(validatedTarget, proxyURL, reqOptions, cb) {
   const u = validatedTarget.url;
-  const isHttps = true;
+  const isHttps = u.protocol === 'https:';
   const port = validatedTarget.port;
   const tlsServername = require('node:net').isIP(validatedTarget.hostname) ? undefined : validatedTarget.hostname;
   const connectAddress = validatedTarget.addresses[0].address;
@@ -1164,12 +1164,13 @@ function openValidatedUpstream(validatedTarget, proxyURL, reqOptions, cb) {
     return request;
   };
 
+  const client = isHttps ? https : http;
   if (!proxyURL) {
-    const upstream = configureRequest(https.request({
+    const upstream = configureRequest(client.request({
       method: reqOptions.method || 'POST',
       hostname: validatedTarget.hostname, port,
       lookup: validatedTarget.lookup,
-      ...(tlsServername ? { servername: tlsServername } : {}),
+      ...(isHttps && tlsServername ? { servername: tlsServername } : {}),
       path: u.pathname + (u.search || ''),
       headers: reqOptions.headers
     }, reqOptions.onResponse));
