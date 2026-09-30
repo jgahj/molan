@@ -164,7 +164,7 @@ class JsonCreationRepository {
           input.baseline.baseRevision !== project.contentRevision || input.baseline.planHash !== hash(JSON.stringify(bible.payload.creationPlan || {}))) fail('REVISION_CONFLICT');
       const id = `contract_${crypto.randomUUID().replace(/-/g, '')}`;
       tx.put(input.projectId, 'ledger', { id, kind: 'creation-contract', bookId: book.bookId, contract: clone(input.contract),
-        baseline: clone(input.baseline), validation: clone(input.validation), actorUserId: input.userId, auditStatus: 'unaudited', createdAt: this.now() }, 0);
+        baseline: clone(input.baseline), validation: clone(input.validation), providerAttempts: clone(input.providerAttempts || []), actorUserId: input.userId, auditStatus: 'unaudited', createdAt: this.now() }, 0);
       return { contractId: id };
     });
   }

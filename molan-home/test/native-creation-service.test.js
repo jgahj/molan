@@ -36,6 +36,7 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
     deterministicContractValidation: contract => ({ status: contract.goal ? 'passed' : 'failed', blockerCount: contract.goal ? 0 : 1, findings: [] }),
     generateChapterContract: async input => {
       providerCalls++;
+      if (providerMode === 'unknown') return { status: 'provider_unknown', usage: { billingStatus: 'unknown' } };
       if (providerMode === 'stale') await creationRepo.saveBibleCAS({ userId: 'owner', projectId: 'n_http', bookId: 'cb_http',
         expectedVersion: input.baseline.bibleVersion, payload: { valid: true } });
       return { json: providerMode === 'invalid' || input.attempt === 0 ? { goal: 'short' } : {
@@ -103,6 +104,12 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
   const contracts = (await app.repository.ledger.list('n_http')).filter(row => row.kind === 'creation-contract');
   assert.equal(contracts.length, 1);
   assert.equal(contracts[0].auditStatus, 'unaudited');
+  assert.equal(contracts[0].providerAttempts.length, 2);
+  assert.equal(generated.body.providerAttempts.length, 2);
+  providerMode = 'unknown';
+  const callsBeforeUnknown = providerCalls;
+  assert.equal((await call(contractUrl, 'POST', { chapterNo: 1 })).status, 502);
+  assert.equal(providerCalls, callsBeforeUnknown + 1);
   providerMode = 'invalid';
   assert.equal((await call(contractUrl, 'POST', { chapterNo: 1 })).status, 422);
   assert.equal((await app.repository.ledger.list('n_http')).filter(row => row.kind === 'creation-contract').length, 1);
