@@ -4278,10 +4278,44 @@ function createPostgresRepository(options = {}) {
       if (existing.rows.length) {
         const current = parseJsonDocument(existing.rows[0].document) || {};
         const currentStatus = String(current.status || '');
-        if (currentStatus !== 'reserved') {
-          return { recorded: false, creditCost: Number(current.credit_cost) || 0, status: currentStatus, document: current };
-        }
         const reserved = Math.max(0, Number(current.reserved_cost) || Number(input.reservedCost) || 0);
+        if (currentStatus === 'provider_unknown' && input.holdReservation === true) {
+          return { recorded: false, creditCost: null, status: currentStatus, billingStatus: 'pending', document: current };
+        }
+        if (currentStatus === 'reserved' && input.holdReservation === true) {
+          const pendingDocument = {
+            ...current,
+            ...document,
+            status: 'provider_unknown',
+            provider_unknown_diagnostic: String(document.provider_unknown_diagnostic || document.status || 'usage_unavailable'),
+            credit_cost: null,
+            reserved_cost: reserved
+          };
+          const hash = jsonHash(pendingDocument);
+          await client.query(
+            `UPDATE luna.runtime_dissection_rows
+             SET document = $2::jsonb, cells = $3::jsonb, row_sha256 = $4::text,
+                 value_sha256 = $4::text, updated_at = now()
+             WHERE owner_actor_id = luna.actor_id() AND source_table = 'token_usage'
+               AND row_key = $1::text`,
+            [requestId, JSON.stringify(pendingDocument), JSON.stringify(cells), hash]
+          );
+          await notifyRuntimeChanged(client, 'token-provider-unknown', requestId);
+          return { recorded: true, creditCost: null, status: 'provider_unknown', billingStatus: 'pending', document: pendingDocument };
+        }
+        const hasExactUsage = Number.isSafeInteger(document.total_tokens) &&
+          document.total_tokens >= 0 && document.provider_usage_incomplete !== true;
+        if (currentStatus === 'provider_unknown' && !hasExactUsage) {
+          return { recorded: false, creditCost: null, status: currentStatus, billingStatus: 'pending', document: current };
+        }
+        if (currentStatus !== 'reserved' && currentStatus !== 'provider_unknown') {
+          return {
+            recorded: false,
+            creditCost: current.credit_cost == null ? null : Number(current.credit_cost),
+            status: currentStatus,
+            document: current
+          };
+        }
         const actualCost = Math.min(reserved || requestedActualCost, requestedActualCost);
         if (!isAdmin && reserved) {
           const account = await client.query(
@@ -4293,7 +4327,7 @@ function createPostgresRepository(options = {}) {
           );
           if (!account.rows.length) throw repositoryError('not_found', '账户不存在或余额结算被拒绝', 404);
         }
-        const finalDocument = { ...document, credit_cost: actualCost, reserved_cost: reserved };
+        const finalDocument = { ...current, ...document, credit_cost: actualCost, reserved_cost: reserved };
         const hash = jsonHash(finalDocument);
         await client.query(
           `UPDATE luna.runtime_dissection_rows
@@ -4305,6 +4339,9 @@ function createPostgresRepository(options = {}) {
         );
         await notifyRuntimeChanged(client, 'token-settled', requestId);
         return { recorded: true, creditCost: actualCost, status: String(finalDocument.status || '') };
+      }
+      if (input.holdReservation === true) {
+        throw repositoryError('token_reservation_missing', '未知供应商结果缺少费用预占，无法安全暂存', 409);
       }
       const hash = jsonHash(document);
       await client.query(

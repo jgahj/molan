@@ -32,6 +32,12 @@
 
 本地默认兼容链、部分创作扩展操作与普通旧测试仍在迁移。显式 JSON 路径通过的冒烟不能代替整个 P0–P3 最终验收。
 
+聊天 HTTP 编排已抽至 `services/chat-service.js`，入口负责注入账户、预算、模型传输与并发服务。客户端断连会取消上游并释放账户并发槽；已发送请求但没有完整供应商用量时，费用预占保持 `provider_unknown`，费用为 `null`，不能由过期回收器退款。两遍生成中任一遍缺用量也按未知处理，已知部分用量只作诊断；后续可信完整用量可幂等结算。JSON 冒烟覆盖断连、后续请求、重启保留及缺失任一遍用量，使用本地合成供应商，不构成真实模型质量证据。当前聊天链尚无派发前持久化调用日志，调用之后写盘失败的恢复保护仍需补齐。
+
+未关联小说的原生创作书使用 owner+book 独立分区，支持列表、Bible CAS、状态、债务和质量报告，不创建占位小说。未关联时章节合同与提交明确返回 `CREATION_PROJECT_REQUIRED`；该能力不代表全部旧创作接口已迁移。
+
+`node scripts/postgres-billing-smoke.mjs` 在同一隔离库通过未知费用预占、跨 actor 查询隔离、过期不退款和后续精确结算幂等。未知态只允许完整、非负安全整数 Token 用量解除；负数、小数、溢出或部分调用用量继续保持待核对。未执行付费供应商调用。
+
 可重放 PG 文风 HTTP 合同冒烟：显式配置隔离测试库的 `MOLAN_PG_HOST/PORT/DATABASE/USER` 和密码文件后运行 `node scripts/postgres-native-style-routes-smoke.mjs`。脚本只接受名称含 test/acceptance 的库，会写入唯一测试记录，不执行模型调用；不得指向生产库。
 
-PG HTTP 章节提交定向复验：在相同隔离库配置下，设置 `MOLAN_PG_HTTP_SMOKE_STAGE=creation-commit` 后运行 `node scripts/postgres-http-smoke.mjs`。脚本验证旧审稿缺证据时拒绝提交且不写快照，以及合成 Generation V2 存储证据经 HTTP 提交后的版本与正文哈希。成功结果明确标注阶段和 `synthetic-storage-contract`，不代表模型生成或文学质量通过。取消该环境变量才执行完整 HTTP 冒烟；完整流程目前尚未完成最新版本验收。数据库名必须含 test/acceptance，连接 URL 若设置则以 URL 中的实际库名核验，不能靠另填库名绕过。
+PG HTTP 章节提交定向复验：在相同隔离库配置下，设置 `MOLAN_PG_HTTP_SMOKE_STAGE=creation-commit` 后运行 `node scripts/postgres-http-smoke.mjs`。脚本验证旧审稿缺证据时拒绝提交且不写快照，以及合成 Generation V2 存储证据经 HTTP 提交后的版本与正文哈希。成功结果明确标注阶段和 `synthetic-storage-contract`，不代表模型生成或文学质量通过。取消该环境变量执行完整 HTTP 冒烟；2026-10-01 在本机 PostgreSQL 18.6 隔离库通过完整流程，包括权限、CAS、记忆/文风/债务、任务持久化及软删除恢复。模型响应与章节质量证据为合成夹具，没有真实文学 A/B。数据库名必须含 test/acceptance，连接 URL 若设置则以 URL 中的实际库名核验，不能靠另填库名绕过。
