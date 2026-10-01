@@ -36,9 +36,33 @@ export function runProductionImportAudit({ root = rootDir } = {}) {
     collect(path.join(root, relative));
   }
 
+  // Follow literal local imports, so a service cannot hide a forbidden driver in
+  // a helper outside the initially enumerated module directories.
+  const discovered = new Set(productionFiles);
+  const localImport = /(?:require\s*\(\s*|import\s*\(\s*|from\s+|import\s+)['"](\.[^'"]+)['"]/g;
+  for (let index = 0; index < productionFiles.length; index++) {
+    const filename = productionFiles[index];
+    const source = fs.readFileSync(filename, 'utf8');
+    for (const line of source.split(/\r?\n/)) {
+      if (/^\s*\/\//.test(line) || /^\s*\*/.test(line)) continue;
+      for (const match of line.matchAll(localImport)) {
+        const base = path.resolve(path.dirname(filename), match[1]);
+        const relative = path.relative(root, base).replace(/\\/g, '/');
+        if (relative.startsWith('../') || path.isAbsolute(relative)) continue;
+        if (/^(?:data|books|raws|deploy_tmp|tmp-booktest|node_modules|\.git|scripts\/sqlite-migration)(?:\/|$)/.test(relative)) continue;
+        const resolved = [base, `${base}.js`, `${base}.mjs`, `${base}.cjs`, path.join(base, 'index.js')]
+          .find(candidate => /\.[cm]?js$/.test(candidate) && fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+        if (!resolved || discovered.has(resolved)) continue;
+        discovered.add(resolved);
+        productionFiles.push(resolved);
+      }
+    }
+  }
+
   const forbiddenPatterns = [
     { pattern: /(?:require\s*\(\s*|from\s+|import\s*(?:\(\s*)?)['"](?:node:sqlite|better-sqlite3|sqlite3)['"]/, desc: '生产链引用 SQLite 驱动' },
     { pattern: /(?:require\s*\(\s*|from\s+|import\s*(?:\(\s*)?)['"][^'"]*\/(?:pure-js-database|sqlite-store)(?:\.[cm]?js)?['"]/, desc: '生产链引用 SQL 兼容存储，尚未完成原生领域仓储迁移' },
+    { pattern: /(?:require\s*\(\s*|from\s+|import\s*(?:\(\s*)?)['"][^'"]*scripts\/sqlite-migration\//, desc: '生产链引用隔离迁移工具' },
     { pattern: /require\s*\(\s*['"][^'"]*legacy[^'"]*['"]\s*\)/, desc: '引用 legacy 历史模块' },
     { pattern: /import\s+.*from\s+['"][^'"]*legacy[^'"]*['"]/, desc: '引用 legacy 历史模块' },
     { pattern: /require\s*\(\s*['"][^'"]*pipeline-coordinator['"]\s*\)/, desc: '引用已废弃的 pipeline-coordinator' },

@@ -38,3 +38,16 @@ test('storage gate accepts native repositories and ignores isolated migration to
   assert.equal(result.passed, true);
   assert.equal(result.productionFilesCount, 2);
 });
+
+test('storage gate follows indirect local dependencies and rejects migration imports', t => {
+  const root = fixture(t, {
+    'server.js': "const helper = require('./lib/domain-helper');\nrequire('./scripts/sqlite-migration/export.mjs');",
+    'lib/domain-helper.js': "const adapter = require('./nested/driver.cjs');",
+    'lib/nested/driver.cjs': "const driver = require('better-sqlite3');",
+    'scripts/sqlite-migration/export.mjs': "import { DatabaseSync } from 'node:sqlite';"
+  });
+  const result = runProductionImportAudit({ root });
+  assert.equal(result.passed, false);
+  assert.equal(result.productionFilesCount, 3);
+  assert.deepEqual(new Set(result.violations.map(item => item.file)), new Set(['server.js', 'lib/nested/driver.cjs']));
+});
