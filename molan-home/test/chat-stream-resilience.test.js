@@ -4,24 +4,26 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const chatServiceSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'chat-service.js'), 'utf8');
+const cloudProxySource = fs.readFileSync(path.join(__dirname, '..', 'services', 'cloud-proxy-service.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const completionEditorSource = fs.readFileSync(path.join(__dirname, '..', 'completion-editor.js'), 'utf8');
 
 test('server implements SSE keep-alive heartbeats for cloud proxy and direct chat', () => {
-  assert.ok(serverSource.includes("': keep-alive\\n\\n'"), 'Cloud proxy must send SSE keep-alive heartbeat');
-  assert.ok(serverSource.includes('keepAlive: true, timeout: 300000'), 'Cloud proxy must use persistent http(s) Agent with keepAlive');
-  assert.ok(serverSource.includes("': ping\\n\\n'"), 'Chat stream must send periodic ping comment during reasoning/idle');
-  assert.ok(serverSource.includes('cleanupKeepAlive()'), 'Chat stream must clean up heartbeat timer on close/end');
+  assert.ok(cloudProxySource.includes("': keep-alive\\n\\n'"), 'Cloud proxy must send SSE keep-alive heartbeat');
+  assert.ok(cloudProxySource.includes('keepAlive: true, timeout: 300000'), 'Cloud proxy must use persistent http(s) Agent with keepAlive');
+  assert.ok(chatServiceSource.includes("': ping\\n\\n'"), 'Chat stream must send periodic ping comment during reasoning/idle');
+  assert.ok(chatServiceSource.includes('cleanupKeepAlive()'), 'Chat stream must clean up heartbeat timer on close/end');
 });
 
 test('server bounds stalled and oversized upstream chat streams', () => {
-  assert.match(serverSource, /UPSTREAM_TOTAL_TIMEOUT_MS/);
-  assert.match(serverSource, /requestDeadlineTimer\s*=\s*setTimeout/);
-  assert.match(serverSource, /cleanupRequestDeadline\(\);/);
-  assert.match(serverSource, /UPSTREAM_MAX_RESPONSE_BYTES/);
-  assert.match(serverSource, /UPSTREAM_SSE_BUFFER_BYTES/);
-  assert.match(serverSource, /abortUpstreamRequest\('upstream_timeout'/);
-  assert.match(serverSource, /qualityScanText/);
+  assert.match(chatServiceSource, /UPSTREAM_TOTAL_TIMEOUT_MS/);
+  assert.match(chatServiceSource, /requestDeadlineTimer\s*=\s*setTimeout/);
+  assert.match(chatServiceSource, /cleanupRequestDeadline\(\);/);
+  assert.match(chatServiceSource, /UPSTREAM_MAX_RESPONSE_BYTES/);
+  assert.match(chatServiceSource, /UPSTREAM_SSE_BUFFER_BYTES/);
+  assert.match(chatServiceSource, /abortUpstreamRequest\('upstream_timeout'/);
+  assert.match(chatServiceSource, /qualityScanText/);
 });
 
 test('PostgreSQL token ledger notifications do not rebuild the full runtime mirror', () => {
