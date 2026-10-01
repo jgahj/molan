@@ -286,8 +286,8 @@ test('strong 样本模型复核必须同时确认适配且无错误', () => {
 });
 
 test('写作请求在 strong 样本注入前包含逐条模型复核链路', () => {
-  const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.match(serverSource, /await reviewCharacterMaterialSamples\(/);
+  const chatServiceSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'chat-service.js'), 'utf8');
+  assert.match(chatServiceSource, /await reviewCharacterMaterialSamples\(/);
   const reviewSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'character-material-review-service.js'), 'utf8');
   assert.match(reviewSource, /promptVersion: 'character-material-review-v1'/);
   assert.match(reviewSource, /request\.mode !== 'strong'/);

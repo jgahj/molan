@@ -8,6 +8,7 @@ const testDataDir = require('./helpers/local-runtime').createLocalRuntime();
 const { normalizeUsage, buildUsageSummary, creditCostForTokens, creditCostForUser, normalizeModelCreditRate, savePlatformModelRates, savePlatformModelRate, reservationCostForRequest, planCreditReservation, creditMultiplierForUser, normalizeUserRole, isAdminUser, recordTokenUsage, reserveCredits, settleTokenUsage, getUsageSummary, reasoningEffortsForModel, splitDynamicPrompt, validateChatMessages, serializedMessageBytes, stablePromptCacheKey, buildSkillAudit, stripSkillBlocks, prepareSkillMessagesForUpstream, canChooseModel, currentDefaultModel, resolveModelForUser, createPasswordRecord, verifyPassword, hashSessionToken, getAuthUser, sessions, loadSessions, flushSessionsSync, saveUser, estimateTextTokenUpperBound, promptTokenUpperBound, contextWindowTokensForModel, planContextWindow, reservationTokenUpperBound, loadBuiltinSkills, uniqueSkillsById, skillPromptFiles, skillPromptInstruction, autoFixJson, salvageDissectionStageResult, emptyDissectionResult, normalizeDissectionStageResult, dissectionResultView, mergeDissectionResult, dissectionResultHasContent, dissectionResultHasCompleteContent, dissectionStageMissingFields, dissectionResultMissingFields, normalizeDissectionInput } = require('../server');
 
 const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const chatServiceSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'chat-service.js'), 'utf8');
 const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 const homeSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.js'), 'utf8');
@@ -35,8 +36,8 @@ test('keeps Luna as the default and routes editor AI calls through one model', (
 });
 
 test('records the supported pipeline stage in Skill audit metadata', () => {
-  assert.match(serverSource, /const stage = \['skill_analysis', 'writing', 'humanizer', 'single'\]/);
-  assert.match(serverSource, /skillAudit = \{ \.\.\.skillAudit, stage \}/);
+  assert.match(chatServiceSource, /const stage = \['skill_analysis', 'writing', 'humanizer', 'single'\]/);
+  assert.match(chatServiceSource, /skillAudit = \{ \.\.\.skillAudit, stage \}/);
   assert.match(serverSource, /stage: String\(skillAudit\.stage \|\| 'single'\)/);
 });
 
