@@ -19,15 +19,202 @@ function materialSample(field) {
   return `PG验收-${field.path}`;
 }
 
+async function runCreationCommitSmoke({ app, request, token, actorUserId, workspaceId, projectId, creationBookId }) {
+  const legacyContent = '潮汐罗盘在雾港旧塔下发出微光，阿岚必须在潮水上涨前作出选择。';
+  const legacyHash = crypto.createHash('sha256').update(legacyContent, 'utf8').digest('hex');
+  const legacyAuditResponse = await request(`/api/creation-books/${creationBookId}/audit`, token, {
+    method: 'POST', body: JSON.stringify({ chapterNo: 1, content: legacyContent, contentHash: legacyHash })
+  });
+  const legacyAudit = await legacyAuditResponse.json();
+  if (!legacyAudit.ok || legacyAudit.status !== 'needs_review' || legacyAudit.passed !== false) {
+    throw new Error('HTTP PG旧式审计未标记待复核：' + JSON.stringify({ status: legacyAuditResponse.status, body: legacyAudit }));
+  }
+  const legacyCommitResponse = await request(`/api/creation-books/${creationBookId}/commit`, token, {
+    method: 'POST',
+    body: JSON.stringify({ chapterNo: 1, content: legacyContent, contentHash: legacyHash, auditId: legacyAudit.auditId, baseStateVersion: 0 })
+  });
+  const legacyCommit = await legacyCommitResponse.json();
+  if (legacyCommitResponse.status !== 409 || legacyCommit.code !== 'audit_blocked') {
+    throw new Error('HTTP PG旧式审计绕过提交门禁：' + JSON.stringify({ status: legacyCommitResponse.status, body: legacyCommit }));
+  }
+  const stateAfterLegacyCommitResponse = await request(`/api/creation-books/${creationBookId}/state`, token);
+  const stateAfterLegacyCommit = await stateAfterLegacyCommitResponse.json();
+  if (!stateAfterLegacyCommit.ok || !Array.isArray(stateAfterLegacyCommit.snapshots) || stateAfterLegacyCommit.snapshots.length !== 0) {
+    throw new Error('HTTP PG旧式审计拒绝后产生了状态快照：' + JSON.stringify({ status: stateAfterLegacyCommitResponse.status, body: stateAfterLegacyCommit }));
+  }
+
+  const projectAccess = await app.postgresRepository.getProjectAccess(actorUserId, projectId, workspaceId);
+  if (!projectAccess || !Number.isInteger(Number(projectAccess.revision))) throw new Error('HTTP PG Generation V2 测试缺少项目基线版本');
+  const baseStateVersion = Number(stateAfterLegacyCommit.book.currentStateVersion) || 0;
+  const content = [
+    '阿岚握紧潮汐罗盘，沿着旧塔石阶向下走去。海水从裂缝涌入，逼得她必须在入口关闭前找到钥匙。',
+    '顾沉守在门边，没有替她作决定，只把半枚钥匙放进她掌心。罗盘的指针随即偏转，映出一段被潮声遮住的刻痕。',
+    '阿岚核对刻痕与旧日记录，确认开门会带走一段记忆。她仍把钥匙嵌入锁孔，并请顾沉记下她此刻作出的选择。',
+    '石门升起时，潮水退回门外，罗盘上的刻痕却永久消失。阿岚记得自己承担过代价，也知道下一步必须由同伴共同核实。'
+  ].join('\n');
+  const contentHash = crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+  const generationId = crypto.randomUUID();
+  const generationRequest = {
+    creationBookId,
+    chapterId: 'chapter_1',
+    chapterContract: { chapterNo: 1, goal: '确认旧塔钥匙与潮汐罗盘的代价' },
+    storyContext: { baseRevision: Number(projectAccess.revision), stateVersion: baseStateVersion, baseHash: '' },
+    genre: '通用',
+    modelId: 'synthetic-storage-contract'
+  };
+  // Synthetic Generation V2 storage-contract fixture; it does not claim a live model generation.
+  const seededGeneration = await app.postgresRepository.createGenerationRun({
+    userId: actorUserId,
+    workspaceId,
+    projectId,
+    id: generationId,
+    chapterId: generationRequest.chapterId,
+    pipelineVersion: 'postgres-http-smoke-synthetic-contract-v1',
+    idempotencyKey: `pg-http-synthetic-${generationId}`,
+    requestHash: crypto.createHash('sha256').update(JSON.stringify(generationRequest), 'utf8').digest('hex'),
+    request: generationRequest,
+    manifest: { source: 'synthetic-storage-contract', chapterId: generationRequest.chapterId },
+    modelId: generationRequest.modelId,
+    providerModel: 'no-provider-call'
+  });
+  if (!seededGeneration.run || seededGeneration.run.id !== generationId || seededGeneration.idempotent) {
+    throw new Error('HTTP PG Generation V2 合成存储合同任务创建失败');
+  }
+  const leaseOwner = crypto.randomUUID();
+  const lease = await app.postgresRepository.acquireGenerationRunLease({
+    userId: actorUserId, workspaceId, projectId, id: generationId, leaseOwner, ttlMs: 60000
+  });
+  if (!lease.acquired || lease.fencingToken !== 1) throw new Error('HTTP PG Generation V2 合成任务租约获取失败');
+  const worker = { userId: actorUserId, workspaceId, projectId, id: generationId, leaseOwner, fencingToken: lease.fencingToken };
+  const evidence = {
+    draft: content,
+    outputHash: contentHash,
+    contract: generationRequest.chapterContract,
+    audit: { passed: true, blockerCount: 0, issues: [] },
+    semanticAudit: {
+      passed: true,
+      audit: {
+        passed: true,
+        issues: [],
+        factLedgerDelta: { newRules: [], newPromises: [], updates: [], byEntity: {} },
+        stateDelta: { timeline: [], characters: [], relations: [], world: [] },
+        outlineImpact: { status: 'unplanned', addressed: [], deferred: [] }
+      }
+    },
+    quality: { passed: true, qualityVector: { language: { value: 0.9, status: 'MEASURED' } } }
+  };
+  for (const state of [
+    'request_validated', 'genre_resolved', 'style_resolved', 'context_built', 'contract_validated',
+    'pre_generation_guard', 'scene_planning', 'generating', 'draft_received', 'deterministic_audit',
+    'semantic_audit', 'quality_audit', 'waiting_author'
+  ]) {
+    const updatedRun = await app.postgresRepository.updateGenerationRun({
+      ...worker,
+      state,
+      event: { message: `PG HTTP smoke synthetic contract: ${state}` },
+      ...(state === 'waiting_author' ? { result: evidence } : {})
+    });
+    if (updatedRun.state !== state) throw new Error(`HTTP PG Generation V2 任务状态迁移失败：${state}`);
+  }
+  if (!await app.postgresRepository.releaseGenerationRunLease(worker)) throw new Error('HTTP PG Generation V2 合成任务租约释放失败');
+
+  const tokenAuth = app.getAuthUser({ headers: { authorization: `Bearer ${token}` } });
+  const tokenActorUserId = String(tokenAuth && tokenAuth.user && tokenAuth.user.userId || '');
+  if (!tokenActorUserId || tokenActorUserId !== actorUserId) {
+    throw new Error('HTTP PG Generation V2 smoke token actor 与测试账号不一致');
+  }
+  const runReadResponse = await request(`/api/generation-runs/${generationId}`, token);
+  const runRead = await runReadResponse.json();
+  if (runReadResponse.status !== 200 || !runRead.ok || runRead.run?.state !== 'waiting_author') {
+    throw new Error('HTTP PG Generation V2 合成任务读取失败：' + JSON.stringify({ status: runReadResponse.status, body: runRead }));
+  }
+
+  const commitResponse = await request(`/api/generation-runs/${generationId}/commit`, token, {
+    method: 'POST',
+    body: JSON.stringify({ text: content, outputHash: contentHash, expectedRevision: Number(projectAccess.revision), baseStateVersion })
+  });
+  const commit = await commitResponse.json();
+  if (commitResponse.status !== 200 || !commit.ok || commit.run?.state !== 'committed' ||
+      commit.receipt?.stateVersion !== baseStateVersion + 1) {
+    throw new Error('HTTP PG Generation V2 合成证据提交失败：' + JSON.stringify({ status: commitResponse.status, body: commit }));
+  }
+  const stateResponse = await request(`/api/creation-books/${creationBookId}/state`, token);
+  const creationState = await stateResponse.json();
+  if (!creationState.ok || !Array.isArray(creationState.snapshots) || creationState.snapshots.length !== 1 ||
+      creationState.snapshots[0].contentHash !== contentHash || creationState.snapshots[0].stateVersion !== baseStateVersion + 1) {
+    throw new Error('HTTP PG状态快照读取失败：' + JSON.stringify({ status: stateResponse.status, body: creationState }));
+  }
+  return { generationId, creationState };
+}
+
+async function runCreationCommitStage({ request, token, app, actorUserId }) {
+  const suffix = Date.now().toString(36);
+  const projectId = `n_pghtcommit${suffix}`;
+  const projectState = { title: 'PG创作提交阶段验收', volumes: [] };
+  const projectResponse = await request('/api/novels', token, {
+    method: 'POST',
+    body: JSON.stringify({ id: projectId, title: projectState.title, state: projectState })
+  });
+  const project = await projectResponse.json();
+  if (!project.ok) throw new Error('HTTP PG创作提交阶段小说创建失败：' + JSON.stringify({ status: projectResponse.status, body: project }));
+
+  const workspaces = await (await request('/api/workspaces', token)).json();
+  const workspaceId = workspaces.workspaces?.[0]?.id;
+  if (!workspaceId) throw new Error('HTTP PG创作提交阶段工作区未创建');
+
+  const creationBookId = `cb_pghtcommit${suffix}`;
+  const creationResponse = await request('/api/creation-books', token, {
+    method: 'POST',
+    body: JSON.stringify({
+      creationBookId,
+      title: 'PG创作提交阶段验收书',
+      novelId: projectId,
+      bible: {
+        creationPlan: { totalChapters: 1 },
+        mainline: { goal: '验证 Generation V2 提交合同' },
+        characters: [{ name: '陆遥' }, { name: '苏野' }, { name: '白芷' }],
+        map: { nodes: [{ name: '雾港' }, { name: '旧塔' }, { name: '潮井' }] },
+        goldenFinger: { type: '潮汐罗盘' }
+      },
+      plan: { totalChapters: 1 }
+    })
+  });
+  const creation = await creationResponse.json();
+  if (!creation.ok || !creation.book || !creation.bible) {
+    throw new Error('HTTP PG创作提交阶段创作书创建失败：' + JSON.stringify({ status: creationResponse.status, body: creation }));
+  }
+
+  const result = await runCreationCommitSmoke({
+    app,
+    request,
+    token,
+    actorUserId,
+    workspaceId,
+    projectId,
+    creationBookId
+  });
+  return { projectId, workspaceId, creationBookId, ...result };
+}
+
 /** 运行 PG 模式真实 HTTP、权限、CAS、资料包恢复烟测。 */
 async function main() {
+  const settings = require('../lib/postgres-repository').readConfig(process.env);
+  let targetDatabase = settings.config?.database || '';
+  if (settings.config?.connectionString) {
+    targetDatabase = decodeURIComponent(new URL(settings.config.connectionString).pathname.slice(1));
+  }
+  if (!settings.enabled || !/(?:acceptance|test)/i.test(targetDatabase)) {
+    throw new Error('PostgreSQL HTTP smoke requires an explicitly configured test or acceptance database');
+  }
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-pg-http-'));
   process.env.MOLAN_DATA_DIR = dataDirectory;
   process.env.MOLAN_CONFIG_DIR = dataDirectory;
   process.env.MOLAN_PUBLIC_MODE = '0';
   process.env.MOLAN_LOCAL_ONLY = '1';
+  process.env.MOLAN_ALLOW_LOCAL_MODELS = '1';
   process.env.MOLAN_REQUIRE_SQLITE = '0';
   process.env.MOLAN_DB_BACKEND = 'postgres';
+  process.env.MOLAN_GENERATION_V2 = '1';
   fs.writeFileSync(path.join(dataDirectory, 'users.json'), '[]', 'utf8');
   // 规划扩展、语义审核和资产重生成走隔离的 OpenAI-compatible stub，避免烟测产生模型费用。
   const modelServer = http.createServer((req, res) => {
@@ -89,9 +276,9 @@ async function main() {
         output = { ok: true };
       }
       const content = JSON.stringify(output);
-      const usage = { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30, creditCost: 0, requestId: `pg-http-stub-${Date.now()}`, status: 'completed' };
+      const usage = { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 };
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache' });
-      res.end(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: ${JSON.stringify({ choices: [], molan_usage: usage })}\n\ndata: [DONE]\n\n`);
+      res.end(`data: ${JSON.stringify({ choices: [{ delta: { content }, finish_reason: 'stop' }] })}\n\ndata: ${JSON.stringify({ choices: [], usage })}\n\ndata: [DONE]\n\n`);
     });
   });
   const modelPort = await new Promise((resolve, reject) => {
@@ -144,6 +331,25 @@ async function main() {
     creationAssets: { timeline: [{ id: 'time-1', storyDate: '新历一日' }] }
   };
   try {
+    const smokeStage = process.env.MOLAN_PG_HTTP_SMOKE_STAGE || '';
+    if (smokeStage && smokeStage !== 'creation-commit') {
+      throw new Error(`不支持的 PostgreSQL HTTP 烟测阶段：${smokeStage}`);
+    }
+    if (smokeStage === 'creation-commit') {
+      const result = await runCreationCommitStage({ app, request, token: tokenA, actorUserId: actorA });
+      process.stdout.write(JSON.stringify({
+        ok: true,
+        stage: 'creation-commit',
+        evidenceSource: 'synthetic-storage-contract',
+        projectId: result.projectId,
+        workspaceId: result.workspaceId,
+        creationBookId: result.creationBookId,
+        generationId: result.generationId,
+        checks: ['creation-legacy-audit-block', 'generation-v2-synthetic-http-commit']
+      }) + '\n');
+      return;
+    }
+
     const createdResponse = await request('/api/novels', tokenA, {
       method: 'POST',
       body: JSON.stringify({ id: novelId, title: state.title, state })
@@ -362,23 +568,15 @@ async function main() {
       body: JSON.stringify({ chapterNo: 1, prompt: '让主角验证潮汐罗盘并承担代价' })
     })).json();
     if (!contract.ok || !contract.contract) throw new Error('HTTP PG章节合同生成失败');
-    const chapterContent = '潮汐罗盘在雾港旧塔下发出微光，阿岚必须在潮水上涨前作出选择。';
-    const chapterHash = crypto.createHash('sha256').update(chapterContent, 'utf8').digest('hex');
-    const audit = await (await request(`/api/creation-books/${creationBookId}/audit`, tokenA, {
-      method: 'POST',
-      body: JSON.stringify({ chapterNo: 1, content: chapterContent, contentHash: chapterHash })
-    })).json();
-    if (!audit.ok || audit.status !== 'passed') throw new Error('HTTP PG章节审计失败');
-    const committed = await (await request(`/api/creation-books/${creationBookId}/commit`, tokenA, {
-      method: 'POST',
-      body: JSON.stringify({ chapterNo: 1, content: chapterContent, contentHash: chapterHash, auditId: audit.auditId, baseStateVersion: 0 })
-    })).json();
-    if (!committed.ok || committed.stateVersion !== 1) throw new Error('HTTP PG章节提交失败');
-    const creationStateResponse = await request(`/api/creation-books/${creationBookId}/state`, tokenA);
-    const creationState = await creationStateResponse.json();
-    if (!creationState.ok || !Array.isArray(creationState.snapshots) || creationState.snapshots.length !== 1) {
-      throw new Error('HTTP PG状态快照读取失败：' + JSON.stringify({ status: creationStateResponse.status, body: creationState }));
-    }
+    await runCreationCommitSmoke({
+      app,
+      request,
+      token: tokenA,
+      actorUserId: actorA,
+      workspaceId,
+      projectId: novelId,
+      creationBookId
+    });
     const creationPackage = await (await request(`/api/novels/${novelId}/package`, tokenA)).json();
     const creationAssetFile = creationPackage.package && Object.values(creationPackage.package.files || {}).find(file => {
       try {
@@ -540,7 +738,7 @@ async function main() {
       ok: true,
       novelId,
       workspaceId,
-      checks: ['http-auth', 'project-isolation', 'member-acl', 'profile-cas', 'character-import-cas', 'resource-cas', 'project-materials-49-create-read-cas-history', 'package-restore', 'creation-export-restore', 'creation-bible', 'creation-plan-expand', 'creation-plan-review', 'creation-link-novel', 'creation-regenerate-assets', 'creation-audit-commit', 'postgres-memory-extract-review-commit-projection', 'postgres-style-create-version-audit', 'postgres-causal-debt-crud-extract-settle', 'creation-job-persistence', 'persistent-job', 'soft-delete-restore']
+      checks: ['http-auth', 'project-isolation', 'member-acl', 'profile-cas', 'character-import-cas', 'resource-cas', 'project-materials-49-create-read-cas-history', 'package-restore', 'creation-export-restore', 'creation-bible', 'creation-plan-expand', 'creation-plan-review', 'creation-link-novel', 'creation-regenerate-assets', 'creation-legacy-audit-block', 'generation-v2-synthetic-http-commit', 'postgres-memory-extract-review-commit-projection', 'postgres-style-create-version-audit', 'postgres-causal-debt-crud-extract-settle', 'creation-job-persistence', 'persistent-job', 'soft-delete-restore']
     }) + '\n');
   } finally {
     app.sessions.delete(app.hashSessionToken(tokenA));
