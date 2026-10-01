@@ -309,7 +309,7 @@ function createAdminService({
       const skills = loadGlobalSkills().slice();
       skills.unshift(skill);
       assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(skills), evidence: body.qualityEvidence });
-      saveGlobalSkills(skills);
+      saveGlobalSkills(skills, body.qualityEvidence);
       appendAdminAudit(auth.user.email, 'skill.create', skill.id, { name: skill.name, targets: skill.targets });
       json(res, 200, { ok: true, skill });
     }).catch(e => respondError(res, e));
@@ -328,7 +328,7 @@ function createAdminService({
       const skill = makeGlobalSkill(body || {}, skills[index]);
       skills[index] = skill;
       assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(skills), evidence: body.qualityEvidence });
-      saveGlobalSkills(skills);
+      saveGlobalSkills(skills, body.qualityEvidence);
       appendAdminAudit(auth.user.email, 'skill.update', skill.id, { name: skill.name, enabled: skill.enabled, targets: skill.targets });
       json(res, 200, { ok: true, skill });
     }).catch(e => respondError(res, e));
@@ -346,7 +346,7 @@ function createAdminService({
     readBody(req).then(body => {
       const [removed] = skills.splice(index, 1);
       assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(skills), evidence: body.qualityEvidence });
-      saveGlobalSkills(skills);
+      saveGlobalSkills(skills, body.qualityEvidence);
       appendAdminAudit(auth.user.email, 'skill.delete', skillId, { name: removed.name });
       json(res, 200, { ok: true, id: skillId });
     }).catch(e => respondError(res, e));
@@ -603,7 +603,7 @@ function createAdminService({
         const updated = makeGlobalSkill(record, skills[index]);
         skills[index] = updated;
         assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(skills), evidence: body.qualityEvidence });
-        saveGlobalSkills(skills); saved = updated;
+        saveGlobalSkills(skills, body.qualityEvidence); saved = updated;
       } else if (type === 'open-skills') {
         const current = findOpenSkill(id);
         if (!current) throw requestError(404, '开放 Skill 不存在');
@@ -667,7 +667,7 @@ function createAdminService({
       if (!id) throw new Error('缺少数据 id');
       let changes = 0, detail = { type, id };
       if (type === 'novels') changes = Number(getDatabase().prepare('DELETE FROM novels WHERE id = ?').run(id).changes || 0);
-      else if (type === 'global-skills') { const skills = loadGlobalSkills(); const next = skills.filter(skill => skill.id !== id); changes = skills.length - next.length; if (changes) { assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(next), evidence: body.qualityEvidence }); saveGlobalSkills(next); } }
+      else if (type === 'global-skills') { const skills = loadGlobalSkills(); const next = skills.filter(skill => skill.id !== id); changes = skills.length - next.length; if (changes) { assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(next), evidence: body.qualityEvidence }); saveGlobalSkills(next, body.qualityEvidence); } }
       else if (type === 'open-skills') changes = deleteOpenSkill(id);
       else if (type === 'user-skills') {
         const owner = String(body.owner || '').trim().toLowerCase();

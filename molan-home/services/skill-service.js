@@ -1,5 +1,6 @@
 'use strict';
 const path = require('node:path');
+const { assertPlatformConfigPromotion, canonicalGlobalPrompts } = require('../lib/evolution/platform-config-gate');
 
 function createSkillService({
   DATA_DIR,
@@ -550,7 +551,13 @@ function createSkillService({
     return globalSkillsCache;
   }
   
-  function saveGlobalSkills(skills) {
+  function saveGlobalSkills(skills, qualityEvidence) {
+    assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(skills), evidence: qualityEvidence });
+    return persistGlobalSkills(skills);
+  }
+
+  // Copies an existing local baseline during legacy initialization; never exposed as a rollout writer.
+  function persistGlobalSkills(skills) {
     if (dbReady()) {
       getDatabase().exec('BEGIN IMMEDIATE');
       try {
@@ -1081,7 +1088,7 @@ function createSkillService({
   function migrateGlobalSkillsToDb() {
     if (!dbReady() || Number(getDatabase().prepare('SELECT COUNT(*) AS n FROM global_skills').get().n) > 0) return;
     const data = readJsonFile(GLOBAL_SKILLS_FILE, []);
-    if (Array.isArray(data) && data.length) saveGlobalSkills(data);
+    if (Array.isArray(data) && data.length) persistGlobalSkills(data);
   }
   
   function migrateOpenSkillsToDb() {
