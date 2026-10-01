@@ -2,13 +2,13 @@
 
 ## 本地 JSON
 
-显式设置 `MOLAN_APP_STORE=json`。应用账户和小说关联状态位于 `MOLAN_DATA_DIR/app-json`；精读任务复用该仓储。兼容模式的独立精读任务使用 `MOLAN_LAB_JOB_DIR`，未设置时为 `MOLAN_DATA_DIR/lab-jobs-json`。
+显式设置 `MOLAN_APP_STORE=json`。应用账户和小说关联状态位于 `MOLAN_DATA_DIR/app-json`；精读与盲测任务复用该仓储。独立 lab 使用 `MOLAN_LAB_JOB_DIR`，未设置时为 `MOLAN_DATA_DIR/lab-jobs-json`。
 
 单个目录只允许一个写入进程。第二实例拒绝写入；损坏文档和损坏锁文件直接报错。不要删除正在使用的 `.writer.lock`。未完成 `.commit.json` 由下次仓储启动恢复；恢复前只读审计拒绝给出完整结论。写入失败向调用方返回错误，不当作保存成功。
 
 `node scripts/check-db.mjs --data-dir <app-json目录>` 只读检查结构、领域计数和待恢复日志，不打开仓储写锁。日志待恢复或损坏文件使命令返回非零状态。不要把 SQLite 文件重命名为 JSON。
 
-旧 `molan.db` 或非空 `xuanhuan-lab/reading.db` 不会自动覆盖或作为新空库加载；需要显式迁移。迁移工具位于 `scripts/sqlite-migration/`，执行前先备份并按各工具的核对步骤验证。当前精读旧库迁移工具尚未交付，禁止绕过旧库检测启动空仓储。
+旧 `molan.db` 或非空 `xuanhuan-lab/reading.db`、`blind.db` 不会自动覆盖或作为新空库加载；需要显式迁移。`scripts/sqlite-migration/migrate-lab-jobs.mjs` 提供精读/盲测一致性备份、关联盘点与原子导入，默认只备份盘点，`--apply` 才导入；已有目标必须显式 `--merge`，重复记录整体回滚，不覆盖评分。完整操作见同目录 README，禁止绕过旧库检测启动空仓储。
 
 ## PostgreSQL
 
@@ -24,8 +24,12 @@
 
 重启时供应商在途结果或费用未确认的任务为 `needs_review`，不会自动重发。已保存阶段保留，人工核对前不能恢复未知调用。
 
+后台任务写盘失败时，经过 owner 校验的单任务轮询返回 503；同一执行不再发起后续模型调用。关闭流程先等待 lab workers，再释放其它仓储与共享 JSON 写锁；任何写回或清理失败都会保留非零退出状态，超时未完成也以失败退出。
+
 ## 质量证据
 
 历史描述统计构建脚本不运行测试或模型 A/B，其质量晋级结论为 `BLOCKED`、测试计数为 `null`。真实评测必须使用可回放正文任务、固定配置版本和费用上限；普通 Golden 输入检查通过不等于质量提升。
 
 本地默认兼容链、部分创作扩展操作与普通旧测试仍在迁移。显式 JSON 路径通过的冒烟不能代替整个 P0–P3 最终验收。
+
+可重放 PG 文风 HTTP 合同冒烟：显式配置隔离测试库的 `MOLAN_PG_HOST/PORT/DATABASE/USER` 和密码文件后运行 `node scripts/postgres-native-style-routes-smoke.mjs`。脚本只接受名称含 test/acceptance 的库，会写入唯一测试记录，不执行模型调用；不得指向生产库。
