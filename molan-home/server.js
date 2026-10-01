@@ -4733,7 +4733,7 @@ function dissectionRecordFromDb(row) {
     sourceName: row.source_name, sourceText: row.source_text, depth: row.depth, purpose: row.purpose,
     selectedModel: row.selected_model, status: row.status, phase: row.phase,
     phaseIndex: Number(row.phase_index) || 0, progress: Number(row.progress) || 0,
-    estimatedCredits: Number(row.estimated_credits) || 0, actualCredits: Number(row.actual_credits) || 0,
+    estimatedCredits: row.estimated_credits === null ? null : (Number(row.estimated_credits) || 0), actualCredits: row.actual_credits === null ? null : (Number(row.actual_credits) || 0),
     result, meta, error: row.error || '', cancelRequested: !!row.cancel_requested,
     createdAt: Number(row.created_at) || 0, updatedAt: Number(row.updated_at) || 0
   };
@@ -4783,7 +4783,7 @@ function findCachedDissectionRecord(email, sourceHash, depth, purpose, userId = 
   return scan(dissectionRecordsFromJson());
 }
 
-function dissectionPublicRecord(record, includeResult = true) {
+function dissectionPublicRecord(record, includeResult = true, pipelineStats) {
   if (!record) return null;
   const meta = record.meta && typeof record.meta === 'object' ? record.meta : {};
   const result = normalizePipelineAggregationResult(record.result);
@@ -4794,7 +4794,7 @@ function dissectionPublicRecord(record, includeResult = true) {
   const resultMissingFields = [...new Set([...stageMissingFields, ...pipelineMissingFields])];
   const complete = record.status === 'completed' && resultMissingFields.length === 0;
   // ★ 实时图谱统计：实体/伏笔/事件边/状态快照 合并进 pipeline，供前端覆盖率与图谱展示
-  const liveStats = dissectionPipelineStats(record);
+  const liveStats = pipelineStats ?? dissectionPipelineStats(record);
   const pipeline = meta.pipeline ? { ...meta.pipeline, ...liveStats } : liveStats;
   const output = {
     id: record.id, title: record.title, sourceType: record.sourceType, sourceName: record.sourceName,
@@ -8463,6 +8463,31 @@ function nativeSkillService() {
   return nativeSkills;
 }
 
+let postgresDissectionReadServiceInstance = null;
+function getPostgresDissectionReadService() {
+  if (!postgresDissectionReadServiceInstance) {
+    postgresDissectionReadServiceInstance = require('./services/postgres-dissection-read-service').createPostgresDissectionReadService({
+      postgresRepository,
+      getAuthUser: (...args) => getAuthUser(...args),
+      postgresActor,
+      json,
+      respondPostgresError,
+      rowToRecord: row => dissectionRecordFromDb({
+        ...row,
+        created_at: row.created_at_value,
+        updated_at: row.updated_at_value
+      }),
+      publicRecord: dissectionPublicRecord,
+      buildMarkdown: dissectionMarkdown,
+      buildDocx: (record, view) => require('./lib/dissection-docx').buildDissectionDocx(record, view),
+      resultView: dissectionResultView,
+      hasCompleteContent: dissectionResultHasCompleteContent,
+      responseCors
+    });
+  }
+  return postgresDissectionReadServiceInstance;
+}
+
 let nativeKnowledgeCatalogService = null;
 const server = http.createServer((req, res) => {
   void dispatchRequest(req, res).catch(error => respondError(res, error));
@@ -8660,6 +8685,7 @@ async function dispatchRequest(req, res) {
   if (domainRoutes.auth(req, res, u)) return;
   if (domainRoutes.admin(req, res, u)) return;
   if (domainRoutes.generation.dispatchWebChat(req, res, u)) return;
+  if (POSTGRES_MODE && await getPostgresDissectionReadService().dispatch(req, res, u)) return;
   if (domainRoutes.dissections(req, res, u)) return;
   // ★ Q1 · 创书域：新书 + 创作圣经 + 状态快照（CAS）
   if (POSTGRES_MODE && req.method === 'GET' && u === '/api/creation-books') return handlePostgresCreationBooksList(req, res).catch(error => respondPostgresError(res, error));
@@ -8981,6 +9007,7 @@ module.exports = {
   loadSessions,
   postgresRepository,
   POSTGRES_MODE,
+  getPostgresDissectionReadService,
   // 阶段1/2/3 图谱与上下文能力（DB 函数，内部 dbReady 守卫；供云端验证与扩展调用）
   storeDissectionForeshadows,
   buildDissectionEntities,
