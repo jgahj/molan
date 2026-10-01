@@ -11662,62 +11662,8 @@ async function initializePostgresRuntime() {
 }
 
 if (require.main === module) {
-  if (process.env.NODE_ENV === 'production' && !POSTGRES_MODE) {
-    const error = new Error('Production mode requires PostgreSQL; local storage is not an allowed fallback.');
-    error.code = 'PRODUCTION_POSTGRES_REQUIRED';
-    throw error;
-  }
   const nativeJsonMode = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json';
-  if (!nativeJsonMode) initDB();
-  if (!POSTGRES_MODE && (process.env.MOLAN_STYLE_STORE === 'json' || nativeJsonMode)) styleProfileStore();
-  let stopMemoryProjections = null;
-  if (!POSTGRES_MODE && dbReady()) {
-    stopMemoryProjections = require('./lib/memory-projection-worker').start(db);
-    server.once('close', stopMemoryProjections);
-    startCreditReservationReaper();
-  }
-  const shutdown = signal => {
-    if (shutdown.started) return;
-    shutdown.started = true;
-    if (!POSTGRES_MODE) stopCreditReservationReaper();
-    flushSessionsSync();
-    const closePostgres = () => flushPostgresRuntimeWrites()
-      .catch(error => { console.error('PostgreSQL writes failed to flush:', error); process.exitCode = 1; })
-      .then(() => closeStorageStores())
-      .catch(error => { console.error('Storage shutdown failed:', error); process.exitCode = 1; });
-    if (server.listening) server.close(closePostgres);
-    else closePostgres();
-    setTimeout(() => process.exit(process.exitCode || 0), 5000).unref();
-    console.log('🛑  墨阑服务正在优雅退出：' + signal);
-  };
-  process.once('SIGTERM', () => shutdown('SIGTERM'));
-  process.once('SIGINT', () => shutdown('SIGINT'));
-  server.keepAliveTimeout = 5000;
-  server.headersTimeout = 15000;
-  server.maxRequestsPerSocket = 1000;
-  server.maxConnections = envPositiveInt('MOLAN_MAX_CONNECTIONS', 1024, 64, 10000);
-  const startListening = () => {
-    const onListen = () => {
-      console.log('🖌  墨阑落地页已启动 → http://localhost:' + server.address().port + ' (http://127.0.0.1:' + server.address().port + ')');
-      if (POSTGRES_MODE && postgresRepository.enabled) {
-        console.log('   🐘 PostgreSQL 权威数据库已启用');
-      } else {
-        console.log('   📁 本地纯文件存储模式已启用（零数据库依赖）');
-      }
-    };
-    const listen = host => server.listen(PORT, host, onListen);
-    server.once('error', err => {
-      if (err.code === 'EADDRNOTAVAIL' && HOST !== '127.0.0.1') {
-        console.warn('⚠️  地址监听不可用，回退至 IPv4 127.0.0.1');
-        listen('127.0.0.1');
-      } else {
-        throw err;
-      }
-    });
-    listen(HOST);
-  };
-
-  const preparePostgresAndListen = async () => {
+  const preparePostgres = async () => {
     const info = await initializePostgresRuntime();
     await postgresRepository.subscribeRuntimeInvalidation(payload => {
       // Token 预占/结算只写入费用兼容行，不改变本地业务投影。
@@ -11765,22 +11711,20 @@ if (require.main === module) {
       });
     });
     console.log('🐘 PostgreSQL 目标仓储已就绪 → ' + String(info.database || 'configured'));
-    startListening();
   };
-
-  if (POSTGRES_MODE) {
-    preparePostgresAndListen().catch(error => {
-      postgresHealth = { enabled: true, available: false, status: 'unavailable', error: String(error && error.code || 'pg_unavailable') };
-      console.error('❌ PostgreSQL 初始化失败，服务不会监听端口：' + String(error && error.message || '数据库不可用'), {
-        code: String(error && error.code || ''),
-        status: Number(error && error.status) || 0,
-        databaseCode: String(error && error.databaseCode || ''),
-        databaseMessage: String(error && error.databaseMessage || '').slice(0, 240)
-      });
-      postgresRepository.close().catch(() => {});
-      process.exitCode = 1;
-    });
-  } else {
+  const lifecycle = require('./services/server-lifecycle-service').createServerLifecycleService({
+    server, postgresMode: POSTGRES_MODE, nativeJsonMode, port: PORT, host: HOST,
+    maxConnections: envPositiveInt('MOLAN_MAX_CONNECTIONS', 1024, 64, 10000),
+    initializeStorage: () => {
+      if (!nativeJsonMode) initDB();
+      if (!POSTGRES_MODE && (process.env.MOLAN_STYLE_STORE === 'json' || nativeJsonMode)) styleProfileStore();
+      if (!POSTGRES_MODE && dbReady()) {
+        server.once('close', require('./lib/memory-projection-worker').start(db));
+        startCreditReservationReaper();
+      }
+    },
+    preparePostgres,
+    prepareLocal: async () => {
     if (!nativeJsonMode && dbReady()) {
       recoverDissectionJobs();
       loadSessions();
@@ -11794,13 +11738,16 @@ if (require.main === module) {
       console.error('Production storage is unavailable: Node 22.5+ with --experimental-sqlite is required. AI and cloud novel APIs will stay disabled.');
     }
     if (process.env.MOLAN_GENERATION_STORE === 'json' || nativeJsonMode) {
-      generationRunStore().recoverExpiredRuns(null, { now: Date.now() }).then(startListening).catch(async error => {
-        console.error('JSON generation storage recovery failed; service will not listen:', error);
-        await closeStorageStores().catch(closeError => console.error('Storage cleanup after startup failure failed:', closeError));
-        process.exitCode = 1;
-      });
-    } else startListening();
-  }
+      await generationRunStore().recoverExpiredRuns(null, { now: Date.now() });
+    }
+    },
+    flushSessions: flushSessionsSync, flushWrites: flushPostgresRuntimeWrites,
+    closeStorage: closeStorageStores, stopLocalWorkers: stopCreditReservationReaper,
+    onStartupFailure: error => {
+      if (POSTGRES_MODE) postgresHealth = { enabled: true, available: false, status: 'unavailable', error: String(error && error.code || 'pg_unavailable') };
+    }
+  });
+  lifecycle.start().catch(error => { console.error(error); process.exitCode = 1; });
 }
 
 module.exports = {
