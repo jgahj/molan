@@ -235,7 +235,7 @@ test('prefers populated dissection aliases and records normalized source files',
 
 test('binds the dedicated dissection Skill to every analysis stage', () => {
   assert.match(serverSource, /extract-transform-fiction-style/);
-  assert.match(serverSource, /promptInstruction \|\| skill\.instruction/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'services', 'skill-service.js'), 'utf8'), /promptInstruction \|\| skill\.instruction/);
   assert.match(serverSource, /promptFiles: skillPromptFilesForRun/);
   assert.match(serverSource, /stage: 'skill_analysis'/);
   assert.match(serverSource, /reasoningEffort: 'none'/);
