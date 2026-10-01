@@ -1,6 +1,7 @@
 'use strict';
 
 const TYPE_MAP = { propositions: 'proposition', evidence: 'evidence', plans: 'plan', foreshadows: 'foreshadow', commitments: 'commitment', disclosures: 'disclosure', events: 'event', transitions: 'transition' };
+const { canAccess, WRITE_ROLES } = require('./project-scope');
 function json(res, status, value) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); }
 function fail(code, status) { throw Object.assign(new Error(code), { code, statusCode: status }); }
 async function body(req) {
@@ -25,7 +26,7 @@ async function dispatch(req, res, pathname, getAuthUser, services) {
       json(res, error.statusCode || 500, { ok: false, code: error.code || 'MEMORY_INTERNAL_ERROR' }); return true;
     }
   }
-  const match = pathname.match(/^\/api\/books\/([A-Za-z0-9_-]+)\/(memory(?:\/.*)?|cognition|timeline|context(?:\/.*)?|rewrite|impact-analysis|projections(?:\/.*)?|workbench|manuscripts(?:\/.*)?|style-audits|generations(?:\/.*)?)$/);
+  const match = pathname.match(/^\/api\/books\/([A-Za-z0-9_-]+)\/(memory(?:\/.*)?|cognition|timeline|context(?:\/.*)?|rewrite|impact-analysis|projections(?:\/.*)?|workbench|manuscripts(?:\/.*)?|styles(?:\/.*)?|style-audits|generations(?:\/.*)?)$/);
   if (!match) return false;
   try {
     const auth = await getAuthUser(req); if (!auth?.user) fail('UNAUTHORIZED', 401);
@@ -40,7 +41,30 @@ async function dispatch(req, res, pathname, getAuthUser, services) {
     const cs = route.match(/^memory\/changesets\/([A-Za-z0-9_-]+)(?:\/(approve|commit))?$/);
     const revert = route.match(/^memory\/operations\/([A-Za-z0-9_-]+)\/revert$/);
     const cancel = route.match(/^generations\/([A-Za-z0-9_-]+)\/cancel$/);
-    if (req.method === 'GET' && route === 'memory') { result = await store.getMemory(input); response = { ok: true, bookId, memory: result }; }
+    const styleVersions = route.match(/^styles\/([A-Za-z0-9_-]+)\/versions$/);
+    if (route === 'styles' || route.startsWith('styles/')) {
+      if (!services.styleProfileStore) fail('STYLE_PROFILE_STORE_UNAVAILABLE', 503);
+      if (route !== 'styles' && !styleVersions) fail('ROUTE_NOT_FOUND', 404);
+      if (styleVersions && req.method !== 'GET') fail('METHOD_NOT_ALLOWED', 405);
+      const access = await store.getAccess({ userId: auth.user.userId, bookId });
+      if (req.method === 'POST' && !canAccess(access, WRITE_ROLES)) fail('FORBIDDEN', 403);
+      const projectId = String(access.projectId || access.project_id || bookId);
+      const branchId = String(input.branchId || 'main');
+      const styleScope = { projectId, userId: auth.user.userId, bookId, branchId };
+      if (styleVersions) {
+        const versions = await services.styleProfileStore.getStyleProfileVersions({ ...styleScope, profileId: styleVersions[1] });
+        response = { ok: true, bookId, profileId: styleVersions[1], versions };
+      } else if (req.method === 'GET') {
+        const styles = await services.styleProfileStore.getStyleProfiles({ ...styleScope, level: input.level || undefined });
+        response = { ok: true, bookId, styles };
+      } else {
+        if (input.id && input.expectedRevision === undefined) fail('VERSION_REQUIRED', 428);
+        response = await services.styleProfileStore.upsertStyleProfile({
+          ...input, ...styleScope, branchId: String(input.branchId || branchId), approvedBy: auth.user.userId
+        });
+      }
+    }
+    else if (req.method === 'GET' && route === 'memory') { result = await store.getMemory(input); response = { ok: true, bookId, memory: result }; }
     else if (req.method === 'GET' && route === 'cognition') response = { ok: true, bookId, cognitions: await store.getCognition(input) };
     else if (req.method === 'GET' && route === 'timeline') response = { ok: true, bookId, timeline: await store.getTimeline(input) };
     else if (req.method === 'POST' && route === 'memory/extract') response = { ok: true, bookId, ...await store.extract(input) };
