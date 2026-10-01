@@ -102,13 +102,14 @@ function createNativeProjectService({ repository, getAuthUser, readBody, json })
         if (history) {
           const versions = await repository.listResourceVersions({ userId, projectId, id });
           if (req.method === 'GET' && !targetRevision) value = { ok: true, versions };
-          else if (req.method === 'POST' && targetRevision) { const version = versions.find(v => v.revision === Number(targetRevision)); if (!version) fail('RESOURCE_VERSION_MISSING', 404); value = await repository.saveResource({ userId, projectId, id, kind, payload: version.payload, expectedRevision: revision(req, body, id), reason: body.changeReason || '恢复历史版本' }); }
+          else if (req.method === 'POST' && targetRevision) value = await repository.restoreResourceVersion({ userId, projectId, id, kind, targetRevision: Number(targetRevision), expectedRevision: revision(req, body, id), reason: body.changeReason });
           else fail('METHOD_NOT_ALLOWED', 405);
         } else if (req.method === 'GET') {
           value = id ? { ok: true, resource: publicResource(existing) } : { ok: true, resources: rows.map(publicResource) };
           if (id && res.setHeader) res.setHeader('ETag', value.resource.etag);
         } else if (req.method === 'POST' && !id) { value = await repository.saveResource({ userId, projectId, kind, id: body.id, payload: body.payload, expectedRevision: 0, reason: body.changeReason }); status = 201; }
-        else if (['PATCH', 'POST'].includes(req.method) && id) value = await repository.saveResource({ userId, projectId, kind, id, payload: req.method === 'POST' ? existing.payload : body.payload, expectedRevision: revision(req, body, id), reason: body.changeReason });
+        else if (req.method === 'POST' && id) value = await repository.restoreResource({ userId, projectId, kind, id, expectedRevision: revision(req, body, id), reason: body.changeReason });
+        else if (req.method === 'PATCH' && id) value = await repository.saveResource({ userId, projectId, kind, id, payload: body.payload, expectedRevision: revision(req, body, id), reason: body.changeReason });
         else if (req.method === 'DELETE' && id) value = await repository.deleteResource({ userId, projectId, id, expectedRevision: revision(req, body, id) });
         else fail('METHOD_NOT_ALLOWED', 405);
         if (value.resource) value.resource = publicResource(value.resource);
