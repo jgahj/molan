@@ -2,6 +2,16 @@
 
 const crypto = require('node:crypto');
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableValue(value[key])]));
+  return value;
+}
+const stableDigest = value => digest(stableValue(value));
+const compareIds = (left, right) => {
+  const a = String(left), b = String(right);
+  return a < b ? -1 : a > b ? 1 : 0;
+};
 const fail = (code, status = 409) => { throw Object.assign(new Error(code), { code, statusCode: status }); };
 const camel = key => key.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
 const convert = row => Object.fromEntries(Object.entries(row).map(([key, value]) => [camel(key), value instanceof Date ? value.getTime() : value]));
@@ -109,7 +119,74 @@ function createPostgresMemoryStore(options, makeStore, blank, branch) {
       const novel = { state: profile?.payload || { volumes: [], title: scope.book.title }, contentRevision: Number(profile?.revision || 1), aclRevision: Number(scope.access.acl_revision || 0) };
       const before = structuredClone(b), initialRevision = novel.contentRevision;
       const resolved = { ...scope.access, active: 1, userId: scope.actorUuid, bookId: scope.bookId, projectId: scope.projectId, branchId, role: scope.access.role };
+      const readConfigurationSnapshot = async () => {
+        const result = await client.query(
+          `SELECT
+             COALESCE((
+               SELECT jsonb_agg(jsonb_build_object('id', id, 'active', active, 'revision', revision) ORDER BY id)
+               FROM luna.style_profiles
+               WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND book_id = $3::uuid AND branch_id = $4::text
+             ), '[]'::jsonb) AS style_profiles,
+             COALESCE((
+               SELECT jsonb_agg(jsonb_build_object(
+                 'id', COALESCE(NULLIF(legacy_id, ''), id::text), 'kind', kind, 'status', status, 'revision', revision
+               ) ORDER BY COALESCE(NULLIF(legacy_id, ''), id::text), id)
+               FROM luna.project_resources
+               WHERE workspace_id = $1::uuid AND project_id = $2::uuid
+             ), '[]'::jsonb) AS resources,
+             (
+               SELECT jsonb_build_object(
+                 'id', COALESCE(NULLIF(legacy_id, ''), id::text), 'revision', revision, 'plan', plan,
+                 'currentStateVersion', current_state_version, 'currentChapterNo', current_chapter_no
+               )
+               FROM luna.creation_books
+               WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND id = $3::uuid
+             ) AS creation_book,
+             (
+               SELECT jsonb_build_object('version', revision, 'payloadHash', payload_hash, 'payload', payload)
+               FROM luna.creation_bibles
+               WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND book_id = $3::uuid
+               ORDER BY revision DESC LIMIT 1
+             ) AS bible`,
+          [scope.workspaceUuid, scope.projectUuid, scope.bookUuid, branchId]
+        );
+        const row = result.rows[0] || {};
+        const asArray = value => Array.isArray(value) ? value : [];
+        const asObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+        const creationBook = asObject(row.creation_book);
+        const bible = asObject(row.bible);
+        const disclosures = Object.values(b.records)
+          .filter(record => record.recordType === 'disclosure' && (record.branchId || 'main') === branchId)
+          .map(record => structuredClone(record))
+          .sort((left, right) => compareIds(left.id, right.id));
+        return {
+          novelSettings: structuredClone(novel.state?.settings || novel.state?.config || {}),
+          styleProfiles: asArray(row.style_profiles).map(record => ({
+            id: String(record.id || ''),
+            bookId: scope.bookId,
+            active: record.active === true || record.active === 't',
+            revision: Number(record.revision)
+          })).sort((left, right) => compareIds(left.id, right.id)),
+          resources: asArray(row.resources).map(record => ({
+            id: String(record.id || ''), kind: String(record.kind || ''), status: String(record.status || ''), revision: Number(record.revision)
+          })).sort((left, right) => compareIds(left.id, right.id)),
+          disclosures,
+          creationBook: creationBook ? {
+            id: String(creationBook.id || scope.bookId),
+            revision: Number(creationBook.revision),
+            plan: structuredClone(creationBook.plan || {}),
+            currentStateVersion: Number(creationBook.currentStateVersion || 0),
+            currentChapterNo: Number(creationBook.currentChapterNo || 0)
+          } : null,
+          bible: bible ? {
+            version: Number(bible.version),
+            payloadHash: String(bible.payloadHash || ''),
+            payload: structuredClone(bible.payload || {})
+          } : null
+        };
+      };
       const context = {
+        readConfigurationSnapshot,
         readBaseline: async name => {
           if (name === 'novelRevision') return profile?.revision == null ? undefined : Number(profile.revision);
           if (name === 'aclRevision') return scope.access.acl_revision == null ? undefined : Number(scope.access.acl_revision);

@@ -315,6 +315,50 @@ test('嵌套认知递归展开与预算限制、故事时间过滤以及未记�
   assert.equal(unrecorded[0].note, '没有认知记录不等于明确不知');
 });
 
+test('嵌套认知只解析同 timeline/cycle 且当前故事时间已获得的最新记录', async context => {
+  const fixtureState = await fixture(context);
+  const { store, scope } = fixtureState;
+  const extracted = await store.extract({ ...scope, text: '青云古剑在断崖下。' });
+  const cognition = (id, holderEntityId, fields = {}) => ({
+    type: 'INSERT_COGNITION',
+    payload: {
+      id, holderEntityId, targetExpressionId: extracted.propositions[0].id,
+      awareness: 'aware', attitude: id, nestedCognition: {},
+      timelineId: 'timeline_main', cycleId: 'cycle_main', acquiredTimeRef: 100,
+      ...fields
+    }
+  });
+
+  await commitOperations(fixtureState, [
+    cognition('cog_parent', 'lixuan', { nestedCognition: { targetHolderId: 'shimei' } }),
+    cognition('cog_parent_future', 'second_viewpoint', { nestedCognition: { targetHolderId: 'future_holder' } }),
+    cognition('cog_shimei_other_timeline', 'shimei', { timelineId: 'timeline_other' }),
+    cognition('cog_shimei_other_cycle', 'shimei', { cycleId: 'cycle_other' }),
+    cognition('cog_shimei_future', 'shimei', { acquiredTimeRef: 300 }),
+    cognition('cog_shimei_valid_old', 'shimei', { attitude: 'eligible_older' }),
+    cognition('cog_shimei_valid_latest', 'shimei', { attitude: 'eligible_latest' }),
+    cognition('cog_future_holder', 'future_holder', { acquiredTimeRef: 300 })
+  ]);
+  await fixtureState.repository.transaction([scope.bookId], tx => {
+    const state = tx.get(scope.bookId, 'memory', `memory:${scope.bookId}`);
+    state.branches.main.records.cog_shimei_valid_old.createdAt = 100;
+    state.branches.main.records.cog_shimei_valid_latest.createdAt = 200;
+    tx.put(scope.bookId, 'memory', state, state.revision);
+  });
+
+  const expanded = await store.getCognition({
+    ...scope, holderEntityId: 'lixuan', timelineId: 'timeline_main', cycleId: 'cycle_main',
+    storyTime: 200, expandNested: true
+  });
+  assert.equal(expanded[0].nestedCognition.resolvedCognition.attitude, 'eligible_latest');
+
+  const future = await store.getCognition({
+    ...scope, holderEntityId: 'second_viewpoint', timelineId: 'timeline_main', cycleId: 'cycle_main',
+    storyTime: 200, expandNested: true
+  });
+  assert.equal(future[0].nestedCognition.resolvedCognition, undefined);
+});
+
 test('改写合同合规与文风润色任务防线：锁定数字、时序与禁止借润色改剧情', async context => {
   const fixtureState = await fixture(context);
   const contract = {

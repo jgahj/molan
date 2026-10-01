@@ -56,7 +56,9 @@ test('PostgreSQL 六维基线从真实 authority 读取并在提交时校验', {
   const bookId = `memory-baseline-book-${suffix}`;
   await repository.saveProfile({
     userId, workspaceId, projectId, title: 'memory baseline acceptance',
-    state: { title: 'memory baseline acceptance', volumes: [] }
+    state: { title: 'memory baseline acceptance', volumes: [{
+      id: 'volume', chapters: [{ id: 'chapter', scenes: [{ id: 'scene', content: '旧稿' }] }]
+    }] }
   });
   const created = await repository.createCreationBook({
     userId, workspaceId, projectId, bookId, title: 'memory baseline acceptance',
@@ -116,4 +118,24 @@ test('PostgreSQL 六维基线从真实 authority 读取并在提交时校验', {
   }
   const committed = await store.commitChangeset({ userId, bookId, changesetId: candidate.id, ...baseline });
   assert.equal(committed.ok, true);
+
+  const currentProfile = await repository.getProfile(userId, projectId, workspaceId);
+  const manuscript = await store.saveManuscript({
+    userId, bookId, chapterId: 'chapter', sceneId: 'scene', text: '配置漂移应自动使审批失效。',
+    expectedRevision: 0, expectedNovelRevision: Number(currentProfile.revision)
+  });
+  const review = await store.rewrite({ userId, bookId, manuscriptRevisionId: manuscript.id, contract: { bookId } });
+  const nextState = await store.workbenchState({ userId, bookId });
+  const sourceCandidate = await store.createChangeset({
+    userId, bookId, baseStateVersion: nextState.stateVersion, manuscriptRevisionId: manuscript.id,
+    rewriteReviewId: review.review.id, operations: []
+  });
+  await store.approveChangeset({ userId, bookId, changesetId: sourceCandidate.id });
+  await styles.upsertStyleProfile({
+    userId, bookId, id: `style-${suffix}`, expectedRevision: style.revision, hardRules: ['修订后的验收文风基线']
+  });
+  await assert.rejects(
+    store.commitChangeset({ userId, bookId, changesetId: sourceCandidate.id }),
+    { code: 'CONFIG_VERSION_CONFLICT' }
+  );
 });
