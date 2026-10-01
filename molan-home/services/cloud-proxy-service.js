@@ -9,7 +9,7 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
     const pathname = String(req.url || '').split('?')[0];
     return pathname.startsWith('/api/') && pathname !== '/api/local-sync/status';
   }
-  
+
   /** 为云端代理选择与现有接口一致的 JSON 请求体上限。 */
   function cloudProxyBodyLimit(requestUrl) {
     const pathname = String(requestUrl || '').split('?')[0];
@@ -17,7 +17,7 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
       ? DISSECTION_MAX_BODY_BYTES
       : MAX_JSON_BODY_BYTES;
   }
-  
+
   /** 返回本地调试数据来源状态，明确区分云端数据代理和本地数据模式。 */
   function handleLocalSyncStatus(req, res) {
     const configured = !!CLOUD_API_BASE;
@@ -32,7 +32,7 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
       message: configured ? '本地页面和账户数据使用云端 API，项目代码仍来自本地工作区' : '当前使用本地数据，未连接云端'
     });
   }
-  
+
   /** 将本地 API 请求转发到云端并保留 JSON、SSE 和文件下载响应。 */
   function handleCloudProxy(req, res) {
     let target;
@@ -44,12 +44,12 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
     } catch (_) {
       return json(res, 502, { error: '云端同步地址不可用' });
     }
-  
+
     const methodsWithBody = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
     const bodyPromise = methodsWithBody.has(String(req.method || '').toUpperCase())
       ? readBody(req, cloudProxyBodyLimit(req.url)).then(body => Buffer.from(JSON.stringify(body), 'utf8'))
       : Promise.resolve(null);
-  
+
     bodyPromise.then(body => new Promise((resolve, reject) => {
       const transport = target.protocol === 'https:' ? https : http;
       const headers = {};
@@ -61,11 +61,11 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
         headers['content-type'] = headers['content-type'] || 'application/json';
         headers['content-length'] = String(body.length);
       }
-  
+
       const agent = target.protocol === 'https:'
         ? new https.Agent({ keepAlive: true, timeout: 300000 })
         : new http.Agent({ keepAlive: true, timeout: 300000 });
-  
+
       const upstream = transport.request({
         method: req.method,
         hostname: target.hostname,
@@ -89,7 +89,7 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
         const isSse = String(upstreamResponse.headers['content-type'] || '').includes('text/event-stream');
         if (isSse) forwarded['connection'] = 'keep-alive';
         res.writeHead(upstreamResponse.statusCode || 502, forwarded);
-  
+
         let heartbeatTimer = null;
         if (isSse) {
           let lastActivity = Date.now();
@@ -111,7 +111,7 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
             heartbeatTimer = null;
           }
         };
-  
+
         upstreamResponse.on('error', error => {
           cleanupHeartbeat();
           if (!res.writableEnded) res.destroy(error);

@@ -22,7 +22,7 @@ function createCharacterMaterialReviewService({ DYNAMIC_PROMPT_MARKER, safeJsonP
       '当前用户任务：' + (userTask || '无')
     ].join('\n').slice(0, 6000);
   }
-  
+
   /** Parse one strict model verdict for a strong character-material sample. */
   function parseCharacterMaterialSampleReview(result) {
     const payload = result && result.json && typeof result.json === 'object'
@@ -39,7 +39,7 @@ function createCharacterMaterialReviewService({ DYNAMIC_PROMPT_MARKER, safeJsonP
       reason: String(review && review.reason || (pass ? '符合当前语境且未发现明显错误' : '模型未确认样本同时符合语境且无明显错误')).slice(0, 500)
     };
   }
-  
+
   /** Review every strong sample with the selected model before it can enter the writing prompt. */
   async function reviewCharacterMaterialSamples(authToken, user, materialResult, messages, modelId) {
     const samples = materialResult && Array.isArray(materialResult.samples) ? materialResult.samples : [];

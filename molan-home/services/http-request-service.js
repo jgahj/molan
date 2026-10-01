@@ -6,18 +6,18 @@ function createHttpRequestService({ MAX_JSON_BODY_BYTES, responseCors, shouldFlu
     error.status = status;
     return error;
   }
-  
+
   function decodePathParam(value) {
     try { return decodeURIComponent(String(value || '')); }
     catch (_) { throw requestError(400, '请求路径编码非法'); }
   }
-  
+
   function respondError(res, error, fallbackStatus = 400) {
     const status = Number(error && error.status) || fallbackStatus;
     if (!res.headersSent) json(res, status, { error: error && error.message ? error.message : '请求失败' });
     else if (!res.writableEnded) { try { res.end(); } catch (_) {} }
   }
-  
+
   function json(res, status, obj) {
     const body = typeof obj === 'string' ? obj : JSON.stringify(obj);
     const send = (sendStatus = status, sendBody = body) => {
@@ -55,7 +55,7 @@ function createHttpRequestService({ MAX_JSON_BODY_BYTES, responseCors, shouldFlu
     }
     send();
   }
-  
+
   function readBody(req, maxBytes = MAX_JSON_BODY_BYTES) {
     return new Promise((resolve, reject) => {
       const declared = Number(req.headers['content-length']);

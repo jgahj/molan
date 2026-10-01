@@ -21,7 +21,7 @@ function createNovelExportService({ novelExport, json, responseCors }) {
     }
     return { ok: true, range: parsed };
   }
-  
+
   /** 合并编辑器正文与 PG 已提交章节，再渲染可下载文档。 */
   function sendNovelExport(res, id, sourceState, committedChapters, format, range) {
     const normalizedFormat = String(format || '').trim().toLowerCase();

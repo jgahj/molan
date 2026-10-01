@@ -12,14 +12,14 @@ const rootDir = path.resolve(__dirname, '..');
  * 1. server.js 和 lib/generation/* 严禁引用 legacy/ 或历史生成调度器；
  * 2. 杜绝将历史实验逻辑或已废弃管线带回生产生成主链。
  */
-export function runProductionImportAudit() {
+export function runProductionImportAudit({ root = rootDir } = {}) {
   const productionFiles = [];
 
   // 1. 收集生产代码
-  const serverPath = path.join(rootDir, 'server.js');
+  const serverPath = path.join(root, 'server.js');
   if (fs.existsSync(serverPath)) productionFiles.push(serverPath);
   for (const relative of ['lib/style-profile-store.js', 'lib/memory-routes.js', 'lib/memory-context.js', 'lib/memory-workflow.js']) {
-    const filename = path.join(rootDir, relative);
+    const filename = path.join(root, relative);
     if (fs.existsSync(filename)) productionFiles.push(filename);
   }
 
@@ -33,11 +33,12 @@ export function runProductionImportAudit() {
     }
   }
   for (const relative of ['lib/generation', 'lib/repositories', 'routes', 'services']) {
-    collect(path.join(rootDir, relative));
+    collect(path.join(root, relative));
   }
 
   const forbiddenPatterns = [
     { pattern: /(?:require\s*\(\s*|from\s+|import\s*(?:\(\s*)?)['"](?:node:sqlite|better-sqlite3|sqlite3)['"]/, desc: '生产链引用 SQLite 驱动' },
+    { pattern: /(?:require\s*\(\s*|from\s+|import\s*(?:\(\s*)?)['"][^'"]*\/(?:pure-js-database|sqlite-store)(?:\.[cm]?js)?['"]/, desc: '生产链引用 SQL 兼容存储，尚未完成原生领域仓储迁移' },
     { pattern: /require\s*\(\s*['"][^'"]*legacy[^'"]*['"]\s*\)/, desc: '引用 legacy 历史模块' },
     { pattern: /import\s+.*from\s+['"][^'"]*legacy[^'"]*['"]/, desc: '引用 legacy 历史模块' },
     { pattern: /require\s*\(\s*['"][^'"]*pipeline-coordinator['"]\s*\)/, desc: '引用已废弃的 pipeline-coordinator' },
@@ -49,7 +50,7 @@ export function runProductionImportAudit() {
   const violations = [];
 
   for (const filePath of productionFiles) {
-    const relPath = path.relative(rootDir, filePath).replace(/\\/g, '/');
+    const relPath = path.relative(root, filePath).replace(/\\/g, '/');
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split(/\r?\n/);
 
