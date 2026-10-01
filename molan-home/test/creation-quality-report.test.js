@@ -18,6 +18,10 @@ test('quality report keeps missing audit counts unknown and latest evidence boun
   assert.equal(report.chapters[0].experienceCount, 1);
   assert.deepEqual(report.chapters[0].qualityVector.language, { value: null, status: 'NOT_MEASURED' });
   assert.equal(report.chapters[0].evidenceSource.generationId, 'run-1');
+  assert.equal(report.chapters[0].evidenceStatus, 'JUDGED');
+  const contradictory = structuredClone(valid);
+  contradictory.evidence.semanticAudit.passed = false;
+  assert.equal(buildCreationQualityReport([contradictory]).chapters[0].passed, null);
   report = buildCreationQualityReport([valid, { ...valid, id: 'a3', createdAt: 3, contentHash: 'different' }]);
   assert.equal(report.chapters.length, 1);
   assert.equal(report.chapters[0].evidenceStatus, 'NOT_MEASURED');

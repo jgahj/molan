@@ -17,7 +17,8 @@ function buildCreationQualityReport(records) {
     const measured = evidence?.protocol === 'generation-v2-audit-v1' &&
       evidence.contentHash === row.contentHash && evidence.chapterNo === row.chapterNo &&
       typeof evidence.passed === 'boolean' && typeof deterministic?.passed === 'boolean' &&
-      typeof semantic?.passed === 'boolean' && counts.every(count => count !== null);
+      typeof semantic?.passed === 'boolean' && counts.every(count => count !== null) &&
+      (evidence.passed !== true || deterministic.passed === true && semantic.passed === true && counts.every(count => count === 0));
     const issues = [...(Array.isArray(deterministic?.issues) ? deterministic.issues : []),
       ...(Array.isArray(semantic?.issues) ? semantic.issues : [])];
     latest.set(row.chapterNo, { chapterNo: row.chapterNo,
@@ -26,7 +27,7 @@ function buildCreationQualityReport(records) {
       experienceCount: measured ? issues.filter(issue => issue?.category === 'experience').length : null,
       lineEditCount: measured ? issues.filter(issue => issue?.category === 'lineedit').length : null,
       categories: [...new Set(issues.map(issue => issue?.category).filter(Boolean))].sort(),
-      auditedAt: row.createdAt, evidenceStatus: measured ? 'MEASURED' : 'NOT_MEASURED',
+      auditedAt: row.createdAt, evidenceStatus: measured ? 'JUDGED' : 'NOT_MEASURED',
       evidenceSource: { auditId: row.id, generationId: evidence?.generationId || null, contentHash: row.contentHash },
       qualityVector: evidence?.quality?.qualityVector || evidence?.quality?.vector || null });
   }
