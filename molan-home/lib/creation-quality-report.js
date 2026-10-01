@@ -13,12 +13,16 @@ function buildCreationQualityReport(records) {
     const evidence = row.evidence;
     const deterministic = evidence?.deterministicAudit;
     const semantic = evidence?.semanticAudit;
+    const qualityVector = evidence?.quality?.qualityVector || evidence?.quality?.vector;
     const counts = [countBlockers(deterministic), countBlockers(semantic)];
     const measured = evidence?.protocol === 'generation-v2-audit-v1' &&
       evidence.contentHash === row.contentHash && evidence.chapterNo === row.chapterNo &&
       typeof evidence.passed === 'boolean' && typeof deterministic?.passed === 'boolean' &&
-      typeof semantic?.passed === 'boolean' && counts.every(count => count !== null) &&
-      (evidence.passed !== true || deterministic.passed === true && semantic.passed === true && counts.every(count => count === 0));
+      typeof semantic?.passed === 'boolean' && typeof evidence.generationId === 'string' && Boolean(evidence.generationId) &&
+      typeof evidence.quality?.passed === 'boolean' && qualityVector && typeof qualityVector === 'object' &&
+      !Array.isArray(qualityVector) && Object.keys(qualityVector).length > 0 && counts.every(count => count !== null) &&
+      (evidence.passed !== true || deterministic.passed === true && semantic.passed === true &&
+        evidence.quality.passed === true && counts.every(count => count === 0));
     const issues = [...(Array.isArray(deterministic?.issues) ? deterministic.issues : []),
       ...(Array.isArray(semantic?.issues) ? semantic.issues : [])];
     latest.set(row.chapterNo, { chapterNo: row.chapterNo,
@@ -29,7 +33,7 @@ function buildCreationQualityReport(records) {
       categories: [...new Set(issues.map(issue => issue?.category).filter(Boolean))].sort(),
       auditedAt: row.createdAt, evidenceStatus: measured ? 'JUDGED' : 'NOT_MEASURED',
       evidenceSource: { auditId: row.id, generationId: evidence?.generationId || null, contentHash: row.contentHash },
-      qualityVector: evidence?.quality?.qualityVector || evidence?.quality?.vector || null });
+      qualityVector: qualityVector || null });
   }
   const chapters = [...latest.values()].sort((a, b) => a.chapterNo - b.chapterNo);
   let weakStreak = [], current = [];
