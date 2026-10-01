@@ -1088,7 +1088,9 @@ function createGenerationService({
       if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
       if (!['/api/benchmark/audit', '/api/benchmark/revise-loop', '/api/benchmark/generate'].includes(u)) return json(res, 404, { error: 'Not Found' });
       const body = await readBody(req, 160000);
-      const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+      const user = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json'
+        ? auth.user
+        : getUserByEmail(auth.user.email) || { email: auth.user.email };
       const controller = new AbortController();
       res.once('close', () => { if (!res.writableEnded) controller.abort(new Error('本地评测连接已中断')); });
       const deps = { callModel: (_auth, options) => {
