@@ -243,6 +243,12 @@ function createReadingLab(deps) {
     return next;
   }
   async function load(id, owner, actorUserId) { const row = await repository.load({ owner, actorUserId, kind: 'reading', id }); if (!row) fail('精读任务不存在或无权访问', 404); revisions.set(row.job, row.revision); actors.set(row.job, actorUserId); return row.job; }
+  async function listOwnerJobs({ owner, actorUserId }) {
+    if (!owner) return [];
+    if (!actorUserId) fail('精读账户缺少稳定身份', 401);
+    const rows = await repository.list({ owner, actorUserId, kind: 'reading', limit: 40 });
+    return rows.map(row => row.job).filter(job => job && job.owner === owner);
+  }
   function sources() { return BOOKS.map(book => parseBook(fs.readFileSync(path.join(deps.sourceDirectory, book.filename)), book)); }
   function ensureUnchanged(job) { for (const book of job.books) if (hash(fs.readFileSync(path.join(deps.sourceDirectory, book.filename))) !== book.hash) fail('原文件已变化，笔记版本失效；请创建新任务重新核验', 409); }
   async function refreshParsing(job) {
@@ -407,7 +413,7 @@ function createReadingLab(deps) {
       fail('请求方式不支持', 405);
     } catch (error) { return deps.json(res, error.status || 400, { error: error.code === 'ENOENT' ? '指定原文文件不存在' : String(error.message || error).slice(0, 300) }); }
   }
-  return { handle, init, close: () => {
+  return { handle, init, listOwnerJobs, close: () => {
     if (closePromise) return closePromise;
     closed = true;
     closePromise = (async () => {
