@@ -3478,6 +3478,30 @@ function createPostgresRepository(options = {}) {
     });
   }
 
+  /** Read persisted audit evidence for this book, never infer quality from snapshots. */
+  async function getCreationQualityReport(userId, bookId) {
+    return withTransaction(userId, async client => {
+      await ensureActor(client, userId);
+      const book = await creationBookForClient(client, bookId);
+      if (!book) return null;
+      const audits = await client.query(
+        `SELECT a.id, a.subject_hash, a.result, a.chapter_no, a.created_at
+         FROM luna.audits a
+         LEFT JOIN luna.generation_runs g
+           ON g.workspace_id = a.workspace_id AND g.project_id = a.project_id AND g.id = a.generation_id
+         WHERE a.workspace_id = $1::uuid AND a.project_id = $2::uuid
+           AND (COALESCE(g.input->>'creationBookId', g.input->>'bookId') = $3::text
+             OR (a.generation_id IS NULL AND a.result->>'bookId' = $3::text))
+         ORDER BY a.created_at ASC, a.id ASC`,
+        [book.workspace_id, book.project_id, String(book.legacy_id)]
+      );
+      const records = audits.rows.map(row => ({ id: String(row.id), contentHash: String(row.subject_hash),
+        chapterNo: Number(row.chapter_no ?? row.result?.chapterNo),
+        createdAt: new Date(row.created_at).getTime(), evidence: parseJsonDocument(row.result) || {} }));
+      return require('./creation-quality-report').buildCreationQualityReport(records);
+    });
+  }
+
   /** 读取项目创作域导出数据，保留版本、任务输入和迁移兼容负载。 */
   async function getCreationPackageData(userId, projectId, workspaceId = '') {
     return withTransaction(userId, async client => {
@@ -3611,6 +3635,7 @@ function createPostgresRepository(options = {}) {
       if (!hasRole(access, PROJECT_WRITE_ROLES)) throw repositoryError('forbidden', '当前账户无权审计该章节', 403);
       const result = {
         source: 'local-deterministic',
+        bookId: String(book.legacy_id),
         chapterNo: Math.max(1, Number(input.chapterNo) || 1),
         passed: false,
         blockerCount: null,
@@ -5616,6 +5641,7 @@ function createPostgresRepository(options = {}) {
     findStoryMemoryRun,
     putCreationBible,
     getCreationState,
+    getCreationQualityReport,
     getCreationPackageData,
     createChapterAudit,
     createGenerationChapterAudit,
