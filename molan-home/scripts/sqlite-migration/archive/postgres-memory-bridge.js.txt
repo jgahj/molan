@@ -1,10 +1,9 @@
+// Historical reference only. Not executable and not part of the runtime import chain.
+// Archived with the pre-existing PureJsDatabase changes preserved, 2026-10-01.
 'use strict';
 
 const crypto = require('node:crypto');
-let DatabaseSync = null;
-try {
-  ({ DatabaseSync } = require('node:sqlite'));
-} catch {}
+const { PureJsDatabase } = require('./pure-js-database');
 const projectScope = require('./project-scope');
 const memorySystem = require('./memory-system');
 const memoryWorkflow = require('./memory-workflow');
@@ -104,7 +103,7 @@ function sqliteValue(value) {
 }
 
 function makeAccessDatabase(scope, user) {
-  const db = new DatabaseSync(':memory:');
+  const db = new PureJsDatabase(':memory:');
   db.exec('CREATE TABLE accounts (user_id TEXT PRIMARY KEY)');
   projectScope.initializeSchema(db);
   db.prepare('INSERT INTO accounts (user_id) VALUES (?)').run(user.userId);
