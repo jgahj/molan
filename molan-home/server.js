@@ -119,6 +119,7 @@ function styleProfileStore() {
   return jsonStyleProfileStore;
 }
 async function closeStorageStores() {
+  chatAdmission.close();
   const failures = [];
   const labResults = await Promise.allSettled([
     xuanhuanLab ? Promise.resolve().then(() => xuanhuanLab.close()) : Promise.resolve(),
@@ -671,44 +672,11 @@ const MODEL_ALIAS = {
   'deepseek-reasoner': 'deepseek-v4-pro'
 };
 
-const CHAT_RATE_WINDOW_MS = 60 * 1000;
-const chatRate = new Map();
-const chatUserInflight = new Map();
-let chatInflight = 0;
-/** 将邮箱或账户对象统一为稳定用户限流键，避免改邮箱后继承旧额度或串用并发槽。 */
-function chatActorKey(value) {
-  const userId = value && typeof value === 'object' ? value.userId : '';
-  if (userId) return String(userId);
-  const email = value && typeof value === 'object' ? value.email : value;
-  return projectScope.stableUserId(String(email || '').trim().toLowerCase());
-}
-function allowChatRate(email) {
-  const key = chatActorKey(email);
-  const now = Date.now();
-  const previous = chatRate.get(key);
-  if (!previous || now - previous.startedAt >= CHAT_RATE_WINDOW_MS) {
-    chatRate.set(key, { startedAt: now, count: 1 });
-    return true;
-  }
-  if (previous.count >= CHAT_RATE_LIMIT) return false;
-  previous.count += 1;
-  return true;
-}
-function acquireChatSlot(email) {
-  const key = chatActorKey(email);
-  if (chatInflight >= MAX_CHAT_INFLIGHT) return false;
-  const userCount = chatUserInflight.get(key) || 0;
-  if (userCount >= MAX_CHAT_INFLIGHT_PER_USER) return false;
-  chatInflight += 1;
-  chatUserInflight.set(key, userCount + 1);
-  return true;
-}
-function releaseChatSlot(email) {
-  const key = chatActorKey(email);
-  chatInflight = Math.max(0, chatInflight - 1);
-  const userCount = Math.max(0, (chatUserInflight.get(key) || 1) - 1);
-  if (userCount) chatUserInflight.set(key, userCount); else chatUserInflight.delete(key);
-}
+const chatAdmission = require('./services/chat-admission-service').createChatAdmissionService({
+  stableUserId: projectScope.stableUserId, requestLimit: CHAT_RATE_LIMIT,
+  maxInflight: MAX_CHAT_INFLIGHT, maxPerUser: MAX_CHAT_INFLIGHT_PER_USER
+});
+const { allowChatRate, acquireChatSlot, releaseChatSlot } = chatAdmission;
 const { validateChatMessages, serializedMessageBytes, truncateUtf8Head } = require('./services/chat-message-service').createChatMessageService({
   CHAT_MAX_MESSAGES, CHAT_MAX_MESSAGE_CHARS, CHAT_MAX_TOTAL_CHARS, CHAT_TRUNCATION_MARKER, copyPromptMessageFlags, requestError
 });
@@ -719,12 +687,6 @@ const { characterMaterialReviewContext, parseCharacterMaterialSampleReview, revi
   callMolanChat: (...args) => callMolanChat(...args)
 });
 
-const chatStateCleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [email, item] of chatRate.entries()) {
-    if (now - item.startedAt >= CHAT_RATE_WINDOW_MS) chatRate.delete(email);
-  }
-}, 5 * 60 * 1000).unref();
 
 function handleChat(req, res, legacyGenerationHandoff = null) {
   // SaaS：必须登录，积分绑定到具体用户（未登录拒绝）
@@ -8985,7 +8947,7 @@ let healthCacheAt = 0;
 /** GET /api/health —— 增加 db 字段；附带 uptime/pid/activeChatStreams，供看护脚本区分“挂了”与“忙”。 */
 function handleHealth(req, res) {
   const auth = getAuthUser(req);
-  const runtime = { uptime: Math.round(process.uptime()), pid: process.pid, activeChatStreams: chatInflight };
+  const runtime = { uptime: Math.round(process.uptime()), pid: process.pid, activeChatStreams: chatAdmission.activeCount() };
   if (!auth && healthCache && Date.now() - healthCacheAt < 5000) return json(res, 200, { ...healthCache, ...runtime });
   let dbOk = false, novelCount = 0;
   if (dbReady()) {
