@@ -81,6 +81,9 @@ function harness(options = {}) {
       craftConstraints: [{ rule: '短句为主' }],
       authorDna: { tone: '热血' },
       emotion: { curve: [1, 2] },
+      foreshadowing: [{ id: 'f_result_1', title: '旧结果伏笔', status: 'open' }],
+      chapterSummaries: [{ id: 's_res_ch1', summary: '旧结果章摘要' }],
+      volumeSummaries: [{ id: 's_res_vol1', summary: '旧结果卷摘要' }],
       validation: { conclusion: 'passed' }
     }),
     meta_json: JSON.stringify({
@@ -527,7 +530,453 @@ test('Dispatch ignores non-GET and unrelated dissection subroutes', async () => 
   assert.equal(await h.service.dispatch(h.req('/api/dissections', 'POST'), res, '/api/dissections'), false);
   assert.equal(await h.service.dispatch(h.req('/api/dissections/d_test-1', 'PATCH'), res, '/api/dissections/d_test-1'), false);
   assert.equal(await h.service.dispatch(h.req('/api/dissections/d_test-1', 'DELETE'), res, '/api/dissections/d_test-1'), false);
-  assert.equal(await h.service.dispatch(h.req('/api/dissections/d_test-1/units', 'GET'), res, '/api/dissections/d_test-1/units'), false);
+  assert.equal(await h.service.dispatch(h.req('/api/dissections/d_test-1/creative-brief', 'GET'), res, '/api/dissections/d_test-1/creative-brief'), false);
   assert.equal(await h.service.dispatch(h.req('/api/dissections/shared', 'GET'), res, '/api/dissections/shared'), false);
+  assert.equal(h.writeCalls.length, 0);
+});
+
+test('GET /api/dissections/:id/coverage: returns cleaned stats, rejects anon and cross-user', async () => {
+  const h = harness();
+
+  const anonRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/coverage', 'GET', null), anonRes, '/api/dissections/d_test-sample-1/coverage');
+  assert.equal(anonRes.statusCode, 401);
+
+  const crossRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/coverage', 'GET', { userId: 'admin-99', email: 'admin@example.test' }), crossRes, '/api/dissections/d_test-sample-1/coverage');
+  assert.equal(crossRes.statusCode, 404);
+
+  const res = createMockResponse();
+  const handled = await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/coverage'), res, '/api/dissections/d_test-sample-1/coverage');
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.ok(res.body.coverage);
+  assert.equal(res.body.coverage.entities, 2);
+  assert.equal(res.body.coverage.candidates, 1);
+  assert.equal(res.body.coverage.units, 2);
+  assert.equal(res.body.coverage.factCoverage, 1.0);
+  assert.equal(h.writeCalls.length, 0);
+});
+
+test('GET /api/dissections/:id/validation: returns validation view and cleaned stats, rejects anon and cross-user', async () => {
+  const h = harness();
+
+  const anonRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/validation', 'GET', null), anonRes, '/api/dissections/d_test-sample-1/validation');
+  assert.equal(anonRes.statusCode, 401);
+
+  const crossRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/validation', 'GET', { userId: 'admin-99', email: 'admin@example.test' }), crossRes, '/api/dissections/d_test-sample-1/validation');
+  assert.equal(crossRes.statusCode, 404);
+
+  const res = createMockResponse();
+  const handled = await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/validation'), res, '/api/dissections/d_test-sample-1/validation');
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.deepEqual(res.body.validation, { conclusion: 'passed' });
+  assert.equal(res.body.stats.entities, 2);
+  assert.equal(h.writeCalls.length, 0);
+
+  const emptyValidationRow = {
+    ...h.defaultRow,
+    result_json: JSON.stringify({ overview: { positioning: '测试' } })
+  };
+  const emptyValH = harness({ getRow: emptyValidationRow });
+  const emptyValRes = createMockResponse();
+  await emptyValH.service.dispatch(emptyValH.req('/api/dissections/d_test-sample-1/validation'), emptyValRes, '/api/dissections/d_test-sample-1/validation');
+  assert.equal(emptyValRes.statusCode, 200);
+  assert.deepEqual(emptyValRes.body.validation, { conclusion: 'unknown' });
+});
+
+test('GET /api/dissections/:id/units: pagination without duplicate items, limit capped at 200, mapped document fields', async () => {
+  const unitRows = [
+    { source_table: 'dissection_units', document: { id: 'u_1', ordinal: 1, title: '第一回', unit_type: 'chapter', char_count: 3000, token_estimate: 800 } },
+    { source_table: 'dissection_units', document: { id: 'u_2', ordinal: 2, title: '第二回', unit_type: 'chapter', char_count: 3200, token_estimate: 850 } },
+    { source_table: 'dissection_units', document: { id: 'u_3', ordinal: 3, title: '第三回', unit_type: 'chapter', char_count: 2900, token_estimate: 780 } },
+    { source_table: 'dissection_units', document: { id: 'u_4', ordinal: 4, title: '第四回', unit_type: 'chapter', char_count: 3100, token_estimate: 820 } },
+    { source_table: 'dissection_units', document: { id: 'u_5', ordinal: 5, title: '第五回', unit_type: 'chapter', char_count: 3300, token_estimate: 900 } }
+  ];
+  const h = harness({ dissectionRows: unitRows });
+
+  const anonRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/units', 'GET', null), anonRes, '/api/dissections/d_test-sample-1/units');
+  assert.equal(anonRes.statusCode, 401);
+
+  const crossRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/units', 'GET', { userId: 'admin-99', email: 'admin@example.test' }), crossRes, '/api/dissections/d_test-sample-1/units');
+  assert.equal(crossRes.statusCode, 404);
+
+  const page1Res = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/units?limit=2'), page1Res, '/api/dissections/d_test-sample-1/units');
+  assert.equal(page1Res.statusCode, 200);
+  assert.equal(page1Res.body.items.length, 2);
+  assert.equal(page1Res.body.items[0].id, 'u_1');
+  assert.equal(page1Res.body.items[0].char_count, 3000);
+  assert.equal(page1Res.body.items[1].id, 'u_2');
+  assert.equal(page1Res.body.next, 2);
+
+  const page2Res = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/units?limit=2&cursor=2'), page2Res, '/api/dissections/d_test-sample-1/units');
+  assert.equal(page2Res.statusCode, 200);
+  assert.equal(page2Res.body.items.length, 2);
+  assert.equal(page2Res.body.items[0].id, 'u_3');
+  assert.equal(page2Res.body.items[1].id, 'u_4');
+  assert.equal(page2Res.body.next, 4);
+
+  const page3Res = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/units?limit=2&cursor=4'), page3Res, '/api/dissections/d_test-sample-1/units');
+  assert.equal(page3Res.statusCode, 200);
+  assert.equal(page3Res.body.items.length, 1);
+  assert.equal(page3Res.body.items[0].id, 'u_5');
+  assert.equal(page3Res.body.next, '');
+
+  const allItems = [...page1Res.body.items, ...page2Res.body.items, ...page3Res.body.items];
+  const allIds = allItems.map(it => it.id);
+  assert.equal(new Set(allIds).size, 5);
+
+  const manyUnits = Array.from({ length: 250 }, (_, i) => ({
+    source_table: 'dissection_units',
+    document: { id: `u_${i + 1}`, ordinal: i + 1, title: `第${i + 1}章` }
+  }));
+  const hMany = harness({ dissectionRows: manyUnits });
+  const cappedRes = createMockResponse();
+  await hMany.service.dispatch(hMany.req('/api/dissections/d_test-sample-1/units?limit=500'), cappedRes, '/api/dissections/d_test-sample-1/units');
+  assert.equal(cappedRes.statusCode, 200);
+  assert.equal(cappedRes.body.items.length, 200);
+  assert.equal(cappedRes.body.next, 200);
+
+  const badH = harness({ dissectionRows: null });
+  const badRes = createMockResponse();
+  await badH.service.dispatch(badH.req('/api/dissections/d_test-sample-1/units'), badRes, '/api/dissections/d_test-sample-1/units');
+  assert.equal(badRes.statusCode, 500);
+  assert.equal(badRes.body.code, 'invalid_rows_format');
+});
+
+test('GET /api/dissections/:id/entities: composite base64url cursor and legacy numeric cursor, pagination no duplicate items, limit capped at 200', async () => {
+  const entityRows = [
+    { source_table: 'dissection_entities', document: { id: 'ent_1', canonical_name: '林凡', entity_type: 'character', mention_count: 50, status: 'confirmed' } },
+    { source_table: 'dissection_entities', document: { id: 'ent_2', canonical_name: '萧炎', entity_type: 'character', mention_count: 50, status: 'confirmed' } },
+    { source_table: 'dissection_entities', document: { id: 'ent_3', canonical_name: '药老', entity_type: 'character', mention_count: 30, status: 'confirmed' } },
+    { source_table: 'dissection_entities', document: { id: 'ent_4', canonical_name: '美杜莎', entity_type: 'character', mention_count: 20, status: 'candidate' } },
+    { source_table: 'dissection_entities', document: { id: 'ent_5', canonical_name: '海波东', entity_type: 'character', mention_count: 10, status: 'confirmed' } }
+  ];
+  const h = harness({ dissectionRows: entityRows });
+
+  const anonRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/entities', 'GET', null), anonRes, '/api/dissections/d_test-sample-1/entities');
+  assert.equal(anonRes.statusCode, 401);
+
+  const crossRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/entities', 'GET', { userId: 'admin-99', email: 'admin@example.test' }), crossRes, '/api/dissections/d_test-sample-1/entities');
+  assert.equal(crossRes.statusCode, 404);
+
+  const page1Res = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/entities?limit=2'), page1Res, '/api/dissections/d_test-sample-1/entities');
+  assert.equal(page1Res.statusCode, 200);
+  assert.equal(page1Res.body.items.length, 2);
+  assert.equal(page1Res.body.items[0].canonical_name, '林凡');
+  assert.equal(page1Res.body.items[1].canonical_name, '萧炎');
+  assert.ok(page1Res.body.next);
+
+  const page2Res = createMockResponse();
+  await h.service.dispatch(h.req(`/api/dissections/d_test-sample-1/entities?limit=2&cursor=${page1Res.body.next}`), page2Res, '/api/dissections/d_test-sample-1/entities');
+  assert.equal(page2Res.statusCode, 200);
+  assert.equal(page2Res.body.items.length, 2);
+  assert.equal(page2Res.body.items[0].canonical_name, '药老');
+  assert.equal(page2Res.body.items[1].canonical_name, '美杜莎');
+  assert.ok(page2Res.body.next);
+
+  const page3Res = createMockResponse();
+  await h.service.dispatch(h.req(`/api/dissections/d_test-sample-1/entities?limit=2&cursor=${page2Res.body.next}`), page3Res, '/api/dissections/d_test-sample-1/entities');
+  assert.equal(page3Res.statusCode, 200);
+  assert.equal(page3Res.body.items.length, 1);
+  assert.equal(page3Res.body.items[0].canonical_name, '海波东');
+  assert.equal(page3Res.body.next, '');
+
+  const allItems = [...page1Res.body.items, ...page2Res.body.items, ...page3Res.body.items];
+  const allIds = allItems.map(it => it.id);
+  assert.equal(new Set(allIds).size, 5);
+
+  const legacyCursorRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/entities?cursor=30'), legacyCursorRes, '/api/dissections/d_test-sample-1/entities');
+  assert.equal(legacyCursorRes.statusCode, 200);
+  assert.equal(legacyCursorRes.body.items.length, 3);
+  assert.equal(legacyCursorRes.body.items[0].canonical_name, '药老');
+  assert.equal(legacyCursorRes.body.items[1].canonical_name, '美杜莎');
+  assert.equal(legacyCursorRes.body.items[2].canonical_name, '海波东');
+
+  const manyEntities = Array.from({ length: 250 }, (_, i) => ({
+    source_table: 'dissection_entities',
+    document: { id: `ent_${i + 1}`, canonical_name: `角色_${i + 1}`, mention_count: 500 - i }
+  }));
+  const hMany = harness({ dissectionRows: manyEntities });
+  const cappedRes = createMockResponse();
+  await hMany.service.dispatch(hMany.req('/api/dissections/d_test-sample-1/entities?limit=500'), cappedRes, '/api/dissections/d_test-sample-1/entities');
+  assert.equal(cappedRes.statusCode, 200);
+  assert.equal(cappedRes.body.items.length, 200);
+  assert.ok(cappedRes.body.next);
+});
+
+test('GET /api/dissections/:id/entities: multi-page pagination with mixed names and ids has no omissions or duplicates', async () => {
+  const mixedEntities = [
+    { source_table: 'dissection_entities', document: { id: 'e_10_ch_b', canonical_name: '萧炎', mention_count: 50 } },
+    { source_table: 'dissection_entities', document: { id: 'e_01_num', canonical_name: '123木头人', mention_count: 100 } },
+    { source_table: 'dissection_entities', document: { id: 'e_08_ch_a2', canonical_name: '林凡', mention_count: 50 } },
+    { source_table: 'dissection_entities', document: { id: 'e_02_sym_hash', canonical_name: '#队长', mention_count: 100 } },
+    { source_table: 'dissection_entities', document: { id: 'e_05_upper', canonical_name: 'BOB', mention_count: 80 } },
+    { source_table: 'dissection_entities', document: { id: 'e_04_lower', canonical_name: 'alex', mention_count: 80 } },
+    { source_table: 'dissection_entities', document: { id: 'e_07_ch_a1', canonical_name: '林凡', mention_count: 50 } },
+    { source_table: 'dissection_entities', document: { id: 'e_06_lower', canonical_name: 'bob', mention_count: 80 } },
+    { source_table: 'dissection_entities', document: { id: 'e_03_upper', canonical_name: 'Alex', mention_count: 80 } },
+    { source_table: 'dissection_entities', document: { id: 'e_12_sym_under', canonical_name: '_shadow', mention_count: 10 } },
+    { source_table: 'dissection_entities', document: { id: 'e_11_ch_c', canonical_name: '药老', mention_count: 20 } },
+    { source_table: 'dissection_entities', document: { id: 'e_09_ch_a3', canonical_name: '林凡', mention_count: 50 } }
+  ];
+  const h = harness({ dissectionRows: mixedEntities });
+  const collected = [];
+  let cursor = '';
+
+  while (true) {
+    const url = cursor
+      ? `/api/dissections/d_test-sample-1/entities?limit=3&cursor=${cursor}`
+      : '/api/dissections/d_test-sample-1/entities?limit=3';
+    const res = createMockResponse();
+    await h.service.dispatch(h.req(url), res, '/api/dissections/d_test-sample-1/entities');
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body.items));
+    for (const item of res.body.items) {
+      collected.push(item);
+    }
+    if (!res.body.next) break;
+    cursor = res.body.next;
+  }
+
+  assert.equal(collected.length, 12);
+  const collectedIds = collected.map(item => item.id);
+  assert.equal(new Set(collectedIds).size, 12);
+
+  const originalIds = mixedEntities.map(r => r.document.id).sort();
+  assert.deepEqual([...collectedIds].sort(), originalIds);
+
+  for (let i = 0; i < collected.length - 1; i++) {
+    const a = collected[i];
+    const b = collected[i + 1];
+    if (a.mention_count !== b.mention_count) {
+      assert.ok(a.mention_count > b.mention_count);
+    } else if (a.canonical_name !== b.canonical_name) {
+      assert.ok(a.canonical_name < b.canonical_name);
+    } else {
+      assert.ok(a.id < b.id);
+    }
+  }
+});
+
+test('GET /api/dissections/:id/foreshadows: real PG rows, status filter, result fallback on empty, error rejection, pagination, confidence retention', async () => {
+  const foreshadowRows = [
+    { source_table: 'dissection_foreshadows', document: { id: 'f_1', title: '神秘残玉', status: 'open', strength: 'strong', setup_chapter: 1, payoff_chapter: null, related_entity_ids: ['ent_1'], evidence_ids: ['ev_1'], confidence: 0.95 } },
+    { source_table: 'dissection_foreshadows', document: { id: 'f_2', title: '三年之约', status: 'resolved', strength: 'subtle', setup_chapter: 3, payoff_chapter: 30, related_entity_ids: ['ent_1', 'ent_2'], evidence_ids: [], confidence: 0.88 } },
+    { source_table: 'dissection_foreshadows', document: { id: 'f_3', title: '退婚之辱', status: 'resolved', strength: 'strong', setup_chapter: 2, payoff_chapter: 25, related_entity_ids: ['ent_2'], evidence_ids: [], confidence: 0.9 } },
+    { source_table: 'dissection_foreshadows', document: { id: 'f_zero', title: '零置信度', status: 'open', strength: 'subtle', setup_chapter: 4, payoff_chapter: null, confidence: 0 } },
+    { source_table: 'dissection_foreshadows', document: { id: 'f_missing', title: '缺置信度', status: 'open', strength: 'subtle', setup_chapter: 5, payoff_chapter: null } }
+  ];
+  const h = harness({ dissectionRows: foreshadowRows });
+
+  const anonRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/foreshadows', 'GET', null), anonRes, '/api/dissections/d_test-sample-1/foreshadows');
+  assert.equal(anonRes.statusCode, 401);
+
+  const crossRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/foreshadows', 'GET', { userId: 'admin-99', email: 'admin@example.test' }), crossRes, '/api/dissections/d_test-sample-1/foreshadows');
+  assert.equal(crossRes.statusCode, 404);
+
+  const allRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/foreshadows?limit=2&cursor=0'), allRes, '/api/dissections/d_test-sample-1/foreshadows');
+  assert.equal(allRes.statusCode, 200);
+  assert.equal(allRes.body.total, 5);
+  assert.equal(allRes.body.items.length, 2);
+  assert.equal(allRes.body.items[0].id, 'f_1');
+  assert.deepEqual(allRes.body.items[0].relatedEntityIds, ['ent_1']);
+  assert.deepEqual(allRes.body.items[0].evidenceIds, ['ev_1']);
+  assert.equal(allRes.body.items[0].confidence, 0.95);
+  assert.equal(allRes.body.next, 2);
+
+  const filterRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/foreshadows?status=resolved'), filterRes, '/api/dissections/d_test-sample-1/foreshadows');
+  assert.equal(filterRes.statusCode, 200);
+  assert.equal(filterRes.body.total, 2);
+  assert.equal(filterRes.body.items.length, 2);
+  assert.equal(filterRes.body.items[0].id, 'f_2');
+  assert.equal(filterRes.body.items[1].id, 'f_3');
+
+  const openRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/foreshadows?status=open'), openRes, '/api/dissections/d_test-sample-1/foreshadows');
+  assert.equal(openRes.statusCode, 200);
+  assert.equal(openRes.body.total, 3);
+  assert.equal(openRes.body.items.length, 3);
+  assert.equal(openRes.body.items[0].id, 'f_1');
+  assert.equal(openRes.body.items[0].confidence, 0.95);
+  assert.equal(openRes.body.items[1].id, 'f_zero');
+  assert.equal(openRes.body.items[1].confidence, 0);
+  assert.equal(openRes.body.items[2].id, 'f_missing');
+  assert.equal(openRes.body.items[2].confidence, null);
+
+  const emptyH = harness({ dissectionRows: [] });
+  const fallbackRes = createMockResponse();
+  await emptyH.service.dispatch(emptyH.req('/api/dissections/d_test-sample-1/foreshadows'), fallbackRes, '/api/dissections/d_test-sample-1/foreshadows');
+  assert.equal(fallbackRes.statusCode, 200);
+  assert.equal(fallbackRes.body.total, 1);
+  assert.equal(fallbackRes.body.items[0].id, 'f_result_1');
+  assert.equal(fallbackRes.body.items[0].title, '旧结果伏笔');
+
+  const errH = harness({ rowsError: Object.assign(new Error('PG query error'), { status: 500, code: 'pg_query_error' }) });
+  const errRes = createMockResponse();
+  await errH.service.dispatch(errH.req('/api/dissections/d_test-sample-1/foreshadows'), errRes, '/api/dissections/d_test-sample-1/foreshadows');
+  assert.equal(errRes.statusCode, 500);
+  assert.equal(errRes.body.code, 'pg_query_error');
+});
+
+test('GET /api/dissections/:id/summaries: respects source_row_no, filters type, result fallback on empty, error rejection, pagination', async () => {
+  const summaryRows = [
+    { source_table: 'dissection_summaries', source_row_no: 2, document: { id: 'sum_vol_2', summary_type: 'volume', owner_id: 'vol_2', title: '第二卷总结', key_points: ['突破'] } },
+    { source_table: 'dissection_summaries', source_row_no: 1, document: { id: 'sum_vol_1', summary_type: 'volume', owner_id: 'vol_1', title: '第一卷总结', key_points: ['出山'] } },
+    { source_table: 'dissection_summaries', source_row_no: 3, document: { id: 'sum_ch_1', summary_type: 'chapter', owner_id: 'ch_1', title: '第一章小结', key_points: ['启程'] } }
+  ];
+  const h = harness({ dissectionRows: summaryRows });
+
+  const anonRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/summaries', 'GET', null), anonRes, '/api/dissections/d_test-sample-1/summaries');
+  assert.equal(anonRes.statusCode, 401);
+
+  const crossRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/summaries', 'GET', { userId: 'admin-99', email: 'admin@example.test' }), crossRes, '/api/dissections/d_test-sample-1/summaries');
+  assert.equal(crossRes.statusCode, 404);
+
+  const volRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/summaries?type=volume'), volRes, '/api/dissections/d_test-sample-1/summaries');
+  assert.equal(volRes.statusCode, 200);
+  assert.equal(volRes.body.type, 'volume');
+  assert.equal(volRes.body.total, 2);
+  assert.equal(volRes.body.items[0].id, 'sum_vol_1');
+  assert.equal(volRes.body.items[1].id, 'sum_vol_2');
+
+  const chRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/summaries?type=chapter'), chRes, '/api/dissections/d_test-sample-1/summaries');
+  assert.equal(chRes.statusCode, 200);
+  assert.equal(chRes.body.type, 'chapter');
+  assert.equal(chRes.body.total, 1);
+  assert.equal(chRes.body.items[0].id, 'sum_ch_1');
+
+  const emptyH = harness({ dissectionRows: [] });
+  const fallbackChRes = createMockResponse();
+  await emptyH.service.dispatch(emptyH.req('/api/dissections/d_test-sample-1/summaries?type=chapter'), fallbackChRes, '/api/dissections/d_test-sample-1/summaries');
+  assert.equal(fallbackChRes.statusCode, 200);
+  assert.equal(fallbackChRes.body.total, 1);
+  assert.equal(fallbackChRes.body.items[0].id, 's_res_ch1');
+
+  const fallbackVolRes = createMockResponse();
+  await emptyH.service.dispatch(emptyH.req('/api/dissections/d_test-sample-1/summaries?type=volume'), fallbackVolRes, '/api/dissections/d_test-sample-1/summaries');
+  assert.equal(fallbackVolRes.statusCode, 200);
+  assert.equal(fallbackVolRes.body.total, 1);
+  assert.equal(fallbackVolRes.body.items[0].id, 's_res_vol1');
+
+  const errH = harness({ rowsError: Object.assign(new Error('PG error on summaries'), { status: 500, code: 'pg_summary_err' }) });
+  const errRes = createMockResponse();
+  await errH.service.dispatch(errH.req('/api/dissections/d_test-sample-1/summaries'), errRes, '/api/dissections/d_test-sample-1/summaries');
+  assert.equal(errRes.statusCode, 500);
+  assert.equal(errRes.body.code, 'pg_summary_err');
+});
+
+test('GET /api/dissections/:id/search: literal substring match on unit text with Chinese/quotes/wildcards, <2 chars empty, capped at 30, ordinal ordering', async () => {
+  const searchUnits = [
+    { source_table: 'dissection_units', document: { id: 'u_10', ordinal: 10, title: '第十章', unit_type: 'scene', text: '少年在深山偶得一枚“神秘残玉”，散发微光。' } },
+    { source_table: 'dissection_units', document: { id: 'u_2', ordinal: 2, title: '第二章', unit_type: 'scene', text: '前方出现了一座残破石碑，碑上有字。' } },
+    { source_table: 'dissection_units', document: { id: 'u_5', ordinal: 5, title: '第五章', unit_type: 'scene', text: '他催动体内剑气，斩破了%foo_bar%阵法符号。' } },
+    { source_table: 'dissection_units', document: { id: 'u_1', ordinal: 1, title: '第一章', unit_type: 'scene', text: '林凡立于山巅，迎着狂风修炼剑气与石碑秘术。' } }
+  ];
+  const h = harness({ dissectionRows: searchUnits });
+
+  const anonRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/search?q=剑气', 'GET', null), anonRes, '/api/dissections/d_test-sample-1/search');
+  assert.equal(anonRes.statusCode, 401);
+
+  const crossRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/search?q=剑气', 'GET', { userId: 'admin-99', email: 'admin@example.test' }), crossRes, '/api/dissections/d_test-sample-1/search');
+  assert.equal(crossRes.statusCode, 404);
+
+  const shortRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/search?q=剑'), shortRes, '/api/dissections/d_test-sample-1/search');
+  assert.equal(shortRes.statusCode, 200);
+  assert.equal(shortRes.body.ok, true);
+  assert.deepEqual(shortRes.body.items, []);
+  assert.equal(shortRes.body.query, '剑');
+
+  const chineseRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/search?q=残破石碑'), chineseRes, '/api/dissections/d_test-sample-1/search');
+  assert.equal(chineseRes.statusCode, 200);
+  assert.equal(chineseRes.body.items.length, 1);
+  assert.equal(chineseRes.body.items[0].ordinal, 2);
+  assert.equal(chineseRes.body.items[0].unitType, 'scene');
+  assert.equal(chineseRes.body.items[0].title, '第二章');
+  assert.ok(chineseRes.body.items[0].snippet.includes('[残破石碑]'));
+
+  const quotesRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/search?q=“神秘残玉”'), quotesRes, '/api/dissections/d_test-sample-1/search');
+  assert.equal(quotesRes.statusCode, 200);
+  assert.equal(quotesRes.body.items.length, 1);
+  assert.equal(quotesRes.body.items[0].ordinal, 10);
+  assert.ok(quotesRes.body.items[0].snippet.includes('[“神秘残玉”]'));
+
+  const wildcardRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/search?q=%foo_bar%'), wildcardRes, '/api/dissections/d_test-sample-1/search');
+  assert.equal(wildcardRes.statusCode, 200);
+  assert.equal(wildcardRes.body.items.length, 1);
+  assert.equal(wildcardRes.body.items[0].ordinal, 5);
+  assert.ok(wildcardRes.body.items[0].snippet.includes('[%foo_bar%]'));
+
+  const multipleRes = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/search?q=剑气'), multipleRes, '/api/dissections/d_test-sample-1/search');
+  assert.equal(multipleRes.statusCode, 200);
+  assert.equal(multipleRes.body.items.length, 2);
+  assert.equal(multipleRes.body.items[0].ordinal, 1);
+  assert.equal(multipleRes.body.items[0].title, '第一章');
+  assert.equal(multipleRes.body.items[1].ordinal, 5);
+
+  const thirtyFiveUnits = Array.from({ length: 35 }, (_, i) => ({
+    source_table: 'dissection_units',
+    document: { id: `u_${i + 1}`, ordinal: i + 1, title: `第${i + 1}章`, unit_type: 'scene', text: `通用的修行正文内容第${i + 1}节` }
+  }));
+  const hMany = harness({ dissectionRows: thirtyFiveUnits });
+  const cappedRes = createMockResponse();
+  await hMany.service.dispatch(hMany.req('/api/dissections/d_test-sample-1/search?q=修行正文'), cappedRes, '/api/dissections/d_test-sample-1/search');
+  assert.equal(cappedRes.statusCode, 200);
+  assert.equal(cappedRes.body.items.length, 30);
+  assert.equal(cappedRes.body.items[0].ordinal, 1);
+  assert.equal(cappedRes.body.items[29].ordinal, 30);
+});
+
+test('Foreshadow confidence rejects malformed or out-of-range evidence', async () => {
+  const values = ['', ' ', [], {}, true, -1, 2, 'Infinity', null, undefined, 0, '0.5'];
+  const h = harness({ dissectionRows: values.map((confidence, index) => ({
+    source_table: 'dissection_foreshadows',
+    document: { id: `confidence_${index}`, confidence }
+  })) });
+  const res = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections/d_test-sample-1/foreshadows'), res, '/api/dissections/d_test-sample-1/foreshadows');
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.items.map(item => item.confidence), [...Array(10).fill(null), 0, 0.5]);
+});
+
+test('Exact routing: non-GET write requests to subroutes pass through without interception', async () => {
+  const h = harness();
+  const res = createMockResponse();
+  const subroutes = ['coverage', 'units', 'entities', 'foreshadows', 'summaries', 'validation', 'search'];
+  for (const sub of subroutes) {
+    const url = `/api/dissections/d_test-sample-1/${sub}`;
+    assert.equal(await h.service.dispatch(h.req(url, 'POST'), res, url), false);
+    assert.equal(await h.service.dispatch(h.req(url, 'PATCH'), res, url), false);
+    assert.equal(await h.service.dispatch(h.req(url, 'DELETE'), res, url), false);
+  }
   assert.equal(h.writeCalls.length, 0);
 });
