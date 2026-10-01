@@ -10,6 +10,16 @@ const { analyzeNativeMemoryImpact } = require('./native-memory-impact');
 
 const clone = value => structuredClone(value);
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (OBJECT(value)) return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableValue(value[key])]));
+  return value;
+}
+const stableDigest = value => digest(stableValue(value));
+const compareIds = (left, right) => {
+  const a = String(left), b = String(right);
+  return a < b ? -1 : a > b ? 1 : 0;
+};
 const textHash = memory.computeTextHash;
 const identifier = prefix => `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 18)}`;
 function fail(code, status = 409) { throw Object.assign(new Error(code), { code, status, statusCode: status }); }
@@ -68,8 +78,12 @@ function cognitionRecords(b, input) {
     totalExpandedNodes++;
     const expanded = { ...nested };
     if (nested.targetHolderId && !nested.resolvedCognition) {
-      const child = rows(b, 'cognition').find(record => record.status === 'confirmed' &&
-        (record.branchId || 'main') === (input.branchId || 'main') && record.holderEntityId === nested.targetHolderId);
+      const child = rows(b, 'cognition').filter(record => record.status === 'confirmed' &&
+        (record.branchId || 'main') === (input.branchId || 'main') && record.holderEntityId === nested.targetHolderId &&
+        (record.timelineId || 't0') === timelineId && (record.cycleId || 'c0') === cycleId &&
+        (input.storyTime === undefined || input.storyTime === null || !record.acquiredTimeRef ||
+          Number(record.acquiredTimeRef) <= Number(input.storyTime)))
+        .sort((left, right) => Number(right.createdAt || 0) - Number(left.createdAt || 0) || compareIds(left.id, right.id))[0];
       if (child) expanded.resolvedCognition = {
         holderEntityId: child.holderEntityId,
         attitude: child.attitude,
@@ -97,14 +111,16 @@ function target(state, chapterId, sceneId = '') {
   return scene;
 }
 function render(text) { return String(text).split('\n').map(p => `<p>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`).join(''); }
-const configHash = novel => digest(novel.state?.settings || novel.state?.config || {});
-function sourceConflict(b, cs, novel) {
+const novelSettings = novel => novel.state?.settings || novel.state?.config || {};
+async function sourceConflict(b, cs, novel, context) {
   if (!cs.source) return;
   const m = b.manuscripts[cs.source.manuscriptId];
   if (!m || m.contentHash !== cs.candidateHash || textHash(m.content) !== m.contentHash ||
-      b.heads[`${m.chapterId}:${m.sceneId}`]?.currentId !== m.id || novel.contentRevision !== m.novelRevision ||
+      b.heads[`${m.chapterId}:${m.sceneId}`]?.currentId !== m.id) fail('CONTENT_VERSION_CONFLICT');
+  const configuration = await context?.readConfigurationSnapshot?.();
+  if (!configuration || stableDigest(configuration) !== m.configHash) fail('CONFIG_VERSION_CONFLICT');
+  if (novel.contentRevision !== m.novelRevision ||
       textHash(String(target(novel.state, m.chapterId, m.sceneId).content || '')) !== m.sourceHash) fail('CONTENT_VERSION_CONFLICT');
-  if (configHash(novel) !== m.configHash) fail('CONFIG_VERSION_CONFLICT');
 }
 function recordExists(b, type, id) { return b.records[id]?.recordType === type; }
 function validateOperations(b, cs) {
@@ -202,7 +218,57 @@ function createJsonMemoryStore(options) {
       if (write && !canAccess(acl, WRITE_ROLES) && !(input.approval && acl.role === 'reviewer')) fail('FORBIDDEN', 403);
       const original = tx.get(scope.projectId, 'memory', `memory:${scope.bookId}`);
       const state = original || blank(scope.bookId), b = branch(state, scope.branchId);
+      const readConfigurationSnapshot = async () => {
+        const projectRecords = await tx.list(scope.projectId, 'novels');
+        const creationBooks = projectRecords.filter(record => record.kind === 'creation-book' &&
+          record.novelId === scope.bookId && record.projectId === scope.projectId);
+        if (creationBooks.length > 1) fail('BASELINE_AUTHORITY_AMBIGUOUS', 409);
+        const creationBook = creationBooks[0] || null;
+        const bookIds = new Set([scope.bookId, creationBook?.bookId].filter(Boolean));
+        const styleProfiles = (await tx.list(scope.projectId, 'styles'))
+          .filter(record => record.recordType === 'style-profile' && record.branchId === scope.branchId && bookIds.has(record.bookId))
+          .map(record => ({
+            id: String(record.profileId || record.id || ''),
+            bookId: String(record.bookId || ''),
+            active: record.active !== false,
+            revision: Number(record.profileRevision)
+          }))
+          .sort((left, right) => compareIds(left.bookId, right.bookId) || compareIds(left.id, right.id));
+        const resources = projectRecords.filter(record => record.kind === 'resource')
+          .map(record => ({
+            id: String(record.resourceId || record.id || ''),
+            kind: String(record.resourceKind || ''),
+            status: record.deleted ? 'deleted' : 'active',
+            revision: Number(record.contentRevision)
+          }))
+          .sort((left, right) => compareIds(left.id, right.id));
+        const disclosures = rows(b, 'disclosure')
+          .filter(record => (record.branchId || 'main') === scope.branchId)
+          .map(clone)
+          .sort((left, right) => compareIds(left.id, right.id));
+        const bible = creationBook && projectRecords.find(record =>
+          record.kind === 'creation-bible' && record.bookId === creationBook.bookId);
+        return {
+          novelSettings: clone(novelSettings(novel)),
+          styleProfiles,
+          resources,
+          disclosures,
+          creationBook: creationBook ? {
+            id: creationBook.bookId,
+            revision: Number(creationBook.revision),
+            plan: clone(creationBook.plan || {}),
+            currentStateVersion: Number(creationBook.currentStateVersion || 0),
+            currentChapterNo: Number(creationBook.currentChapterNo || 0)
+          } : null,
+          bible: bible ? {
+            version: Number(bible.version),
+            payloadHash: String(bible.payloadHash || ''),
+            payload: clone(bible.payload || {})
+          } : null
+        };
+      };
       const context = {
+        readConfigurationSnapshot,
         readBaseline: async name => {
           if (name === 'novelRevision') return novel.contentRevision;
           if (name === 'aclRevision') return novel.aclRevision;
@@ -272,7 +338,7 @@ function makeStore(adapter) {
     getCognition: input => read(input, b => cognitionRecords(b, input)),
     getTimeline: input => read(input, b => ({ events: rows(b, 'event').filter(r => (r.timelineId || 't0') === (input.timelineId || 't0') && (r.cycleId || 'c0') === (input.cycleId || 'c0')), relations: rows(b, 'temporal_relation') })),
     getChangeset: input => read(input, b => findCs(b, input)),
-    createChangeset: input => write(input, (b, novel, scope) => {
+    createChangeset: input => write(input, async (b, novel, scope, state, context) => {
       if (!Array.isArray(input.operations || []) || !Array.isArray(input.dependencies || [])) fail('INVALID_MEMORY_OPERATION', 422);
       const cs = { id: input.id || identifier('cs'), bookId: scope.bookId, branchId: scope.branchId, baseStateVersion: input.baseStateVersion ?? b.stateVersion,
         candidateHash: input.candidateHash || '', operations: clone(input.operations || []), dependencies: clone(input.dependencies || []), auditReport: clone(input.auditReport || {}),
@@ -286,16 +352,16 @@ function makeStore(adapter) {
         if (review.manuscriptRevisionId !== m.id || review.candidateHash !== m.contentHash) fail('REWRITE_REVIEW_VERSION_CONFLICT');
         if (!review.passed) fail('REWRITE_CONSTRAINTS_FAILED');
         cs.source = { manuscriptId: m.id }; cs.candidateHash = m.contentHash;
-        cs.auditReport.rewriteReviewId = review.id; sourceConflict(b, cs, novel);
+        cs.auditReport.rewriteReviewId = review.id; await sourceConflict(b, cs, novel, context);
       }
       b.changesets[cs.id] = cs; emit(b, cs.id, 'MEMORY_PENDING_APPROVAL', {}); return cs;
     }),
-    approveChangeset: input => write({ ...input, [APPROVAL_WRITE]: true }, (b, novel, scope) => {
+    approveChangeset: input => write({ ...input, [APPROVAL_WRITE]: true }, async (b, novel, scope, state, context) => {
       const cs = findCs(b, input), status = input.status ?? 'approved';
       if (cs.committedAt) fail('CHANGESET_ALREADY_COMMITTED');
       if (!['approved', 'rejected'].includes(status)) fail('INVALID_APPROVAL_STATUS', 422);
       if (cs.approvalPolicy === 'two_person' && cs.createdBy === scope.userId) fail('SELF_APPROVAL_FORBIDDEN');
-      sourceConflict(b, cs, novel);
+      await sourceConflict(b, cs, novel, context);
       cs.approvalStatus = status; cs.approvedBy = scope.userId; cs.approvedAt = Date.now(); cs.approvalHash = versionHash(cs);
       emit(b, cs.id, status === 'approved' ? 'AUTHOR_APPROVED' : 'AUTHOR_REJECTED', { actorId: scope.userId });
       return { ok: true, changesetId: cs.id, approvalStatus: status, approvedBy: scope.userId, approvedAt: cs.approvedAt, contentHash: cs.approvalHash };
@@ -318,7 +384,7 @@ function makeStore(adapter) {
       if (input.candidateHash !== undefined && input.candidateHash !== cs.candidateHash) fail('CONTENT_VERSION_CONFLICT');
       await validateCommitBaselines(input, context);
       if (cs.baseStateVersion !== b.stateVersion || input.expectedStateVersion !== undefined && input.expectedStateVersion !== b.stateVersion) fail('MEMORY_VERSION_CONFLICT');
-      sourceConflict(b, cs, novel); validateOperations(b, cs);
+      await sourceConflict(b, cs, novel, context); validateOperations(b, cs);
       let manuscriptReceipt = {};
       if (cs.source) {
         const m = b.manuscripts[cs.source.manuscriptId], head = b.heads[`${m.chapterId}:${m.sceneId}`];
@@ -357,15 +423,16 @@ function makeStore(adapter) {
       const receipt = { ok: true, operationId: op.id, compensationId, stateVersion: b.stateVersion, actorId: scope.userId, reason: op.revertReason, revertedAt: Date.now() };
       op.compensationReceipt = receipt; emit(b, op.id, 'COMPENSATION_COMMITTED', receipt); return receipt;
     }),
-    saveManuscript: input => write(input, (b, novel, scope) => {
+    saveManuscript: input => write(input, async (b, novel, scope, state, context) => {
       if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 2000000) fail('INVALID_MANUSCRIPT', 422);
       if (!Number.isInteger(input.expectedRevision) || !Number.isInteger(input.expectedNovelRevision)) fail('VERSION_REQUIRED', 428);
       if (input.expectedNovelRevision !== novel.contentRevision) fail('CONTENT_VERSION_CONFLICT');
       const key = `${input.chapterId}:${input.sceneId || ''}`, previous = b.heads[key];
       if ((previous?.revision || 0) !== input.expectedRevision) fail('CONTENT_VERSION_CONFLICT');
+      const configuration = await context.readConfigurationSnapshot();
       const m = { id: identifier('manuscript'), chapterId: input.chapterId, sceneId: input.sceneId || '', bookId: scope.bookId, branchId: scope.branchId,
         revision: input.expectedRevision + 1, content: input.text, contentHash: textHash(input.text), sourceHash: textHash(String(target(novel.state, input.chapterId, input.sceneId).content || '')),
-        novelRevision: novel.contentRevision, configHash: configHash(novel), createdBy: scope.userId, createdAt: Date.now() };
+        novelRevision: novel.contentRevision, configHash: stableDigest(configuration), createdBy: scope.userId, createdAt: Date.now() };
       b.manuscripts[m.id] = m; b.heads[key] = { ...previous, currentId: m.id, revision: m.revision }; emit(b, m.id, 'CANDIDATE_SAVED', { revision: m.revision }); return m;
     }),
     getManuscript: input => read(input, b => { const m = b.manuscripts[input.manuscriptId]; if (!m) fail('MANUSCRIPT_NOT_FOUND', 404); return m; }),
