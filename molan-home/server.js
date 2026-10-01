@@ -230,8 +230,9 @@ const LIVE_BILLING_EVENT_INTERVAL_MS = envPositiveInt('MOLAN_LIVE_BILLING_EVENT_
 const UPSTREAM_CONNECT_TIMEOUT_MS = envPositiveInt('MOLAN_UPSTREAM_CONNECT_TIMEOUT_MS', 10000, 1000, 120000);
 // ★ 拆书/创书/长文生成天然耗时很久：上游空闲超时默认关闭（0），仅在显式配置时生效。
 const UPSTREAM_IDLE_TIMEOUT_MS = envPositiveInt('MOLAN_UPSTREAM_IDLE_TIMEOUT_MS', 0, 0, 600000);
-// 上游可能一直保持连接但不再产出有效结果；总时限覆盖连接、流式输出和两遍改写。
 const UPSTREAM_TOTAL_TIMEOUT_MS = envPositiveInt('MOLAN_UPSTREAM_TOTAL_TIMEOUT_MS', 5 * 60 * 1000, 5000, 30 * 60 * 1000);
+const SERVER_INSTANCE_ID = process.env.MOLAN_INSTANCE_ID || `inst_${process.pid}_${crypto.randomBytes(6).toString('hex')}`;
+const DISPATCH_LEASE_TTL_MS = Math.max(120000, envPositiveInt('MOLAN_DISPATCH_LEASE_TTL_MS', UPSTREAM_TOTAL_TIMEOUT_MS + 30000, 30000, 3600000));
 const UPSTREAM_MAX_RESPONSE_BYTES = envPositiveInt('MOLAN_UPSTREAM_MAX_RESPONSE_BYTES', 32 * 1024 * 1024, 64 * 1024, 128 * 1024 * 1024);
 const UPSTREAM_SSE_BUFFER_BYTES = envPositiveInt('MOLAN_UPSTREAM_SSE_BUFFER_BYTES', 4 * 1024 * 1024, 64 * 1024, 16 * 1024 * 1024);
 const UPSTREAM_QUALITY_SCAN_MAX_CHARS = envPositiveInt('MOLAN_UPSTREAM_QUALITY_SCAN_MAX_CHARS', 200000, 10000, 2000000);
@@ -265,7 +266,7 @@ function loadApiKey() {
 }
 
 const DEEPSEEK_KEY = loadApiKey();
-const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
+const DEEPSEEK_URL = process.env.DEEPSEEK_URL || 'https://api.deepseek.com/chat/completions';
 
 /* ===================== 平台模型（SaaS 统一托管，key 仅存服务端） ===================== */
 // 从 data/config.json 读取 platformModels；用户不配 key，全部走平台 key。
@@ -715,7 +716,8 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
       normalizeReasoningEffort, stablePromptCacheKey, reserveCredits, planCreditReservation, normalizeUsage,
       estimateTextTokenUpperBound, creditCostForUser, roundCreditValue, emptyCorrectionAudit, scanUniversalCorrectionRisks,
       recordCorrectionHits, settleTokenUsage, openUpstream, responseCors, UPSTREAM_MAX_RESPONSE_BYTES, UPSTREAM_SSE_BUFFER_BYTES,
-      UPSTREAM_QUALITY_SCAN_MAX_CHARS, UPSTREAM_TOTAL_TIMEOUT_MS, LIVE_BILLING_EVENT_INTERVAL_MS
+      UPSTREAM_QUALITY_SCAN_MAX_CHARS, UPSTREAM_TOTAL_TIMEOUT_MS, LIVE_BILLING_EVENT_INTERVAL_MS,
+      recordDispatchAttempt
     }).handleChat;
   }
   return chatServiceHandler(req, res, legacyGenerationHandoff);
@@ -2289,9 +2291,17 @@ function globalUsageSummary() {
       COALESCE(SUM(cached_tokens), 0) AS cached_tokens,
       COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
       COALESCE(SUM(total_tokens), 0) AS total_tokens,
-      SUM(CASE WHEN total_tokens IS NOT NULL THEN 1 ELSE 0 END) AS precise_request_count,
-      SUM(CASE WHEN total_tokens IS NULL THEN 1 ELSE 0 END) AS usage_unavailable_count,
-      COALESCE(SUM(credit_cost), 0) AS credit_spent
+      SUM(CASE WHEN total_tokens IS NOT NULL
+        AND status NOT IN ('provider_unknown', 'usage_unavailable', 'dispatched', 'reserved', 'partial')
+        AND (usage_source IS NULL OR usage_source <> 'unavailable')
+        AND (skill_audit_json IS NULL OR (skill_audit_json NOT LIKE '%"provider_usage_incomplete":true%' AND skill_audit_json NOT LIKE '%"providerUsageIncomplete":true%'))
+        THEN 1 ELSE 0 END) AS precise_request_count,
+      SUM(CASE WHEN total_tokens IS NULL
+        OR status IN ('provider_unknown', 'usage_unavailable', 'dispatched', 'reserved', 'partial')
+        OR usage_source = 'unavailable'
+        OR (skill_audit_json LIKE '%"provider_usage_incomplete":true%' OR skill_audit_json LIKE '%"providerUsageIncomplete":true%')
+        THEN 1 ELSE 0 END) AS usage_unavailable_count,
+      COALESCE(SUM(CASE WHEN status IN ('provider_unknown', 'dispatched', 'reserved', 'usage_unavailable') THEN 0 ELSE credit_cost END), 0) AS credit_spent
       FROM token_usage`).get();
     const prompt = Number(row.prompt_tokens) || 0;
     return {
@@ -2310,7 +2320,7 @@ function globalUsageSummary() {
   }
   const rows = usageRowsFromJson();
   const summary = buildUsageSummary(rows);
-  summary.creditSpent = Math.round(rows.reduce((n, row) => n + (Number(row.creditCost) || 0), 0) * 100) / 100;
+  summary.creditSpent = Math.round(rows.reduce((n, row) => n + (row.status === 'provider_unknown' || row.status === 'dispatched' || row.status === 'reserved' || row.status === 'usage_unavailable' ? 0 : (Number(row.creditCost) || 0)), 0) * 100) / 100;
   return summary;
 }
 
@@ -3293,7 +3303,7 @@ function usageRowFromEvent(event, creditCost, reservedCost) {
     status: String(event.status || 'usage_unavailable'),
     createdAt: Number(event.createdAt) || Date.now(),
     durationMs: Math.max(0, Number(event.durationMs) || 0),
-    creditCost: roundCreditValue(creditCost),
+    creditCost: creditCost == null ? null : roundCreditValue(creditCost),
     reservedCost: roundCreditValue(reservedCost),
     skillIds: skillIdsFromAudit(skillAudit),
     skillAudit,
@@ -3324,7 +3334,7 @@ function usageDocumentFromRow(row) {
     status: String(value.status || 'usage_unavailable'),
     created_at: Number(value.createdAt) || Date.now(),
     duration_ms: Math.max(0, Number(value.durationMs) || 0),
-    credit_cost: roundCreditValue(value.creditCost),
+    credit_cost: value.creditCost == null ? null : roundCreditValue(value.creditCost),
     reserved_cost: roundCreditValue(value.reservedCost),
     skill_ids_json: JSON.stringify(Array.isArray(value.skillIds) ? value.skillIds : []),
     skill_audit_json: JSON.stringify(storedSkillAudit(value.skillAudit)),
@@ -3350,7 +3360,7 @@ function reserveCredits(user, modelId, providerModel, requestId, reservedCost, s
       requestId, userEmail: email, userId, workspaceId, projectId, modelId, providerModel,
       usageSource: 'pending', status: 'reserved', createdAt: now, durationMs: 0,
       skillAudit, messagesHash
-    }, 0, reserve);
+    }, null, reserve);
     pending.usageSource = 'pending';
     return postgresRepository.runtimeReserveTokenUsage({
       actorUserId: userId, userId, requestId, reservedCost: reserve,
@@ -3411,7 +3421,7 @@ function reserveCredits(user, modelId, providerModel, requestId, reservedCost, s
   if (!isAdmin && reserve > 0 && Number(current.credits) < reserve) return { ok: false, reservedCost: reserve };
   const previousCredits = Number(current.credits) || 0;
   if (!isAdmin && reserve > 0) current.credits = roundCreditValue(previousCredits - reserve);
-  const row = usageRowFromEvent({ requestId, userEmail: email, modelId, providerModel, usageSource: 'unavailable', status: 'reserved', createdAt: now, durationMs: 0, skillAudit, messagesHash }, 0, reserve);
+  const row = usageRowFromEvent({ requestId, userEmail: email, modelId, providerModel, usageSource: 'unavailable', status: 'reserved', createdAt: now, durationMs: 0, skillAudit, messagesHash }, null, reserve);
   row.usageSource = 'pending';
   try {
     saveUsers(users);
@@ -3435,13 +3445,13 @@ function settleTokenUsage(event) {
   const requestedCost = exact ? creditCostForUser(user, event.modelId, event.totalTokens) : estimatedCost;
 
   if (POSTGRES_MODE) {
-    const row = usageRowFromEvent(event, exact ? requestedCost : (event.status === 'credit_exhausted' ? requestedCost : 0), event.reservedCost);
     const holdReservation = !exact && (event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true);
+    const row = usageRowFromEvent(event, holdReservation ? null : (exact ? requestedCost : (event.status === 'credit_exhausted' ? requestedCost : 0)), event.reservedCost);
     return postgresRepository.runtimeSettleTokenUsage({
       actorUserId: userId,
       userId,
       requestId: row.requestId,
-      actualCost: row.creditCost,
+      actualCost: holdReservation ? null : row.creditCost,
       reservedCost: row.reservedCost,
       isAdmin: isAdminUser(user),
       holdReservation,
@@ -3451,7 +3461,7 @@ function settleTokenUsage(event) {
       cells: []
     }).then(result => ({
       recorded: !!result.recorded,
-      creditCost: result.billingStatus === 'pending' ? null : roundCreditValue(result.creditCost),
+      creditCost: result.billingStatus === 'pending' ? null : (result.creditCost == null ? null : roundCreditValue(result.creditCost)),
       billingStatus: result.billingStatus || (exact ? 'exact' : (event.status === 'credit_exhausted' ? 'capped_estimate' : 'released'))
     }));
   }
@@ -3553,15 +3563,49 @@ function recordTokenUsage(event) {
   return settleTokenUsage(event).recorded;
 }
 
+function recordDispatchAttempt(event) {
+  const instanceId = String((event && event.instanceId) || SERVER_INSTANCE_ID).trim();
+  const leaseMs = Number(event && event.leaseMs) || DISPATCH_LEASE_TTL_MS;
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
+    return nativeBillingService().recordDispatchAttempt({
+      ...event,
+      instanceId,
+      leaseMs
+    });
+  }
+  if (POSTGRES_MODE) {
+    const actorId = String(event && (event.actorId || event.actorUserId || event.userId) || '').trim();
+    return postgresRepository.recordDispatchAttempt({
+      ...event,
+      actorUserId: actorId,
+      actorId,
+      userId: actorId,
+      instanceId,
+      leaseMs,
+      requestId: event && event.requestId,
+      projectId: event && event.projectId || '',
+      pass: event && event.pass,
+      stage: event && event.stage
+    });
+  }
+  return Promise.resolve({
+    ok: false,
+    authorized: false,
+    status: 'unsupported',
+    code: 'DISPATCH_PERSISTENCE_UNAVAILABLE',
+    error: '当前存储模式缺少派发审计日志实现，已安全阻断模型外呼'
+  });
+}
+
 function releaseStaleCreditReservations() {
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-    return appRepository().releaseStaleTokenUsage({ before: Date.now() - CREDIT_RESERVATION_TTL_MS }).then(result => result.released);
+    return appRepository().releaseStaleTokenUsage({ before: Date.now() - CREDIT_RESERVATION_TTL_MS, instanceId: SERVER_INSTANCE_ID }).then(result => result.released);
   }
   const cutoff = Date.now() - CREDIT_RESERVATION_TTL_MS;
   if (POSTGRES_MODE) {
     const admin = postgresRuntimeAdminUser();
     if (!admin) return Promise.resolve(0);
-    return postgresRepository.runtimeReleaseStaleTokenUsage({ actorUserId: admin.userId, cutoff });
+    return postgresRepository.runtimeReleaseStaleTokenUsage({ actorUserId: admin.userId, cutoff, instanceId: SERVER_INSTANCE_ID });
   }
   if (dbReady()) {
     db.exec('BEGIN IMMEDIATE');
@@ -3615,37 +3659,8 @@ function stopCreditReservationReaper() {
   creditReservationReaper = null;
 }
 
-function buildUsageSummary(rows) {
-  const summary = {
-    totalTokens: 0,
-    promptTokens: 0,
-    completionTokens: 0,
-    reasoningTokens: 0,
-    cachedTokens: 0,
-    cacheWriteTokens: 0,
-    requestCount: rows.length,
-    preciseRequestCount: 0,
-    usageUnavailableCount: 0
-  };
-  for (const row of rows) {
-    const total = toTokenCount(row.totalTokens);
-    const prompt = toTokenCount(row.promptTokens);
-    const completion = toTokenCount(row.completionTokens);
-    const reasoning = toTokenCount(row.reasoningTokens);
-    if (total === null) summary.usageUnavailableCount += 1;
-    else { summary.totalTokens += total; summary.preciseRequestCount += 1; }
-    if (prompt !== null) summary.promptTokens += prompt;
-    if (completion !== null) summary.completionTokens += completion;
-    if (reasoning !== null) summary.reasoningTokens += reasoning;
-    const cached = toTokenCount(row.cachedTokens);
-    const cacheWrite = toTokenCount(row.cacheWriteTokens);
-    if (cached !== null) summary.cachedTokens += cached;
-    if (cacheWrite !== null) summary.cacheWriteTokens += cacheWrite;
-  }
-  summary.inputTokens = summary.promptTokens;
-  summary.outputTokens = summary.completionTokens;
-  summary.cacheHitRate = summary.promptTokens > 0 ? Math.round(summary.cachedTokens / summary.promptTokens * 10000) / 10000 : 0;
-  return summary;
+function buildUsageSummary(rows, aggregate = null) {
+  return require('./services/native-billing-service').buildUsageSummary(rows, aggregate);
 }
 
 function publicUsageRow(row) {
@@ -3654,6 +3669,7 @@ function publicUsageRow(row) {
   const forwardedSkillFiles = Array.isArray(forwarding.skills)
     ? forwarding.skills.reduce((total, skill) => total + (Array.isArray(skill && skill.forwardedTextFiles) ? skill.forwardedTextFiles.length : 0), 0)
     : 0;
+  const isPendingCost = (row.status === 'provider_unknown' || row.status === 'reserved' || row.status === 'dispatched' || row.status === 'usage_unavailable' || row.billingStatus === 'pending' || row.billing_status === 'pending');
   return {
     requestId: row.requestId,
     modelId: row.modelId,
@@ -3670,7 +3686,7 @@ function publicUsageRow(row) {
     status: row.status,
     createdAt: row.createdAt,
     durationMs: row.durationMs,
-    creditCost: row.creditCost,
+    creditCost: isPendingCost ? null : (row.creditCost == null ? null : row.creditCost),
     skillIds: skillIdsFromAudit(row.skillIds || row.skillIdsJson || skillAudit),
     stage: String(skillAudit.stage || 'single'),
     skillAuditStatus: String(skillAudit.status || 'legacy-unavailable'),
@@ -3692,8 +3708,16 @@ function getUsageSummary(email, includeRecent) {
       COALESCE(SUM(cached_tokens), 0) AS cached_tokens,
       COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
       COALESCE(SUM(total_tokens), 0) AS total_tokens,
-      SUM(CASE WHEN total_tokens IS NOT NULL THEN 1 ELSE 0 END) AS precise_request_count,
-      SUM(CASE WHEN total_tokens IS NULL THEN 1 ELSE 0 END) AS usage_unavailable_count
+      SUM(CASE WHEN total_tokens IS NOT NULL
+        AND status NOT IN ('provider_unknown', 'usage_unavailable', 'dispatched', 'reserved', 'partial')
+        AND (usage_source IS NULL OR usage_source <> 'unavailable')
+        AND (skill_audit_json IS NULL OR (skill_audit_json NOT LIKE '%"provider_usage_incomplete":true%' AND skill_audit_json NOT LIKE '%"providerUsageIncomplete":true%'))
+        THEN 1 ELSE 0 END) AS precise_request_count,
+      SUM(CASE WHEN total_tokens IS NULL
+        OR status IN ('provider_unknown', 'usage_unavailable', 'dispatched', 'reserved', 'partial')
+        OR usage_source = 'unavailable'
+        OR (skill_audit_json LIKE '%"provider_usage_incomplete":true%' OR skill_audit_json LIKE '%"providerUsageIncomplete":true%')
+        THEN 1 ELSE 0 END) AS usage_unavailable_count
       FROM token_usage WHERE user_email = ?`).get(email);
     const summary = buildUsageSummary([{ totalTokens: aggregate.total_tokens, promptTokens: aggregate.prompt_tokens, completionTokens: aggregate.completion_tokens, reasoningTokens: aggregate.reasoning_tokens, cachedTokens: aggregate.cached_tokens, cacheWriteTokens: aggregate.cache_write_tokens }]);
     summary.requestCount = Number(aggregate.request_count) || 0;
@@ -3743,8 +3767,16 @@ function getUsageSummariesByUser() {
       COALESCE(SUM(cached_tokens), 0) AS cached_tokens,
       COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
       COALESCE(SUM(total_tokens), 0) AS total_tokens,
-      SUM(CASE WHEN total_tokens IS NOT NULL THEN 1 ELSE 0 END) AS precise_request_count,
-      SUM(CASE WHEN total_tokens IS NULL THEN 1 ELSE 0 END) AS usage_unavailable_count
+      SUM(CASE WHEN total_tokens IS NOT NULL
+        AND status NOT IN ('provider_unknown', 'usage_unavailable', 'dispatched', 'reserved', 'partial')
+        AND (usage_source IS NULL OR usage_source <> 'unavailable')
+        AND (skill_audit_json IS NULL OR (skill_audit_json NOT LIKE '%"provider_usage_incomplete":true%' AND skill_audit_json NOT LIKE '%"providerUsageIncomplete":true%'))
+        THEN 1 ELSE 0 END) AS precise_request_count,
+      SUM(CASE WHEN total_tokens IS NULL
+        OR status IN ('provider_unknown', 'usage_unavailable', 'dispatched', 'reserved', 'partial')
+        OR usage_source = 'unavailable'
+        OR (skill_audit_json LIKE '%"provider_usage_incomplete":true%' OR skill_audit_json LIKE '%"providerUsageIncomplete":true%')
+        THEN 1 ELSE 0 END) AS usage_unavailable_count
       FROM token_usage GROUP BY user_email`).all().forEach(row => {
       out.set(row.user_email, usageSummaryFromAggregate(row));
     });
@@ -8748,6 +8780,16 @@ if (require.main === module) {
         postgresRuntimeLastWriteError = String(error && error.message || '跨实例刷新失败').slice(0, 500);
       });
     });
+    const admin = postgresRuntimeAdminUser();
+    if (admin && typeof postgresRepository.recoverInterruptedUsage === 'function') {
+      const leaseTtl = Number(process.env.MOLAN_DISPATCH_LEASE_TTL_MS) || DISPATCH_LEASE_TTL_MS;
+      await postgresRepository.recoverInterruptedUsage({
+        actorUserId: admin.userId,
+        instanceId: SERVER_INSTANCE_ID,
+        cutoff: Date.now() - leaseTtl
+      });
+    }
+    startCreditReservationReaper();
     console.log('🐘 PostgreSQL 目标仓储已就绪 → ' + String(info.database || 'configured'));
   };
   const lifecycle = require('./services/server-lifecycle-service').createServerLifecycleService({
@@ -8763,6 +8805,18 @@ if (require.main === module) {
     },
     preparePostgres,
     prepareLocal: async () => {
+    if (nativeJsonMode) {
+      const repo = appRepository();
+      if (!repo || typeof repo.recoverInterruptedUsage !== 'function') {
+        throw Object.assign(new Error('JSON 仓储缺少 recoverInterruptedUsage 实现，无法安全恢复中断用量'), { code: 'INTERRUPTED_USAGE_RECOVERY_BLOCKED' });
+      }
+      const leaseTtl = Number(process.env.MOLAN_DISPATCH_LEASE_TTL_MS) || DISPATCH_LEASE_TTL_MS;
+      await repo.recoverInterruptedUsage({
+        instanceId: SERVER_INSTANCE_ID,
+        cutoff: Date.now() - leaseTtl
+      });
+      startCreditReservationReaper();
+    }
     if (!nativeJsonMode && dbReady()) {
       recoverDissectionJobs();
       loadSessions();
@@ -8813,6 +8867,7 @@ module.exports = {
   recordTokenUsage,
   reserveCredits,
   settleTokenUsage,
+  recordDispatchAttempt,
   releaseStaleCreditReservations,
   createPasswordRecord,
   verifyPassword,
@@ -8823,6 +8878,8 @@ module.exports = {
   flushSessionsSync,
   saveUser,
   getUsageSummary,
+  globalUsageSummary,
+  getUsageSummariesByUser,
   reasoningEffortsForModel,
   canChooseModel,
   currentDefaultModel,

@@ -87,8 +87,17 @@ function createChatService({
   UPSTREAM_SSE_BUFFER_BYTES,
   UPSTREAM_QUALITY_SCAN_MAX_CHARS,
   UPSTREAM_TOTAL_TIMEOUT_MS,
-  LIVE_BILLING_EVENT_INTERVAL_MS
+  LIVE_BILLING_EVENT_INTERVAL_MS,
+  recordDispatchAttempt: customRecordDispatchAttempt
 }) {
+  const resolveDispatchAttemptRecorder = () => {
+    if (typeof customRecordDispatchAttempt === 'function') return customRecordDispatchAttempt;
+    const repo = typeof appRepository === 'function' ? appRepository() : appRepository;
+    if (repo && typeof repo.recordDispatchAttempt === 'function') {
+      return input => repo.recordDispatchAttempt(input);
+    }
+    return null;
+  };
   function handleChat(req, res, legacyGenerationHandoff = null) {
     // SaaS：必须登录，积分绑定到具体用户（未登录拒绝）
     const auth = getAuthUser(req);
@@ -503,7 +512,7 @@ function createChatService({
         releaseSlot();
         return json(res, 400, { error: '内部 Provider 请求幂等键格式无效', code: 'INVALID_IDEMPOTENCY_KEY' });
       }
-      const requestId = requestedRequestId || 'req_' + crypto.randomBytes(16).toString('hex');
+      const requestId = requestedRequestId || 'req_' + crypto.randomBytes(20).toString('hex');
       const requestPayloadHash = crypto.createHash('sha256').update(JSON.stringify(bodyObj), 'utf8').digest('hex');
       const existingReservation = await reserveCredits(auth.user, modelId, model, requestId, 0, skillAudit, requestPayloadHash, chatScope, { lookupOnly: true });
       if (!existingReservation.ok) {
@@ -563,9 +572,12 @@ function createChatService({
       let upstreamFinishReason = null;
       let providerRequestSent = false;
       let providerResponseReceived = false;
+      let attemptSeq = 0;
       let finalized = false;
       let upstreamRef = null;
       let responseClosed = false;
+      let dispatchPending = false;
+      let pendingAbortStatus = null;
       let keepAliveTimer = null;
       let requestDeadlineTimer = null;
       function cleanupKeepAlive() {
@@ -609,6 +621,7 @@ function createChatService({
         cleanupKeepAlive();
         if (responseClosed) return;
         responseClosed = true;
+        if (dispatchPending) return;
         if (!finalized) finalizeUsage('aborted');
         if (upstreamRef) { try { upstreamRef.destroy(); } catch (_) {} }
       }
@@ -841,6 +854,32 @@ function createChatService({
         return event;
       }
 
+      async function immediateReleaseReservation(reason) {
+        try {
+          if (typeof settleTokenUsage === 'function') {
+            const releaseEvent = {
+              requestId,
+              userId: auth.user.userId || (projectScope && projectScope.stableUserId ? projectScope.stableUserId(auth.user.email) : auth.user.email),
+              userEmail: auth.user.email,
+              projectId: chatScope && chatScope.projectId || '',
+              workspaceId: chatScope && chatScope.workspaceId || '',
+              modelId,
+              providerModel: model,
+              status: reason || 'dispatch_failed',
+              totalTokens: null,
+              providerRequestSent: false,
+              providerResponseReceived: false,
+              creditCost: 0,
+              reservedCost
+            };
+            const result = settleTokenUsage(releaseEvent);
+            if (result && typeof result.then === 'function') await result;
+          }
+        } catch (releaseErr) {
+          console.error('[chat] immediate reservation release failed:', releaseErr && releaseErr.message || releaseErr);
+        }
+      }
+
       req.on('aborted', () => {
         closeClientResponse();
       });
@@ -869,7 +908,11 @@ function createChatService({
       }
       function abortUpstreamRequest(status, code, message, httpStatus) {
         if (finalized || responseClosed) return;
-        // 先落账并释放并发槽，再销毁上游；否则 destroy 的 error 事件可能把超时误记成普通上游失败。
+        if (dispatchPending) {
+          responseClosed = true;
+          pendingAbortStatus = status;
+          return;
+        }
         finalizeUsage(status);
         if (upstreamRef) {
           try { upstreamRef.destroy(new Error(message)); } catch (_) {}
@@ -950,16 +993,18 @@ function createChatService({
         streamedOutputText = '';
         const secondBodyObj = buildSecondPassBody(firstPassText);
         sendUpstream(JSON.stringify(secondBodyObj), {
+          pass: 2,
+          stage: 'second_pass',
+          attemptId: `${requestId}_att_p2_1_${Date.now()}`,
           passthrough: true,
           fallbackBody: null,
           onStreamEnd: handleSecondPassEnd,
-          onError: () => {
-            // 第二遍失败：回退初稿全文，保证正文完整。
+          onError: errReason => {
             if (!streamedContentText.trim()) {
               streamedContentText = firstPassText;
               streamedOutputText = firstPassText;
               flushDraftAsSSE(firstPassText);
-              rewriteMeta = { applied: 'failed', reason: 'upstream_error', fallback: 'first_pass', firstPassScore: aiFlavorFirstPass.score };
+              rewriteMeta = { applied: 'failed', reason: errReason || 'upstream_error', fallback: 'first_pass', firstPassScore: aiFlavorFirstPass.score };
             }
             finalizeUsage('upstream_error');
           }
@@ -1003,13 +1048,123 @@ function createChatService({
         },
         onLine: (line, tail) => { parseStreamLine(line); if (!tail) sendBilling('streaming', false); }
       });
-      function sendUpstream(requestBody, opts) {
+      async function sendUpstream(requestBody, opts) {
         const options = opts || {};
+        const pass = options.pass || (secondPassActive ? 2 : 1);
+        const isRetry = Boolean(options.isRetry);
+        const retryCount = Number(options.retryCount || 0);
+        const defaultStage = pass === 2 ? 'second_pass' : (twoPassHumanize ? 'first_pass' : 'single_pass');
+        const stage = options.stage || (isRetry ? `${defaultStage}_cache_retry` : defaultStage);
+        const attemptId = options.attemptId || `${requestId}_att_p${pass}_seq${++attemptSeq}_${Date.now()}`;
         const passthrough = options.passthrough !== false;
         const fallbackBody = Object.prototype.hasOwnProperty.call(options, 'fallbackBody') ? options.fallbackBody : cacheFallbackBodyObj;
         const onStreamEnd = options.onStreamEnd || (() => finalizeUsage('completed'));
         const onUpstreamError = options.onError || null;
-        openUpstream(targetURL, effectiveProxy, {
+
+        const recordDispatch = resolveDispatchAttemptRecorder();
+        if (typeof recordDispatch !== 'function') {
+          console.error('[chat] missing dispatch attempt recorder, failing closed');
+          if (pass === 2 || providerRequestSent) {
+            if (onUpstreamError) onUpstreamError('dispatch_recorder_missing');
+            else finalizeUsage('upstream_error');
+            return;
+          }
+          await immediateReleaseReservation('dispatch_recorder_missing');
+          cleanupRequestDeadline();
+          releaseSlot();
+          if (!responseClosed && !res.headersSent && !res.writableEnded && !res.destroyed) {
+            json(res, 500, {
+              error: '缺少派发记录器或仓储方法，已中止模型调用',
+              code: 'DISPATCH_RECORDER_REQUIRED'
+            });
+          }
+          return;
+        }
+
+        let recordResult;
+        dispatchPending = true;
+        try {
+          recordResult = await recordDispatch({
+            userId: auth.user.userId || (projectScope && projectScope.stableUserId ? projectScope.stableUserId(auth.user.email) : auth.user.email),
+            userEmail: auth.user.email,
+            projectId: chatScope && chatScope.projectId || '',
+            workspaceId: chatScope && chatScope.workspaceId || '',
+            requestId,
+            attemptId,
+            modelId,
+            providerModel: model,
+            pass,
+            stage,
+            reservedCost,
+            leaseMs: Math.max(120000, (UPSTREAM_TOTAL_TIMEOUT_MS || 0) + 30000)
+          });
+        } catch (dispatchErr) {
+          dispatchPending = false;
+          console.error(`[chat] pass ${pass} dispatch boundary persistence failed:`, dispatchErr && dispatchErr.message || dispatchErr);
+          if (pass === 2 || providerRequestSent) {
+            if (onUpstreamError) onUpstreamError('dispatch_persistence_failed');
+            else finalizeUsage('upstream_error');
+            return;
+          }
+          await immediateReleaseReservation('dispatch_persistence_failed');
+          cleanupRequestDeadline();
+          releaseSlot();
+          if (!responseClosed && !res.headersSent && !res.writableEnded && !res.destroyed) {
+            json(res, 500, {
+              error: '派发边界持久化失败，已中止模型调用',
+              code: 'DISPATCH_PERSISTENCE_FAILED'
+            });
+          }
+          return;
+        } finally {
+          dispatchPending = false;
+        }
+
+        if (finalized || responseClosed) {
+          cleanupRequestDeadline();
+          releaseSlot();
+          if (pass === 2 || providerRequestSent) {
+            if (onUpstreamError) onUpstreamError('aborted_during_dispatch');
+            else if (!finalized) finalizeUsage(pendingAbortStatus || 'aborted');
+          } else {
+            if (!finalized) finalizeUsage(pendingAbortStatus || 'aborted');
+          }
+          if (!res.headersSent && !res.writableEnded && !res.destroyed) {
+            json(res, pendingAbortStatus === 'upstream_timeout' ? 504 : 499, {
+              error: pendingAbortStatus === 'upstream_timeout' ? '上游模型请求超过服务端总时限' : '客户端已取消请求',
+              code: pendingAbortStatus || 'client_closed',
+              requestId
+            });
+          }
+          return;
+        }
+
+        if (!recordResult || recordResult.ok !== true || recordResult.authorized === false ||
+            recordResult.status === 'settled' || recordResult.status === 'released' ||
+            recordResult.duplicate === true) {
+          console.error(`[chat] dispatch attempt rejected:`, recordResult);
+          if (pass === 2 || providerRequestSent) {
+            if (onUpstreamError) onUpstreamError('dispatch_unauthorized');
+            else finalizeUsage('upstream_error');
+            return;
+          }
+          if (!recordResult || recordResult.status !== 'settled') {
+            await immediateReleaseReservation('dispatch_unauthorized');
+          }
+          cleanupRequestDeadline();
+          releaseSlot();
+          if (!responseClosed && !res.headersSent && !res.writableEnded && !res.destroyed) {
+            json(res, 409, {
+              error: '派发未获授权或已被处理，已中止模型调用',
+              code: recordResult && recordResult.duplicate ? 'DUPLICATE_DISPATCH_ATTEMPT' : 'DISPATCH_UNAUTHORIZED'
+            });
+          }
+          return;
+        }
+
+        if (finalized || responseClosed) return;
+        try {
+          openUpstream(targetURL, effectiveProxy, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey,
@@ -1026,7 +1181,13 @@ function createChatService({
               upRes.on('end', () => {
                 if (!cacheFallbackAttempted && fallbackBody && isUnsupportedCacheError(upRes.statusCode, errorText)) {
                   cacheFallbackAttempted = true;
-                  sendUpstream(JSON.stringify(fallbackBody), options);
+                  sendUpstream(JSON.stringify(fallbackBody), {
+                    ...options,
+                    isRetry: true,
+                    retryCount: retryCount + 1,
+                    stage: `${stage}_cache_retry`,
+                    attemptId: `${requestId}_att_p${pass}_retry_${retryCount + 1}_${Date.now()}`
+                  });
                   return;
                 }
                 const upstreamMessage = upstreamErrorMessage(upRes.statusCode, errorText);
@@ -1132,13 +1293,31 @@ function createChatService({
           upstream.once('finish', () => { providerRequestSent = true; });
           upstream.write(requestBody); upstream.end();
         });
+      } catch (syncErr) {
+        console.error('[chat] synchronous openUpstream throw:', syncErr && syncErr.message || syncErr);
+        if (pass === 2 || providerRequestSent) {
+          if (onUpstreamError) onUpstreamError('upstream_sync_throw');
+          else finalizeUsage('upstream_error');
+          return;
+        }
+        finalizeUsage('upstream_error');
+        cleanupRequestDeadline();
+        releaseSlot();
+        if (!responseClosed && !res.headersSent && !res.writableEnded && !res.destroyed) {
+          json(res, 502, { error: '上游调用同步异常：' + (syncErr && syncErr.message || syncErr) });
+        }
+        return;
       }
+    }
       requestDeadlineTimer = setTimeout(() => {
         abortUpstreamRequest('upstream_timeout', 'upstream_timeout', '上游模型请求超过服务端总时限', 504);
       }, UPSTREAM_TOTAL_TIMEOUT_MS);
       requestDeadlineTimer.unref();
       // 两遍模式：第一遍缓冲不透传，流结束后按 AI 味检测结果决定下发初稿或触发改写遍。
-      sendUpstream(body, twoPassHumanize ? { passthrough: false, onStreamEnd: handleFirstPassEnd } : undefined);
+      sendUpstream(body, twoPassHumanize
+        ? { pass: 1, stage: 'first_pass', attemptId: `${requestId}_att_p1_1_${Date.now()}`, passthrough: false, onStreamEnd: handleFirstPassEnd }
+        : { pass: 1, stage: 'single_pass', attemptId: `${requestId}_att_p1_1_${Date.now()}` }
+      );
     }).catch(e => {
       releaseSlot();
       console.error('[chat] request failed:', e && e.stack || e);

@@ -4259,6 +4259,89 @@ function createPostgresRepository(options = {}) {
     });
   }
 
+  function hasValidExactTokenCount(value) {
+    if (value === null || value === undefined || typeof value === 'boolean') return false;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '' || !/^\d+$/.test(trimmed)) return false;
+      const n = Number(trimmed);
+      return Number.isSafeInteger(n) && n >= 0;
+    }
+    if (typeof value === 'number') {
+      return Number.isSafeInteger(value) && value >= 0;
+    }
+    return false;
+  }
+
+  async function runtimeRecordDispatchAttempt(input = {}) {
+    const actorUserId = normalizeLegacyId(input.actorUserId || input.userId, 'actorUserId');
+    const requestId = String(input.requestId || '').trim();
+    if (!requestId) throw repositoryError('invalid_dispatch_attempt', '派发边界缺少 request_id', 422);
+    const pass = Number(input.pass) || 1;
+    const stage = String(input.stage || (pass === 1 ? 'first_pass' : 'second_pass'));
+    const attemptId = String(input.attemptId || input.attempt_id || '').trim();
+    return withTransaction(actorUserId, async client => {
+      const existing = await client.query(
+        `SELECT document FROM luna.runtime_dissection_rows
+         WHERE owner_actor_id = luna.actor_id() AND source_table = 'token_usage'
+           AND row_key = $1::text AND deleted_at IS NULL
+         FOR UPDATE`, [requestId]
+      );
+      if (!existing.rows.length) {
+        throw repositoryError('reservation_not_found', '费用预占不存在，无法记录派发边界', 404);
+      }
+      const current = parseJsonDocument(existing.rows[0].document) || {};
+      const currentStatus = String(current.status || '');
+      if (currentStatus === 'settled' || currentStatus === 'succeeded' || currentStatus === 'completed' || (current.credit_cost != null && currentStatus !== 'reserved' && currentStatus !== 'dispatched')) {
+        return { ok: false, authorized: false, status: 'settled', rejected: true, code: 'RESERVATION_ALREADY_SETTLED', idempotent: true };
+      }
+      if (currentStatus === 'released' || currentStatus === 'aborted') {
+        return { ok: false, authorized: false, status: currentStatus, rejected: true, code: 'RESERVATION_ALREADY_RELEASED', idempotent: true };
+      }
+      if (currentStatus === 'provider_unknown') {
+        return { ok: false, authorized: false, status: 'provider_unknown', rejected: true, code: 'RESERVATION_PROVIDER_UNKNOWN', idempotent: true, attempts: current.dispatch_attempts || [] };
+      }
+      const attempts = Array.isArray(current.dispatch_attempts) ? [...current.dispatch_attempts] : [];
+      if (attemptId && attempts.some(a => (a.attemptId === attemptId || a.attempt_id === attemptId))) {
+        return { ok: false, authorized: false, duplicate: true, status: currentStatus, attempts, idempotent: true };
+      }
+      const newAttemptId = attemptId || `${requestId}_att_${pass}_${attempts.length + 1}`;
+      const leaseMs = Number(input.leaseMs) || 120000;
+      const leaseUntil = Number(input.leaseUntil) || (Date.now() + leaseMs);
+      const attempt = {
+        attemptId: newAttemptId,
+        attempt_id: newAttemptId,
+        pass,
+        stage,
+        dispatched_at: new Date().toISOString(),
+        lease_until: leaseUntil,
+        model_id: input.modelId || current.model_id || '',
+        provider_model: input.providerModel || current.provider_model || ''
+      };
+      attempts.push(attempt);
+      const nextStatus = currentStatus === 'reserved' ? 'dispatched' : currentStatus;
+      const nextDocument = {
+        ...current,
+        status: nextStatus,
+        dispatched: true,
+        lease_until: leaseUntil,
+        instance_id: input.instanceId || '',
+        dispatch_attempts: attempts,
+        updated_at: Date.now()
+      };
+      const hash = jsonHash(nextDocument);
+      await client.query(
+        `UPDATE luna.runtime_dissection_rows
+         SET document = $2::jsonb, row_sha256 = $3::text, value_sha256 = $3::text, updated_at = now()
+         WHERE owner_actor_id = luna.actor_id() AND source_table = 'token_usage'
+           AND row_key = $1::text`,
+        [requestId, JSON.stringify(nextDocument), hash]
+      );
+      await notifyRuntimeChanged(client, 'token-dispatched', requestId);
+      return { ok: true, authorized: true, pass, stage, status: nextStatus, attemptId: newAttemptId, attempts, idempotent: false };
+    });
+  }
+
   /** 在 PG 同一事务内结算或释放 token 预占，并保存完整用量行。 */
   async function runtimeSettleTokenUsage(input) {
     const actorUserId = normalizeLegacyId(input.actorUserId || input.userId, 'actorUserId');
@@ -4282,7 +4365,7 @@ function createPostgresRepository(options = {}) {
         if (currentStatus === 'provider_unknown' && input.holdReservation === true) {
           return { recorded: false, creditCost: null, status: currentStatus, billingStatus: 'pending', document: current };
         }
-        if (currentStatus === 'reserved' && input.holdReservation === true) {
+        if ((currentStatus === 'reserved' || currentStatus === 'dispatched') && input.holdReservation === true) {
           const pendingDocument = {
             ...current,
             ...document,
@@ -4303,12 +4386,13 @@ function createPostgresRepository(options = {}) {
           await notifyRuntimeChanged(client, 'token-provider-unknown', requestId);
           return { recorded: true, creditCost: null, status: 'provider_unknown', billingStatus: 'pending', document: pendingDocument };
         }
-        const hasExactUsage = Number.isSafeInteger(document.total_tokens) &&
-          document.total_tokens >= 0 && document.provider_usage_incomplete !== true;
-        if (currentStatus === 'provider_unknown' && !hasExactUsage) {
+        const rawTokens = document.total_tokens !== undefined ? document.total_tokens : document.totalTokens;
+        const isIncomplete = Boolean(document.provider_usage_incomplete === true || document.providerUsageIncomplete === true);
+        const hasExactUsage = hasValidExactTokenCount(rawTokens) && !isIncomplete;
+        if ((currentStatus === 'provider_unknown' || currentStatus === 'dispatched') && !hasExactUsage) {
           return { recorded: false, creditCost: null, status: currentStatus, billingStatus: 'pending', document: current };
         }
-        if (currentStatus !== 'reserved' && currentStatus !== 'provider_unknown') {
+        if (currentStatus !== 'reserved' && currentStatus !== 'provider_unknown' && currentStatus !== 'dispatched') {
           return {
             recorded: false,
             creditCost: current.credit_cost == null ? null : Number(current.credit_cost),
@@ -4360,6 +4444,8 @@ function createPostgresRepository(options = {}) {
   async function runtimeReleaseStaleTokenUsage(input = {}) {
     const actorUserId = normalizeLegacyId(input.actorUserId, 'actorUserId');
     const cutoff = Number(input.cutoff) || Date.now();
+    const callerInstanceId = String(input.instanceId || '').trim();
+    const now = Date.now();
     return withTransaction(actorUserId, async client => {
       const result = await client.query(
         `SELECT owner_actor_id, owner_user_id, row_key, document
@@ -4370,8 +4456,29 @@ function createPostgresRepository(options = {}) {
       let released = 0;
       for (const row of result.rows) {
         const document = parseJsonDocument(row.document) || {};
+        const rowTime = Number(document.updated_at || document.created_at || 0);
+        if (!(rowTime > 0) || rowTime >= cutoff) continue;
+        if (String(document.status || '') === 'dispatched') {
+          const leaseUntil = Number(document.lease_until || document.leaseUntil || 0);
+          const isOtherInstance = Boolean(document.instance_id && (!callerInstanceId || document.instance_id !== callerInstanceId));
+          if (isOtherInstance && leaseUntil > now) continue;
+          if (document.instance_id && leaseUntil > now) continue;
+          const next = {
+            ...document,
+            status: 'provider_unknown',
+            credit_cost: null,
+            provider_unknown_diagnostic: 'recovered_from_stale_dispatch'
+          };
+          const hash = jsonHash(next);
+          await client.query(
+            `UPDATE luna.runtime_dissection_rows
+             SET document = $3::jsonb, row_sha256 = $4::text, value_sha256 = $4::text, updated_at = now()
+             WHERE owner_actor_id = $1::uuid AND source_table = 'token_usage' AND row_key = $2::text`,
+            [String(row.owner_actor_id || ''), String(row.row_key || ''), JSON.stringify(next), hash]
+          );
+          continue;
+        }
         if (String(document.status || '') !== 'reserved') continue;
-        if (!(Number(document.created_at) > 0) || Number(document.created_at) >= cutoff) continue;
         const reserved = Math.max(0, Number(document.reserved_cost) || 0);
         if (reserved) {
           await client.query(
@@ -4392,6 +4499,49 @@ function createPostgresRepository(options = {}) {
       }
       if (released) await notifyRuntimeChanged(client, 'token-stale-released', String(released));
       return released;
+    });
+  }
+
+  async function runtimeRecoverInterruptedUsage(input = {}) {
+    const actorUserId = normalizeLegacyId(input.actorUserId || input.userId, 'actorUserId');
+    const cutoff = input.cutoff !== undefined && input.cutoff !== null ? Number(input.cutoff) : null;
+    const callerInstanceId = String(input.instanceId || '').trim();
+    const now = Date.now();
+    return withTransaction(actorUserId, async client => {
+      const result = await client.query(
+        `SELECT owner_actor_id, owner_user_id, row_key, document
+         FROM luna.runtime_dissection_rows
+         WHERE source_table = 'token_usage' AND deleted_at IS NULL
+         FOR UPDATE`
+      );
+      let recovered = 0;
+      for (const row of result.rows) {
+        const document = parseJsonDocument(row.document) || {};
+        if (String(document.status || '') !== 'dispatched') continue;
+        const rowTime = Number(document.updated_at || document.created_at || 0);
+        const leaseUntil = Number(document.lease_until || document.leaseUntil || 0);
+        const isOtherInstance = Boolean(document.instance_id && (!callerInstanceId || document.instance_id !== callerInstanceId));
+        if (isOtherInstance && leaseUntil > now) continue;
+        if (isOtherInstance && cutoff !== null && rowTime > 0 && rowTime >= cutoff) continue;
+        if (leaseUntil > now && !isOtherInstance && cutoff !== null && rowTime > 0 && rowTime >= cutoff) continue;
+        if (cutoff !== null && rowTime > 0 && rowTime >= cutoff) continue;
+        const next = {
+          ...document,
+          status: 'provider_unknown',
+          credit_cost: null,
+          provider_unknown_diagnostic: 'recovered_from_interruption'
+        };
+        const hash = jsonHash(next);
+        await client.query(
+          `UPDATE luna.runtime_dissection_rows
+           SET document = $3::jsonb, row_sha256 = $4::text, value_sha256 = $4::text, updated_at = now()
+           WHERE owner_actor_id = $1::uuid AND source_table = 'token_usage' AND row_key = $2::text`,
+          [String(row.owner_actor_id || ''), String(row.row_key || ''), JSON.stringify(next), hash]
+        );
+        recovered += 1;
+      }
+      if (recovered) await notifyRuntimeChanged(client, 'token-interrupted-recovered', String(recovered));
+      return { recovered };
     });
   }
 
@@ -5598,8 +5748,12 @@ function createPostgresRepository(options = {}) {
     runtimeUpdateAccountProfile,
     runtimeAdjustCredits,
     runtimeReserveTokenUsage,
+    runtimeRecordDispatchAttempt,
+    recordDispatchAttempt: runtimeRecordDispatchAttempt,
     runtimeSettleTokenUsage,
     runtimeReleaseStaleTokenUsage,
+    runtimeRecoverInterruptedUsage,
+    recoverInterruptedUsage: runtimeRecoverInterruptedUsage,
     runtimeListUserSkills,
     runtimeReplaceUserSkills,
     runtimeListGlobalSkills,
