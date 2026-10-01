@@ -14,6 +14,46 @@ const key = (kind, id) => `creation-${kind}:${id}`;
 const INDEX = '__molan_creation_index_v1__';
 const OWNER_BOOK_SCOPE = 'owner-book';
 const ownerBookScope = (userId, bookId) => `__molan_creation_owner_v1_${hash(JSON.stringify([userId, bookId]))}`;
+const TERMINAL_GENERATION_STATES = new Set([
+  'completed', 'committed', 'failed', 'cancelled', 'canceled', 'aborted', 'expired'
+]);
+function recordsMatch(a, b) {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const { revision: _ra, ...cleanA } = a;
+  const { revision: _rb, ...cleanB } = b;
+  return JSON.stringify(cleanA) === JSON.stringify(cleanB);
+}
+function runMatchesBook(run, targetBookId) {
+  if (!run || typeof run !== 'object') return false;
+  const candidates = [
+    run.request?.creationBookId,
+    run.request?.bookId,
+    run.request?.creation_book_id,
+    run.creationBookId,
+    run.bookId,
+    run.manifest?.creationBookId,
+    run.manifest?.bookId,
+    run.manifest?.request?.creationBookId,
+    run.manifest?.request?.bookId,
+    run.request?.storyContext?.creationBookId,
+    run.request?.storyContext?.bookId,
+    run.request?.chapterContext?.creationBookId,
+    run.request?.chapterContext?.bookId
+  ];
+  return candidates.some(val => val != null && String(val).trim() === targetBookId);
+}
+function isRunActive(run, now = Date.now()) {
+  if (!run || typeof run !== 'object') return false;
+  const state = String(run.state || '').trim().toLowerCase();
+  if (TERMINAL_GENERATION_STATES.has(state)) {
+    if (run.leaseUntil && Number(run.leaseUntil) > now && run.finishedAt == null) {
+      return true;
+    }
+    return false;
+  }
+  return true;
+}
 function fail(code, status = 409) { throw Object.assign(new Error(code), { code, status, statusCode: status }); }
 function integer(value) { return Number.isSafeInteger(value) && value >= 0; }
 function identifier(value) { if (typeof value !== 'string' || !value.trim() || value.length > 256) fail('INVALID_ID', 422); return value; }
@@ -38,7 +78,7 @@ class JsonCreationRepository {
     identifier(input.userId);
     const project = tx.get(input.projectId, 'novels', input.projectId);
     const member = project?.members?.[input.userId];
-    if (project?.kind !== 'novel' || project.status !== 'active' || !member?.active ||
+    if (project?.kind !== 'novel' || project.status !== 'active' || project.deleted || !member?.active ||
         input.workspaceId && input.workspaceId !== project.workspaceId) fail('FORBIDDEN', 403);
     const access = { project_id: project.id, workspace_id: project.workspaceId,
       user_id: input.userId, role: member.role, active: 1 };
@@ -57,12 +97,14 @@ class JsonCreationRepository {
           index.ownerUserId !== input.userId || index.storageScope !== expectedScope) fail('BOOK_NOT_FOUND', 404);
       const row = tx.get(expectedScope, 'novels', key('book', input.bookId));
       if (row?.kind !== 'creation-book' || row.scopeKind !== OWNER_BOOK_SCOPE || row.ownerUserId !== input.userId ||
-          row.storageScope !== expectedScope) fail('BOOK_NOT_FOUND', 404);
+          row.storageScope !== expectedScope || row.deleted || row.status === 'deleted') fail('BOOK_NOT_FOUND', 404);
+      if (write && (row.readOnly || row.readonly || row.isReadOnly || row.status === 'archived' || row.status === 'read_only' || row.status === 'readonly')) fail('FORBIDDEN', 403);
       return { project: null, row };
     }
     const project = this.access(tx, input, write);
     const row = tx.get(input.projectId, 'novels', key('book', input.bookId));
-    if (row?.kind !== 'creation-book' || row.projectId !== project.id || row.workspaceId !== project.workspaceId) fail('BOOK_NOT_FOUND', 404);
+    if (row?.kind !== 'creation-book' || row.projectId !== project.id || row.workspaceId !== project.workspaceId || row.deleted || row.status === 'deleted') fail('BOOK_NOT_FOUND', 404);
+    if (write && (row.readOnly || row.readonly || row.isReadOnly || row.status === 'archived' || row.status === 'read_only' || row.status === 'readonly')) fail('FORBIDDEN', 403);
     return { project, row };
   }
 
@@ -158,6 +200,306 @@ class JsonCreationRepository {
     });
   }
 
+  async linkNovel(input) {
+    identifier(input.userId);
+    const bookId = identifier(input.bookId || input.id);
+    const targetProjectId = String(input.targetProjectId || input.novelId || input.projectId || '').trim();
+    if (!/^n_[A-Za-z0-9]{1,30}$/.test(targetProjectId)) fail('INVALID_NOVEL_ID', 400);
+    const targetWorkspaceId = String(input.targetWorkspaceId || input.workspaceId || '').trim();
+
+    const index = await this.repository.novels.get(INDEX, key('book', bookId));
+    if (index?.kind !== 'creation-book-index') fail('BOOK_NOT_FOUND', 404);
+
+    if (index.projectId) {
+      const sourceProjectId = index.projectId;
+      return this.repository.transaction([INDEX, sourceProjectId], tx => {
+        const currentIndex = tx.get(INDEX, 'novels', key('book', bookId));
+        if (currentIndex?.kind !== 'creation-book-index' || currentIndex.projectId !== sourceProjectId) {
+          fail('BOOK_NOT_FOUND', 404);
+        }
+        let sourceProject;
+        try {
+          sourceProject = this.access(tx, { userId: input.userId, projectId: sourceProjectId }, true);
+        } catch {
+          fail('BOOK_NOT_FOUND', 404);
+        }
+        if (!sourceProject || sourceProject.kind !== 'novel' || sourceProject.status !== 'active' || sourceProject.deleted) {
+          fail('BOOK_NOT_FOUND', 404);
+        }
+        const row = tx.get(sourceProjectId, 'novels', key('book', bookId));
+        if (!row || row.kind !== 'creation-book' || row.projectId !== sourceProjectId || row.deleted || row.status === 'deleted') {
+          fail('BOOK_NOT_FOUND', 404);
+        }
+        if (row.readOnly || row.readonly || row.isReadOnly || row.status === 'archived' || row.status === 'read_only' || row.status === 'readonly') {
+          fail('BOOK_NOT_FOUND', 404, '只读创作书不可关联');
+        }
+        if (sourceProjectId === targetProjectId) {
+          if (targetWorkspaceId && targetWorkspaceId !== sourceProject.workspaceId) {
+            fail('BOOK_NOT_FOUND', 404);
+          }
+          const bible = tx.get(sourceProjectId, 'novels', key('bible', bookId));
+          const bibleVersion = bible?.version ?? row.bibleVersion ?? 1;
+          return { ok: true, book: { ...publicBook(row), bibleVersion }, idempotent: true };
+        }
+        fail('ALREADY_LINKED', 409, '创作书已关联其他小说项目，不支持重新关联');
+      });
+    }
+
+    if (index.scopeKind !== OWNER_BOOK_SCOPE || index.ownerUserId !== input.userId ||
+        index.storageScope !== ownerBookScope(input.userId, bookId)) {
+      fail('BOOK_NOT_FOUND', 404);
+    }
+    const sourceStorageScope = index.storageScope;
+
+    return this.repository.transaction([INDEX, sourceStorageScope, targetProjectId], tx => {
+      const currentIndex = tx.get(INDEX, 'novels', key('book', bookId));
+      if (currentIndex?.kind !== 'creation-book-index') {
+        fail('BOOK_NOT_FOUND', 404);
+      }
+      if (currentIndex.projectId) {
+        if (currentIndex.projectId === targetProjectId) {
+          let targetProject;
+          try {
+            targetProject = this.access(tx, { userId: input.userId, projectId: targetProjectId, workspaceId: targetWorkspaceId }, true);
+          } catch (error) {
+            if (error.code === 'FORBIDDEN' || error.code === 'PROJECT_NOT_FOUND') fail('FORBIDDEN', 404);
+            throw error;
+          }
+          if (!targetProject || targetProject.kind !== 'novel' || targetProject.status !== 'active' || targetProject.deleted) {
+            fail('PROJECT_NOT_FOUND', 404);
+          }
+          const row = tx.get(targetProjectId, 'novels', key('book', bookId));
+          if (!row || row.kind !== 'creation-book' || row.projectId !== targetProjectId || row.deleted || row.status === 'deleted') {
+            fail('BOOK_NOT_FOUND', 404);
+          }
+          if (row.readOnly || row.readonly || row.isReadOnly || row.status === 'archived' || row.status === 'read_only' || row.status === 'readonly') {
+            fail('FORBIDDEN', 404, '只读创作书不可关联');
+          }
+          const bible = tx.get(targetProjectId, 'novels', key('bible', bookId));
+          const bibleVersion = bible?.version ?? row.bibleVersion ?? 1;
+          return { ok: true, book: { ...publicBook(row), bibleVersion }, idempotent: true };
+        }
+        fail('ALREADY_LINKED', 409, '创作书已关联其他小说项目，不支持重新关联');
+      }
+      if (currentIndex.scopeKind !== OWNER_BOOK_SCOPE || currentIndex.ownerUserId !== input.userId ||
+          currentIndex.storageScope !== sourceStorageScope) {
+        fail('BOOK_NOT_FOUND', 404);
+      }
+
+      const sourceBook = tx.get(sourceStorageScope, 'novels', key('book', bookId));
+      if (!sourceBook || sourceBook.kind !== 'creation-book' || sourceBook.ownerUserId !== input.userId ||
+          sourceBook.storageScope !== sourceStorageScope || sourceBook.deleted || sourceBook.status === 'deleted') {
+        fail('BOOK_NOT_FOUND', 404);
+      }
+      if (sourceBook.status === 'migrated') {
+        fail('ALREADY_LINKED', 409, '创作书已关联其他小说项目，不支持重新关联');
+      }
+      if (sourceBook.readOnly || sourceBook.readonly || sourceBook.isReadOnly ||
+          sourceBook.status === 'archived' || sourceBook.status === 'read_only' || sourceBook.status === 'readonly') {
+        fail('FORBIDDEN', 404, '只读创作书不可关联');
+      }
+
+      const sourceBible = tx.get(sourceStorageScope, 'novels', key('bible', bookId));
+      if (!sourceBible || sourceBible.kind !== 'creation-bible' || sourceBible.deleted || sourceBible.status === 'deleted') {
+        fail('BIBLE_NOT_FOUND', 404);
+      }
+
+      let targetProject;
+      try {
+        targetProject = this.access(tx, { userId: input.userId, projectId: targetProjectId, workspaceId: targetWorkspaceId }, true);
+      } catch (error) {
+        if (error.code === 'FORBIDDEN' || error.code === 'PROJECT_NOT_FOUND') fail('FORBIDDEN', 404);
+        throw error;
+      }
+      if (!targetProject || targetProject.kind !== 'novel' || targetProject.status !== 'active' || targetProject.deleted) {
+        fail('PROJECT_NOT_FOUND', 404);
+      }
+
+      if (tx.get(targetProjectId, 'novels', key('book', bookId)) || tx.get(targetProjectId, 'novels', key('bible', bookId))) {
+        fail('CREATION_BOOK_CONFLICT', 409);
+      }
+
+      const now = this.now();
+
+      const bookActivity = String(sourceBook.activityStatus || '').trim().toLowerCase();
+      if (bookActivity && bookActivity !== 'idle' && !TERMINAL_GENERATION_STATES.has(bookActivity)) {
+        fail('CREATION_JOB_ACTIVE', 409, '创作任务运行中，完成或对账后才能关联小说');
+      }
+
+      const targetRuns = tx.list(targetProjectId, 'generation');
+      const hasActiveTargetRun = targetRuns.some(run => runMatchesBook(run, bookId) && isRunActive(run, now));
+      if (hasActiveTargetRun) {
+        fail('CREATION_JOB_ACTIVE', 409, '创作任务运行中，完成或对账后才能关联小说');
+      }
+
+      const sourceRuns = tx.list(sourceStorageScope, 'generation');
+      if (sourceRuns.some(sourceRun => isRunActive(sourceRun, now))) {
+        fail('CREATION_JOB_ACTIVE', 409, '创作任务运行中，完成或对账后才能关联小说');
+      }
+      if (sourceRuns.length > 0) {
+        fail('CREATION_HISTORY_MIGRATION_REQUIRED', 409, '来源存在生成历史记录，无法完整保留请求签名与回执路径，不支持直接关联');
+      }
+
+      const hasSourceCommitReceipt = tx.list(sourceStorageScope, 'ledger').some(ledgerRow =>
+        ledgerRow && ledgerRow.kind === 'creation-commit-receipt'
+      );
+      if (hasSourceCommitReceipt) {
+        fail('CREATION_HISTORY_MIGRATION_REQUIRED', 409, '来源存在生成历史记录，无法完整保留请求签名与回执路径，不支持直接关联');
+      }
+
+      for (const row of tx.list(sourceStorageScope, 'novels')) {
+        if (row && (row.bookId === bookId || row.creationBookId === bookId)) {
+          if (row.kind === 'creation-book' || row.kind === 'creation-bible') continue;
+          const existing = tx.get(targetProjectId, 'novels', row.id);
+          if (existing) {
+            if (!recordsMatch(existing, row)) {
+              fail('ID_CONFLICT', 409);
+            }
+          } else {
+            tx.put(targetProjectId, 'novels', clone(row), 0);
+          }
+        }
+      }
+
+      const EXCLUDED_LEDGER_KINDS = new Set([
+        'creation-link-source',
+        'creation-link-evidence',
+        'usage-settlement',
+        'usage-pending',
+        'credit-adjustment',
+        'usage-dispatch',
+        'creation-commit-receipt'
+      ]);
+      const sourceLedger = tx.list(sourceStorageScope, 'ledger').filter(row =>
+        row && (row.bookId === bookId || row.creationBookId === bookId || row.payload?.creationBookId === bookId) &&
+        !EXCLUDED_LEDGER_KINDS.has(row.kind)
+      );
+      for (const row of sourceLedger) {
+        const existing = tx.get(targetProjectId, 'ledger', row.id);
+        if (existing) {
+          if (!recordsMatch(existing, row)) {
+            fail('ID_CONFLICT', 409);
+          }
+        } else {
+          tx.put(targetProjectId, 'ledger', clone(row), 0);
+        }
+      }
+
+      const {
+        kind: _k,
+        revision: _rev,
+        scopeKind: _sk,
+        storageScope: _ss,
+        linkedProjectId: _lp,
+        linkedWorkspaceId: _lw,
+        targetStorageScope: _ts,
+        deleted: _del,
+        ...extraBookFields
+      } = sourceBook;
+
+      const targetBook = tx.put(targetProjectId, 'novels', {
+        ...clone(extraBookFields),
+        id: key('book', bookId),
+        kind: 'creation-book',
+        bookId: sourceBook.bookId,
+        title: String(sourceBook.title || targetProject.title || '').slice(0, 120),
+        novelId: targetProject.id,
+        projectId: targetProject.id,
+        workspaceId: targetProject.workspaceId,
+        ownerUserId: sourceBook.ownerUserId,
+        bibleId: sourceBook.bibleId,
+        bibleVersion: sourceBible.version,
+        sourceBriefId: String(sourceBook.sourceBriefId || ''),
+        currentStateVersion: Number(sourceBook.currentStateVersion || 0),
+        currentChapterNo: Number(sourceBook.currentChapterNo || 0),
+        status: sourceBook.status || 'draft',
+        budgetLimit: Number(sourceBook.budgetLimit || 0),
+        spentCost: Number(sourceBook.spentCost || 0),
+        plan: clone(sourceBook.plan || {}),
+        sourceStorageScope,
+        createdAt: sourceBook.createdAt,
+        updatedAt: now
+      }, 0);
+
+      tx.put(targetProjectId, 'novels', {
+        id: key('bible', bookId),
+        kind: 'creation-bible',
+        bookId: sourceBook.bookId,
+        bibleId: sourceBible.bibleId,
+        version: sourceBible.version,
+        payload: clone(sourceBible.payload),
+        payloadHash: sourceBible.payloadHash || hash(JSON.stringify(sourceBible.payload)),
+        updatedAt: now
+      }, 0);
+
+      tx.put(targetProjectId, 'ledger', {
+        id: `creation_link_target_${bookId}_${now}`,
+        kind: 'creation-link-evidence',
+        bookId,
+        bibleId: sourceBook.bibleId,
+        sourceStorageScope,
+        sourceOwnerUserId: sourceBook.ownerUserId,
+        targetProjectId: targetProject.id,
+        targetWorkspaceId: targetProject.workspaceId,
+        actorUserId: input.userId,
+        bibleVersion: sourceBible.version,
+        stateVersion: Number(sourceBook.currentStateVersion || 0),
+        spentCost: Number(sourceBook.spentCost || 0),
+        createdAt: now
+      }, 0);
+
+      tx.put(sourceStorageScope, 'ledger', {
+        id: `creation_link_source_${bookId}_${now}`,
+        kind: 'creation-link-source',
+        bookId,
+        bibleId: sourceBook.bibleId,
+        targetProjectId: targetProject.id,
+        targetWorkspaceId: targetProject.workspaceId,
+        actorUserId: input.userId,
+        spentCost: Number(sourceBook.spentCost || 0),
+        createdAt: now
+      }, 0);
+
+      tx.put(sourceStorageScope, 'novels', {
+        ...sourceBook,
+        status: 'migrated',
+        linkedProjectId: targetProject.id,
+        linkedWorkspaceId: targetProject.workspaceId,
+        targetStorageScope: targetProject.id,
+        updatedAt: now
+      }, sourceBook.revision);
+
+      tx.put(INDEX, 'novels', {
+        id: key('book', bookId),
+        kind: 'creation-book-index',
+        projectId: targetProject.id,
+        workspaceId: targetProject.workspaceId,
+        ownerUserId: sourceBook.ownerUserId
+      }, currentIndex.revision);
+
+      if (sourceBook.bibleId) {
+        const bibleIndex = tx.get(INDEX, 'novels', key('bible-id', sourceBook.bibleId));
+        tx.put(INDEX, 'novels', {
+          id: key('bible-id', sourceBook.bibleId),
+          kind: 'creation-bible-index',
+          projectId: targetProject.id,
+          workspaceId: targetProject.workspaceId,
+          ownerUserId: sourceBook.ownerUserId
+        }, bibleIndex?.revision ?? 0);
+      }
+
+      return {
+        ok: true,
+        book: { ...publicBook(targetBook), bibleVersion: sourceBible.version },
+        idempotent: false
+      };
+    });
+  }
+
+  async linkCreationBook(input) {
+    return this.linkNovel(input);
+  }
+
   async read(input) {
     return this.withBook(input, (tx, scope) => publicBook(this.book(tx, scope).row));
   }
@@ -173,7 +515,8 @@ class JsonCreationRepository {
         if (current?.kind !== 'creation-book-index' || current.scopeKind !== OWNER_BOOK_SCOPE ||
             current.ownerUserId !== userId || current.storageScope !== index.storageScope) fail('BOOK_NOT_FOUND', 404);
         const row = tx.get(index.storageScope, 'novels', key('book', bookId));
-        if (row?.kind !== 'creation-book' || row.ownerUserId !== userId || row.storageScope !== index.storageScope) fail('BOOK_NOT_FOUND', 404);
+        if (row?.kind !== 'creation-book' || row.ownerUserId !== userId || row.storageScope !== index.storageScope ||
+            row.deleted || row.status === 'deleted') fail('BOOK_NOT_FOUND', 404);
         return { userId, bookId, scopeKind: OWNER_BOOK_SCOPE, storageScope: index.storageScope };
       });
     }
@@ -204,14 +547,15 @@ class JsonCreationRepository {
         return current.map(row => {
           const bookId = row.id.slice('creation-book:'.length);
           const book = tx.get(row.storageScope, 'novels', key('book', bookId));
-          return book?.kind === 'creation-book' && book.ownerUserId === input.userId && book.storageScope === row.storageScope
+          return book?.kind === 'creation-book' && book.ownerUserId === input.userId && book.storageScope === row.storageScope &&
+            !book.deleted && book.status !== 'deleted'
             ? publicBook(book) : null;
         }).filter(Boolean);
       });
     }
     return this.repository.transaction([input.projectId], tx => {
       this.access(tx, input);
-      return tx.list(input.projectId, 'novels').filter(row => row.kind === 'creation-book').map(publicBook);
+      return tx.list(input.projectId, 'novels').filter(row => row.kind === 'creation-book' && !row.deleted && row.status !== 'deleted').map(publicBook);
     });
   }
   async readBible(input) {

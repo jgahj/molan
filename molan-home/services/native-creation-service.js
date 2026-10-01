@@ -18,12 +18,14 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
   for (const fn of [normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms]) {
     if (typeof fn !== 'function') throw new TypeError('Creation validation dependencies are required');
   }
-  async function scope(auth, body, url, bookId) {
-    const projectId = String(body.projectId || body.novelId || url.searchParams.get('projectId') || url.searchParams.get('novelId') || '').trim();
+  async function scope(auth, body, url, bookId, section) {
+    const isLinkNovel = section === 'link-novel';
+    const projectId = isLinkNovel ? '' : String(body.projectId || body.novelId || url.searchParams.get('projectId') || url.searchParams.get('novelId') || '').trim();
     if (body.projectId && body.novelId && body.projectId !== body.novelId) fail('INVALID_SCOPE', 422);
-    const workspaceId = String(body.workspaceId || url.searchParams.get('workspaceId') || '').trim();
+    const workspaceId = isLinkNovel ? '' : String(body.workspaceId || url.searchParams.get('workspaceId') || '').trim();
     if (bookId) {
       const resolved = await repository.resolveScope({ userId: auth.user.userId, bookId });
+      if (isLinkNovel) return resolved;
       const projectClaims = [body.projectId, body.novelId, url.searchParams.get('projectId'), url.searchParams.get('novelId')].filter(Boolean);
       const workspaceClaims = [body.workspaceId, url.searchParams.get('workspaceId')].filter(Boolean);
       if (resolved.scopeKind === 'owner-book') {
@@ -84,7 +86,7 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
     };
   }
   async function dispatch(req, res, pathname) {
-    const match = pathname.match(/^\/api\/creation-books(?:\/([A-Za-z0-9_]+)(?:\/(bible|state|chapter-contract|debts|quality-report))?)?$/);
+    const match = pathname.match(/^\/api\/creation-books(?:\/([A-Za-z0-9_]+)(?:\/(bible|state|chapter-contract|debts|quality-report|link-novel))?)?$/);
     if (!match || match[1] === 'core-jobs') return false;
     try {
       const auth = await getAuthUser(req);
@@ -93,7 +95,7 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
       const body = req.method === 'GET' ? {} : await readBody(req);
       if (!object(body)) fail('INVALID_REQUEST_BODY', 400);
       const [, id, section] = match;
-      const input = await scope(auth, body, url, id);
+      const input = await scope(auth, body, url, id, section);
       if (req.method !== 'GET' && input.projectId) {
         const access = await repository.app.getAccess(input);
         if (!canAccess(access, WRITE_ROLES) || !resources.canMutate(access, 'manuscript')) fail('FORBIDDEN', 404, '关联小说不存在或无权写入');
@@ -203,6 +205,16 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
           changeSummary: String(body.changeSummary || '用户修订').slice(0, 200) });
         value = { ok: true, bibleVersion: saved.version,
           payloadHash: crypto.createHash('sha256').update(JSON.stringify(saved.payload)).digest('hex') };
+      } else if (id && section === 'link-novel' && req.method === 'POST') {
+        const novelId = String(body.novelId || body.projectId || url.searchParams.get('novelId') || url.searchParams.get('projectId') || '').trim();
+        if (!/^n_[A-Za-z0-9]{1,30}$/.test(novelId)) fail('INVALID_NOVEL_ID', 400, '小说 id 非法');
+        const workspaceId = String(body.workspaceId || url.searchParams.get('workspaceId') || '').trim();
+        value = await repository.linkNovel({
+          userId: auth.user.userId,
+          bookId: id,
+          targetProjectId: novelId,
+          targetWorkspaceId: workspaceId
+        });
       } else fail('METHOD_NOT_ALLOWED', 405);
       json(res, 200, value);
     } catch (error) {
