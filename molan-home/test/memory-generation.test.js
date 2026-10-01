@@ -43,7 +43,7 @@ test('持久生成只读取合法记忆，原请求重放不重复收费调用',
   const input = { ...scope, requestId: 'request_00001', prompt: '写渡口重逢', maxCalls: 2 };
   const execute = async (params, guard) => {
     assert.equal(JSON.stringify(params).includes('凶手是师父'), false);
-    await guard(async () => { calls++; return { usage: { totalTokens: 10 } }; });
+    await guard(async () => { calls++; return { usage: { totalTokens: 10, creditCost: 0, billingStatus: 'exact' } }; });
     return { text: '两人在渡口相逢。', status: 'passed' };
   };
   const result = await store.generate(input, execute);
@@ -66,11 +66,30 @@ test('供应商结果未知持久化，刷新与原请求重放不会重新推�
   assert.equal(calls, 1);
 });
 
+test('缺少结算费用保留供应商响应并阻止后续调用和重放', async context => {
+  const { store, scope } = await fixture(context);
+  let calls = 0;
+  const input = { ...scope, requestId: 'request_cost_unknown', prompt: '写作', maxCalls: 2 };
+  const execute = async (_params, guard) => {
+    await assert.rejects(guard(async () => { calls++; return { text: '已经收到的候选', usage: { totalTokens: 10 } }; }), { code: 'PROVIDER_COST_UNKNOWN' });
+    await assert.rejects(guard(async () => { calls++; return {}; }), { code: 'PROVIDER_COST_UNKNOWN' });
+    return { status: 'passed', text: '不能因此宣布成功' };
+  };
+  const run = await store.generate(input, execute);
+  assert.equal(run.status, 'provider_unknown');
+  assert.equal(calls, 1);
+  assert.equal((await store.generate(input, execute)).replayed, true);
+  const persisted = await store.getGeneration({ ...scope, runId: run.id });
+  assert.equal(persisted.costStatus, 'unknown');
+  assert.equal(persisted.providerResponses[0].text, '已经收到的候选');
+  assert.equal(persisted.settledCreditCost, null);
+});
+
 test('共享调用预算覆盖审稿修订，预算耗尽保存已有候选', async context => {
   const { store, scope } = await fixture(context);
   const result = await store.generate({ ...scope, requestId: 'request_budget', prompt: '写作', maxCalls: 1 },
     async (_params, guard) => {
-      await guard(async () => ({ text: '已有候选' }));
+      await guard(async () => ({ text: '已有候选', usage: { creditCost: 0, billingStatus: 'exact' } }));
       await assert.rejects(guard(async () => ({ text: '不应执行' })), { code: 'GENERATION_BUDGET_EXCEEDED' });
       return { text: '已有候选', status: 'needs_review' };
     });

@@ -15,13 +15,23 @@ test('native Postgres generation executes guarded calls and persists run history
   const store = createMemoryStore({ backend: 'postgres', repository });
   const input = { userId, bookId, requestId: 'native-request-one', prompt: 'write', maxCalls: 1 };
   let calls = 0;
-  const execute = async (params, guard) => { await guard(async () => { calls++; return { usage: {} }; }); return { status: 'passed', text: 'candidate' }; };
+  const execute = async (params, guard) => { await guard(async () => { calls++; return { usage: { creditCost: 0, billingStatus: 'exact' } }; }); return { status: 'passed', text: 'candidate' }; };
   const run = await store.generate(input, execute);
   assert.equal(run.status, 'succeeded');
+  assert.equal((await store.getGeneration({ ...input, runId: run.id })).costStatus, 'settled');
   assert.equal((await store.generate(input, execute)).replayed, true); assert.equal(calls, 1);
   const history = await store.getRun({ userId, runId: run.id, events: true });
   assert.equal(history.events.some(e => e.type === 'MODEL_CALL_COMPLETED'), true);
   assert.equal((await store.getRun({ userId, runId: run.id })).result.text, 'candidate');
+  const missingCostInput = { ...input, requestId: 'native-request-unknown-cost' };
+  const missingCost = await store.generate(missingCostInput, async (_params, guard) => {
+    await guard(async () => ({ text: 'retained response', usage: { totalTokens: 1 } }));
+  });
+  assert.equal(missingCost.status, 'provider_unknown');
+  const unknownRead = await store.getGeneration({ ...input, runId: missingCost.id });
+  assert.equal(unknownRead.costStatus, 'unknown');
+  assert.equal(unknownRead.settledCreditCost, null);
+  assert.equal(unknownRead.providerResponses[0].text, 'retained response');
   const manifest = await store.getContextManifest({ userId, bookId, manifestId: run.manifestId });
   assert.match(manifest.compiledContext, /write/);
   assert.equal(manifest.contextPlan.fits, true);
