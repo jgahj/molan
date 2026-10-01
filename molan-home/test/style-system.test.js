@@ -2,22 +2,27 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { DatabaseSync } = require('node:sqlite');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const styleSystem = require('../lib/style-system');
+const { createJsonStyleProfileStore } = require('../lib/style-profile-store');
 
-function createTestDatabase() {
-  const db = new DatabaseSync(':memory:');
-  styleSystem.initializeSchema(db);
-  return db;
+function createTestStore(context) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-style-system-'));
+  const store = createJsonStyleProfileStore(directory);
+  context.after(async () => { await store.close(); fs.rmSync(directory, { recursive: true, force: true }); });
+  return store;
 }
 
-test('五层文风档案与版本化管理（正向标杆样本与反向样本）', () => {
-  const db = createTestDatabase();
+test('五层文风档案与版本化管理（正向标杆样本与反向样本）', async context => {
+  const store = createTestStore(context);
   const bookId = 'book-001';
 
   // 1. 创建作品叙述风格档案 (novel_narrative)
-  const profileRes = styleSystem.upsertStyleProfile(db, {
+  const profileRes = await store.upsertStyleProfile({
     bookId,
+    expectedRevision: 0,
     name: '东方古典玄幻-沉稳凌厉风',
     level: 'novel_narrative',
     hardRules: ['第三人称全知受限', '严禁机械说教', '动作白描为主'],
@@ -30,9 +35,10 @@ test('五层文风档案与版本化管理（正向标杆样本与反向样本�
   assert.equal(profileRes.revision, 1);
 
   // 2. 版本升级
-  const updatedRes = styleSystem.upsertStyleProfile(db, {
+  const updatedRes = await store.upsertStyleProfile({
     id: profileRes.id,
     bookId,
+    expectedRevision: 1,
     name: '东方古典玄幻-沉稳凌厉风-修订版',
     level: 'novel_narrative',
     hardRules: ['第三人称全知受限', '严禁机械说教', '动作白描为主', '强化环境压迫感']
@@ -42,11 +48,13 @@ test('五层文风档案与版本化管理（正向标杆样本与反向样本�
   assert.equal(updatedRes.revision, 2);
 
   // 3. 查询档案及最新版本规则
-  const profiles = styleSystem.getStyleProfiles(db, bookId);
+  const profiles = await store.getStyleProfiles({ bookId });
   assert.equal(profiles.length, 1);
   assert.equal(profiles[0].name, '东方古典玄幻-沉稳凌厉风-修订版');
   assert.equal(profiles[0].revision, 2);
   assert.ok(profiles[0].hardRules.includes('强化环境压迫感'));
+  assert.deepEqual(profiles[0].positiveSamples, ['剑起青锋，风雪初歇。他未多言，提剑直入寒夜。']);
+  assert.deepEqual(profiles[0].negativeSamples, ['恐怖如斯的威压宛如泰山压顶，这一刻天地为之变色。']);
 });
 
 test('分层编译合成文风约束集（作品级规则与角色口吻隔离）', () => {
