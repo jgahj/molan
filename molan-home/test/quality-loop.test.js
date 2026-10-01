@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
+const { createJsonQualityLoopStore } = require('../lib/evolution/quality-loop-json-store');
 const { buildGoldenSuite } = require('../lib/evolution/golden-suite');
-const { createSqliteQualityLoopStore, runQualityLoop } = require('../lib/evolution/quality-loop');
+const { runQualityLoop } = require('../lib/evolution/quality-loop');
 const { DEFAULT_POLICY: REGRESSION_POLICY } = require('../lib/evolution/regression-gate');
 
 function fixtureCorpus() {
@@ -29,9 +29,14 @@ function fixtureCorpus() {
   };
 }
 
-function storeFixture() {
-  const db = new DatabaseSync(':memory:');
-  return { db, store: createSqliteQualityLoopStore(db) };
+function storeFixture(t) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-quality-loop-'));
+  const store = createJsonQualityLoopStore(directory);
+  t.after(async () => {
+    await store.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+  return store;
 }
 
 function runnerFixture(counters = {}) {
@@ -110,8 +115,7 @@ function loopInput({ store, manifest, tasks, runner, idempotencyKey = 'quality-l
 }
 
 test('test fixtures complete paired replay, shadow evaluation, and gates without becoming promotable', async t => {
-  const { db, store } = storeFixture();
-  t.after(() => db.close());
+  const store = storeFixture(t);
   const { manifest, tasks } = fixtureCorpus();
   const counters = {};
   const runner = runnerFixture(counters);
@@ -142,10 +146,10 @@ test('test fixtures complete paired replay, shadow evaluation, and gates without
   assert.equal(counters.candidate, 80);
   assert.equal(counters.shadow, 80);
 
-  const saved = store.getByIdempotencyKey('quality-loop-test');
+  const saved = await store.getByIdempotencyKey('quality-loop-test');
   assert.equal(saved.state, 'settled');
   assert.equal(saved.report.status, 'TEST_ONLY');
-  assert.throws(() => store.settleRun({
+  await assert.rejects(store.settleRun({
     runId: saved.runId,
     inputHash: saved.inputHash,
     report: { status: 'ACCEPTED' }
@@ -153,8 +157,7 @@ test('test fixtures complete paired replay, shadow evaluation, and gates without
 });
 
 test('metadata-only golden manifest settles blocked before invoking any runner method', async t => {
-  const { db, store } = storeFixture();
-  t.after(() => db.close());
+  const store = storeFixture(t);
   let calls = 0;
   const report = await runQualityLoop(loopInput({
     store,
@@ -170,12 +173,11 @@ test('metadata-only golden manifest settles blocked before invoking any runner m
   assert.equal(report.status, 'BLOCKED');
   assert.equal(report.reason, 'golden_corpus_metadata_only');
   assert.equal(calls, 0);
-  assert.equal(store.getByIdempotencyKey('quality-loop-test').state, 'settled');
+  assert.equal((await store.getByIdempotencyKey('quality-loop-test')).state, 'settled');
 });
 
 test('a 79-task corpus cannot enter the runner', async t => {
-  const { db, store } = storeFixture();
-  t.after(() => db.close());
+  const store = storeFixture(t);
   const { manifest, tasks } = fixtureCorpus();
   let calls = 0;
   const report = await runQualityLoop(loopInput({
@@ -197,8 +199,7 @@ test('a 79-task corpus cannot enter the runner', async t => {
 });
 
 test('runner errors settle with the active stage instead of leaking a ReferenceError', async t => {
-  const { db, store } = storeFixture();
-  t.after(() => db.close());
+  const store = storeFixture(t);
   const { manifest, tasks } = fixtureCorpus();
   const report = await runQualityLoop(loopInput({
     store,
@@ -217,30 +218,27 @@ test('runner errors settle with the active stage instead of leaking a ReferenceE
   assert.equal(report.error_code, 'UPSTREAM_FAILED');
 });
 
-test('SQLite settlements survive reopening the database and remain immutable', t => {
+test('JSON settlements survive reopening the store and remain immutable', async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-quality-loop-'));
-  const filename = path.join(directory, 'quality-loop.sqlite');
-  let db = new DatabaseSync(filename);
-  t.after(() => {
-    try { db.close(); } catch (_) {}
+  let store = createJsonQualityLoopStore(directory);
+  t.after(async () => {
+    await store.close();
     fs.rmSync(directory, { recursive: true, force: true });
   });
-  let store = createSqliteQualityLoopStore(db);
   const inputHash = 'a'.repeat(64);
-  store.beginRun({ runId: 'durable-run', idempotencyKey: 'durable-key', inputHash, createdAt: 1 });
-  store.settleRun({
+  await store.beginRun({ runId: 'durable-run', idempotencyKey: 'durable-key', inputHash, createdAt: 1 });
+  await store.settleRun({
     runId: 'durable-run', inputHash,
     report: { schemaVersion: 'quality-loop-run-v1', status: 'TEST_ONLY' }, settledAt: 2
   });
 
-  db.close();
-  db = new DatabaseSync(filename);
-  store = createSqliteQualityLoopStore(db);
-  const saved = store.getByIdempotencyKey('durable-key');
+  await store.close();
+  store = createJsonQualityLoopStore(directory);
+  const saved = await store.getByIdempotencyKey('durable-key');
   assert.equal(saved.state, 'settled');
   assert.equal(saved.report.status, 'TEST_ONLY');
-  assert.equal(store.beginRun({ runId: 'duplicate-run', idempotencyKey: 'durable-key', inputHash }).created, false);
-  assert.throws(() => store.settleRun({
+  assert.equal((await store.beginRun({ runId: 'duplicate-run', idempotencyKey: 'durable-key', inputHash })).created, false);
+  await assert.rejects(store.settleRun({
     runId: 'durable-run', inputHash,
     report: { schemaVersion: 'quality-loop-run-v1', status: 'ACCEPTED' }
   }), error => error.code === 'QUALITY_LOOP_SETTLED_IMMUTABLE');
