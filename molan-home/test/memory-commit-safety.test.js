@@ -2,124 +2,199 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { DatabaseSync } = require('node:sqlite');
-const memory = require('../lib/memory-system');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const crypto = require('node:crypto');
 
-function fixture(context) {
-  const db = new DatabaseSync(':memory:');
-  context.after(() => db.close());
-  memory.initializeSchema(db);
-  return db;
-}
+const { JsonFileRepository } = require('../lib/repositories/json-file-repository');
+const { JsonAppRepository } = require('../lib/repositories/json-app-repository');
+const { createMemoryStore } = require('../lib/memory-store');
 
-function proposal(db, overrides = {}) {
-  const result = memory.createChangeset(db, {
-    bookId: 'book', baseStateVersion: 1,
-    operations: [{ type: 'STATE_TRANSITION', payload: { entityId: 'sword', postState: 'sister' } }],
-    ...overrides
+async function fixture(context) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-memory-safety-'));
+  const author = { userId: 'author', email: 'author@memory-safety.test' };
+  const bookId = `n_memory${crypto.randomUUID().replace(/-/g, '').slice(0, 14)}`;
+  let repository = new JsonFileRepository(directory);
+  let app = new JsonAppRepository(directory, { repository });
+  let store = createMemoryStore({ repository, getAccess: input => app.getAccess(input) });
+
+  await app.saveAccount(author);
+  await app.create({ id: bookId, user: author, state: { title: '提交安全测试', volumes: [] } });
+
+  const harness = {
+    directory,
+    scope: { userId: author.userId, bookId },
+    get repository() { return repository; },
+    get app() { return app; },
+    get store() { return store; },
+    async reopen(options = {}) {
+      await store.close();
+      await repository.close();
+      repository = new JsonFileRepository(directory, options);
+      app = new JsonAppRepository(directory, { repository });
+      store = createMemoryStore({ repository, getAccess: input => app.getAccess(input) });
+      return harness;
+    },
+    async createBook() {
+      const id = `n_memory${crypto.randomUUID().replace(/-/g, '').slice(0, 14)}`;
+      await app.create({ id, user: author, state: { title: '隔离测试', volumes: [] } });
+      return id;
+    }
+  };
+
+  context.after(async () => {
+    await store.close();
+    await repository.close();
+    fs.rmSync(directory, { recursive: true, force: true });
   });
-  memory.approveChangeset(db, 'book', result.id, 'author');
-  return result;
+  return harness;
 }
 
-test('同一分支旧基线只能提交一次，其他分支独立推进', context => {
-  const db = fixture(context);
-  const first = proposal(db);
-  const stale = proposal(db);
-  assert.equal(memory.commitChangeset(db, 'book', first.id, 'author').stateVersion, 2);
-  assert.equal(memory.commitChangeset(db, 'book', stale.id, 'author').code, 'MEMORY_VERSION_CONFLICT');
-  const alternate = proposal(db, { branchId: 'alternate' });
-  assert.equal(memory.commitChangeset(db, 'book', alternate.id, 'author').stateVersion, 2);
-  assert.equal(db.prepare('SELECT count(*) AS count FROM memory_outbox').get().count, 2);
+async function proposal(store, scope, overrides = {}) {
+  const input = {
+    ...scope,
+    baseStateVersion: 1,
+    operations: [{ type: 'STATE_TRANSITION', payload: { entityId: 'sword', preState: 'sheathed', postState: 'sister' } }],
+    ...overrides,
+    branchId: overrides.branchId || scope.branchId || 'main'
+  };
+  const candidate = await store.createChangeset(input);
+  await store.approveChangeset({ ...scope, branchId: input.branchId, changesetId: candidate.id });
+  return candidate;
+}
+
+/** 验证原生异步接口以指定业务错误码拒绝请求。 */
+async function rejectsCode(promise, code) {
+  await assert.rejects(promise, { code });
+}
+
+test('同一分支旧基线只能提交一次，其他分支独立推进', async context => {
+  const fixtureState = await fixture(context);
+  const first = await proposal(fixtureState.store, fixtureState.scope);
+  const stale = await proposal(fixtureState.store, fixtureState.scope);
+  assert.equal((await fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: first.id })).stateVersion, 2);
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: stale.id }), 'MEMORY_VERSION_CONFLICT');
+  const alternate = await proposal(fixtureState.store, { ...fixtureState.scope, branchId: 'alternate' });
+  assert.equal((await fixtureState.store.commitChangeset({ ...fixtureState.scope, branchId: 'alternate', changesetId: alternate.id })).stateVersion, 2);
+  const memoryState = await fixtureState.repository.memory.get(fixtureState.scope.bookId, `memory:${fixtureState.scope.bookId}`);
+  assert.equal(Object.values(memoryState.branches).reduce((count, branch) => count + branch.outbox.length, 0), 2);
 });
 
-test('审批绑定全部变更，确认后篡改被拒绝', context => {
-  const db = fixture(context);
-  const candidate = proposal(db);
-  db.prepare("UPDATE memory_changesets SET candidate_hash = 'changed' WHERE id = ?").run(candidate.id);
-  assert.equal(memory.commitChangeset(db, 'book', candidate.id, 'author').code, 'APPROVAL_STALE');
-  assert.equal(db.prepare('SELECT count(*) AS count FROM state_transitions').get().count, 0);
+test('审批绑定全部变更，确认后篡改被拒绝', async context => {
+  const fixtureState = await fixture(context);
+  const candidate = await proposal(fixtureState.store, fixtureState.scope);
+  await fixtureState.repository.transaction([fixtureState.scope.bookId], tx => {
+    const state = tx.get(fixtureState.scope.bookId, 'memory', `memory:${fixtureState.scope.bookId}`);
+    state.branches.main.changesets[candidate.id].candidateHash = 'changed';
+    tx.put(fixtureState.scope.bookId, 'memory', state, state.revision);
+  });
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: candidate.id }), 'APPROVAL_STALE');
+  assert.equal((await fixtureState.store.getRecords({ ...fixtureState.scope, type: 'transition' })).length, 0);
 });
 
-test('幂等回执可恢复，同键不同请求拒绝', context => {
-  const db = fixture(context);
-  const first = proposal(db);
+test('幂等回执可恢复，同键不同请求拒绝', async context => {
+  const fixtureState = await fixture(context);
+  const first = await proposal(fixtureState.store, fixtureState.scope);
   const options = { idempotencyKey: 'request-1' };
-  const receipt = memory.commitChangeset(db, 'book', first.id, 'author', options);
-  const replay = memory.commitChangeset(db, 'book', first.id, 'author', options);
+  const receipt = await fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: first.id, ...options });
+  const replay = await fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: first.id, ...options });
   assert.deepEqual(replay, { ...receipt, replayed: true });
-  const second = proposal(db, { baseStateVersion: 2 });
-  assert.equal(memory.commitChangeset(db, 'book', second.id, 'author', options).code, 'IDEMPOTENCY_CONFLICT');
-  assert.equal(memory.commitChangeset(db, 'book', first.id, 'author', { idempotencyKey: 'alias' }).replayed, true);
-  assert.equal(memory.commitChangeset(db, 'book', second.id, 'author', { idempotencyKey: 'alias' }).code, 'IDEMPOTENCY_CONFLICT');
+  const second = await proposal(fixtureState.store, fixtureState.scope, { baseStateVersion: 2 });
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: second.id, ...options }), 'IDEMPOTENCY_CONFLICT');
+  assert.equal((await fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: first.id, idempotencyKey: 'alias' })).replayed, true);
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: second.id, idempotencyKey: 'alias' }), 'IDEMPOTENCY_CONFLICT');
 });
 
-test('未知操作与未满足依赖不能被静默提交', context => {
-  const db = fixture(context);
-  const unknown = proposal(db, { operations: [{ type: 'DELETE_ALL', payload: {} }] });
-  assert.equal(memory.commitChangeset(db, 'book', unknown.id, 'author').code, 'INVALID_MEMORY_OPERATION');
-  const dependent = proposal(db, { dependencies: ['missing'] });
-  assert.equal(memory.commitChangeset(db, 'book', dependent.id, 'author').code, 'CHANGESET_DEPENDENCY_MISSING');
+test('未知操作与未满足依赖不能被静默提交', async context => {
+  const fixtureState = await fixture(context);
+  const unknown = await proposal(fixtureState.store, fixtureState.scope, { operations: [{ type: 'DELETE_ALL', payload: {} }] });
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: unknown.id }), 'INVALID_MEMORY_OPERATION');
+  const dependent = await proposal(fixtureState.store, fixtureState.scope, { dependencies: ['missing'] });
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: dependent.id }), 'CHANGESET_DEPENDENCY_MISSING');
 });
 
-test('正式事实不可跨作品引用命题', context => {
-  const db = fixture(context);
-  db.prepare("INSERT INTO memory_propositions (id, book_id, created_at) VALUES ('secret', 'other', 1)").run();
-  const candidate = proposal(db, {
-    operations: [{ type: 'INSERT_FACT', payload: { propositionId: 'secret' } }]
+test('正式事实不可跨作品引用命题', async context => {
+  const fixtureState = await fixture(context);
+  const otherBookId = await fixtureState.createBook();
+  const otherStore = createMemoryStore({ repository: fixtureState.repository, getAccess: input => fixtureState.app.getAccess(input) });
+  const foreign = await otherStore.extract({ userId: fixtureState.scope.userId, bookId: otherBookId, text: '密信藏在井沿下。' });
+  const candidate = await proposal(fixtureState.store, fixtureState.scope, {
+    operations: [{ type: 'INSERT_FACT', payload: { propositionId: foreign.propositions[0].id } }]
   });
-  assert.equal(memory.commitChangeset(db, 'book', candidate.id, 'author').code, 'MEMORY_REFERENCE_INVALID');
-  assert.equal(db.prepare('SELECT count(*) AS count FROM world_fact_decisions').get().count, 0);
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: candidate.id }), 'MEMORY_REFERENCE_INVALID');
+  assert.equal((await fixtureState.store.getRecords({ ...fixtureState.scope, type: 'fact' })).length, 0);
 });
 
-test('数据库中途失败回滚记忆、版本、回执和outbox', context => {
-  const db = fixture(context);
-  const candidate = proposal(db);
-  db.exec("CREATE TRIGGER fail_outbox BEFORE INSERT ON memory_outbox BEGIN SELECT RAISE(ABORT, 'fixture failure'); END");
-  assert.throws(() => memory.commitChangeset(db, 'book', candidate.id, 'author'), /fixture failure/);
-  assert.equal(db.prepare('SELECT count(*) AS count FROM state_transitions').get().count, 0);
-  assert.equal(db.prepare('SELECT count(*) AS count FROM memory_commit_receipts').get().count, 0);
-  assert.equal(db.prepare('SELECT count(*) AS count FROM memory_branch_heads').get().count, 0);
-  assert.equal(db.prepare('SELECT count(*) AS count FROM memory_operations_log').get().count, 0);
-  assert.equal(db.prepare('SELECT committed_at FROM memory_changesets WHERE id = ?').get(candidate.id).committed_at, null);
-  db.exec('DROP TRIGGER fail_outbox');
-  assert.equal(memory.commitChangeset(db, 'book', candidate.id, 'author').stateVersion, 2);
+test('原生 JSON 提交的日志发布失败回滚记忆、版本、回执和outbox', async context => {
+  const fixtureState = await fixture(context);
+  const candidate = await proposal(fixtureState.store, fixtureState.scope);
+  let failJournalRename = false;
+  let failingRepository;
+  const injectedFs = Object.create(fs);
+  injectedFs.renameSync = (temporary, destination) => {
+    if (failJournalRename && destination === failingRepository.journalPath) {
+      failJournalRename = false;
+      throw Object.assign(new Error('fixture failure'), { code: 'EIO' });
+    }
+    return fs.renameSync(temporary, destination);
+  };
+  await fixtureState.reopen({ fs: injectedFs });
+  failingRepository = fixtureState.repository;
+  failJournalRename = true;
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: candidate.id }), 'EIO');
+  assert.equal(failJournalRename, false);
+  assert.equal((await fixtureState.store.workbenchState(fixtureState.scope)).stateVersion, 1);
+  assert.equal((await fixtureState.store.getRecords({ ...fixtureState.scope, type: 'transition' })).length, 0);
+  const persisted = await fixtureState.repository.memory.get(fixtureState.scope.bookId, `memory:${fixtureState.scope.bookId}`);
+  const branch = persisted.branches.main;
+  assert.equal(branch.stateVersion, 1);
+  assert.equal(branch.receipts && Object.keys(branch.receipts).length || 0, 0);
+  assert.equal(branch.outbox.length, 0);
+  assert.equal(branch.changesets[candidate.id].committedAt, undefined);
+  assert.equal((await fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: candidate.id })).stateVersion, 2);
 });
 
-test('自动生成ID必须写入流水，重复ID不覆盖已确认历史', context => {
-  const db = fixture(context);
-  db.prepare("INSERT INTO memory_propositions (id, book_id, created_at) VALUES ('truth', 'book', 1)").run();
-  const candidate = proposal(db, { operations: [{ type: 'INSERT_FACT', payload: { propositionId: 'truth' } }] });
-  assert.equal(memory.commitChangeset(db, 'book', candidate.id, 'author').ok, true);
-  const log = db.prepare('SELECT * FROM memory_operations_log WHERE changeset_id = ?').get(candidate.id);
-  assert.ok(log.record_id);
-  assert.equal(db.prepare('SELECT id FROM world_fact_decisions WHERE id = ?').get(log.record_id).id, log.record_id);
-  const replacement = proposal(db, {
+test('自动生成ID必须写入流水，重复ID不覆盖已确认历史', async context => {
+  const fixtureState = await fixture(context);
+  const extracted = await fixtureState.store.extract({ ...fixtureState.scope, text: '主角推开石门，门后摆着一只木箱。' });
+  const propositionId = extracted.propositions[0].id;
+  const candidate = await proposal(fixtureState.store, fixtureState.scope, {
+    operations: [{ type: 'INSERT_FACT', payload: { propositionId } }]
+  });
+  assert.equal((await fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: candidate.id })).ok, true);
+  const log = (await fixtureState.store.listOperations(fixtureState.scope)).find(operation => operation.changesetId === candidate.id);
+  assert.ok(log.recordId);
+  const committed = (await fixtureState.store.getRecords({ ...fixtureState.scope, type: 'fact' })).find(record => record.id === log.recordId);
+  assert.equal(committed.id, log.recordId);
+  assert.equal(committed.verdict, 'true');
+  const replacement = await proposal(fixtureState.store, fixtureState.scope, {
     baseStateVersion: 2,
-    operations: [{ type: 'INSERT_FACT', payload: { id: log.record_id, propositionId: 'truth', verdict: 'false' } }]
+    operations: [{ type: 'INSERT_FACT', payload: { id: log.recordId, propositionId, verdict: 'false' } }]
   });
-  assert.equal(memory.commitChangeset(db, 'book', replacement.id, 'author').code, 'MEMORY_RECORD_EXISTS');
-  assert.equal(db.prepare('SELECT verdict FROM world_fact_decisions WHERE id = ?').get(log.record_id).verdict, 'true');
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: replacement.id }), 'MEMORY_RECORD_EXISTS');
+  const unchanged = (await fixtureState.store.getRecords({ ...fixtureState.scope, type: 'fact' })).find(record => record.id === log.recordId);
+  assert.equal(unchanged.verdict, 'true');
 });
 
-test('重复初始化保留版本，提交后重审批和变更请求被拒绝', context => {
-  const db = fixture(context);
-  const candidate = proposal(db);
-  assert.equal(memory.commitChangeset(db, 'book', candidate.id, 'author').ok, true);
-  memory.initializeSchema(db);
-  assert.equal(memory.approveChangeset(db, 'book', candidate.id, 'author').code, 'CHANGESET_ALREADY_COMMITTED');
-  assert.equal(memory.commitChangeset(db, 'book', candidate.id, 'author', {
-    idempotencyKey: 'new-key', candidateHash: 'changed'
-  }).code, 'IDEMPOTENCY_CONFLICT');
-  const next = proposal(db, { baseStateVersion: 2 });
-  assert.equal(memory.commitChangeset(db, 'book', next.id, 'author').stateVersion, 3);
+test('重复初始化保留版本，提交后重审批和变更请求被拒绝', async context => {
+  const fixtureState = await fixture(context);
+  const candidate = await proposal(fixtureState.store, fixtureState.scope);
+  assert.equal((await fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: candidate.id })).ok, true);
+  await fixtureState.reopen();
+  await rejectsCode(fixtureState.store.approveChangeset({ ...fixtureState.scope, changesetId: candidate.id }), 'CHANGESET_ALREADY_COMMITTED');
+  await rejectsCode(fixtureState.store.commitChangeset({
+    ...fixtureState.scope, changesetId: candidate.id, idempotencyKey: 'new-key', candidateHash: 'changed'
+  }), 'IDEMPOTENCY_CONFLICT');
+  const next = await proposal(fixtureState.store, fixtureState.scope, { baseStateVersion: 2 });
+  assert.equal((await fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: next.id })).stateVersion, 3);
 });
 
-test('同作品其他分支的命题不能被正式引用', context => {
-  const db = fixture(context);
-  db.prepare("INSERT INTO memory_propositions (id, book_id, branch_id, created_at) VALUES ('parallel', 'book', 'other', 1)").run();
-  const candidate = proposal(db, {
-    operations: [{ type: 'INSERT_COGNITION', payload: { targetExpressionId: 'parallel', holderEntityId: 'hero' } }]
+test('同作品其他分支的命题不能被正式引用', async context => {
+  const fixtureState = await fixture(context);
+  const extracted = await fixtureState.store.extract({ ...fixtureState.scope, branchId: 'other', text: '密信藏在井沿下。' });
+  const candidate = await proposal(fixtureState.store, fixtureState.scope, {
+    operations: [{ type: 'INSERT_COGNITION', payload: { targetExpressionId: extracted.propositions[0].id, holderEntityId: 'hero' } }]
   });
-  assert.equal(memory.commitChangeset(db, 'book', candidate.id, 'author').code, 'MEMORY_REFERENCE_INVALID');
+  await rejectsCode(fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: candidate.id }), 'MEMORY_REFERENCE_INVALID');
 });
