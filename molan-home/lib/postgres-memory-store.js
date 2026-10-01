@@ -25,7 +25,7 @@ const SPECS = [
   { table: 'operations', key: ['id'], collect: b => b.operations, fields: { id: 'id', changeset_id: 'changesetId', operation_type: 'operationType', record_type: 'recordType', record_id: 'recordId', before_state: r => r.before || {}, after_state: 'after', reverted: r => Boolean(r.reverted), revert_reason: r => r.revertReason || '', created_by: r => r.actorId }, json: ['before_state', 'after_state'] },
   { table: 'outbox', key: ['id'], collect: b => b.outbox, fields: { id: 'id', event_id: 'eventId', state_version: 'stateVersion', projection_type: () => 'causal_debts_and_snapshots', payload_hash: 'payloadHash', payload: 'payload', status: 'status', attempt_count: 'attemptCount', last_error: r => r.lastError || '' }, json: ['payload'] },
   { table: 'context_manifests', key: ['id'], collect: b => Object.values(b.manifests), fields: { id: 'id', state_version: 'stateVersion', writing_package: 'writingPackage', audit_package: 'auditPackage', included_reasons: 'includedReasons', excluded_reasons: 'excludedReasons', budget_tokens: 'budgetTokens', input_hash: 'inputHash', model_id: 'modelId', created_by: '@actor' }, json: ['writing_package', 'audit_package', 'included_reasons', 'excluded_reasons'] },
-  { table: 'generation_runs', key: ['id'], collect: b => Object.values(b.generations || {}), fields: { id: 'id', actor_id: 'actorId', request_id: 'requestId', request_hash: 'requestHash', status: 'status', manifest_id: 'manifestId', input: 'input', result: 'result', calls: 'calls', updated_at: r => new Date(r.updatedAt) }, json: ['input', 'result'] },
+  { table: 'generation_runs', key: ['id'], collect: b => Object.values(b.generations || {}), fields: { id: 'id', actor_id: 'actorId', request_id: 'requestId', request_hash: 'requestHash', status: 'status', manifest_id: 'manifestId', input: 'input', result: r => ({ ...r.result, _molanProviderEvidenceV1: { costStatus: r.costStatus || null, settledCreditCost: r.settledCreditCost ?? null, providerResponses: r.providerResponses || [] } }), calls: 'calls', updated_at: r => new Date(r.updatedAt) }, json: ['input', 'result'] },
   { table: 'invalidations', key: ['id'], collect: b => b.invalidations, fields: { id: 'id', manuscript_id: 'manuscriptId', reason: 'reason', created_by: '@actor' } },
   { table: 'extractions', key: ['manuscript_id'], collect: b => Object.entries(b.extractions).map(([manuscriptId, result]) => ({ manuscriptId, result })), fields: { manuscript_id: 'manuscriptId', result: 'result', created_by: '@actor' }, json: ['result'] },
   { table: 'projection_snapshots', key: [], collect: b => b.projection ? [b.projection] : [], fields: { state_version: 'stateVersion', schema_version: 'schemaVersion', payload_hash: 'payloadHash', payload: 'payload' }, json: ['payload'] }
@@ -38,7 +38,11 @@ async function load(client, scope, b, branchId) {
     const raw = (await client.query(`SELECT * FROM luna.story_memory_${spec.table} WHERE ${where}`, scoped(scope, branchId))).rows;
     const list = raw.map(numeric);
     switch (spec.table) {
-      case 'generation_runs': b.generations = Object.fromEntries(list.map(r => [r.id, { ...r, bookId: scope.bookId, branchId }])); break;
+      case 'generation_runs': b.generations = Object.fromEntries(list.map(r => {
+        const result = { ...r.result }, proof = result._molanProviderEvidenceV1;
+        delete result._molanProviderEvidenceV1;
+        return [r.id, { ...r, result, ...(proof || {}), bookId: scope.bookId, branchId }];
+      })); break;
       case 'records': for (const r of list) b.records[r.id] = { ...convert(r.payload), ...r.payload, id: r.id, recordType: r.recordType, revision: r.revision, status: r.status, createdAt: r.createdAt }; break;
       case 'manuscripts': for (const r of list) b.manuscripts[r.id] = r; break;
       case 'manuscript_heads': for (const r of list) b.heads[`${r.chapterId}:${r.sceneId}`] = r; break;

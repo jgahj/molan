@@ -28,7 +28,7 @@ test('native memory routes preserve API envelopes and preconditions', async t =>
   result = await invoke(request('GET', '/api/books/n_http/workbench'), store); assert.equal(result.body.changesets[0].approval_status, 'approved'); assert.equal(result.body.changesets[0].base_state_version, 1); assert.equal(typeof result.body.changesets[0].committed_at, 'number');
   result = await invoke(request('GET', '/api/books/n_http/projections'), store); assert.equal(result.status, 200); assert.equal(result.body.projections.status, 'PENDING_PROJECTION');
   let calls = 0;
-  const generationServices = { styleProfileStore, generate: async (user, params, guard) => { assert.equal(params.novelId, 'n_http'); assert.equal(params.compiledContextText.includes('[currentTask]'), true); assert.equal(params.contextPlan.requiredBlocks.includes('currentTask'), true); await guard(async () => { calls++; return { usage: { totalTokens: 2 } }; }); return { status: 'passed', text: '阿青走进房间。' }; } };
+  const generationServices = { styleProfileStore, generate: async (user, params, guard) => { assert.equal(params.novelId, 'n_http'); assert.equal(params.compiledContextText.includes('[currentTask]'), true); assert.equal(params.contextPlan.requiredBlocks.includes('currentTask'), true); await guard(async () => { calls++; return { usage: { totalTokens: 2, creditCost: 0, billingStatus: 'exact' } }; }); return { status: 'passed', text: '阿青走进房间。' }; } };
   const payload = { requestId: 'request-one', prompt: '写正文', maxCalls: 1 };
   result = await invoke(request('POST', '/api/books/n_http/generations', payload), store, generationServices);
   assert.equal(result.status, 200); assert.equal(result.body.run.status, 'succeeded'); const runId = result.body.run.id;
