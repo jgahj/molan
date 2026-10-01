@@ -24,7 +24,7 @@ test('correction prompt preserves legitimate narration and does not impose parag
   assert.match(policy.UNIVERSAL_CORRECTION_POLICY_PROMPT, /短段、拟声独立成段和心理停顿本身不是缺陷/);
   assert.match(policy.UNIVERSAL_CORRECTION_POLICY_PROMPT, /不强制每段句数/);
   assert.doesNotMatch(policy.UNIVERSAL_CORRECTION_POLICY_PROMPT, /必须彻底清零为0处|旁白只写可观察物理事实|严禁将“咚/);
-  const source = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'services', 'humanize-policy-service.js'), 'utf8');
   const rewrite = source.slice(source.indexOf('function buildHumanizePassMessages('), source.indexOf('function mergeUsageSum('));
   assert.match(rewrite, /不强制每段句数/);
   assert.doesNotMatch(rewrite, /严格控制在0~2|白金名家级深度精修|严禁零散短句独立成段/);
@@ -174,4 +174,3 @@ test('R-08 检测工整二分、虚假对称及刑律套话', () => {
   const sample = policy.scanUniversalCorrectionRisks('若账错一次，扣三月俸禄；若被定作私吞灵气，轻则废去修为，重则打入死牢。');
   assert.ok(sample.matchedRuleIds.includes('R-08-formulaic-reasoning'));
 });
-

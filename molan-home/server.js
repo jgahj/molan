@@ -538,102 +538,9 @@ function splitDynamicPrompt(messages) {
   return out;
 }
 
-/**
- * 判断是否启用两遍生成（生成遍 + 去 AI 味改写遍）。
- * 已全局默认停用 Humanizer 两遍洗稿机制，切换为单遍极质高张力起草（直接前置注入通用纠错库与管线基准）。
- * 仅在显式传入 input.twoPassHumanize === true 或环境变量 MOLAN_TWO_PASS_HUMANIZE === '1' 时放行（向后兼容）。
- */
-function isTwoPassHumanizeEnabled(stage, input) {
-  const normalizedStage = String(stage || '').toLowerCase();
-  if (normalizedStage !== 'writing') return false;
-  if (input && input.editorOnly === true) return false;
-  if (process.env.MOLAN_TWO_PASS_HUMANIZE === '0') return false;
-  if (!input || input.jsonMode === true) return false;
-  if (input.twoPassHumanize === false) return false;
-  // 默认停用两遍 Humanizer；仅显式声明时开启
-  if (process.env.MOLAN_TWO_PASS_HUMANIZE === '1' || (input && input.twoPassHumanize === true)) return true;
-  return false;
-}
-
-/**
- * 向第一条 system 消息追加提示块（无 system 时新建一条）。
- * 用于把正面节奏目标注入生成遍，而不触碰用户消息。
- */
-function appendSystemBlock(messages, block) {
-  if (!block || !Array.isArray(messages)) return messages;
-  const output = messages.map(message => ({ ...message }));
-  const systemIndex = output.findIndex(message => message && message.role === 'system' && typeof message.content === 'string');
-  if (systemIndex < 0) {
-    output.unshift({ role: 'system', content: block.replace(/^\n+/, '') });
-    return output;
-  }
-  output[systemIndex].content = String(output[systemIndex].content || '') + block;
-  return output;
-}
-
-/**
- * 构造第二遍（humanize 遍）的完整消息集：纠错库 + 数据驱动 AI 词表 + 改写指令 + 初稿。
- * 初稿全文作为 user 消息携带，要求模型只做语言层改写，保留全部事实、剧情顺序与人物关系。
- */
-function buildHumanizePassMessages(draft) {
-  const lexiconBlock = buildHumanizeLexiconBlock();
-  const systemParts = [
-    '你是小说编辑，只做有文本依据的必要修订，保留已经成立的人物声音、叙事节奏和剧情事实。',
-    UNIVERSAL_CORRECTION_MARKER,
-    UNIVERSAL_CORRECTION_POLICY_PROMPT
-  ];
-  if (lexiconBlock) systemParts.push(lexiconBlock);
-  systemParts.push([
-    '【改写边界（必须遵守）】',
-    '1. 保持剧情主干、核心情境与人物立场：修补初稿中的叙事断层与前后矛盾，修正违背基本生活常识与物理常识的悬浮动作；修补需顺理成章、行云流水，杜绝刻意跳出故事解释道具台账的打卡感。',
-    '2. 道具与状态时空自洽：文牒、信物、兵刃、伤势等关键要素前后连贯，严禁前文收起后文凭空在他人手中复现的穿帮；生死关头动机合理，严禁死斗中突兀停战演讲。',
-    '3. 保留人物自己的情绪与判断。直接心理、必要背景说明和明确转场都可使用；只澄清缺失的知识来源，不给每个角色强加算计、冷幽默或额外经历。',
-    '4. 彻底剔除假文青与修辞通胀（核心去AI味）：坚决删掉无病呻吟的做作通感比喻（严禁动辄出现“像发胀棉絮/像劣茶/像熬焦旧钱/像死鱼眼珠”等矫饰），换为干净利落、画面感极强的直接白描与动作推进。',
-    '5. 删除重复而无效的情绪解释，不把普通词语出现当作错误，也不把所有情绪替换成咬牙、手抖等身体动作。',
-    '6. 让读者知道人物看到了什么、据此判断了什么；判断证据不足时保留不确定，不由旁白把怀疑认证为事实。',
-    '7. 保留对白中的关心、误会、尴尬、玩笑和直接请求，不强制每句话都有机锋或配微动作。人物反应应影响关系或下一步行动。',
-    '8. 短段和单句成段本身不是缺陷。按完整的动作、感受或思考分段，不强制每段句数，不为降低检测分机械合并或扩写。',
-    '9. 叙事节奏清爽凌厉，打破匀速平推：动作交锋主次分明，次要过招顺笔带过，关键破局浓墨重彩，长短句错落有致，让阅读充满爽快感与张力。',
-    '10. 不能靠添加新工具、异常规则、伤势或收费补因果。保留已经兑现的阶段结果，不强制升级危机；无法从初稿确认的事实不擅自补定。',
-    '11. 直接输出改写后的正文，不要任何解释、前言或 Markdown 围栏。'  ].join('\n'));
-  return [
-    { role: 'system', content: systemParts.join('\n') },
-    { role: 'user', content: '以下是初稿。只修复有依据的问题，保留有效段落、必要说明和人物表达，不做强制句数合并；直接输出完整修订正文：\n\n' + String(draft || '') }
-  ];
-}
-
-/**
- * 合并两遍生成的 token 用量（逐字段相加）。
- * 任一值为 null 时返回另一值；两者都为 null 返回 null。
- */
-function mergeUsageSum(first, second) {
-  if (!first) return second || null;
-  if (!second) return first;
-  const merged = { ...second };
-  ['promptTokens', 'completionTokens', 'reasoningTokens', 'cachedTokens', 'cacheWriteTokens', 'totalTokens'].forEach(key => {
-    const a = Number(first[key]);
-    const b = Number(second[key]);
-    if (Number.isFinite(a) && Number.isFinite(b)) merged[key] = a + b;
-    else if (Number.isFinite(b)) merged[key] = b;
-    else if (Number.isFinite(a)) merged[key] = a;
-    else merged[key] = null;
-  });
-  merged.usageSource = second.usageSource || first.usageSource || null;
-  return merged;
-}
-
-/**
- * 把 AI 味检测结论压缩为可下发的摘要（避免 details 里长列表膨胀 molan_usage 事件）。
- */
-function summarizeAiFlavorVerdict(verdict) {
-  if (!verdict) return null;
-  return {
-    score: verdict.score,
-    passed: !!verdict.passed,
-    metrics: verdict.metrics || null,
-    blockHitTerms: verdict.details && Array.isArray(verdict.details.blockHits) ? verdict.details.blockHits.slice(0, 10) : []
-  };
-}
+const { isTwoPassHumanizeEnabled, appendSystemBlock, buildHumanizePassMessages, mergeUsageSum, summarizeAiFlavorVerdict } = require('./services/humanize-policy-service').createHumanizePolicyService({
+  buildHumanizeLexiconBlock, UNIVERSAL_CORRECTION_MARKER, UNIVERSAL_CORRECTION_POLICY_PROMPT
+});
 
 
 function addPromptCacheBreakpoint(messages, pm) {
@@ -780,16 +687,11 @@ const PUBLIC_ROOT_FILES = new Set([
 
 const STATIC_CACHE_MAX_BYTES = envPositiveInt('MOLAN_STATIC_CACHE_BYTES', 5 * 1024 * 1024, 0, 64 * 1024 * 1024);
 
-function requestError(status, message) {
-  const error = new Error(message);
-  error.status = status;
-  return error;
-}
-
-function decodePathParam(value) {
-  try { return decodeURIComponent(String(value || '')); }
-  catch (_) { throw requestError(400, '请求路径编码非法'); }
-}
+const { requestError, decodePathParam, respondError, json, readBody } = require('./services/http-request-service').createHttpRequestService({
+  MAX_JSON_BODY_BYTES, responseCors,
+  shouldFlushWrites: () => POSTGRES_MODE && postgresRuntimeState.ready && (postgresRuntimePendingWrites > 0 || postgresRuntimeDirtyTables.size > 0),
+  flushWrites: () => flushPostgresRuntimeWrites()
+});
 
 function requireSqliteForPublic(req, res) {
   if (POSTGRES_MODE) {
@@ -806,50 +708,6 @@ function requireSqliteForPublic(req, res) {
   return true;
 }
 
-function respondError(res, error, fallbackStatus = 400) {
-  const status = Number(error && error.status) || fallbackStatus;
-  if (!res.headersSent) json(res, status, { error: error && error.message ? error.message : '请求失败' });
-  else if (!res.writableEnded) { try { res.end(); } catch (_) {} }
-}
-
-function json(res, status, obj) {
-  const body = typeof obj === 'string' ? obj : JSON.stringify(obj);
-  const send = (sendStatus = status, sendBody = body) => {
-    if (res.headersSent || res.writableEnded || res.destroyed) return;
-    res.writeHead(sendStatus, {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-      'Content-Length': Buffer.byteLength(sendBody),
-      ...responseCors(res)
-    });
-    res.end(sendBody);
-  };
-  // PG 模式下 SQLite 只是可重建的同步兼容镜像。凡是请求触发了镜像写入，
-  // 必须在返回成功响应前等到对应的 PostgreSQL 事务完成。
-  const isRead = res.req && (res.req.method === 'GET' || res.req.method === 'HEAD');
-  const isError = status >= 400;
-  if (!isRead && !isError && POSTGRES_MODE && postgresRuntimeState.ready &&
-      (postgresRuntimePendingWrites > 0 || postgresRuntimeDirtyTables.size > 0)) {
-    const flush = flushPostgresRuntimeWrites().then(
-      () => ({ status: 'saved' }),
-      () => ({ status: 'failed' })
-    );
-    let timeoutHandle;
-    const safeTimeout = new Promise(resolve => {
-      timeoutHandle = setTimeout(() => resolve({ status: 'timeout' }), 30000);
-    });
-    void Promise.race([flush, safeTimeout]).then(result => {
-      clearTimeout(timeoutHandle);
-      if (result.status === 'saved') return send();
-      const message = result.status === 'timeout'
-        ? 'PostgreSQL 写回超时，数据持久化状态未确认，请先刷新后再重试'
-        : 'PostgreSQL 写回失败，数据持久化未确认';
-      send(503, JSON.stringify({ error: message }));
-    });
-    return;
-  }
-  send();
-}
 
 
 const STATIC_COMPRESS_MIN_BYTES = 1024;
@@ -863,179 +721,11 @@ const STATIC_COMPRESSIBLE_EXT = new Set(['.html', '.htm', '.css', '.js', '.json'
  */
 
 
-function readBody(req, maxBytes = MAX_JSON_BODY_BYTES) {
-  return new Promise((resolve, reject) => {
-    const declared = Number(req.headers['content-length']);
-    if (Number.isFinite(declared) && declared > maxBytes) {
-      req.resume();
-      reject(requestError(413, '请求体过大，单次最多支持 ' + Math.floor(maxBytes / 1024 / 1024) + ' MB'));
-      return;
-    }
-    const chunks = [];
-    let total = 0;
-    let settled = false;
-    const fail = error => {
-      if (settled) return;
-      settled = true;
-      req.removeListener('data', onData);
-      req.removeListener('end', onEnd);
-      req.resume();
-      reject(error);
-    };
-    const onData = chunk => {
-      if (settled) return;
-      total += chunk.length;
-      if (total > maxBytes) { fail(requestError(413, '请求体过大，单次最多支持 ' + Math.floor(maxBytes / 1024 / 1024) + ' MB')); return; }
-      chunks.push(chunk);
-    };
-    const onEnd = () => {
-      if (settled) return;
-      settled = true;
-      try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
-      catch (_) { reject(requestError(400, '请求体不是合法 JSON')); }
-    };
-    req.on('data', onData);
-    req.on('end', onEnd);
-    req.on('error', error => fail(error));
-    req.on('aborted', () => fail(requestError(400, '请求已中断')));
-  });
-}
 
-/** 判断请求是否应由本地服务代理到云端，保留本地同步状态接口不经过代理。 */
-function shouldProxyCloudRequest(req) {
-  if (!CLOUD_API_BASE || !req) return false;
-  const pathname = String(req.url || '').split('?')[0];
-  return pathname.startsWith('/api/') && pathname !== '/api/local-sync/status';
-}
-
-/** 为云端代理选择与现有接口一致的 JSON 请求体上限。 */
-function cloudProxyBodyLimit(requestUrl) {
-  const pathname = String(requestUrl || '').split('?')[0];
-  return pathname === '/api/dissection/extract' || pathname.startsWith('/api/dissections') || pathname.startsWith('/api/dissection/')
-    ? DISSECTION_MAX_BODY_BYTES
-    : MAX_JSON_BODY_BYTES;
-}
-
-/** 返回本地调试数据来源状态，明确区分云端数据代理和本地数据模式。 */
-function handleLocalSyncStatus(req, res) {
-  const configured = !!CLOUD_API_BASE;
-  json(res, 200, {
-    ok: true,
-    mode: configured ? 'cloud-proxy' : 'local',
-    dataSource: configured ? 'cloud' : 'local',
-    cloudConfigured: configured,
-    cloudApiBase: configured ? CLOUD_API_BASE : '',
-    cloudConfigError: CLOUD_API_BASE_ERROR || '',
-    codeSync: false,
-    message: configured ? '本地页面和账户数据使用云端 API，项目代码仍来自本地工作区' : '当前使用本地数据，未连接云端'
-  });
-}
-
-/** 将本地 API 请求转发到云端并保留 JSON、SSE 和文件下载响应。 */
-function handleCloudProxy(req, res) {
-  let target;
-  try {
-    const incoming = new URL(req.url, 'http://molan.local');
-    target = new URL(CLOUD_API_BASE);
-    target.pathname = incoming.pathname;
-    target.search = incoming.search;
-  } catch (_) {
-    return json(res, 502, { error: '云端同步地址不可用' });
-  }
-
-  const methodsWithBody = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-  const bodyPromise = methodsWithBody.has(String(req.method || '').toUpperCase())
-    ? readBody(req, cloudProxyBodyLimit(req.url)).then(body => Buffer.from(JSON.stringify(body), 'utf8'))
-    : Promise.resolve(null);
-
-  bodyPromise.then(body => new Promise((resolve, reject) => {
-    const transport = target.protocol === 'https:' ? https : http;
-    const headers = {};
-    ['accept', 'content-type', 'authorization', 'x-requested-with', 'range', 'if-none-match', 'user-agent'].forEach(name => {
-      const value = req.headers[name];
-      if (value !== undefined) headers[name] = value;
-    });
-    if (body) {
-      headers['content-type'] = headers['content-type'] || 'application/json';
-      headers['content-length'] = String(body.length);
-    }
-
-    const agent = target.protocol === 'https:'
-      ? new https.Agent({ keepAlive: true, timeout: 300000 })
-      : new http.Agent({ keepAlive: true, timeout: 300000 });
-
-    const upstream = transport.request({
-      method: req.method,
-      hostname: target.hostname,
-      port: target.port || (target.protocol === 'https:' ? 443 : 80),
-      path: target.pathname + target.search,
-      headers,
-      agent
-    }, upstreamResponse => {
-      const forwarded = {};
-      const blocked = new Set([
-        'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade',
-        'access-control-allow-origin', 'access-control-allow-credentials', 'access-control-allow-headers', 'access-control-allow-methods',
-        'access-control-expose-headers', 'content-security-policy', 'x-frame-options', 'cross-origin-resource-policy'
-      ]);
-      Object.entries(upstreamResponse.headers).forEach(([name, value]) => {
-        if (!blocked.has(name.toLowerCase()) && value !== undefined) forwarded[name.toLowerCase()] = value;
-      });
-      Object.entries(responseCors(res)).forEach(([name, value]) => { forwarded[name.toLowerCase()] = value; });
-      forwarded['cache-control'] = 'no-store';
-      forwarded['x-molan-data-source'] = 'cloud';
-      const isSse = String(upstreamResponse.headers['content-type'] || '').includes('text/event-stream');
-      if (isSse) forwarded['connection'] = 'keep-alive';
-      res.writeHead(upstreamResponse.statusCode || 502, forwarded);
-
-      let heartbeatTimer = null;
-      if (isSse) {
-        let lastActivity = Date.now();
-        upstreamResponse.on('data', () => { lastActivity = Date.now(); });
-        heartbeatTimer = setInterval(() => {
-          if (res.writableEnded || res.destroyed) {
-            if (heartbeatTimer) clearInterval(heartbeatTimer);
-            return;
-          }
-          if (Date.now() - lastActivity >= 10000) {
-            try { res.write(': keep-alive\n\n'); } catch (_) { if (heartbeatTimer) clearInterval(heartbeatTimer); }
-          }
-        }, 5000);
-        heartbeatTimer.unref();
-      }
-      const cleanupHeartbeat = () => {
-        if (heartbeatTimer) {
-          clearInterval(heartbeatTimer);
-          heartbeatTimer = null;
-        }
-      };
-
-      upstreamResponse.on('error', error => {
-        cleanupHeartbeat();
-        if (!res.writableEnded) res.destroy(error);
-      });
-      upstreamResponse.once('end', cleanupHeartbeat);
-      upstreamResponse.once('close', cleanupHeartbeat);
-      res.once('close', cleanupHeartbeat);
-      upstreamResponse.pipe(res);
-      resolve();
-    });
-    if (UPSTREAM_IDLE_TIMEOUT_MS > 0) upstream.setTimeout(UPSTREAM_IDLE_TIMEOUT_MS, () => upstream.destroy(new Error('云端响应空闲超时')));
-    upstream.once('error', error => {
-      if (res.headersSent) {
-        if (!res.writableEnded) res.destroy(error);
-        return;
-      }
-      reject(error);
-    });
-    res.once('close', () => { if (!res.writableEnded) upstream.destroy(); });
-    if (body) upstream.end(body); else upstream.end();
-  })).catch(error => {
-    if (res.destroyed || res.writableEnded) return;
-    const detail = error && error.message ? String(error.message).slice(0, 160) : '连接失败';
-    json(res, 502, { error: '云端数据服务暂时不可用，请检查本地云端同步配置', detail });
-  });
-}
+const { shouldProxyCloudRequest, cloudProxyBodyLimit, handleLocalSyncStatus, handleCloudProxy } = require('./services/cloud-proxy-service').createCloudProxyService({
+  CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECTION_MAX_BODY_BYTES, MAX_JSON_BODY_BYTES, UPSTREAM_IDLE_TIMEOUT_MS,
+  json, readBody, responseCors
+});
 
 // 模型别名：前端用 v4-flash / v4-pro，服务端映射到 DeepSeek 真实模型
 // 上游支持的模型名：deepseek-v4-flash（极速）/ deepseek-v4-pro（深度思考，返回 reasoning_content）
@@ -1215,122 +905,10 @@ function validateChatMessages(messages) {
 }
 
 /** Build the bounded writing context used to judge each strong sample. */
-function characterMaterialReviewContext(messages, request) {
-  const source = request && typeof request === 'object' ? request : {};
-  const characters = Array.isArray(source.characters) ? source.characters.map(character => ({
-    name: String(character && character.name || ''),
-    archetype: String(character && character.archetype || ''),
-    source: String(character && character.archetypeSource || '')
-  })).filter(character => character.name || character.archetype).slice(0, 12) : [];
-  const userTask = (Array.isArray(messages) ? messages : [])
-    .filter(message => message && message.role === 'user')
-    .map(message => String(message.content || '').replace(DYNAMIC_PROMPT_MARKER, '').trim())
-    .filter(Boolean)
-    .slice(-3)
-    .join('\n\n');
-  return [
-    '人物类型：' + (source.primaryArchetype || source.archetypes?.join('、') || '未指定'),
-    '描写维度：' + (Array.isArray(source.dimensions) ? source.dimensions.join('、') : ''),
-    '人物卡：' + (characters.length ? JSON.stringify(characters) : '无'),
-    '场景与素材检索要求：' + (source.query || '无'),
-    '当前用户任务：' + (userTask || '无')
-  ].join('\n').slice(0, 6000);
-}
-
-/** Parse one strict model verdict for a strong character-material sample. */
-function parseCharacterMaterialSampleReview(result) {
-  const payload = result && result.json && typeof result.json === 'object'
-    ? result.json
-    : safeJsonParse(result && result.text || '') || {};
-  const review = payload && payload.review && typeof payload.review === 'object' ? payload.review : payload;
-  const issues = Array.isArray(review && review.issues) ? review.issues.map(String).filter(Boolean).slice(0, 8) : [];
-  const pass = review && review.pass === true && review.suitable === true && review.errorFree === true && issues.length === 0;
-  return {
-    passed: pass,
-    suitable: review && review.suitable === true,
-    errorFree: review && review.errorFree === true,
-    issues,
-    reason: String(review && review.reason || (pass ? '符合当前语境且未发现明显错误' : '模型未确认样本同时符合语境且无明显错误')).slice(0, 500)
-  };
-}
-
-/** Review every strong sample with the selected model before it can enter the writing prompt. */
-async function reviewCharacterMaterialSamples(authToken, user, materialResult, messages, modelId) {
-  const samples = materialResult && Array.isArray(materialResult.samples) ? materialResult.samples : [];
-  const request = materialResult && materialResult.request || {};
-  if (request.mode !== 'strong' || !samples.length) {
-    return {
-      approvedIds: [],
-      audit: { required: false, status: 'not_required', checkedCount: 0, passedCount: 0, rejectedCount: 0, calls: [] }
-    };
-  }
-  const context = characterMaterialReviewContext(messages, request);
-  const approvedIds = [];
-  const calls = [];
-  for (const sample of samples) {
-    const prompt = [
-      '当前写作上下文：',
-      context,
-      '',
-      '待审匿名原文样本：',
-      `样本 ID：${sample.id}`,
-      `样本人物类型：${sample.archetype || '未标注'}`,
-      `样本描写维度：${sample.dimension || '未标注'}`,
-      `样本文本：${sample.text}`,
-      '',
-      '请重点逐条检查：',
-      '1. 是否能服务当前人物类型、描写维度和写作语境；',
-      '2. 是否存在错别字、病句、指代不明、标点不闭合、抓取截断、匿名化占位符破坏语法或其他明显文本错误；',
-      '3. 是否含有不应进入通用素材的敏感表达、原作专属术语或与当前任务冲突的内容；',
-      '4. 只有同时适配语境且确认没有明显错误才通过，不确定必须不通过。',
-      '只返回 JSON：{"review":{"pass":true,"suitable":true,"errorFree":true,"issues":[],"reason":""}}。不要改写或复述样本。'
-    ].join('\n');
-    try {
-      const result = await callMolanChat(authToken, user, {
-    thinking: false, reasoningEffort: 'none',
-        system: '你是墨阑 strong 原文样本引用审校器。你的任务是决定一条匿名化文学样本能否在当前写作任务中被引用。必须严格检查语境适配性和文本错误，结论不确定时拒绝。',
-        userPrompt: prompt,
-        maxTokens: 420,
-        jsonMode: true,
-        modelId,
-        stage: 'single',
-        timeoutMs: 120000,
-        temperature: 0.1,
-        promptVersion: 'character-material-review-v1'
-      });
-      const verdict = parseCharacterMaterialSampleReview(result);
-      if (verdict.passed) approvedIds.push(String(sample.id));
-      calls.push({
-        sampleId: String(sample.id),
-        status: verdict.passed ? 'passed' : 'rejected',
-        suitable: verdict.suitable,
-        errorFree: verdict.errorFree,
-        issues: verdict.issues,
-        reason: verdict.reason,
-        requestId: result.usage && result.usage.requestId || '',
-        totalTokens: result.usage && result.usage.totalTokens == null ? null : Number(result.usage.totalTokens),
-        creditCost: result.usage && Number.isFinite(Number(result.usage.creditCost)) ? Number(result.usage.creditCost) : null
-      });
-    } catch (error) {
-      calls.push({ sampleId: String(sample.id), status: 'unavailable', suitable: false, errorFree: false, issues: [], reason: '样本引用前模型复核失败：' + String(error && error.message || error).slice(0, 400) });
-    }
-  }
-  const passedCount = calls.filter(call => call.status === 'passed').length;
-  return {
-    approvedIds,
-    audit: {
-      required: true,
-      status: calls.some(call => call.status === 'unavailable') ? 'partial' : 'completed',
-      version: 'character-material-review-v1',
-      modelId,
-      checkedCount: calls.length,
-      passedCount,
-      rejectedCount: calls.filter(call => call.status === 'rejected').length,
-      unavailableCount: calls.filter(call => call.status === 'unavailable').length,
-      calls
-    }
-  };
-}
+const { characterMaterialReviewContext, parseCharacterMaterialSampleReview, reviewCharacterMaterialSamples } = require('./services/character-material-review-service').createCharacterMaterialReviewService({
+  DYNAMIC_PROMPT_MARKER, safeJsonParse: (...args) => safeJsonParse(...args),
+  callMolanChat: (...args) => callMolanChat(...args)
+});
 
 const chatStateCleanup = setInterval(() => {
   const now = Date.now();
@@ -9250,307 +8828,27 @@ function novelListSummary(row) {
   };
 }
 
-/** 将 PostgreSQL 项目资料转换为旧小说列表接口兼容的轻量摘要。 */
-function postgresNovelListSummary(project, profile) {
-  const state = profile && profile.state && typeof profile.state === 'object' ? profile.state : {};
-  const serializedState = JSON.stringify(state);
-  return novelListSummary({
-    id: project.projectId,
-    workspace_id: project.workspaceId,
-    project_id: project.projectId,
-    title: project.title || profile && profile.title || '未命名小说',
-    state_json: serializedState,
-    word_count: calcWordCount(state),
-    created_at: profile && profile.createdAt || 0,
-    updated_at: profile && profile.updatedAt || project.updatedAt || 0,
-    revision: profile && profile.revision || 0,
-    state_bytes: Buffer.byteLength(serializedState, 'utf8')
-  });
-}
+const {
+  handlePostgresNovelList,
+  handlePostgresNovelGet,
+  handlePostgresNovelSave,
+  handlePostgresNovelImportCharacters,
+  handlePostgresNovelCreate,
+  handlePostgresNovelDelete,
+  handlePostgresNovelRestore,
+  postgresNovelListSummary,
+  postgresActor,
+  respondPostgresError
+} = require('./services/postgres-novel-service').createPostgresNovelService({
+  getAuthUser: (...args) => getAuthUser(...args), json,
+  getPostgresRepository: () => postgresRepository, readBody, requestError, projectScope,
+  sanitizeNovelStateForStorage, calcWordCount, maxNovelStateBytes: MAX_NOVEL_STATE_BYTES,
+  crypto, novelListSummary
+});
 
-/** 将 PostgreSQL 错误以稳定业务码返回，避免把驱动详情暴露给浏览器。 */
-function respondPostgresError(res, error) {
-  const status = Number(error && error.status) || 503;
-  const code = String(error && error.code || 'request_failed');
-  json(res, status, { error: error && error.message ? error.message : 'PostgreSQL 操作失败', code });
-}
-
-/** 取得当前请求对应的稳定用户 ID，不使用可变邮箱作为数据归属。 */
-function postgresActor(auth) {
-  return String(auth && auth.user && (auth.user.userId || projectScope.stableUserId(auth.user.email)) || '').trim();
-}
-
-/** PG 模式下读取作品列表，项目资料由 project_profiles 作为唯一 state 来源。 */
-async function handlePostgresNovelList(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  const workspaces = await postgresRepository.listWorkspaces(userId);
-  const projectGroups = await Promise.all(workspaces.map(workspace => postgresRepository.listProjects(userId, workspace.id)));
-  const projects = projectGroups.flat();
-  const profiles = await Promise.all(projects.map(project => postgresRepository.getProfile(userId, project.projectId, project.workspaceId)));
-  json(res, 200, {
-    ok: true,
-    novels: projects.map((project, index) => postgresNovelListSummary(project, profiles[index]))
-  });
-}
-
-/** PG 模式下读取一本作品的完整资料和项目权限摘要。 */
-async function handlePostgresNovelGet(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  const profile = await postgresRepository.getProfile(postgresActor(auth), id);
-  if (!profile) return json(res, 404, { error: '小说不存在或无权访问' });
-  const state = sanitizeNovelStateForStorage(profile.state || {});
-  json(res, 200, {
-    ok: true,
-    novel: {
-      id,
-      title: profile.title || state.title || '未命名小说',
-      wordCount: calcWordCount(state),
-      createdAt: profile.createdAt,
-      updatedAt: profile.updatedAt,
-      revision: profile.revision,
-      workspaceId: profile.access.workspace_id,
-      projectId: profile.access.project_id,
-      scope: projectScope.scopePublic(profile.access),
-      state
-    }
-  });
-}
-
-/** PG 模式下保存整本 state，带版本号的请求才允许覆盖已有资料。 */
-async function handlePostgresNovelSave(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  const body = await readBody(req);
-  const rawState = body && body.state;
-  const title = String(body && body.title || rawState && rawState.title || '未命名小说').slice(0, 200);
-  if (!rawState || typeof rawState !== 'object' || !Array.isArray(rawState.volumes)) throw requestError(422, 'state 非法');
-  const state = sanitizeNovelStateForStorage(rawState);
-  const stateJson = JSON.stringify(state);
-  if (Buffer.byteLength(stateJson, 'utf8') > MAX_NOVEL_STATE_BYTES) {
-    throw requestError(413, '单本小说数据过大，最多支持 ' + Math.floor(MAX_NOVEL_STATE_BYTES / 1024 / 1024) + ' MB');
-  }
-  const revision = body.revision == null ? null : Number(body.revision);
-  if (revision !== null && (!Number.isInteger(revision) || revision < 0)) throw requestError(422, 'revision 非法');
-  const actorId = postgresActor(auth);
-  const existingProfile = body.workspaceId ? null : await postgresRepository.getProfile(actorId, id);
-  const saved = await postgresRepository.saveProfile({
-    userId: actorId,
-    workspaceId: String(body.workspaceId || existingProfile && existingProfile.access && existingProfile.access.workspace_id || '').trim(),
-    projectId: id,
-    title,
-    state,
-    expectedRevision: revision,
-    wordCount: calcWordCount(state)
-  });
-  json(res, 200, saved);
-}
-
-/** PG 模式下把拆书角色写入作品设定，并通过 profile revision 防止覆盖并发编辑。 */
-async function handlePostgresNovelImportCharacters(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  const body = await readBody(req);
-  const chars = Array.isArray(body && body.characters) ? body.characters : [];
-  if (!chars.length) return json(res, 400, { error: '请提供角色' });
-  const userId = postgresActor(auth);
-  const profile = await postgresRepository.getProfile(userId, id);
-  if (!profile || !projectScope.canAccess(profile.access, projectScope.WRITE_ROLES)) {
-    return json(res, 404, { error: '小说不存在或无权访问' });
-  }
-  const state = sanitizeNovelStateForStorage(profile.state || {});
-  state.knowledge = state.knowledge && typeof state.knowledge === 'object' && !Array.isArray(state.knowledge)
-    ? state.knowledge
-    : {};
-  const entities = state.knowledge.entities && typeof state.knowledge.entities === 'object' && !Array.isArray(state.knowledge.entities)
-    ? state.knowledge.entities
-    : {};
-  let added = 0;
-  chars.forEach(character => {
-    const name = String(character && character.name || '').trim();
-    if (!name) return;
-    const entityId = 'ent_' + crypto.createHash('sha1').update(id + '|' + name).digest('hex').slice(0, 14);
-    if (entities[entityId]) return;
-    entities[entityId] = {
-      id: entityId,
-      name,
-      type: 'character',
-      description: [character.function, character.goal, character.conflict, character.arc]
-        .map(value => String(value || '')).filter(Boolean).join('；'),
-      source: 'dissection',
-      createdAt: Date.now()
-    };
-    added += 1;
-  });
-  state.knowledge.entities = entities;
-  if (Buffer.byteLength(JSON.stringify(state), 'utf8') > MAX_NOVEL_STATE_BYTES) {
-    return json(res, 413, { error: '单本小说数据过大，最多支持 ' + Math.floor(MAX_NOVEL_STATE_BYTES / 1024 / 1024) + ' MB' });
-  }
-  const expectedRevision = body.revision == null ? Number(profile.revision) || 0 : Number(body.revision);
-  if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return json(res, 400, { error: 'revision 非法' });
-  const saved = await postgresRepository.saveProfile({
-    userId,
-    workspaceId: profile.access.workspace_id,
-    projectId: id,
-    title: profile.title || state.title || '未命名小说',
-    state,
-    expectedRevision,
-    wordCount: calcWordCount(state)
-  });
-  json(res, 200, { ok: true, added, total: Object.keys(entities).length, revision: saved.revision });
-}
-
-/** PG 模式下创建作品，服务端生成的项目 ID 与 legacy_id 同时保持稳定。 */
-async function handlePostgresNovelCreate(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const body = await readBody(req);
-  const rawState = body && body.state;
-  const title = String(body && body.title || rawState && rawState.title || '未命名小说').slice(0, 200);
-  if (!rawState || typeof rawState !== 'object' || !Array.isArray(rawState.volumes)) throw requestError(422, 'state 非法');
-  const state = sanitizeNovelStateForStorage(rawState);
-  const stateJson = JSON.stringify(state);
-  if (Buffer.byteLength(stateJson, 'utf8') > MAX_NOVEL_STATE_BYTES) {
-    throw requestError(413, '单本小说数据过大，最多支持 ' + Math.floor(MAX_NOVEL_STATE_BYTES / 1024 / 1024) + ' MB');
-  }
-  const id = String(body.id || ('n_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)));
-  if (!/^n_[A-Za-z0-9]{1,30}$/.test(id)) throw requestError(422, 'id 非法');
-  const revision = body.revision == null ? null : Number(body.revision);
-  if (revision !== null && (!Number.isInteger(revision) || revision < 0)) throw requestError(422, 'revision 非法');
-  const actorId = postgresActor(auth);
-  const existingProfile = body.workspaceId ? null : await postgresRepository.getProfile(actorId, id);
-  const saved = await postgresRepository.saveProfile({
-    userId: actorId,
-    workspaceId: String(body.workspaceId || existingProfile && existingProfile.access && existingProfile.access.workspace_id || '').trim(),
-    projectId: id,
-    title,
-    state,
-    expectedRevision: revision,
-    wordCount: calcWordCount(state)
-  });
-  json(res, 200, saved);
-}
-
-/** PG 模式下软删除作品，正文和资料仍由数据库保留。 */
-async function handlePostgresNovelDelete(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  json(res, 200, await postgresRepository.deleteProject(postgresActor(auth), id));
-}
-
-/** PG 模式下恢复软删除作品，恢复授权在数据库安全函数中再次校验。 */
-async function handlePostgresNovelRestore(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  json(res, 200, await postgresRepository.restoreProject(postgresActor(auth), id));
-}
-
-/** 严格解析导出文档序号范围；范围为 1-based 且包含两端。 */
-function parseNovelExportRange(req) {
-  const params = new URL(req.url, 'http://localhost').searchParams;
-  const parsed = { fromChapter: null, toChapter: null, hasRange: false };
-  for (const key of ['fromChapter', 'toChapter']) {
-    const values = params.getAll(key);
-    if (values.length > 1) return { ok: false };
-    if (!values.length) continue;
-    const value = values[0];
-    if (!/^[1-9][0-9]*$/.test(value)) return { ok: false };
-    const number = Number(value);
-    if (!Number.isSafeInteger(number) || number < 1) return { ok: false };
-    parsed[key] = number;
-    parsed.hasRange = true;
-  }
-  if (parsed.fromChapter !== null && parsed.toChapter !== null && parsed.fromChapter > parsed.toChapter) {
-    return { ok: false };
-  }
-  return { ok: true, range: parsed };
-}
-
-/** 合并编辑器正文与 PG 已提交章节，再渲染可下载文档。 */
-function sendNovelExport(res, id, sourceState, committedChapters, format, range) {
-  const normalizedFormat = String(format || '').trim().toLowerCase();
-  const extensions = { txt: 'txt', epub: 'epub', docx: 'docx' };
-  if (!Object.prototype.hasOwnProperty.call(extensions, normalizedFormat)) {
-    return json(res, 400, { error: '导出格式仅支持 TXT、EPUB、DOCX', code: 'export_format_invalid' });
-  }
-  const state = sourceState && typeof sourceState === 'object' && !Array.isArray(sourceState) ? sourceState : {};
-  const committed = new Map((Array.isArray(committedChapters) ? committedChapters : []).map(chapter => [Number(chapter.chapterNo), chapter]));
-  const sourceChapters = Array.isArray(state.chapters)
-    ? state.chapters
-    : (Array.isArray(state.volumes) ? state.volumes.flatMap(volume =>
-      (Array.isArray(volume && volume.chapters) ? volume.chapters : []).map(chapter => ({ ...chapter, volumeTitle: chapter.volumeTitle || volume.title || '' }))
-    ) : []);
-  const chapters = [];
-  const represented = new Set();
-  sourceChapters.forEach((chapter, index) => {
-    const chapterNo = Number(chapter && (chapter.number || chapter.chapterNo || chapter.chapterIndex)) || index + 1;
-    const committedChapter = committed.get(chapterNo);
-    represented.add(chapterNo);
-    chapters.push(committedChapter
-      ? { ...chapter, chapterNo, content: committedChapter.content }
-      : { ...chapter, chapterNo });
-  });
-  for (const chapter of committed.values()) {
-    if (!represented.has(Number(chapter.chapterNo))) {
-      chapters.push({ chapterNo: Number(chapter.chapterNo), title: `第${Number(chapter.chapterNo)}章`, content: String(chapter.content || '') });
-    }
-  }
-  chapters.sort((left, right) => {
-    const leftNo = Number(left.number || left.chapterNo || left.chapterIndex) || 0;
-    const rightNo = Number(right.number || right.chapterNo || right.chapterIndex) || 0;
-    return leftNo - rightNo;
-  });
-  const exportInput = {
-    ...state,
-    id: state.id || id,
-    title: state.title || '未命名小说',
-    chapters
-  };
-  let document;
-  let body;
-  try {
-    document = novelExport.buildExportDocument(exportInput);
-    if (!document.chapters.length && !range.hasRange) {
-      return json(res, 409, { error: '没有可读取的章节正文，已阻止导出', code: 'export_content_blocked', blocked: true });
-    }
-    const fromChapter = range.fromChapter || 1;
-    const toChapter = range.toChapter || document.chapters.length;
-    if (fromChapter > document.chapters.length || toChapter > document.chapters.length || fromChapter > toChapter) {
-      return json(res, 400, { error: '章节范围超出导出文档边界', code: 'export_range_invalid' });
-    }
-    const selectedChapters = document.chapters.slice(fromChapter - 1, toChapter);
-    if (!selectedChapters.length || selectedChapters.every(chapter => !chapter.content.trim())) {
-      return json(res, 409, { error: '选定范围没有可读取的章节正文，已阻止导出', code: 'export_content_blocked', blocked: true });
-    }
-    body = novelExport.exportBook({ ...document, chapters: selectedChapters }, normalizedFormat);
-  } catch (error) {
-    return json(res, 422, { error: error && error.message || '小说导出失败', code: 'export_build_failed' });
-  }
-  const baseName = String(document.title || id).replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim().slice(0, 100) || id;
-  const filename = `${baseName}.${extensions[normalizedFormat]}`;
-  const fallbackName = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_') || `novel.${extensions[normalizedFormat]}`;
-  const contentTypes = {
-    txt: 'text/plain; charset=utf-8',
-    epub: 'application/epub+zip',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  };
-  res.writeHead(200, {
-    'Content-Type': contentTypes[normalizedFormat],
-    'Content-Disposition': `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
-    'Content-Length': body.length,
-    'Cache-Control': 'private, no-store',
-    'X-Content-Type-Options': 'nosniff',
-    ...responseCors(res)
-  });
-  return res.end(body);
-}
+const { parseNovelExportRange, sendNovelExport } = require('./services/novel-export-service').createNovelExportService({
+  novelExport, json, responseCors
+});
 
 /** PG 模式下按导出 capability 读取项目状态和已提交正文。 */
 async function handlePostgresNovelExport(req, res, id) {
@@ -9662,154 +8960,10 @@ async function handlePostgresPackageRestore(req, res, id) {
   json(res, 200, restored);
 }
 
-/** PG 模式下维护结构化资料，所有读写都绑定项目和 revision。 */
-async function handlePostgresResources(req, res, projectId, kind, resourceId = '') {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  const workspaceId = String(new URL(req.url, 'http://molan.local').searchParams.get('workspaceId') || '').trim();
-  const parseResourceRevision = value => {
-    const raw = String(value || '').trim();
-    const match = raw.match(/(\d+)"?$/);
-    return match ? Number(match[1]) : NaN;
-  };
-  if (req.method === 'GET') {
-    const result = await postgresRepository.listResources(userId, projectId, kind, resourceId, workspaceId, new URL(req.url, 'http://molan.local').searchParams.get('includeDeleted') === '1');
-    if (result === null || resourceId && !result) return json(res, 404, { error: '资料不存在或无权访问' });
-    if (resourceId && result.etag) res.setHeader('ETag', result.etag);
-    return json(res, 200, resourceId ? { ok: true, resource: result } : { ok: true, resources: result });
-  }
-  if (req.method === 'POST' && !resourceId) {
-    const body = await readBody(req);
-    return json(res, 201, await postgresRepository.createResource({
-      userId, workspaceId, projectId, kind, id: body.id, payload: body.payload, changeReason: body.changeReason
-    }));
-  }
-  if (!resourceId || !['PATCH', 'DELETE', 'POST'].includes(req.method)) return json(res, 405, { error: '方法不支持' });
-  const body = await readBody(req).catch(() => ({}));
-  const expectedRevision = parseResourceRevision(req.headers['if-match'] || body.revision);
-  if (!Number.isInteger(expectedRevision) || expectedRevision < 1) return json(res, 428, { error: '资料操作需要有效 If-Match 版本' });
-  if (req.method === 'POST') {
-    const result = await postgresRepository.restoreResource({
-      userId, workspaceId, projectId, kind, resourceId, expectedRevision, changeReason: body.changeReason
-    });
-    if (!result.ok) return json(res, result.code === 'revision_conflict' ? 412 : result.code === 'forbidden' ? 403 : 404, { error: '资料恢复失败', code: result.code, current: result.current });
-    return json(res, 200, result);
-  }
-  if (req.method === 'PATCH') {
-    const result = await postgresRepository.updateResource({
-      userId, workspaceId, projectId, kind, resourceId, payload: body.payload, expectedRevision, changeReason: body.changeReason
-    });
-    if (!result.ok) return json(res, result.code === 'revision_conflict' ? 412 : result.code === 'forbidden' ? 403 : 404, { error: '资料更新失败', code: result.code, current: result.current });
-    return json(res, 200, result);
-  }
-  const result = await postgresRepository.deleteResource({
-    userId, workspaceId, projectId, kind, resourceId, expectedRevision, changeReason: body.changeReason
-  });
-  if (!result.ok) return json(res, result.code === 'revision_conflict' ? 412 : result.code === 'forbidden' ? 403 : 404, { error: '资料删除失败', code: result.code, current: result.current });
-  return json(res, 200, result);
-}
-
-async function handlePostgresResourceHistory(req, res, projectId, kind, resourceId, targetRevision = 0) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  const query = new URL(req.url, 'http://molan.local').searchParams;
-  const workspaceId = String(query.get('workspaceId') || '').trim();
-  if (req.method === 'GET') {
-    const versions = await postgresRepository.listResourceVersions({ userId, workspaceId, projectId, kind, resourceId });
-    if (versions === null) return json(res, 404, { error: '资料不存在或无权访问' });
-    return json(res, 200, { ok: true, versions });
-  }
-  if (req.method !== 'POST' || !targetRevision) return json(res, 405, { error: '方法不支持' });
-  const body = await readBody(req).catch(() => ({}));
-  const raw = String(req.headers['if-match'] || body.revision || '').trim();
-  const match = raw.match(/(\d+)"?$/);
-  const expectedRevision = match ? Number(match[1]) : NaN;
-  if (!Number.isInteger(expectedRevision) || expectedRevision < 1) return json(res, 428, { error: '历史版本恢复需要有效 If-Match 版本' });
-  const result = await postgresRepository.restoreResourceVersion({
-    userId, workspaceId, projectId, kind, resourceId, targetRevision, expectedRevision,
-    changeReason: body.changeReason
-  });
-  if (!result.ok) return json(res, result.code === 'revision_conflict' ? 412 : result.code === 'forbidden' ? 403 : 404, { error: '历史版本恢复失败', code: result.code, current: result.current });
-  return json(res, 200, result);
-}
-
-/** PG 模式下列出当前用户所属工作区。 */
-async function handlePostgresWorkspaceList(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  json(res, 200, { ok: true, workspaces: await postgresRepository.listWorkspaces(postgresActor(auth)) });
-}
-
-/** PG 模式下创建工作区，数据库函数保证首位 owner 原子建立。 */
-async function handlePostgresWorkspaceCreate(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const body = await readBody(req);
-  json(res, 201, await postgresRepository.createWorkspace(postgresActor(auth), body.name));
-}
-
-/** PG 模式下读取或变更工作区成员，目标身份先从本地认证账户映射到稳定 userId。 */
-async function handlePostgresWorkspaceMembers(req, res, workspaceId) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  if (req.method === 'GET') {
-    const members = await postgresRepository.listWorkspaceMembers(userId, workspaceId);
-    return json(res, 200, { ok: true, members: members.map(member => {
-      const account = getUserById(member.userId);
-      return { userId: member.userId, email: account && account.email || '', name: account && account.name || '', role: member.role };
-    }) });
-  }
-  const body = await readBody(req);
-  const account = body.userId ? getUserById(body.userId) : getUserByEmail(String(body.email || '').trim().toLowerCase());
-  if (!account) return json(res, 404, { error: '目标账户不存在' });
-  if (req.method === 'DELETE') {
-    return json(res, 200, await postgresRepository.deactivateWorkspaceMember(userId, workspaceId, account.userId));
-  }
-  if (!['POST', 'PATCH'].includes(req.method)) return json(res, 405, { error: '方法不支持' });
-  return json(res, 200, await postgresRepository.upsertWorkspaceMember(userId, workspaceId, account.userId, body.role || 'member'));
-}
-
-/** PG 模式下列出工作区内的显式项目成员可见项目。 */
-async function handlePostgresWorkspaceProjectList(req, res, workspaceId) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  json(res, 200, { ok: true, projects: await postgresRepository.listProjects(postgresActor(auth), workspaceId) });
-}
-
-/** PG 模式下维护项目成员和 canSpend/canExport 独立能力。 */
-async function handlePostgresNovelMembers(req, res, workspaceId, projectId) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  if (req.method === 'GET') {
-    const members = await postgresRepository.listProjectMembers(userId, workspaceId, projectId);
-    return json(res, 200, { ok: true, members: members.map(member => {
-      const account = getUserById(member.userId);
-      return { userId: member.userId, name: account && account.name || '', role: member.role, canSpend: member.canSpend, canExport: member.canExport };
-    }) });
-  }
-  const body = await readBody(req);
-  const account = body.userId ? getUserById(body.userId) : getUserByEmail(String(body.email || '').trim().toLowerCase());
-  if (!account) return json(res, 404, { error: '目标账户不存在' });
-  if (req.method === 'DELETE') {
-    return json(res, 200, await postgresRepository.deactivateProjectMember(userId, workspaceId, projectId, account.userId));
-  }
-  if (!['POST', 'PATCH'].includes(req.method)) return json(res, 405, { error: '方法不支持' });
-  return json(res, 200, await postgresRepository.upsertProjectMember(
-    userId,
-    workspaceId,
-    projectId,
-    account.userId,
-    body.role,
-    body.canSpend === true,
-    body.canExport === true,
-    body.transferOwner === true,
-    body.aclRevision == null ? null : Number(body.aclRevision)
-  ));
-}
+const { handlePostgresResources, handlePostgresResourceHistory, handlePostgresWorkspaceList, handlePostgresWorkspaceCreate, handlePostgresWorkspaceMembers, handlePostgresWorkspaceProjectList, handlePostgresNovelMembers } = require('./services/postgres-project-service').createPostgresProjectService({
+  getAuthUser: (...args) => getAuthUser(...args), json, postgresRepository, readBody, postgresActor,
+  getUserById: (...args) => getUserById(...args), getUserByEmail: (...args) => getUserByEmail(...args)
+});
 
 /** PG 模式下列出创作书，创作书与项目成员权限保持同一作用域。 */
 async function handlePostgresCreationBooksList(req, res) {
@@ -10573,6 +9727,16 @@ let nativeProjects;
 let nativeDissections;
 let nativeCreation;
 let nativeCreationHttp;
+let nativeBenchmarkChapterHttp;
+function nativeBenchmarkChapterService() {
+  if (!nativeBenchmarkChapterHttp) nativeBenchmarkChapterHttp = require('./services/native-benchmark-chapter-service').createNativeBenchmarkChapterService({
+    creationRepository: nativeCreationRepository(), dataDirectory: DATA_DIR, benchmarkPipeline, getAuthUser, readBody, json,
+    callMolanChat, resolveModelForUser, currentDefaultModel, checkForbiddenTerms, creationForbiddenTerms,
+    deterministicContractValidation, evaluateSomaticGate, runGenreNarrativeAudits, computeStructuralSimilarity,
+    creationOriginalityGate, computeRetentionCompliance, logger: console
+  });
+  return nativeBenchmarkChapterHttp;
+}
 function nativeCreationRepository() {
   if (!nativeCreation) {
     nativeCreation = new (require('./lib/repositories/json-creation-repository').JsonCreationRepository)(appRepository());
@@ -10645,6 +9809,13 @@ async function dispatchRequest(req, res) {
   }
   const u = req.url.split('?')[0];
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/creation-books')) {
+    const chapterAction = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/(audit|commit)$/);
+    if (req.method === 'POST' && chapterAction) {
+      const service = nativeBenchmarkChapterService();
+      return chapterAction[2] === 'audit'
+        ? service.handleCreationBookChapterAudit(req, res, chapterAction[1])
+        : service.handleCreationBookCommit(req, res, chapterAction[1]);
+    }
     if (await nativeCreationService().dispatch(req, res, u)) return;
     return json(res, 503, { error: '该创作操作尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
   }
@@ -10668,7 +9839,7 @@ async function dispatchRequest(req, res) {
     return json(res, 503, { error: '该拆书操作尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
   }
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/')) {
-    const supported = /^\/api\/(?:auth\/(?:register|login|me|profile|logout|logout-all)$|admin\/(?:auth\/(?:login|me|logout)|skills(?:\/[^/]+)?)$|skills(?:\/import)?$|open-skills(?:\/[^/]+(?:\/download)?)?$|novels(?:\/[^/]+(?:\/restore)?)?$|books\/|runs\/|generation-runs(?:\/|$)|chat$|models$|health$|usage$|billing\/(?:estimate|topup)$|local-sync\/status$|local-style\/)/.test(u);
+    const supported = /^\/api\/(?:auth\/(?:register|login|me|profile|logout|logout-all)$|admin\/(?:auth\/(?:login|me|logout)|skills(?:\/[^/]+)?)$|skills(?:\/import)?$|open-skills(?:\/[^/]+(?:\/download)?)?$|novels(?:\/[^/]+(?:\/restore)?)?$|books\/|runs\/|generation-runs(?:\/|$)|benchmark(?:\/|$)|chat$|models$|health$|usage$|billing\/(?:estimate|topup)$|local-sync\/status$|local-style\/)/.test(u);
     if (!supported && !u.startsWith('/api/xuanhuan-reading/') && !u.startsWith('/api/xuanhuan-lab/')) return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
   }
   if (req.method === 'GET' && u === '/api/local-sync/status') return handleLocalSyncStatus(req, res);

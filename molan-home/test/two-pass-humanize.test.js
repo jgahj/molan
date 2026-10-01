@@ -69,6 +69,10 @@ test('mergeUsageSum：两遍用量逐字段相加，null 透传', () => {
   assert.equal(server.mergeUsageSum(null, b), b);
   assert.equal(server.mergeUsageSum(a, null), a);
   assert.equal(server.mergeUsageSum(null, null), null);
+  assert.equal(server.mergeUsageSum({ totalTokens: null }, { totalTokens: null }).totalTokens, null);
+  assert.equal(server.mergeUsageSum({ totalTokens: undefined }, { totalTokens: null }).totalTokens, null);
+  assert.equal(server.mergeUsageSum({ totalTokens: null }, { totalTokens: 0 }).totalTokens, 0);
+  assert.equal(server.mergeUsageSum({ totalTokens: 7 }, { totalTokens: null }).totalTokens, 7);
 });
 
 test('injectEditorOnlyCorrectionLibrary：即使外部纠错库较旧，也自动合入 R-37/38/39 核心禁令', () => {
