@@ -7,7 +7,7 @@ if (major < 22 || (major === 22 && minor < 5)) {
   process.exit(1);
 }
 
-const tests = ['generation-sqlite-store.test.js', 'generation-sqlite-commit.test.js', 'lab-jobs-migration.test.mjs']
+const tests = ['generation-sqlite-store.test.js', 'generation-sqlite-commit.test.js', 'lab-jobs-migration.test.mjs', 'benchmark-commit-receipts.test.js']
   .map(name => fileURLToPath(new URL(`./test/${name}`, import.meta.url)));
 const result = spawnSync(process.execPath, [
   '--no-warnings', '--test', '--test-reporter=spec', ...tests
