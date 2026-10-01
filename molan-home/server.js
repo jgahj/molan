@@ -85,6 +85,10 @@ const postgresData = require('./lib/postgres-repository');
 const postgresRepository = postgresData.createPostgresRepository();
 const { runGenreNarrativeAudits } = require('./lib/genre-narrative-audit');
 const POSTGRES_MODE = postgresRepository.enabled;
+if (require.main === module && process.env.NODE_ENV === 'production' && !POSTGRES_MODE) {
+  throw Object.assign(new Error('Production mode requires PostgreSQL; local storage is not an allowed fallback.'),
+    { code: 'PRODUCTION_POSTGRES_REQUIRED' });
+}
 const postgresStyleProfileStore = POSTGRES_MODE
   ? require('./lib/style-profile-store').createPostgresStyleProfileStore(postgresRepository)
   : null;

@@ -4,6 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { createServerLifecycleService } = require('../services/server-lifecycle-service');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 function fixture(overrides = {}) {
   const calls = [];
@@ -50,6 +54,19 @@ test('生产环境没有 PG 时拒绝初始化及监听', async () => {
   f.runtime.env.NODE_ENV = 'production';
   await assert.rejects(f.lifecycle.start(), { code: 'PRODUCTION_POSTGRES_REQUIRED' });
   assert.deepEqual(f.calls, []);
+});
+
+test('实际生产入口在打开原生本地仓储之前拒绝缺少 PG 配置', context => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-production-reject-'));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const child = spawnSync(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+    env: { ...process.env, NODE_ENV: 'production', MOLAN_PG_ENABLED: '0', MOLAN_APP_STORE: 'json',
+      MOLAN_DATA_DIR: directory, MOLAN_CONFIG_DIR: directory },
+    windowsHide: true, encoding: 'utf8', timeout: 5000
+  });
+  assert.equal(child.status, 1, child.stderr);
+  assert.match(child.stderr, /PRODUCTION_POSTGRES_REQUIRED/);
+  assert.deepEqual(fs.readdirSync(directory), []);
 });
 
 test('PG 初始化失败不降级，关闭所有存储并保留失败退出状态', async () => {
