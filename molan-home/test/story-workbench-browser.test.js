@@ -5,7 +5,6 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
 const { chromium } = require('playwright-core');
 const { createLocalRuntime } = require('./helpers/local-runtime');
 const materialSchema = require('../lib/project-material-schema');
@@ -19,19 +18,33 @@ const browserPath = [
 test('真实浏览器：正文候选→提取→确认→正式提交→投影同步→刷新与文风版本', {
   skip: browserPath ? false : '未找到本地浏览器；不下载依赖', timeout: 120000
 }, async context => {
+  const environmentKeys = ['MOLAN_DATA_DIR', 'MOLAN_CONFIG_DIR', 'MOLAN_REQUIRE_SQLITE', 'MOLAN_PUBLIC_MODE', 'MOLAN_LOCAL_ONLY', 'MOLAN_APP_STORE'];
+  const previousEnvironment = Object.fromEntries(environmentKeys.map(key => [key, process.env[key]]));
   const directory = createLocalRuntime();
+  process.env.MOLAN_APP_STORE = 'json';
+  fs.writeFileSync(path.join(directory, 'users.json'), '[]', 'utf8');
   const app = require('../server');
-  app.initDB();
   const user = { email: 'workbench-browser@example.com', name: '工作台验收作者', role: 'normal', level: 'normal', plan: 'normal', credits: 10, spent: 0 };
-  app.saveUser(user);
+  const account = await app.appRepository().saveAccount(user);
   const token = crypto.randomBytes(32).toString('hex');
-  app.sessions.set(app.hashSessionToken(token), { email: user.email, scope: 'client', expiresAt: Date.now() + 120000 });
+  await app.appRepository().createAuthSession({ userId: account.userId, tokenHash: app.hashSessionToken(token),
+    scope: 'client', expiresAt: Date.now() + 120000 });
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
+  let browser;
   context.after(async () => {
+    if (browser) await browser.close();
     if (typeof app.server.closeAllConnections === 'function') {
       app.server.closeAllConnections();
     }
-    await new Promise(resolve => app.server.close(resolve));
+    if (app.server.listening) await new Promise(resolve => app.server.close(resolve));
+    try {
+      await app.closeStorageStores();
+    } finally {
+      for (const key of environmentKeys) {
+        if (previousEnvironment[key] === undefined) delete process.env[key];
+        else process.env[key] = previousEnvironment[key];
+      }
+    }
   });
   const origin = 'http://127.0.0.1:' + app.server.address().port;
   const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
@@ -42,8 +55,7 @@ test('真实浏览器：正文候选→提取→确认→正式提交→投影�
     }] }] }
   }) });
   assert.equal(created.status, 200);
-  const browser = await chromium.launch({ executablePath: browserPath, headless: true });
-  context.after(() => browser.close());
+  browser = await chromium.launch({ executablePath: browserPath, headless: true });
   const browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await browserContext.addInitScript(value => localStorage.setItem('ml_token', value), token);
   const page = await browserContext.newPage();
@@ -203,11 +215,18 @@ test('真实浏览器：正文候选→提取→确认→正式提交→投影�
   await page.goto(origin + '/pages/story-workbench.html?nid=' + bookId);
   await page.waitForFunction(() => document.querySelector('#status').textContent.includes('故事状态'));
 
-  const database = new DatabaseSync(path.join(directory, 'molan.db'));
-  context.after(() => database.close());
-  assert.equal(database.prepare('SELECT count(*) AS count FROM world_fact_decisions WHERE book_id = ?').get(bookId).count, 1);
-  assert.equal(database.prepare("SELECT count(*) AS count FROM memory_evidence WHERE book_id = ? AND modality = 'claim'").get(bookId).count, 1);
-  assert.equal(database.prepare('SELECT state_version FROM memory_projection_snapshots WHERE book_id = ?').get(bookId).state_version, 2);
+  const memoryResponse = await fetch(origin + '/api/books/' + bookId + '/memory', { headers });
+  assert.equal(memoryResponse.status, 200);
+  const memory = await memoryResponse.json();
+  assert.equal(memory.memory.length, 1);
+  const evidenceResponse = await fetch(origin + '/api/books/' + bookId + '/memory/records?type=evidence', { headers });
+  assert.equal(evidenceResponse.status, 200);
+  const evidence = await evidenceResponse.json();
+  assert.equal(evidence.records.filter(record => record.modality === 'claim').length, 1);
+  const projectionResponse = await fetch(origin + '/api/books/' + bookId + '/projections', { headers });
+  assert.equal(projectionResponse.status, 200);
+  const projection = await projectionResponse.json();
+  assert.equal(projection.projections.projectedStateVersion, 2);
   assert.deepEqual(errors, []);
   await page.locator('[data-tab="draft"]').click();
   const screenshot = path.join(directory, 'story-workbench.png');
