@@ -10742,24 +10742,13 @@ async function handlePostgresCreationBookCommit(req, res, id) {
   json(res, 200, committed);
 }
 
-/** PG 模式下返回章节审计趋势，避免把缺少旧 SQLite 记录误报为系统错误。 */
+/** PG quality reports use persisted book-scoped audit evidence. */
 async function handlePostgresCreationBookQualityReport(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!await postgresRepository.getCreationBible(postgresActor(auth), id)) return handleCreationBookQualityReport(req, res, id);
-  const state = await postgresRepository.getCreationState(postgresActor(auth), id);
-  if (!state) return json(res, 404, { error: '创作书不存在或无权访问' });
-  const chapters = state.snapshots.map(snapshot => ({ chapterNo: snapshot.chapterNo, passed: snapshot.auditStatus === 'passed', blockerCount: 0, auditedAt: snapshot.createdAt }));
-  json(res, 200, {
-    ok: true,
-    summary: {
-      chapterCount: chapters.length,
-      passedCount: chapters.filter(chapter => chapter.passed).length,
-      blockerTotal: 0,
-      weakStreakChapters: []
-    },
-    chapters
-  });
+  const report = await postgresRepository.getCreationQualityReport(postgresActor(auth), id);
+  if (!report) return json(res, 404, { error: '创作书不存在或无权访问' });
+  json(res, 200, report);
 }
 
 const POSTGRES_CREATION_WRITE_ROLES = new Set(['owner', 'admin', 'editor']);

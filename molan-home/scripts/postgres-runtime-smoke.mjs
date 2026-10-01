@@ -272,6 +272,23 @@ async function main() {
       content,
       contentHash
     });
+    stage = 'creation-quality-report';
+    const report = await repository.getCreationQualityReport(userA, creationBook.book.id);
+    if (report?.summary.passedCount !== 1 || report.chapters[0]?.evidenceStatus !== 'JUDGED' ||
+        report.chapters[0]?.evidenceSource.generationId !== runId) throw new Error('质量报告未读取绑定的审计证据');
+    const otherBookId = `cb_other_${suffix}`;
+    await repository.createCreationBook({ userId: userA, workspaceId, projectId, bookId: otherBookId,
+      title: '同项目隔离报告', payload: {}, plan: {} });
+    await repository.createChapterAudit({ userId: userA, bookId: otherBookId, chapterNo: 2, content: '未评测旧式审计' });
+    const otherReport = await repository.getCreationQualityReport(userA, otherBookId);
+    if (otherReport?.summary.chapterCount !== 1 || otherReport.summary.blockerTotal !== null ||
+        otherReport.chapters[0].passed !== null) throw new Error('缺证据被误报为有效质量');
+    if ((await repository.getCreationQualityReport(userA, creationBook.book.id)).summary.chapterCount !== 1) {
+      throw new Error('同项目其他创作书审计混入报告');
+    }
+    if (await repository.getCreationQualityReport(`usr_outsider_${suffix}`, creationBook.book.id)) {
+      throw new Error('质量报告越过项目权限');
+    }
     stage = 'creation-commit';
     const committed = await repository.commitChapter({
       userId: userA,
@@ -310,7 +327,7 @@ async function main() {
       ok: true,
       projectId,
       workspaceId,
-      checks: ['profile', 'project-member', 'cas', 'resource-version', 'resource-projection-cas', 'creation-bible', 'generation-run-fencing', 'creation-audit-commit', 'revoke', 'project-restore']
+      checks: ['profile', 'project-member', 'cas', 'resource-version', 'resource-projection-cas', 'creation-bible', 'generation-run-fencing', 'creation-quality-report', 'creation-audit-commit', 'revoke', 'project-restore']
     }) + '\n');
   } catch (error) {
     const wrapped = new Error(stage + ': ' + String(error && error.message || '') + (error && error.databaseCode ? ` [${error.databaseCode}] ${error.databaseMessage || ''}` : ''));
