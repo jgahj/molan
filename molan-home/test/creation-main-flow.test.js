@@ -9,6 +9,7 @@ const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'u
 const importSource = fs.readFileSync(path.join(__dirname, '..', 'completion-import.js'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'completion-editor.js'), 'utf8');
 const serverSource = ['server.js', 'services/creation-book-service.js', 'services/creation-core-job-runtime.js', 'services/creation-core-job-http-service.js'].map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
+const chapterServiceSource = fs.readFileSync(path.join(__dirname, '..', 'services/creation-chapter-service.js'), 'utf8');
 const novelWriteSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'novel-write-handlers.js'), 'utf8');
 
 test('创书有独立任务入口并展示可持续查看的实时进度', () => {
@@ -155,9 +156,11 @@ test('创作书合同和审计沿用编辑器选择的模型，不再固定调�
   assert.equal(server.resolveCreationModelId({ modelId: 'not-configured' }), server.currentDefaultModel());
 
   const contractStart = serverSource.indexOf('async function handleCreationBookChapterContract');
-  const auditStart = serverSource.indexOf('async function handleCreationBookChapterAudit');
-  const contractSource = serverSource.slice(contractStart, auditStart);
-  const auditSource = serverSource.slice(auditStart, serverSource.indexOf('// ★ R4 · 结构原创门禁', auditStart));
+  const contractEnd = serverSource.indexOf('async function handleCreationBookRegenerateAsset', contractStart);
+  const auditStart = chapterServiceSource.indexOf('async function handleCreationBookChapterAudit');
+  const auditEnd = chapterServiceSource.indexOf('async function handleCreationBookCommit', auditStart);
+  const contractSource = serverSource.slice(contractStart, contractEnd);
+  const auditSource = chapterServiceSource.slice(auditStart, auditEnd);
   assert.match(contractSource, /modelId: creationModelId/);
   assert.doesNotMatch(contractSource, /modelId:\s*['"]deepseek-v4-/);
   assert.match(auditSource, /modelId: creationModelId/);
