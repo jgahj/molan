@@ -16,6 +16,14 @@ const OBJECT = value => value && typeof value === 'object' && !Array.isArray(val
 const APPROVAL_WRITE = Symbol('approval-write');
 const TYPES = { INSERT_FACT: 'fact', INSERT_COGNITION: 'cognition', STATE_TRANSITION: 'transition', INSERT_EVENT: 'event',
   UPSERT_PLAN: 'plan', UPSERT_FORESHADOW: 'foreshadow', UPSERT_COMMITMENT: 'commitment', SET_DISCLOSURE: 'disclosure', TEMPORAL_RELATION: 'temporal_relation' };
+const COMMIT_BASELINES = Object.freeze({
+  expectedNovelRevision: 'novelRevision',
+  expectedBibleVersion: 'bibleVersion',
+  expectedPlanVersion: 'planVersion',
+  expectedStyleVersion: 'styleVersion',
+  expectedDisclosurePolicyVersion: 'disclosurePolicyVersion',
+  expectedAclRevision: 'aclRevision'
+});
 function blank(bookId) {
   return { id: `memory:${bookId}`, kind: 'story-memory', bookId, branches: {} };
 }
@@ -26,6 +34,59 @@ function branch(state, branchId = 'main') {
 }
 const rows = (b, type) => Object.values(b.records).filter(r => !type || r.recordType === type);
 const versionHash = cs => digest([cs.id, cs.bookId, cs.branchId, cs.baseStateVersion, cs.candidateHash, cs.operations, cs.dependencies, cs.auditReport]);
+async function validateCommitBaselines(input, context) {
+  for (const [inputKey, sourceKey] of Object.entries(COMMIT_BASELINES)) {
+    if (input[inputKey] === undefined) continue;
+    const actual = await context?.readBaseline?.(sourceKey);
+    if (actual === undefined || actual === null || !Number.isFinite(Number(actual))) fail('BASELINE_AUTHORITY_UNAVAILABLE', 503);
+    if (!Number.isFinite(Number(input[inputKey])) || Number(input[inputKey]) !== Number(actual)) fail('BASELINE_STALE');
+  }
+}
+function cognitionRecords(b, input) {
+  const timelineId = input.timelineId || 't0', cycleId = input.cycleId || 'c0';
+  const found = rows(b, 'cognition').filter(record => record.status === 'confirmed' &&
+    (!input.holderEntityId || record.holderEntityId === input.holderEntityId) &&
+    (!input.targetExpressionId || record.targetExpressionId === input.targetExpressionId) &&
+    (record.timelineId || 't0') === timelineId && (record.cycleId || 'c0') === cycleId)
+    .sort((left, right) => Number(right.createdAt || 0) - Number(left.createdAt || 0));
+  if (!found.length && input.targetExpressionId) return [{
+    status: 'unknown_not_recorded', bookId: input.bookId, holderEntityId: input.holderEntityId || '',
+    targetExpressionId: input.targetExpressionId, awareness: 'unrecorded', note: '没有认知记录不等于明确不知'
+  }];
+
+  const visible = input.storyTime === undefined || input.storyTime === null ? found : found.filter(record =>
+    !record.acquiredTimeRef || Number(record.acquiredTimeRef) <= Number(input.storyTime));
+  if (!input.expandNested) return visible;
+
+  const maxDepth = Number.isInteger(input.maxDepth) ? input.maxDepth : 3;
+  const maxNodes = Number.isInteger(input.maxNodes) ? input.maxNodes : 50;
+  let totalExpandedNodes = 0;
+  function expandNested(nested, currentDepth) {
+    if (!OBJECT(nested)) return nested;
+    if (currentDepth >= maxDepth || totalExpandedNodes >= maxNodes) return { ...nested, truncated: true, hasUnexpanded: true };
+    totalExpandedNodes++;
+    const expanded = { ...nested };
+    if (nested.targetHolderId && !nested.resolvedCognition) {
+      const child = rows(b, 'cognition').find(record => record.status === 'confirmed' &&
+        (record.branchId || 'main') === (input.branchId || 'main') && record.holderEntityId === nested.targetHolderId);
+      if (child) expanded.resolvedCognition = {
+        holderEntityId: child.holderEntityId,
+        attitude: child.attitude,
+        nested: expandNested(OBJECT(child.nestedCognition) ? child.nestedCognition : {}, currentDepth + 1)
+      };
+    } else if (OBJECT(nested.resolvedCognition) && nested.resolvedCognition.nested) {
+      expanded.resolvedCognition = {
+        ...nested.resolvedCognition,
+        nested: expandNested(nested.resolvedCognition.nested, currentDepth + 1)
+      };
+    }
+    return expanded;
+  }
+  return visible.map(record => ({
+    ...record,
+    nestedCognition: expandNested(OBJECT(record.nestedCognition) ? record.nestedCognition : {}, 1)
+  }));
+}
 function target(state, chapterId, sceneId = '') {
   const chapter = (state.volumes || []).flatMap(v => v.chapters || []).find(c => c.id === chapterId);
   if (!chapter) fail('CHAPTER_NOT_FOUND', 404);
@@ -140,7 +201,43 @@ function createJsonMemoryStore(options) {
       if (write && !canAccess(acl, WRITE_ROLES) && !(input.approval && acl.role === 'reviewer')) fail('FORBIDDEN', 403);
       const original = tx.get(scope.projectId, 'memory', `memory:${scope.bookId}`);
       const state = original || blank(scope.bookId), b = branch(state, scope.branchId);
-      const result = await action(b, novel, { ...scope, role: acl.role }, state);
+      const context = {
+        readBaseline: async name => {
+          if (name === 'novelRevision') return novel.contentRevision;
+          if (name === 'aclRevision') return novel.aclRevision;
+          if (name === 'disclosurePolicyVersion') return Object.values(b.records)
+            .filter(record => record.recordType === 'disclosure' && (record.branchId || 'main') === scope.branchId).length;
+          if (name === 'bibleVersion' || name === 'planVersion' || name === 'styleVersion') {
+            const projectRecords = await tx.list(scope.projectId, 'novels');
+            const books = projectRecords.filter(record => record.kind === 'creation-book' &&
+              record.novelId === scope.bookId && record.projectId === scope.projectId);
+            if (name === 'styleVersion') {
+              const allProfiles = (await tx.list(scope.projectId, 'styles')).filter(record =>
+                record.recordType === 'style-profile' && record.branchId === scope.branchId && record.active !== false);
+              const directProfiles = allProfiles.filter(record => record.bookId === scope.bookId);
+              if (directProfiles.length) {
+                const profiles = directProfiles.sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0) ||
+                  String(left.profileId || '').localeCompare(String(right.profileId || '')));
+                return Object.hasOwn(profiles[0], 'profileRevision') ? profiles[0].profileRevision : undefined;
+              }
+              if (books.length > 1) fail('BASELINE_AUTHORITY_AMBIGUOUS', 409);
+              if (!books.length) return undefined;
+              const profiles = allProfiles.filter(record => record.bookId === books[0].bookId)
+                .sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0) ||
+                  String(left.profileId || '').localeCompare(String(right.profileId || '')));
+              return profiles.length && Object.hasOwn(profiles[0], 'profileRevision') ? profiles[0].profileRevision : undefined;
+            }
+            if (books.length > 1) fail('BASELINE_AUTHORITY_AMBIGUOUS', 409);
+            const book = books[0];
+            if (name === 'planVersion') return book && Object.hasOwn(book, 'currentStateVersion') ? book.currentStateVersion : undefined;
+            if (!book) return undefined;
+            const bible = projectRecords.find(record => record.kind === 'creation-bible' && record.bookId === book.bookId);
+            return bible && Object.hasOwn(bible, 'version') ? bible.version : undefined;
+          }
+          return undefined;
+        }
+      };
+      const result = await action(b, novel, { ...scope, role: acl.role }, state, context);
       if (write) {
         tx.put(scope.projectId, 'memory', state, original?.revision || 0);
         if (novel._memoryDirty) { delete novel._memoryDirty; tx.put(scope.projectId, 'novels', novel, novel.revision); }
@@ -171,7 +268,7 @@ function makeStore(adapter) {
     backend: adapter.backend, repository: adapter.repository, getAccess: adapter.resolve, close: adapter.close,
     getMemory: input => read(input, b => rows(b, 'fact').filter(f => input.status === 'all' || f.status === (input.status || 'confirmed')).map(f => ({ ...f, ...b.records[f.propositionId], id: f.id, verdict: f.verdict, status: f.status, sourceInvalidated: (f.supportingEvidenceIds || []).some(eid => b.invalidations.some(i => i.manuscriptId === b.records[eid]?.sourceAnchor?.chapterRevisionId)) }))),
     getRecords: input => read(input, b => rows(b, input.type).sort((a, z) => z.createdAt - a.createdAt || a.id.localeCompare(z.id)).slice(Math.max(0, Number(input.offset) || 0), Math.max(0, Number(input.offset) || 0) + 100)),
-    getCognition: input => read(input, b => rows(b, 'cognition').filter(r => r.status === 'confirmed' && (!input.holderEntityId || r.holderEntityId === input.holderEntityId) && (!input.targetExpressionId || r.targetExpressionId === input.targetExpressionId) && (r.timelineId || 't0') === (input.timelineId || 't0') && (r.cycleId || 'c0') === (input.cycleId || 'c0'))),
+    getCognition: input => read(input, b => cognitionRecords(b, input)),
     getTimeline: input => read(input, b => ({ events: rows(b, 'event').filter(r => (r.timelineId || 't0') === (input.timelineId || 't0') && (r.cycleId || 'c0') === (input.cycleId || 'c0')), relations: rows(b, 'temporal_relation') })),
     getChangeset: input => read(input, b => findCs(b, input)),
     createChangeset: input => write(input, (b, novel, scope) => {
@@ -202,7 +299,7 @@ function makeStore(adapter) {
       emit(b, cs.id, status === 'approved' ? 'AUTHOR_APPROVED' : 'AUTHOR_REJECTED', { actorId: scope.userId });
       return { ok: true, changesetId: cs.id, approvalStatus: status, approvedBy: scope.userId, approvedAt: cs.approvedAt, contentHash: cs.approvalHash };
     }),
-    commitChangeset: input => write(input, (b, novel, scope) => {
+    commitChangeset: input => write(input, async (b, novel, scope, state, context) => {
       const cs = findCs(b, input), key = input.idempotencyKey || cs.id;
       if (typeof key !== 'string' || !key.length || key.length > 200) fail('INVALID_IDEMPOTENCY_KEY', 422);
       if (input.ifMatch !== undefined && ![cs.candidateHash, String(b.stateVersion), versionHash(cs)].includes(input.ifMatch)) fail('PRECONDITION_FAILED', 412);
@@ -218,7 +315,7 @@ function makeStore(adapter) {
       if (cs.approvalStatus !== 'approved') fail('changeset_not_approved');
       if (cs.approvalHash !== versionHash(cs)) fail('APPROVAL_STALE');
       if (input.candidateHash !== undefined && input.candidateHash !== cs.candidateHash) fail('CONTENT_VERSION_CONFLICT');
-      if (input.expectedNovelRevision !== undefined && input.expectedNovelRevision !== novel.contentRevision || input.expectedAclRevision !== undefined && input.expectedAclRevision !== novel.aclRevision) fail('BASELINE_STALE');
+      await validateCommitBaselines(input, context);
       if (cs.baseStateVersion !== b.stateVersion || input.expectedStateVersion !== undefined && input.expectedStateVersion !== b.stateVersion) fail('MEMORY_VERSION_CONFLICT');
       sourceConflict(b, cs, novel); validateOperations(b, cs);
       let manuscriptReceipt = {};
@@ -250,12 +347,13 @@ function makeStore(adapter) {
       if (!String(input.reason || '').trim()) fail('REVERT_REASON_REQUIRED', 422);
       if (b.operations.slice(index + 1).some(o => o.recordId === op.recordId && !o.reverted)) fail('REVERT_DEPENDENCY_CONFLICT');
       const current = b.records[op.recordId]; if (!current) fail('REVERT_TARGET_MISSING');
+      const compensationId = identifier('comp');
       if (op.before) b.records[op.recordId] = { ...clone(op.before), revision: current.revision + 1 };
       else if (['fact', 'cognition'].includes(op.recordType)) { current.status = 'revoked'; current.revision++; }
-      else if (op.recordType === 'transition') { const compensation = { ...current, id: identifier('comp'), preState: current.postState, postState: current.preState, createdAt: Date.now() }; b.records[compensation.id] = compensation; }
+      else if (op.recordType === 'transition') { const compensation = { ...current, id: compensationId, preState: current.postState, postState: current.preState, createdAt: Date.now() }; b.records[compensation.id] = compensation; }
       else fail('REVERT_REQUIRES_CORRECTION_CHANGESET');
       op.reverted = true; op.revertReason = String(input.reason); b.stateVersion++; queue(b, op.id);
-      const receipt = { ok: true, operationId: op.id, compensationId: identifier('comp'), stateVersion: b.stateVersion, actorId: scope.userId, reason: op.revertReason, revertedAt: Date.now() };
+      const receipt = { ok: true, operationId: op.id, compensationId, stateVersion: b.stateVersion, actorId: scope.userId, reason: op.revertReason, revertedAt: Date.now() };
       op.compensationReceipt = receipt; emit(b, op.id, 'COMPENSATION_COMMITTED', receipt); return receipt;
     }),
     saveManuscript: input => write(input, (b, novel, scope) => {

@@ -2,338 +2,270 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { DatabaseSync } = require('node:sqlite');
-const memorySystem = require('../lib/memory-system');
-const workflow = require('../lib/memory-workflow');
-const commitGuard = require('../lib/memory-commit-guard');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const crypto = require('node:crypto');
+
+const { JsonFileRepository } = require('../lib/repositories/json-file-repository');
+const { JsonAppRepository } = require('../lib/repositories/json-app-repository');
+const { JsonCreationRepository } = require('../lib/repositories/json-creation-repository');
+const { createJsonStyleProfileStore } = require('../lib/style-profile-store');
+const { createMemoryStore } = require('../lib/memory-store');
 const projectScope = require('../lib/project-scope');
-const projectResources = require('../lib/project-resources');
-const styleSystem = require('../lib/style-system');
-const memoryRoutes = require('../lib/memory-routes');
 
-function createTestDatabase() {
-  const db = new DatabaseSync(':memory:');
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS accounts (
-      email TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS workspaces (
-      id TEXT PRIMARY KEY,
-      owner_user_id TEXT NOT NULL,
-      name TEXT NOT NULL DEFAULT '',
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-  `);
-  const now = Date.now();
-  db.prepare(`INSERT INTO accounts VALUES ('author@test.com', 'usr_author', 'Author')`).run();
-  db.prepare(`INSERT INTO accounts VALUES ('reviewer@test.com', 'usr_reviewer', 'Reviewer')`).run();
-  db.prepare(`INSERT INTO workspaces VALUES ('ws_1', 'usr_author', 'Default WS', ?, ?)`).run(now, now);
-
-  memorySystem.initializeSchema(db);
-  workflow.initializeSchema(db);
-  commitGuard.initializeSchema(db);
-  projectScope.initializeSchema(db);
-  projectResources.initializeSchema(db);
-  styleSystem.initializeSchema(db);
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS novels (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL,
-      project_id TEXT NOT NULL,
-      owner_user_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      state_json TEXT NOT NULL,
-      word_count INTEGER NOT NULL DEFAULT 0,
-      revision INTEGER NOT NULL DEFAULT 1,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS creation_books (
-      id TEXT PRIMARY KEY,
-      novel_id TEXT NOT NULL,
-      project_id TEXT NOT NULL,
-      bible_id TEXT NOT NULL,
-      plan_json TEXT NOT NULL DEFAULT '{}',
-      current_state_version INTEGER NOT NULL DEFAULT 1
-    );
-    CREATE TABLE IF NOT EXISTS creation_bibles (
-      id TEXT PRIMARY KEY,
-      current_version INTEGER NOT NULL DEFAULT 1
-    );
-  `);
-
-  return db;
-}
-
-test('六维基线正式提交合同：正文、圣经、计划、文风、披露、ACL版本失配均拒绝，一致时原子提交', () => {
-  const db = createTestDatabase();
-  const bookId = 'n_book_contract_1';
-  const now = Date.now();
-
-  // 1. 初始化小说与多维版本基线
+async function fixture(context, options = {}) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-memory-contract-'));
+  const author = { userId: 'usr_author', email: 'author@memory-contract.test' };
+  const reviewer = { userId: 'usr_reviewer', email: 'reviewer@memory-contract.test' };
+  const bookId = `n_contract${crypto.randomUUID().replace(/-/g, '').slice(0, 14)}`;
+  const creationBookId = `cb_${crypto.randomUUID().replace(/-/g, '').slice(0, 18)}`;
   const state = {
-    title: '剑试九霄',
+    title: '合同链测试',
     volumes: [{
       id: 'v1',
       title: '第一卷',
-      chapters: [{
-        id: 'c1',
-        title: '第一章 剑出青云',
-        content: '<p>少年提剑而立。</p>'
-      }]
+      chapters: [{ id: 'c1', title: '第一章', content: '<p>初始正文</p>' }]
     }]
   };
-  db.prepare(`INSERT INTO novels VALUES (?, 'ws_1', ?, 'usr_author', '剑试九霄', ?, 10, 1, ?, ?)`).run(bookId, bookId, JSON.stringify(state), now, now);
-  db.prepare(`INSERT INTO novel_projects (workspace_id, project_id, owner_user_id, title, status, acl_revision, created_at, updated_at) VALUES ('ws_1', ?, 'usr_author', '剑试九霄', 'active', 3, ?, ?)`).run(bookId, now, now);
-  db.prepare(`INSERT INTO creation_books VALUES ('cb_1', ?, ?, 'bible_1', '{}', 2)`).run(bookId, bookId);
-  db.prepare(`INSERT INTO creation_bibles VALUES ('bible_1', 4)`).run();
-  db.prepare(`INSERT INTO disclosure_policies (id, book_id, branch_id, target_info_id, policy_type, created_at) VALUES ('dp_1', ?, 'main', 'secret_1', 'hide', ?)`).run(bookId, now);
-  db.prepare(`INSERT INTO style_profiles (id, book_id, branch_id, name, level, revision, active, created_at, updated_at) VALUES ('sp_1', ?, 'main', '玄幻沉稳', 'novel_narrative', 5, 1, ?, ?)`).run(bookId, now, now);
+  const repository = new JsonFileRepository(directory);
+  const app = new JsonAppRepository(directory, { repository });
+  const creation = new JsonCreationRepository(app);
+  const styles = createJsonStyleProfileStore(directory, { repository });
+  const scope = { userId: author.userId, bookId };
+  const store = createMemoryStore({ repository, getAccess: input => app.getAccess(input) });
 
-  // 2. 保存候选正文并创建绑定的变更集
-  const saved = workflow.saveManuscript(db, bookId, 'usr_author', {
-    chapterId: 'c1',
-    text: '少年提剑而立，眸光如雪。',
-    expectedRevision: 0,
-    expectedNovelRevision: 1
+  await app.saveAccount(author);
+  await app.saveAccount(reviewer);
+  await app.create({ id: bookId, user: author, state });
+  const created = await repository.novels.get(bookId, bookId);
+  await app.saveCAS({ userId: author.userId, projectId: bookId, state: created.state, expectedRevision: created.contentRevision });
+  if (options.withBaselineSources !== false) {
+    await creation.create({ userId: author.userId, projectId: bookId, bookId: creationBookId, title: state.title, plan: { totalChapters: 1 }, payload: {} });
+    if (options.withStyleProfile !== false) {
+      await styles.upsertStyleProfile({ projectId: bookId, bookId: creationBookId, id: 'style-baseline', branchId: 'main', name: '基线文风' });
+    }
+  }
+
+  context.after(async () => {
+    await styles.close();
+    await store.close();
+    await repository.close();
+    fs.rmSync(directory, { recursive: true, force: true });
   });
+  return { directory, author, reviewer, bookId, creationBookId, scope, state, repository, app, creation, styles, store };
+}
 
-  const changeset = workflow.createBoundChangeset(db, bookId, 'usr_author', {
-    manuscriptRevisionId: saved.id,
-    operations: []
+async function readBaselineVersions(fixtureState) {
+  const { author, bookId, creationBookId, scope, repository, app, creation, styles, store } = fixtureState;
+  const [novel, book, bible, profiles, policies, access] = await Promise.all([
+    repository.novels.get(bookId, bookId),
+    creation.read({ userId: author.userId, projectId: bookId, bookId: creationBookId }),
+    creation.readBible({ userId: author.userId, projectId: bookId, bookId: creationBookId }),
+    styles.getStyleProfiles({ projectId: bookId, bookId: creationBookId, branchId: 'main' }),
+    store.getRecords({ ...scope, type: 'disclosure' }),
+    app.getAccess({ userId: author.userId, projectId: bookId })
+  ]);
+  assert.ok(novel);
+  assert.ok(book);
+  assert.ok(Object.hasOwn(book, 'currentStateVersion'));
+  assert.ok(bible && Number.isSafeInteger(Number(bible.version)));
+  assert.equal(profiles.length, 1);
+  assert.equal(policies.length, 1);
+  assert.ok(access && Number.isSafeInteger(Number(access.acl_revision)));
+  return {
+    expectedNovelRevision: Number(novel.contentRevision),
+    expectedBibleVersion: Number(bible.version),
+    expectedPlanVersion: Number(book.currentStateVersion),
+    expectedStyleVersion: Number(profiles[0].revision),
+    expectedDisclosurePolicyVersion: policies.length,
+    expectedAclRevision: Number(access.acl_revision)
+  };
+}
+
+async function createCandidate(fixtureState, operations, overrides = {}) {
+  const state = await fixtureState.store.workbenchState(fixtureState.scope);
+  return fixtureState.store.createChangeset({
+    ...fixtureState.scope,
+    ...overrides,
+    baseStateVersion: overrides.baseStateVersion ?? state.stateVersion,
+    operations
   });
+}
 
-  memorySystem.approveChangeset(db, bookId, changeset.id, 'usr_author');
-
-  // 3. 测试基线版本校验失配：正文版本不匹配
-  const badNovelRev = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author', {
-    expectedNovelRevision: 99
+async function approveCandidate(fixtureState, candidate, userId = fixtureState.author.userId) {
+  return fixtureState.store.approveChangeset({
+    ...fixtureState.scope, userId, changesetId: candidate.id
   });
-  assert.equal(badNovelRev.ok, false);
-  assert.equal(badNovelRev.code, 'BASELINE_STALE');
+}
 
-  // 4. 测试圣经版本失配
-  const badBibleVer = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author', {
-    expectedBibleVersion: 99
+async function saveReviewedManuscript(fixtureState, text) {
+  const { store, scope, bookId, repository } = fixtureState;
+  const novel = await repository.novels.get(bookId, bookId);
+  const manuscript = await store.saveManuscript({
+    ...scope, chapterId: 'c1', text, expectedRevision: 0, expectedNovelRevision: novel.contentRevision
   });
-  assert.equal(badBibleVer.ok, false);
-  assert.equal(badBibleVer.code, 'BASELINE_STALE');
-
-  // 5. 测试计划版本失配
-  const badPlanVer = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author', {
-    expectedPlanVersion: 99
+  const review = await store.rewrite({
+    ...scope,
+    manuscriptRevisionId: manuscript.id,
+    contract: { bookId, taskType: 'manual-review' }
   });
-  assert.equal(badPlanVer.ok, false);
-  assert.equal(badPlanVer.code, 'BASELINE_STALE');
+  assert.equal(review.compliant, true);
+  assert.ok(review.review);
+  return { manuscript, rewriteReviewId: review.review.id };
+}
 
-  // 6. 测试文风版本失配
-  const badStyleVer = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author', {
-    expectedStyleVersion: 99
+async function createSourceCandidate(fixtureState, source, operations, overrides = {}) {
+  return createCandidate(fixtureState, operations, {
+    ...overrides,
+    manuscriptRevisionId: source.manuscript.id,
+    rewriteReviewId: source.rewriteReviewId
   });
-  assert.equal(badStyleVer.ok, false);
-  assert.equal(badStyleVer.code, 'BASELINE_STALE');
+}
 
-  // 7. 测试披露策略版本失配
-  const badPolicyVer = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author', {
-    expectedDisclosurePolicyVersion: 99
-  });
-  assert.equal(badPolicyVer.ok, false);
-  assert.equal(badPolicyVer.code, 'BASELINE_STALE');
+async function commitOperations(fixtureState, operations) {
+  const candidate = await createCandidate(fixtureState, operations);
+  await approveCandidate(fixtureState, candidate);
+  return fixtureState.store.commitChangeset({ ...fixtureState.scope, changesetId: candidate.id });
+}
 
-  // 8. 测试 ACL 版本失配
-  const badAclRev = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author', {
-    expectedAclRevision: 99
-  });
-  assert.equal(badAclRev.ok, false);
-  assert.equal(badAclRev.code, 'BASELINE_STALE');
+async function rejectsCode(promise, code) {
+  await assert.rejects(promise, { code });
+}
 
-  // 9. 正确版本基线提交：全部吻合时原子采纳
-  const commitResult = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author', {
-    expectedNovelRevision: 1,
-    expectedBibleVersion: 4,
-    expectedPlanVersion: 2,
-    expectedStyleVersion: 5,
-    expectedDisclosurePolicyVersion: 1,
-    expectedAclRevision: 3
+test('六维基线正式提交合同：正文、圣经、计划、文风、披露、ACL版本失配均拒绝，一致时原子提交', async context => {
+  const fixtureState = await fixture(context);
+  const { store, scope, bookId, repository } = fixtureState;
+
+  const extracted = await store.extract({ ...scope, text: '魔门圣女真实身份是宗主之女。' });
+  const propositionId = extracted.propositions[0].id;
+  await commitOperations(fixtureState, [{
+    type: 'SET_DISCLOSURE',
+    payload: { id: 'dp_baseline', targetInfoId: propositionId, policyType: 'hide' }
+  }]);
+  const baseline = await readBaselineVersions(fixtureState);
+
+  const source = await saveReviewedManuscript(fixtureState, '少年提剑而立，眸光如雪。');
+  const candidate = await createSourceCandidate(fixtureState, source, []);
+  await approveCandidate(fixtureState, candidate);
+
+  const staleCases = [
+    { expectedNovelRevision: baseline.expectedNovelRevision + 1 },
+    { expectedBibleVersion: baseline.expectedBibleVersion + 1 },
+    { expectedPlanVersion: baseline.expectedPlanVersion + 1 },
+    { expectedStyleVersion: baseline.expectedStyleVersion + 1 },
+    { expectedDisclosurePolicyVersion: baseline.expectedDisclosurePolicyVersion + 1 },
+    { expectedAclRevision: baseline.expectedAclRevision + 1 }
+  ];
+  for (const staleBaseline of staleCases) {
+    await rejectsCode(store.commitChangeset({ ...scope, changesetId: candidate.id, ...staleBaseline }), 'BASELINE_STALE');
+  }
+
+  const commitResult = await store.commitChangeset({
+    ...scope, changesetId: candidate.id, ...baseline
   });
   assert.equal(commitResult.ok, true);
-  assert.equal(commitResult.novelRevision, 2);
+  assert.equal(commitResult.novelRevision, baseline.expectedNovelRevision + 1);
 
-  const updatedNovel = db.prepare('SELECT revision, state_json FROM novels WHERE id = ?').get(bookId);
-  assert.equal(updatedNovel.revision, 2);
-  assert.ok(updatedNovel.state_json.includes('眸光如雪'));
+  const updatedNovel = await repository.novels.get(bookId, bookId);
+  assert.equal(updatedNovel.contentRevision, baseline.expectedNovelRevision + 1);
+  assert.ok(updatedNovel.state.volumes[0].chapters[0].content.includes('眸光如雪'));
 });
 
-test('双人审批策略（two_person）：禁止自审自批，必须独立审核者批准，且 reviewer 不能代替执行 commit', () => {
-  const db = createTestDatabase();
-  const bookId = 'n_two_person_1';
-  const now = Date.now();
+test('指定基线但没有对应领域来源时拒绝提交', async context => {
+  const fixtureState = await fixture(context, { withBaselineSources: false });
+  const candidate = await createCandidate(fixtureState, []);
+  await approveCandidate(fixtureState, candidate);
+  await rejectsCode(fixtureState.store.commitChangeset({
+    ...fixtureState.scope, changesetId: candidate.id, expectedBibleVersion: 1
+  }), 'BASELINE_AUTHORITY_UNAVAILABLE');
+});
 
-  const state = {
-    title: '天问录',
-    volumes: [{ id: 'v1', title: '卷一', chapters: [{ id: 'c1', title: '第一章', content: '<p>初始正文</p>' }] }]
-  };
-  db.prepare(`INSERT INTO novels VALUES (?, 'ws_1', ?, 'usr_author', '天问录', ?, 10, 1, ?, ?)`).run(bookId, bookId, JSON.stringify(state), now, now);
-
-  const saved = workflow.saveManuscript(db, bookId, 'usr_author', {
-    chapterId: 'c1',
-    text: '独立双人审核正文稿。',
-    expectedRevision: 0,
-    expectedNovelRevision: 1
+test('双人审批策略（two_person）：禁止自审自批，必须独立审核者批准，且 reviewer 不能代替执行 commit', async context => {
+  const fixtureState = await fixture(context);
+  const ownerAccess = await fixtureState.app.getAccess({
+    userId: fixtureState.author.userId, projectId: fixtureState.bookId
+  });
+  await fixtureState.app.upsertWorkspaceMember(
+    fixtureState.author.userId, ownerAccess.workspace_id, fixtureState.reviewer.userId, 'member'
+  );
+  await fixtureState.app.upsertProjectMember({
+    userId: fixtureState.author.userId, projectId: fixtureState.bookId,
+    targetUserId: fixtureState.reviewer.userId, role: 'reviewer', canSpend: true, canExport: true,
+    expectedAclRevision: ownerAccess.acl_revision
   });
 
-  const changeset = workflow.createBoundChangeset(db, bookId, 'usr_author', {
-    manuscriptRevisionId: saved.id,
-    approvalPolicy: 'two_person'
-  });
+  const source = await saveReviewedManuscript(fixtureState, '独立双人审核正文稿。');
+  const candidate = await createSourceCandidate(fixtureState, source, [], { approvalPolicy: 'two_person' });
 
-  // 1. 发起者本人尝试审批 -> 被拒绝 SELF_APPROVAL_FORBIDDEN
-  const selfApprove = memorySystem.approveChangeset(db, bookId, changeset.id, 'usr_author');
-  assert.equal(selfApprove.ok, false);
-  assert.equal(selfApprove.code, 'SELF_APPROVAL_FORBIDDEN');
+  await rejectsCode(approveCandidate(fixtureState, candidate), 'SELF_APPROVAL_FORBIDDEN');
 
-  // 2. 独立审核员批准
-  const reviewerApprove = memorySystem.approveChangeset(db, bookId, changeset.id, 'usr_reviewer');
+  const reviewerApprove = await approveCandidate(fixtureState, candidate, fixtureState.reviewer.userId);
   assert.equal(reviewerApprove.ok, true);
 
-  // 3. reviewer 尝试执行正式提交 -> 被角色守卫拦截（403/FORBIDDEN）
-  const reviewerCommit = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_reviewer', {
-    actorRole: 'reviewer'
-  });
-  assert.equal(reviewerCommit.ok, false);
-  assert.equal(reviewerCommit.code, 'FORBIDDEN');
+  await rejectsCode(fixtureState.store.commitChangeset({
+    ...fixtureState.scope, userId: fixtureState.reviewer.userId,
+    changesetId: candidate.id, actorRole: 'reviewer'
+  }), 'FORBIDDEN');
 
-  // 4. 具备编辑/作者权限者执行 commit -> 成功原子采纳
-  const authorCommit = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author', {
-    actorRole: 'owner'
+  const authorCommit = await fixtureState.store.commitChangeset({
+    ...fixtureState.scope, changesetId: candidate.id, actorRole: 'owner'
   });
   assert.equal(authorCommit.ok, true);
   assert.equal(authorCommit.novelRevision, 2);
 });
 
-test('手工稿无需调用外部模型：通过标准 changeset 与人工确认路径，零 Token 消耗并原子采纳', () => {
-  const db = createTestDatabase();
-  const bookId = 'n_manual_1';
-  const now = Date.now();
-
-  const state = {
-    title: '手工长卷',
-    volumes: [{ id: 'v1', title: '卷一', chapters: [{ id: 'c1', title: '第一章', content: '<p>旧草稿</p>' }] }]
-  };
-  db.prepare(`INSERT INTO novels VALUES (?, 'ws_1', ?, 'usr_author', '手工长卷', ?, 10, 1, ?, ?)`).run(bookId, bookId, JSON.stringify(state), now, now);
-
-  // 作者纯手工录入新章节内容
+test('手工稿无需调用外部模型：通过标准 changeset 与人工确认路径，零 Token 消耗并原子采纳', async context => {
+  const fixtureState = await fixture(context);
   const manualText = '夜深人静，青石板路落满寒霜。他没有回头，只提着一盏残灯。';
-  const saved = workflow.saveManuscript(db, bookId, 'usr_author', {
-    chapterId: 'c1',
-    text: manualText,
-    expectedRevision: 0,
-    expectedNovelRevision: 1
+  const source = await saveReviewedManuscript(fixtureState, manualText);
+  const candidate = await createSourceCandidate(fixtureState, source, []);
+  assert.equal((await approveCandidate(fixtureState, candidate)).ok, true);
+
+  const commit = await fixtureState.store.commitChangeset({
+    ...fixtureState.scope, changesetId: candidate.id
   });
-  assert.ok(saved.id);
+  assert.equal(commit.ok, true);
+  assert.equal(commit.operationsApplied, 0);
 
-  // 建立绑定变更集，不含任何外部模型依赖
-  const changeset = workflow.createBoundChangeset(db, bookId, 'usr_author', {
-    manuscriptRevisionId: saved.id,
-    operations: []
-  });
-
-  const approveRes = memorySystem.approveChangeset(db, bookId, changeset.id, 'usr_author');
-  assert.equal(approveRes.ok, true);
-
-  const commitRes = memorySystem.commitChangeset(db, bookId, changeset.id, 'usr_author');
-  assert.equal(commitRes.ok, true);
-  assert.equal(commitRes.operationsApplied, 0); // 纯文本变更，零外部模型费用与推理
-
-  const novel = db.prepare('SELECT state_json, revision FROM novels WHERE id = ?').get(bookId);
-  assert.equal(novel.revision, 2);
-  assert.ok(novel.state_json.includes('落满寒霜'));
+  const novel = await fixtureState.repository.novels.get(fixtureState.bookId, fixtureState.bookId);
+  assert.equal(novel.contentRevision, 2);
+  assert.ok(novel.state.volumes[0].chapters[0].content.includes('落满寒霜'));
 });
 
-test('部分确认（Partial Confirmation）与依赖完整性校验：缺少前置事件依赖拒绝提交', () => {
-  const db = createTestDatabase();
-  const bookId = 'n_partial_1';
-  const now = Date.now();
+test('部分确认（Partial Confirmation）与依赖完整性校验：缺少前置事件依赖拒绝提交', async context => {
+  const fixtureState = await fixture(context);
+  const source = await saveReviewedManuscript(fixtureState, '宗门大会召开，掌门赐予弟子玄阳玉佩。');
+  const broken = await createSourceCandidate(fixtureState, source, [{
+    type: 'STATE_TRANSITION',
+    payload: {
+      eventId: 'evt_unconfirmed_event_999', entityId: 'item_token_1', dimension: 'possession',
+      preState: 'sect_vault', postState: 'disciple_hand'
+    }
+  }]);
+  await approveCandidate(fixtureState, broken);
+  await rejectsCode(fixtureState.store.commitChangeset({
+    ...fixtureState.scope, changesetId: broken.id
+  }), 'CHANGESET_DEPENDENCY_MISSING');
 
-  const state = {
-    title: '断链测验',
-    volumes: [{ id: 'v1', title: '卷一', chapters: [{ id: 'c1', title: '第一章', content: '<p>旧稿</p>' }] }]
-  };
-  db.prepare(`INSERT INTO novels VALUES (?, 'ws_1', ?, 'usr_author', '断链测验', ?, 10, 1, ?, ?)`).run(bookId, bookId, JSON.stringify(state), now, now);
-
-  const saved = workflow.saveManuscript(db, bookId, 'usr_author', {
-    chapterId: 'c1',
-    text: '宗门大会召开，掌门赐予弟子玄阳玉佩。',
-    expectedRevision: 0,
-    expectedNovelRevision: 1
-  });
-
-  // 候选提取出了事件和依赖该事件的状态转换：
-  // 如果作者只部分确认状态转换，却勾选放弃/去除了该事件
-  const brokenChangeset = workflow.createBoundChangeset(db, bookId, 'usr_author', {
-    manuscriptRevisionId: saved.id,
-    operations: [
-      {
-        type: 'STATE_TRANSITION',
-        payload: {
-          eventId: 'evt_unconfirmed_event_999', // 未被确认入库也未包含在当前变更集中
-          entityId: 'item_token_1',
-          dimension: 'possession',
-          preState: 'sect_vault',
-          postState: 'disciple_hand'
-        }
-      }
-    ]
-  });
-
-  memorySystem.approveChangeset(db, bookId, brokenChangeset.id, 'usr_author');
-
-  const commitRes = memorySystem.commitChangeset(db, bookId, brokenChangeset.id, 'usr_author');
-  assert.equal(commitRes.ok, false);
-  assert.equal(commitRes.code, 'CHANGESET_DEPENDENCY_MISSING');
-
-  // 若同时保留事件与状态转换，依赖完整，则提交成功
-  const completeChangeset = workflow.createBoundChangeset(db, bookId, 'usr_author', {
-    manuscriptRevisionId: saved.id,
-    operations: [
-      {
-        type: 'INSERT_EVENT',
-        payload: {
-          id: 'evt_conf_1',
-          title: '赐宝大会',
-          summary: '掌门赐玉佩'
-        }
-      },
-      {
-        type: 'STATE_TRANSITION',
-        payload: {
-          eventId: 'evt_conf_1',
-          entityId: 'item_token_1',
-          dimension: 'possession',
-          preState: 'sect_vault',
-          postState: 'disciple_hand'
-        }
-      }
-    ]
-  });
-
-  memorySystem.approveChangeset(db, bookId, completeChangeset.id, 'usr_author');
-  const validCommit = memorySystem.commitChangeset(db, bookId, completeChangeset.id, 'usr_author');
-  assert.equal(validCommit.ok, true);
+  const complete = await createSourceCandidate(fixtureState, source, [
+    { type: 'INSERT_EVENT', payload: { id: 'evt_conf_1', title: '赐宝大会', summary: '掌门赐玉佩' } },
+    { type: 'STATE_TRANSITION', payload: {
+      eventId: 'evt_conf_1', entityId: 'item_token_1', dimension: 'possession',
+      preState: 'sect_vault', postState: 'disciple_hand'
+    } }
+  ]);
+  await approveCandidate(fixtureState, complete);
+  assert.equal((await fixtureState.store.commitChangeset({
+    ...fixtureState.scope, changesetId: complete.id
+  })).ok, true);
 });
 
-test('嵌套认知递归展开与预算限制、故事时间过滤以及未记录认知语义', () => {
-  const db = createTestDatabase();
-  const bookId = 'n_cognition_test';
-
-  db.prepare("INSERT INTO memory_propositions (id, book_id, display_text, created_at) VALUES ('prop_sword', ?, '青云古剑在断崖下', 100)").run(bookId);
-
-  // 递归嵌套结构：李玄 以为 师妹 以为 古剑在断崖下
-  const shimeiNested = {
+test('嵌套认知递归展开与预算限制、故事时间过滤以及未记录认知语义', async context => {
+  const fixtureState = await fixture(context);
+  const { store, scope } = fixtureState;
+  const extracted = await store.extract({ ...scope, text: '青云古剑在断崖下。' });
+  const nestedCognition = {
     targetHolderId: 'shimei',
     resolvedCognition: {
       holderEntityId: 'shimei',
@@ -351,52 +283,42 @@ test('嵌套认知递归展开与预算限制、故事时间过滤以及未记�
       }
     }
   };
+  await commitOperations(fixtureState, [{
+    type: 'INSERT_COGNITION',
+    payload: {
+      id: 'cog_lixuan', holderEntityId: 'lixuan', targetExpressionId: extracted.propositions[0].id,
+      awareness: 'aware', attitude: 'believed', subjectiveCertainty: 0.9, publicStance: 'concealed',
+      acquisitionChannel: 'secret_letter', sourceEvidenceIds: [], nestedCognition,
+      validIntervalStart: 't100', validIntervalEnd: 't500', acquiredTimeRef: 300
+    }
+  }]);
 
-  db.prepare(`INSERT INTO character_cognition (
-    id, book_id, branch_id, holder_entity_id, target_expression_id, awareness, attitude,
-    subjective_certainty, public_stance, acquisition_channel, source_evidence_ids_json,
-    nested_cognition_json, valid_interval_start, valid_interval_end, acquired_time_ref,
-    review_status, revision, created_at
-  ) VALUES ('cog_lixuan', ?, 'main', 'lixuan', 'prop_sword', 'aware', 'believed', 0.9, 'concealed', 'secret_letter', '[]', ?, 't100', 't500', 300, 'confirmed', 1, 1000)`).run(bookId, JSON.stringify(shimeiNested));
-
-  // 1. 递归展开带深度限制（maxDepth=2）
-  const expanded = memorySystem.getCognition(db, bookId, {
-    holderEntityId: 'lixuan',
-    expandNested: true,
-    maxDepth: 2
+  const expanded = await store.getCognition({
+    ...scope, holderEntityId: 'lixuan', expandNested: true, maxDepth: 2
   });
   assert.equal(expanded.length, 1);
   assert.equal(expanded[0].nestedCognition.targetHolderId, 'shimei');
-  // 第三层被预算截断并标记
   assert.equal(expanded[0].nestedCognition.resolvedCognition.nested.truncated, true);
   assert.equal(expanded[0].nestedCognition.resolvedCognition.nested.hasUnexpanded, true);
 
-  // 2. 故事时间过滤：在时间点 200 时，李玄尚未获得该认知（acquired_time_ref = 300）
-  const atTime200 = memorySystem.getCognition(db, bookId, {
-    holderEntityId: 'lixuan',
-    storyTime: 200
-  });
+  const atTime200 = await store.getCognition({ ...scope, holderEntityId: 'lixuan', storyTime: 200 });
   assert.equal(atTime200.length, 0, '时间点200尚未获得该认知');
-
-  const atTime400 = memorySystem.getCognition(db, bookId, {
-    holderEntityId: 'lixuan',
-    storyTime: 400
-  });
+  const atTime400 = await store.getCognition({ ...scope, holderEntityId: 'lixuan', storyTime: 400 });
   assert.equal(atTime400.length, 1, '时间点400已获得该认知');
 
-  // 3. 无认知记录语义：“没有认知记录不等于明确不知”
-  const unrecorded = memorySystem.getCognition(db, bookId, {
-    holderEntityId: 'stranger',
-    targetExpressionId: 'prop_sword'
+  const unrecorded = await store.getCognition({
+    ...scope, holderEntityId: 'stranger', targetExpressionId: extracted.propositions[0].id
   });
   assert.equal(unrecorded.length, 1);
   assert.equal(unrecorded[0].status, 'unknown_not_recorded');
+  assert.equal(unrecorded[0].bookId, scope.bookId);
   assert.equal(unrecorded[0].note, '没有认知记录不等于明确不知');
 });
 
-test('改写合同合规与文风润色任务防线：锁定数字、时序与禁止借润色改剧情', () => {
+test('改写合同合规与文风润色任务防线：锁定数字、时序与禁止借润色改剧情', async context => {
+  const fixtureState = await fixture(context);
   const contract = {
-    bookId: 'b1',
+    bookId: fixtureState.bookId,
     taskType: 'style_polish',
     lockedPropositions: ['断魂谷'],
     lockedNumbers: ['三年', '七重天'],
@@ -405,71 +327,62 @@ test('改写合同合规与文风润色任务防线：锁定数字、时序与�
     lockedForeshadows: [{ title: '玉佩暗藏真龙残魂' }],
     disclosureBoundary: { forbiddenAnswers: ['真凶是三长老'] }
   };
+  const rewrite = text => fixtureState.store.rewrite({
+    ...fixtureState.scope, contract, candidateText: text
+  });
 
-  // 1. 违规泄露禁止答案
-  const breachLeaked = memorySystem.verifyRewriteContractCompliance(contract, '陆沉在宗门初试后去往血战断魂谷，苦修三年达七重天。其实真凶是三长老。玉佩暗藏真龙残魂');
-  assert.equal(breachLeaked.passed, false);
+  const breachLeaked = await rewrite('陆沉在宗门初试后去往血战断魂谷，苦修三年达七重天。其实真凶是三长老。玉佩暗藏真龙残魂');
+  assert.equal(breachLeaked.compliant, false);
   assert.ok(breachLeaked.violations.some(v => v.type === 'DISCLOSURE_BOUNDARY_BREACH'));
 
-  // 2. 擅自篡改关键数字（将三年改成了五年）
-  const breachNumber = memorySystem.verifyRewriteContractCompliance(contract, '陆沉在宗门初试后去往血战断魂谷，苦修五年达七重天。玉佩暗藏真龙残魂');
-  assert.equal(breachNumber.passed, false);
+  const breachNumber = await rewrite('陆沉在宗门初试后去往血战断魂谷，苦修五年达七重天。玉佩暗藏真龙残魂');
+  assert.equal(breachNumber.compliant, false);
   assert.ok(breachNumber.violations.some(v => v.type === 'LOCKED_NUMBER_LOST'));
 
-  // 3. 事件时序逆转（先血战后初试）
-  const breachOrder = memorySystem.verifyRewriteContractCompliance(contract, '陆沉在血战断魂谷经历九死一生，随后回山参加宗门初试，苦修三年达七重天。玉佩暗藏真龙残魂');
-  assert.equal(breachOrder.passed, false);
+  const breachOrder = await rewrite('陆沉在血战断魂谷经历九死一生，随后回山参加宗门初试，苦修三年达七重天。玉佩暗藏真龙残魂');
+  assert.equal(breachOrder.compliant, false);
   assert.ok(breachOrder.violations.some(v => v.type === 'EVENT_ORDER_VIOLATION'));
 
-  // 4. 文风润色暗改伏笔（删除了玉佩伏笔）
-  const breachPolish = memorySystem.verifyRewriteContractCompliance(contract, '陆沉在宗门初试后去往血战断魂谷，苦修三年达七重天。剑气纵横三万里。');
-  assert.equal(breachPolish.passed, false);
+  const breachPolish = await rewrite('陆沉在宗门初试后去往血战断魂谷，苦修三年达七重天。剑气纵横三万里。');
+  assert.equal(breachPolish.compliant, false);
   assert.ok(breachPolish.violations.some(v => v.type === 'POLISH_UNAUTHORIZED_PLOT_MODIFICATION'));
 
-  // 5. 合规润色稿通过
-  const compliant = memorySystem.verifyRewriteContractCompliance(contract, '陆沉在宗门初试拔得头筹，其后赴血战断魂谷，苦修三年达七重天之境，掌中玉佩暗藏真龙残魂微鸣。');
-  assert.equal(compliant.passed, true);
+  const compliant = await rewrite('陆沉在宗门初试拔得头筹，其后赴血战断魂谷，苦修三年达七重天之境，掌中玉佩暗藏真龙残魂微鸣。');
+  assert.equal(compliant.compliant, true);
   assert.equal(compliant.violations.length, 0);
 });
 
-test('上下文检索装配：必须项超预算抛出 CONTEXT_BUDGET_EXCEEDED，且隐藏信息不泄漏至正文写作包', () => {
-  const db = createTestDatabase();
-  const bookId = 'n_budget_ctx_1';
+test('上下文检索装配：必须项超预算抛出 CONTEXT_BUDGET_EXCEEDED，且隐藏信息不泄漏至正文写作包', async context => {
+  const fixtureState = await fixture(context);
+  const { store, scope } = fixtureState;
+  const extracted = await store.extract({ ...scope, text: '魔门圣女真实身份是宗主之女。' });
+  const propositionId = extracted.propositions[0].id;
+  await commitOperations(fixtureState, [{
+    type: 'INSERT_FACT',
+    payload: { id: 'fact_secret', propositionId, verdict: 'true' }
+  }]);
+  await commitOperations(fixtureState, [{
+    type: 'SET_DISCLOSURE',
+    payload: { id: 'dp_hide', targetInfoId: 'fact_secret', policyType: 'hide' }
+  }]);
 
-  db.prepare("INSERT INTO memory_propositions (id, book_id, display_text, created_at) VALUES ('p_secret', ?, '魔门圣女真实身份是宗主之女', 100)").run(bookId);
-  db.prepare("INSERT INTO world_fact_decisions (id, book_id, proposition_id, verdict, status, created_at) VALUES ('fact_secret', ?, 'p_secret', 'true', 'confirmed', 200)").run(bookId);
-  db.prepare("INSERT INTO disclosure_policies (id, book_id, branch_id, target_info_id, policy_type, created_at) VALUES ('dp_hide', ?, 'main', 'fact_secret', 'hide', 300)").run(bookId);
+  await rejectsCode(store.assembleContext({
+    ...scope,
+    budgetTokens: 50,
+    mandatoryItems: ['一段极其冗长必须要放入上下文不可省略的背景设定描述文本'.repeat(20)]
+  }), 'CONTEXT_BUDGET_EXCEEDED');
 
-  // 1. 预算超限检查：必须项超过 budgetTokens
-  assert.throws(() => {
-    memorySystem.assembleContext(db, bookId, {
-      budgetTokens: 50,
-      mandatoryItems: ['一段极其冗长必须要放入上下文不可省略的背景设定描述文本'.repeat(20)]
-    });
-  }, err => err.code === 'CONTEXT_BUDGET_EXCEEDED');
-
-  // 2. 正常预算下的信息隔离：写作包不泄露隐藏答案，审校包保留真相
-  const manifest = memorySystem.assembleContext(db, bookId, {
-    budgetTokens: 3000
-  });
-  assert.equal(manifest.writingPackage.facts.some(f => f.id === 'fact_secret'), false, '写作包排除了隐藏事实');
-  assert.equal(manifest.auditPackage.facts.some(f => f.id === 'fact_secret'), true, '审校包保留隐藏事实以供质检');
+  const manifest = await store.assembleContext({ ...scope, budgetTokens: 3000 });
+  assert.equal(manifest.writingPackage.facts.some(fact => fact.id === 'fact_secret'), false, '写作包排除了隐藏事实');
+  assert.equal(manifest.auditPackage.facts.some(fact => fact.id === 'fact_secret'), true, '审校包保留隐藏事实以供质检');
 });
 
-test('权限与能力防线：reviewer 获赋予能力仍不能支出与导出，且 49 类资料题材不适用必须附带非空理由', () => {
-  const db = createTestDatabase();
-  const now = Date.now();
-  db.prepare(`INSERT INTO novel_projects (workspace_id, project_id, owner_user_id, title, status, acl_revision, created_at, updated_at) VALUES ('ws_1', 'proj_1', 'usr_author', '测试作品', 'active', 1, ?, ?)`).run(now, now);
+test('权限与能力防线：reviewer 获赋予能力仍不能支出与导出，且 49 类资料题材不适用必须附带非空理由', async context => {
+  const fixtureState = await fixture(context);
   const accessReviewerWithErrantFlags = {
-    workspace_id: 'ws_1',
-    project_id: 'proj_1',
-    role: 'reviewer',
-    active: 1,
-    can_spend: 1,
-    can_export: 1
+    workspace_id: 'ws_1', project_id: fixtureState.bookId, role: 'reviewer', active: 1,
+    can_spend: 1, can_export: 1
   };
-
-  // 1. reviewer 无法获得支出或导出能力
   assert.equal(projectScope.canAccess(accessReviewerWithErrantFlags, projectScope.PROJECT_ROLES, 'spend'), false);
   assert.equal(projectScope.canAccess(accessReviewerWithErrantFlags, projectScope.PROJECT_ROLES, 'export'), false);
 
@@ -477,30 +390,22 @@ test('权限与能力防线：reviewer 获赋予能力仍不能支出与导出�
   assert.equal(scope.canSpend, false);
   assert.equal(scope.canExport, false);
 
-  // 2. 题材不适用必须有明确理由
-  const accessOwner = { workspace_id: 'ws_1', project_id: 'proj_1', role: 'owner', active: 1 };
-  
-  // 理由为空 -> 被拒绝
-  const failNotApplicable = projectResources.createResource(db, accessOwner, 'power-system', {
-    notApplicable: true,
-    notApplicableReason: '   ' // 空白字符串
-  }, 'user_1', 'ps_none');
-  assert.equal(failNotApplicable.ok, false);
-  assert.equal(failNotApplicable.code, 'NOT_APPLICABLE_REASON_REQUIRED');
+  const { app, author, bookId } = fixtureState;
+  await assert.rejects(app.saveResource({
+    userId: author.userId, projectId: bookId, id: 'ps_none', kind: 'power-system',
+    payload: { notApplicable: true, notApplicableReason: '   ' }, expectedRevision: 0
+  }), { code: 'NOT_APPLICABLE_REASON_REQUIRED' });
 
-  // 提供明确理由 -> 成功写入
-  const okNotApplicable = projectResources.createResource(db, accessOwner, 'power-system', {
-    notApplicable: true,
-    notApplicableReason: '历史写实权谋题材，本书不存在任何超自然超凡力量体系'
-  }, 'user_1', 'ps_none');
+  const okNotApplicable = await app.saveResource({
+    userId: author.userId, projectId: bookId, id: 'ps_none', kind: 'power-system',
+    payload: { notApplicable: true, notApplicableReason: '历史写实权谋题材，本书不存在任何超自然超凡力量体系' },
+    expectedRevision: 0
+  });
   assert.equal(okNotApplicable.ok, true);
   assert.equal(okNotApplicable.resource.payload.notApplicableReason, '历史写实权谋题材，本书不存在任何超自然超凡力量体系');
 
-  // 3. 跨项目引用被拒绝
-  const failCrossProject = projectResources.createResource(db, accessOwner, 'item', {
-    name: '青铜鼎',
-    targetProjectId: 'proj_other_999'
-  }, 'user_1', 'item_bronze');
-  assert.equal(failCrossProject.ok, false);
-  assert.equal(failCrossProject.code, 'REFERENCE_CROSS_PROJECT_FORBIDDEN');
+  await assert.rejects(app.saveResource({
+    userId: author.userId, projectId: bookId, id: 'item_bronze', kind: 'item',
+    payload: { name: '青铜鼎', targetProjectId: 'proj_other_999' }, expectedRevision: 0
+  }), { code: 'REFERENCE_CROSS_PROJECT_FORBIDDEN' });
 });

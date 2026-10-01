@@ -109,7 +109,28 @@ function createPostgresMemoryStore(options, makeStore, blank, branch) {
       const novel = { state: profile?.payload || { volumes: [], title: scope.book.title }, contentRevision: Number(profile?.revision || 1), aclRevision: Number(scope.access.acl_revision || 0) };
       const before = structuredClone(b), initialRevision = novel.contentRevision;
       const resolved = { ...scope.access, active: 1, userId: scope.actorUuid, bookId: scope.bookId, projectId: scope.projectId, branchId, role: scope.access.role };
-      const result = await action(b, novel, resolved, state);
+      const context = {
+        readBaseline: async name => {
+          if (name === 'novelRevision') return profile?.revision == null ? undefined : Number(profile.revision);
+          if (name === 'aclRevision') return scope.access.acl_revision == null ? undefined : Number(scope.access.acl_revision);
+          if (name === 'bibleVersion') return scope.book.bible_revision == null ? undefined : Number(scope.book.bible_revision);
+          if (name === 'planVersion') return scope.book.current_state_version == null ? undefined : Number(scope.book.current_state_version);
+          if (name === 'disclosurePolicyVersion') return Object.values(b.records)
+            .filter(record => record.recordType === 'disclosure' && (record.branchId || 'main') === branchId).length;
+          if (name === 'styleVersion') {
+            const result = await client.query(
+              `SELECT revision FROM luna.style_profiles
+               WHERE workspace_id = $1::uuid AND project_id = $2::uuid AND book_id = $3::uuid
+                 AND branch_id = $4::text AND active = true
+               ORDER BY updated_at DESC, id ASC LIMIT 1`,
+              [scope.workspaceUuid, scope.projectUuid, scope.bookUuid, branchId]
+            );
+            return result.rows[0] ? Number(result.rows[0].revision) : undefined;
+          }
+          return undefined;
+        }
+      };
+      const result = await action(b, novel, resolved, state, context);
       if (write) {
         await persist(client, scope, before, b, branchId);
         if (novel._memoryDirty) {
