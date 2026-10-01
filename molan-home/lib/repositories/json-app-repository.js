@@ -506,6 +506,37 @@ class JsonAppRepository {
       .map(row => ({ revision: row.contentRevision, payload: row.payload, changedBy: row.changedBy,
         changeReason: row.reason, createdAt: row.createdAt })).sort((a, b) => b.revision - a.revision);
   }
+  async restoreResource(input) {
+    return this.restoreResourceRecord(input);
+  }
+  async restoreResourceVersion(input) {
+    if (!Number.isSafeInteger(input.targetRevision) || input.targetRevision < 1) fail('HISTORY_REVISION_INVALID', 422);
+    return this.restoreResourceRecord(input, input.targetRevision);
+  }
+  async restoreResourceRecord({ userId, projectId, id, kind, expectedRevision, reason = '' }, targetRevision) {
+    const normalizedKind = resourceRules.normalizeKind(kind);
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail('REVISION_REQUIRED', 428);
+    return this.repository.transaction([projectId], tx => {
+      const project = tx.get(projectId, 'novels', projectId);
+      const access = accessFrom(project, userId);
+      if (!resourceRules.canMutate(access, normalizedKind)) fail('FORBIDDEN', 403);
+      const row = tx.get(projectId, 'novels', key('resource', id));
+      if (!row || row.resourceKind !== normalizedKind) fail('RESOURCE_NOT_FOUND', 404);
+      if (row.contentRevision !== expectedRevision) fail('REVISION_CONFLICT', 409);
+      if (targetRevision === undefined && !row.deleted) fail('REVISION_CONFLICT', 409);
+      const historical = targetRevision === undefined ? row : tx.get(projectId, 'ledger', key('resource-version', `${id}:${targetRevision}`));
+      if (!historical || historical.resourceId !== id || historical.resourceKind !== normalizedKind) fail('RESOURCE_VERSION_MISSING', 404);
+      const payload = clone(historical.payload);
+      resourceRules.normalizePayload(payload, access, normalizedKind);
+      validateReferences(tx, projectId, payload, normalizedKind);
+      const timestamp = this.now(), revision = row.contentRevision + 1;
+      const saved = tx.put(projectId, 'novels', { ...row, payload, deleted: false, contentRevision: revision, updatedAt: timestamp }, row.revision);
+      tx.put(projectId, 'ledger', { id: key('resource-version', `${id}:${revision}`), kind: 'resource-version',
+        resourceId: id, resourceKind: normalizedKind, payload: clone(payload), contentRevision: revision, changedBy: userId,
+        reason: String(reason || (targetRevision === undefined ? '恢复资料' : '恢复历史版本')), createdAt: timestamp }, 0);
+      return { ok: true, resource: publicResource(saved, project) };
+    });
+  }
   async deleteResource({ userId, projectId, id, expectedRevision }) {
     return this.repository.transaction([projectId], tx => {
       const access = accessFrom(tx.get(projectId, 'novels', projectId), userId);

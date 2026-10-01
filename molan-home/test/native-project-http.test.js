@@ -31,6 +31,45 @@ test('native projects preserve scoped resources, CAS, history and workspace memb
   actor = 'other'; result = await call('GET', '/api/novels/n_project/resources/character/hero'); assert.equal(result.status, 404);
   result = await call('GET', `/api/workspaces/${workspaceId}/projects`); assert.equal(result.status, 404);
 });
+test('native restore HTTP enforces deletion state, ACL, CAS and reference rollback', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'native-project-restore-http-'));
+  const repository = new JsonAppRepository(dir); t.after(async () => { await repository.close(); fs.rmSync(dir, { recursive: true, force: true }); });
+  await repository.saveAccount({ userId: 'owner', email: 'restore-owner@t' });
+  await repository.saveAccount({ userId: 'viewer', email: 'restore-viewer@t' });
+  await repository.create({ id: 'n_restore', user: { userId: 'owner', email: 'restore-owner@t' }, state: { title: 'Restore', volumes: [] } });
+  let actor = 'owner';
+  const service = createNativeProjectService({ repository, getAuthUser: () => ({ user: { userId: actor } }), readBody: async req => req.body || {}, json: (res, status, body) => { res.status = status; res.body = body; } });
+  const call = async (method, url, body, headers = {}) => {
+    const res = { setHeader(name, value) { this[name] = value; } };
+    assert.equal(await service.dispatch({ method, url, body, headers }, res, new URL(url, 'http://x').pathname), true);
+    return res;
+  };
+  const root = '/api/novels/n_restore/resources';
+  let result = await call('POST', `${root}/place`, { id: 'spot', payload: { name: 'Spot' } }); assert.equal(result.status, 201);
+  result = await call('POST', `${root}/scene`, { id: 'dependent', payload: { title: 'Dependent', references: [{ id: 'spot', kind: 'place' }] } }); assert.equal(result.status, 201);
+  result = await call('DELETE', `${root}/place/spot`, { revision: 1 }); assert.equal(result.status, 200);
+  result = await call('DELETE', `${root}/scene/dependent`, { revision: 1 }); assert.equal(result.status, 200);
+
+  result = await call('POST', `${root}/scene/dependent`, { revision: 1 }); assert.equal(result.status, 412);
+  result = await call('POST', `${root}/scene/dependent`, { revision: 2 }); assert.equal(result.status, 422);
+  assert.equal(result.body.code, 'REFERENCE_NOT_FOUND');
+  result = await call('GET', `${root}/scene/dependent?includeDeleted=1`);
+  assert.equal(result.status, 200); assert.equal(result.body.resource.status, 'deleted'); assert.equal(result.body.resource.revision, 2);
+  result = await call('GET', `${root}/scene/dependent/history`);
+  assert.deepEqual(result.body.versions.map(version => version.revision), [2, 1]);
+
+  const access = await repository.getAccess({ userId: 'owner', projectId: 'n_restore' });
+  await repository.upsertWorkspaceMember('owner', access.workspace_id, 'viewer', 'member');
+  await repository.upsertProjectMember({ userId: 'owner', projectId: 'n_restore', targetUserId: 'viewer', role: 'viewer' });
+  actor = 'viewer'; result = await call('POST', `${root}/scene/dependent`, { revision: 2 }); assert.equal(result.status, 403);
+  actor = 'owner'; result = await call('POST', `${root}/place/spot`, { revision: 2 }); assert.equal(result.status, 200);
+  assert.equal(result.body.resource.revision, 3);
+  result = await call('POST', `${root}/scene/dependent`, { revision: 2 }); assert.equal(result.status, 200);
+  assert.equal(result.body.resource.revision, 3);
+  result = await call('POST', `${root}/scene/dependent`, { revision: 3 }); assert.equal(result.status, 412);
+  result = await call('POST', `${root}/scene/dependent/history/1/restore`, { revision: 3 }); assert.equal(result.status, 200);
+  assert.equal(result.body.resource.revision, 4);
+});
 test('native package HTTP verifies hashes, CAS and atomic reference snapshots', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'native-package-http-'));
   const repository = new JsonAppRepository(dir); t.after(async () => { await repository.close(); fs.rmSync(dir, { recursive: true, force: true }); });
