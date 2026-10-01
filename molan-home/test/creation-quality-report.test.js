@@ -8,7 +8,7 @@ test('quality report keeps missing audit counts unknown and latest evidence boun
     evidence: { protocol: 'generation-v2-audit-v1', generationId: 'run-1', chapterNo: 1,
       contentHash: 'hash-1', passed: true, deterministicAudit: { passed: true, blockerCount: 0 },
       semanticAudit: { passed: true, issues: [{ category: 'experience', severity: 'warning' }] },
-      quality: { qualityVector: { language: { value: null, status: 'NOT_MEASURED' } } } } };
+      quality: { passed: true, qualityVector: { language: { value: null, status: 'NOT_MEASURED' } } } } };
   const missing = { id: 'a2', chapterNo: 2, contentHash: 'hash-2', createdAt: 2 };
   let report = buildCreationQualityReport([missing, valid]);
   assert.equal(report.summary.passedCount, 1);
@@ -22,6 +22,9 @@ test('quality report keeps missing audit counts unknown and latest evidence boun
   const contradictory = structuredClone(valid);
   contradictory.evidence.semanticAudit.passed = false;
   assert.equal(buildCreationQualityReport([contradictory]).chapters[0].passed, null);
+  const noQuality = structuredClone(valid);
+  delete noQuality.evidence.quality;
+  assert.equal(buildCreationQualityReport([noQuality]).chapters[0].passed, null);
   report = buildCreationQualityReport([valid, { ...valid, id: 'a3', createdAt: 3, contentHash: 'different' }]);
   assert.equal(report.chapters.length, 1);
   assert.equal(report.chapters[0].evidenceStatus, 'NOT_MEASURED');
@@ -30,8 +33,9 @@ test('quality report keeps missing audit counts unknown and latest evidence boun
 
 test('quality report weak streak requires consecutive measured failing chapters', () => {
   const row = chapterNo => ({ id: `a${chapterNo}`, chapterNo, contentHash: 'hash', createdAt: chapterNo,
-    evidence: { protocol: 'generation-v2-audit-v1', chapterNo, contentHash: 'hash', passed: false,
-      deterministicAudit: { passed: false, blockerCount: 1 }, semanticAudit: { passed: true, blockerCount: 0 } } });
+    evidence: { protocol: 'generation-v2-audit-v1', generationId: `run-${chapterNo}`, chapterNo, contentHash: 'hash', passed: false,
+      deterministicAudit: { passed: false, blockerCount: 1 }, semanticAudit: { passed: true, blockerCount: 0 },
+      quality: { passed: false, vector: { language: { value: null, status: 'NOT_MEASURED' } } } } });
   const report = buildCreationQualityReport([row(1), row(3), row(4)]);
   assert.deepEqual(report.summary.weakStreakChapters, [3, 4]);
   assert.equal(report.summary.blockerTotal, 3);
