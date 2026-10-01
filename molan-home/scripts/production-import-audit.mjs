@@ -48,7 +48,7 @@ export function runProductionImportAudit({ root = rootDir } = {}) {
       for (const match of line.matchAll(localImport)) {
         const base = path.resolve(path.dirname(filename), match[1]);
         const relative = path.relative(root, base).replace(/\\/g, '/');
-        if (relative.startsWith('../') || path.isAbsolute(relative)) continue;
+        if (relative === '..' || relative.startsWith('../') || path.isAbsolute(relative)) continue;
         if (/^(?:data|books|raws|deploy_tmp|tmp-booktest|node_modules|\.git|scripts\/sqlite-migration)(?:\/|$)/.test(relative)) continue;
         const resolved = [base, `${base}.js`, `${base}.mjs`, `${base}.cjs`, path.join(base, 'index.js')]
           .find(candidate => /\.[cm]?js$/.test(candidate) && fs.existsSync(candidate) && fs.statSync(candidate).isFile());
