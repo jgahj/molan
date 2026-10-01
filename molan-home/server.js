@@ -8488,6 +8488,29 @@ function getPostgresDissectionReadService() {
   return postgresDissectionReadServiceInstance;
 }
 
+let postgresDissectionMutationServiceInstance = null;
+function getPostgresDissectionMutationService() {
+  if (!postgresDissectionMutationServiceInstance) {
+    const readService = getPostgresDissectionReadService();
+    postgresDissectionMutationServiceInstance = require('./services/postgres-dissection-mutation-service').createPostgresDissectionMutationService({
+      postgresRepository,
+      readBody,
+      getAuthUser: (...args) => getAuthUser(...args),
+      postgresActor,
+      json,
+      respondPostgresError,
+      rowToRecord: row => dissectionRecordFromDb({
+        ...row,
+        created_at: row.created_at_value,
+        updated_at: row.updated_at_value
+      }),
+      publicRecord: dissectionPublicRecord,
+      computeStats: (...args) => readService.computeDissectionStats(...args)
+    });
+  }
+  return postgresDissectionMutationServiceInstance;
+}
+
 let nativeKnowledgeCatalogService = null;
 const server = http.createServer((req, res) => {
   void dispatchRequest(req, res).catch(error => respondError(res, error));
@@ -8686,6 +8709,7 @@ async function dispatchRequest(req, res) {
   if (domainRoutes.admin(req, res, u)) return;
   if (domainRoutes.generation.dispatchWebChat(req, res, u)) return;
   if (POSTGRES_MODE && await getPostgresDissectionReadService().dispatch(req, res, u)) return;
+  if (POSTGRES_MODE && await getPostgresDissectionMutationService().dispatch(req, res, u)) return;
   if (domainRoutes.dissections(req, res, u)) return;
   // ★ Q1 · 创书域：新书 + 创作圣经 + 状态快照（CAS）
   if (POSTGRES_MODE && req.method === 'GET' && u === '/api/creation-books') return handlePostgresCreationBooksList(req, res).catch(error => respondPostgresError(res, error));
@@ -9008,6 +9032,7 @@ module.exports = {
   postgresRepository,
   POSTGRES_MODE,
   getPostgresDissectionReadService,
+  getPostgresDissectionMutationService,
   // 阶段1/2/3 图谱与上下文能力（DB 函数，内部 dbReady 守卫；供云端验证与扩展调用）
   storeDissectionForeshadows,
   buildDissectionEntities,
