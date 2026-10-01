@@ -33,3 +33,5 @@
 本地默认兼容链、部分创作扩展操作与普通旧测试仍在迁移。显式 JSON 路径通过的冒烟不能代替整个 P0–P3 最终验收。
 
 可重放 PG 文风 HTTP 合同冒烟：显式配置隔离测试库的 `MOLAN_PG_HOST/PORT/DATABASE/USER` 和密码文件后运行 `node scripts/postgres-native-style-routes-smoke.mjs`。脚本只接受名称含 test/acceptance 的库，会写入唯一测试记录，不执行模型调用；不得指向生产库。
+
+PG HTTP 章节提交定向复验：在相同隔离库配置下，设置 `MOLAN_PG_HTTP_SMOKE_STAGE=creation-commit` 后运行 `node scripts/postgres-http-smoke.mjs`。脚本验证旧审稿缺证据时拒绝提交且不写快照，以及合成 Generation V2 存储证据经 HTTP 提交后的版本与正文哈希。成功结果明确标注阶段和 `synthetic-storage-contract`，不代表模型生成或文学质量通过。取消该环境变量才执行完整 HTTP 冒烟；完整流程目前尚未完成最新版本验收。数据库名必须含 test/acceptance，连接 URL 若设置则以 URL 中的实际库名核验，不能靠另填库名绕过。

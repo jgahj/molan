@@ -821,7 +821,7 @@ function createGenerationService({
       const orchestrator = generationRunOrchestrator();
       const store = generationRunStore();
       const database = generationDatabase();
-      if (typeof orchestrator.recover === 'function') await orchestrator.recover();
+      if (typeof orchestrator.recover === 'function') await orchestrator.recover({ actorUserId });
       if (req.method === 'POST' && u === rootPath) {
         const body = await readBody(req, 2 * 1024 * 1024 + 4096);
         const key = String(req.headers['idempotency-key'] || body.idempotencyKey || body.requestId || '').trim();
