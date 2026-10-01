@@ -3,19 +3,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const crypto = require('node:crypto');
+const path = require('node:path');
 const { createLocalRuntime } = require('./helpers/local-runtime');
 
 const directory = createLocalRuntime();
+fs.rmSync(path.join(directory, 'users.json'), { force: true });
+process.env.MOLAN_APP_STORE = 'json';
 process.env.MOLAN_STYLE_STORE = 'json';
 let app = require('../server');
-app.initDB();
 
 test('HTTP JSON style save survives reopen and supplies authoritative context versions', async t => {
-  const user = { email: 'style-http@example.test', name: '文风作者', role: 'normal', credits: 100, spent: 0 };
-  app.saveUser(user);
-  const token = crypto.randomBytes(32).toString('hex');
-  app.sessions.set(app.hashSessionToken(token), { email: user.email, scope: 'client', expiresAt: Date.now() + 60000 });
+  let token = '';
   let base;
   const listen = async () => {
     await new Promise((resolve, reject) => {
@@ -44,17 +42,22 @@ test('HTTP JSON style save survives reopen and supplies authoritative context ve
     return result;
   };
   await listen();
+  const registrationResponse = await fetch(base + '/api/auth/register', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'style-http@example.test', password: 'test-password', name: '文风作者' })
+  });
+  const registration = await registrationResponse.json();
+  assert.equal(registrationResponse.status, 200, JSON.stringify(registration));
+  token = registration.token;
+  assert.ok(token);
   const bookId = 'n_stylehttp1';
-  await request('/api/novels', { id: bookId, state: { title: '文风持久化', volumes: [] } });
+  await request('/api/novels', { id: bookId, title: '文风持久化', state: { title: '文风持久化', volumes: [] } });
   const created = await request(`/api/books/${bookId}/styles`, { name: '简洁文风', hardRules: ['对白推动冲突'] });
   assert.equal(created.revision, 1);
-  app.flushSessionsSync();
   await close();
-  assert.equal(fs.existsSync(directory + '/style-profiles-json/.writer.lock'), false);
+  assert.equal(fs.existsSync(path.join(directory, 'app-json', '.writer.lock')), false);
   delete require.cache[require.resolve('../server')];
   app = require('../server');
-  app.initDB();
-  app.loadSessions();
   await listen();
   const reopened = await request(`/api/books/${bookId}/styles`);
   assert.equal(reopened.styles[0].revision, 1);
