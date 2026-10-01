@@ -8,6 +8,17 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createPlatformModelConfigService } = require('../services/platform-model-config-service');
+const { createSkillService } = require('../services/skill-service');
+
+test('direct global prompt writes reject missing evidence before touching storage', () => {
+  let storageCalls = 0;
+  const service = createSkillService({ dbReady: () => { storageCalls++; return false; },
+    writeJsonFile: () => { storageCalls++; } });
+  assert.throws(() => service.saveGlobalSkills([{ id: 'candidate', name: 'candidate', instruction: 'changed prompt' }]),
+    error => error.code === 'QUALITY_PROMOTION_BLOCKED');
+  assert.equal(storageCalls, 0);
+  assert.equal(service.persistGlobalSkills, undefined);
+});
 
 test('direct default model writes cannot bypass quality evidence or mutate disk and runtime', t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-model-policy-gate-'));
