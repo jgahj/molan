@@ -4760,6 +4760,12 @@ function createPostgresRepository(options = {}) {
   async function runtimeInsertDissection(record) {
     const ownerUserId = normalizeLegacyId(record.ownerUserId || record.userId, 'ownerUserId');
     return withTransaction(ownerUserId, async client => {
+      const estimatedCredits = record.estimatedCredits === null
+        ? null
+        : (record.estimatedCredits === undefined ? 0 : (Number(record.estimatedCredits) || 0));
+      const actualCredits = record.actualCredits === null
+        ? null
+        : (record.actualCredits === undefined ? 0 : (Number(record.actualCredits) || 0));
       const result = await client.query(
         `INSERT INTO luna.runtime_dissections
           (id, owner_actor_id, owner_user_id, user_email, title, source_type, source_name, source_text,
@@ -4775,7 +4781,7 @@ function createPostgresRepository(options = {}) {
           String(record.title || ''), String(record.sourceType || ''), String(record.sourceName || ''), String(record.sourceText || ''),
           String(record.depth || 'standard'), String(record.purpose || 'new-writer'), String(record.selectedModel || ''),
           String(record.status || 'queued'), String(record.phase || 'queued'), Number(record.phaseIndex) || 0, Number(record.progress) || 0,
-          Number(record.estimatedCredits) || 0, Number(record.actualCredits) || 0, JSON.stringify(record.result || {}),
+          estimatedCredits, actualCredits, JSON.stringify(record.result || {}),
           JSON.stringify(record.meta || {}), String(record.error || ''), record.cancelRequested === true,
           Number(record.createdAt) || Date.now(), Number(record.updatedAt) || Date.now(),
           JSON.stringify(record.document || {}), JSON.stringify(Array.isArray(record.cells) ? record.cells : [])]
@@ -4788,6 +4794,83 @@ function createPostgresRepository(options = {}) {
   async function runtimeUpdateDissection(record) {
     const ownerUserId = normalizeLegacyId(record.ownerUserId || record.userId, 'ownerUserId');
     return withTransaction(ownerUserId, async client => {
+      const currentResult = await client.query(
+        `SELECT * FROM luna.runtime_dissections
+         WHERE id = $1::text AND owner_actor_id = luna.actor_id()
+         FOR UPDATE`,
+        [String(record.id || '')]
+      );
+      const currentRow = currentResult.rows[0];
+      if (!currentRow) throw repositoryError('not_found', '拆书任务不存在或无权更新', 404);
+
+      let currentMeta = {};
+      if (currentRow.meta_json === null || currentRow.meta_json === undefined || currentRow.meta_json === '') {
+        throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+      }
+      if (currentRow.meta_json !== null && currentRow.meta_json !== undefined && currentRow.meta_json !== '') {
+        if (typeof currentRow.meta_json === 'object') {
+          if (Array.isArray(currentRow.meta_json) || currentRow.meta_json === null) {
+            throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+          }
+          currentMeta = currentRow.meta_json;
+        } else if (typeof currentRow.meta_json === 'string') {
+          let parsedCurrentMeta;
+          try {
+            parsedCurrentMeta = JSON.parse(currentRow.meta_json);
+          } catch (parseError) {
+            throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+          }
+          if (!parsedCurrentMeta || typeof parsedCurrentMeta !== 'object' || Array.isArray(parsedCurrentMeta)) {
+            throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+          }
+          currentMeta = parsedCurrentMeta;
+        } else {
+          throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+        }
+      }
+
+      let incomingMeta = {};
+      if (record.meta === null) throw repositoryError('invalid_meta', '传入拆书任务元数据格式错误', 400);
+      if (typeof record.meta === 'string') {
+        let parsedIncomingMeta;
+        try {
+          parsedIncomingMeta = JSON.parse(record.meta);
+        } catch (parseError) {
+          throw repositoryError('invalid_meta', '传入拆书任务元数据格式错误', 400);
+        }
+        if (!parsedIncomingMeta || typeof parsedIncomingMeta !== 'object' || Array.isArray(parsedIncomingMeta)) {
+          throw repositoryError('invalid_meta', '传入拆书任务元数据格式错误', 400);
+        }
+        incomingMeta = parsedIncomingMeta;
+      } else if (record.meta !== null && record.meta !== undefined) {
+        if (typeof record.meta !== 'object' || Array.isArray(record.meta)) {
+          throw repositoryError('invalid_meta', '传入拆书任务元数据格式错误', 400);
+        }
+        incomingMeta = record.meta;
+      }
+
+      const mergedMeta = { ...currentMeta, ...incomingMeta };
+      if (Object.prototype.hasOwnProperty.call(currentMeta, 'tags')) {
+        mergedMeta.tags = currentMeta.tags;
+      }
+      if (Object.prototype.hasOwnProperty.call(currentMeta, 'folder')) {
+        mergedMeta.folder = currentMeta.folder;
+      }
+
+      const preservedTitle = currentRow.title;
+
+      let estimatedCredits = null;
+      if (record.estimatedCredits !== null && record.estimatedCredits !== undefined) {
+        const parsedEstimated = Number(record.estimatedCredits);
+        estimatedCredits = Number.isFinite(parsedEstimated) ? parsedEstimated : 0;
+      }
+
+      let actualCredits = null;
+      if (record.actualCredits !== null && record.actualCredits !== undefined) {
+        const parsedActual = Number(record.actualCredits);
+        actualCredits = Number.isFinite(parsedActual) ? parsedActual : 0;
+      }
+
       const result = await client.query(
         `UPDATE luna.runtime_dissections
          SET title = $2::text, source_type = $3::text, source_name = $4::text, source_text = $5::text,
@@ -4797,18 +4880,134 @@ function createPostgresRepository(options = {}) {
              meta_json = $16::text, error = $17::text, cancel_requested = $18::boolean,
              owner_user_id = $19::text, updated_at_value = $20::bigint, revision = revision + 1,
              updated_at = now()
-         WHERE id = $1::text
+         WHERE id = $1::text AND owner_actor_id = luna.actor_id()
          RETURNING *`,
-        [String(record.id || ''), String(record.title || ''), String(record.sourceType || ''), String(record.sourceName || ''),
+        [String(record.id || ''), preservedTitle, String(record.sourceType || ''), String(record.sourceName || ''),
           String(record.sourceText || ''), String(record.depth || 'standard'), String(record.purpose || 'new-writer'),
           String(record.selectedModel || ''), String(record.status || 'queued'), String(record.phase || 'queued'),
-          Number(record.phaseIndex) || 0, Number(record.progress) || 0, Number(record.estimatedCredits) || 0,
-          Number(record.actualCredits) || 0, JSON.stringify(record.result || {}), JSON.stringify(record.meta || {}),
+          Number(record.phaseIndex) || 0, Number(record.progress) || 0, estimatedCredits,
+          actualCredits, JSON.stringify(record.result || {}), JSON.stringify(mergedMeta),
           String(record.error || ''), record.cancelRequested === true, ownerUserId, Number(record.updatedAt) || Date.now()]
       );
       if (!result.rows.length) throw repositoryError('not_found', '拆书任务不存在或无权更新', 404);
       await notifyRuntimeChanged(client, 'dissection', record.id);
       return result.rows[0];
+    });
+  }
+
+  async function runtimePatchDissectionMetadata(actorUserId, dissectionId, patchInput) {
+    const normalizedActorUserId = normalizeLegacyId(actorUserId, 'actorUserId');
+    const normalizedDissectionId = String(dissectionId || '');
+    const patch = (patchInput && typeof patchInput === 'object' && !Array.isArray(patchInput)) ? patchInput : {};
+
+    return withTransaction(normalizedActorUserId, async client => {
+      const currentResult = await client.query(
+        `SELECT * FROM luna.runtime_dissections
+         WHERE id = $1::text AND owner_actor_id = luna.actor_id()
+         FOR UPDATE`,
+        [normalizedDissectionId]
+      );
+      const currentRow = currentResult.rows[0];
+      if (!currentRow) throw repositoryError('not_found', '拆书任务不存在或无权修改', 404);
+
+      let currentMeta = {};
+      if (currentRow.meta_json === null || currentRow.meta_json === undefined || currentRow.meta_json === '') {
+        throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+      }
+      if (currentRow.meta_json !== null && currentRow.meta_json !== undefined && currentRow.meta_json !== '') {
+        if (typeof currentRow.meta_json === 'object') {
+          if (Array.isArray(currentRow.meta_json) || currentRow.meta_json === null) {
+            throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+          }
+          currentMeta = currentRow.meta_json;
+        } else if (typeof currentRow.meta_json === 'string') {
+          let parsedCurrentMeta;
+          try {
+            parsedCurrentMeta = JSON.parse(currentRow.meta_json);
+          } catch (parseError) {
+            throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+          }
+          if (!parsedCurrentMeta || typeof parsedCurrentMeta !== 'object' || Array.isArray(parsedCurrentMeta)) {
+            throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+          }
+          currentMeta = parsedCurrentMeta;
+        } else {
+          throw repositoryError('corrupt_meta', '现有拆书任务元数据损坏', 500);
+        }
+      }
+
+      if (patch.expectedRevision !== undefined) {
+        const rawExpectedRevision = patch.expectedRevision;
+        let parsedRevision = null;
+        if (typeof rawExpectedRevision === 'number') {
+          if (Number.isSafeInteger(rawExpectedRevision) && rawExpectedRevision >= 0) {
+            parsedRevision = rawExpectedRevision;
+          }
+        } else if (typeof rawExpectedRevision === 'string') {
+          const trimmedRevision = rawExpectedRevision.trim();
+          if (/^\d+$/.test(trimmedRevision)) {
+            const numericRevision = Number(trimmedRevision);
+            if (Number.isSafeInteger(numericRevision) && numericRevision >= 0) {
+              parsedRevision = numericRevision;
+            }
+          }
+        }
+        if (parsedRevision === null) {
+          throw repositoryError('invalid_revision', 'expectedRevision 必须为合法非负整数', 400);
+        }
+        const currentRevision = Number(currentRow.revision) || 0;
+        if (parsedRevision !== currentRevision) {
+          throw repositoryError('revision_conflict', '拆书任务版本冲突，请刷新后重试', 409);
+        }
+      }
+
+      let hasEffectiveChange = false;
+      let nextTitle = currentRow.title;
+      if (patch.title !== undefined) {
+        const candidateTitle = String(patch.title).trim().slice(0, 120);
+        if (candidateTitle && candidateTitle !== currentRow.title) {
+          nextTitle = candidateTitle;
+          hasEffectiveChange = true;
+        }
+      }
+
+      const nextMeta = { ...currentMeta };
+      if (patch.tags !== undefined) {
+        const cleanedTags = Array.isArray(patch.tags)
+          ? patch.tags.map(String).map(item => item.trim()).filter(Boolean).slice(0, 20)
+          : [];
+        const currentTags = Array.isArray(currentMeta.tags) ? currentMeta.tags : null;
+        const tagsChanged = currentTags === null || cleanedTags.length !== currentTags.length || cleanedTags.some((tag, index) => tag !== currentTags[index]);
+        if (tagsChanged) {
+          nextMeta.tags = cleanedTags;
+          hasEffectiveChange = true;
+        }
+      }
+
+      if (patch.folder !== undefined) {
+        const cleanedFolder = String(patch.folder).trim().slice(0, 60);
+        const currentFolder = Object.prototype.hasOwnProperty.call(currentMeta, 'folder') ? String(currentMeta.folder || '').trim() : null;
+        if (currentFolder === null || cleanedFolder !== currentFolder) {
+          nextMeta.folder = cleanedFolder;
+          hasEffectiveChange = true;
+        }
+      }
+
+      if (!hasEffectiveChange) {
+        return currentRow;
+      }
+
+      const updateResult = await client.query(
+        `UPDATE luna.runtime_dissections
+         SET title = $2::text, meta_json = $3::text, updated_at_value = $4::bigint,
+             revision = revision + 1, updated_at = now()
+         WHERE id = $1::text AND owner_actor_id = luna.actor_id()
+         RETURNING *`,
+        [normalizedDissectionId, nextTitle, JSON.stringify(nextMeta), Date.now()]
+      );
+      if (!updateResult.rows.length) throw repositoryError('not_found', '拆书任务不存在或无权修改', 404);
+      await notifyRuntimeChanged(client, 'dissection', normalizedDissectionId);
+      return updateResult.rows[0];
     });
   }
 
@@ -5767,6 +5966,7 @@ function createPostgresRepository(options = {}) {
     runtimeGetDissection,
     runtimeInsertDissection,
     runtimeUpdateDissection,
+    runtimePatchDissectionMetadata,
     runtimeDeleteDissection,
     runtimeListDissectionRows,
     runtimeUpsertDissectionRows,
