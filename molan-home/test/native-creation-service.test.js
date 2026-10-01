@@ -63,7 +63,7 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
     return { status: response.status, body: await response.json() };
   }
   assert.equal((await call('/api/creation-books?projectId=n_http', 'GET', undefined, '')).status, 401);
-  assert.equal((await call('/api/creation-books')).body.code, 'CREATION_PROJECT_SCOPE_REQUIRED');
+  assert.deepEqual((await call('/api/creation-books')).body.books, []);
   const payload = { projectId: 'n_http', creationBookId: 'cb_http', title: 'Book', bible: { valid: true } };
   assert.equal((await call('/api/creation-books', 'POST', { ...payload, bible: {} })).status, 422);
   const created = await call('/api/creation-books', 'POST', payload);
@@ -189,6 +189,68 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
   assert.match(debts.body.block, /Archive promise/);
   assert.equal((await call(debtUrl)).body.recovery.recovered, 0);
   assert.equal((await app.repository.ledger.list('n_http')).filter(row => row.kind === 'creation-debt').length, 2);
+});
+
+test('unlinked native creation books stay owner-scoped and require a novel before chapter generation', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-native-unlinked-creation-'));
+  const app = new JsonAppRepository(directory);
+  await app.saveAccount({ userId: 'owner', email: 'owner@test.local' });
+  await app.saveAccount({ userId: 'stranger', email: 'stranger@test.local' });
+  const repository = new JsonCreationRepository(app);
+  let providerCalls = 0;
+  const service = createNativeCreationService({ repository,
+    getAuthUser: req => req.headers.authorization ? { user: { userId: req.headers.authorization } } : null,
+    readBody: async req => { let text = ''; for await (const chunk of req) text += chunk; return JSON.parse(text); },
+    json: (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); },
+    normalizeCreationPlan: input => ({ ...input, budgetLimit: input.budgetLimit || 0 }),
+    normalizeBiblePayload: body => body,
+    creationForbiddenTerms: () => [],
+    creationBibleSeedValidation: payload => ({ ok: Boolean(payload.valid), hits: [], missing: ['valid'] }),
+    creationChapterContext: () => ({}), deterministicContractValidation: () => ({ blockerCount: 0 }),
+    contractFieldsSubstantive: () => ({ ok: true }),
+    generateChapterContract: async () => { providerCalls++; return {}; }
+  });
+  const server = http.createServer(async (req, res) => {
+    if (!await service.dispatch(req, res, new URL(req.url, 'http://localhost').pathname)) { res.writeHead(404); res.end(); }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await app.close(); fs.rmSync(directory, { recursive: true, force: true }); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  async function call(url, method = 'GET', body, user = 'owner') {
+    const response = await fetch(base + url, { method, headers: { ...(user ? { authorization: user } : {}), 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    return { status: response.status, body: await response.json() };
+  }
+
+  assert.deepEqual((await call('/api/creation-books')).body.books, []);
+  const payload = { creationBookId: 'cb_unlinked', title: 'Unlinked', bible: { valid: true } };
+  const created = await call('/api/creation-books', 'POST', payload);
+  assert.equal(created.status, 200);
+  assert.equal(created.body.book.id, 'cb_unlinked');
+  assert.equal(Object.hasOwn(created.body.book, 'projectId'), false);
+  assert.deepEqual((await call('/api/creation-books')).body.books.map(book => book.id), ['cb_unlinked']);
+  assert.deepEqual((await call('/api/creation-books', 'GET', undefined, 'stranger')).body.books, []);
+  assert.equal((await call('/api/creation-books/cb_unlinked', 'GET', undefined, 'stranger')).status, 404);
+
+  const state = await call('/api/creation-books/cb_unlinked/state');
+  assert.equal(state.status, 200);
+  assert.equal(state.body.book.currentStateVersion, 0);
+  assert.deepEqual(state.body.snapshots, []);
+  assert.equal((await call('/api/creation-books/cb_unlinked/quality-report')).body.summary.chapterCount, 0);
+  assert.equal((await call('/api/creation-books/cb_unlinked/debts')).body.recovery.recovered, 0);
+  const bible = '/api/creation-books/cb_unlinked/bible';
+  assert.equal((await call(bible, 'PUT', { bible: { valid: true, revised: true }, bibleVersion: 1 })).body.bibleVersion, 2);
+  assert.equal((await call(bible, 'PUT', { bible: { valid: true }, bibleVersion: 1 })).body.code, 'needs_rebase');
+  assert.equal((await call('/api/creation-books/cb_unlinked/chapter-contract', 'POST', { chapterNo: 1 })).body.code,
+    'CREATION_PROJECT_REQUIRED');
+  assert.equal(providerCalls, 0);
+  await assert.rejects(repository.commitChapter({ userId: 'owner', bookId: 'cb_unlinked', runId: 'run-unlinked' }),
+    { code: 'CREATION_PROJECT_REQUIRED' });
+  const novel = await app.create({ user: { userId: 'owner' }, id: 'n_unlinkedtest', state: { volumes: [] } });
+  await assert.rejects(repository.commitChapter({ userId: 'owner', projectId: novel.id, workspaceId: novel.workspaceId,
+    bookId: 'cb_unlinked', runId: 'run-unlinked' }), { code: 'CREATION_PROJECT_REQUIRED' });
+  assert.equal((await call('/api/creation-books', 'POST', payload, 'stranger')).body.code, 'CREATION_BOOK_CONFLICT');
+  assert.deepEqual((await app.list({ userId: 'owner' })).map(book => book.id), ['n_unlinkedtest']);
 });
 
 test('native debt view applies capacity and micro expiry without changing source evidence', () => {

@@ -26,11 +26,18 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
       const resolved = await repository.resolveScope({ userId: auth.user.userId, bookId });
       const projectClaims = [body.projectId, body.novelId, url.searchParams.get('projectId'), url.searchParams.get('novelId')].filter(Boolean);
       const workspaceClaims = [body.workspaceId, url.searchParams.get('workspaceId')].filter(Boolean);
+      if (resolved.scopeKind === 'owner-book') {
+        if (projectClaims.length || workspaceClaims.length) fail('BOOK_NOT_FOUND', 404);
+        return resolved;
+      }
       if (projectClaims.some(value => String(value).trim() !== resolved.projectId) ||
           workspaceClaims.some(value => String(value).trim() !== resolved.workspaceId)) fail('BOOK_NOT_FOUND', 404);
       return resolved;
     }
-    if (!projectId) fail('CREATION_PROJECT_SCOPE_REQUIRED', 422, '必须提供关联项目 projectId 或 novelId');
+    if (!projectId) {
+      if (workspaceId) fail('INVALID_SCOPE', 422);
+      return { userId: auth.user.userId };
+    }
     return { userId: auth.user.userId, projectId, workspaceId, bookId };
   }
   function validate(payload) {
@@ -87,7 +94,7 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
       if (!object(body)) fail('INVALID_REQUEST_BODY', 400);
       const [, id, section] = match;
       const input = await scope(auth, body, url, id);
-      if (req.method !== 'GET') {
+      if (req.method !== 'GET' && input.projectId) {
         const access = await repository.app.getAccess(input);
         if (!canAccess(access, WRITE_ROLES) || !resources.canMutate(access, 'manuscript')) fail('FORBIDDEN', 404, '关联小说不存在或无权写入');
       }
@@ -100,6 +107,7 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
         if (chapterNo != null && (!Number.isSafeInteger(chapterNo) || chapterNo < 1)) fail('INVALID_CHAPTER_NO', 422);
         value = { ok: true, ...(await repository.debts({ ...input, chapterNo })) };
       } else if (id && section === 'chapter-contract' && req.method === 'POST') {
+        if (!input.projectId) fail('CREATION_PROJECT_REQUIRED', 409, '请先将创作书关联到小说项目后再生成章节合同');
         if (![creationChapterContext, deterministicContractValidation, contractFieldsSubstantive, generateChapterContract].every(fn => typeof fn === 'function')) {
           throw new TypeError('Native creation contract dependencies are required');
         }
@@ -152,6 +160,15 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
         let existing;
         try { existing = await repository.read(input); } catch (error) { if (error.code !== 'BOOK_NOT_FOUND') throw error; }
         if (existing) {
+          if (!input.projectId) {
+            const resolved = await repository.resolveScope({ userId: auth.user.userId, bookId });
+            if (resolved.projectId) {
+              const access = await repository.app.getAccess(resolved);
+              if (!canAccess(access, WRITE_ROLES) || !resources.canMutate(access, 'manuscript')) {
+                fail('FORBIDDEN', 404, '关联小说不存在或无权写入');
+              }
+            }
+          }
           const bible = await repository.readBible(input);
           value = { ok: true, reused: true, book: { ...existing, bibleVersion: bible.version, stateVersion: existing.currentStateVersion }, bible: bible.payload };
         } else {
