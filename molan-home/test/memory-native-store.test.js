@@ -34,6 +34,8 @@ test('native memory: author review, evidence, atomic chapter CAS, receipts, isol
   assert.equal(receipt.novelRevision, 1);
   assert.equal((await app.read({ userId: 'author', projectId: 'n_memory' })).state.volumes[0].chapters[0].content, '<p>阿青回到家中。</p>');
   assert.equal((await store.commitChangeset({ ...scope, changesetId: cs.id, expectedStateVersion: 1, idempotencyKey: 'save-one' })).replayed, true);
+  assert.equal((await store.commitChangeset({ ...scope, changesetId: cs.id, expectedStateVersion: 1, idempotencyKey: 'save-alias' })).replayed, true);
+  await assert.rejects(store.commitChangeset({ ...scope, changesetId: cs.id, expectedStateVersion: 2, idempotencyKey: 'new-alias' }), { code: 'IDEMPOTENCY_CONFLICT' });
   await assert.rejects(store.commitChangeset({ ...scope, changesetId: cs.id, expectedStateVersion: 2, idempotencyKey: 'save-one' }), { code: 'IDEMPOTENCY_CONFLICT' });
   assert.equal((await store.processProjections(scope)).synced, true);
   const op = (await store.listOperations(scope))[0];
@@ -43,6 +45,8 @@ test('native memory: author review, evidence, atomic chapter CAS, receipts, isol
   repository = new JsonFileRepository(dir); app = new JsonAppRepository(dir, { repository });
   store = createMemoryStore({ repository, getAccess: input => app.getAccess(input) });
   assert.equal((await store.getChangeset({ ...scope, changesetId: cs.id })).committedAt > 0, true);
+  assert.equal((await store.commitChangeset({ ...scope, changesetId: cs.id, expectedStateVersion: 1, idempotencyKey: 'save-alias' })).replayed, true);
+  assert.equal((await store.listOperations(scope)).filter(op => op.changesetId === cs.id).length, 1);
 });
 
 test('native memory refuses invalid operations, stale body, hidden disclosure and budget overflow', async t => {
