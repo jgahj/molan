@@ -47,15 +47,20 @@ test('restart recovery retains evidence and blocks unresolved provider replay', 
   await repo.save({ owner: 'alice', kind: 'reading', job: { ...job('alice'), status: 'running', callCount: 1,
     attempts: [{ stage: 'read', status: 'running' }] }, expectedRevision: 0 });
   await repo.save({ owner: 'alice', kind: 'blind', job: { ...job('alice'), status: 'running', callCount: 1,
-    stages: { saved: { text: 'persisted', usage: { creditCost: 1 } } } }, expectedRevision: 0 });
+    stages: { saved: { text: 'persisted', usage: { creditCost: 1 } } }, attempts: [{ status: 'completed' }] }, expectedRevision: 0 });
+  await repo.save({ owner: 'alice', kind: 'blind', job: { ...job('alice', 'rate-limited-job'), status: 'running', callCount: 2,
+    stages: { saved: { text: 'persisted' } }, attempts: [{ status: 'rate_limited' }, { status: 'completed' }] }, expectedRevision: 0 });
+  await repo.save({ owner: 'alice', kind: 'blind', job: { ...job('alice', 'journal-gap-job'), status: 'running', callCount: 1, attempts: [] }, expectedRevision: 0 });
   assert.deepEqual(await repo.init({ kind: 'reading' }), { recovered: 1 });
   assert.equal((await repo.load({ owner: 'alice', kind: 'blind', id: 'shared-id' })).job.status, 'running');
-  assert.deepEqual(await repo.recover({ kind: 'blind' }), { recovered: 1 });
+  assert.deepEqual(await repo.recover({ kind: 'blind' }), { recovered: 3 });
   const reading = await repo.load({ owner: 'alice', kind: 'reading', id: 'shared-id' });
   assert.equal(reading.job.status, 'needs_review');
   assert.equal(reading.job.attempts[0].status, 'provider_unknown');
   const blind = await repo.load({ owner: 'alice', kind: 'blind', id: 'shared-id' });
   assert.equal(blind.job.status, 'interrupted');
   assert.equal(blind.job.stages.saved.text, 'persisted');
+  assert.equal((await repo.load({ owner: 'alice', kind: 'blind', id: 'rate-limited-job' })).job.status, 'interrupted');
+  assert.equal((await repo.load({ owner: 'alice', kind: 'blind', id: 'journal-gap-job' })).job.status, 'needs_review');
   assert.deepEqual(await repo.recover(), { recovered: 0 });
 });

@@ -39,3 +39,25 @@ test('PG lab adapter uses injected actor transaction, CAS and explicit email act
   assert.equal(await repo.load({ ...input, owner: 'other@test.local' }), null);
   assert.ok(transactions >= 5);
 });
+
+test('PG global and scoped recovery require a complete attempt journal', async () => {
+  for (const scoped of [false, true]) {
+    let recovered;
+    const row = { owner_id: 'uuid:real-user-id', job_kind: 'blind', job_id: 'journal-gap', revision: 1,
+      payload: { id: 'journal-gap', owner: 'owner@test.local', status: 'running', callCount: 1, attempts: [], stages: {}, votes: {} } };
+    const client = { async query(sql, values) {
+      if (sql.startsWith('SELECT * FROM luna.lab_jobs')) return { rows: [row] };
+      if (sql.startsWith('UPDATE luna.lab_jobs SET payload=')) { recovered = JSON.parse(values[3]); return { rows: [] }; }
+      throw new Error('Unexpected recovery query');
+    } };
+    const methods = createPostgresLabJobMethods({ internalUuid: id => `uuid:${id}`,
+      withTransaction: async (actor, fn) => { assert.equal(actor, 'real-user-id'); return fn(client); },
+      withWorkerTransaction: async fn => fn(client) });
+    const repo = new PostgresLabJobRepository(methods);
+    const result = scoped
+      ? await repo.recoverScoped({ owner: 'owner@test.local', actorUserId: 'real-user-id', kind: 'blind' })
+      : await repo.recover({ kind: 'blind' });
+    assert.deepEqual(result, { recovered: 1 });
+    assert.equal(recovered.status, 'needs_review');
+  }
+});

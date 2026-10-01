@@ -46,6 +46,9 @@ test('live PG lab transactions enforce RLS, CAS, immutable votes and scoped reco
   await assert.rejects(repo.recordReferenceVote({ owner, sceneId: 'scene-1', scores: { language: 1 } }), { code: 'VOTE_IMMUTABLE' });
   assert.deepEqual(await repo.referenceVotes({ owner: other }), []);
   await repo.save({ owner, kind: 'blind', job: { owner, id: 'blind-job', status: 'queued', stages: {}, votes: {} }, expectedRevision: 0 });
+  await repo.save({ owner, kind: 'blind', job: { owner, id: 'journal-gap', status: 'running', stages: {}, votes: {}, callCount: 1, attempts: [] }, expectedRevision: 0 });
+  await repo.save({ owner, kind: 'blind', job: { owner, id: 'unknown-attempt', status: 'running', stages: {}, votes: {}, callCount: 1,
+    attempts: [{ stage: 'write', status: 'provider_unknown' }] }, expectedRevision: 0 });
   await repo.save({ owner: other, actorUserId: other, kind: 'reading', job: { owner: other, id: 'other-job', status: 'queued', stages: {}, votes: {} }, expectedRevision: 0 });
   await repo.recoverScoped({ owner, actorUserId: owner, kind: 'reading' });
   assert.equal((await repo.load(input)).job.status, 'needs_review');
@@ -97,6 +100,8 @@ test('live PG lab transactions enforce RLS, CAS, immutable votes and scoped reco
   await assert.rejects(repo.recover({ kind: 'blind' }), error => error.code === '42501' || error.databaseCode === '42501');
   await new PostgresLabJobRepository(worker).recover({ kind: 'blind' });
   assert.equal((await repo.load({ owner, kind: 'blind', id: 'blind-job' })).job.status, 'interrupted');
+  assert.equal((await repo.load({ owner, kind: 'blind', id: 'journal-gap' })).job.status, 'needs_review');
+  assert.equal((await repo.load({ owner, kind: 'blind', id: 'unknown-attempt' })).job.status, 'needs_review');
   assert.equal((await repo.load(httpInput)).job.status, 'running');
   assert.equal((await repo.load({ owner: other, actorUserId: other, kind: 'reading', id: 'other-job' })).job.status, 'queued');
 });

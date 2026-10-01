@@ -113,12 +113,17 @@ function styleProfileStore() {
   return jsonStyleProfileStore;
 }
 async function closeStorageStores() {
-  if (xuanhuanReadingLab) await xuanhuanReadingLab.close();
+  const failures = [];
+  const labResults = await Promise.allSettled([
+    xuanhuanLab ? Promise.resolve().then(() => xuanhuanLab.close()) : Promise.resolve(),
+    xuanhuanReadingLab ? Promise.resolve().then(() => xuanhuanReadingLab.close()) : Promise.resolve()
+  ]);
+  failures.push(...labResults.filter(result => result.status === 'rejected').map(result => result.reason));
   const activeDatabase = db;
   const results = await Promise.allSettled([
-    jsonGenerationStore ? jsonGenerationStore.close() : Promise.resolve(),
-    jsonStyleProfileStore ? jsonStyleProfileStore.close() : Promise.resolve(),
-    postgresRepository.close(),
+    jsonGenerationStore ? Promise.resolve().then(() => jsonGenerationStore.close()) : Promise.resolve(),
+    jsonStyleProfileStore ? Promise.resolve().then(() => jsonStyleProfileStore.close()) : Promise.resolve(),
+    Promise.resolve().then(() => postgresRepository.close()),
     activeDatabase && typeof activeDatabase.close === 'function'
       ? Promise.resolve().then(async () => {
         await activeDatabase.close();
@@ -126,8 +131,9 @@ async function closeStorageStores() {
       })
       : Promise.resolve()
   ]);
-  await nativeDomain.close();
-  const failures = results.filter(result => result.status === 'rejected').map(result => result.reason);
+  failures.push(...results.filter(result => result.status === 'rejected').map(result => result.reason));
+  const nativeResult = await Promise.allSettled([Promise.resolve().then(() => nativeDomain.close())]);
+  failures.push(...nativeResult.filter(result => result.status === 'rejected').map(result => result.reason));
   if (failures.length) throw new AggregateError(failures, 'One or more storage stores failed to close');
 }
 let postgresHealth = POSTGRES_MODE
@@ -11094,7 +11100,7 @@ async function dispatchRequest(req, res) {
   }
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/')) {
     const supported = /^\/api\/(?:auth\/(?:register|login|me|profile|logout|logout-all)$|admin\/(?:auth\/(?:login|me|logout)|skills(?:\/[^/]+)?)$|skills(?:\/import)?$|open-skills(?:\/[^/]+(?:\/download)?)?$|novels(?:\/[^/]+(?:\/restore)?)?$|books\/|runs\/|generation-runs(?:\/|$)|chat$|models$|health$|usage$|billing\/(?:estimate|topup)$|local-sync\/status$|local-style\/)/.test(u);
-    if (!supported && !u.startsWith('/api/xuanhuan-reading/')) return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
+    if (!supported && !u.startsWith('/api/xuanhuan-reading/') && !u.startsWith('/api/xuanhuan-lab/')) return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
   }
   if (req.method === 'GET' && u === '/api/local-sync/status') return handleLocalSyncStatus(req, res);
 
@@ -11124,7 +11130,12 @@ async function dispatchRequest(req, res) {
     return xuanhuanReadingLab.handle(req, res);
   }
   if (u.startsWith('/api/xuanhuan-lab/')) {
-    if (!xuanhuanLab) xuanhuanLab = createXuanhuanLab({ dataDir: DATA_DIR, readBody, getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req), json, callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options) });
+    if (!xuanhuanLab) xuanhuanLab = createXuanhuanLab({ dataDir: DATA_DIR, readBody,
+      repository: POSTGRES_MODE
+        ? new (require('./lib/repositories/postgres-lab-job-repository').PostgresLabJobRepository)(postgresRepository)
+        : process.env.MOLAN_APP_STORE === 'json' ? new (require('./lib/repositories/json-lab-job-repository').JsonLabJobRepository)(appRepository().repository) : undefined,
+      getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req), json,
+      callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options) });
     return xuanhuanLab.handle(req, res);
   }
 

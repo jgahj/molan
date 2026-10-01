@@ -196,7 +196,17 @@ function createReadingLab(deps) {
   const saves = new WeakMap();
   const actors = new WeakMap();
   const scopedRecovery = new Map();
+  const taskFailures = new Map();
   let initialization;
+  let closed = false;
+  let closePromise;
+  function rememberTaskFailure(job, error) {
+    if (!taskFailures.has(job.id)) taskFailures.set(job.id, error);
+  }
+  function failIfTaskPersistenceFailed(id) {
+    if (!taskFailures.has(id)) return;
+    fail('任务状态持久化失败，请检查存储后重试', 503);
+  }
   function init() { if (!initialization) initialization = repository.init({ kind: 'reading', recover: typeof repository.recoverScoped !== 'function' }); return initialization; }
   async function recoverOwner(owner, actorUserId) {
     if (typeof repository.recoverScoped !== 'function') return;
@@ -208,16 +218,26 @@ function createReadingLab(deps) {
   const active = new Map();
   const workers = new Set();
   function start(job, auth) {
+    if (closed) fail('精读服务正在关闭', 503);
     const task = run(job, auth).finally(() => workers.delete(task));
     workers.add(task);
-    task.catch(error => { console.error('[reading persistence]', error.message); });
+    task.catch(error => {
+      rememberTaskFailure(job, error);
+      if (active.get(job.owner)?.id === job.id) active.delete(job.owner);
+      console.error('[reading persistence]', error.message);
+    });
+    return task;
   }
   const preparing = new Set();
   async function save(job) {
     const snapshot = structuredClone(job);
-    const next = (saves.get(job) || Promise.resolve()).then(async () => {
+    const previous = saves.get(job) || Promise.resolve();
+    const next = previous.catch(() => {}).then(async () => {
       const row = await repository.save({ owner: job.owner, actorUserId: actors.get(job), kind: 'reading', job: snapshot, expectedRevision: revisions.get(job) || 0 });
       revisions.set(job, row.revision);
+    }).catch(error => {
+      rememberTaskFailure(job, error);
+      throw error;
     });
     saves.set(job, next);
     return next;
@@ -251,6 +271,7 @@ function createReadingLab(deps) {
 
   async function stage(job, key, auth, controller, system, prompt, validate) {
     if (controller.signal.aborted) fail('用户已停止');
+    failIfTaskPersistenceFailed(job.id);
     ensureUnchanged(job);
     if (job.stages[key]) { validate(job.stages[key]); return job.stages[key]; }
     const reusable = job.attempts.findLast(attempt => attempt.stage === key && attempt.rejectedResponse && attempt.inputHash === hash(system + prompt));
@@ -274,6 +295,7 @@ function createReadingLab(deps) {
     if (problems.length) { attempt.mode = 'citation-repair'; attempt.repairSourceAttempt = lastFailure.number; }
     job.attempts.push(attempt); await save(job);
     try {
+      failIfTaskPersistenceFailed(job.id);
       const output = await deps.callModel(auth, { modelId: job.modelId, stage: 'single', jsonMode: true, maxTokens: OUTPUT_TOKENS, temperature: 0.25, thinking: false, reasoningEffort: 'none', timeoutMs: 600000, controller, system, userPrompt: prompt, recordId: job.id, unitId: key, promptVersion: VERSION });
       job.usage.push({ stage: key, attempt: attempt.number, usage: output.usage || null });
       await save(job);
@@ -289,8 +311,10 @@ function createReadingLab(deps) {
   async function run(job, auth) {
     const controller = new AbortController();
     active.set(job.owner, { id: job.id, controller });
-    job.status = 'running'; job.error = ''; await save(job);
+    job.status = 'running'; job.error = '';
     try {
+      await save(job);
+      taskFailures.delete(job.id);
       const results = await Promise.allSettled(job.books.map(async book => {
         const previous = [];
         for (const chapter of book.chapters) {
@@ -318,7 +342,7 @@ function createReadingLab(deps) {
       if (failure) throw failure.reason;
       ensureUnchanged(job); job.status = 'completed'; job.currentStage = 'awaiting-expansion-budget';
     } catch (error) { job.status = controller.signal.aborted ? 'cancelled' : 'interrupted'; job.error = String(error.message || error).slice(0, 300); }
-    finally { await save(job); active.delete(job.owner); }
+    finally { try { await save(job); } finally { if (active.get(job.owner)?.id === job.id) active.delete(job.owner); } }
   }
 
   async function handle(req, res) {
@@ -362,7 +386,10 @@ function createReadingLab(deps) {
         await save(job);
         return deps.json(res, 200, { ok: true, job: publicJob(job) });
       }
-      if (req.method === 'GET' && (!match[2] || match[2] === 'export')) return deps.json(res, 200, describe(job));
+      if (req.method === 'GET' && (!match[2] || match[2] === 'export')) {
+        if (!match[2]) failIfTaskPersistenceFailed(job.id);
+        return deps.json(res, 200, describe(job));
+      }
       if (req.method === 'POST' && match[2] === 'cancel') { active.get(owner)?.id === job.id && active.get(owner).controller.abort(); return deps.json(res, 200, { ok: true }); }
       if (req.method === 'POST' && match[2] === 'resume') {
         if (job.status === 'completed') return deps.json(res, 200, publicJob(job));
@@ -380,7 +407,21 @@ function createReadingLab(deps) {
       fail('请求方式不支持', 405);
     } catch (error) { return deps.json(res, error.status || 400, { error: error.code === 'ENOENT' ? '指定原文文件不存在' : String(error.message || error).slice(0, 300) }); }
   }
-  return { handle, init, close: async () => { for (const execution of active.values()) execution.controller.abort(); await Promise.allSettled([...workers]); if (ownedRepository) await ownedRepository.close(); } };
+  return { handle, init, close: () => {
+    if (closePromise) return closePromise;
+    closed = true;
+    closePromise = (async () => {
+      const failures = [];
+      for (const execution of active.values()) execution.controller.abort();
+      await Promise.allSettled([...workers]);
+      for (const [id, error] of taskFailures) failures.push(new Error(`精读任务 ${id} 持久化失败: ${String(error?.message || error).slice(0, 300)}`, { cause: error }));
+      try {
+        if (ownedRepository) await ownedRepository.close();
+      } catch (error) { failures.push(error); }
+      if (failures.length) throw new AggregateError(failures, '精读服务关闭时发现后台任务或仓储错误');
+    })();
+    return closePromise;
+  } };
 }
 
 module.exports = { BOOKS, VERSION, MAX_CALLS, NARRATIVE_ROUTES, parseBook, sourceText, validateNotes, validateReading, validateReview, citationRepairProblems, applyCitationRepairs, publicJob, createReadingLab };
