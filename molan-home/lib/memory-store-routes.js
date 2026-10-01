@@ -4,6 +4,16 @@ const TYPE_MAP = { propositions: 'proposition', evidence: 'evidence', plans: 'pl
 const { canAccess, WRITE_ROLES } = require('./project-scope');
 function json(res, status, value) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); }
 function fail(code, status) { throw Object.assign(new Error(code), { code, statusCode: status }); }
+function publicOperation(operation) {
+  return {
+    ...operation,
+    operation_type: operation.operationType,
+    record_id: operation.recordId,
+    after_state_json: JSON.stringify(operation.after),
+    before_state_json: operation.before === null ? null : JSON.stringify(operation.before),
+    reverted: operation.reverted ? 1 : 0
+  };
+}
 async function body(req) {
   let text = ''; for await (const chunk of req) { text += chunk; if (Buffer.byteLength(text) > 16 * 1024 * 1024) fail('REQUEST_TOO_LARGE', 413); }
   let data; try { data = text ? JSON.parse(text) : {}; } catch (_) { fail('INVALID_REQUEST_BODY', 400); }
@@ -80,7 +90,7 @@ async function dispatch(req, res, pathname, getAuthUser, services) {
       response = await store.commitChangeset({ ...input, changesetId: cs[1], ifMatch: raw === undefined ? undefined : String(raw).trim().replace(/^"|"$/g, ''), idempotencyKey: req.headers['idempotency-key'] || data.idempotencyKey });
     }
     else if (revert && req.method === 'POST') response = await store.revertOperation({ ...input, operationId: revert[1] });
-    else if (req.method === 'GET' && route === 'memory/operations') response = { ok: true, operations: await store.listOperations(input) };
+    else if (req.method === 'GET' && route === 'memory/operations') response = { ok: true, operations: (await store.listOperations(input)).map(publicOperation) };
     else if (req.method === 'GET' && route === 'memory/records') {
       if (!Object.hasOwn(TYPE_MAP, input.type)) fail('INVALID_MEMORY_TYPE', 422);
       const records = await store.getRecords({ ...input, type: TYPE_MAP[input.type] }); const offset = Math.max(0, Number(input.offset) || 0);

@@ -6,6 +6,7 @@ const { accessFrom } = require('./repositories/json-app-repository');
 const { canAccess, WRITE_ROLES } = require('./project-scope');
 const memory = require('./memory-system');
 const { DEFINITIONS } = require('./memory-domain');
+const { analyzeNativeMemoryImpact } = require('./native-memory-impact');
 
 const clone = value => structuredClone(value);
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -409,7 +410,7 @@ function makeStore(adapter) {
       b.manifests[manifest.id] = manifest; return manifest;
     }),
     getContextManifest: input => read(input, b => { const manifest = b.manifests[input.manifestId]; if (!manifest) fail('CONTEXT_MANIFEST_NOT_FOUND', 404); return manifest; }),
-    analyzeImpact: input => read(input, b => ({ impactType: 'memory_reference', affectedRecordIds: rows(b).filter(r => Object.values(r).some(v => v === input.recordId || Array.isArray(v) && v.includes(input.recordId))).map(r => r.id), requiresAuthorReview: true })),
+    analyzeImpact: input => read(input, (b, novel, scope) => analyzeNativeMemoryImpact(b, { ...input, bookId: scope.bookId })),
     workbenchState: input => read(input, (b, novel, scope) => ({ bookId: scope.bookId, branchId: scope.branchId, title: novel.state.title, novelRevision: novel.contentRevision, stateVersion: b.stateVersion,
       chapters: (novel.state.volumes || []).flatMap(v => (v.chapters || []).flatMap(c => (c.scenes?.length ? c.scenes : [c]).map(s => ({ chapterId: c.id, sceneId: s === c ? '' : s.id, title: [v.title, c.title, s === c ? '' : s.name || s.title].filter(Boolean).join(' / '), content: s.content || '' })))),
       manuscripts: Object.values(b.heads).map(h => b.manuscripts[h.currentId]), changesets: Object.values(b.changesets), projections: projections(b), invalidations: b.invalidations, canWrite: canAccess(scope, WRITE_ROLES) }))
