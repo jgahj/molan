@@ -22,6 +22,10 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
   await app.upsertProjectMember({ userId: 'owner', projectId: novel.id, targetUserId: 'editor', role: 'editor' });
   let providerCalls = 0;
   let providerMode = 'normal';
+  const validContract = {
+    goal: 'Investigate the hidden document', protagonistAction: 'Hero examines the sealed archive',
+    opposition: 'The guard prevents archive access', irreversibleResult: 'The seal is irreversibly broken'
+  };
   const creationRepo = new JsonCreationRepository(app);
   const service = createNativeCreationService({ repository: creationRepo,
     getAuthUser: req => req.headers.authorization ? { user: { userId: req.headers.authorization } } : null,
@@ -37,11 +41,15 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
     generateChapterContract: async input => {
       providerCalls++;
       if (providerMode === 'unknown') return { status: 'provider_unknown', usage: { billingStatus: 'unknown' } };
+      if (providerMode === 'missing_usage') return { json: validContract };
+      if (providerMode === 'missing_cost') return { json: validContract, usage: { totalTokens: 80, billingStatus: 'settled' } };
+      if (providerMode === 'unknown_billing') return { json: validContract, usage: { totalTokens: 80, creditCost: 1, billingStatus: 'UNKNOWN' } };
+      if (providerMode === 'negative_cost') return { json: validContract, usage: { totalTokens: 80, creditCost: -1, billingStatus: 'exact' } };
+      if (providerMode === 'nonfinite_cost') return { json: validContract, usage: { totalTokens: 80, creditCost: Infinity, billingStatus: 'settled' } };
       if (providerMode === 'stale') await creationRepo.saveBibleCAS({ userId: 'owner', projectId: 'n_http', bookId: 'cb_http',
         expectedVersion: input.baseline.bibleVersion, payload: { valid: true } });
-      return { json: providerMode === 'invalid' || input.attempt === 0 ? { goal: 'short' } : {
-        goal: 'Investigate the hidden document', protagonistAction: 'Hero examines the sealed archive',
-        opposition: 'The guard prevents archive access', irreversibleResult: 'The seal is irreversibly broken' }, usage: { creditCost: 1 } };
+      return { json: providerMode === 'invalid' || input.attempt === 0 ? { goal: 'short' } : validContract,
+        usage: { creditCost: 1, billingStatus: input.attempt === 0 ? 'exact' : 'settled', totalTokens: 80 } };
     } });
   const server = http.createServer(async (req, res) => {
     if (!await service.dispatch(req, res, new URL(req.url, 'http://localhost').pathname)) { res.writeHead(404); res.end(); }
@@ -111,17 +119,61 @@ test('native creation HTTP preserves response shapes, scope, member ACL and Bibl
   assert.equal(contracts[0].auditStatus, 'unaudited');
   assert.equal(contracts[0].providerAttempts.length, 2);
   assert.equal(generated.body.providerAttempts.length, 2);
+  assert.deepEqual(contracts[0].providerAttempts.map(attempt => attempt.usage.billingStatus), ['exact', 'settled']);
+  assert.ok(contracts[0].providerAttempts.every(attempt => attempt.usage.creditCost === 1));
   providerMode = 'unknown';
   const callsBeforeUnknown = providerCalls;
-  assert.equal((await call(contractUrl, 'POST', { chapterNo: 1 })).status, 502);
+  const unknown = await call(contractUrl, 'POST', { chapterNo: 1 });
+  assert.equal(unknown.status, 502);
+  assert.equal(unknown.body.code, 'PROVIDER_UNKNOWN');
   assert.equal(providerCalls, callsBeforeUnknown + 1);
+  assert.equal(unknown.body.providerResponse.status, 'provider_unknown');
+  assert.equal(unknown.body.failureEvidence.checks.providerResultKnown, false);
+  const unknownRecord = await app.repository.ledger.get('n_http', unknown.body.failureEvidence.failureId);
+  assert.equal(unknownRecord.kind, 'creation-contract-failure');
+  assert.equal(unknownRecord.providerResponse.status, 'provider_unknown');
+  assert.equal(unknownRecord.failureEvidence.code, 'PROVIDER_UNKNOWN');
+  assert.equal((await app.repository.ledger.list('n_http')).filter(row => row.kind === 'creation-contract').length, 1);
+  providerMode = 'missing_cost';
+  const callsBeforeMissingCost = providerCalls;
+  const missingCost = await call(contractUrl, 'POST', { chapterNo: 1 });
+  assert.equal(missingCost.status, 502);
+  assert.equal(missingCost.body.code, 'PROVIDER_COST_UNKNOWN');
+  assert.equal(providerCalls, callsBeforeMissingCost + 1);
+  assert.equal(missingCost.body.providerResponse.json.goal, validContract.goal);
+  assert.equal(missingCost.body.failureEvidence.checks.finiteNonNegativeCreditCost, false);
+  assert.equal(missingCost.body.failureEvidence.checks.settledBillingStatus, true);
+  const missingCostRecord = await app.repository.ledger.get('n_http', missingCost.body.failureEvidence.failureId);
+  assert.equal(missingCostRecord.providerResponse.json.goal, validContract.goal);
+  assert.equal(missingCostRecord.failureEvidence.reason, 'provider_cost_unconfirmed');
+  providerMode = 'unknown_billing';
+  const callsBeforeUnknownBilling = providerCalls;
+  const unknownBilling = await call(contractUrl, 'POST', { chapterNo: 1 });
+  assert.equal(unknownBilling.status, 502);
+  assert.equal(unknownBilling.body.code, 'PROVIDER_COST_UNKNOWN');
+  assert.equal(providerCalls, callsBeforeUnknownBilling + 1);
+  assert.equal(unknownBilling.body.failureEvidence.checks.finiteNonNegativeCreditCost, true);
+  assert.equal(unknownBilling.body.failureEvidence.checks.settledBillingStatus, false);
+  for (const mode of ['missing_usage', 'negative_cost', 'nonfinite_cost']) {
+    providerMode = mode;
+    const callsBeforeInvalidCost = providerCalls;
+    const invalidCost = await call(contractUrl, 'POST', { chapterNo: 1 });
+    assert.equal(invalidCost.status, 502, mode);
+    assert.equal(invalidCost.body.code, 'PROVIDER_COST_UNKNOWN', mode);
+    assert.equal(providerCalls, callsBeforeInvalidCost + 1, mode);
+    assert.equal(invalidCost.body.failureEvidence.checks.finiteNonNegativeCreditCost, false, mode);
+    if (mode === 'missing_usage') assert.equal(invalidCost.body.failureEvidence.checks.usagePresent, false);
+  }
   providerMode = 'invalid';
+  const callsBeforeInvalid = providerCalls;
   assert.equal((await call(contractUrl, 'POST', { chapterNo: 1 })).status, 422);
+  assert.equal(providerCalls, callsBeforeInvalid + 2);
   assert.equal((await app.repository.ledger.list('n_http')).filter(row => row.kind === 'creation-contract').length, 1);
   providerMode = 'stale';
   const staleContract = await call(contractUrl, 'POST', { chapterNo: 1 });
   assert.equal(staleContract.status, 409);
   assert.equal(staleContract.body.code, 'needs_rebase');
+  assert.equal((await app.repository.ledger.list('n_http')).filter(row => row.kind === 'creation-contract').length, 1);
   await app.repository.ledger.put('n_http', { id: 'test-outbox', kind: 'creation-debt-outbox', bookId: 'cb_http',
     snapshotId: 'snapshot-1', createdAt: 1, status: 'pending', causalDebts: [
       { type: 'arc', seed: 'Archive promise', originChapter: 1 },

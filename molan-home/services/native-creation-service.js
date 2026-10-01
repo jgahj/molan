@@ -5,6 +5,13 @@ const { canAccess, WRITE_ROLES } = require('../lib/project-scope');
 const resources = require('../lib/project-resources');
 function fail(code, status, message = code) { throw Object.assign(new Error(message), { code, status }); }
 function object(value) { return value && typeof value === 'object' && !Array.isArray(value); }
+const SETTLED_BILLING_STATUSES = new Set(['exact', 'settled']);
+function providerCreditCost(usage) {
+  const cost = usage && usage.creditCost;
+  const billingStatus = String(usage && usage.billingStatus || '').toLowerCase();
+  if (typeof cost !== 'number' || !Number.isFinite(cost) || cost < 0 || !SETTLED_BILLING_STATUSES.has(billingStatus)) return null;
+  return cost;
+}
 function createNativeCreationService({ repository, getAuthUser, readBody, json,
   normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms,
   creationChapterContext, deterministicContractValidation, contractFieldsSubstantive, generateChapterContract }) {
@@ -32,6 +39,42 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
     if (!gate.ok) throw Object.assign(new Error('创作圣经校验未通过'), { status: 422,
       code: gate.hits?.length ? 'forbidden_entity_hit' : gate.nameOverlaps?.length ? 'character_name_overlap' : 'incomplete_generation',
       hits: gate.hits, missing: gate.missing });
+  }
+  async function recordContractProviderFailure(input, chapterNo, snapshot, attempt, providerAttempts, output, providerError) {
+    const usage = output && output.usage || null;
+    const providerUnknown = Boolean(providerError) || output?.unknown === true ||
+      ['failed_or_unknown', 'usage_missing', 'provider_unknown'].includes(output?.status);
+    const creditCostConfirmed = providerCreditCost(usage) !== null;
+    const code = providerUnknown ? 'PROVIDER_UNKNOWN' : 'PROVIDER_COST_UNKNOWN';
+    const failureEvidence = {
+      code,
+      reason: providerError ? 'provider_call_failed' : providerUnknown ? 'provider_result_unknown' : 'provider_cost_unconfirmed',
+      attempt: attempt + 1,
+      providerStatus: output?.status || null,
+      billingStatus: usage && usage.billingStatus || null,
+      creditCost: usage && usage.creditCost,
+      checks: {
+        usagePresent: Boolean(usage),
+        finiteNonNegativeCreditCost: Boolean(usage && typeof usage.creditCost === 'number' && Number.isFinite(usage.creditCost) && usage.creditCost >= 0),
+        settledBillingStatus: Boolean(usage && SETTLED_BILLING_STATUSES.has(String(usage.billingStatus || '').toLowerCase())),
+        providerResultKnown: !providerUnknown,
+        creditCostConfirmed
+      },
+      ...(providerError ? { message: String(providerError.message || providerError).slice(0, 300) } : {})
+    };
+    const providerResponse = output === undefined ? null : output;
+    providerAttempts.push({ attempt: attempt + 1, usage, status: output?.status || null });
+    const saved = await repository.recordContractFailure({ ...input, chapterNo, baseline: snapshot.baseline,
+      failureEvidence, providerResponse, providerAttempts });
+    return {
+      ok: false,
+      code,
+      error: providerUnknown ? '供应商结果未知，已停止重试' : '供应商费用未知，已停止重试',
+      providerResponse,
+      usage,
+      providerAttempts,
+      failureEvidence: { ...failureEvidence, failureId: saved.failureId }
+    };
   }
   async function dispatch(req, res, pathname) {
     const match = pathname.match(/^\/api\/creation-books(?:\/([A-Za-z0-9_]+)(?:\/(bible|state|chapter-contract|debts|quality-report))?)?$/);
@@ -68,15 +111,25 @@ function createNativeCreationService({ repository, getAuthUser, readBody, json,
         let output, contract, validation, retried = false;
         const providerAttempts = [];
         for (let attempt = 0; attempt < 2; attempt++) {
-          output = await generateChapterContract({ auth, authToken: String(req.headers.authorization || ''), body,
-            chapterNo, context, previous: snapshot.previous, debts: debtContext,
-            baseline: snapshot.baseline, attempt, previousEnding: String(body.previousEnding || '').slice(-2400),
-            prompt: String(body.prompt || '').slice(0, 600) });
-          providerAttempts.push({ attempt: attempt + 1, usage: output?.usage || null });
-          if (output?.unknown === true || ['failed_or_unknown', 'usage_missing', 'provider_unknown'].includes(output?.status) ||
-              ['pending', 'unknown', 'provider_unknown'].includes(output?.usage?.billingStatus)) {
-            fail('PROVIDER_UNKNOWN', 502, '供应商结果或费用未知，已停止重试');
+          try {
+            output = await generateChapterContract({ auth, authToken: String(req.headers.authorization || ''), body,
+              chapterNo, context, previous: snapshot.previous, debts: debtContext,
+              baseline: snapshot.baseline, attempt, previousEnding: String(body.previousEnding || '').slice(-2400),
+              prompt: String(body.prompt || '').slice(0, 600) });
+          } catch (error) {
+            if (error?.unknown !== true && error?.code !== 'PROVIDER_UNKNOWN') throw error;
+            const failure = await recordContractProviderFailure(input, chapterNo, snapshot, attempt, providerAttempts, undefined, error);
+            json(res, 502, failure);
+            return true;
           }
+          if (providerCreditCost(output && output.usage) === null || output?.unknown === true ||
+              ['failed_or_unknown', 'usage_missing', 'provider_unknown'].includes(output?.status) ||
+              ['pending', 'unknown', 'provider_unknown'].includes(String(output?.usage?.billingStatus || '').toLowerCase())) {
+            const failure = await recordContractProviderFailure(input, chapterNo, snapshot, attempt, providerAttempts, output);
+            json(res, 502, failure);
+            return true;
+          }
+          providerAttempts.push({ attempt: attempt + 1, usage: output?.usage || null, status: output?.status || null });
           contract = output?.json || output?.contract;
           if (!object(contract)) contract = {};
           contract = { ...contract, chapterNo, source: 'creation-bible', bibleVersion: snapshot.bible.version,
