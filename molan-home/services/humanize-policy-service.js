@@ -17,7 +17,7 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
     if (process.env.MOLAN_TWO_PASS_HUMANIZE === '1' || (input && input.twoPassHumanize === true)) return true;
     return false;
   }
-  
+
   /**
    * 向第一条 system 消息追加提示块（无 system 时新建一条）。
    * 用于把正面节奏目标注入生成遍，而不触碰用户消息。
@@ -33,7 +33,7 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
     output[systemIndex].content = String(output[systemIndex].content || '') + block;
     return output;
   }
-  
+
   /**
    * 构造第二遍（humanize 遍）的完整消息集：纠错库 + 数据驱动 AI 词表 + 改写指令 + 初稿。
    * 初稿全文作为 user 消息携带，要求模型只做语言层改写，保留全部事实、剧情顺序与人物关系。
@@ -64,7 +64,7 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       { role: 'user', content: '以下是初稿。只修复有依据的问题，保留有效段落、必要说明和人物表达，不做强制句数合并；直接输出完整修订正文：\n\n' + String(draft || '') }
     ];
   }
-  
+
   /**
    * 合并两遍生成的 token 用量（逐字段相加）。
    * 任一值为 null 时返回另一值；两者都为 null 返回 null。
@@ -84,7 +84,7 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
     merged.usageSource = second.usageSource || first.usageSource || null;
     return merged;
   }
-  
+
   /**
    * 把 AI 味检测结论压缩为可下发的摘要（避免 details 里长列表膨胀 molan_usage 事件）。
    */

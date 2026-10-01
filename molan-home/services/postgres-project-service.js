@@ -48,7 +48,7 @@ function createPostgresProjectService({ getAuthUser, json, postgresRepository, r
     if (!result.ok) return json(res, result.code === 'revision_conflict' ? 412 : result.code === 'forbidden' ? 403 : 404, { error: '资料删除失败', code: result.code, current: result.current });
     return json(res, 200, result);
   }
-  
+
   async function handlePostgresResourceHistory(req, res, projectId, kind, resourceId, targetRevision = 0) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '未登录' });
@@ -73,14 +73,14 @@ function createPostgresProjectService({ getAuthUser, json, postgresRepository, r
     if (!result.ok) return json(res, result.code === 'revision_conflict' ? 412 : result.code === 'forbidden' ? 403 : 404, { error: '历史版本恢复失败', code: result.code, current: result.current });
     return json(res, 200, result);
   }
-  
+
   /** PG 模式下列出当前用户所属工作区。 */
   async function handlePostgresWorkspaceList(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '未登录' });
     json(res, 200, { ok: true, workspaces: await postgresRepository.listWorkspaces(postgresActor(auth)) });
   }
-  
+
   /** PG 模式下创建工作区，数据库函数保证首位 owner 原子建立。 */
   async function handlePostgresWorkspaceCreate(req, res) {
     const auth = getAuthUser(req);
@@ -88,7 +88,7 @@ function createPostgresProjectService({ getAuthUser, json, postgresRepository, r
     const body = await readBody(req);
     json(res, 201, await postgresRepository.createWorkspace(postgresActor(auth), body.name));
   }
-  
+
   /** PG 模式下读取或变更工作区成员，目标身份先从本地认证账户映射到稳定 userId。 */
   async function handlePostgresWorkspaceMembers(req, res, workspaceId) {
     const auth = getAuthUser(req);
@@ -110,14 +110,14 @@ function createPostgresProjectService({ getAuthUser, json, postgresRepository, r
     if (!['POST', 'PATCH'].includes(req.method)) return json(res, 405, { error: '方法不支持' });
     return json(res, 200, await postgresRepository.upsertWorkspaceMember(userId, workspaceId, account.userId, body.role || 'member'));
   }
-  
+
   /** PG 模式下列出工作区内的显式项目成员可见项目。 */
   async function handlePostgresWorkspaceProjectList(req, res, workspaceId) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '未登录' });
     json(res, 200, { ok: true, projects: await postgresRepository.listProjects(postgresActor(auth), workspaceId) });
   }
-  
+
   /** PG 模式下维护项目成员和 canSpend/canExport 独立能力。 */
   async function handlePostgresNovelMembers(req, res, workspaceId, projectId) {
     const auth = getAuthUser(req);
