@@ -8202,85 +8202,6 @@ async function handleCreationBookBiblePut(req, res, id) {
   if (saved.budgetExceeded) return json(res, 402, { error: '本次创作圣经保存会超过预算上限', code: 'budget_exceeded', budgetLimit: saved.budgetLimit, spentCost: saved.spentCost, additionalCost: saved.additionalCost });
   json(res, 200, { ok: true, bibleVersion: saved.bibleVersion, payloadHash: saved.payloadHash });
 }
-// 乐观并发提交：baseStateVersion 不匹配则 409 needs_rebase，不覆盖新状态（方案 6.4）
-async function handleCreationBookCommit(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const book = loadCreationBookForAuth(id, auth, projectScope.WRITE_ROLES);
-  if (!book) return json(res, 404, { error: '新书不存在或无权访问' });
-  let body = {}; try { body = await readBody(req).catch(() => ({})); } catch (_) {}
-  const chapterNo = Math.max(1, Number(body.chapterNo) || 1);
-  if (String(body.auditStatus || '').trim() && String(body.auditStatus).trim() !== 'passed') return json(res, 409, { error: '章节审计未通过，不能提交正式状态', code: 'audit_blocked' });
-  const commitLibrary = require('./lib/benchmark-commit');
-  const replayed = commitLibrary.replayCommit(db, id, { ...body, chapterNo }, recordChapterCausalDebts);
-  if (replayed) return json(res, replayed.ok ? 200 : 409, { ...replayed, spentCost: Number(book.spent_cost) || 0, currentStateVersion: Number(book.current_state_version) || 0 });
-  // ★ P0-1c · 服务端审计复核：该章最近一次审计必须存在且通过，禁止信任前端上报状态。
-  let auditRecord = null;
-  try {
-    if (dbReady()) auditRecord = db.prepare('SELECT content_hash, passed, quality_gate, originality_status, blocker_count, audit_credit_cost, bible_version, state_version, context_hash, delta_hash, plan_hash, result_json FROM creation_chapter_audits WHERE book_id = ? AND chapter_no = ? ORDER BY created_at DESC LIMIT 1').get(id, chapterNo);
-  } catch (error) { console.error('[creation] 读取章节审计记录失败 book=' + id + ':', error && error.message || error); }
-  if (!auditRecord) return json(res, 409, { error: '该章节尚未在服务端完成审计，请先运行章节审计', code: 'audit_missing' });
-  const commitCheck = require('./lib/benchmark-commit').validateCommitAudit(auditRecord, body);
-  if (!commitCheck.ok) return json(res, 409, { error: '正文或审计证据已变化，请对实际提交正文重新审稿', code: commitCheck.code });
-  if (Number(auditRecord.blocker_count || 0) > 0 || String(auditRecord.quality_gate || '') === 'blocked' || String(auditRecord.originality_status || '') === 'blocked' || Number(auditRecord.passed) !== 1) {
-    return json(res, 409, { error: '最近一次章节审计未通过，请修订正文并重新审计后再提交', code: 'audit_blocked', blockerCount: Number(auditRecord.blocker_count || 0) });
-  }
-  const expectedChapterNo = Number(book.current_chapter_no || 0) + 1;
-  if (chapterNo !== expectedChapterNo) return json(res, 409, { error: '章节必须按顺序提交，请先读取最新创作状态', code: 'needs_rebase', expectedChapterNo });
-  if (!String(body.contentHash || '').trim()) return json(res, 422, { error: '缺少正文 contentHash，不能提交状态' });
-  // ★ 修复：显式传 baseStateVersion=0 时必须原样使用，禁止用 || 回退成当前版本（否则 CAS 冲突检测失效）
-  const baseRaw = body.baseStateVersion;
-  const baseStateVersion = (baseRaw === undefined || baseRaw === null || baseRaw === '')
-    ? (Number(book.current_state_version) || 0)
-    : Math.max(0, Number(baseRaw) || 0);
-  const nextStateVersion = baseStateVersion + 1;
-  const bible = loadCurrentBiblePayload(book.id);
-  const currentPlanHash = sha256Text(JSON.stringify(bible && bible.payload && bible.payload.creationPlan || {}));
-  const audit = commitCheck.audit;
-  if (!bible || Number(auditRecord.bible_version) !== Number(bible.version) ||
-    Number(auditRecord.state_version) !== Number(book.current_state_version) ||
-    audit.bibleVersion !== Number(bible.version) ||
-    audit.stateVersion !== Number(book.current_state_version) ||
-    audit.planHash !== currentPlanHash ||
-    String(body.contextHash || '') !== String(audit.contextHash || '') ||
-    String(body.deltaHash || '') !== String(audit.deltaHash || '') ||
-    String(body.planHash || '') !== currentPlanHash) {
-    return json(res, 409, { error: '圣经、规划、状态或审计上下文已过期，请基于最新版本重新审计', code: 'audit_baseline_stale' });
-  }
-  // ★ P2-9 · 成本校核：至少计入服务端已落账的审计调用成本，防止前端低报 actualCost 绕过预算
-  const serverKnownCost = Number(auditRecord.audit_credit_cost) || 0;
-  const actualCost = Math.max(Math.max(0, Number(body.actualCost) || 0), serverKnownCost);
-  const budgetLimit = Math.max(0, Number(book.budget_limit) || 0);
-  const spentCost = Math.max(0, Number(book.spent_cost) || 0);
-  if (budgetLimit > 0 && spentCost + actualCost > budgetLimit + 1e-9) {
-    return json(res, 402, { error: '本次提交会超过创作预算，请提高预算或暂停本章提交', code: 'budget_exceeded', budgetLimit, spentCost, actualCost, remaining: Math.max(0, budgetLimit - spentCost) });
-  }
-  const now = Date.now();
-  const snapshotId = 'snap_' + id + '_' + chapterNo + '_' + nextStateVersion;
-  db.exec('BEGIN');
-  try {
-    db.prepare(`INSERT OR REPLACE INTO creation_state_snapshots
-      (id,book_id,chapter_no,bible_version,state_version,character_states_json,relationship_states_json,
-       world_states_json,timeline_json,open_foreshadows_json,recent_facts_json,content_ref,content_hash,
-       audit_status,created_at,actor_user_id,workspace_id,project_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(snapshotId, id, chapterNo, bible ? bible.version : 0, nextStateVersion,
-        JSON.stringify(body.characterStates || {}), JSON.stringify(body.relationshipStates || {}), JSON.stringify(body.worldStates || {}),
-        JSON.stringify(body.timeline || []), JSON.stringify(body.openForeshadows || []), JSON.stringify(body.recentFacts || []),
-        String(body.contentRef || '').slice(0, 500), String(body.contentHash || '').slice(0, 200), String(body.auditStatus || 'committed'), now,
-        String(auth.user.userId || projectScope.stableUserId(auth.user.email)), book.workspace_id || '', book.project_id || book.novel_id || '');
-    const result = db.prepare('UPDATE creation_books SET current_state_version = ?, current_chapter_no = ?, spent_cost = spent_cost + ?, updated_at = ? WHERE id = ? AND current_state_version = ?')
-      .run(nextStateVersion, chapterNo, actualCost, now, id, baseStateVersion);
-    if (Number(result.changes) === 0) { db.exec('ROLLBACK'); return json(res, 409, { error: '状态版本冲突：他人已提交新版本，请基于最新状态重新生成（needs_rebase）' }); }
-    commitLibrary.saveCommitReceipt(db, { snapshotId, bookId: id, chapterNo, stateVersion: nextStateVersion, contentHash: body.contentHash, content: body.content, ledgerDelta: commitCheck.audit.factLedgerDelta });
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); console.error('[creation] 提交章节失败 book=' + id + ' chapter=' + chapterNo + ':', e); return json(res, 500, { error: '章节提交失败，请稍后重试', code: 'internal_error' }); }
-  const receipt = db.prepare('SELECT * FROM benchmark_commit_receipts WHERE snapshot_id = ?').get(snapshotId);
-  const debtStatus = commitLibrary.finishCommitReceipt(db, receipt, recordChapterCausalDebts);
-  json(res, 200, { ok: true, stateVersion: nextStateVersion, currentStateVersion: nextStateVersion, spentCost: spentCost + actualCost, snapshotId, debtStatus });
-}
-
-
 // 从创作圣经中提取需要在正文和首版 Bible 中禁止复用的原书术语。
 
 
@@ -8571,45 +8492,6 @@ async function handleCreationBookChapterContract(req, res, id) {
 
 
 // ★ 圣经工作台：卷级质量报告（章节审计的趋势视图，作者复盘用）
-async function handleCreationBookQualityReport(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!dbReady()) return json(res, 503, { error: '云端存储未启用' });
-  const book = loadCreationBookForAuth(id, auth, projectScope.PROJECT_ROLES);
-  if (!book) return json(res, 404, { error: '创作书不存在或无权访问' });
-  const rows = db.prepare('SELECT chapter_no, passed, blocker_count, result_json, created_at FROM creation_chapter_audits WHERE book_id = ? ORDER BY chapter_no ASC, created_at ASC').all(String(id));
-  const latest = new Map();
-  rows.forEach(row => {
-    let audit = {};
-    try { audit = JSON.parse(row.result_json || '{}'); } catch (_) {}
-    const issues = Array.isArray(audit.issues) ? audit.issues : [];
-    latest.set(Number(row.chapter_no) || 0, {
-      chapterNo: Number(row.chapter_no) || 0,
-      passed: !!row.passed,
-      blockerCount: Number(row.blocker_count) || 0,
-      experienceCount: issues.filter(item => item && item.category === 'experience').length,
-      lineEditCount: issues.filter(item => item && item.category === 'lineedit').length,
-      categories: [...new Set(issues.map(item => String(item && item.category || '').trim()).filter(Boolean))],
-      auditedAt: Number(row.created_at) || 0
-    });
-  });
-  const chapters = [...latest.values()].sort((left, right) => left.chapterNo - right.chapterNo);
-  let weakStreak = [];
-  let currentStreak = [];
-  chapters.forEach(chapter => {
-    if (chapter.blockerCount > 0 || !chapter.passed) currentStreak.push(chapter.chapterNo);
-    else { if (currentStreak.length > weakStreak.length) weakStreak = currentStreak; currentStreak = []; }
-  });
-  if (currentStreak.length > weakStreak.length) weakStreak = currentStreak;
-  const categoryTotals = {};
-  chapters.forEach(chapter => (chapter.categories || []).forEach(category => { categoryTotals[category] = (categoryTotals[category] || 0) + 1; }));
-  json(res, 200, {
-    ok: true,
-    summary: { chapterCount: chapters.length, passedCount: chapters.filter(c => c.passed).length, blockerTotal: chapters.reduce((sum, c) => sum + c.blockerCount, 0), weakStreakChapters: weakStreak, categoryTotals },
-    chapters
-  });
-}
-
 // ★ 圣经工作台：定向重生成资产（改一个人物/一组规则，不必整包重来）
 async function handleCreationBookRegenerateAsset(req, res, id) {
   const auth = getAuthUser(req);
@@ -8669,10 +8551,6 @@ async function handleCreationBookRegenerateAsset(req, res, id) {
   json(res, 200, { ok: true, bibleVersion: saved.bibleVersion, asset, name });
 }
 
-async function handleCreationBookChapterAudit(req, res, id) {
-  return handleCreationBookChapterAuditImpl(req, res, id);
-}
-
 // ★ G0 · 创书因果债务账本：按书隔离存储在 DATA_DIR/causal-debts/<bookId>-debts.json
 /** 懒加载创书因果债务追踪器（存储目录跟随 DATA_DIR，测试可通过 MOLAN_DATA_DIR 隔离）。 */
 
@@ -8696,161 +8574,6 @@ const SOMATIC_REFLEX_PATTERN = /(?:(?:指腹|指肚|拇指|手指)反复?摩挲|
 function recordChapterCausalDebts(...args) { return creationDebtService.recordChapterCausalDebts(...args); }
 
 /** GET /api/creation-books/:id/debts?chapterNo= —— 返回下一章起草可注入的因果债务提示块与明细。 */
-
-async function handleCreationBookChapterAuditImpl(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  const book = loadCreationBookForAuth(id, auth, projectScope.WRITE_ROLES);
-  if (!book) return json(res, 404, { error: '创作书不存在或无权访问' });
-  if (!canSpendCreationBook(book, auth)) return json(res, 403, { error: '当前账户没有该创作书的生成额度权限', code: 'spend_forbidden' });
-  let body = {}; try { body = await readBody(req).catch(() => ({})); } catch (_) {}
-  const content = String(body.content || '');
-  const chapterNo = Math.max(1, Number(body.chapterNo) || 1);
-  const current = creationBibleForBook(book.id);
-  const issues = [];
-  if (!content.trim()) issues.push({ severity: 'blocker', category: 'content', description: '正文为空', suggestion: '生成正文后再提交' });
-  else if (content.replace(/\s/g, '').length < 300) issues.push({ severity: 'blocker', category: 'content', description: '正文少于 300 字', suggestion: '补充完整场景' });
-  const forbiddenIssues = checkForbiddenTerms(content, creationForbiddenTerms(current.payload));
-  issues.push(...forbiddenIssues);
-  const contract = body.contract && typeof body.contract === 'object' ? body.contract : {};
-  const contractValidation = deterministicContractValidation({ chapterNo, ...contract });
-  contractValidation.findings.forEach(item => issues.push({ severity: item.severity, category: 'contract', description: item.description, suggestion: '修订章节合同或正文' }));
-  // ★ M2 字数硬控制：偏离合同目标 ±30% 记 warning
-  const targetWords = Number(current.payload && current.payload.taskConstraints && current.payload.taskConstraints.chapterWordTarget) || 2000;
-  const actualWords = content.replace(/\s/g, '').length;
-  if (actualWords > 0 && (actualWords < targetWords * 0.7 || actualWords > targetWords * 1.3)) {
-    issues.push({ severity: 'warning', category: 'pacing', description: '字数 ' + actualWords + ' 偏离目标 ' + targetWords + ' 超过 ±30%', suggestion: actualWords > targetWords ? '删减过渡句与重复状态描写，压缩至 ' + Math.round(targetWords * 0.9) + '-' + Math.round(targetWords * 1.1) + ' 字' : '补充场景细节至 ' + Math.round(targetWords * 0.9) + '-' + Math.round(targetWords * 1.1) + ' 字' });
-  }
-  // ★ M2 重复注水检测：段落 20 字前缀去重 + 高频重复句
-  {
-    const paras = content.split(/\n+/).map(p => p.trim()).filter(p => p.length >= 12);
-    const seenPrefix = new Map();
-    const dupParas = [];
-    paras.forEach((p, idx) => {
-      const key = p.slice(0, 20);
-      if (seenPrefix.has(key)) dupParas.push({ first: seenPrefix.get(key), second: idx + 1, text: key });
-      else seenPrefix.set(key, idx + 1);
-    });
-    if (dupParas.length) {
-      issues.push({ severity: 'blocker', category: 'redundancy', description: '发现 ' + dupParas.length + ' 处疑似重复段落（如「' + (dupParas[0].text || '') + '…」）', suggestion: '删除重复段落，只保留首处并合并差异信息' });
-    }
-    const sentences = content.split(/(?<=[。！？])/u).map(x => x.trim()).filter(x => x.length >= 15);
-    const sentCount = new Map();
-    sentences.forEach(x => { const k = x.slice(0, 18); sentCount.set(k, (sentCount.get(k) || 0) + 1); });
-    const repeatedSentences = [...sentCount.entries()].filter(([k, n]) => n >= 3);
-    if (repeatedSentences.length) {
-      issues.push({ severity: 'warning', category: 'redundancy', description: repeatedSentences.length + ' 个句子/状态短语重复出现 3 次以上（如「' + repeatedSentences[0][0] + '…」），疑似状态复述', suggestion: '状态首次详写，后续只写变化量' });
-    }
-  }
-  // ★ G0 场景能级与躯体动作配比门禁（确定性，零模型成本）：
-  //   合同能级低（emotionIntensity/intensity ≤4）时出现任何“指腹摩挲/喉头一哽”类应激套话即报；能级高时累计 ≥3 处才报。
-  const somaticGate = evaluateSomaticGate(content, contract);
-  if (somaticGate.issue) issues.push({ ...somaticGate.issue, severity: 'warning', heuristicOnly: true });
-  // ★ G1 全题材叙事与情绪门禁（高潮反响/悬疑沙箱/都市反派/女频宅斗/历史礼制）：
-  const genreAudits = runGenreNarrativeAudits(content, contract, String(body.genre || current.payload.genre || ''));
-  if (genreAudits.issues && genreAudits.issues.length) {
-    issues.push(...genreAudits.issues.map(item => ({ ...item, heuristicOnly: true })));
-  }
-  const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
-  const creationModelId = resolveModelForUser(user, body.modelId || currentDefaultModel());
-  // ★ 事实账本随审计走：本章确立的新事实/规则/承诺增量登记，供后续章节检索注入。
-  const factLedger = body.factLedger && typeof body.factLedger === 'object' && !Array.isArray(body.factLedger) ? body.factLedger : null;
-  const semanticAudit = await benchmarkPipeline.evidenceAudit({
-    callModel: (_auth, options) => callMolanChat(String(req.headers.authorization || ''), user, { ...options, requireComplete: true })
-  }, auth, {
-    text: content, contract, factLedger, modelId: creationModelId, targetWords,
-    genre: String(body.genre || current.payload.genre || ''),
-    continuity: {
-      premise: current.payload.bookPremise,
-      worldRules: current.payload.worldRules || [],
-      characters: (current.payload.characters || []).filter(item => content.includes(String(item.name || '')) || String(contract.viewpoint || '').includes(String(item.name || ''))),
-      relationships: current.payload.relationships || [],
-      goldenFinger: current.payload.goldenFinger,
-      openForeshadows: (current.payload.foreshadowLedger || []).filter(item => item && !['paid', 'resolved'].includes(item.status)),
-      previousSnapshots: loadCreationSnapshots(book.id, 0).slice(0, 2)
-    }
-  });
-  const auditOutput = { json: semanticAudit, usage: semanticAudit.usage };
-  const modelAudit = semanticAudit;
-  issues.push(...semanticAudit.issues.map(item => ({ ...item, description: item.problem, suggestion: item.fixHint })));
-  if (semanticAudit.status === 'incomplete') issues.push({ severity: 'blocker', category: 'review_coverage', description: '语义审计未完成：' + semanticAudit.incompleteReasons.join('、') });
-  // 读取已提交快照用于确定性原创指标与保留符合度（不阻断提交，仅记录）
-  const snapshots = loadCreationSnapshots(book.id, 0).slice(0, 200);
-  // L1 结构级原创比对（纯本地，零模型成本）：事件链 LCS 相似度 + 人物功能集合 Jaccard 相似度
-  const structuralSimilarity = computeStructuralSimilarity(current.payload, snapshots);
-  if (structuralSimilarity.blocked) {
-    issues.push({ severity: 'blocker', category: 'originality', metric: 'structural', eventChainLcsRatio: structuralSimilarity.eventChainLcsRatio, functionSetJaccard: structuralSimilarity.functionSetJaccard, description: '结构级相似度过高（事件链 LCS ' + (structuralSimilarity.eventChainLcsRatio == null ? 'N/A' : structuralSimilarity.eventChainLcsRatio.toFixed(2)) + ' / 功能集合 Jaccard ' + (structuralSimilarity.functionSetJaccard == null ? 'N/A' : structuralSimilarity.functionSetJaccard.toFixed(2)) + '），疑似结构级抄袭', suggestion: '重写本章的事件编排与人物功能分配，避免照搬源书骨架' });
-  }
-  const originality = creationOriginalityGate(current.payload, modelAudit, forbiddenIssues, snapshots);
-  originality.issues.forEach(item => issues.push(item));
-  // R3 · 骨架保留符合度：violated 项记为 warning（不阻断），并累计写入 qualityState.retentionIssues
-  const retentionCompliance = computeRetentionCompliance(current.payload, snapshots, current.payload.sourceStructure || {});
-  retentionCompliance.items.forEach(item => {
-    if (item.status === 'violated') issues.push({ severity: 'warning', category: 'retention', key: item.key, description: item.detail, suggestion: '请对照拆书骨架，尽量保全保留级对应的结构特征' });
-  });
-  if (retentionCompliance.violatedCount > 0) {
-    try {
-      const qs = current.payload.qualityState && typeof current.payload.qualityState === 'object' ? current.payload.qualityState : {};
-      const retentionIssues = Array.isArray(qs.retentionIssues) ? qs.retentionIssues : [];
-      retentionIssues.push({ auditAt: Date.now(), chapterNo, items: retentionCompliance.items.map(i => ({ key: i.key, level: i.level, status: i.status, detail: i.detail }) ) });
-      current.payload.qualityState = { ...qs, retentionIssues: retentionIssues.slice(-50) };
-      const nextBibleVersion = current.version + 1;
-      const now = Date.now();
-      db.exec('BEGIN');
-      try {
-        // ★ P2-8 · CAS 写入：版本推进必须基于读取时的版本号，用户并发修订时跳过本次
-        // retention 记录（下一轮审计会再累计），而不是覆盖用户的修订。
-        const cas = db.prepare('UPDATE creation_bibles SET current_version = ?, updated_at = ? WHERE id = ? AND current_version = ?')
-          .run(nextBibleVersion, now, current.bibleId, current.version);
-        if (Number(cas.changes || 0) !== 1) {
-          db.exec('ROLLBACK');
-          console.warn('[creation] 审计写 retention 版本时检测到圣经并发更新，跳过 book=' + book.id + ' version=' + current.version);
-        } else {
-          db.prepare('INSERT INTO creation_bible_versions (id,bible_id,version,payload_json,payload_hash,source_brief_id,parent_version,change_summary,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
-            .run('bv_' + current.bibleId + '_' + nextBibleVersion, current.bibleId, nextBibleVersion, JSON.stringify(current.payload), sha256Text(JSON.stringify(current.payload)), book.source_brief_id, current.version, '审计累计保留符合度问题（版本 +1）', auth.user.email, now);
-          db.exec('COMMIT');
-          current.version = nextBibleVersion;
-        }
-      } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
-    } catch (error) { console.error('[creation] 审计累计 retention 问题失败 book=' + book.id + ':', error && error.message || error); }
-  }
-  const blockers = issues.filter(item => String(item && item.severity) === 'blocker');
-  // ★ P0-1b · 审计结果落库：commit 端点据此做服务端复核，前端上报的 auditStatus 不再被信任
-  const auditPassed = blockers.length === 0 && semanticAudit.passed === true && !!content.trim();
-  const causalDebts = { status: 'pending_commit' };
-  const qualityGate = !auditPassed || originality.status === 'blocked' ? 'blocked' : originality.status === 'passed' ? 'passed' : 'passed_with_structural_pending';
-  const auditUsage = auditOutput.usage || null;
-  let auditCreditCost = 0;
-  if (auditUsage && Number.isFinite(Number(auditUsage.creditCost))) auditCreditCost = Number(auditUsage.creditCost);
-  else if (auditUsage && Number.isFinite(Number(auditUsage.totalTokens))) {
-    try { auditCreditCost = creditCostForUser(user, creationModelId, Number(auditUsage.totalTokens)); } catch (_) {}
-  }
-  const factLedgerDelta = modelAudit && modelAudit.factLedgerDelta && typeof modelAudit.factLedgerDelta === 'object' ? modelAudit.factLedgerDelta : { newRules: [], newPromises: [], byEntity: {}, updates: [] };
-  const bibleVersion = Number(current.version) || 0;
-  const stateVersion = Number(book.current_state_version) || 0;
-  const planHash = sha256Text(JSON.stringify(current.payload && current.payload.creationPlan || {}));
-  const contextHash = sha256Text(JSON.stringify({ bookId: book.id, chapterNo, bibleVersion, stateVersion, planHash, genre: body.genre || current.payload.genre || '', targetWords, contract, factLedger, continuity: { premise: current.payload.bookPremise, worldRules: current.payload.worldRules || [], relationships: current.payload.relationships || [], openForeshadows: current.payload.foreshadowLedger || [] } }));
-  const deltaHash = sha256Text(JSON.stringify(factLedgerDelta));
-  const auditPayload = { passed: auditPassed, qualityGate, originality, structuralSimilarity, retentionCompliance, summary: modelAudit && modelAudit.summary || (blockers.length ? '存在阻断问题' : originality.status === 'pending' ? '确定性审计通过，结构级原创审计待事件抽取' : '确定性审计通过'), issues: issues.slice(0, 60), blockerCount: blockers.length, unverifiedIssueCount: issues.filter(item => item && item.unverified).length, contentLength: content.length, targetWords, somaticGate: somaticGate.metrics, causalDebts, source: 'creation-bible', bibleVersion, stateVersion, planHash, contextHash, deltaHash, factLedgerDelta };
-  Object.assign(auditPayload, { protocol: 'benchmark-local-v2', contentHash: sha256Text(content), semanticAudit, status: auditPassed ? 'passed' : 'needs_review', humanReviewStatus: 'pending' });
-  try {
-    if (dbReady()) {
-      db.prepare(`INSERT INTO creation_chapter_audits
-        (id,book_id,user_email,chapter_no,content_hash,passed,quality_gate,originality_status,blocker_count,
-         audit_credit_cost,result_json,created_at,bible_version,state_version,context_hash,delta_hash,plan_hash,
-         actor_user_id,workspace_id,project_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-        .run(
-          'cca_' + book.id + '_' + chapterNo + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-          book.id, auth.user.email, chapterNo, sha256Text(content), auditPassed ? 1 : 0, qualityGate,
-          String(originality.status || ''), blockers.length, auditCreditCost, JSON.stringify(auditPayload), Date.now(),
-          bibleVersion, stateVersion, contextHash, deltaHash, planHash,
-          String(auth.user.userId || projectScope.stableUserId(auth.user.email)),
-          book.workspace_id || '', book.project_id || book.novel_id || '');
-    }
-  } catch (error) { console.error('[creation] 章节审计结果落库失败 book=' + book.id + ' chapter=' + chapterNo + ':', error && error.message || error); }
-  json(res, 200, { ok: true, audit: auditPayload, usage: auditOutput.usage || null });
-}
 
 // ★ R4 · 结构原创门禁（L1 确定性优先）：优先用确定性算法计算事件链/角色组合/地图拓扑相似度，
 // 确定性数据不足的字段才回退模型估值；两者皆缺才 pending。机制/关系类指标仅由模型估值。
@@ -10761,6 +10484,16 @@ const creationDebtService = require('./services/creation-debt-service').createCr
   CausalDebtTracker, DATA_DIR, path, getAuthUser, json, loadCreationBookForAuth,
   projectScope, queryParamsFromUrl, getDatabase: () => db,
   recoverPendingCommitDebts: require('./lib/benchmark-commit').recoverPendingCommitDebts
+});
+const { handleCreationBookChapterAudit, handleCreationBookCommit, handleCreationBookQualityReport } = require('./services/creation-chapter-service').createCreationChapterService({
+  benchmarkPipeline, canSpendCreationBook, callMolanChat, checkForbiddenTerms,
+  computeRetentionCompliance, computeStructuralSimilarity, creationBibleForBook,
+  creationForbiddenTerms, creationOriginalityGate, currentDefaultModel,
+  dbReady, deterministicContractValidation, evaluateSomaticGate,
+  getAuthUser, getDatabase: () => db, getUserByEmail, json,
+  loadCreationBookForAuth, loadCreationSnapshots, loadCurrentBiblePayload,
+  projectScope, readBody, recordChapterCausalDebts, resolveModelForUser,
+  runGenreNarrativeAudits, sha256Text, logger: console
 });
 const creationCoreJobHttpService = require('./services/creation-core-job-http-service').createCreationCoreJobHttpService({
   getAuthUser, json, dbReady, getDatabase: () => db, projectScope, POSTGRES_MODE,
