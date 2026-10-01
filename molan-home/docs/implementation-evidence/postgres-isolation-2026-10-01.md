@@ -22,3 +22,4 @@
 - `scripts/postgres-runtime-smoke.mjs` 新增章节质量报告检查：真实持久审计被读取为 `JUDGED`，缺证据旧式审计保持 null；同项目两部创作书报告隔离，未授权 actor 查询返回不可见。fixture 审计用于存储契约验证，不代表真实文学评测。扩展闭环通过；本次执行使用现有 Node20。
 - `scripts/postgres-native-style-routes-smoke.mjs`：Node24 实际路由调用验证作者创建/更新、版本查询、过期 CAS 409、viewer 可读不可写、伪造 scope 无效、陌生人 404。使用唯一测试记录，不执行模型调用。
 - `test/postgres-lab-job-live.test.js` 与 `test/postgres-xuanhuan-lab-live.test.js`：真实 PG 验证 RLS、CAS、评分不可变、reading 范围恢复、blind HTTP 读取与 worker 全局恢复；新增 attempt 日志缺口和 provider_unknown 两种恢复均为 needs_review。连同仓储合同共 7/7，无跳过，Node24。
+- `test/memory-native-postgres.test.js`：显式开启六维基线 live 验证，小说、Bible、计划、文风、披露和 ACL 各自失配均拒绝，一致版本提交成功；生成历史与基线联合 2/2，无跳过，Node24。只验证真实数据库合同，不代表文学质量提升。
