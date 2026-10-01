@@ -159,6 +159,11 @@ async function getStoredStyleProfiles(store, db, user, bookId, options = {}) {
  */
 async function dispatch(req, res, urlPath, db, getAuthUser, services = {}) {
   if (services.memoryStore && await require('./memory-store-routes').dispatch(req, res, urlPath, getAuthUser, services)) return true;
+  if (services.backend === 'json') {
+    const auth = await getAuthUser(req);
+    sendJson(res, auth?.user ? 404 : 401, { ok: false, code: auth?.user ? 'NATIVE_MEMORY_ROUTE_NOT_FOUND' : 'UNAUTHORIZED' });
+    return true;
+  }
   if (services.styleProfileStore) {
     try {
       if (await dispatchStyleProfileStore(req, res, urlPath, db, getAuthUser, services)) return true;

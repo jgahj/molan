@@ -1,6 +1,7 @@
 'use strict';
 
-function createNovelDomainHandlers({ repository, getAuthUser, readBody, json, respondError, sanitizeNovelState, summarizeNovel }) {
+function createNovelDomainHandlers({ repository, getAuthUser, readBody, json, respondError, sanitizeNovelState, summarizeNovel,
+  parseNovelExportRange, sendNovelExport }) {
   const validId = id => typeof id === 'string' && /^n_[A-Za-z0-9]{1,30}$/.test(id);
   async function execute(req, res, operation) {
     try {
@@ -82,7 +83,18 @@ function createNovelDomainHandlers({ repository, getAuthUser, readBody, json, re
       return json(res, 200, await repository.restore({ userId: user.userId, projectId: id }));
     });
   }
-  return { handleNovelList, handleNovelGet, handleNovelCreate, handleNovelSave, handleNovelDelete, handleNovelRestore };
+  function handleNovelExport(req, res, id) {
+    return execute(req, res, async user => {
+      if (!validateId(res, id)) return;
+      const novel = await repository.read({ userId: user.userId, projectId: id });
+      if (!novel?.scope?.canExport) return json(res, 404, { error: '小说不存在或无权导出' });
+      const parsedRange = parseNovelExportRange(req);
+      if (!parsedRange.ok) return json(res, 400, { error: '章节范围必须是有效的正整数区间', code: 'export_range_invalid' });
+      const format = new URL(req.url, 'http://localhost').searchParams.get('format');
+      return sendNovelExport(res, id, novel.state, [], format, parsedRange.range);
+    });
+  }
+  return { handleNovelList, handleNovelGet, handleNovelCreate, handleNovelSave, handleNovelDelete, handleNovelRestore, handleNovelExport };
 }
 
 module.exports = { createNovelDomainHandlers };

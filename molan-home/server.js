@@ -8431,6 +8431,7 @@ function nativeSkillService() {
   return nativeSkills;
 }
 
+let nativeKnowledgeCatalogService = null;
 const server = http.createServer((req, res) => {
   void dispatchRequest(req, res).catch(error => respondError(res, error));
 });
@@ -8441,6 +8442,10 @@ async function dispatchRequest(req, res) {
     req.molanNativeAuth = await nativeAuthService().resolve(req);
   }
   const u = req.url.split('?')[0];
+  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
+    if (!nativeKnowledgeCatalogService) nativeKnowledgeCatalogService = require('./services/native-knowledge-catalog-service').createNativeKnowledgeCatalogService({ json });
+    if (nativeKnowledgeCatalogService.dispatch(req, res, u)) return;
+  }
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/creation-books')) {
     const chapterAction = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/(audit|commit)$/);
     if (req.method === 'POST' && chapterAction) {
@@ -8472,7 +8477,7 @@ async function dispatchRequest(req, res) {
     return json(res, 503, { error: '该拆书操作尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
   }
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/')) {
-    const supported = /^\/api\/(?:auth\/(?:register|login|me|profile|logout|logout-all)$|admin\/(?:auth\/(?:login|me|logout)|skills(?:\/[^/]+)?)$|skills(?:\/import)?$|open-skills(?:\/[^/]+(?:\/download)?)?$|novels(?:\/[^/]+(?:\/restore)?)?$|books\/|runs\/|generation-runs(?:\/|$)|benchmark(?:\/|$)|chat$|models$|health$|usage$|billing\/(?:estimate|topup)$|local-sync\/status$|local-style\/)/.test(u);
+    const supported = /^\/api\/(?:auth\/(?:register|login|me|profile|logout|logout-all)$|admin\/(?:auth\/(?:login|me|logout)|skills(?:\/[^/]+)?)$|skills(?:\/import)?$|open-skills(?:\/[^/]+(?:\/download)?)?$|novels(?:\/[^/]+(?:\/(?:restore|export))?)?$|books\/|runs\/|generation-runs(?:\/|$)|benchmark(?:\/|$)|chat$|models$|health$|usage$|billing\/(?:estimate|topup)$|local-sync\/status$|local-style\/)/.test(u);
     if (!supported && !u.startsWith('/api/xuanhuan-reading/') && !u.startsWith('/api/xuanhuan-lab/')) return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
   }
   if (req.method === 'GET' && u === '/api/local-sync/status') return handleLocalSyncStatus(req, res);
@@ -8496,7 +8501,7 @@ async function dispatchRequest(req, res) {
   const nativeNovelHandlers = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json'
     ? require('./routes/novel-domain-handlers').createNovelDomainHandlers({ repository: appRepository(),
       getAuthUser, readBody, json, respondError, sanitizeNovelState: sanitizeNovelStateForStorage,
-      summarizeNovel: summarizeNativeNovel }) : null;
+      summarizeNovel: summarizeNativeNovel, parseNovelExportRange, sendNovelExport }) : null;
   const novelReadHandlers = nativeNovelHandlers || createNovelReadHandlers({
     getDatabase: () => db,
     getAuthUser,
@@ -8591,7 +8596,7 @@ async function dispatchRequest(req, res) {
       charactersMerge: handleCharactersMerge, charactersPatch: handleCharactersPatch,
       postgresNovelImportCharacters: handlePostgresNovelImportCharacters, respondPostgresError,
       novelImportCharacters: handleNovelImportCharacters, sharedDissectionGet: handleSharedDissectionGet,
-      postgresNovelExport: handlePostgresNovelExport, novelExport: handleNovelExport,
+      postgresNovelExport: handlePostgresNovelExport, novelExport: nativeNovelHandlers?.handleNovelExport || handleNovelExport,
       postgresPackageExport: handlePostgresPackageExport, postgresPackageImport: handlePostgresPackageImport,
       postgresPackageRestore: handlePostgresPackageRestore, postgresResourceHistory: handlePostgresResourceHistory,
       postgresResources: handlePostgresResources, postgresWorkspaceList: handlePostgresWorkspaceList,
