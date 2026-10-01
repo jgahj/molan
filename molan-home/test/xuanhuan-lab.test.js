@@ -8,6 +8,8 @@ const test = require('node:test');
 const quality = require('../lib/xuanhuan-quality');
 const { createLab, publicJob, validateVote, METHODS } = require('../lib/xuanhuan-lab');
 const { tasks, sequenceTasks } = require('../lib/xuanhuan-tasks');
+const { JsonFileRepository } = require('../lib/repositories/json-file-repository');
+const { JsonLabJobRepository } = require('../lib/repositories/json-lab-job-repository');
 
 function fixtureCorpus() {
   const text = '这是自动化测试专用参考文本，求助者没有银子，管事不愿交易。'.repeat(60);
@@ -37,9 +39,11 @@ function harness(context, model, corpusValue = fixtureCorpus()) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xh-test-'));
   fs.mkdirSync(path.join(directory, 'xuanhuan-lab'));
   if (corpusValue !== null) fs.writeFileSync(path.join(directory, 'xuanhuan-lab', 'corpus.json'), JSON.stringify(corpusValue));
+  const storage = new JsonFileRepository(path.join(directory, 'lab-jobs-json'));
+  const repository = new JsonLabJobRepository(storage);
   let owner = 'test@example.com';
   let calls = 0;
-  const lab = createLab({ dataDir: directory, wait: async () => {}, getAuthUser: () => owner ? { token: 'test-only-secret', user: { email: owner } } : null, readBody: async request => request.body || {}, json: (response, status, body) => ({ status, body }), callModel: async (auth, options) => {
+  const lab = createLab({ dataDir: directory, repository, wait: async () => {}, getAuthUser: () => owner ? { token: 'test-only-secret', user: { email: owner, userId: `user-${owner}` } } : null, readBody: async request => request.body || {}, json: (response, status, body) => ({ status, body }), callModel: async (auth, options) => {
     calls += 1;
     if (model) return model(options, calls);
     if (options.system.includes('比较两份')) return { text: '{}', json: { winner: 'A', evidenceA: '甲稿有效原句', evidenceB: '乙稿有效原句' } };
@@ -48,8 +52,10 @@ function harness(context, model, corpusValue = fixtureCorpus()) {
     if (options.jsonMode) return { text: '{}', json: { beats: [{ goal: '测试目标', change: '测试变化' }], techniques: [] } };
     return { text: '仅供自动化测试的原创输出段落。'.repeat(80), usage: { totalTokens: 10 } };
   } });
-  context.after(() => { lab.close(); const resolved = fs.realpathSync(directory); assert.ok(resolved.startsWith(fs.realpathSync(os.tmpdir()) + path.sep)); fs.rmSync(resolved, { recursive: true, force: true }); });
-  return { lab, directory, owner: value => { owner = value; }, calls: () => calls, request: (route, body, method) => lab.handle({ url: '/api/xuanhuan-lab' + route, method: method || (body ? 'POST' : 'GET'), body }, {}) };
+  context.after(async () => { await lab.close(); await storage.close(); const resolved = fs.realpathSync(directory); assert.ok(resolved.startsWith(fs.realpathSync(os.tmpdir()) + path.sep)); fs.rmSync(resolved, { recursive: true, force: true }); });
+  return { lab, repository, directory, owner: value => { owner = value; }, calls: () => calls,
+    persisted: async id => (await repository.load({ owner: 'test@example.com', kind: 'blind', id }))?.job,
+    request: (route, body, method) => lab.handle({ url: '/api/xuanhuan-lab' + route, method: method || (body ? 'POST' : 'GET'), body }, {}) };
 }
 
 async function completed(harness, id) {
@@ -60,6 +66,17 @@ async function completed(harness, id) {
   }
   throw new Error('测试任务未结束');
 }
+
+test('旧blind.db存在时拒绝静默切换到空仓储', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xh-legacy-store-'));
+  try {
+    const labDirectory = path.join(directory, 'xuanhuan-lab');
+    fs.mkdirSync(labDirectory);
+    fs.writeFileSync(path.join(labDirectory, 'blind.db'), 'legacy-data');
+    assert.throws(() => createLab({ dataDir: directory }), { code: 'LEGACY_BLIND_STORE_PRESENT' });
+    assert.equal(fs.existsSync(path.join(directory, 'lab-jobs-json')), false);
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
 
 test('章节解析覆盖中文章名、数字顿号和无分隔符章名', () => {
   const body = '正文测试。'.repeat(200);
@@ -141,11 +158,7 @@ test('真实任务状态机持久化、评分锁定、揭晓与偏好导出', as
   const exported = await host.request('/jobs/' + id + '/export');
   assert.equal(exported.body.preferencePairs.length, 0);
   assert.equal(exported.body.revealed, true);
-  const { DatabaseSync } = require('node:sqlite');
-  const database = new DatabaseSync(path.join(host.directory, 'xuanhuan-lab', 'blind.db'), { readOnly: true });
-  const payload = database.prepare('SELECT payload FROM jobs').get().payload;
-  database.close();
-  assert.ok(!payload.includes('test-only-secret'));
+  assert.ok(!JSON.stringify(await host.persisted(id)).includes('test-only-secret'));
 });
 
 test('账号隔离及未登录请求拒绝', async context => {
@@ -158,10 +171,35 @@ test('账号隔离及未登录请求拒绝', async context => {
   assert.equal((await host.request('/status')).status, 401);
 });
 
+test('PG盲测请求只对可信账户身份执行一次owner级恢复', async context => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xh-pg-actor-'));
+  fs.mkdirSync(path.join(directory, 'xuanhuan-lab'));
+  fs.writeFileSync(path.join(directory, 'xuanhuan-lab', 'corpus.json'), JSON.stringify(fixtureCorpus()));
+  const initialized = [], recovered = [], listed = [];
+  let closed = 0;
+  const repository = { init: async input => initialized.push(input), recoverScoped: async input => recovered.push(input),
+    list: async input => { listed.push(input); return []; }, close: async () => { closed += 1; } };
+  const lab = createLab({ dataDir: directory, repository,
+    getAuthUser: async req => ({ user: { email: 'Owner@example.com', userId: req.actor } }),
+    readBody: async req => req.body || {}, json: (_res, status, body) => ({ status, body }) });
+  context.after(async () => { await lab.close(); fs.rmSync(directory, { recursive: true, force: true }); });
+  const request = actor => lab.handle({ url: '/api/xuanhuan-lab/jobs', method: 'GET', actor, body: { actorUserId: 'forged' } }, {});
+  assert.equal((await request('real-user-id')).status, 200);
+  assert.equal((await request('real-user-id')).status, 200);
+  assert.equal(initialized[0].kind, 'blind');
+  assert.equal(initialized[0].recover, false);
+  assert.equal(recovered.length, 1);
+  assert.deepEqual(recovered[0], { owner: 'owner@example.com', actorUserId: 'real-user-id', kind: 'blind' });
+  assert.ok(listed.every(input => input.actorUserId === 'real-user-id'));
+  assert.equal((await request('second-user-id')).status, 200);
+  assert.equal(recovered.length, 2);
+  assert.equal(closed, 0);
+});
+
 test('模型中断后可恢复且不重生成已保存阶段', async context => {
   let failed = false;
   const host = harness(context, async options => {
-    if (!failed && options.unitId.includes(':lean:')) { failed = true; throw new Error('模拟断线'); }
+    if (!failed && options.unitId.includes(':lean:')) { failed = true; return { text: '' }; }
     if (options.system.includes('阅读体验')) return { text: '{}', json: { scores: scores(), issues: [] } };
     if (options.jsonMode) return { text: '{}', json: { beats: [{ goal: 'test' }] } };
     return { text: '自动化恢复测试的占位正文。'.repeat(100) };
@@ -173,6 +211,76 @@ test('模型中断后可恢复且不重生成已保存阶段', async context => 
   await host.request('/jobs/' + id + '/resume', {});
   assert.equal((await completed(host, id)).body.status, 'completed');
   assert.equal(host.calls() - before, 4);
+});
+
+test('供应商调用结果未知时阻止恢复且不自动重发', async context => {
+  const host = harness(context, async () => { throw new Error('connection reset after request'); });
+  const created = await host.request('/jobs', { count: 1, modelId: 'test-model' });
+  const done = await completed(host, created.body.id);
+  assert.equal(done.body.status, 'needs_review');
+  assert.equal(done.body.callCount, 1);
+  assert.equal((await host.persisted(created.body.id)).attempts[0].status, 'provider_unknown');
+  assert.equal((await host.request('/jobs/' + created.body.id + '/resume', {})).status, 409);
+  assert.equal(host.calls(), 1);
+});
+
+test('关闭盲测服务会中止并等待worker保存，且保留共享仓储', async context => {
+  let signal;
+  const host = harness(context, async options => {
+    signal = options.controller.signal;
+    await new Promise(resolve => signal.addEventListener('abort', resolve, { once: true }));
+    throw new Error('request aborted');
+  });
+  const created = await host.request('/jobs', { count: 1, modelId: 'test-model' });
+  for (let attempt = 0; attempt < 100 && !signal; attempt += 1) await new Promise(resolve => setTimeout(resolve, 2));
+  assert.ok(signal);
+  await host.lab.close();
+  const persisted = await host.persisted(created.body.id);
+  assert.equal(persisted.status, 'needs_review');
+  assert.equal(persisted.attempts[0].status, 'provider_unknown');
+  assert.equal((await host.repository.load({ owner: 'test@example.com', kind: 'blind', id: created.body.id })).job.id, created.body.id);
+});
+
+test('盲测后台写盘失败阻止模型调用、单任务返回503并由close报告', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xh-save-failure-'));
+  fs.mkdirSync(path.join(directory, 'xuanhuan-lab'));
+  fs.writeFileSync(path.join(directory, 'xuanhuan-lab', 'corpus.json'), JSON.stringify(fixtureCorpus()));
+  const storage = new JsonFileRepository(path.join(directory, 'lab-jobs-json'));
+  const durable = new JsonLabJobRepository(storage);
+  let sharedCloseCalls = 0, modelCalls = 0, lab;
+  const repository = {
+    init: input => durable.init(input),
+    load: input => durable.load(input),
+    list: input => durable.list(input),
+    save: input => input.job.status === 'queued' ? durable.save(input) : Promise.reject(new Error('simulated disk failure')),
+    close: async () => { sharedCloseCalls += 1; }
+  };
+  lab = createLab({ dataDir: directory, repository,
+    getAuthUser: async () => ({ token: 'test-token', user: { email: 'test@example.com', userId: 'test-user' } }),
+    readBody: async request => request.body || {}, json: (_response, status, body) => ({ status, body }),
+    callModel: async () => { modelCalls += 1; return { text: 'should not run' }; }
+  });
+  const request = (route, body, method) => lab.handle({ url: '/api/xuanhuan-lab' + route, method: method || (body ? 'POST' : 'GET'), body }, {});
+  try {
+    const created = await request('/jobs', { count: 1, modelId: 'test-model' });
+    assert.equal(created.status, 202);
+    let status;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      status = await request('/jobs/' + created.body.id);
+      if (status.status === 503) break;
+      await new Promise(resolve => setTimeout(resolve, 2));
+    }
+    assert.equal(status.status, 503);
+    assert.match(status.body.error, /持久化失败/);
+    assert.equal(modelCalls, 0);
+    await assert.rejects(lab.close(), error => error instanceof AggregateError && /后台任务或仓储错误/.test(error.message));
+    assert.equal((await request('/status', null, 'GET')).body.activeJob, null);
+    assert.equal(sharedCloseCalls, 0);
+  } finally {
+    await lab.close().catch(() => {});
+    await storage.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('三题小样本跨场景功能抽样，不全部抽到同一类', async context => {
@@ -188,10 +296,7 @@ test('连续十章的A/B标签固定、各分支账本独立落盘', async conte
   const done = await completed(host, created.body.id);
   assert.equal(done.body.status, 'completed');
   assert.equal(done.body.completed, 10);
-  const { DatabaseSync } = require('node:sqlite');
-  const database = new DatabaseSync(path.join(host.directory, 'xuanhuan-lab', 'blind.db'), { readOnly: true });
-  const job = JSON.parse(database.prepare('SELECT payload FROM jobs').get().payload);
-  database.close();
+  const job = await host.persisted(created.body.id);
   for (const item of job.cases) { assert.deepEqual(item.order, job.cases[0].order); for (const method of METHODS) assert.ok(item.outputs[method].ledger); }
 });
 

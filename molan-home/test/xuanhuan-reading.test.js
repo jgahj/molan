@@ -97,6 +97,50 @@ test('20次顺序调用完成六章及两次复盘；两书上下文隔离；重
   assert.equal(job.awaitingExpansionApproval, true); assert.equal(job.sourceVersionValid, true); assert.ok(!JSON.stringify(job).includes('test-token-not-real'));
   const repeated = await instance.request('/jobs', consent); assert.equal(repeated.body.id, job.id); assert.equal(instance.calls(), 20);
 });
+test('精读后台写盘失败阻止模型调用、单任务返回503并由close报告', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'reading-save-failure-'));
+  for (const book of BOOKS) fs.writeFileSync(path.join(directory, book.filename), manuscript);
+  const storage = new (require('../lib/repositories/json-file-repository').JsonFileRepository)(path.join(directory, 'lab-jobs-json'));
+  const durable = new (require('../lib/repositories/json-lab-job-repository').JsonLabJobRepository)(storage);
+  let sharedCloseCalls = 0, modelCalls = 0, saveCalls = 0, lab;
+  const repository = {
+    init: input => durable.init(input),
+    load: input => durable.load(input),
+    list: input => durable.list(input),
+    save: input => {
+      saveCalls += 1;
+      return saveCalls === 3 ? Promise.reject(new Error('simulated disk failure')) : durable.save(input);
+    },
+    close: async () => { sharedCloseCalls += 1; }
+  };
+  lab = createReadingLab({ dataDir: directory, sourceDirectory: directory, repository,
+    getAuthUser: async () => ({ token: 'test-token', user: { email: 'reader@example.com', userId: 'reader-user' } }),
+    readBody: async request => request.body || {}, json: (_response, status, body) => ({ status, body }),
+    preflight: async () => ({ model: { id: 'test-model', contextWindowTokens: 131072 }, estimate: { modelId: 'test-model', estimatedCredits: 0 } }),
+    callModel: async () => { modelCalls += 1; return { json: {} }; }
+  });
+  const request = (route, body, method) => lab.handle({ url: '/api/xuanhuan-reading' + route, method: method || (body ? 'POST' : 'GET'), body }, {});
+  try {
+    const created = await request('/jobs', { ...consent });
+    assert.equal(created.status, 202);
+    let status;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      status = await request('/jobs/' + created.body.id);
+      if (status.status === 503) break;
+      await new Promise(resolve => setTimeout(resolve, 2));
+    }
+    assert.equal(status.status, 503);
+    assert.match(status.body.error, /持久化失败/);
+    assert.equal(modelCalls, 0);
+    await assert.rejects(lab.close(), error => error instanceof AggregateError && /后台任务或仓储错误/.test(error.message));
+    assert.equal((await request('/status', null, 'GET')).body.activeJob, null);
+    assert.equal(sharedCloseCalls, 0);
+  } finally {
+    await lab.close().catch(() => {});
+    await storage.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
 test('未登录、跨账户、扩展30章和缺失预算均不能执行', async context => {
   const instance = harness(context); instance.owner(null); assert.equal((await instance.request('/status')).status, 401); instance.owner('reader@example.com');
   assert.equal((await instance.request('/jobs', { ...consent, chapterCount: 30 })).status, 400); assert.equal((await instance.request('/jobs', { ...consent, consent: false })).status, 400);

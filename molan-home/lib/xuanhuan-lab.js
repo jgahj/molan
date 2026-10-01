@@ -83,10 +83,96 @@ function validateVote(body) {
 function createLab(deps) {
   const directory = path.join(deps.dataDir, 'xuanhuan-lab');
   fs.mkdirSync(directory, { recursive: true });
-  const { DatabaseSync } = require('node:sqlite');
-  const database = new DatabaseSync(path.join(directory, 'blind.db'));
-  database.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, owner TEXT NOT NULL, payload TEXT NOT NULL, updated INTEGER NOT NULL)');
-  database.exec('CREATE TABLE IF NOT EXISTS reference_votes (owner TEXT NOT NULL, scene_id TEXT NOT NULL, scores TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,scene_id))');
+  for (const filename of ['blind.db', 'blind.db-wal']) {
+    const legacy = path.join(directory, filename);
+    if (fs.existsSync(legacy) && fs.statSync(legacy).size > 0) throw Object.assign(new Error('旧 blind.db 需要显式迁移，已拒绝创建空盲测仓储'), { code: 'LEGACY_BLIND_STORE_PRESENT' });
+  }
+  const ownedRepository = deps.repository ? null : new (require('./repositories/json-file-repository').JsonFileRepository)(process.env.MOLAN_LAB_JOB_DIR || path.join(deps.dataDir, 'lab-jobs-json'));
+  const repository = deps.repository || new (require('./repositories/json-lab-job-repository').JsonLabJobRepository)(ownedRepository);
+  const revisions = new WeakMap();
+  const actors = new WeakMap();
+  const saves = new WeakMap();
+  const scopedRecovery = new Map();
+  const workers = new Set();
+  const taskFailures = new Map();
+  let initialization;
+  let closed = false;
+  let closePromise;
+  function rememberTaskFailure(job, error) {
+    if (!taskFailures.has(job.id)) taskFailures.set(job.id, error);
+  }
+  function failIfTaskPersistenceFailed(id) {
+    if (!taskFailures.has(id)) return;
+    throw Object.assign(new Error('任务状态持久化失败，请检查存储后重试'), { status: 503, code: 'JOB_PERSISTENCE_FAILED' });
+  }
+  function init() {
+    if (!initialization) initialization = repository.init({ kind: 'blind', recover: typeof repository.recoverScoped !== 'function' });
+    return initialization;
+  }
+  async function recoverOwner(owner, actorUserId) {
+    if (typeof repository.recoverScoped !== 'function') return;
+    if (!actorUserId) throw Object.assign(new Error('盲测账户缺少稳定身份'), { status: 401, code: 'ACTOR_USER_ID_REQUIRED' });
+    const key = `${actorUserId}:${owner}`;
+    if (!scopedRecovery.has(key)) scopedRecovery.set(key, repository.recoverScoped({ owner, actorUserId, kind: 'blind' }));
+    await scopedRecovery.get(key);
+  }
+  function remember(job, actorUserId, revision = 0) {
+    actors.set(job, actorUserId);
+    revisions.set(job, revision);
+    return job;
+  }
+  async function saveSnapshot(job, snapshot, actorUserId) {
+    const input = { owner: job.owner, actorUserId, kind: 'blind', job: snapshot };
+    let expectedRevision = revisions.get(job) || 0;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      try {
+        const row = await repository.save({ ...input, expectedRevision });
+        revisions.set(job, row.revision);
+        job.votes = { ...job.votes, ...row.job.votes };
+        return row;
+      } catch (error) {
+        if (error.code !== 'REVISION_CONFLICT') throw error;
+        const latest = await repository.load({ owner: job.owner, actorUserId, kind: 'blind', id: job.id });
+        if (!latest) throw error;
+        expectedRevision = latest.revision;
+        revisions.set(job, latest.revision);
+        snapshot.votes = { ...snapshot.votes, ...latest.job.votes };
+        job.votes = { ...job.votes, ...latest.job.votes };
+      }
+    }
+    throw Object.assign(new Error('盲测任务并发保存冲突，请重新读取后再操作'), { code: 'REVISION_CONFLICT', status: 409 });
+  }
+  function save(job) {
+    const snapshot = structuredClone(job);
+    const actorUserId = actors.get(job);
+    const previous = saves.get(job) || Promise.resolve();
+    const next = previous.catch(() => {}).then(() => saveSnapshot(job, snapshot, actorUserId)).catch(error => {
+      rememberTaskFailure(job, error);
+      throw error;
+    });
+    saves.set(job, next);
+    return next;
+  }
+  async function load(id, owner, actorUserId) {
+    const row = await repository.load({ owner, actorUserId, kind: 'blind', id });
+    if (!row) throw Object.assign(new Error('盲测任务不存在或无权访问'), { status: 404 });
+    return remember(row.job, actorUserId, row.revision);
+  }
+  async function recordVote(owner, actorUserId, id, caseId, vote) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const row = await repository.load({ owner, actorUserId, kind: 'blind', id });
+      if (!row) throw Object.assign(new Error('盲测任务不存在或无权访问'), { status: 404 });
+      if (row.job.votes?.[caseId]) throw new Error('该题已提交，原始盲测评分不能覆盖');
+      const item = row.job.cases.find(entry => entry.id === caseId);
+      if (!item || !METHODS.every(method => item.outputs[method])) throw new Error('该题尚未完整生成');
+      try {
+        return await repository.vote({ owner, actorUserId, kind: 'blind', id, caseId, vote, expectedRevision: row.revision });
+      } catch (error) {
+        if (error.code !== 'REVISION_CONFLICT') throw error;
+      }
+    }
+    throw Object.assign(new Error('盲测评分发生并发冲突，请重新读取后提交'), { status: 409, code: 'REVISION_CONFLICT' });
+  }
   const active = new Map();
   let corpus;
 
@@ -145,7 +231,7 @@ function createLab(deps) {
     return loadCorpus();
   }
 
-  function benchmarks(owner) {
+  async function benchmarks(owner, actorUserId) {
     const assetStatus = corpusStatus();
     if (!assetStatus.available) {
       return { available: false, status: 'unavailable', finished: false, requiredSamples: MIN_HOLDOUT_BOOKS, availableSamples: 0, message: assetStatus.message, samples: [] };
@@ -156,7 +242,7 @@ function createLab(deps) {
       books.add(scene.bookId || scene.id);
       return true;
     }).slice(0, MIN_HOLDOUT_BOOKS);
-    const votes = new Map(database.prepare('SELECT scene_id,scores FROM reference_votes WHERE owner=?').all(owner).map(row => [row.scene_id, JSON.parse(row.scores)]));
+    const votes = new Map((await repository.referenceVotes({ owner, actorUserId })).map(row => [row.sceneId, row.scores]));
     const enoughSamples = selected.length >= MIN_HOLDOUT_BOOKS;
     const finished = enoughSamples && selected.every(scene => votes.has(scene.id));
     return {
@@ -172,55 +258,92 @@ function createLab(deps) {
     };
   }
 
-  function save(job) {
-    const existing = database.prepare('SELECT payload FROM jobs WHERE id=? AND owner=?').get(job.id, job.owner);
-    if (existing) job.votes = { ...job.votes, ...JSON.parse(existing.payload).votes };
-    database.prepare('INSERT INTO jobs(id,owner,payload,updated) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated=excluded.updated').run(job.id, job.owner, JSON.stringify(job), Date.now());
-  }
-
-  function load(id, owner) {
-    const row = database.prepare('SELECT payload FROM jobs WHERE id=? AND owner=?').get(id, owner);
-    if (!row) throw Object.assign(new Error('盲测任务不存在或无权访问'), { status: 404 });
-    return JSON.parse(row.payload);
-  }
-
-  for (const row of database.prepare('SELECT payload FROM jobs').all()) {
-    const job = JSON.parse(row.payload);
-    if (job.status === 'running') { job.status = 'interrupted'; job.error = '服务重启，已完成阶段保留。恢复可能重发未保存响应的调用，请核对账单。'; save(job); }
-  }
-
   async function model(auth, options, controller) {
     return deps.callModel(auth, { ...options, controller, timeoutMs: 600000, thinking: false, reasoningEffort: 'none', stage: options.stage || 'single' });
   }
 
   async function stage(job, key, auth, options, controller) {
     if (controller.signal.aborted) throw new Error('已停止任务');
+    failIfTaskPersistenceFailed(job.id);
     if (job.stages[key]) {
       try { if (options.validate) options.validate(job.stages[key]); return job.stages[key]; }
-      catch (_) { delete job.stages[key]; save(job); }
+      catch (_) { delete job.stages[key]; await save(job); }
     }
-    let output;
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      if (controller.signal.aborted) throw new Error('已停止任务');
-      if (job.callCount >= job.maxCalls) throw new Error('已达到本次调用次数上限，请检查已生成结果');
-      job.callCount += 1;
-      save(job);
+    if (job.attempts?.some(attempt => attempt.stage === key && attempt.status === 'provider_unknown')) {
+      throw Object.assign(new Error('供应商结果未知，须人工核对后才能恢复'), { providerOutcomeUnknown: true });
+    }
+    const received = job.attempts?.findLast(attempt => attempt.stage === key && attempt.status === 'response_received' && attempt.response);
+    if (received) {
       try {
-        output = await model(auth, { ...options, modelId: options.modelId || job.modelId, recordId: job.id, unitId: key, promptVersion: quality.VERSION }, controller);
-        break;
+        if (!String(received.response.text || '').trim()) throw new Error('模型未返回正文');
+        if (options.jsonMode && (!received.response.json || typeof received.response.json !== 'object')) throw new Error('模型未返回可解析结构，已停止，未把错误文本当结果');
+        if (options.validate) options.validate(received.response);
+        job.stages[key] = received.response;
+        received.status = 'completed';
+        received.finishedAt = Date.now();
+        delete received.response;
+        await save(job);
+        return job.stages[key];
       } catch (error) {
-        const limited = /并发较高|请求过于频繁|429|rate.?limit|too many requests/i.test(String(error.message || ''));
-        if (!limited || attempt === 3 || controller.signal.aborted) throw error;
-        await (deps.wait || wait)(10000 * (attempt + 1), undefined, { signal: controller.signal });
+        received.status = 'response_invalid';
+        received.finishedAt = Date.now();
+        received.error = String(error.message || error).slice(0, 300);
+        await save(job);
+        throw error;
       }
     }
-    if (!output || !String(output.text || '').trim()) throw new Error('模型未返回正文');
-    if (options.jsonMode && (!output.json || typeof output.json !== 'object')) throw new Error('模型未返回可解析结构，已停止，未把错误文本当结果');
-    if (options.validate) options.validate(output);
-    job.stages[key] = output;
-    job.usage.push({ key, model: options.modelId || job.modelId, usage: output.usage || null });
-    save(job);
-    return output;
+    for (let attemptIndex = 0; attemptIndex < 4; attemptIndex += 1) {
+      if (controller.signal.aborted) throw new Error('已停止任务');
+      if (job.callCount >= job.maxCalls) throw new Error('已达到本次调用次数上限，请检查已生成结果');
+      const attempt = { stage: key, number: job.callCount + 1, startedAt: Date.now(), status: 'provider_started' };
+      job.callCount = attempt.number;
+      (job.attempts ||= []).push(attempt);
+      await save(job);
+      let output;
+      try {
+        failIfTaskPersistenceFailed(job.id);
+        output = await model(auth, { ...options, modelId: options.modelId || job.modelId, recordId: job.id, unitId: key, promptVersion: quality.VERSION }, controller);
+      } catch (error) {
+        const limited = Number(error.status || error.statusCode) === 429 || /并发较高|请求过于频繁|429|rate.?limit|too many requests/i.test(String(error.message || ''));
+        attempt.status = limited ? 'rate_limited' : 'provider_unknown';
+        attempt.finishedAt = Date.now();
+        attempt.error = String(error.message || error).slice(0, 300);
+        await save(job);
+        if (!limited) throw Object.assign(new Error('供应商调用结果未知，须人工核对后才能恢复'), { providerOutcomeUnknown: true, cause: error });
+        if (attemptIndex === 3 || controller.signal.aborted) throw error;
+        await (deps.wait || wait)(10000 * (attemptIndex + 1), undefined, { signal: controller.signal });
+        continue;
+      }
+      if (!output || typeof output !== 'object') {
+        attempt.status = 'response_invalid';
+        attempt.finishedAt = Date.now();
+        attempt.error = '模型未返回可保存的响应对象';
+        await save(job);
+        throw new Error(attempt.error);
+      }
+      attempt.status = 'response_received';
+      attempt.finishedAt = Date.now();
+      attempt.response = output;
+      job.usage.push({ key, model: options.modelId || job.modelId, usage: output.usage || null });
+      await save(job);
+      try {
+        if (!String(output.text || '').trim()) throw new Error('模型未返回正文');
+        if (options.jsonMode && (!output.json || typeof output.json !== 'object')) throw new Error('模型未返回可解析结构，已停止，未把错误文本当结果');
+        if (options.validate) options.validate(output);
+      } catch (error) {
+        attempt.status = 'response_invalid';
+        attempt.finishedAt = Date.now();
+        attempt.error = String(error.message || error).slice(0, 300);
+        await save(job);
+        throw error;
+      }
+      job.stages[key] = output;
+      attempt.status = 'completed';
+      delete attempt.response;
+      await save(job);
+      return output;
+    }
+    throw new Error('供应商限流后未能完成阶段');
   }
 
   function reviewOptions(text, prompt, modelId) {
@@ -234,8 +357,10 @@ function createLab(deps) {
     const controller = new AbortController();
     const execution = { id: job.id, controller, userCancelled: false };
     active.set(job.owner, execution);
-    job.status = 'running'; job.error = ''; delete job.privateError; save(job);
+    job.status = 'running'; job.error = ''; delete job.privateError;
     try {
+      await save(job);
+      taskFailures.delete(job.id);
       const generateCase = async index => {
         const item = job.cases[index];
         const scenes = quality.retrieve(loadCorpus(), item.prompt, 3);
@@ -291,7 +416,7 @@ function createLab(deps) {
             if (checks.status === 'incomplete') throw new Error(checks.reason === 'source_text_missing' ? '生成正文为空，来源检查未完成' : '玄幻原文语料不可用，来源检查未完成');
             if (!checks.passed) throw new Error('发现与检索来源的长片段重合，任务暂停，未将风险稿交付盲测');
             item.outputs[method] = { text, checks, review, revision, sourceIds: scenes.map(scene => scene.id) };
-            save(job);
+            await save(job);
           }
           if (job.kind === 'serial' && !item.outputs[method].ledger) {
             const previousLedger = index > 0 ? job.cases[index - 1].outputs[method].ledger : {};
@@ -301,7 +426,7 @@ function createLab(deps) {
             const value = ledger.json;
             if (!['worldFacts', 'characterKnowledge', 'readerPromises'].every(key => Array.isArray(value[key]))) throw new Error('三本账结构不完整');
             item.outputs[method].ledger = Object.fromEntries(['worldFacts', 'characterKnowledge', 'readerPromises'].map(key => [key, value[key].slice(0, 20)]));
-            save(job);
+            await save(job);
           }
         }
       };
@@ -324,10 +449,25 @@ function createLab(deps) {
       if (controller.signal.aborted) throw new Error('任务已中止');
       job.status = 'completed';
     } catch (error) {
-      job.status = execution.userCancelled ? 'cancelled' : 'interrupted';
-      job.error = execution.userCancelled ? '已停止，已完成内容保留。' : '生成中断，已完成阶段保留。请检查服务、余额或模型响应后恢复。';
+      const unresolved = error.providerOutcomeUnknown || job.attempts?.some(attempt => attempt.status === 'provider_unknown');
+      job.status = unresolved ? 'needs_review' : execution.userCancelled ? 'cancelled' : 'interrupted';
+      job.error = unresolved ? '供应商结果未知，须人工核对后才能恢复。' : execution.userCancelled ? '已停止，已完成内容保留。' : '生成中断，已完成阶段保留。请检查服务、余额或模型响应后恢复。';
       job.privateError = String(error && error.message || error).slice(0, 1000);
-    } finally { save(job); active.delete(job.owner); }
+    } finally {
+      try { await save(job); } finally { active.delete(job.owner); }
+    }
+  }
+
+  function start(job, auth) {
+    if (closed) throw Object.assign(new Error('盲测服务正在关闭'), { status: 503 });
+    const task = run(job, auth).finally(() => workers.delete(task));
+    workers.add(task);
+    task.catch(error => {
+      rememberTaskFailure(job, error);
+      if (active.get(job.owner)?.id === job.id) active.delete(job.owner);
+      console.error('[xuanhuan lab worker]', error.message);
+    });
+    return task;
   }
 
   async function compare(auth, body) {
@@ -382,25 +522,29 @@ ${routeInfo.corePrinciples.map((p, i) => `${i + 1}. ${p}`).join('\n')}
 
   async function handle(req, res) {
     try {
+      await init();
       const auth = await deps.getAuthUser(req);
-      if (!auth) return deps.json(res, 401, { error: '请先在网站登录，再打开盲测工作台' });
+      if (!auth?.user?.email) return deps.json(res, 401, { error: '请先在网站登录，再打开盲测工作台' });
+      const owner = auth.user.email.toLowerCase();
+      const actorUserId = auth.user.userId;
+      await recoverOwner(owner, actorUserId);
       const url = new URL(req.url, 'http://localhost');
       const route = url.pathname.replace('/api/xuanhuan-lab', '') || '/status';
-      const owner = auth.user.email;
       if (req.method === 'GET' && route === '/status') {
         const assets = corpusStatus();
         return deps.json(res, 200, { corpus: assets.summary || null, corpusStatus: assets, tasks, sequenceTasks, dimensions: quality.DIMENSIONS, activeJob: active.get(owner)?.id || null });
       }
-      if (req.method === 'GET' && route === '/benchmarks') return deps.json(res, 200, benchmarks(owner));
+      if (req.method === 'GET' && route === '/benchmarks') return deps.json(res, 200, await benchmarks(owner, actorUserId));
       if (req.method === 'POST' && route === '/benchmarks/vote') {
         const body = await deps.readBody(req);
-        const sample = benchmarks(owner).samples.find(item => item.id === body.id);
+        const current = await benchmarks(owner, actorUserId);
+        const sample = current.samples.find(item => item.id === body.id);
         if (!sample) throw new Error('参照片段不存在');
         if (sample.scores) throw new Error('参照评分已保存，不能覆盖');
         const scores = {};
         for (const dimension of quality.DIMENSIONS) { const value = Number(body.scores && body.scores[dimension]); if (!Number.isInteger(value) || value < 1 || value > 5) throw new Error('请完成六个维度的1—5分评分'); scores[dimension] = value; }
-        database.prepare('INSERT INTO reference_votes(owner,scene_id,scores,updated) VALUES(?,?,?,?)').run(owner, sample.id, JSON.stringify(scores), Date.now());
-        return deps.json(res, 200, benchmarks(owner));
+        await repository.recordReferenceVote({ owner, actorUserId, sceneId: sample.id, scores });
+        return deps.json(res, 200, await benchmarks(owner, actorUserId));
       }
       if (req.method === 'POST' && route === '/retrieve') {
         const body = await deps.readBody(req);
@@ -418,8 +562,8 @@ ${routeInfo.corePrinciples.map((p, i) => `${i + 1}. ${p}`).join('\n')}
         return deps.json(res, 200, quality.deterministicChecks(text, Math.max(800, Math.min(5000, Number(body.targetLength) || 2000)), loadCorpus().scenes));
       }
       if (req.method === 'GET' && route === '/jobs') {
-        const rows = database.prepare('SELECT payload FROM jobs WHERE owner=? ORDER BY updated DESC LIMIT 40').all(owner);
-        return deps.json(res, 200, { jobs: rows.map(row => { const job = publicJob(JSON.parse(row.payload)); delete job.cases; return job; }) });
+        const rows = await repository.list({ owner, actorUserId, kind: 'blind', limit: 40 });
+        return deps.json(res, 200, { jobs: rows.map(row => { const job = publicJob(row.job); delete job.cases; return job; }) });
       }
       if (req.method === 'POST' && route === '/jobs') {
         if (active.has(owner)) return deps.json(res, 409, { error: '已有生成任务在运行' });
@@ -436,19 +580,24 @@ ${routeInfo.corePrinciples.map((p, i) => `${i + 1}. ${p}`).join('\n')}
         const commonOrder = shuffle(METHODS);
         const narrativeRoute = ['yuanshi', 'jianzhu'].includes(body.narrativeRoute) ? body.narrativeRoute : 'auto';
         const job = { id: crypto.randomUUID(), owner, createdAt: Date.now(), status: 'queued', kind, modelId, judgeModelId: String(body.judgeModelId || modelId).slice(0, 120), narrativeRoute, targetLength, maxCalls: selected.length * (kind === 'serial' ? 16 : 9), callCount: 0, corpusVersion: sourceCorpus.version, protocol: { version: quality.VERSION, methods: METHOD_NAMES, splitPolicy: sourceCorpus.splitPolicy, disclosure: '规则技法候选；人工未校准；相同模型四方案；非现有整链路的完全复刻', sequence: kind === 'serial' ? '每个方案独立三本账，方案标签跨章节固定' : '独立场景；D复用C初稿以隔离修订收益' }, usage: [], stages: {}, votes: {}, cases: selected.map(task => ({ ...task, order: kind === 'serial' ? commonOrder : shuffle(METHODS), outputs: {} })) };
-        save(job);
-        void run(job, auth);
+        remember(job, actorUserId);
+        await save(job);
+        start(job, auth);
         return deps.json(res, 202, publicJob(job));
       }
       const match = route.match(/^\/jobs\/([a-f0-9-]+)(?:\/(resume|cancel|vote|reveal|export))?$/);
       if (!match) return deps.json(res, 404, { error: '接口不存在' });
-      const job = load(match[1], owner);
+      const job = await load(match[1], owner, actorUserId);
       const action = match[2] || '';
-      if (req.method === 'GET' && !action) return deps.json(res, 200, publicJob(job));
+      if (req.method === 'GET' && !action) {
+        failIfTaskPersistenceFailed(job.id);
+        return deps.json(res, 200, publicJob(job));
+      }
       if (req.method === 'POST' && action === 'resume') {
         if (job.status === 'completed') return deps.json(res, 200, publicJob(job));
+        if (job.status === 'needs_review' || job.attempts?.some(attempt => attempt.status === 'provider_unknown')) return deps.json(res, 409, { error: '供应商结果未知，须人工核对后才能恢复' });
         if (active.has(owner)) return deps.json(res, 409, { error: '已有生成任务在运行' });
-        void run(job, auth); return deps.json(res, 202, publicJob(job));
+        start(job, auth); return deps.json(res, 202, publicJob(job));
       }
       if (req.method === 'POST' && action === 'cancel') {
         if (active.get(owner)?.id === job.id) { active.get(owner).userCancelled = true; active.get(owner).controller.abort(); }
@@ -456,17 +605,13 @@ ${routeInfo.corePrinciples.map((p, i) => `${i + 1}. ${p}`).join('\n')}
       }
       if (req.method === 'POST' && action === 'vote') {
         const body = await deps.readBody(req);
-        const latest = load(job.id, owner);
-        const item = latest.cases.find(entry => entry.id === body.caseId);
-        if (!item || !METHODS.every(method => item.outputs[method])) throw new Error('该题尚未完整生成');
-        if (latest.votes[item.id]) throw new Error('该题已提交，原始盲测评分不能覆盖');
-        latest.votes[item.id] = validateVote(body); save(latest);
-        return deps.json(res, 200, publicJob(latest));
+        const saved = await recordVote(owner, actorUserId, job.id, body.caseId, validateVote(body));
+        return deps.json(res, 200, publicJob(saved.job));
       }
       if (req.method === 'GET' && ['reveal', 'export'].includes(action)) {
         if (!publicJob(job).canReveal) return deps.json(res, 409, { error: '全部题目评分完成后才能揭晓或导出' });
         const result = publicJob(job, true);
-        result.referenceBenchmark = benchmarks(owner);
+        result.referenceBenchmark = await benchmarks(owner, actorUserId);
         if (action === 'export') result.preferencePairs = job.cases.flatMap(item => {
           const vote = job.votes[item.id];
           if (!['A', 'B', 'C', 'D'].includes(vote.winner)) return [];
@@ -479,7 +624,21 @@ ${routeInfo.corePrinciples.map((p, i) => `${i + 1}. ${p}`).join('\n')}
     } catch (error) { return deps.json(res, error.status || 400, { error: error.code === 'ENOENT' ? '玄幻语料库尚未构建，请运行构建脚本' : String(error.message || '盲测请求失败').slice(0, 300) }); }
   }
 
-  return { handle, compare, close: () => database.close() };
+  return { handle, compare, close: () => {
+    if (closePromise) return closePromise;
+    closed = true;
+    closePromise = (async () => {
+      const failures = [];
+      for (const execution of active.values()) execution.controller.abort();
+      await Promise.allSettled([...workers]);
+      for (const [id, error] of taskFailures) failures.push(new Error(`盲测任务 ${id} 持久化失败: ${String(error?.message || error).slice(0, 300)}`, { cause: error }));
+      try {
+        if (ownedRepository) await ownedRepository.close();
+      } catch (error) { failures.push(error); }
+      if (failures.length) throw new AggregateError(failures, '盲测服务关闭时发现后台任务或仓储错误');
+    })();
+    return closePromise;
+  } };
 }
 
 module.exports = { createLab, publicJob, validateVote, authenticateCloud, METHODS, METHOD_NAMES };

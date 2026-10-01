@@ -89,8 +89,9 @@ function createPostgresLabJobMethods({ withTransaction, withWorkerTransaction, i
           ${input.kind ? 'AND job_kind=$1::text' : ''} FOR UPDATE`, input.kind ? [input.kind] : []);
         for (const row of result.rows) {
           const job = clone(row.payload);
-          const unresolved = (job.attempts || []).some(attempt => ['running', 'provider_started'].includes(attempt.status)) ||
-            job.pendingProvider === true || Number(job.callCount || 0) > Object.keys(job.stages || {}).length;
+          const journaledAttempts = Array.isArray(job.attempts) ? job.attempts.length : Object.keys(job.stages || {}).length;
+          const unresolved = (job.attempts || []).some(attempt => ['running', 'provider_started', 'provider_unknown'].includes(attempt.status)) ||
+            job.pendingProvider === true || Number(job.callCount || 0) > journaledAttempts;
           job.status = unresolved ? 'needs_review' : 'interrupted';
           job.error = unresolved ? 'Provider outcome or usage is unresolved; manual review required before resume.' : 'Service restarted; saved stages preserved.';
           for (const attempt of job.attempts || []) if (['running', 'provider_started'].includes(attempt.status)) {
@@ -113,8 +114,9 @@ function createPostgresLabJobMethods({ withTransaction, withWorkerTransaction, i
           ${input.kind ? 'AND job_kind=$3::text' : ''} FOR UPDATE`, [internalUuid(actorId), owner, ...(input.kind ? [input.kind] : [])]);
         for (const row of result.rows) {
           const job = clone(row.payload);
-          const unresolved = (job.attempts || []).some(attempt => ['running', 'provider_started'].includes(attempt.status)) ||
-            job.pendingProvider === true || Number(job.callCount || 0) > Object.keys(job.stages || {}).length;
+          const journaledAttempts = Array.isArray(job.attempts) ? job.attempts.length : Object.keys(job.stages || {}).length;
+          const unresolved = (job.attempts || []).some(attempt => ['running', 'provider_started', 'provider_unknown'].includes(attempt.status)) ||
+            job.pendingProvider === true || Number(job.callCount || 0) > journaledAttempts;
           job.status = unresolved ? 'needs_review' : 'interrupted';
           job.error = unresolved ? 'Provider outcome or usage is unresolved; manual review required before resume.' : 'Service restarted; saved stages preserved.';
           for (const attempt of job.attempts || []) if (['running', 'provider_started'].includes(attempt.status)) { attempt.status = 'provider_unknown'; attempt.error = 'Service restarted while provider call was unresolved.'; }
