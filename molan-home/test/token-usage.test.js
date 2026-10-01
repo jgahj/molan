@@ -911,7 +911,7 @@ test('reserves credits atomically and holds reservation when usage is missing', 
     assert.equal(reserveCredits(user, 'unknown-model', 'unknown-model', 'reserve-b', 0.8).ok, false);
 
     const pending = settleTokenUsage({ requestId: 'reserve-a', userEmail: email, modelId: 'unknown-model', providerModel: 'unknown-model', promptTokens: null, completionTokens: null, reasoningTokens: null, totalTokens: null, cachedTokens: null, cacheWriteTokens: null, usageSource: 'unavailable', status: 'usage_unavailable', createdAt: Date.now(), durationMs: 1 });
-    assert.equal(pending.creditCost, 0);
+    assert.equal(pending.creditCost, null);
     assert.equal(pending.billingStatus, 'pending');
     const savedUsers = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
     const saved = savedUsers.find(item => item.email === email);

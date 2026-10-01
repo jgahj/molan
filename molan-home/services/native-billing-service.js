@@ -25,10 +25,15 @@ function createNativeBillingService({ repository, isAdminUser, creditCostForUser
   async function settleTokenUsage(event) {
     const user = await repository.getAccount(event.userId || { email: event.userEmail });
     if (!user) throw Object.assign(new Error('账户不存在'), { status: 404 });
-    const exact = toTokenCount(event.totalTokens) !== null;
-    if (!exact && event.status === 'usage_unavailable') return { recorded: false, creditCost: 0, billingStatus: 'pending' };
+    const exact = toTokenCount(event.totalTokens) !== null && event.providerUsageIncomplete !== true;
     const old = await repository.lookupTokenUsage({ userId: user.userId, projectId: event.projectId || '', requestId: event.requestId });
     if (!old) throw Object.assign(new Error('费用预占不存在'), { status: 409 });
+    if (!exact && (old.status === 'provider_unknown' || event.providerUsageIncomplete === true ||
+        event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true)) {
+      const result = await repository.holdTokenUsage({ userId: user.userId, projectId: event.projectId || '',
+        requestId: event.requestId, usage: event });
+      return { recorded: !result.idempotent, creditCost: result.actualCost, billingStatus: result.billingStatus };
+    }
     const cost = exact ? creditCostForUser(user, event.modelId, event.totalTokens)
       : event.status === 'credit_exhausted' ? roundCreditValue(event.estimatedCreditCost) : 0;
     const actualCost = Math.min(old.reservedCost, cost);

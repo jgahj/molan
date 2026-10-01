@@ -384,6 +384,24 @@ class JsonAppRepository {
       return { ...row, idempotent: false };
     });
   }
+  async holdTokenUsage(input) {
+    if (!input.userId || !input.requestId) fail('INVALID_USAGE', 422);
+    const scope = usageScope(input);
+    return this.repository.transaction([scope], tx => {
+      const reservation = tx.get(scope, 'generation', key('reservation', input.requestId));
+      if (!reservation || reservation.userId !== input.userId) fail('RESERVATION_NOT_FOUND', 404);
+      const settled = tx.get(scope, 'ledger', key('reservation-settlement', input.requestId));
+      if (settled) return { ...settled, billingStatus: 'exact', idempotent: true };
+      const previous = tx.get(scope, 'ledger', key('reservation-pending', input.requestId));
+      if (previous) return { ...previous, billingStatus: 'pending', idempotent: true };
+      if (reservation.status !== 'reserved') fail('RESERVATION_ALREADY_RELEASED', 409);
+      tx.put(scope, 'generation', { ...reservation, status: 'provider_unknown', updatedAt: this.now() }, reservation.revision);
+      return { ...tx.put(scope, 'ledger', { id: key('reservation-pending', input.requestId), kind: 'usage-pending',
+        userId: input.userId, requestId: input.requestId, reservedCost: reservation.reservedCost, actualCost: null,
+        outcome: input.usage?.status || 'provider_unknown', usage: { ...clone(input.usage || {}), creditCost: null, billingStatus: 'pending' }, createdAt: this.now() }, 0),
+        billingStatus: 'pending', idempotent: false };
+    });
+  }
   async settleTokenUsage(input) {
     if (!input.requestId || !Number.isFinite(input.actualCost) || input.actualCost < 0) fail('INVALID_USAGE', 422);
     const scope = usageScope(input);
@@ -397,7 +415,7 @@ class JsonAppRepository {
         if (previous.actualCost !== amount || previous.userId !== input.userId || previous.outcome !== (input.outcome || 'succeeded')) fail('IDEMPOTENCY_KEY_REUSED', 409);
         return { ...previous, idempotent: true };
       }
-      if (reservation.status !== 'reserved') fail('RESERVATION_ALREADY_RELEASED', 409);
+      if (!['reserved', 'provider_unknown'].includes(reservation.status)) fail('RESERVATION_ALREADY_RELEASED', 409);
       if (amount > reservation.reservedCost) fail('RESERVATION_LIMIT_EXCEEDED', 409);
       const account = tx.get(null, 'accounts', key('account', input.userId));
       if (!account) fail('ACCOUNT_NOT_FOUND', 404);
@@ -449,7 +467,11 @@ class JsonAppRepository {
     const scopes = projectId ? [projectId] : [usageScope({ userId }),
       ...(await this.repository.novels.list(INDEX)).filter(row => row.kind === 'project-index').map(row => row.projectId)];
     const rows = [];
-    for (const scope of scopes) rows.push(...(await this.repository.ledger.list(scope)).filter(row => row.kind === 'usage-settlement' && row.userId === userId));
+    for (const scope of scopes) {
+      const ledger = (await this.repository.ledger.list(scope)).filter(row => row.userId === userId);
+      const settled = new Set(ledger.filter(row => row.kind === 'usage-settlement').map(row => row.requestId));
+      rows.push(...ledger.filter(row => row.kind === 'usage-settlement' || row.kind === 'usage-pending' && !settled.has(row.requestId)));
+    }
     return rows.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
   }
   async adjustCredits({ userId, delta, expectedRevision }) {

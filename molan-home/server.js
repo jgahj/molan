@@ -3430,12 +3430,13 @@ function settleTokenUsage(event) {
   const email = String(event && event.userEmail || '').trim().toLowerCase();
   const user = getUserByEmail(email) || { email };
   const userId = String(user.userId || projectScope.stableUserId(email)).trim();
-  const exact = toTokenCount(event && event.totalTokens) !== null;
+  const exact = toTokenCount(event && event.totalTokens) !== null && event.providerUsageIncomplete !== true;
   const estimatedCost = roundCreditValue(event && event.estimatedCreditCost);
   const requestedCost = exact ? creditCostForUser(user, event.modelId, event.totalTokens) : estimatedCost;
 
   if (POSTGRES_MODE) {
     const row = usageRowFromEvent(event, exact ? requestedCost : (event.status === 'credit_exhausted' ? requestedCost : 0), event.reservedCost);
+    const holdReservation = !exact && (event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true);
     return postgresRepository.runtimeSettleTokenUsage({
       actorUserId: userId,
       userId,
@@ -3443,25 +3444,29 @@ function settleTokenUsage(event) {
       actualCost: row.creditCost,
       reservedCost: row.reservedCost,
       isAdmin: isAdminUser(user),
-      document: usageDocumentFromRow(row),
+      holdReservation,
+      document: { ...usageDocumentFromRow(row), provider_request_sent: event.providerRequestSent === true,
+        provider_response_received: event.providerResponseReceived === true,
+        provider_usage_incomplete: event.providerUsageIncomplete === true, termination_status: event.terminationStatus || event.status },
       cells: []
     }).then(result => ({
       recorded: !!result.recorded,
-      creditCost: roundCreditValue(result.creditCost),
-      billingStatus: exact ? 'exact' : (event.status === 'credit_exhausted' ? 'capped_estimate' : 'released')
+      creditCost: result.billingStatus === 'pending' ? null : roundCreditValue(result.creditCost),
+      billingStatus: result.billingStatus || (exact ? 'exact' : (event.status === 'credit_exhausted' ? 'capped_estimate' : 'released'))
     }));
   }
   if (dbReady()) {
     db.exec('BEGIN IMMEDIATE');
     try {
       const existing = db.prepare('SELECT * FROM token_usage WHERE request_id = ?').get(event.requestId);
-      if (existing && existing.status === 'reserved') {
+      if (existing && ['reserved', 'provider_unknown'].includes(existing.status)) {
         const reserved = roundCreditValue(existing.reserved_cost);
         // If the provider did not return usage, keep the reservation held until
         // reconciliation. This prevents an unmetered response from becoming free.
-        if (!exact && event.status === 'usage_unavailable') {
+        if (!exact && (existing.status === 'provider_unknown' || event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true)) {
+          db.prepare("UPDATE token_usage SET status = 'provider_unknown' WHERE request_id = ? AND status = 'reserved'").run(event.requestId);
           db.exec('COMMIT');
-          return { recorded: false, creditCost: 0, billingStatus: 'pending' };
+          return { recorded: false, creditCost: null, billingStatus: 'pending' };
         }
         const actualCost = !exact && event.status === 'upstream_error'
           ? 0
@@ -3478,7 +3483,7 @@ function settleTokenUsage(event) {
           user_id = ?, workspace_id = ?, project_id = ?, model_id = ?, provider_model = ?, prompt_tokens = ?, completion_tokens = ?, reasoning_tokens = ?, total_tokens = ?,
           cached_tokens = ?, cache_write_tokens = ?, usage_source = ?, status = ?, created_at = ?, duration_ms = ?, credit_cost = ?, reserved_cost = ?,
           skill_ids_json = ?, skill_audit_json = ?, messages_sha256 = ?
-          WHERE request_id = ? AND status = 'reserved'`).run(
+          WHERE request_id = ? AND status IN ('reserved', 'provider_unknown')`).run(
           userId, row.workspaceId, row.projectId, row.modelId, row.providerModel, row.promptTokens, row.completionTokens, row.reasoningTokens, row.totalTokens,
           row.cachedTokens, row.cacheWriteTokens, row.usageSource, row.status, row.createdAt, row.durationMs,
           row.creditCost, row.reservedCost, JSON.stringify(row.skillIds), JSON.stringify(row.skillAudit), row.messagesHash, row.requestId
@@ -3511,8 +3516,12 @@ function settleTokenUsage(event) {
   const index = rows.findIndex(item => item && item.requestId === event.requestId);
   if (index >= 0) {
     const existing = rows[index];
-    if (existing.status !== 'reserved') return { recorded: false, creditCost: roundCreditValue(existing.creditCost), billingStatus: existing.status === 'usage_unavailable' ? 'released' : 'exact' };
-    if (!exact && event.status === 'usage_unavailable') return { recorded: false, creditCost: 0, billingStatus: 'pending' };
+    if (!['reserved', 'provider_unknown'].includes(existing.status)) return { recorded: false, creditCost: roundCreditValue(existing.creditCost), billingStatus: existing.status === 'usage_unavailable' ? 'released' : 'exact' };
+    if (!exact && (existing.status === 'provider_unknown' || event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true)) {
+      rows[index] = { ...usageRowFromEvent(event, 0, existing.reservedCost), status: 'provider_unknown', creditCost: null, billingStatus: 'pending' };
+      saveUsageRowsToJson(rows);
+      return { recorded: true, creditCost: null, billingStatus: 'pending' };
+    }
     const reserved = roundCreditValue(existing.reservedCost);
     const actualCost = !exact && event.status === 'upstream_error'
       ? 0

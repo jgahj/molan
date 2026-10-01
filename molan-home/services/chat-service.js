@@ -561,6 +561,8 @@ function createChatService({
       const startedAt = Date.now();
       let lastUsage = null;
       let upstreamFinishReason = null;
+      let providerRequestSent = false;
+      let providerResponseReceived = false;
       let finalized = false;
       let upstreamRef = null;
       let responseClosed = false;
@@ -774,6 +776,11 @@ function createChatService({
           cachedTokens: usage.cachedTokens,
           cacheWriteTokens: usage.cacheWriteTokens,
           usageSource: usage.usageSource,
+          providerRequestSent,
+          providerResponseReceived,
+          providerUsageIncomplete: twoPassHumanize && secondPassActive &&
+            (normalizeUsage(firstPassUsage).totalTokens === null || normalizeUsage(lastUsage).totalTokens === null),
+          terminationStatus: settledStatus,
           status: finalStatus,
           finishReason: upstreamFinishReason || (finalStatus === 'empty_output' ? 'empty_output' : null),
           createdAt: startedAt,
@@ -817,6 +824,7 @@ function createChatService({
               finishResponse();
             }).catch(error => {
               console.error('Token usage persistence failed:', error && error.message || error);
+              event.creditCost = null;
               event.billingStatus = 'persistence_failed';
               finishResponse();
             });
@@ -826,6 +834,7 @@ function createChatService({
           event.billingStatus = settlement.billingStatus;
         } catch (e) {
           console.error('Token usage persistence failed:', e.message);
+          event.creditCost = null;
           event.billingStatus = 'persistence_failed';
         }
         finishResponse();
@@ -931,6 +940,7 @@ function createChatService({
         }
         // AI 味超标 → 通知前端进入改写遍（信息性事件，未识别该事件的前端可安全忽略），再发起第二遍。
         secondPassActive = true;
+        lastUsage = null;
         if (canWriteResponse()) {
           try {
             res.write('data: ' + JSON.stringify({ molan_rewrite: { phase: 'begin', firstPassScore: aiFlavorFirstPass.score } }) + '\n\n');
@@ -1006,6 +1016,7 @@ function createChatService({
             'Accept': 'text/event-stream', 'Idempotency-Key': requestId, 'X-Molan-Request-Id': requestId
           },
           onResponse: upRes => {
+            providerResponseReceived = true;
             if (finalized || responseClosed) { try { upRes.resume(); } catch (_) {} return; }
             const upstreamHttpError = upRes.statusCode < 200 || upRes.statusCode >= 300;
             if (upstreamHttpError) {
@@ -1118,6 +1129,7 @@ function createChatService({
             finalizeUsage('upstream_error');
             if (!res.headersSent && !res.writableEnded && !res.destroyed) json(res, 502, { error: '上游模型调用失败：' + e.message });
           });
+          upstream.once('finish', () => { providerRequestSent = true; });
           upstream.write(requestBody); upstream.end();
         });
       }
