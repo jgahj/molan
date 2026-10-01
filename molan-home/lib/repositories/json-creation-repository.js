@@ -176,6 +176,29 @@ class JsonCreationRepository {
     });
   }
 
+  async recordContractFailure(input) {
+    if (!Number.isSafeInteger(input.chapterNo) || input.chapterNo < 1) fail('INVALID_CHAPTER_NO', 422);
+    return this.repository.transaction([input.projectId], tx => {
+      const { project, row: book } = this.book(tx, input, true);
+      const member = project.members[input.userId];
+      if (member.role !== 'owner' && !member.canSpend) fail('spend_forbidden', 403);
+      const failureId = `contract_failure_${crypto.randomUUID().replace(/-/g, '')}`;
+      tx.put(input.projectId, 'ledger', {
+        id: failureId,
+        kind: 'creation-contract-failure',
+        bookId: book.bookId,
+        chapterNo: input.chapterNo,
+        baseline: clone(input.baseline),
+        failureEvidence: clone(input.failureEvidence),
+        providerResponse: input.providerResponse == null ? null : clone(input.providerResponse),
+        providerAttempts: clone(input.providerAttempts || []),
+        actorUserId: input.userId,
+        createdAt: this.now()
+      }, 0);
+      return { failureId };
+    });
+  }
+
   async debts(input) {
     return this.repository.transaction([input.projectId], tx => {
       const { row: book } = this.book(tx, input);
