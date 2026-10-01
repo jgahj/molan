@@ -38,9 +38,17 @@ test('native main starts, persists sessions and skills, and restarts without cre
   }
   try {
     await start();
+    for (const catalogPath of ['/api/genre-catalog', '/api/model-capabilities', '/api/style-catalog']) {
+      const catalog = await request('GET', catalogPath);
+      assert.equal(catalog.status, 200, catalogPath);
+      assert.equal(catalog.data.ok, true);
+    }
+    assert.equal((await request('POST', '/api/genre-catalog')).status, 503);
     const registered = await request('POST', '/api/auth/register', { email: 'restart@example.test', password: 'test-password' });
     assert.equal(registered.status, 200);
     const token = registered.data.token;
+    assert.equal((await request('GET', '/api/runs/missing', null, token)).status, 404);
+    assert.equal((await request('GET', '/api/books/n_restart/unsupported', null, token)).status, 404);
     const capabilities = await request('GET', '/api/generation-runs/capabilities', null, token);
     assert.equal(capabilities.status, 200);
     assert.equal(capabilities.data.storageMode, 'json');
