@@ -209,7 +209,12 @@ function makeStore(adapter) {
       const requestHash = digest([cs.id, versionHash(cs), input.candidateHash ?? null, input.expectedStateVersion ?? null]);
       const receiptKey = digest([scope.userId, key]), prior = b.receipts[receiptKey];
       if (prior) { if (prior.requestHash !== requestHash) fail('IDEMPOTENCY_CONFLICT'); return { ...prior.receipt, replayed: true }; }
-      if (cs.committedAt) fail('CHANGESET_ALREADY_COMMITTED');
+      if (cs.committedAt) {
+        const committed = Object.values(b.receipts).find(receipt => receipt.actorId === scope.userId && receipt.changesetId === cs.id);
+        if (!committed || committed.requestHash !== requestHash) fail('IDEMPOTENCY_CONFLICT');
+        b.receipts[receiptKey] = { ...clone(committed), requestKey: key };
+        return { ...committed.receipt, replayed: true };
+      }
       if (cs.approvalStatus !== 'approved') fail('changeset_not_approved');
       if (cs.approvalHash !== versionHash(cs)) fail('APPROVAL_STALE');
       if (input.candidateHash !== undefined && input.candidateHash !== cs.candidateHash) fail('CONTENT_VERSION_CONFLICT');
