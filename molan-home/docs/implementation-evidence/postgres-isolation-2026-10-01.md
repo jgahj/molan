@@ -14,3 +14,9 @@
 - `scripts/postgres-style-smoke.mjs`：原生文风版本历史、CAS 冲突拒绝、无效写入后版本保持、跨用户读取及写入拒绝；实际保存内容与版本一致。
 
 执行Node24.19.0，环境配置 `MOLAN_PG_ENABLED=1`、host/port/database如上、`MOLAN_PG_USER=novel_runtime`、`MOLAN_PG_PASSWORD_FILE`指向临时runtime密码文件；worker使用 `novel_worker_runtime` 和临时worker密码文件。真实角色与事务检查由 `pg` 驱动发往该隔离实例，无mock替代。
+
+后续原生仓储验证：
+
+- 在该隔离实例应用 `0042_luna_lab_jobs.sql`；lab 的 CAS、评分不可覆盖、跨用户 RLS、普通运行账户范围恢复和 worker-only 全局恢复通过。reading HTTP 首次请求只恢复该 owner 的任务，第二次请求不会重新中断 running 任务；blind 和其他用户任务保持原状态。
+- 人物字典查询使用显式 runtime role、稳定 actor GUC 和只读事务，真实 owner 可见、outsider 不可见。
+- `scripts/postgres-runtime-smoke.mjs` 新增章节质量报告检查：真实持久审计被读取为 `JUDGED`，缺证据旧式审计保持 null；同项目两部创作书报告隔离，未授权 actor 查询返回不可见。fixture 审计用于存储契约验证，不代表真实文学评测。扩展闭环通过；本次执行使用现有 Node20。
