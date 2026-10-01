@@ -4,7 +4,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'completion-import.js'), 'utf8');
-const serverSource = ['server.js', 'services/creation-book-service.js', 'services/creation-plan-service.js', 'services/creation-core-job-runtime.js', 'services/creation-core-job-http-service.js', 'services/model-call-service.js'].map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
+const serverSource = ['server.js', 'services/creation-book-service.js', 'services/creation-plan-service.js', 'services/creation-chapter-service.js', 'services/creation-core-job-runtime.js', 'services/creation-core-job-http-service.js', 'services/model-call-service.js'].map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
 const vm = require('node:vm');
 
 test('审核响应丢失后复用持久化结果，不再调用模型', async () => {
