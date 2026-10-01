@@ -68,30 +68,56 @@ test('uncertain, inactive and incomplete notes cannot silently become active wri
   assert.equal(buildReviewedRouteAssets(job, options).status, 'review_incomplete');
 });
 
-test('readonly asset loader and scene preparation isolate owners and inject only the bound book', () => {
-  const { DatabaseSync } = require('node:sqlite');
+test('readonly asset loader and scene preparation isolate owners and inject only the bound book', async () => {
+  const { createReadingLab } = require('../lib/xuanhuan-reading');
+  const { JsonFileRepository } = require('../lib/repositories/json-file-repository');
+  const { JsonLabJobRepository } = require('../lib/repositories/json-lab-job-repository');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-route-assets-'));
+  let fileRepository;
+  let readingLab;
   try {
     const { job, sourceBuffer } = fixture();
-    fs.mkdirSync(path.join(directory, 'xuanhuan-lab'));
     fs.writeFileSync(path.join(directory, BOOKS.find(book => book.id === 'jianzhu').filename), sourceBuffer);
-    const filename = path.join(directory, 'xuanhuan-lab', 'reading.db');
-    const database = new DatabaseSync(filename);
-    database.exec('CREATE TABLE reading_jobs(owner TEXT,payload TEXT,updated INTEGER)');
-    database.prepare('INSERT INTO reading_jobs VALUES(?,?,?)').run(job.owner, JSON.stringify(job), 1);
-    database.close();
-    const before = fs.readFileSync(filename);
-    const options = { routeId: 'jianzhu', owner: job.owner, dataDirectory: directory, sourceDirectory: directory };
+    const storeDirectory = path.join(directory, 'native-lab-jobs');
+    fileRepository = new JsonFileRepository(storeDirectory);
+    let updatedAt = 1;
+    const storedJobs = new JsonLabJobRepository(fileRepository, { now: () => updatedAt++ });
+    await storedJobs.save({ owner: job.owner, kind: 'reading', job, expectedRevision: 0 });
+    const latestJob = structuredClone(job);
+    latestJob.id = 'latest-test-job';
+    latestJob.stages['jianzhu-c1:review'].notes.claims[1].application = '较新任务的复核方法';
+    await storedJobs.save({ owner: job.owner, kind: 'reading', job: latestJob, expectedRevision: 0 });
+
+    const listInputs = [];
+    let recoveryCalls = 0;
+    readingLab = createReadingLab({ dataDir: directory, sourceDirectory: directory, repository: {
+      list: input => { listInputs.push(input); return storedJobs.list(input); },
+      recover: async () => { recoveryCalls++; throw new Error('read-only lookup must not recover jobs'); }
+    } });
+    const readingJobs = await readingLab.listOwnerJobs({ owner: job.owner, actorUserId: 'usr_reader_a' });
+    assert.deepEqual(listInputs, [{ owner: job.owner, actorUserId: 'usr_reader_a', kind: 'reading', limit: 40 }]);
+    assert.deepEqual(readingJobs.map(item => item.id), ['latest-test-job', 'test-job']);
+    assert.equal(recoveryCalls, 0);
+
+    const storeFiles = () => fs.readdirSync(path.join(storeDirectory, 'novels')).sort()
+      .map(name => [name, fs.readFileSync(path.join(storeDirectory, 'novels', name))]);
+    const before = storeFiles();
+    const options = { routeId: 'jianzhu', owner: job.owner, readingJobs, sourceDirectory: directory };
     const loaded = loadReviewedRouteAssets(options);
     assert.equal(loaded.status, 'ready');
+    assert.equal(loaded.jobId, 'latest-test-job');
+    assert.ok(loaded.lessons.some(lesson => lesson.application === '较新任务的复核方法'));
     assert.equal(loadReviewedRouteAssets({ ...options, owner: 'reader-b' }).status, 'not_activated');
     const context = engine.prepareGenreSceneContext({ ...options, genre: '玄幻', query: '借伞回家' });
     assert.equal(context.referenceStatus, 'ready');
     assert.ok(context.scenePlan.referenceTechniques.every(item => item.sourceBook === '剑烛大荒'));
     assert.match(context.writingSystem, /已复核精读方法/);
     assert.doesNotMatch(context.writingSystem, /不应采用的旧结论|严格控制在0至2处/);
-    assert.deepEqual(fs.readFileSync(filename), before);
+    assert.deepEqual(storeFiles(), before);
+    assert.equal(loadReviewedRouteAssets({ routeId: 'jianzhu' }).status, 'unverified-builtin');
   } finally {
+    if (readingLab) await readingLab.close();
+    if (fileRepository) await fileRepository.close();
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });

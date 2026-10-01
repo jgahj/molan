@@ -8817,6 +8817,29 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
+function getXuanhuanReadingLab() {
+  if (!xuanhuanReadingLab) xuanhuanReadingLab = createReadingLab({
+    dataDir: DATA_DIR, sourceDirectory: path.resolve(__dirname, '../资源库/小说原本/玄幻'), readBody, json,
+    repository: POSTGRES_MODE
+      ? new (require('./lib/repositories/postgres-lab-job-repository').PostgresLabJobRepository)(postgresRepository)
+      : process.env.MOLAN_APP_STORE === 'json' ? new (require('./lib/repositories/json-lab-job-repository').JsonLabJobRepository)(appRepository().repository) : undefined,
+    getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req),
+    callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options),
+    preflight: async (auth, modelId, tokens) => {
+      const headers = { Authorization: 'Bearer ' + auth.token, 'Content-Type': 'application/json' };
+      const modelResponse = await fetch('http://127.0.0.1:' + PORT + '/api/models', { headers, signal: AbortSignal.timeout(15000) });
+      if (!modelResponse.ok) throw new Error('模型列表不可用，停止精读调用');
+      const catalog = await modelResponse.json();
+      const selected = (catalog.models || []).find(model => model.id === (modelId || catalog.access?.defaultModel));
+      if (!selected) throw new Error('当前账户不可使用该模型');
+      const response = await fetch('http://127.0.0.1:' + PORT + '/api/billing/estimate', { method: 'POST', headers, signal: AbortSignal.timeout(15000), body: JSON.stringify({ model: selected.id, tokens }) });
+      if (!response.ok) throw new Error('计费无法确认，停止精读调用');
+      return { model: selected, estimate: await response.json(), checkedAt: Date.now() };
+    }
+  });
+  return xuanhuanReadingLab;
+}
+
 async function handleGenreLab(req, res, u) {
   try {
     const auth = await (CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req));
@@ -8831,12 +8854,17 @@ async function handleGenreLab(req, res, u) {
 
     if (req.method === 'POST' && u === '/api/genre-lab/prepare') {
       const body = await readBody(req);
+      const owner = String(auth.user?.email || '').trim().toLowerCase();
+      const actorUserId = String(auth.user?.userId || '').trim();
+      if (!owner || !actorUserId) return json(res, 401, { error: '精读账户缺少稳定身份' });
+      const readingJobs = await getXuanhuanReadingLab().listOwnerJobs({ owner, actorUserId });
       const result = genreEngine.prepareGenreSceneContext({
         genre: body.genre || body.novelType || '',
         query: body.query || '',
         routeId: body.route || body.routeId || '',
-        owner: auth.user.email,
-        dataDirectory: DATA_DIR
+        owner,
+        dataDirectory: DATA_DIR,
+        readingJobs
       });
       return json(res, 200, { ok: true, ...result });
     }
@@ -9458,26 +9486,7 @@ async function dispatchRequest(req, res) {
 //   段落样本库（含 sceneType/flavorScore）与题材风格基线，供编辑器起草前检索注入。
 
   if (u.startsWith('/api/xuanhuan-reading/')) {
-    if (!xuanhuanReadingLab) xuanhuanReadingLab = createReadingLab({
-      dataDir: DATA_DIR, sourceDirectory: path.resolve(__dirname, '../资源库/小说原本/玄幻'), readBody, json,
-      repository: POSTGRES_MODE
-        ? new (require('./lib/repositories/postgres-lab-job-repository').PostgresLabJobRepository)(postgresRepository)
-        : process.env.MOLAN_APP_STORE === 'json' ? new (require('./lib/repositories/json-lab-job-repository').JsonLabJobRepository)(appRepository().repository) : undefined,
-      getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req),
-      callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options),
-      preflight: async (auth, modelId, tokens) => {
-        const headers = { Authorization: 'Bearer ' + auth.token, 'Content-Type': 'application/json' };
-        const modelResponse = await fetch('http://127.0.0.1:' + PORT + '/api/models', { headers, signal: AbortSignal.timeout(15000) });
-        if (!modelResponse.ok) throw new Error('模型列表不可用，停止精读调用');
-        const catalog = await modelResponse.json();
-        const selected = (catalog.models || []).find(model => model.id === (modelId || catalog.access?.defaultModel));
-        if (!selected) throw new Error('当前账户不可使用该模型');
-        const response = await fetch('http://127.0.0.1:' + PORT + '/api/billing/estimate', { method: 'POST', headers, signal: AbortSignal.timeout(15000), body: JSON.stringify({ model: selected.id, tokens }) });
-        if (!response.ok) throw new Error('计费无法确认，停止精读调用');
-        return { model: selected, estimate: await response.json(), checkedAt: Date.now() };
-      }
-    });
-    return xuanhuanReadingLab.handle(req, res);
+    return getXuanhuanReadingLab().handle(req, res);
   }
   if (u.startsWith('/api/xuanhuan-lab/')) {
     if (!xuanhuanLab) xuanhuanLab = createXuanhuanLab({ dataDir: DATA_DIR, readBody,

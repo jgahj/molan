@@ -1163,6 +1163,7 @@ function inferRouteFromQuery(query) {
  * 通用题材起草准备：动态融合叙事路线、四维动机图与微切片对位
  */
 function prepareGenreSceneContext({ genre, query, routeId, owner = '',
+  readingJobs,
   dataDirectory = path.resolve(DATA_DIR, '..'),
   sourceDirectory = path.resolve(__dirname, '../../资源库/小说原本/玄幻'),
   sceneMode = 'causal_flow',
@@ -1190,7 +1191,7 @@ function prepareGenreSceneContext({ genre, query, routeId, owner = '',
     ? { available: true, sceneCount: searchableSourceScenes.length }
     : { available: false, sceneCount: 0, reason: 'source_corpus_unavailable' };
   const sampleScenes = retrieveCorpusScenes(family.id, query, 2, { sourceTitle: route.sourceTitle || '' });
-  const readingAssets = loadReviewedRouteAssets({ routeId: selectedRouteId, owner, dataDirectory, sourceDirectory });
+  const readingAssets = loadReviewedRouteAssets({ routeId: selectedRouteId, owner, readingJobs, sourceDirectory });
   const pipeline = loadPipelineForRoute(selectedRouteId);
 
   let sceneModeBlock = '';

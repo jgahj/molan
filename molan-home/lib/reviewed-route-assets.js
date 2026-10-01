@@ -203,26 +203,20 @@ const BUILTIN_ROUTE_LESSONS = {
   }
 };
 
-function loadReviewedRouteAssets({ routeId, owner, dataDirectory, sourceDirectory }) {
+function loadReviewedRouteAssets({ routeId, owner, readingJobs, sourceDirectory }) {
   const specification = BOOKS.find(book => book.id === routeId);
   const empty = status => ({ status, routeId, sourceTitle: specification?.title || '', lessons: [] });
   if (!specification) return empty('not_applicable');
 
-  const filename = dataDirectory ? path.join(dataDirectory, 'xuanhuan-lab', 'reading.db') : '';
-  if (owner && filename && fs.existsSync(filename)) {
-    let database;
+  if (owner) {
+    if (!Array.isArray(readingJobs)) return empty('unavailable');
+    const job = readingJobs.find(item => item && item.owner === owner && item.status === 'completed' && item.activated === true);
+    if (!job) return empty('not_activated');
     try {
-      const { DatabaseSync } = require('node:sqlite');
-      database = new DatabaseSync(filename, { readOnly: true });
-      const rows = database.prepare('SELECT payload FROM reading_jobs WHERE owner=? ORDER BY updated DESC LIMIT 40').all(owner);
-      const job = rows.map(row => JSON.parse(row.payload)).find(item => item.status === 'completed' && item.activated === true);
-      if (!job) return empty('not_activated');
       const sourceBuffer = fs.readFileSync(path.join(sourceDirectory, specification.filename));
       return buildReviewedRouteAssets(job, { routeId, owner, sourceBuffer });
     } catch (_) {
       return empty('unavailable');
-    } finally {
-      database?.close();
     }
   }
 
