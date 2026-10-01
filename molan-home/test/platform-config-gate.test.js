@@ -4,6 +4,29 @@ const assert = require('node:assert/strict');
 const { compareQualityVectors } = require('../lib/evolution/quality-vector-ab');
 const { validatePlatformConfigPromotion, assertPlatformConfigPromotion } = require('../lib/evolution/platform-config-gate');
 const { canonicalGlobalPrompts } = require('../lib/evolution/platform-config-gate');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { createPlatformModelConfigService } = require('../services/platform-model-config-service');
+
+test('direct default model writes cannot bypass quality evidence or mutate disk and runtime', t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-model-policy-gate-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const filename = path.join(directory, 'config.json');
+  const original = JSON.stringify({ modelPolicy: { defaultModel: 'baseline' }, platformModels: [] });
+  fs.writeFileSync(filename, original);
+  let policy = { defaultModel: 'baseline' };
+  const service = createPlatformModelConfigService({ fs, path, PLATFORM_CONFIG_FILE: filename,
+    normalizeConfiguredModel: value => value, findPlatformModel: () => null,
+    normalizeModelCreditRate: value => value, getModelPolicy: () => policy,
+    setModelPolicy: value => { policy = value; } });
+  assert.throws(() => service.saveModelPolicy('candidate'), error => error.code === 'QUALITY_PROMOTION_BLOCKED');
+  assert.throws(() => service.saveModelPolicy('candidate', { report: { status: 'PROMOTION_READY' } }),
+    error => error.code === 'QUALITY_PROMOTION_BLOCKED');
+  assert.equal(fs.readFileSync(filename, 'utf8'), original);
+  assert.deepEqual(policy, { defaultModel: 'baseline' });
+  assert.equal(service.writePlatformConfig, undefined);
+});
 
 test('global prompt canonicalization ignores only timestamps and downloads without mutation', () => {
   const runtime = { id: 'one', instruction: 'draft', files: ['SKILL.md'], runtimeFiles: { 'SKILL.md': 'draft' }, targets: ['writer'], enabled: true };

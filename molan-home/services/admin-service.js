@@ -119,7 +119,7 @@ function createAdminService({
       const requested = String(body && body.defaultModel || '').trim();
       if (!requested || !findPlatformModel(requested)) throw new Error('默认模型不存在或未配置');
       assertPlatformConfigPromotion({ kind: 'default-model', proposed: requested, evidence: body.qualityEvidence });
-      const defaultModel = saveModelPolicy(requested);
+      const defaultModel = saveModelPolicy(requested, body.qualityEvidence);
       appendAdminAudit(auth.user.email, 'model.update', defaultModel, { defaultModel });
       json(res, 200, { ok: true, defaultModel });
     }).catch(e => respondError(res, e));

@@ -404,76 +404,10 @@ function currentDefaultModel() {
   return normalizeConfiguredModel(MODEL_POLICY.defaultModel);
 }
 
-function readPlatformConfig() {
-  let cfg;
-  try {
-    cfg = JSON.parse(fs.readFileSync(PLATFORM_CONFIG_FILE, 'utf-8'));
-  } catch (_) {
-    throw new Error('平台模型配置文件不可用');
-  }
-  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) throw new Error('平台模型配置文件格式错误');
-  return cfg;
-}
-
-function writePlatformConfig(cfg) {
-  if (!fs.existsSync(path.dirname(PLATFORM_CONFIG_FILE))) fs.mkdirSync(path.dirname(PLATFORM_CONFIG_FILE), { recursive: true });
-  const tmp = PLATFORM_CONFIG_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), 'utf-8');
-  fs.renameSync(tmp, PLATFORM_CONFIG_FILE);
-}
-
-function saveModelPolicy(defaultModel) {
-  const nextDefaultModel = normalizeConfiguredModel(defaultModel);
-  if (!nextDefaultModel) throw new Error('平台尚未配置可用模型');
-  const cfg = readPlatformConfig();
-  cfg.modelPolicy = { ...(cfg.modelPolicy || {}), defaultModel: nextDefaultModel };
-  writePlatformConfig(cfg);
-  MODEL_POLICY = { ...MODEL_POLICY, defaultModel: nextDefaultModel };
-  return nextDefaultModel;
-}
-
-function savePlatformModelRates(rates) {
-  if (!Array.isArray(rates) || rates.length === 0) throw new Error('至少需要提交一个模型积分费率');
-  const updates = [];
-  const seen = new Set();
-  for (const item of rates) {
-    const modelId = String(item && item.modelId || '').trim();
-    if (!modelId || seen.has(modelId)) throw new Error('模型积分费率列表包含无效或重复模型');
-    const model = findPlatformModel(modelId);
-    if (!model) throw new Error('模型不存在或未配置');
-    seen.add(modelId);
-    updates.push({
-      modelId,
-      creditsPer1k: normalizeModelCreditRate(item.creditsPer1k),
-      previousCreditsPer1k: model.creditsPer1k
-    });
-  }
-
-  const cfg = readPlatformConfig();
-  if (!Array.isArray(cfg.platformModels)) throw new Error('平台模型配置文件中没有模型列表');
-  const updateMap = new Map(updates.map(item => [item.modelId, item.creditsPer1k]));
-  const found = new Set();
-  const nextPlatformModels = cfg.platformModels.map(item => {
-    const modelId = item && String(item.id || '');
-    if (!updateMap.has(modelId)) return item;
-    found.add(modelId);
-    return { ...item, creditsPer1k: updateMap.get(modelId) };
-  });
-  if (found.size !== updates.length) throw new Error('模型不存在或未配置');
-
-  // 所有倍率都校验成功后才写入，避免批量修改出现半成功状态。
-  writePlatformConfig({ ...cfg, platformModels: nextPlatformModels });
-  for (const update of updates) {
-    const model = findPlatformModel(update.modelId);
-    if (model) model.creditsPer1k = update.creditsPer1k;
-  }
-  return updates;
-}
-
-function savePlatformModelRate(modelId, value) {
-  const updated = savePlatformModelRates([{ modelId, creditsPer1k: value }]);
-  return { modelId: updated[0].modelId, creditsPer1k: updated[0].creditsPer1k };
-}
+const { saveModelPolicy, savePlatformModelRates, savePlatformModelRate } = require('./services/platform-model-config-service').createPlatformModelConfigService({
+  fs, path, PLATFORM_CONFIG_FILE, normalizeConfiguredModel, findPlatformModel, normalizeModelCreditRate,
+  getModelPolicy: () => MODEL_POLICY, setModelPolicy: value => { MODEL_POLICY = value; }
+});
 
 function canChooseModel(user) {
   const role = normalizeUserRole(user);
@@ -8323,31 +8257,8 @@ async function runCreationBookPlanReview(req, res, id) {
   });
 }
 
-// 创作书内部调用沿用编辑器当前选择的平台注册模型；无效或缺省值回退到平台默认模型。
-// 这只影响创作书合同/审计，不改变拆书流程中固定的内部模型。
-function resolveCreationModelId(body) {
-  const requested = String(body && (body.modelId || body.model) || '').trim();
-  return findPlatformModel(requested) ? requested : currentDefaultModel();
-}
-
-// 合同自校验套话黑名单：命中即视为空泛合同，需重生成
-const CONTRACT_CLICHE_BLOCKLIST = ['主角变强', '敌人出现', '发生冲突', '展开战斗', '实力提升', '危机降临'];
-// 合同字段实质性校验：goal/protagonistAction/opposition/irreversibleResult 四字段
-// 必须非空、长度 >= 8 字、且不含套话短语（避免空泛表述混入创作圣经）。
-// @param {object} contract - 模型生成的章节合同
-// @returns {{ok:boolean, field?:string, reason?:string}}
-function contractFieldsSubstantive(contract) {
-  const c = contract && typeof contract === 'object' ? contract : {};
-  const fields = ['goal', 'protagonistAction', 'opposition', 'irreversibleResult'];
-  for (const f of fields) {
-    const v = String(c[f] || '').trim();
-    if (v.length < 8) return { ok: false, field: f, reason: '字段过短或为空' };
-    for (const phrase of CONTRACT_CLICHE_BLOCKLIST) {
-      if (v.includes(phrase)) return { ok: false, field: f, reason: '命中套话短语：' + phrase };
-    }
-  }
-  return { ok: true };
-}
+// Preserve the legacy source and export boundary while the implementation lives in the injected service.
+function resolveCreationModelId(body) { return creationContractHelpers.resolveCreationModelId(body); }
 
 async function handleCreationBookChapterContract(req, res, id) {
   const auth = getAuthUser(req);
@@ -10341,6 +10252,11 @@ const { normalizeCreationPlan, creationPlanRules, normalizeBiblePayload, creatio
   normalizeAuthorDna,
   sha256Text
 });
+const creationContractHelpers = require('./services/creation-contract-service').createCreationContractService({
+  findPlatformModel,
+  currentDefaultModel
+});
+const { contractFieldsSubstantive, CONTRACT_CLICHE_BLOCKLIST } = creationContractHelpers;
 
 const { publicCreationBook, loadCreationBook, creationScopeForActor, loadCreationBookForAuth, canSpendCreationBook, loadCurrentBiblePayload, loadCreationSnapshots, saveCreationBookFirstBible, insertCreationBookPlaceholder, deleteCreationBookPlaceholder, handleCreationBooksCreate, handleCreationBooksList, handleCreationBookBibleGet, handleCreationBookState, creationBibleForBook, saveCreationBibleVersion } = require('./services/creation-book-service').createCreationBookService({
   creationBibleSeedValidation,
