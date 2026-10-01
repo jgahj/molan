@@ -37,6 +37,7 @@ export function runProductionImportAudit() {
   }
 
   const forbiddenPatterns = [
+    { pattern: /(?:require\s*\(\s*|from\s+|import\s*(?:\(\s*)?)['"](?:node:sqlite|better-sqlite3|sqlite3)['"]/, desc: '生产链引用 SQLite 驱动' },
     { pattern: /require\s*\(\s*['"][^'"]*legacy[^'"]*['"]\s*\)/, desc: '引用 legacy 历史模块' },
     { pattern: /import\s+.*from\s+['"][^'"]*legacy[^'"]*['"]/, desc: '引用 legacy 历史模块' },
     { pattern: /require\s*\(\s*['"][^'"]*pipeline-coordinator['"]\s*\)/, desc: '引用已废弃的 pipeline-coordinator' },
