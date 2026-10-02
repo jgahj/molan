@@ -15,13 +15,13 @@
     "evidence": {
       "ui": { "file": "completion-editor.js", "includes": "data-feature=\"AI_GENERATE\" data-action=\"ai-generate\"" },
       "api": { "file": "lib/client/generation-runs.js", "includes": "request('/api/generation-runs', {" },
-      "backend": { "file": "server.js", "includes": "const rootPath = '/api/generation-runs';" },
-      "persistence": { "file": "lib/generation/sqlite-store.js", "includes": "INSERT INTO generation_runs" },
+      "backend": { "file": "services/generation-service.js", "includes": "const rootPath = '/api/generation-runs';" },
+      "persistence": { "file": "lib/generation/postgres-store.js", "includes": "return repository.createGenerationRun(input);" },
       "streaming": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/events')" },
       "cancel": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/cancel')" },
       "retry": { "file": "completion-editor.js", "includes": "void sendEditorAI(retryText, { resumeIndex: idx });" },
       "audit": { "file": "lib/generation/orchestrator.js", "includes": "current = await move(scope, id, 'deterministic_audit'" },
-      "billing": { "file": "server.js", "includes": "creditCost: Number(call.usage.creditCost) || 0" },
+      "billing": { "file": "services/generation-service.js", "includes": "creditCost: call.usage.creditCost == null ? null : Number(call.usage.creditCost)" },
       "test": { "file": "test/generation-runs-client.test.js", "includes": "Generation Run create sends a stable idempotency key in header and request body" }
     }
   },
@@ -41,8 +41,8 @@
     "evidence": {
       "ui": { "file": "completion-editor.js", "includes": "data-feature=\"AI_STOP\" data-action=\"ai-stop\"" },
       "api": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/cancel')" },
-      "backend": { "file": "server.js", "includes": "if (req.method === 'POST' && cancel)" },
-      "persistence": { "file": "lib/generation/sqlite-store.js", "includes": "cancel_requested = CASE WHEN ? = 'cancel_requested' THEN 1 ELSE cancel_requested END" },
+      "backend": { "file": "services/generation-service.js", "includes": "if (req.method === 'POST' && cancel)" },
+      "persistence": { "file": "lib/generation/postgres-store.js", "includes": "return repository.updateGenerationRun(input);" },
       "cancel": { "file": "lib/generation/orchestrator.js", "includes": "async function cancel(input)" },
       "test": { "file": "test/generation-runs-client.test.js", "includes": "revision, cancellation, and commit use distinct run routes" }
     }
@@ -63,10 +63,10 @@
     "evidence": {
       "ui": { "file": "completion-editor.js", "includes": "data-feature=\"AI_AUDIT\" data-action=\"audit-revise\"" },
       "api": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/revision')" },
-      "backend": { "file": "server.js", "includes": "orchestrator.revise({" },
-      "persistence": { "file": "lib/generation/sqlite-store.js", "includes": "INSERT INTO generation_stage_runs" },
+      "backend": { "file": "services/generation-service.js", "includes": "orchestrator.revise({" },
+      "persistence": { "file": "lib/generation/postgres-store.js", "includes": "return repository.recordGenerationStage(input);" },
       "audit": { "file": "lib/generation/orchestrator.js", "includes": "current = await move(scope, id, 'semantic_audit'" },
-      "test": { "file": "test/generation-sqlite-commit.test.js", "includes": "SQLite generation commit atomically writes scene, manuscript, snapshot, budget, audit and receipt" }
+      "test": { "file": "test/generation-orchestrator-commit.test.js", "includes": "orchestrator fences the formal commit and releases its lease after persisting the receipt" }
     }
   },
   "AI_COMMIT": {
@@ -85,10 +85,10 @@
     "evidence": {
       "ui": { "file": "completion-editor.js", "includes": "data-feature=\"AI_COMMIT\" data-action=\"ai-commit\"" },
       "api": { "file": "lib/client/generation-runs.js", "includes": "runPath(id, '/commit')" },
-      "backend": { "file": "server.js", "includes": "if (req.method === 'POST' && commit)" },
-      "persistence": { "file": "lib/generation/sqlite-commit.js", "includes": "db.exec('BEGIN IMMEDIATE')" },
-      "audit": { "file": "lib/generation/sqlite-commit.js", "includes": "deterministic.passed === true && semantic.passed === true" },
-      "test": { "file": "test/generation-sqlite-commit.test.js", "includes": "SQLite generation commit atomically writes scene, manuscript, snapshot, budget, audit and receipt" }
+      "backend": { "file": "services/generation-service.js", "includes": "if (req.method === 'POST' && commit)" },
+      "persistence": { "file": "services/generation-service.js", "includes": "await postgresRepository.commitChapter({" },
+      "audit": { "file": "lib/generation/orchestrator.js", "includes": "current = await move(scope, id, 'semantic_audit'" },
+      "test": { "file": "test/postgres-commit-projection.test.js", "includes": "PostgreSQL chapter commit persists only the server-derived projection in its snapshot and receipt" }
     }
   },
   "NOVEL_EXPORT": {
@@ -103,9 +103,9 @@
     "required": ["ui", "txt", "epub", "docx", "chapter_range", "permission", "test"],
     "evidence": {
       "ui": { "file": "completion-editor.js", "includes": "data-feature=\"NOVEL_EXPORT\" data-action=\"novel-export\"" },
-      "txt": { "file": "server.js", "includes": "txt: 'txt'" },
-      "epub": { "file": "server.js", "includes": "epub: 'epub'" },
-      "docx": { "file": "server.js", "includes": "docx: 'docx'" },
+      "txt": { "file": "services/novel-export-service.js", "includes": "txt: 'txt'" },
+      "epub": { "file": "services/novel-export-service.js", "includes": "epub: 'epub'" },
+      "docx": { "file": "services/novel-export-service.js", "includes": "docx: 'docx'" },
       "chapter_range": { "file": "completion-editor.js", "includes": "params.set('fromChapter', String(fromChapter));" },
       "permission": { "file": "server.js", "includes": "if (!auth) return json(res, 401, { error: '未登录' });" },
       "test": { "file": "test/export-engine.test.js", "includes": "DOCX contains a valid Word package with escaped ordered chapter content" }
@@ -156,7 +156,7 @@
       "shadow": { "file": "lib/evolution/quality-loop.js", "includes": "runShadowEvaluation({" },
       "regression": { "file": "lib/evolution/quality-loop.js", "includes": "evaluateRegressionGate({" },
       "persistence": { "file": "lib/evolution/quality-loop.js", "includes": "BEGIN IMMEDIATE" },
-      "test": { "file": "test/quality-loop.test.js", "includes": "SQLite settlements survive reopening the database" }
+      "test": { "file": "test/quality-loop.test.js", "includes": "JSON settlements survive reopening the store and remain immutable" }
     }
   }
 }

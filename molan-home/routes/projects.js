@@ -1,13 +1,13 @@
 'use strict';
 
 function createProjectRoutes({ postgresMode, handlers }) {
-  return function dispatchProjectRoute(req, res, url) {
+  return async function dispatchProjectRoute(req, res, url) {
     const method = req.method;
     let match;
-    if (method === 'GET' && url === '/api/characters') { handlers.charactersList(req, res); return true; }
-    if (method === 'GET' && url === '/api/characters/export') { handlers.charactersExport(req, res); return true; }
-    if (method === 'POST' && url === '/api/characters/merge') { handlers.charactersMerge(req, res); return true; }
-    if (method === 'PATCH' && (match = url.match(/^\/api\/characters\/([A-Za-z0-9_]+)$/))) { handlers.charactersPatch(req, res, match[1]); return true; }
+    if (method === 'GET' && url === '/api/characters') { await handlers.charactersList(req, res); return true; }
+    if (method === 'GET' && url === '/api/characters/export') { await handlers.charactersExport(req, res); return true; }
+    if (method === 'POST' && url === '/api/characters/merge') { await handlers.charactersMerge(req, res); return true; }
+    if (method === 'PATCH' && (match = url.match(/^\/api\/characters\/([A-Za-z0-9_]+)$/))) { await handlers.charactersPatch(req, res, match[1]); return true; }
     if (postgresMode && method === 'POST' && (match = url.match(/^\/api\/novels\/(n_[A-Za-z0-9_]+)\/import-characters$/))) {
       handlers.postgresNovelImportCharacters(req, res, match[1]).catch(error => handlers.respondPostgresError(res, error));
       return true;

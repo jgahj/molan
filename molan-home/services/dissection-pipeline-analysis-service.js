@@ -336,17 +336,18 @@ function createDissectionPipelineAnalysisService({ PIPELINE_EVENT_TYPE_MAP, PIPE
     }).filter(Boolean);
   }
 
-  function buildPipelineEvidenceLedger(record, facts) {
-    if (!dbReady()) return [];
-    const rows = getDatabase().prepare('SELECT unit_id,claim_type,predicate,object_value,evidence_type,source_start,source_end,confidence,status FROM dissection_claims WHERE dissection_id = ? ORDER BY source_start ASC, rowid ASC').all(record.id);
+  function buildPipelineEvidenceLedger(record, facts, claimsOverride) {
+    const rows = Array.isArray(claimsOverride)
+      ? claimsOverride
+      : (typeof dbReady === 'function' && dbReady() ? getDatabase().prepare('SELECT unit_id,claim_type,predicate,object_value,evidence_type,source_start,source_end,confidence,status FROM dissection_claims WHERE dissection_id = ? ORDER BY source_start ASC, rowid ASC').all(record.id) : []);
     if (rows.length) return rows.map(row => ({
-      type: String(row.claim_type || 'claim'),
-      source: String(row.unit_id || ''),
-      observation: String(row.object_value || row.predicate || '').slice(0, 240),
+      type: String(row.claim_type || row.claimType || 'claim'),
+      source: String(row.unit_id || row.unitId || ''),
+      observation: String(row.object_value || row.objectValue || row.predicate || '').slice(0, 240),
       inferredRule: String(row.predicate || '').slice(0, 240),
-      evidenceType: String(row.evidence_type || 'direct'),
-      sourceStart: Number(row.source_start) || 0,
-      sourceEnd: Number(row.source_end) || 0,
+      evidenceType: String(row.evidence_type || row.evidenceType || 'direct'),
+      sourceStart: Number(row.source_start != null ? row.source_start : row.sourceStart) || 0,
+      sourceEnd: Number(row.source_end != null ? row.source_end : row.sourceEnd) || 0,
       confidence: Number(row.confidence) > 0 ? Number(row.confidence) : 0.6,
       status: String(row.status || 'confirmed')
     }));

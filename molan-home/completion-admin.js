@@ -822,6 +822,8 @@
     const record = parseJson(text);
     if (!record) return showToast('JSON 格式不正确');
     const payload = { type: meta.type, id: meta.id, owner: meta.owner, skillId: meta.skillId, record };
+    if (state.data.record?.revision !== undefined) payload.expectedRevision = state.data.record.revision;
+    if (state.data.record?.updatedAt !== undefined) payload.expectedUpdatedAt = state.data.record.updatedAt;
     try {
       const response = await adminRequest('/api/admin/data', { method: 'PATCH', body: payload });
       state.data.record = response.record || record;
@@ -835,6 +837,7 @@
   async function deleteDataRecord() {
     const meta = state.data.recordMeta;
     if (!meta || meta.type === 'builtin-skills' || ['accounts', 'token-usage'].includes(meta.type)) return;
+    const expectedRevision = state.data.record?.revision;
     openActionModal({
       title: '确认删除记录',
       body: `<div class="notice">${icon('alert-triangle')}<span>将删除 ${html(dataLabels[meta.type])}「${html(meta.id)}」，此操作不可撤销。</span></div>`,
@@ -842,7 +845,7 @@
       cancelText: '取消',
       onConfirm: async () => {
         try {
-          await adminRequest('/api/admin/data', { method: 'DELETE', body: { type: meta.type, id: meta.id, owner: meta.owner, skillId: meta.skillId } });
+          await adminRequest('/api/admin/data', { method: 'DELETE', body: { type: meta.type, id: meta.id, owner: meta.owner, skillId: meta.skillId, expectedRevision } });
           closeModal();
           state.data.recordMeta = null;
           state.data.record = null;

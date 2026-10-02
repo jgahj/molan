@@ -23,7 +23,7 @@ function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HE
     const model = internalModelId || resolveModelForUser(user, o.modelId);
     let systemPrompt = o.system || '';
     const skillAudit = o.skillAudit && Array.isArray(o.skillAudit.skills) && o.skillAudit.skills.length ? o.skillAudit : null;
-    const nativeCatalog = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? await nativeSkillCatalog(user) : null;
+    const nativeCatalog = POSTGRES_MODE || process.env.MOLAN_APP_STORE === 'json' ? await nativeSkillCatalog(user) : null;
     if (skillAudit) {
       // skill 注入通道：按 opts.skillId 解析，不再写死拆书 skill（缺省或显式 'dissection' 走拆书 skill 以兼容既有调用）
       const requestedSkillId = String(o.skillId || '').trim();
@@ -173,7 +173,7 @@ function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HE
     if (o.jsonMode) json = safeJsonParse(output) || extractJsonFromMixedText(output);
     // ★ Q2 · 模型用量账本：统一在此写入（requestId 幂等），调用方可通过 o.recordId/o.unitId/o.workflowId 补齐维度
     if (usage && usage.requestId) {
-      recordModelUsage({
+      await recordModelUsage({
         requestId: usage.requestId,
         userId: user && user.userId || '',
         workspaceId: o.workspaceId || '',

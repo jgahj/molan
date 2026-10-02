@@ -2,19 +2,17 @@
 
 function createCreationCoreJobHttpService({ creationCoreJobFromDbRow, creationCoreJobPublic, creationCoreJobs, dbReady, getAuthUser, json, persistCreationCoreJob, postgresActor, postgresCreationCoreJobView, postgresRepository, projectScope, getDatabase, POSTGRES_MODE }) {
   async function handlePostgresCreationCoreJobGet(req, res, jobId) {
-    if (creationCoreJobs.has(String(jobId || ''))) return handleCreationCoreJobGet(req, res, jobId);
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
     const job = await postgresRepository.getJob(postgresActor(auth), jobId);
-    if (!job) return handleCreationCoreJobGet(req, res, jobId);
+    if (!job) return json(res, 404, { error: '创书任务不存在或无权访问', code: 'core_job_missing' });
     json(res, 200, { ok: true, job: postgresCreationCoreJobView(job) });
   }
   async function handlePostgresCreationCoreJobCancel(req, res, jobId) {
-    if (creationCoreJobs.has(String(jobId || ''))) return handleCreationCoreJobCancel(req, res, jobId);
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
     const job = await postgresRepository.getJob(postgresActor(auth), jobId);
-    if (!job) return handleCreationCoreJobCancel(req, res, jobId);
+    if (!job) return json(res, 404, { error: '创书任务不存在或无权访问', code: 'core_job_missing' });
     if (['running', 'claimed', 'queued'].includes(job.state)) {
       const next = await postgresRepository.upsertJob({
         userId: postgresActor(auth),
@@ -30,6 +28,12 @@ function createCreationCoreJobHttpService({ creationCoreJobFromDbRow, creationCo
         result: job.result,
         errorCode: 'cancel_requested'
       });
+      const activeJob = creationCoreJobs.get(String(jobId || ''));
+      if (next.state === 'cancel_requested' && activeJob && activeJob.userId === postgresActor(auth)) {
+        activeJob.cancelRequested = true;
+        activeJob.status = 'cancelling';
+        if (activeJob.controller) activeJob.controller.abort();
+      }
       return json(res, 200, { ok: true, status: next.state === 'cancel_requested' ? 'cancelling' : next.state });
     }
     json(res, 200, { ok: true, status: job.state });
@@ -71,4 +75,3 @@ function createCreationCoreJobHttpService({ creationCoreJobFromDbRow, creationCo
   return { get: POSTGRES_MODE ? handlePostgresCreationCoreJobGet : handleCreationCoreJobGet, cancel: POSTGRES_MODE ? handlePostgresCreationCoreJobCancel : handleCreationCoreJobCancel };
 }
 module.exports = { createCreationCoreJobHttpService };
-

@@ -27,32 +27,32 @@ function serviceRecorder(overrides = {}) {
   return { handlers, calls };
 }
 
-test('auth route module injects handlers and retains admin logout scope', () => {
+test('auth route module injects handlers and retains admin logout scope', async () => {
   const req = { method: 'POST' };
   const res = {};
   const { handlers, calls } = serviceRecorder();
   const dispatch = createAuthRoutes(handlers);
 
-  assert.equal(dispatch(req, res, '/api/admin/auth/logout'), true);
-  assert.equal(dispatch({ method: 'GET' }, res, '/api/auth/me'), true);
-  assert.equal(dispatch({ method: 'GET' }, res, '/not-an-auth-route'), false);
+  assert.equal(await dispatch(req, res, '/api/admin/auth/logout'), true);
+  assert.equal(await dispatch({ method: 'GET' }, res, '/api/auth/me'), true);
+  assert.equal(await dispatch({ method: 'GET' }, res, '/not-an-auth-route'), false);
   assert.equal(calls[0][0], 'logout');
   assert.equal(calls[0][3], 'admin');
   assert.equal(calls[1][0], 'me');
 });
 
-test('skill and admin routes distinguish collection and item paths', () => {
+test('skill and admin routes distinguish collection and item paths', async () => {
   const req = { method: 'POST' };
   const res = {};
   const skillRecorder = serviceRecorder();
   const dispatchSkill = createSkillRoutes(skillRecorder.handlers);
-  assert.equal(dispatchSkill(req, res, '/api/open-skills/skill-1/download'), true);
+  assert.equal(await dispatchSkill(req, res, '/api/open-skills/skill-1/download'), true);
   assert.equal(skillRecorder.calls[0][0], 'openDownload');
   assert.deepEqual(skillRecorder.calls[0].slice(3), ['skill-1']);
 
   const adminRecorder = serviceRecorder();
   const dispatchAdmin = createAdminRoutes(adminRecorder.handlers);
-  assert.equal(dispatchAdmin({ method: 'PATCH' }, res, '/api/admin/users/user-1'), true);
+  assert.equal(await dispatchAdmin({ method: 'PATCH' }, res, '/api/admin/users/user-1'), true);
   assert.equal(adminRecorder.calls[0][0], 'userPatch');
   assert.equal(adminRecorder.calls[0][3], 'user-1');
 });
@@ -75,19 +75,19 @@ test('generation and knowledge routes keep proxy stage and response contracts', 
   assert.equal(knowledgeRecorder.calls[1][2], 200);
 });
 
-test('dissection and project routers preserve method matching and PostgreSQL precedence', () => {
+test('dissection and project routers preserve method matching and PostgreSQL precedence', async () => {
   const req = { method: 'GET' };
   const res = {};
   const dissectionRecorder = serviceRecorder();
   const dispatchDissection = createDissectionRoutes(dissectionRecorder.handlers);
-  assert.equal(dispatchDissection(req, res, '/api/dissection/book_1/versions/v_2'), true);
+  assert.equal(await dispatchDissection(req, res, '/api/dissection/book_1/versions/v_2'), true);
   assert.equal(dissectionRecorder.calls[0][0], 'version');
   assert.equal(dissectionRecorder.calls[0][3], 'book_1');
   assert.equal(dissectionRecorder.calls[0][4], 'v_2');
 
   const projectRecorder = serviceRecorder();
   const dispatchProject = createProjectRoutes({ postgresMode: true, handlers: projectRecorder.handlers });
-  assert.equal(dispatchProject(req, res, '/api/novels/n_project1/export'), true);
+  assert.equal(await dispatchProject(req, res, '/api/novels/n_project1/export'), true);
   assert.equal(projectRecorder.calls[0][0], 'postgresNovelExport');
   assert.equal(projectRecorder.calls[0][3], 'n_project1');
 });

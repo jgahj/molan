@@ -10,23 +10,21 @@ function createAuthAccountService({
   USER_CACHE_TTL_MS,
   allowAuthAttempt,
   applyAuthSessionInvalidation,
-  cachePostgresRuntimeUser,
   canChooseModel,
   crypto,
   currentDefaultModel,
   dbReady,
-  enqueuePostgresRuntimeWrite,
   findPlatformModel,
   fs,
   getDatabase,
   getPostgresRuntimeUserByEmail,
   getUsageSummary,
+  getPostgresUsageSummary,
   isAdminUser,
   json,
   nativeAuthService,
   normalizeUserRole,
   postgresRepository,
-  postgresRuntimeState,
   postgresRuntimeUserFromRow,
   projectScope,
   readBody,
@@ -48,7 +46,7 @@ function createAuthAccountService({
   let usersCacheCheckedAt = 0;
 
   function loadUsers() {
-    if (POSTGRES_MODE) return postgresRuntimeState.accounts.slice();
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存读取');
     if (dbReady()) {
       return getDatabase().prepare(`SELECT email, user_id AS userId, name, avatar, bio, default_model AS defaultModel, salt, pwd, role, level, plan, credits, spent, created_at AS createdAt
         FROM accounts ORDER BY created_at ASC`).all().map(userFromDbRow);
@@ -83,19 +81,7 @@ function createAuthAccountService({
   
   function saveUsers(users) {
     if (POSTGRES_MODE) {
-      const next = Array.isArray(users) ? users : [];
-      postgresRuntimeState.accounts = next;
-      postgresRuntimeState.accountsByEmail.clear();
-      postgresRuntimeState.accountsById.clear();
-      next.forEach(user => {
-        if (!user || !user.email) return;
-        postgresRuntimeState.accountsByEmail.set(String(user.email).trim().toLowerCase(), user);
-        postgresRuntimeState.accountsById.set(String(user.userId || ''), user);
-      });
-      usersCache = next;
-      usersCacheCheckedAt = Date.now();
-      for (const user of next) saveUser(user);
-      return;
+      throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存写回');
     }
     if (dbReady()) {
       persistUsersToDb(users);
@@ -110,25 +96,7 @@ function createAuthAccountService({
   
   function saveUser(user, actorUserId = '') {
     if (POSTGRES_MODE) {
-      if (!user || !user.email) return user;
-      const email = String(user.email).trim().toLowerCase();
-      const normalized = { ...user, email, userId: String(user.userId || projectScope.stableUserId(email)) };
-      const previous = postgresRuntimeState.accountsByEmail.get(email);
-      const preserveFinancials = !!previous &&
-        Number(previous.credits) === Number(normalized.credits) &&
-        Number(previous.spent) === Number(normalized.spent);
-      if (previous) Object.assign(previous, normalized);
-      else postgresRuntimeState.accounts.push(normalized);
-      const current = previous || normalized;
-      postgresRuntimeState.accountsByEmail.set(email, current);
-      postgresRuntimeState.accountsById.set(current.userId, current);
-      usersCache = postgresRuntimeState.accounts;
-      usersCacheCheckedAt = Date.now();
-      const write = previous
-        ? enqueuePostgresRuntimeWrite('account-update', () => postgresRepository.runtimeUpdateAccount({ actorUserId: actorUserId || current.userId, ...current, createdAtText: current.createdAt, preserveFinancials }))
-        : enqueuePostgresRuntimeWrite('account-register', () => postgresRepository.runtimeRegisterAccount({ ...current, createdAtText: current.createdAt }));
-      try { Object.defineProperty(current, '__postgresWrite', { value: write, enumerable: false, configurable: true }); } catch (_) {}
-      return current;
+      throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存写回');
     }
     if (dbReady()) {
       persistUsersToDb([{ ...user, userId: user.userId || projectScope.stableUserId(user.email) }]);
@@ -147,16 +115,10 @@ function createAuthAccountService({
     const email = String(user && user.email || '').trim().toLowerCase();
     if (!email) return false;
     if (POSTGRES_MODE) {
-      if (postgresRuntimeState.accountsByEmail.has(email)) return false;
       const normalized = { ...user, email, userId: String(user.userId || projectScope.stableUserId(email)) };
-      postgresRuntimeState.accounts.push(normalized);
-      postgresRuntimeState.accountsByEmail.set(email, normalized);
-      postgresRuntimeState.accountsById.set(normalized.userId, normalized);
-      usersCache = postgresRuntimeState.accounts;
-      usersCacheCheckedAt = Date.now();
-      const write = enqueuePostgresRuntimeWrite('account-register', () => postgresRepository.runtimeRegisterAccount({ ...normalized, createdAtText: normalized.createdAt }));
-      try { Object.defineProperty(normalized, '__postgresWrite', { value: write, enumerable: false, configurable: true }); } catch (_) {}
-      await write;
+      const saved = await postgresRepository.runtimeRegisterAccount({ ...normalized, createdAtText: normalized.createdAt });
+      if (!saved) throw requestError(503, '账户创建未得到数据库确认');
+      Object.assign(user, postgresRuntimeUserFromRow(saved));
       return true;
     }
     if (dbReady()) {
@@ -213,7 +175,7 @@ function createAuthAccountService({
   function getUserByEmail(email) {
     const key = String(email || '').trim().toLowerCase();
     if (!key) return null;
-    if (POSTGRES_MODE) return postgresRuntimeState.accountsByEmail.get(key) || null;
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存读取');
     if (dbReady()) {
       const row = getDatabase().prepare(`SELECT email, user_id AS userId, name, avatar, bio, default_model AS defaultModel, salt, pwd, role, level, plan, credits, spent, created_at AS createdAt
         FROM accounts WHERE email = ?`).get(key);
@@ -225,7 +187,7 @@ function createAuthAccountService({
   function getUserById(userId) {
     const key = String(userId || '').trim();
     if (!key) return null;
-    if (POSTGRES_MODE) return postgresRuntimeState.accountsById.get(key) || null;
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存读取');
     if (dbReady()) {
       const row = getDatabase().prepare(`SELECT email, user_id AS userId, name, avatar, bio, default_model AS defaultModel, salt, pwd, role, level, plan, credits, spent, created_at AS createdAt
         FROM accounts WHERE user_id = ?`).get(key);
@@ -458,6 +420,7 @@ function createAuthAccountService({
   }
   
   function issueToken(email, scope = 'client') {
+    if (POSTGRES_MODE) return issuePostgresToken(email, scope);
     const token = crypto.randomBytes(24).toString('hex');
     const tokenHash = hashSessionToken(token);
     const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -473,20 +436,6 @@ function createAuthAccountService({
       scope: normalizedScope,
       dbBacked: POSTGRES_MODE || dbReady()
     });
-    if (POSTGRES_MODE && postgresRepository.enabled) {
-      void postgresRepository.createAuthSession({
-        sessionId: crypto.randomUUID(),
-        userId,
-        legacyId: userId,
-        tokenHash,
-        scope: normalizedScope,
-        expiresAt
-      }).catch(error => {
-        sessions.delete(tokenHash);
-        console.error('[sessions] PostgreSQL 会话写入失败：' + String(error && error.code || 'pg_unavailable'));
-      });
-      return token;
-    }
     if (dbReady()) {
       getDatabase().prepare(`INSERT OR REPLACE INTO auth_sessions
         (token_hash, email, user_id, scope, expires_at, created_at, revoked_at)
@@ -495,10 +444,27 @@ function createAuthAccountService({
     persistSessions();
     return token;
   }
+
+  async function issuePostgresToken(email, scope) {
+    const user = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(email));
+    if (!user) throw requestError(401, '账户不存在');
+    const token = crypto.randomBytes(24).toString('hex');
+    await postgresRepository.createAuthSession({
+      sessionId: crypto.randomUUID(), userId: user.userId, legacyId: user.userId,
+      tokenHash: hashSessionToken(token), scope: normalizeSessionScope(scope),
+      expiresAt: Date.now() + SESSION_TTL_MS
+    });
+    return token;
+  }
   
   function getAuthUser(req, expectedScope = 'client') {
     if (process.env.MOLAN_APP_STORE === 'json' && !POSTGRES_MODE) {
       return nativeAuthService().getAuthUser(req, expectedScope);
+    }
+    if (POSTGRES_MODE) {
+      const verified = req.molanPostgresAuth;
+      if (!verified || normalizeSessionScope(verified.scope) !== normalizeSessionScope(expectedScope)) return null;
+      return { token: verified.token, user: verified.user };
     }
     const auth = req.headers['authorization'] || '';
     const token = auth.replace(/^Bearer\s+/i, '').trim();
@@ -539,7 +505,7 @@ function createAuthAccountService({
   function publicUser(u) {
     const role = normalizeUserRole(u);
     const isAdmin = role === 'admin';
-    return {
+    const view = {
       userId: String(u.userId || projectScope.stableUserId(u.email)),
       email: u.email,
       name: u.name,
@@ -555,8 +521,11 @@ function createAuthAccountService({
       credits: isAdmin ? null : (u.credits == null ? 500 : u.credits),
       spent: Math.round((Number(u.spent) || 0) * 100) / 100,
       createdAt: u.createdAt,
-      usage: getUsageSummary(u.email, false)
+      usage: POSTGRES_MODE ? null : getUsageSummary(u.email, false)
     };
+    return POSTGRES_MODE
+      ? getPostgresUsageSummary(u.userId, false).then(usage => ({ ...view, usage }))
+      : view;
   }
   
   function normalizeAvatar(value, fallback) {
@@ -580,7 +549,9 @@ function createAuthAccountService({
       const password = String(p.password || '');
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('邮箱格式不正确');
       if (password.length < 6 || password.length > 256) throw new Error('密码长度需为 6 到 256 位');
-      if (getUserByEmail(email)) throw new Error('该邮箱已注册，请直接登录');
+      if (POSTGRES_MODE ? await postgresRepository.runtimeAccountByEmail(email) : getUserByEmail(email)) {
+        throw requestError(409, '该邮箱已注册，请直接登录');
+      }
       const passwordRecord = createPasswordRecord(password);
       const user = {
         email, name: String(p.name || email.split('@')[0]).slice(0, 24),
@@ -590,15 +561,14 @@ function createAuthAccountService({
         createdAt: new Date().toISOString()
       };
       if (!await insertUserIfAbsent(user)) throw requestError(409, '该邮箱已注册，请直接登录');
-      json(res, 200, { ok: true, token: issueToken(email), user: publicUser(user) });
+      json(res, 200, { ok: true, token: await issueToken(email), user: await publicUser(user) });
     }).catch(e => respondError(res, e));
   }
   
   async function authenticatePasswordLogin(email, password) {
-    let user = getUserByEmail(email);
-    if (!user && POSTGRES_MODE && postgresRepository.enabled) {
-      user = await getPostgresRuntimeUserByEmail(email);
-    }
+    const user = POSTGRES_MODE
+      ? postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(email))
+      : getUserByEmail(email);
     if (!user) throw new Error('邮箱或密码错误');
     const verification = verifyPassword(password, user);
     if (!verification.ok) throw new Error('邮箱或密码错误');
@@ -606,7 +576,8 @@ function createAuthAccountService({
       const passwordRecord = createPasswordRecord(password);
       user.salt = passwordRecord.salt;
       user.pwd = passwordRecord.pwd;
-      saveUser(user);
+      if (POSTGRES_MODE) await postgresRepository.runtimeUpdateAccount({ ...user, actorUserId: user.userId, preserveFinancials: true });
+      else saveUser(user);
     }
     return user;
   }
@@ -617,7 +588,7 @@ function createAuthAccountService({
       const email = String(p.email || '').trim().toLowerCase();
       const password = String(p.password || '');
       const user = await authenticatePasswordLogin(email, password);
-      json(res, 200, { ok: true, token: issueToken(user.email, 'client'), user: publicUser(user) });
+      json(res, 200, { ok: true, token: await issueToken(user.email, 'client'), user: await publicUser(user) });
     }).catch(e => respondError(res, e));
   }
   
@@ -628,7 +599,7 @@ function createAuthAccountService({
       const password = String(p.password || '');
       const user = await authenticatePasswordLogin(email, password);
       if (!isAdminUser(user)) throw requestError(403, '该账户没有管理员权限');
-      json(res, 200, { ok: true, token: issueToken(user.email, 'admin'), user: publicUser(user) });
+      json(res, 200, { ok: true, token: await issueToken(user.email, 'admin'), user: await publicUser(user) });
     }).catch(e => respondError(res, e));
   }
   
@@ -640,17 +611,17 @@ function createAuthAccountService({
     json(res, 410, { error: '邮箱验证码登录暂未开放，请使用邮箱和密码登录' });
   }
   
-  function handleMe(req, res) {
+  async function handleMe(req, res) {
     const a = getAuthUser(req);
     if (!a) return json(res, 401, { error: '未登录' });
-    json(res, 200, { ok: true, user: publicUser(a.user) });
+    json(res, 200, { ok: true, user: await publicUser(a.user) });
   }
   
-  function handleAdminMe(req, res) {
+  async function handleAdminMe(req, res) {
     const a = getAuthUser(req, 'admin');
     if (!a) return json(res, 401, { error: '未登录管理后台' });
     if (!isAdminUser(a.user)) return json(res, 403, { error: '该账户没有管理员权限' });
-    json(res, 200, { ok: true, user: publicUser(a.user) });
+    json(res, 200, { ok: true, user: await publicUser(a.user) });
   }
   
   function handleProfile(req, res) {
@@ -683,16 +654,16 @@ function createAuthAccountService({
           bio: user.bio,
           defaultModel: user.defaultModel
         });
-        const saved = cachePostgresRuntimeUser(postgresRuntimeUserFromRow(row));
+        const saved = postgresRuntimeUserFromRow(row);
         if (saved && saved !== user) Object.assign(user, saved);
       } else {
         saveUser(user);
       }
-      json(res, 200, { ok: true, user: publicUser(user) });
+      json(res, 200, { ok: true, user: await publicUser(user) });
     }).catch(e => respondError(res, e));
   }
   
-  function handleLogout(req, res, expectedScope = 'client') {
+  async function handleLogout(req, res, expectedScope = 'client') {
     const auth = req.headers['authorization'] || '';
     const token = auth.replace(/^Bearer\s+/i, '').trim();
     if (token && !getAuthUser(req, expectedScope)) return json(res, 401, { error: '登录态无效或用途不匹配' });
@@ -701,9 +672,7 @@ function createAuthAccountService({
       markSessionRevoked(tokenHash);
       sessions.delete(tokenHash);
       if (POSTGRES_MODE && postgresRepository.enabled) {
-        void postgresRepository.revokeAuthSession(tokenHash).catch(error => {
-          console.error('[sessions] PostgreSQL 会话撤销失败：' + String(error && error.code || 'pg_unavailable'));
-        });
+        await postgresRepository.revokeAuthSession(tokenHash);
       } else if (dbReady()) {
         getDatabase().prepare('UPDATE auth_sessions SET revoked_at = ? WHERE token_hash = ?').run(Date.now(), tokenHash);
       }
@@ -712,7 +681,7 @@ function createAuthAccountService({
     json(res, 200, { ok: true });
   }
   
-  function handleLogoutAll(req, res) {
+  async function handleLogoutAll(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '未登录' });
     const userId = String(auth.user.userId || projectScope.stableUserId(auth.user.email)).trim();
@@ -726,9 +695,7 @@ function createAuthAccountService({
       }
     }
     if (POSTGRES_MODE && postgresRepository.enabled) {
-      void postgresRepository.revokeAuthSessions(userId).catch(error => {
-        console.error('[sessions] PostgreSQL 全部会话撤销失败：' + String(error && error.code || 'pg_unavailable'));
-      });
+      await postgresRepository.revokeAuthSessions(userId);
     } else if (dbReady()) {
       getDatabase().prepare(`UPDATE auth_sessions SET revoked_at = ?
         WHERE (user_id = ? OR (user_id = '' AND email = ?)) AND revoked_at IS NULL`).run(Date.now(), userId, email);
@@ -785,4 +752,3 @@ function createAuthAccountService({
 }
 
 module.exports = { createAuthAccountService };
-

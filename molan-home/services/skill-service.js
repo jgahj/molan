@@ -35,7 +35,6 @@ function createSkillService({
   crypto,
   dbReady,
   decodePathParam,
-  enqueuePostgresRuntimeWrite,
   firstExistingEditorSource,
   fs,
   getAuthUser,
@@ -43,8 +42,8 @@ function createSkillService({
   isAdminUser,
   json,
   normalizeAuditManifest,
+  nativeSkillCatalog,
   postgresRepository,
-  postgresRuntimeState,
   projectScope,
   readBody,
   readJsonFile,
@@ -380,15 +379,16 @@ function createSkillService({
     };
   }
   
-  function handleSkills(req, res) {
-    if (!requireSqliteForPublic(req, res)) return;
+  async function handleSkills(req, res) {
+    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const out = loadBuiltinSkills().slice();
     const auth = getAuthUser(req);
     if (auth) {
-      loadGlobalSkills().filter(s => s.enabled !== false).forEach(s => {
+      const catalog = POSTGRES_MODE ? await nativeSkillCatalog(auth.user) : null;
+      (catalog ? catalog.globalSkills : loadGlobalSkills()).filter(s => s.enabled !== false).forEach(s => {
         out.push({ ...s, source: 'global', editable: false, global: true, autoApply: true });
       });
-      out.push(...loadUserSkills(auth.user.email).map(s => ({ ...s, source: 'user', global: false, autoApply: false })));
+      out.push(...(catalog ? catalog.userSkills : loadUserSkills(auth.user.email)).map(s => ({ ...s, source: 'user', global: false, autoApply: false })));
     }
     // 未登录用户只需要看到可用 Skill 的名称和简介，不能匿名下载完整提示词。
     json(res, 200, uniqueSkillsById(auth ? out : out.map(publicSkillSummary)));
@@ -397,8 +397,8 @@ function createSkillService({
   function handleSkillImport(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后保存个人 Skill' });
-    if (!requireSqliteForPublic(req, res)) return;
-    readBody(req).then(body => {
+    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+    return readBody(req).then(async body => {
       const name = String(body.name || '').trim();
       const description = String(body.description || '').trim().slice(0, 500);
       const instruction = String(body.instruction || '').trim().slice(0, 1000000);
@@ -411,13 +411,20 @@ function createSkillService({
         'skill';
       const userHash = crypto.createHash('sha256').update(String(auth.user.email).toLowerCase()).digest('hex').slice(0, 12);
       const id = 'user-' + userHash + '-' + slug;
-      const skills = loadAllUserSkillRecords();
-      const key = String(auth.user.email).trim().toLowerCase();
-      const existing = Array.isArray(skills[key]) ? skills[key] : [];
       const runtimeFiles = normalizeSkillRuntimeFiles(body.runtimeFiles, body.files, { strict: true });
       const files = skillFileNames(runtimeFiles, body.files);
       const fileManifest = Array.isArray(body.fileManifest) ? body.fileManifest : [];
       const record = decorateSkillPrompt({ id, name: name.slice(0, 120), description, instruction, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest), size: instruction.length, updatedAt: Date.now() });
+      if (POSTGRES_MODE) {
+        await postgresRepository.runtimeUpsertUserSkill({
+          actorUserId: auth.user.userId, ownerEmail: auth.user.email,
+          skill: { ...record, files_json: serializeSkillFiles(record) }
+        });
+        return json(res, 200, { ok: true, id, skill: record });
+      }
+      const skills = loadAllUserSkillRecords();
+      const key = String(auth.user.email).trim().toLowerCase();
+      const existing = Array.isArray(skills[key]) ? skills[key] : [];
       const index = existing.findIndex(item => item && item.id === id);
       if (index >= 0) existing[index] = record; else existing.push(record);
       skills[key] = existing;
@@ -427,14 +434,8 @@ function createSkillService({
   }
   
   function loadAllUserSkillRecords() {
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存读取');
     if (userSkillRecordsCache && Date.now() - userSkillRecordsCacheAt < SKILL_CACHE_TTL_MS) return userSkillRecordsCache;
-    if (POSTGRES_MODE) {
-      const out = {};
-      postgresRuntimeState.userSkills.forEach((skills, email) => { out[email] = skills.slice(); });
-      userSkillRecordsCache = out;
-      userSkillRecordsCacheAt = Date.now();
-      return userSkillRecordsCache;
-    }
     if (dbReady()) {
       const out = {};
       getDatabase().prepare(`SELECT user_email, id, name, description, instruction, files_json, size, updated_at
@@ -461,29 +462,7 @@ function createSkillService({
   
   function saveAllUserSkillRecords(data, actorUserId = '') {
     if (POSTGRES_MODE) {
-      const next = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
-      const previousOwners = new Set(postgresRuntimeState.userSkills.keys());
-      userSkillRecordsCache = next;
-      userSkillRecordsCacheAt = Date.now();
-      postgresRuntimeState.userSkills.clear();
-      for (const [email, list] of Object.entries(next)) {
-        postgresRuntimeState.userSkills.set(String(email).trim().toLowerCase(), Array.isArray(list) ? list : []);
-      }
-      const write = enqueuePostgresRuntimeWrite('user-skills', async () => {
-        const ownerEmails = new Set([...previousOwners, ...Object.keys(next).map(email => String(email).trim().toLowerCase())]);
-        for (const email of ownerEmails) {
-          const list = next[email] || [];
-          const owner = postgresRuntimeState.accountsByEmail.get(String(email).trim().toLowerCase());
-          const ownerUserId = String(owner && owner.userId || projectScope.stableUserId(email));
-          await postgresRepository.runtimeReplaceUserSkills({
-            actorUserId: actorUserId || ownerUserId,
-            ownerUserId,
-            ownerEmail: String(email).trim().toLowerCase(),
-            skills: Array.isArray(list) ? list : []
-          });
-        }
-      });
-      return write;
+      throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
     }
     if (dbReady()) {
       getDatabase().exec('BEGIN IMMEDIATE');
@@ -527,6 +506,7 @@ function createSkillService({
   }
   
   function loadGlobalSkills() {
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存读取');
     if (globalSkillsCache && Date.now() - globalSkillsCacheAt < SKILL_CACHE_TTL_MS) return globalSkillsCache;
     if (dbReady()) {
       const skills = getDatabase().prepare(`SELECT id, name, description, instruction, files_json, targets_json, enabled, created_at, updated_at
@@ -552,6 +532,7 @@ function createSkillService({
   }
   
   function saveGlobalSkills(skills, qualityEvidence) {
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
     assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(skills), evidence: qualityEvidence });
     return persistGlobalSkills(skills);
   }
@@ -724,12 +705,13 @@ function createSkillService({
       complete: storedFiles.complete,
       status: row.status === 'withdrawn' ? 'withdrawn' : 'published',
       downloads: Math.max(0, Number(row.downloads) || 0),
-      createdAt: Number(row.created_at) || 0,
-      updatedAt: Number(row.updated_at) || 0
+      createdAt: Number(row.created_at_value ?? row.created_at) || 0,
+      updatedAt: Number(row.updated_at_value ?? row.updated_at) || 0
     });
   }
   
   function loadOpenSkills() {
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存读取');
     if (openSkillsCache && Date.now() - openSkillsCacheAt < SKILL_CACHE_TTL_MS) return openSkillsCache;
     if (dbReady()) {
       openSkillsCache = getDatabase().prepare(`SELECT id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at
@@ -752,6 +734,7 @@ function createSkillService({
   }
   
   function saveOpenSkills(skills) {
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
     const list = Array.isArray(skills) ? skills : [];
     if (dbReady()) {
       getDatabase().exec('BEGIN IMMEDIATE');
@@ -784,6 +767,7 @@ function createSkillService({
   }
   
   function findOpenSkill(id) {
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存读取');
     const key = String(id || '');
     if (!key) return null;
     if (dbReady()) {
@@ -806,7 +790,7 @@ function createSkillService({
       id: skill.id,
       name: skill.name,
       description: skill.description,
-      author: openSkillAuthorName(skill.ownerEmail),
+      author: POSTGRES_MODE ? String(skill.authorName || '墨阑作者').slice(0, 24) : openSkillAuthorName(skill.ownerEmail),
       downloads: skill.downloads,
       status: skill.status,
       createdAt: skill.createdAt,
@@ -833,6 +817,12 @@ function createSkillService({
     }
     return detail;
   }
+
+  async function postgresOpenSkillView(skill, auth, detail = false) {
+    const account = await postgresRepository.runtimeAccountByEmail(skill.ownerEmail);
+    const value = { ...skill, authorName: account?.name || '墨阑作者' };
+    return detail ? openSkillDetailView(value, auth) : openSkillListView(value, auth);
+  }
   
   function canViewOpenSkill(skill, auth) {
     if (!skill) return false;
@@ -858,6 +848,7 @@ function createSkillService({
   }
   
   function updateOpenSkill(skill) {
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
     if (dbReady()) {
       getDatabase().prepare(`UPDATE open_skills SET name = ?, description = ?, instruction = ?, files_json = ?, status = ?, updated_at = ? WHERE id = ?`).run(
       skill.name, skill.description, skill.instruction, serializeSkillFiles(skill), skill.status, skill.updatedAt, skill.id
@@ -872,6 +863,7 @@ function createSkillService({
   }
   
   function deleteOpenSkill(id) {
+    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
     if (dbReady()) {
       const result = getDatabase().prepare('DELETE FROM open_skills WHERE id = ?').run(String(id));
       invalidateOpenSkillsCache();
@@ -944,13 +936,28 @@ function createSkillService({
     return { page, pageSize, query, sort, scope };
   }
   
-  function handleOpenSkillList(req, res) {
-    if (!requireSqliteForPublic(req, res)) return;
+  async function handleOpenSkillList(req, res) {
+    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const auth = getAuthUser(req);
     let params;
     try { params = parseOpenSkillListParams(req); } catch (error) { return respondError(res, error); }
     if (params.scope === 'mine' && !auth) return json(res, 401, { error: '请先登录后查看自己的开放 Skill' });
     const owner = auth && auth.user ? String(auth.user.email || '').trim().toLowerCase() : '';
+    if (POSTGRES_MODE) {
+      let list = (await postgresRepository.runtimeListOpenSkills(auth?.user.userId || '')).map(openSkillFromDbRow)
+        .filter(skill => params.scope === 'mine' ? skill.ownerEmail === owner : skill.status === 'published');
+      if (params.query) {
+        const query = params.query.toLowerCase();
+        list = list.filter(skill => (skill.name + ' ' + skill.description + ' ' + skill.id).toLowerCase().includes(query));
+      }
+      list.sort((first, second) => params.sort === 'downloads'
+        ? second.downloads - first.downloads || second.updatedAt - first.updatedAt
+        : second.updatedAt - first.updatedAt);
+      const total = list.length;
+      const start = (params.page - 1) * params.pageSize;
+      return json(res, 200, { ok: true, skills: await Promise.all(list.slice(start, start + params.pageSize).map(skill => postgresOpenSkillView(skill, auth))),
+        pagination: { page: params.page, pageSize: params.pageSize, total, totalPages: Math.max(1, Math.ceil(total / params.pageSize)) } });
+    }
     if (dbReady()) {
       const conditions = [params.scope === 'mine' ? 'owner_email = ?' : "status = 'published'"];
       const args = [ ...(params.scope === 'mine' ? [owner] : []) ];
@@ -977,68 +984,91 @@ function createSkillService({
     json(res, 200, { ok: true, skills: list.slice(start, start + params.pageSize).map(skill => openSkillListView(skill, auth)), pagination: { page: params.page, pageSize: params.pageSize, total, totalPages: Math.max(1, Math.ceil(total / params.pageSize)) } });
   }
   
-  function handleOpenSkillGet(req, res, id) {
-    if (!requireSqliteForPublic(req, res)) return;
+  async function handleOpenSkillGet(req, res, id) {
+    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const auth = getAuthUser(req);
     let skillId;
     try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-    const skill = findOpenSkill(skillId);
+    const row = POSTGRES_MODE ? await postgresRepository.runtimeGetOpenSkill(auth?.user.userId || '', skillId) : null;
+    const skill = POSTGRES_MODE ? row && openSkillFromDbRow(row) : findOpenSkill(skillId);
     if (!canViewOpenSkill(skill, auth)) return json(res, 404, { error: '开放 Skill 不存在或已撤回' });
-    json(res, 200, { ok: true, skill: openSkillDetailView(skill, auth) });
+    json(res, 200, { ok: true, skill: POSTGRES_MODE ? await postgresOpenSkillView(skill, auth, true) : openSkillDetailView(skill, auth) });
   }
   
   function handleOpenSkillCreate(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后发布开放 Skill' });
-    if (!requireSqliteForPublic(req, res)) return;
-    readBody(req).then(body => {
+    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+    return readBody(req).then(async body => {
       const skill = makeOpenSkill(body, null, auth.user.email);
-      insertOpenSkill(skill);
-      if (isAdminUser(auth.user)) appendAdminAudit(auth.user.email, 'open-skill.create', skill.id, { owner: skill.ownerEmail, name: skill.name });
-      json(res, 200, { ok: true, skill: openSkillDetailView(skill, auth) });
+      if (POSTGRES_MODE) await postgresRepository.runtimeUpsertOpenSkill({
+        actorUserId: auth.user.userId, ownerEmail: auth.user.email,
+        skill: { ...skill, files_json: serializeSkillFiles(skill) }
+      });
+      else insertOpenSkill(skill);
+      if (isAdminUser(auth.user)) await appendAdminAudit(auth.user.email, 'open-skill.create', skill.id, { owner: skill.ownerEmail, name: skill.name });
+      json(res, 200, { ok: true, skill: POSTGRES_MODE ? await postgresOpenSkillView(skill, auth, true) : openSkillDetailView(skill, auth) });
     }).catch(error => respondError(res, error));
   }
   
-  function handleOpenSkillPatch(req, res, id) {
+  async function handleOpenSkillPatch(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后修改开放 Skill' });
-    if (!requireSqliteForPublic(req, res)) return;
+    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     let skillId;
     try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-    const existing = findOpenSkill(skillId);
+    const row = POSTGRES_MODE ? await postgresRepository.runtimeGetOpenSkill(auth.user.userId, skillId) : null;
+    const existing = POSTGRES_MODE ? row && openSkillFromDbRow(row) : findOpenSkill(skillId);
     if (!existing) return json(res, 404, { error: '开放 Skill 不存在' });
     const owner = String(auth.user.email || '').toLowerCase() === String(existing.ownerEmail || '').toLowerCase();
     if (!owner && !isAdminUser(auth.user)) return json(res, 403, { error: '只有 Skill 创建者或管理员可以修改' });
-    readBody(req).then(body => {
+    return readBody(req).then(async body => {
       const skill = makeOpenSkill(body, existing, existing.ownerEmail);
-      updateOpenSkill(skill);
-      if (isAdminUser(auth.user)) appendAdminAudit(auth.user.email, 'open-skill.update', skill.id, { owner: skill.ownerEmail, name: skill.name, status: skill.status });
-      json(res, 200, { ok: true, skill: openSkillDetailView(skill, auth) });
+      if (POSTGRES_MODE) await postgresRepository.runtimeUpsertOpenSkill({
+        actorUserId: auth.user.userId, ownerUserId: row.owner_user_legacy_id, ownerEmail: existing.ownerEmail,
+        expectedUpdatedAt: existing.updatedAt,
+        skill: { ...skill, files_json: serializeSkillFiles(skill) }
+      });
+      else updateOpenSkill(skill);
+      if (isAdminUser(auth.user)) await appendAdminAudit(auth.user.email, 'open-skill.update', skill.id, { owner: skill.ownerEmail, name: skill.name, status: skill.status });
+      json(res, 200, { ok: true, skill: POSTGRES_MODE ? await postgresOpenSkillView(skill, auth, true) : openSkillDetailView(skill, auth) });
     }).catch(error => respondError(res, error));
   }
   
-  function handleOpenSkillDelete(req, res, id) {
+  async function handleOpenSkillDelete(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后撤回开放 Skill' });
-    if (!requireSqliteForPublic(req, res)) return;
+    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     let skillId;
     try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-    const existing = findOpenSkill(skillId);
+    const row = POSTGRES_MODE ? await postgresRepository.runtimeGetOpenSkill(auth.user.userId, skillId) : null;
+    const existing = POSTGRES_MODE ? row && openSkillFromDbRow(row) : findOpenSkill(skillId);
     if (!existing) return json(res, 404, { error: '开放 Skill 不存在' });
     const owner = String(auth.user.email || '').toLowerCase() === String(existing.ownerEmail || '').toLowerCase();
     if (!owner && !isAdminUser(auth.user)) return json(res, 403, { error: '只有 Skill 创建者或管理员可以撤回' });
-    const changes = deleteOpenSkill(skillId);
+    const changes = POSTGRES_MODE ? await postgresRepository.runtimeDeleteOpenSkill(auth.user.userId, skillId) : deleteOpenSkill(skillId);
     if (!changes) return json(res, 404, { error: '开放 Skill 不存在' });
-    if (isAdminUser(auth.user)) appendAdminAudit(auth.user.email, 'open-skill.delete', skillId, { owner: existing.ownerEmail, name: existing.name });
+    if (isAdminUser(auth.user)) await appendAdminAudit(auth.user.email, 'open-skill.delete', skillId, { owner: existing.ownerEmail, name: existing.name });
     json(res, 200, { ok: true, id: skillId });
   }
   
-  function handleOpenSkillDownload(req, res, id) {
+  async function handleOpenSkillDownload(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后下载 Skill' });
-    if (!requireSqliteForPublic(req, res)) return;
+    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     let skillId;
     try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
+    if (POSTGRES_MODE) {
+      const copiedId = 'user-copy-' + crypto.randomBytes(16).toString('hex');
+      const result = await postgresRepository.runtimeDownloadOpenSkill({
+        actorUserId: auth.user.userId, ownerEmail: auth.user.email, skillId, copiedId
+      });
+      const storedFiles = parseStoredSkillFiles(result.copied.files_json);
+      const skill = decorateSkillPrompt({ ...storedFiles, id: result.copied.id, name: result.copied.name,
+        description: result.copied.description, instruction: result.copied.instruction,
+        size: Number(result.copied.size), updatedAt: Number(result.copied.updated_at_value) });
+      return json(res, 200, { ok: true, skill, source: { id: result.source.id, name: result.source.name, downloads: Number(result.source.downloads) } });
+    }
     const source = findOpenSkill(skillId);
     if (!canViewOpenSkill(source, auth)) return json(res, 404, { error: '开放 Skill 不存在或已撤回' });
     try {
