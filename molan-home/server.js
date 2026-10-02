@@ -106,7 +106,7 @@ function generationRunStore() {
   }
   return POSTGRES_MODE
     ? require('./lib/generation/postgres-store').createPostgresGenerationStore(postgresRepository)
-    : require('./lib/generation/sqlite-store');
+    : (() => { throw Object.assign(new Error('生成任务需要 PostgreSQL 或显式原生测试仓储'), { code: 'GENERATION_STORE_REQUIRED' }); })();
 }
 function styleProfileStore() {
   if (POSTGRES_MODE) return postgresStyleProfileStore;
@@ -119,6 +119,7 @@ function styleProfileStore() {
   return jsonStyleProfileStore;
 }
 async function closeStorageStores() {
+  stopCreditReservationReaper();
   chatAdmission.close();
   const failures = [];
   const labResults = await Promise.allSettled([
@@ -146,57 +147,8 @@ async function closeStorageStores() {
 let postgresHealth = POSTGRES_MODE
   ? { enabled: true, available: false, status: 'starting' }
   : { enabled: false, available: false, status: 'disabled' };
-// PostgreSQL 模式下的同步业务代码只读受控的运行时投影；账号与索引保留在进程内，
-// 大体量拆书行落在可重建的 SQLite 兼容缓存中，所有变更先更新投影再串行写回 PG。
-const postgresRuntimeState = {
-  ready: false,
-  loading: null,
-  accounts: [],
-  accountsByEmail: new Map(),
-  accountsById: new Map(),
-  userSkills: new Map(),
-  globalSkills: [],
-  openSkills: [],
-  dissections: new Map(),
-  dissectionRows: new Map()
-};
-const POSTGRES_RUNTIME_UNASSIGNED_USER_ID = 'usr_d2b36e0707fecb544e2e9232f9b8b114';
-let postgresRuntimeWriteQueue = Promise.resolve();
-let postgresRuntimePendingWrites = 0;
-let postgresRuntimeLastWriteError = '';
-let postgresRuntimeMirrorBaseline = new Map();
-let postgresRuntimeProjectionBaseline = {
-  accounts: new Map(),
-  userSkills: new Map(),
-  globalSkills: new Map(),
-  openSkills: new Map(),
-  dissections: new Map()
-};
-const postgresRuntimeDirtyTables = new Set();
-let postgresRuntimeFlushScheduled = false;
-let postgresRuntimeHydrating = false;
-
-// 这些表属于旧拆书运行时的可编辑数据。PostgreSQL 中以完整 cells/document
-// 保存，兼容缓存只负责让现有同步拆书算法继续工作。
-const POSTGRES_RUNTIME_SOURCE_TABLES = new Set([
-  'character_library', 'dissection_batch_tasks', 'dissection_chapter_facts',
-  'dissection_chapters', 'dissection_claims', 'dissection_entities',
-  'dissection_entity_aliases', 'dissection_entity_mentions', 'dissection_entity_states',
-  'dissection_event_edges', 'dissection_events', 'dissection_foreshadows',
-  'dissection_runs', 'dissection_shares', 'dissection_summaries', 'dissection_units',
-  'dissection_versions', 'token_usage', 'model_usage', 'admin_audit'
-]);
-
-// PostgreSQL 为墨阑权威云端/生产数据库（通过 pg 连接池直连）；
-// 本地开发或离线单机模式使用纯原生文件存储（JSON/Text），零数据库依赖。
-let DatabaseSync = null;
-let dbEnabled = false;
-try {
-  ({ DatabaseSync } = require('node:sqlite'));
-  dbEnabled = Boolean(DatabaseSync);
-} catch (_) {
-  dbEnabled = false;
-}
+const postgresRuntimeState = { ready: false };
+const dbEnabled = true;
 const { assertJsonSource } = require('./lib/repositories/assert-json-source');
 
 const PORT = process.env.PORT || 3000;
@@ -624,7 +576,7 @@ const STATIC_CACHE_MAX_BYTES = envPositiveInt('MOLAN_STATIC_CACHE_BYTES', 5 * 10
 
 const { requestError, decodePathParam, respondError, json, readBody } = require('./services/http-request-service').createHttpRequestService({
   MAX_JSON_BODY_BYTES, responseCors,
-  shouldFlushWrites: () => POSTGRES_MODE && postgresRuntimeState.ready && (postgresRuntimePendingWrites > 0 || postgresRuntimeDirtyTables.size > 0),
+  shouldFlushWrites: () => false,
   flushWrites: () => flushPostgresRuntimeWrites()
 });
 
@@ -637,7 +589,7 @@ function requireSqliteForPublic(req, res) {
     return true;
   }
   if (REQUIRE_SQLITE_FOR_REMOTE && !dbReady()) {
-    json(res, 503, { error: '生产环境必须启用 SQLite，请使用 Node 22.5+ 并通过 npm start 启动' });
+    json(res, 503, { error: '生产环境存储引擎尚未就绪，请确保数据库或本地存储服务正常启动' });
     return false;
   }
   return true;
@@ -770,7 +722,7 @@ function handleBillingTopup(req, res) {
       const row = await postgresRepository.runtimeAdjustCredits({
         actorUserId: userId, userId, delta: credits, spentDelta: 0
       });
-      user = cachePostgresRuntimeUser(postgresRuntimeUserFromRow(row)) || getUserByEmail(email);
+      user = postgresRuntimeUserFromRow(row);
     } else if (process.env.MOLAN_APP_STORE === 'json') {
       user = await appRepository().adjustCredits({ userId: auth.user.userId, delta: credits });
     } else if (dbReady()) {
@@ -781,7 +733,7 @@ function handleBillingTopup(req, res) {
       user.credits = Math.round(((Number(user.credits) || 0) + credits) * 100) / 100;
       saveUser(user);
     }
-    json(res, 200, { ok: true, creditsAdded: credits, user: !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? await nativePublicUser(user) : publicUser(user) });
+    json(res, 200, { ok: true, creditsAdded: credits, user: !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? await nativePublicUser(user) : await publicUser(user) });
   }).catch(error => respondError(res, error));
 }
 
@@ -1016,26 +968,10 @@ function postgresRuntimeUserFromRow(row) {
 }
 
 /** 跨实例登录的缓存未命中时，回填当前进程的账号投影，避免等待 NOTIFY 刷新竞态。 */
-function cachePostgresRuntimeUser(user) {
-  if (!POSTGRES_MODE || !user || !user.email) return user || null;
-  const email = String(user.email).trim().toLowerCase();
-  const existing = postgresRuntimeState.accountsByEmail.get(email);
-  if (existing && existing !== user) {
-    Object.assign(existing, user);
-    user = existing;
-  } else if (!existing) {
-    postgresRuntimeState.accounts.push(user);
-  }
-  postgresRuntimeState.accountsByEmail.set(email, user);
-  postgresRuntimeState.accountsById.set(String(user.userId || ''), user);
-  authAccountService.resetUserCache();
-  return user;
-}
-
 async function getPostgresRuntimeUserByEmail(email) {
   if (!POSTGRES_MODE || !postgresRepository.enabled) return null;
   const row = await postgresRepository.runtimeAccountByEmail(email);
-  return cachePostgresRuntimeUser(postgresRuntimeUserFromRow(row));
+  return postgresRuntimeUserFromRow(row);
 }
 
 function postgresRuntimeSkillFromRow(row, source) {
@@ -1060,921 +996,7 @@ function postgresRuntimeSkillFromRow(row, source) {
   });
 }
 
-function postgresRuntimeDissectionFromRow(row) {
-  if (!row) return null;
-  return migrateLegacyPipelineRecord(dissectionRecordFromDb({
-    ...row,
-    user_email: row.user_email,
-    owner_user_id: row.owner_user_id,
-    created_at: row.created_at_value,
-    updated_at: row.updated_at_value,
-    result_json: row.result_json,
-    meta_json: row.meta_json,
-    cancel_requested: row.cancel_requested
-  }));
-}
-
-/** 只保留拆书元数据索引，避免在内存中重复保存正文和结果 JSON。 */
-function postgresRuntimeDissectionIndexFromRow(row) {
-  if (!row) return null;
-  return {
-    id: String(row.id || ''),
-    ownerUserId: String(row.owner_user_id || ''),
-    userEmail: String(row.user_email || '')
-  };
-}
-
-/** 用版本和更新时间识别拆书投影变化，不复制大字段内容。 */
-function postgresRuntimeDissectionBaselineFromRow(row) {
-  return {
-    id: String(row && row.id || ''),
-    owner_user_id: String(row && row.owner_user_id || ''),
-    user_email: String(row && row.user_email || ''),
-    signature: [
-      row && row.revision,
-      row && row.updated_at_value,
-      row && row.status,
-      row && row.phase,
-      row && row.phase_index,
-      row && row.progress,
-      row && row.cancel_requested
-    ].map(value => String(value == null ? '' : value)).join('\u001f')
-  };
-}
-
-function postgresRuntimeDocument(row) {
-  const value = row && row.document;
-  if (value && typeof value === 'object') return value;
-  try {
-    const parsed = JSON.parse(String(value || '{}'));
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch (_) { return {}; }
-}
-
-function postgresRuntimeRowsFor(dissectionId, sourceTable = '') {
-  const byTable = postgresRuntimeState.dissectionRows.get(String(dissectionId || ''));
-  if (!byTable) return [];
-  const output = [];
-  for (const [table, rows] of byTable.entries()) {
-    if (sourceTable && table !== sourceTable) continue;
-    for (const row of rows.values()) output.push({ ...postgresRuntimeDocument(row), __runtime: row });
-  }
-  return output;
-}
-
-function postgresRuntimeFindRow(dissectionId, sourceTable, rowKey) {
-  const byTable = postgresRuntimeState.dissectionRows.get(String(dissectionId || ''));
-  const rows = byTable && byTable.get(String(sourceTable || ''));
-  return rows && rows.get(String(rowKey || '')) || null;
-}
-
-function postgresRuntimeRowKey(sourceTable, document, fallback = '') {
-  const value = document && typeof document === 'object' ? document : {};
-  return String(value.id || value.rowid || fallback || `${sourceTable}:${postgresRuntimeState.dissectionRows.size}`).slice(0, 512);
-}
-
-function postgresRuntimeHash(value) {
-  return crypto.createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value === undefined ? {} : value), 'utf8').digest('hex');
-}
-
-function postgresRuntimeSqlIdentifier(value) {
-  return '"' + String(value || '').replace(/"/g, '""') + '"';
-}
-
-function markPostgresRuntimeTableDirty(tableName) {
-  if (!POSTGRES_MODE || postgresRuntimeHydrating) return;
-  const table = String(tableName || '').trim();
-  if (!table) return;
-  if (['accounts', 'user_skills', 'global_skills', 'open_skills', 'dissections'].includes(table) || POSTGRES_RUNTIME_SOURCE_TABLES.has(table)) {
-    postgresRuntimeDirtyTables.add(table);
-    if (!postgresRuntimeFlushScheduled) {
-      postgresRuntimeFlushScheduled = true;
-      setImmediate(() => {
-        postgresRuntimeFlushScheduled = false;
-        void schedulePostgresRuntimeFlush('sqlite-runtime-mutation').catch(error => {
-          postgresRuntimeLastWriteError = String(error && error.message || error).slice(0, 500);
-        });
-      });
-    }
-  }
-}
-
-function markPostgresRuntimeSqlDirty(sql) {
-  const text = String(sql || '');
-  const pattern = /\b(?:INSERT(?:\s+OR\s+[A-Z]+)?\s+INTO|UPDATE|DELETE\s+FROM|REPLACE\s+INTO)\s+["`]?([A-Za-z_][A-Za-z0-9_]*)/gi;
-  let match;
-  while ((match = pattern.exec(text))) markPostgresRuntimeTableDirty(match[1]);
-}
-
-// DatabaseSync 没有事务提交回调，因此在运行时镜像外包一层轻量代理，
-// 只记录成功执行过的写 SQL；读取和现有调用签名完全不变。
-function wrapPostgresRuntimeDatabase(database) {
-  if (!database || database.__molanPostgresRuntimeProxy) return database;
-  const statementCache = new WeakMap();
-  const wrapStatement = (statement, sql) => {
-    if (statementCache.has(statement)) return statementCache.get(statement);
-    const wrapped = new Proxy(statement, {
-      get(target, property) {
-        const value = target[property];
-        if (property === 'run') {
-          return (...args) => {
-            const result = value.apply(target, args);
-            markPostgresRuntimeSqlDirty(sql);
-            return result;
-          };
-        }
-        return typeof value === 'function' ? value.bind(target) : value;
-      }
-    });
-    statementCache.set(statement, wrapped);
-    return wrapped;
-  };
-  const wrapped = new Proxy(database, {
-    get(target, property) {
-      if (property === '__molanPostgresRuntimeProxy') return true;
-      if (property === 'prepare') return sql => wrapStatement(target.prepare(sql), sql);
-      if (property === 'exec') return sql => {
-        const result = target.exec(sql);
-        markPostgresRuntimeSqlDirty(sql);
-        return result;
-      };
-      const value = target[property];
-      return typeof value === 'function' ? value.bind(target) : value;
-    }
-  });
-  return wrapped;
-}
-
-function postgresRuntimeJsonSafe(value) {
-  if (typeof value === 'bigint') return String(value);
-  if (Buffer.isBuffer(value)) return value.toString('base64');
-  if (Array.isArray(value)) return value.map(postgresRuntimeJsonSafe);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, postgresRuntimeJsonSafe(child)]));
-  }
-  return value;
-}
-
-function postgresRuntimeCellForValue(name, value) {
-  const cell = { name: String(name || '') };
-  if (value === null || value === undefined) return { ...cell, sqliteType: 'null' };
-  if (Buffer.isBuffer(value)) {
-    return { ...cell, sqliteType: 'blob', valueBase64: value.toString('base64'), byteLength: value.length };
-  }
-  if (typeof value === 'bigint' || (typeof value === 'number' && Number.isInteger(value))) {
-    const text = String(value);
-    return { ...cell, sqliteType: 'integer', value: text, rawBase64: Buffer.from(text, 'utf8').toString('base64') };
-  }
-  if (typeof value === 'number') {
-    const number = Number(value);
-    const bits = Buffer.allocUnsafe(8);
-    bits.writeDoubleLE(number, 0);
-    return { ...cell, sqliteType: 'real', value: String(number), ieee754LeBase64: bits.toString('base64'), rawBase64: Buffer.from(String(number), 'utf8').toString('base64') };
-  }
-  const text = String(value);
-  return { ...cell, sqliteType: 'text', value: text, utf8Base64: Buffer.from(text, 'utf8').toString('base64'), byteLength: Buffer.byteLength(text, 'utf8') };
-}
-
-function postgresRuntimeCellValue(cell, fallback) {
-  if (!cell || typeof cell !== 'object') return fallback === undefined ? null : fallback;
-  const type = String(cell.sqliteType || '').toLowerCase();
-  if (type === 'null') return null;
-  if (type === 'blob') {
-    try { return Buffer.from(String(cell.valueBase64 || ''), 'base64'); } catch (_) { return Buffer.alloc(0); }
-  }
-  if (type === 'integer') {
-    const text = String(cell.value == null ? '' : cell.value);
-    const number = Number(text);
-    return Number.isSafeInteger(number) ? number : (/^-?\d+$/.test(text) ? BigInt(text) : text);
-  }
-  if (type === 'real') return Number(cell.value);
-  return String(cell.value == null ? '' : cell.value);
-}
-
-function postgresRuntimeStableRowKey(columns, cells, rowNo) {
-  const primary = columns.filter(column => Number(column.pk) > 0).sort((left, right) => Number(left.pk) - Number(right.pk));
-  if (!primary.length) return 'row-' + rowNo;
-  return JSON.stringify(primary.map(column => {
-    const cell = cells[column.cid] || {};
-    return [column.name, cell.sqliteType, cell.value ?? cell.valueBase64 ?? ''];
-  }));
-}
-
-function postgresRuntimeCellFingerprint(cell) {
-  if (!cell || cell.sqliteType === 'null') return 'null';
-  if (cell.sqliteType === 'integer') return 'integer:' + String(cell.value || '');
-  if (cell.sqliteType === 'real') return 'real:' + String(cell.ieee754LeBase64 || '');
-  if (cell.sqliteType === 'blob') return 'blob:' + String(cell.valueBase64 || '');
-  return 'text:' + String(cell.utf8Base64 || '');
-}
-
-function postgresRuntimeGroupKey(ownerUserId, dissectionId) {
-  return String(ownerUserId || '') + '\u001f' + String(dissectionId || '');
-}
-
-function postgresRuntimeOwnerForDocument(document, dissectionId, fallback = null) {
-  const value = document && typeof document === 'object' ? document : {};
-  const record = dissectionId && postgresRuntimeState.dissections.get(String(dissectionId));
-  if (record && record.ownerUserId) return String(record.ownerUserId);
-  const directUserId = String(value.owner_user_id || value.ownerUserId || '').trim();
-  if (directUserId) return directUserId;
-  for (const field of ['user_email', 'owner_email', 'admin_email', 'email']) {
-    const email = String(value[field] || '').trim().toLowerCase();
-    if (!email) continue;
-    const account = postgresRuntimeState.accountsByEmail.get(email);
-    if (account && account.userId) return String(account.userId);
-  }
-  for (const field of ['user_id', 'userId', 'actor_user_id', 'actorUserId']) {
-    const userId = String(value[field] || '').trim();
-    if (userId && postgresRuntimeState.accountsById.has(userId)) return userId;
-  }
-  return fallback && fallback.owner_user_id ? String(fallback.owner_user_id) : '';
-}
-
-function postgresRuntimeTableExists(tableName) {
-  if (!dbReady()) return false;
-  try {
-    return !!db.prepare("SELECT 1 FROM sqlite_master WHERE name = ? AND type IN ('table','view') LIMIT 1").get(String(tableName || ''));
-  } catch (_) { return false; }
-}
-
-function postgresRuntimeRowsFromMirrorTable(sourceTable) {
-  const table = String(sourceTable || '');
-  if (!POSTGRES_RUNTIME_SOURCE_TABLES.has(table) || !postgresRuntimeTableExists(table)) return [];
-  const quoted = postgresRuntimeSqlIdentifier(table);
-  let columns;
-  let rows;
-  try {
-    columns = db.prepare('PRAGMA table_info(' + quoted + ')').all();
-    rows = db.prepare('SELECT * FROM ' + quoted).all();
-  } catch (_) { return []; }
-  const previousByRowKey = new Map();
-  const previous = postgresRuntimeMirrorBaseline.get(table);
-  if (previous) previous.forEach(entry => {
-    const row = entry && entry.row;
-    if (row && !previousByRowKey.has(String(row.row_key || ''))) previousByRowKey.set(String(row.row_key || ''), row);
-  });
-  return rows.map((row, index) => {
-    const cells = columns.map(column => postgresRuntimeCellForValue(column.name, row[column.name]));
-    const document = {};
-    columns.forEach((column, columnIndex) => { document[column.name] = postgresRuntimeJsonSafe(postgresRuntimeCellValue(cells[columnIndex], row[column.name])); });
-    const rowKey = postgresRuntimeStableRowKey(columns, cells, index + 1);
-    const previousRow = previousByRowKey.get(rowKey);
-    const dissectionId = String(document.dissection_id || document.dissectionId || previousRow && previousRow.dissection_id || '');
-    const ownerUserId = postgresRuntimeOwnerForDocument(document, dissectionId, previousRow) || POSTGRES_RUNTIME_UNASSIGNED_USER_ID;
-    const cellsJson = JSON.stringify(cells);
-    return {
-      sourceTable: table,
-      rowKey,
-      dissectionId,
-      ownerUserId,
-      document,
-      cells,
-      rowSha256: postgresRuntimeHash(cellsJson),
-      valueSha256: postgresRuntimeHash(cells.map(postgresRuntimeCellFingerprint).join('\n')),
-      sourceRunId: previousRow && previousRow.source_run_id || null,
-      sourceRowNo: previousRow && previousRow.source_row_no == null ? null : previousRow && previousRow.source_row_no
-    };
-  });
-}
-
-function postgresRuntimeMirrorBaselineForTable(table) {
-  const rows = postgresRuntimeRowsFromMirrorTable(table);
-  return postgresRuntimeMirrorBaselineMapFromRows(rows);
-}
-
-/** 将兼容缓存行压缩为可用于变更检测的哈希索引。 */
-function postgresRuntimeMirrorBaselineMapFromRows(rows) {
-  const map = new Map();
-  (Array.isArray(rows) ? rows : []).forEach(row => {
-    const compact = {
-      row_key: String(row && row.rowKey || ''),
-      row_sha256: String(row && row.rowSha256 || ''),
-      value_sha256: String(row && row.valueSha256 || ''),
-      source_run_id: row && row.sourceRunId || null,
-      source_row_no: row && row.sourceRowNo == null ? null : row && row.sourceRowNo
-    };
-    map.set(
-      postgresRuntimeGroupKey(row && row.ownerUserId, row && row.dissectionId) + '\u001f' + compact.row_key,
-      { owner_user_id: String(row && row.ownerUserId || ''), dissection_id: String(row && row.dissectionId || ''), row: compact }
-    );
-  });
-  return map;
-}
-
-function postgresRuntimeRowsByGroup(rows) {
-  const groups = new Map();
-  (Array.isArray(rows) ? rows : []).forEach(row => {
-    const ownerUserId = String(row && row.ownerUserId || POSTGRES_RUNTIME_UNASSIGNED_USER_ID);
-    const dissectionId = String(row && row.dissectionId || '');
-    const key = postgresRuntimeGroupKey(ownerUserId, dissectionId);
-    if (!groups.has(key)) groups.set(key, { ownerUserId, dissectionId, rows: [] });
-    groups.get(key).rows.push(row);
-  });
-  return groups;
-}
-
-function postgresRuntimeAdminUser() {
-  return postgresRuntimeState.accounts.find(user => isAdminUser(user)) || null;
-}
-
-function postgresRuntimeProjectionRows(table) {
-  if (!dbReady() || !postgresRuntimeTableExists(table)) return [];
-  try { return db.prepare('SELECT * FROM ' + postgresRuntimeSqlIdentifier(table)).all(); }
-  catch (_) { return []; }
-}
-
-function postgresRuntimeProjectionRowKey(table, row) {
-  if (table === 'user_skills') return String(row && row.user_email || '').trim().toLowerCase() + '\u001f' + String(row && row.id || '');
-  return String(row && row.id || '');
-}
-
-function postgresRuntimeProjectionMap(table) {
-  return new Map(postgresRuntimeProjectionRows(table).map(row => [postgresRuntimeProjectionRowKey(table, row), row]));
-}
-
-/** 将旧同步拆书镜像和账号/Skill镜像串行写回 PostgreSQL。 */
-async function schedulePostgresRuntimeFlush(reason = 'runtime') {
-  if (!POSTGRES_MODE || !postgresRepository.enabled || !postgresRuntimeState.ready || !dbReady()) return false;
-  const dirty = new Set(postgresRuntimeDirtyTables);
-  if (!dirty.size) return true;
-  dirty.forEach(table => postgresRuntimeDirtyTables.delete(table));
-  return enqueuePostgresRuntimeWrite(reason, async () => {
-    try {
-      if (dirty.has('accounts')) {
-        const current = postgresRuntimeProjectionMap('accounts');
-        const baseline = postgresRuntimeProjectionBaseline.accounts || new Map();
-        const nextBaseline = new Map(baseline);
-        for (const [userId, row] of current) {
-          const previous = baseline.get(userId);
-          const user = userFromDbRow({
-            email: row.email, userId: row.user_id, name: row.name, avatar: row.avatar,
-            bio: row.bio, defaultModel: row.default_model, salt: row.salt, pwd: row.pwd,
-            role: row.role, level: row.level, plan: row.plan, credits: row.credits,
-            spent: row.spent, createdAt: row.created_at
-          });
-          if (!previous) {
-            try {
-              await postgresRepository.runtimeRegisterAccount({ ...user, createdAtText: user.createdAt });
-            } catch (error) {
-              if (!error || error.code !== 'resource_conflict') throw error;
-              await postgresRepository.runtimeUpdateAccount({ actorUserId: user.userId, ...user, createdAtText: user.createdAt });
-            }
-          }
-          else if (JSON.stringify(previous) !== JSON.stringify(row)) {
-            await postgresRepository.runtimeUpdateAccount({ actorUserId: user.userId, ...user, createdAtText: user.createdAt });
-          }
-          nextBaseline.set(userId, row);
-          postgresRuntimeProjectionBaseline.accounts = nextBaseline;
-        }
-        for (const userId of nextBaseline.keys()) {
-          if (!current.has(userId)) nextBaseline.delete(userId);
-        }
-        postgresRuntimeProjectionBaseline.accounts = nextBaseline;
-      }
-
-      if (dirty.has('dissections')) {
-        const current = postgresRuntimeProjectionMap('dissections');
-        const baseline = postgresRuntimeProjectionBaseline.dissections || new Map();
-        const nextBaseline = new Map(baseline);
-        for (const [dissectionId, row] of current) {
-          const previous = baseline.get(dissectionId);
-          const record = migrateLegacyPipelineRecord(dissectionRecordFromDb(row));
-          const currentBaseline = postgresRuntimeDissectionBaselineFromRow(row);
-          if (!previous) {
-            try {
-              await postgresRepository.runtimeInsertDissection(record);
-            } catch (error) {
-              if (!error || error.code !== 'resource_conflict') throw error;
-              await postgresRepository.runtimeUpdateDissection(record);
-            }
-          } else if (previous.signature !== currentBaseline.signature) {
-            await postgresRepository.runtimeUpdateDissection(record);
-          }
-          nextBaseline.set(dissectionId, currentBaseline);
-          postgresRuntimeProjectionBaseline.dissections = nextBaseline;
-        }
-        for (const [dissectionId, previous] of baseline) {
-          if (current.has(dissectionId)) continue;
-          const actorUserId = String(previous.owner_user_id || projectScope.stableUserId(previous.user_email) || POSTGRES_RUNTIME_UNASSIGNED_USER_ID);
-          await postgresRepository.runtimeDeleteDissection(actorUserId, dissectionId);
-          nextBaseline.delete(dissectionId);
-          postgresRuntimeProjectionBaseline.dissections = nextBaseline;
-        }
-        postgresRuntimeProjectionBaseline.dissections = nextBaseline;
-      }
-
-      if (dirty.has('user_skills')) {
-        const current = postgresRuntimeProjectionMap('user_skills');
-        const baseline = postgresRuntimeProjectionBaseline.userSkills || new Map();
-        const owners = new Set([
-          ...[...baseline.values()].map(row => String(row.user_email || '').trim().toLowerCase()),
-          ...[...current.values()].map(row => String(row.user_email || '').trim().toLowerCase())
-        ]);
-        for (const ownerEmail of owners) {
-          if (!ownerEmail) continue;
-          const owner = postgresRuntimeState.accountsByEmail.get(ownerEmail);
-          const ownerUserId = String(owner && owner.userId || projectScope.stableUserId(ownerEmail));
-          const skills = [...current.values()].filter(row => String(row.user_email || '').trim().toLowerCase() === ownerEmail);
-          await postgresRepository.runtimeReplaceUserSkills({
-            actorUserId: ownerUserId, ownerUserId, ownerEmail, skills
-          });
-        }
-        postgresRuntimeProjectionBaseline.userSkills = new Map(current);
-      }
-
-      if (dirty.has('global_skills')) {
-        const admin = postgresRuntimeAdminUser();
-        if (admin) {
-          await postgresRepository.runtimeReplaceGlobalSkills(admin.userId, postgresRuntimeProjectionRows('global_skills'));
-          postgresRuntimeProjectionBaseline.globalSkills = postgresRuntimeProjectionMap('global_skills');
-        }
-      }
-
-      if (dirty.has('open_skills')) {
-        const current = postgresRuntimeProjectionMap('open_skills');
-        const baseline = postgresRuntimeProjectionBaseline.openSkills || new Map();
-        for (const [id, row] of current) {
-          const owner = postgresRuntimeState.accountsByEmail.get(String(row.owner_email || '').trim().toLowerCase());
-          const ownerUserId = String(owner && owner.userId || projectScope.stableUserId(row.owner_email));
-          await postgresRepository.runtimeUpsertOpenSkill({
-            actorUserId: ownerUserId, ownerUserId, ownerEmail: row.owner_email, skill: row
-          });
-        }
-        const admin = postgresRuntimeAdminUser();
-        for (const [id] of baseline) {
-          if (!current.has(id)) {
-            const ownerRow = baseline.get(id);
-            const owner = postgresRuntimeState.accountsByEmail.get(String(ownerRow && ownerRow.owner_email || '').trim().toLowerCase());
-            const actorUserId = String(admin && admin.userId || owner && owner.userId || projectScope.stableUserId(ownerRow && ownerRow.owner_email));
-            await postgresRepository.runtimeDeleteOpenSkill(actorUserId, id);
-          }
-        }
-        postgresRuntimeProjectionBaseline.openSkills = new Map(current);
-      }
-
-      for (const table of dirty) {
-        if (!POSTGRES_RUNTIME_SOURCE_TABLES.has(table)) continue;
-        const currentRows = postgresRuntimeRowsFromMirrorTable(table);
-        const currentMap = postgresRuntimeMirrorBaselineForTable(table);
-        const previousMap = postgresRuntimeMirrorBaseline.get(table) || new Map();
-        const affected = new Set();
-        for (const [key, entry] of currentMap) {
-          const previous = previousMap.get(key);
-          const previousRow = previous && previous.row;
-          if (!previous || !previousRow || previousRow.row_sha256 !== entry.row.row_sha256 ||
-              previousRow.value_sha256 !== entry.row.value_sha256 ||
-              previous.owner_user_id !== entry.owner_user_id || previous.dissection_id !== entry.dissection_id) {
-            affected.add(postgresRuntimeGroupKey(entry.owner_user_id, entry.dissection_id));
-          }
-        }
-        for (const [key, entry] of previousMap) {
-          if (!currentMap.has(key)) affected.add(postgresRuntimeGroupKey(entry.owner_user_id, entry.dissection_id));
-        }
-        const currentGroups = postgresRuntimeRowsByGroup(currentRows);
-        for (const groupKey of affected) {
-          const currentGroup = currentGroups.get(groupKey);
-          const previousGroup = [...previousMap.values()].find(entry => postgresRuntimeGroupKey(entry.owner_user_id, entry.dissection_id) === groupKey);
-          const ownerUserId = String(currentGroup && currentGroup.ownerUserId || previousGroup && previousGroup.owner_user_id || POSTGRES_RUNTIME_UNASSIGNED_USER_ID);
-          const dissectionId = String(currentGroup && currentGroup.dissectionId || previousGroup && previousGroup.dissection_id || '');
-          await postgresRepository.runtimeReplaceDissectionRows({
-            actorUserId: ownerUserId, ownerUserId, dissectionId, sourceTable: table,
-            rows: currentGroup ? currentGroup.rows : []
-          });
-        }
-        postgresRuntimeMirrorBaseline.set(table, currentMap);
-      }
-      return true;
-    } catch (error) {
-      dirty.forEach(table => postgresRuntimeDirtyTables.add(table));
-      console.error('[postgres-runtime] flush 执行异常：', error && error.message);
-      throw error;
-    }
-  });
-}
-
-function postgresRuntimeClearMirror() {
-  const tables = [
-    'dissection_units_fts', 'dissection_foreshadows', 'dissection_summaries', 'dissection_entity_states',
-    'dissection_event_edges', 'dissection_events', 'dissection_entity_mentions', 'dissection_entity_aliases',
-    'dissection_entities', 'dissection_claims', 'dissection_units', 'dissection_runs', 'dissection_batch_tasks',
-    'dissection_chapter_facts', 'dissection_chapters', 'dissection_shares', 'dissection_versions',
-    'character_library', 'dissections', 'open_skills', 'global_skills', 'user_skills', 'accounts',
-    'token_usage', 'model_usage', 'admin_audit'
-  ];
-  try { db.exec('PRAGMA foreign_keys = OFF'); } catch (_) {}
-  tables.forEach(table => {
-    if (!postgresRuntimeTableExists(table)) return;
-    try { db.exec('DELETE FROM ' + postgresRuntimeSqlIdentifier(table)); } catch (_) {}
-  });
-  try { db.exec('PRAGMA foreign_keys = ON'); } catch (_) {}
-}
-
-function postgresRuntimeNotNullFallback(column) {
-  const defaultValue = String(column && column.dflt_value == null ? '' : column.dflt_value || '').trim();
-  if (/^'.*'$/s.test(defaultValue)) return defaultValue.slice(1, -1).replaceAll("''", "'");
-  if (/^-?(?:\d+\.?\d*|\.\d+)$/.test(defaultValue)) return Number(defaultValue);
-  if (/^(?:true|false)$/i.test(defaultValue)) return /^true$/i.test(defaultValue) ? 1 : 0;
-  const type = String(column && column.type || '').toUpperCase();
-  if (/INT|REAL|NUM|DEC|FLOAT|DOUBLE/.test(type)) return 0;
-  if (/BLOB/.test(type)) return Buffer.alloc(0);
-  return '';
-}
-
-function postgresRuntimeInsertDynamicRow(input, schemaCache = null, statementCache = null) {
-  const table = String(input && input.source_table || '');
-  if (!POSTGRES_RUNTIME_SOURCE_TABLES.has(table) || table === 'dissection_units_fts' || /_fts_(?:config|content|data|docsize|idx)$/.test(table)) return;
-  if (!postgresRuntimeTableExists(table)) return;
-  const document = input && input.document && typeof input.document === 'object' ? input.document : {};
-  const cells = Array.isArray(input && input.cells) ? input.cells : [];
-  let columns = schemaCache && schemaCache.get(table);
-  if (!columns) {
-    columns = db.prepare('PRAGMA table_info(' + postgresRuntimeSqlIdentifier(table) + ')').all();
-    if (schemaCache) schemaCache.set(table, columns);
-  }
-  const keys = columns
-    .filter((column, index) => Object.prototype.hasOwnProperty.call(document, column.name) ||
-      cells[index] != null ||
-      (Number(column.notnull) && !Number(column.pk)))
-    .map(column => column.name);
-  if (!keys.length) return;
-  const values = keys.map(name => {
-    const index = columns.findIndex(column => column.name === name);
-    const column = columns[index];
-    const value = postgresRuntimeCellValue(cells[index], document[name]);
-    return value == null && Number(column && column.notnull) ? postgresRuntimeNotNullFallback(column) : value;
-  });
-  const statementKey = table + '\u001f' + keys.join('\u001f');
-  let statement = statementCache && statementCache.get(statementKey);
-  if (!statement) {
-    statement = db.prepare('INSERT OR REPLACE INTO ' + postgresRuntimeSqlIdentifier(table) +
-      ' (' + keys.map(postgresRuntimeSqlIdentifier).join(', ') + ') VALUES (' + keys.map(() => '?').join(', ') + ')');
-    if (statementCache) statementCache.set(statementKey, statement);
-  }
-  statement.run(...values);
-}
-
-function hydratePostgresRuntimeMirror(snapshot) {
-  if (!POSTGRES_MODE || !dbReady() || !postgresRuntimeState.ready && !snapshot) return;
-  const value = snapshot && typeof snapshot === 'object' ? snapshot : {};
-  postgresRuntimeHydrating = true;
-  try {
-    postgresRuntimeClearMirror();
-    (Array.isArray(value.accounts) ? value.accounts : []).forEach(row => {
-      db.prepare(`INSERT OR REPLACE INTO accounts
-        (email, user_id, name, avatar, bio, default_model, salt, pwd, role, level, plan, credits, spent, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(row.email, row.legacy_user_id, row.name || '', row.avatar || '', row.bio || '', row.default_model || '',
-          row.salt || '', row.pwd || '', row.role || 'normal', row.level || 'normal', row.plan || 'normal', Number(row.credits) || 0,
-          Number(row.spent) || 0, row.created_at_text || '');
-    });
-    (Array.isArray(value.userSkills) ? value.userSkills : []).forEach(row => {
-      db.prepare(`INSERT OR REPLACE INTO user_skills
-        (user_email, id, name, description, instruction, files_json, size, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(row.owner_email || '', row.id || '', row.name || '', row.description || '', row.instruction || '', row.files_json || '[]', Number(row.size) || 0, Number(row.updated_at_value) || 0);
-    });
-    (Array.isArray(value.globalSkills) ? value.globalSkills : []).forEach(row => {
-      db.prepare(`INSERT OR REPLACE INTO global_skills
-        (id, name, description, instruction, files_json, targets_json, enabled, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(row.id || '', row.name || '', row.description || '', row.instruction || '', row.files_json || '{}', row.targets_json || '["all"]', row.enabled === false ? 0 : 1, Number(row.created_at_value) || 0, Number(row.updated_at_value) || 0);
-    });
-    (Array.isArray(value.openSkills) ? value.openSkills : []).forEach(row => {
-      db.prepare(`INSERT OR REPLACE INTO open_skills
-        (id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(row.id || '', row.owner_email || '', row.name || '', row.description || '', row.instruction || '', row.files_json || '[]', row.status || 'published', Number(row.downloads) || 0, Number(row.created_at_value) || 0, Number(row.updated_at_value) || 0);
-    });
-    (Array.isArray(value.dissections) ? value.dissections : []).forEach(row => {
-      db.prepare(`INSERT OR REPLACE INTO dissections
-        (id, user_email, owner_user_id, title, source_type, source_name, source_text, depth, purpose, selected_model,
-         status, phase, phase_index, progress, estimated_credits, actual_credits, result_json, meta_json, error,
-         cancel_requested, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(row.id || '', row.user_email || '', row.owner_user_id || '', row.title || '', row.source_type || '', row.source_name || '', row.source_text || '',
-          row.depth || 'standard', row.purpose || 'new-writer', row.selected_model || '', row.status || 'queued', row.phase || 'queued', Number(row.phase_index) || 0,
-          Number(row.progress) || 0, Number(row.estimated_credits) || 0, Number(row.actual_credits) || 0, row.result_json || '{}', row.meta_json || '{}', row.error || '',
-          row.cancel_requested ? 1 : 0, Number(row.created_at_value) || 0, Number(row.updated_at_value) || 0);
-    });
-    (Array.isArray(value.dissectionRows) ? value.dissectionRows : []).forEach(postgresRuntimeInsertDynamicRow);
-    if (postgresRuntimeTableExists('dissection_units_fts') && postgresRuntimeTableExists('dissection_units')) {
-      db.exec('DELETE FROM dissection_units_fts');
-      db.exec(`INSERT INTO dissection_units_fts (dissection_id, unit_type, ordinal, title, body)
-        SELECT dissection_id, unit_type, ordinal, title, text FROM dissection_units WHERE trim(text) <> ''`);
-    }
-    postgresRuntimeMirrorBaseline = new Map();
-    for (const table of POSTGRES_RUNTIME_SOURCE_TABLES) {
-      if (table === 'dissection_units_fts') continue;
-      const rows = postgresRuntimeRowsFromMirrorTable(table);
-      // 只保留哈希和归属字段，避免基线再次复制 document/cells。
-      postgresRuntimeMirrorBaseline.set(table, postgresRuntimeMirrorBaselineMapFromRows(rows));
-    }
-    postgresRuntimeProjectionBaseline.accounts = new Map((Array.isArray(value.accounts) ? value.accounts : []).map(row => [String(row.legacy_user_id || ''), {
-      email: String(row.email || ''), user_id: String(row.legacy_user_id || ''), name: String(row.name || ''), avatar: String(row.avatar || ''),
-      bio: String(row.bio || ''), default_model: String(row.default_model || ''), salt: String(row.salt || ''), pwd: String(row.pwd || ''),
-      role: String(row.role || 'normal'), level: String(row.level || 'normal'), plan: String(row.plan || 'normal'), credits: Number(row.credits) || 0,
-      spent: Number(row.spent) || 0, created_at: String(row.created_at_text || '')
-    }]));
-    postgresRuntimeProjectionBaseline.userSkills = new Map((Array.isArray(value.userSkills) ? value.userSkills : []).map(row => [
-      String(row.owner_email || '').trim().toLowerCase() + '\u001f' + String(row.id || ''), row
-    ]));
-    postgresRuntimeProjectionBaseline.globalSkills = new Map((Array.isArray(value.globalSkills) ? value.globalSkills : []).map(row => [String(row.id || ''), row]));
-    postgresRuntimeProjectionBaseline.openSkills = new Map((Array.isArray(value.openSkills) ? value.openSkills : []).map(row => [String(row.id || ''), row]));
-    postgresRuntimeProjectionBaseline.dissections = new Map(
-      (Array.isArray(value.dissections) ? value.dissections : [])
-        .filter(row => row && row.id)
-        .map(row => [String(row.id), postgresRuntimeDissectionBaselineFromRow(row)])
-    );
-    postgresRuntimeDirtyTables.clear();
-    skillService.resetCaches();
-  } finally {
-    postgresRuntimeHydrating = false;
-  }
-}
-
-function postgresRuntimeUpsertCacheRows(record, sourceTable, rows) {
-  const dissectionId = String(record && record.id || '');
-  const ownerUserId = String(record && (record.ownerUserId || record.userId) || projectScope.stableUserId(record && record.userEmail || '')).trim();
-  if (!dissectionId || !ownerUserId) return [];
-  if (!postgresRuntimeState.dissectionRows.has(dissectionId)) postgresRuntimeState.dissectionRows.set(dissectionId, new Map());
-  const byTable = postgresRuntimeState.dissectionRows.get(dissectionId);
-  if (!byTable.has(sourceTable)) byTable.set(sourceTable, new Map());
-  const tableRows = byTable.get(sourceTable);
-  const output = [];
-  (Array.isArray(rows) ? rows : []).forEach((input, index) => {
-    const document = input && input.document && typeof input.document === 'object' ? input.document : (input || {});
-    const cells = input && Array.isArray(input.cells) ? input.cells : [];
-    const rowKey = String(input && (input.rowKey || input.row_key) || postgresRuntimeRowKey(sourceTable, document, `${sourceTable}:${index}`));
-    const row = {
-      owner_actor_id: postgresData.internalUuid(ownerUserId), owner_user_id: ownerUserId,
-      source_table: sourceTable, row_key: rowKey, dissection_id: dissectionId,
-      document, cells,
-      row_sha256: String(input && (input.rowSha256 || input.row_sha256) || postgresRuntimeHash(cells)),
-      value_sha256: String(input && (input.valueSha256 || input.value_sha256) || postgresRuntimeHash(cells.map(cell => JSON.stringify(cell)).join('\n'))),
-      source_run_id: input && (input.sourceRunId || input.source_run_id) || null,
-      source_row_no: input && (input.sourceRowNo ?? input.source_row_no), deleted_at: null
-    };
-    tableRows.set(rowKey, row);
-    output.push({ ...row, sourceTable, rowKey, dissectionId, rowSha256: row.row_sha256, valueSha256: row.value_sha256, sourceRunId: row.source_run_id, sourceRowNo: row.source_row_no });
-  });
-  return output;
-}
-
-function postgresRuntimeDeleteCacheRows(dissectionId, sourceTable = '') {
-  const byTable = postgresRuntimeState.dissectionRows.get(String(dissectionId || ''));
-  if (!byTable) return;
-  if (sourceTable) byTable.delete(sourceTable);
-  else byTable.clear();
-  if (!byTable.size) postgresRuntimeState.dissectionRows.delete(String(dissectionId || ''));
-}
-
-function enqueuePostgresRuntimeWrite(label, operation) {
-  if (!POSTGRES_MODE || !postgresRepository.enabled || typeof operation !== 'function') return Promise.resolve();
-  const previous = postgresRuntimeWriteQueue.catch(() => {});
-  const next = previous.then(operation);
-  postgresRuntimeWriteQueue = next;
-  postgresRuntimePendingWrites += 1;
-  next.then(
-    () => { postgresRuntimePendingWrites = Math.max(0, postgresRuntimePendingWrites - 1); },
-    () => { postgresRuntimePendingWrites = Math.max(0, postgresRuntimePendingWrites - 1); }
-  );
-  next.catch(error => {
-    postgresRuntimeLastWriteError = `${String(label || 'runtime')}: ${String(error && error.message || error)}`.slice(0, 500);
-    console.error('[postgres-runtime] 写入失败：' + postgresRuntimeLastWriteError, {
-      code: String(error && error.code || ''),
-      databaseCode: String(error && error.databaseCode || ''),
-      databaseMessage: String(error && error.databaseMessage || '').slice(0, 240)
-    });
-  });
-  return next;
-}
-
-async function flushPostgresRuntimeWrites() {
-  for (;;) {
-    if (POSTGRES_MODE && postgresRuntimeDirtyTables.size) {
-      const scheduled = await schedulePostgresRuntimeFlush('http-response');
-      if (!scheduled) throw requestError(503, 'PostgreSQL 运行时写回未就绪');
-    }
-    const queue = postgresRuntimeWriteQueue;
-    await queue;
-    if (!postgresRuntimeDirtyTables.size && queue === postgresRuntimeWriteQueue) return true;
-  }
-}
-
-function hydratePostgresRuntimeState(snapshot) {
-  const value = snapshot && typeof snapshot === 'object' ? snapshot : {};
-  postgresRuntimeState.accounts = [];
-  postgresRuntimeState.accountsByEmail.clear();
-  postgresRuntimeState.accountsById.clear();
-  (Array.isArray(value.accounts) ? value.accounts : []).forEach(row => {
-    const user = postgresRuntimeUserFromRow(row);
-    if (!user || !user.email) return;
-    postgresRuntimeState.accounts.push(user);
-    postgresRuntimeState.accountsByEmail.set(String(user.email).toLowerCase(), user);
-    postgresRuntimeState.accountsById.set(String(user.userId || ''), user);
-  });
-  postgresRuntimeState.userSkills.clear();
-  (Array.isArray(value.userSkills) ? value.userSkills : []).forEach(row => {
-    const key = String(row.owner_email || '').trim().toLowerCase();
-    if (!key) return;
-    if (!postgresRuntimeState.userSkills.has(key)) postgresRuntimeState.userSkills.set(key, []);
-    postgresRuntimeState.userSkills.get(key).push(postgresRuntimeSkillFromRow(row, 'user'));
-  });
-  postgresRuntimeState.globalSkills = (Array.isArray(value.globalSkills) ? value.globalSkills : []).map(row => postgresRuntimeSkillFromRow(row, 'global'));
-  postgresRuntimeState.openSkills = (Array.isArray(value.openSkills) ? value.openSkills : []).map(row => postgresRuntimeSkillFromRow(row, 'open'));
-  postgresRuntimeState.dissections.clear();
-  (Array.isArray(value.dissections) ? value.dissections : []).forEach(row => {
-    const record = postgresRuntimeDissectionIndexFromRow(row);
-    if (record && record.id) postgresRuntimeState.dissections.set(String(record.id), record);
-  });
-  postgresRuntimeState.dissectionRows.clear();
-  postgresRuntimeState.ready = true;
-  postgresRuntimeLastWriteError = '';
-  hydratePostgresRuntimeMirror(value);
-}
-
-/** 开始分块构建 PostgreSQL 派生兼容缓存，过程中不暴露半成品状态。 */
-function beginPostgresRuntimeChunkHydration() {
-  if (!POSTGRES_MODE || !dbReady()) throw new Error('PostgreSQL 运行时兼容缓存未就绪');
-  postgresRuntimeHydrating = true;
-  postgresRuntimeState.ready = false;
-  postgresRuntimeState.userSkills.clear();
-  postgresRuntimeState.globalSkills = [];
-  postgresRuntimeState.openSkills = [];
-  postgresRuntimeState.dissections.clear();
-  postgresRuntimeState.dissectionRows.clear();
-  postgresRuntimeMirrorBaseline = new Map(
-    [...POSTGRES_RUNTIME_SOURCE_TABLES].map(table => [table, new Map()])
-  );
-  postgresRuntimeProjectionBaseline = {
-    accounts: new Map(), userSkills: new Map(), globalSkills: new Map(),
-    openSkills: new Map(), dissections: new Map()
-  };
-  // 这是可从 PostgreSQL 重建的派生缓存，重建期间降低同步开销以避免阻塞主库。
-  db.exec('PRAGMA synchronous = OFF');
-  postgresRuntimeClearMirror();
-  db.exec('BEGIN');
-}
-
-/** 将一个 PostgreSQL 分页结果直接写入兼容缓存，只在堆中保留当前分页。 */
-function applyPostgresRuntimeChunk(value, schemaCache, statementCache) {
-  const chunk = value && typeof value === 'object' ? value : {};
-  (Array.isArray(chunk.accounts) ? chunk.accounts : []).forEach(row => {
-    const user = postgresRuntimeUserFromRow(row);
-    if (!user || !user.email) return;
-    db.prepare(`INSERT OR REPLACE INTO accounts
-      (email, user_id, name, avatar, bio, default_model, salt, pwd, role, level, plan, credits, spent, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(row.email, row.legacy_user_id, row.name || '', row.avatar || '', row.bio || '', row.default_model || '',
-        row.salt || '', row.pwd || '', row.role || 'normal', row.level || 'normal', row.plan || 'normal', Number(row.credits) || 0,
-        Number(row.spent) || 0, row.created_at_text || '');
-    cachePostgresRuntimeUser(user);
-    postgresRuntimeProjectionBaseline.accounts.set(String(row.legacy_user_id || ''), {
-      email: String(row.email || ''), user_id: String(row.legacy_user_id || ''), name: String(row.name || ''),
-      avatar: String(row.avatar || ''), bio: String(row.bio || ''), default_model: String(row.default_model || ''),
-      salt: String(row.salt || ''), pwd: String(row.pwd || ''), role: String(row.role || 'normal'),
-      level: String(row.level || 'normal'), plan: String(row.plan || 'normal'), credits: Number(row.credits) || 0,
-      spent: Number(row.spent) || 0, created_at: String(row.created_at_text || '')
-    });
-  });
-  (Array.isArray(chunk.userSkills) ? chunk.userSkills : []).forEach(row => {
-    db.prepare(`INSERT OR REPLACE INTO user_skills
-      (user_email, id, name, description, instruction, files_json, size, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(row.owner_email || '', row.id || '', row.name || '', row.description || '', row.instruction || '', row.files_json || '[]', Number(row.size) || 0, Number(row.updated_at_value) || 0);
-    const key = String(row.owner_email || '').trim().toLowerCase();
-    if (key) {
-      if (!postgresRuntimeState.userSkills.has(key)) postgresRuntimeState.userSkills.set(key, []);
-      postgresRuntimeState.userSkills.get(key).push(postgresRuntimeSkillFromRow(row, 'user'));
-    }
-    postgresRuntimeProjectionBaseline.userSkills.set(
-      String(row.owner_email || '').trim().toLowerCase() + '\u001f' + String(row.id || ''), row
-    );
-  });
-  (Array.isArray(chunk.globalSkills) ? chunk.globalSkills : []).forEach(row => {
-    db.prepare(`INSERT OR REPLACE INTO global_skills
-      (id, name, description, instruction, files_json, targets_json, enabled, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(row.id || '', row.name || '', row.description || '', row.instruction || '', row.files_json || '{}', row.targets_json || '["all"]', row.enabled === false ? 0 : 1, Number(row.created_at_value) || 0, Number(row.updated_at_value) || 0);
-    postgresRuntimeState.globalSkills.push(postgresRuntimeSkillFromRow(row, 'global'));
-    postgresRuntimeProjectionBaseline.globalSkills.set(String(row.id || ''), row);
-  });
-  (Array.isArray(chunk.openSkills) ? chunk.openSkills : []).forEach(row => {
-    db.prepare(`INSERT OR REPLACE INTO open_skills
-      (id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(row.id || '', row.owner_email || '', row.name || '', row.description || '', row.instruction || '', row.files_json || '[]', row.status || 'published', Number(row.downloads) || 0, Number(row.created_at_value) || 0, Number(row.updated_at_value) || 0);
-    postgresRuntimeState.openSkills.push(postgresRuntimeSkillFromRow(row, 'open'));
-    postgresRuntimeProjectionBaseline.openSkills.set(String(row.id || ''), row);
-  });
-  (Array.isArray(chunk.dissections) ? chunk.dissections : []).forEach(row => {
-    db.prepare(`INSERT OR REPLACE INTO dissections
-      (id, user_email, owner_user_id, title, source_type, source_name, source_text, depth, purpose, selected_model,
-       status, phase, phase_index, progress, estimated_credits, actual_credits, result_json, meta_json, error,
-       cancel_requested, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(row.id || '', row.user_email || '', row.owner_user_id || '', row.title || '', row.source_type || '', row.source_name || '', row.source_text || '',
-        row.depth || 'standard', row.purpose || 'new-writer', row.selected_model || '', row.status || 'queued', row.phase || 'queued', Number(row.phase_index) || 0,
-        Number(row.progress) || 0, Number(row.estimated_credits) || 0, Number(row.actual_credits) || 0, row.result_json || '{}', row.meta_json || '{}', row.error || '',
-        row.cancel_requested ? 1 : 0, Number(row.created_at_value) || 0, Number(row.updated_at_value) || 0);
-    const index = postgresRuntimeDissectionIndexFromRow(row);
-    if (index && index.id) postgresRuntimeState.dissections.set(index.id, index);
-    if (row && row.id) postgresRuntimeProjectionBaseline.dissections.set(String(row.id), postgresRuntimeDissectionBaselineFromRow(row));
-  });
-  (Array.isArray(chunk.dissectionRows) ? chunk.dissectionRows : []).forEach(row => {
-    const table = String(row && row.source_table || '');
-    if (!POSTGRES_RUNTIME_SOURCE_TABLES.has(table)) return;
-    postgresRuntimeInsertDynamicRow(row, schemaCache, statementCache);
-    const rowKey = String(row.row_key || '');
-    const map = postgresRuntimeMirrorBaseline.get(table);
-    if (!map || !rowKey) return;
-    map.set(
-      postgresRuntimeGroupKey(row.owner_user_id, row.dissection_id) + '\u001f' + rowKey,
-      {
-        owner_user_id: String(row.owner_user_id || ''), dissection_id: String(row.dissection_id || ''),
-        row: {
-          row_key: rowKey, row_sha256: String(row.row_sha256 || ''), value_sha256: String(row.value_sha256 || ''),
-          source_run_id: row.source_run_id || null, source_row_no: row.source_row_no == null ? null : row.source_row_no
-        }
-      }
-    );
-  });
-}
-
-/** 提交分块缓存并重建全文索引，完成后才允许 HTTP 请求进入运行时。 */
-function finishPostgresRuntimeChunkHydration() {
-  try {
-    if (postgresRuntimeTableExists('dissection_units_fts') && postgresRuntimeTableExists('dissection_units')) {
-      db.exec('DELETE FROM dissection_units_fts');
-      db.exec(`INSERT INTO dissection_units_fts (dissection_id, unit_type, ordinal, title, body)
-        SELECT dissection_id, unit_type, ordinal, title, text FROM dissection_units WHERE trim(text) <> ''`);
-    }
-    db.exec('COMMIT');
-    db.exec('PRAGMA synchronous = NORMAL');
-    postgresRuntimeState.ready = true;
-    postgresRuntimeLastWriteError = '';
-    postgresRuntimeDirtyTables.clear();
-    skillService.resetCaches();
-  } catch (error) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
-    try { db.exec('PRAGMA synchronous = NORMAL'); } catch (_) {}
-    postgresRuntimeState.ready = false;
-    throw error;
-  } finally {
-    postgresRuntimeHydrating = false;
-  }
-}
-
-/** 失败时回滚本地派生缓存，下一次启动仍从 PostgreSQL 重新生成。 */
-function abortPostgresRuntimeChunkHydration() {
-  try { db.exec('ROLLBACK'); } catch (_) {}
-  postgresRuntimeState.ready = false;
-  postgresRuntimeHydrating = false;
-}
-
-async function refreshPostgresRuntimeStateChunked() {
-  beginPostgresRuntimeChunkHydration();
-  const schemaCache = new Map();
-  const statementCache = new Map();
-  try {
-    const counts = await postgresRepository.loadRuntimeStateChunked(
-      chunk => applyPostgresRuntimeChunk(chunk, schemaCache, statementCache),
-      { dissectionPageSize: 2, rowPageSize: 2000 }
-    );
-    finishPostgresRuntimeChunkHydration();
-    return counts;
-  } catch (error) {
-    console.error('[postgres-runtime] 兼容缓存重建失败', {
-      name: String(error && error.name || ''),
-      message: String(error && error.message || ''),
-      code: String(error && error.code || ''),
-      databaseCode: String(error && error.databaseCode || ''),
-      databaseMessage: String(error && error.databaseMessage || '').slice(0, 240),
-      stack: String(error && error.stack || '').slice(0, 1200)
-    });
-    abortPostgresRuntimeChunkHydration();
-    throw error;
-  }
-}
-
-async function refreshPostgresRuntimeState() {
-  if (!POSTGRES_MODE || !postgresRepository.enabled ||
-      (typeof postgresRepository.loadRuntimeStateChunked !== 'function' && typeof postgresRepository.loadRuntimeState !== 'function')) return false;
-  if (postgresRuntimeState.loading) return postgresRuntimeState.loading;
-  postgresRuntimeState.loading = (typeof postgresRepository.loadRuntimeStateChunked === 'function'
-    ? refreshPostgresRuntimeStateChunked()
-    : postgresRepository.loadRuntimeState().then(snapshot => { hydratePostgresRuntimeState(snapshot); return true; }))
-    .catch(error => {
-      postgresRuntimeLastWriteError = String(error && error.message || 'PostgreSQL 运行时快照读取失败').slice(0, 500);
-      postgresRuntimeState.ready = false;
-      throw error;
-    })
-    .finally(() => { postgresRuntimeState.loading = null; });
-  return postgresRuntimeState.loading;
-}
-
-
+async function flushPostgresRuntimeWrites() { return true; }
 
 function readJsonFile(file, fallback) {
   try {
@@ -2039,12 +1061,18 @@ function loadAdminAudit(limit = 100) {
 }
 
 function appendAdminAudit(adminEmail, action, target, detail) {
-  const rows = readJsonFile(ADMIN_AUDIT_FILE, []);
   const item = {
     id: 'audit_' + Date.now().toString(36) + crypto.randomBytes(4).toString('hex'),
     adminEmail: String(adminEmail || ''), action: String(action || ''), target: String(target || ''),
     detail: detail && typeof detail === 'object' ? detail : {}, createdAt: Date.now()
   };
+  if (POSTGRES_MODE) {
+    return postgresRepository.runtimeAccountByEmail(item.adminEmail).then(account => {
+      if (!account) throw requestError(403, '管理员账户不存在');
+      return postgresRepository.runtimeAppendAdminAudit(account.legacy_user_id, item);
+    });
+  }
+  const rows = readJsonFile(ADMIN_AUDIT_FILE, []);
   if (dbReady()) {
     db.prepare(`INSERT INTO admin_audit (id, admin_email, action, target, detail_json, created_at)
       VALUES (?, ?, ?, ?, ?, ?)`).run(item.id, item.adminEmail, item.action, item.target, JSON.stringify(item.detail), item.createdAt);
@@ -2097,6 +1125,10 @@ function handleUsage(req, res) {
     const value = Number(new URL(req.url, 'http://localhost').searchParams.get('limit'));
     if (Number.isFinite(value)) limit = Math.min(100, Math.max(1, Math.floor(value)));
   } catch (_) {}
+  if (POSTGRES_MODE) {
+    return getPostgresUsageSummary(a.user.userId, limit).then(usage => json(res, 200, { ok: true, usage }))
+      .catch(error => respondError(res, error));
+  }
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
     return nativeUsageSummary(a.user.userId, limit).then(usage => json(res, 200, { ok: true, usage }))
       .catch(error => respondError(res, error));
@@ -2415,7 +1447,7 @@ function handleCharacterMaterialAudit(req, res) {
 function handleCharacterMaterialAuditPatch(req, res) {
   const auth = requireAdmin(req, res);
   if (!auth) return;
-  readBody(req).then(body => {
+  return readBody(req).then(async body => {
     const report = loadCharacterMaterialAuditReport();
     const samples = report.manualReview.samples.map(sample => ({ id: String(sample.id || '') }));
     const sampleIds = new Set(samples.map(sample => sample.id));
@@ -2451,7 +1483,7 @@ function handleCharacterMaterialAuditPatch(req, res) {
     };
     writeJsonFile(CHARACTER_MATERIAL_APPROVAL_FILE, approval);
     resetCharacterMaterialIndexCache();
-    appendAdminAudit(auth.user.email, approval.approved ? 'character-material.approve' : 'character-material.review', `character-material:${report.version}`, {
+    await appendAdminAudit(auth.user.email, approval.approved ? 'character-material.approve' : 'character-material.review', `character-material:${report.version}`, {
       version: report.version,
       reviewedCount: reviewedIds.length,
       sampleCount: samples.length,
@@ -2516,21 +1548,14 @@ function migrateAdminAuditToDb() {
 
 function initDB(options = {}) {
   if (!dbEnabled) return false;
-  const postgresRuntime = POSTGRES_MODE && options.postgresRuntime !== false;
+  if (POSTGRES_MODE) return true;
+  const DatabaseSync = options.databaseFactory;
+  if (typeof DatabaseSync !== 'function') return false;
   try {
-    // PostgreSQL 是唯一权威库；该 SQLite 文件仅作为低内存兼容缓存，不承载独立业务数据。
-    // PG 运行时缓存必须是进程内内存库，避免误把缓存当成第二个持久化数据源。
-    const dbPath = postgresRuntime ? ':memory:' : path.join(DATA_DIR, 'molan.db');
+    const dbPath = path.join(DATA_DIR, 'molan.db');
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     if (DatabaseSync.name === 'PureJsDatabase') assertJsonSource(dbPath);
     db = new DatabaseSync(dbPath);
-    if (postgresRuntime) {
-      db.exec('PRAGMA foreign_keys = ON');
-      db.exec('PRAGMA journal_mode = DELETE');
-      db.exec('PRAGMA synchronous = NORMAL');
-      db.exec('PRAGMA temp_store = MEMORY');
-      db.exec('PRAGMA cache_size = -8192');
-    } else {
       db.exec('PRAGMA journal_mode = WAL');        // 并发读 + 写不阻塞
       db.exec('PRAGMA synchronous = NORMAL');      // 折衷性能与安全
       db.exec('PRAGMA busy_timeout = 5000');       // 短暂写竞争时等待，避免瞬时 SQLITE_BUSY
@@ -2538,7 +1563,6 @@ function initDB(options = {}) {
       db.exec('PRAGMA cache_size = -8192');        // 约 8 MiB 页缓存，适配低内存服务器
       db.exec('PRAGMA wal_autocheckpoint = 1000');
       db.exec('PRAGMA mmap_size = 268435456');     // 有条件时使用 256 MiB 映射，降低读拷贝
-    }
     db.exec('PRAGMA foreign_keys = ON');
     db.exec(`CREATE TABLE IF NOT EXISTS accounts (
       email TEXT PRIMARY KEY,
@@ -2561,7 +1585,7 @@ function initDB(options = {}) {
     if (!accountColumns.includes('default_model')) db.exec("ALTER TABLE accounts ADD COLUMN default_model TEXT NOT NULL DEFAULT ''");
     if (!accountColumns.includes('user_id')) db.exec("ALTER TABLE accounts ADD COLUMN user_id TEXT");
     db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_role ON accounts(role)');
-    if (!postgresRuntime) migrateUsersToDb();
+    migrateUsersToDb();
     db.prepare('SELECT email FROM accounts WHERE user_id IS NULL OR user_id = ?').all('').forEach(row => {
       db.prepare('UPDATE accounts SET user_id = ? WHERE email = ? AND (user_id IS NULL OR user_id = ?)')
         .run(projectScope.stableUserId(row.email), row.email, '');
@@ -3152,28 +2176,21 @@ function initDB(options = {}) {
     db.exec('CREATE INDEX IF NOT EXISTS idx_model_usage_scope ON model_usage(workspace_id, project_id, created_at DESC)');
     try { db.exec("ALTER TABLE model_usage ADD COLUMN credit_known INTEGER NOT NULL DEFAULT 0"); } catch (_) {}
     try { db.exec("ALTER TABLE model_usage ADD COLUMN cost_source TEXT NOT NULL DEFAULT 'unknown'"); } catch (_) {}
-    if (!postgresRuntime) {
       migrateSkillsToDb();
       migrateGlobalSkillsToDb();
       migrateOpenSkillsToDb();
       migrateAdminAuditToDb();
       releaseStaleCreditReservations();
-    }
-    if (postgresRuntime) {
-      db = wrapPostgresRuntimeDatabase(db);
-      console.log('🧩 PostgreSQL 运行时兼容缓存已就绪 → ' + dbPath);
-    } else {
-      console.log('🗄   SQLite 已就绪 → ' + dbPath);
-    }
+      console.log('🗄   本地存储引擎已就绪 → ' + dbPath);
     return true;
   } catch (e) {
-    console.error('❌ SQLite 初始化失败：' + e.message);
+    console.error('❌ 本地存储引擎初始化失败：' + e.message);
     db = null;
     if (e.code === 'LEGACY_SQLITE_REQUIRES_MIGRATION' || e.code === 'JSON_STORE_CORRUPT') throw e;
     return false;
   }
 }
-function dbReady() { return dbEnabled && db; }
+function dbReady() { return POSTGRES_MODE ? postgresHealth.available : dbEnabled && db; }
 
 function usageRowsFromJson() {
   try {
@@ -3597,15 +2614,15 @@ function recordDispatchAttempt(event) {
   });
 }
 
-function releaseStaleCreditReservations() {
+async function releaseStaleCreditReservations() {
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
     return appRepository().releaseStaleTokenUsage({ before: Date.now() - CREDIT_RESERVATION_TTL_MS, instanceId: SERVER_INSTANCE_ID }).then(result => result.released);
   }
   const cutoff = Date.now() - CREDIT_RESERVATION_TTL_MS;
   if (POSTGRES_MODE) {
-    const admin = postgresRuntimeAdminUser();
-    if (!admin) return Promise.resolve(0);
-    return postgresRepository.runtimeReleaseStaleTokenUsage({ actorUserId: admin.userId, cutoff, instanceId: SERVER_INSTANCE_ID });
+    const actorUserId = await postgresRepository.runtimeMaintenanceActor();
+    if (!actorUserId) return 0;
+    return postgresRepository.runtimeReleaseStaleTokenUsage({ actorUserId, cutoff, instanceId: SERVER_INSTANCE_ID });
   }
   if (dbReady()) {
     db.exec('BEGIN IMMEDIATE');
@@ -3741,6 +2758,22 @@ function getUsageSummary(email, includeRecent) {
   return summary;
 }
 
+async function getPostgresUsageSummary(userId, includeRecent) {
+  const documents = await postgresRepository.runtimeListTokenUsage(userId);
+  const rows = documents.map(document => {
+    const row = { ...document };
+    for (const [key, value] of Object.entries(document)) {
+      row[key.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())] = value;
+    }
+    return row;
+  });
+  const summary = buildUsageSummary(rows);
+  if (includeRecent) {
+    summary.recent = rows.slice(0, Math.min(100, Math.max(1, Number(includeRecent) || 20))).map(publicUsageRow);
+  }
+  return summary;
+}
+
 function usageSummaryFromAggregate(row) {
   const summary = buildUsageSummary([{
     totalTokens: row.total_tokens,
@@ -3839,7 +2872,7 @@ const DISSECTION_PHASES_BY_DEPTH = {
 };
 const DISSECTION_MAX_CONCURRENT = envPositiveInt('MOLAN_DISSECTION_MAX_CONCURRENT', 2, 1, 8);
 const dissectionScheduler = require('./services/dissection-scheduler').createDissectionScheduler({
-  maxConcurrent: DISSECTION_MAX_CONCURRENT, loadRecord: (...args) => loadDissectionRecord(...args)
+  maxConcurrent: DISSECTION_MAX_CONCURRENT, loadRecord: (...args) => loadDissectionRecordAsync(...args)
 });
 const { activeDissections, activeDissectionsByUser, waitForDissectionCapacity,
   acquireDissectionUserSlot, releaseDissectionUserSlot } = dissectionScheduler;
@@ -4037,11 +3070,13 @@ async function extractBatchFacts(authToken, user, record, batch, units, skillAud
   const chapterSeq = new Map();
   let cn = 0;
   units.forEach(u => { if (isPipelineFactUnit(u)) { cn += 1; chapterSeq.set(u.unitId, cn); } });
-  const runId = record.pipelineRunId || ensurePipelineRun(record, units);
+  const runId = record.pipelineRunId || (POSTGRES_MODE
+    ? await getPostgresDissectionPipelineStore().ensurePipelineRun(record, units)
+    : ensurePipelineRun(record, units));
   const unitList = slice.map(u => u.unitId + (u.title ? '·' + u.title : '')).join('\n');
   const text = slice.map(u => '【单元 ' + u.unitId + (u.title ? ' · ' + u.title : '') + '】\n' + u.text).join('\n\n');
   const userPrompt = '小说：《' + record.title + '》\n\n下面是第 ' + batch.chapter_from + ' 到 ' + batch.chapter_to + ' 单元原文：\n\n' + text + '\n\n输入单元清单（unitId 必须严格取自此处，不得遗漏）：\n' + unitList + '\n\n' + PIPELINE_FACT_USER;
-  const out = await callMolanChat(authToken, user, {
+  const out = await callDissectionPipelineModel(authToken, user, record, {
     thinking: false, reasoningEffort: 'none',
     system: PIPELINE_FACT_SYSTEM,
     userPrompt,
@@ -4060,7 +3095,7 @@ async function extractBatchFacts(authToken, user, record, batch, units, skillAud
     usageError.code = 'USAGE_UNAVAILABLE';
     throw usageError;
   }
-  recordPipelineUsage(record, out.usage, 'extract');
+  await recordPipelineUsageAsync(record, out.usage, 'extract');
   const json = out.json || safeJsonParse(out.text) || {};
   const unitFacts = Array.isArray(json.units) ? json.units : [];
   if (!unitFacts.length) {
@@ -4071,6 +3106,13 @@ async function extractBatchFacts(authToken, user, record, batch, units, skillAud
   const gotIds = new Set(unitFacts.map(u => normalizeDissectionUnitId(u.unitId)));
   const missing = slice.map(u => u.unitId).filter(id => !gotIds.has(id));
   if (missing.length) throw new Error('批次 ' + batch.batch_no + ' 模型漏返回 ' + missing.length + ' 个单元（' + missing.slice(0, 5).join(', ') + '），已标记失败待重试');
+  if (POSTGRES_MODE) {
+    return getPostgresDissectionPipelineStore().saveBatchFactsAndClaims(
+      record, batch, slice,
+      unitFacts.map(fact => ({ ...fact, unitId: normalizeDissectionUnitId(fact.unitId) })),
+      chapterSeq, runId, out.usage.totalTokens
+    );
+  }
   const now = Date.now();
   const insClaim = db.prepare('INSERT OR REPLACE INTO dissection_claims (id,dissection_id,unit_id,claim_type,subject_id,predicate,object_value,evidence_type,source_start,source_end,confidence,status,run_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
   const insFact = db.prepare('INSERT OR REPLACE INTO dissection_chapter_facts (id,dissection_id,chapter_id,chapter_no,fact_json,tokens,created_at) VALUES (?,?,?,?,?,?,?)');
@@ -4154,10 +3196,11 @@ function migrateLegacyPipelineRecord(record) {
 
 // ★ 阶段2 · 分层摘要：逐章摘要（每批若干章，读章节事实 → 摘要，落 summaries 表）
 async function buildChapterSummaries(record, authToken, owner) {
-  if (!dbReady()) return [];
-  const chapters = loadDissectionChapters(record.id);
+  if (!POSTGRES_MODE && !dbReady()) return [];
+  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
+  const chapters = store ? await store.loadDissectionChapters(record) : loadDissectionChapters(record.id);
   if (!chapters.length) return [];
-  const facts = loadAllChapterFacts(record.id);
+  const facts = store ? await store.loadAllChapterFacts(record) : loadAllChapterFacts(record.id);
   const factByNo = new Map(facts.map(f => [f.chapterNo, f]));
   const out = [];
   const summaryMap = new Map();
@@ -4175,30 +3218,37 @@ async function buildChapterSummaries(record, authToken, owner) {
         '你是小说章节摘要器。为每章生成一条 ≤40 字的客观摘要，只概括本章实际发生的事，不评价文笔。只返回 JSON：{"summaries":[{"chapterNo":章号,"summary":"摘要"}]}，顺序与输入一致，不得漏章。',
         '请为以下章节生成摘要：\n' + rows, 2500);
       if (json && Array.isArray(json.summaries)) json.summaries.forEach(s => { if (s && s.chapterNo) summaryMap.set(Number(s.chapterNo), String(s.summary || '').slice(0, 90)); });
-    } catch (_) {}
+    } catch (error) { if (POSTGRES_MODE) throw error; }
   }
-  db.prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'chapter'").run(record.id);
+  if (!store) db.prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'chapter'").run(record.id);
   const now = Date.now();
-  const ins = db.prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+  const ins = store ? null : db.prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   chapters.forEach(c => {
     const summary = String(summaryMap.get(c.chapter_no) || '').trim();
     const covered = !!summary;
     const id = 'cs_' + record.id + '_' + c.chapter_no;
-    ins.run(id, record.id, 'chapter', c.chapter_id, JSON.stringify([c.chapter_id]), JSON.stringify({ chapterNo: c.chapter_no, title: c.title, summary }), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0 }), covered ? 'ok' : 'needs_review', 1, now);
+    if (ins) ins.run(id, record.id, 'chapter', c.chapter_id, JSON.stringify([c.chapter_id]), JSON.stringify({ chapterNo: c.chapter_no, title: c.title, summary }), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0 }), covered ? 'ok' : 'needs_review', 1, now);
     out.push({ chapterNo: c.chapter_no, title: c.title, summary, covered, status: covered ? 'ok' : 'needs_review' });
   });
+  if (store) await store.saveSummaries(record, 'chapter', out.map((summary, index) => ({
+    id: 'cs_' + record.id + '_' + summary.chapterNo, ownerId: chapters[index].chapter_id,
+    childIds: [chapters[index].chapter_id], content: summary,
+    coverage: { covered: summary.covered, expected: 1, completed: summary.covered ? 1 : 0 },
+    status: summary.status
+  })));
   return attachPipelineCoverage(out, chapters.length);
 }
 
 // ★ 阶段2 · 分层摘要：分卷摘要（优先用单元模型识别出的 volume 边界，否则按章节均分）
 async function buildVolumeSummaries(record, authToken, owner, chapterSummaries) {
-  if (!dbReady()) return [];
-  const chapters = loadDissectionChapters(record.id);
+  if (!POSTGRES_MODE && !dbReady()) return [];
+  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
+  const chapters = store ? await store.loadDissectionChapters(record) : loadDissectionChapters(record.id);
   if (!chapters.length) return [];
   const summaryMap = new Map((chapterSummaries || []).map(s => [s.chapterNo, s.summary]));
   // 卷边界：优先 volume 单元；否则每 60 章一卷
   const volumeBands = [];
-  const units = loadDissectionUnits(record.id);
+  const units = store ? await store.loadDissectionUnits(record) : loadDissectionUnits(record.id);
   const volUnits = units.filter(u => String(u.unitType) === 'volume');
   if (volUnits.length >= 2) {
     // volume 单元的章节由 parentId 分组；此处简化按 volume 单元在 units 中的顺序切章节区间
@@ -4220,9 +3270,9 @@ async function buildVolumeSummaries(record, authToken, owner, chapterSummaries) 
     }
   }
   const out = [];
-  db.prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'volume'").run(record.id);
+  if (!store) db.prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'volume'").run(record.id);
   const now = Date.now();
-  const ins = db.prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+  const ins = store ? null : db.prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   for (const band of volumeBands) {
     const rows = band.chapters.map(no => '第' + no + '章：' + (summaryMap.get(no) || '')).join('\n');
     let content = null;
@@ -4231,23 +3281,30 @@ async function buildVolumeSummaries(record, authToken, owner, chapterSummaries) 
         '你是网文分卷拆书分析师。下面是一卷内各章摘要，请归纳该卷：核心目标、主要冲突、剧情拐点、卷末留白/钩子。只返回 JSON：{volume,chapters,goal,turningPoints,mainConflicts,endingHook}。',
         '卷《' + band.title + '》（第' + band.chapters[0] + '-' + band.chapters[band.chapters.length - 1] + '章）章节摘要：\n' + rows, 2500);
       if (json && (json.goal || (Array.isArray(json.turningPoints) && json.turningPoints.length) || (Array.isArray(json.mainConflicts) && json.mainConflicts.length) || json.endingHook)) content = json;
-    } catch (_) {}
+    } catch (error) { if (POSTGRES_MODE) throw error; }
     const covered = !!content;
     if (!content) content = { volume: band.title, chapters: band.chapters.length, goal: '', turningPoints: [], mainConflicts: [], endingHook: '' };
     content = { ...content, volume: content.volume || band.title, chapters: content.chapters || band.chapters.length, chapterFrom: band.chapters[0], chapterTo: band.chapters[band.chapters.length - 1] };
     const id = 'vs_' + record.id + '_' + out.length;
     const childIds = chapters.filter(c => band.chapters.includes(c.chapter_no)).map(c => c.chapter_id);
-    ins.run(id, record.id, 'volume', 'volume-' + out.length, JSON.stringify(childIds), JSON.stringify(content), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0, chapterCount: band.chapters.length }), covered ? 'ok' : 'needs_review', 1, now);
+    if (ins) ins.run(id, record.id, 'volume', 'volume-' + out.length, JSON.stringify(childIds), JSON.stringify(content), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0, chapterCount: band.chapters.length }), covered ? 'ok' : 'needs_review', 1, now);
     out.push({ id, ...content, covered, status: covered ? 'ok' : 'needs_review' });
   }
+  if (store) await store.saveSummaries(record, 'volume', out.map((summary, index) => ({
+    id: summary.id, ownerId: 'volume-' + index, content: summary,
+    childIds: chapters.filter(chapter => chapter.chapter_no >= summary.chapterFrom && chapter.chapter_no <= summary.chapterTo).map(chapter => chapter.chapter_id),
+    coverage: { covered: summary.covered, expected: 1, completed: summary.covered ? 1 : 0 },
+    status: summary.status
+  })));
   return attachPipelineCoverage(out, volumeBands.length);
 }
 
 // ★ 阶段2 · 故事弧摘要：连续章节归并为故事弧（约 30 章/弧），每弧只读章节摘要生成概括，
 // 是"章节 → 故事弧 → 分卷 → 全书"四级分层中的第二级。落 summaries 表 summary_type='arc'。
 async function buildArcSummaries(record, authToken, owner, chapterSummaries) {
-  if (!dbReady()) return [];
-  const chapters = loadDissectionChapters(record.id);
+  if (!POSTGRES_MODE && !dbReady()) return [];
+  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
+  const chapters = store ? await store.loadDissectionChapters(record) : loadDissectionChapters(record.id);
   if (!chapters.length) return [];
   const summaryMap = new Map((chapterSummaries || []).map(s => [s.chapterNo, s.summary]));
   const ARCS_PER = 30;
@@ -4258,9 +3315,9 @@ async function buildArcSummaries(record, authToken, owner, chapterSummaries) {
     bands.push({ from: slice[0].chapter_no, to: slice[slice.length - 1].chapter_no, nos: slice.map(c => c.chapter_no) });
   }
   const out = [];
-  db.prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'arc'").run(record.id);
+  if (!store) db.prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'arc'").run(record.id);
   const now = Date.now();
-  const ins = db.prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+  const ins = store ? null : db.prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   for (let i = 0; i < bands.length; i += 1) {
     const band = bands[i];
     const rows = band.nos.map(no => '第' + no + '章：' + (summaryMap.get(no) || '')).join('\n');
@@ -4271,15 +3328,21 @@ async function buildArcSummaries(record, authToken, owner, chapterSummaries) {
         '你是网文故事弧拆书分析师。下面是一段连续章节的摘要（第 ' + (i + 1) + ' 个故事弧），请归纳：该弧核心冲突、主角目标、关键转折、弧末留白/悬念、与前后弧的衔接。只返回 JSON：{arc,range,coreConflict,protagonistGoal,turningPoints,endingHook,nextHook}。',
         '故事弧（第' + band.from + '-' + band.to + '章）章节摘要：\n' + rows, 2500);
       if (json && (json.coreConflict || json.protagonistGoal || (Array.isArray(json.turningPoints) && json.turningPoints.length) || json.endingHook)) content = json;
-    } catch (_) {}
+    } catch (error) { if (POSTGRES_MODE) throw error; }
     const covered = !!content;
     if (!content) content = { arc: '故事弧 ' + (i + 1), range: band.from + '-' + band.to, coreConflict: '', protagonistGoal: '', turningPoints: [], endingHook: '', nextHook: '' };
     content = { ...content, arc: content.arc || ('故事弧 ' + (i + 1)), range: content.range || (band.from + '-' + band.to), chapterFrom: band.from, chapterTo: band.to };
     const id = 'as_' + record.id + '_' + i;
     const childIds = chapters.filter(c => band.nos.includes(c.chapter_no)).map(c => c.chapter_id);
-    ins.run(id, record.id, 'arc', 'arc-' + i, JSON.stringify(childIds), JSON.stringify(content), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0, chapterCount: band.nos.length }), covered ? 'ok' : 'needs_review', 1, now);
+    if (ins) ins.run(id, record.id, 'arc', 'arc-' + i, JSON.stringify(childIds), JSON.stringify(content), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0, chapterCount: band.nos.length }), covered ? 'ok' : 'needs_review', 1, now);
     out.push({ id, ...content, covered, status: covered ? 'ok' : 'needs_review' });
   }
+  if (store) await store.saveSummaries(record, 'arc', out.map((summary, index) => ({
+    id: summary.id, ownerId: 'arc-' + index, content: summary,
+    childIds: chapters.filter(chapter => chapter.chapter_no >= summary.chapterFrom && chapter.chapter_no <= summary.chapterTo).map(chapter => chapter.chapter_id),
+    coverage: { covered: summary.covered, expected: 1, completed: summary.covered ? 1 : 0 },
+    status: summary.status
+  })));
   return attachPipelineCoverage(out, bands.length);
 }
 
@@ -4302,7 +3365,7 @@ async function buildPipelineVolumeDigest(record, authToken, owner, volumeSummari
 }
 
 async function buildBookSummary(record, authToken, owner, volumeSummaries, extra) {
-  if (!dbReady()) return null;
+  if (!POSTGRES_MODE && !dbReady()) return null;
   const volBrief = extra && extra.volumeDigest && typeof extra.volumeDigest.text === 'string'
     ? extra.volumeDigest.text
     : (volumeSummaries || []).map(v => '【' + (v.volume || v.id) + '】第' + v.chapterFrom + '-' + v.chapterTo + '章：目标 ' + (v.goal || '') + '；拐点 ' + (Array.isArray(v.turningPoints) ? v.turningPoints.join('、') : '') + '；钩子 ' + (v.endingHook || '')).join('\n');
@@ -4315,10 +3378,19 @@ async function buildBookSummary(record, authToken, owner, volumeSummaries, extra
       '你是资深网文全书拆书分析师。基于全书分卷摘要与统计，生成全书地图与总结（聚合层，允许全局总结）。只返回 JSON：{bookMap:{overallArc,mainTheme,threeActStructure,themeLine,charArcSummary},bookSummary:"全书一句话总结",majorTurningPoints:[{chapter,event,impact}],openThreads:[{desc,status}],unsolvedMysteries:[],nextBookHook}。openThreads 与 unsolvedMysteries 必须基于伏笔台账如实填写，严禁默认全部回收。',
       '《' + record.title + '》全书（' + (extra && extra.chapterCount || '') + ' 章）。\n冲突统计：' + conflictBrief + '\n伏笔状态：' + foreshadowBrief + '\n分卷摘要：\n' + (volBrief || '（无分卷摘要）'), 4000);
     if (json && json.bookMap && json.bookSummary) content = json;
-  } catch (_) {}
+  } catch (error) { if (POSTGRES_MODE) throw error; }
   const covered = !!content;
   if (!content) content = { bookMap: { overallArc: '', mainTheme: '', threeActStructure: '', themeLine: '', charArcSummary: '' }, bookSummary: '', majorTurningPoints: [], openThreads: [], unsolvedMysteries: [], nextBookHook: '' };
   content = { ...content, coverage: { expected: 1, completed: covered ? 1 : 0, complete: covered } };
+  if (POSTGRES_MODE) {
+    await getPostgresDissectionPipelineStore().saveSummaries(record, 'book', [{
+      id: 'bs_' + record.id, ownerId: record.id, content,
+      childIds: (volumeSummaries || []).map(volume => volume.id || ''),
+      coverage: { covered, expected: 1, completed: covered ? 1 : 0 },
+      status: covered ? 'ok' : 'needs_review'
+    }]);
+    return content;
+  }
   try {
     db.prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'book'").run(record.id);
     db.prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
@@ -4336,34 +3408,111 @@ async function buildBookSummary(record, authToken, owner, volumeSummaries, extra
 
 
 // —— 全局聚合：基于事实库生成报告（模型调用，失败逐项降级为本地规则） ——
+async function callDissectionPipelineModel(authToken, owner, record, options) {
+  if (!POSTGRES_MODE) return callMolanChat(authToken, owner, options);
+  const actor = String(record.ownerUserId || projectScope.stableUserId(record.userEmail));
+  const controller = activeDissections.get(record.id)?.controller || new AbortController();
+  let stopped = false;
+  let pollError = null;
+  let inFlightPoll = null;
+  const check = async () => {
+    const state = await checkDissectionActiveInPostgres(postgresRepository, actor, record.id);
+    if (!state.ok || controller.signal.aborted) {
+      throw Object.assign(new Error(state.message || '拆书任务已取消'), { cancelled: true, name: 'AbortError' });
+    }
+  };
+  await check();
+  const timer = setInterval(() => {
+    if (stopped || inFlightPoll) return;
+    inFlightPoll = check().catch(error => {
+      pollError = error;
+      controller.abort(error);
+    }).finally(() => { inFlightPoll = null; });
+  }, 1000);
+  try {
+    const output = await callMolanChat(authToken, owner, {
+      ...options, controller, requireComplete: true
+    });
+    if (inFlightPoll) await inFlightPoll;
+    if (pollError) throw pollError;
+    await check();
+    return output;
+  } catch (error) {
+    throw pollError || error;
+  } finally {
+    stopped = true;
+    clearInterval(timer);
+    if (inFlightPoll) await inFlightPoll;
+  }
+}
+
+async function recordPipelineUsageAsync(record, usage, stage) {
+  if (!POSTGRES_MODE) return recordPipelineUsage(record, usage, stage);
+  const prior = record.meta?.stageUsage?.[stage] || {};
+  const costKnown = usage?.creditCost !== null && usage?.creditCost !== undefined &&
+    Number.isFinite(Number(usage.creditCost)) && Number(usage.creditCost) >= 0;
+  const tokens = toTokenCount(usage?.totalTokens);
+  record.actualCredits = !costKnown || record.actualCredits === null
+    ? null : Math.round((Number(record.actualCredits || 0) + Number(usage.creditCost)) * 100) / 100;
+  const creditCost = !costKnown || prior.creditCost === null
+    ? null : Math.round((Number(prior.creditCost || 0) + Number(usage.creditCost)) * 100) / 100;
+  record.meta = {
+    ...record.meta,
+    stageUsage: {
+      ...record.meta?.stageUsage,
+      [stage]: {
+        mode: 'pipeline', requestCount: Number(prior.requestCount || 0) + 1,
+        creditCost, totalTokens: tokens === null ? null : Number(prior.totalTokens || 0) + tokens,
+        usageUnavailableCount: Number(prior.usageUnavailableCount || 0) + (tokens === null ? 1 : 0),
+        status: usage?.status || (tokens === null ? 'usage_unavailable' : 'completed')
+      }
+    }
+  };
+  await saveDissectionRecordAsync(record);
+}
+
 async function pipelineChat(record, authToken, owner, system, userPrompt, maxTokens) {
   try {
-    const out = await callMolanChat(authToken, owner, {
+    const out = await callDissectionPipelineModel(authToken, owner, record, {
     thinking: false, reasoningEffort: 'none',
       system, userPrompt, maxTokens: maxTokens || 3000, jsonMode: true,
-      modelId: currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.3, stage: 'skill_analysis',
+      modelId: record.selectedModel || currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.3, stage: 'skill_analysis',
       skillAudit: record && record.meta && record.meta.dissectionSkillAudit,
       // ★ Q2 · 账本维度：聚合调用按 recordId 记录
       recordId: record.id, unitId: 'aggregate', workflowId: record.pipelineRunId || ''
     });
-    if (!out.usage || toTokenCount(out.usage.totalTokens) === null) return null;
-    recordPipelineUsage(record, out.usage, 'aggregate');
+    await recordPipelineUsageAsync(record, out.usage, 'aggregate');
+    if (!out.usage || toTokenCount(out.usage.totalTokens) === null) {
+      if (POSTGRES_MODE) throw Object.assign(new Error('上游模型用量未知，停止聚合'), { code: 'USAGE_UNAVAILABLE', unknown: true });
+      return null;
+    }
     return out.json || safeJsonParse(out.text) || null;
-  } catch (_) { return null; }
+  } catch (error) {
+    if (POSTGRES_MODE) throw error;
+    return null;
+  }
 }
 
 
 
 async function runPipelineAggregation(record, authToken, owner, opts) {
-  const chapters = loadDissectionChapters(record.id);
-  const facts = loadAllChapterFacts(record.id);
+  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
+  const chapters = store ? await store.loadDissectionChapters(record) : loadDissectionChapters(record.id);
+  const facts = store ? await store.loadAllChapterFacts(record) : loadAllChapterFacts(record.id);
   if (!facts.length) return null;
   // ★ 阶段1 · 实体消歧与事件图谱落地（本地规则，零成本）
-  try { buildDissectionEntities(record); } catch (_) {}
-  try { buildDissectionEvents(record); } catch (_) {}
+  if (store) {
+    await store.buildDissectionEntities(record);
+    await store.buildDissectionEvents(record);
+    await store.buildEntityStates(record);
+    await store.buildEventEdges(record);
+  } else {
+    buildDissectionEntities(record);
+    buildDissectionEvents(record);
+    buildEntityStates(record);
+    buildEventEdges(record);
+  }
   // ★ 阶段2 · 人物状态快照 + 事件关系图落库
-  try { buildEntityStates(record); } catch (_) {}
-  try { buildEventEdges(record); } catch (_) {}
 
   const result = emptyDissectionResult();
   result.chapterIndex = chapters.map(c => ({ index: c.chapter_no, chapterId: c.chapter_id, title: c.title, segments: 1, summary: '' }));
@@ -4378,7 +3527,14 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
       evidenceRefs: f.chapterId ? [f.chapterId] : []
     })));
   result.outline = buildPipelineOutline(facts);
-  result.evidenceLedger = buildPipelineEvidenceLedger(record, facts);
+  const claims = store
+    ? (await postgresRepository.runtimeListDissectionRows(record.ownerUserId, record.id, 'dissection_claims')).map(row => {
+      const document = typeof row.document === 'string' ? JSON.parse(row.document) : row.document;
+      if (!document || typeof document !== 'object' || Array.isArray(document)) throw new Error('拆书证据文档损坏');
+      return document;
+    })
+    : undefined;
+  result.evidenceLedger = buildPipelineEvidenceLedger(record, facts, claims);
   result.dissectionMap = {
     unitCount: Number((record.meta && record.meta.pipeline && record.meta.pipeline.unitTotal) || 0),
     factCount: facts.length,
@@ -4447,7 +3603,7 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
         charBatchesCompleted += 1;
       }
       if (charJson && Array.isArray(charJson.relationships)) rels.push(...charJson.relationships);
-    } catch (_) {}
+    } catch (error) { if (POSTGRES_MODE) throw error; }
   }
   const generatedByName = new Map();
   allArchives.forEach(archive => {
@@ -4488,7 +3644,7 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
         '你是伏笔台账合并专家。下面是一批伏笔线索（同一伏笔可能被多章提到、描述近似）。请归并合并，区分状态：recovered(已回收，必须有回收章证据) / partial(部分回收) / planned(埋设未回收) / abandoned(疑似烂尾)。只返回 JSON：{foreshadowing:[{id,setupChapter,expectedPayoff,status,strength}]}。',
          '伏笔线索（' + batch.length + ' 条）：\n' + summary, 5000);
       if (clueJson && Array.isArray(clueJson.foreshadowing)) foreshadowing.push(...clueJson.foreshadowing);
-    } catch (_) {}
+    } catch (error) { if (POSTGRES_MODE) throw error; }
   }
   if (!foreshadowing.length) {
     // 降级：本地按描述前缀 + 埋设章接近归并
@@ -4501,13 +3657,15 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
   }
   result.foreshadowing = foreshadowing;
   // ★ 阶段2 · 伏笔生命周期落库（含埋设/回收章、相关实体、证据与置信度）
-  try { storeDissectionForeshadows(record, result.foreshadowing); } catch (_) {}
+  if (store) await store.storeDissectionForeshadows(record, result.foreshadowing);
+  else storeDissectionForeshadows(record, result.foreshadowing);
 
   // —— 分卷 / 框架 / 概览 / 题材 / 结构：输入 = 分卷摘要（覆盖全书）+ 统计 + 曲线 ——
   const curveSample = emotionCurve.filter((_, i) => i % 5 === 0);
   const openingFacts = facts.slice(0, 40).map(f => '第' + f.chapterNo + '章:' + (Array.isArray(f.fact.chapter_events) ? f.fact.chapter_events.slice(0, 3).map(e => e.event).join('，') : '')).join('\n');
   let volumeDigest = { text: '', complete: false, sourceCount: volumeSummaries.length, digestCount: 0 };
-  try { volumeDigest = await buildPipelineVolumeDigest(record, authToken, owner, volumeSummaries); } catch (_) {}
+  try { volumeDigest = await buildPipelineVolumeDigest(record, authToken, owner, volumeSummaries); }
+  catch (error) { if (POSTGRES_MODE) throw error; }
   const volumeBrief = volumeDigest.text || '（分卷归并失败）';
   result.summaryCoverage.volumeDigestComplete = volumeDigest.complete === true;
   const profileJson = await pipelineChat(record, authToken, owner,
@@ -4562,7 +3720,7 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
     result.summaryCoverage.book = result.bookSummary && result.bookSummary.coverage
       ? result.bookSummary.coverage
       : { expected: 1, completed: 0, complete: false };
-  } catch (_) {}
+  } catch (error) { if (POSTGRES_MODE) throw error; }
 
   // ★ 校验结论：不再硬编码 passed，基于覆盖与缺失项真实计算（门禁由 startPipelineJob 二次把关）
   const unitTotal = (opts && opts.unitTotal) || 0;
@@ -4901,22 +4059,54 @@ function dissectionStagePrompt(stage, record, context, priorResult) {
 }
 
 
-async function runDissectionChat(authToken, record, systemPrompt, userPrompt, maxTokens, onUsage, controller, skillAudit) {
+async function checkDissectionActiveInPostgres(repository, actorUserId, dissectionId) {
+  const row = await repository.runtimeGetDissection(actorUserId, dissectionId);
+  if (!row) {
+    return { ok: false, reason: 'missing', message: '拆书任务不存在' };
+  }
+  const rowOwner = String(row.owner_user_id || '').trim();
+  const normalizedActor = String(actorUserId || '').trim();
+  if (!rowOwner || rowOwner !== normalizedActor) {
+    return { ok: false, reason: 'unauthorized', message: '拆书任务不存在或无权访问' };
+  }
+  if (row.cancel_requested === true || row.status === 'cancelled') {
+    return { ok: false, reason: 'cancelled', message: '拆书任务已取消' };
+  }
+  return { ok: true, row };
+}
+
+async function runDissectionChat(authToken, record, systemPrompt, userPrompt, maxTokens, onUsage, controller, skillAudit, optionalDependencies = {}) {
+  const activeRepository = optionalDependencies.postgresRepository || postgresRepository;
+  const activeFetch = optionalDependencies.fetch || globalThis.fetch;
+  const activePort = optionalDependencies.port || PORT;
+  const activePollIntervalMs = optionalDependencies.pollIntervalMs || 1000;
+  const postgresModeActive = optionalDependencies.postgresMode !== undefined ? optionalDependencies.postgresMode : POSTGRES_MODE;
+
+  const ownerActor = String(record && (record.ownerUserId || record.userId) || (record && record.userEmail ? projectScope.stableUserId(record.userEmail) : '')).trim();
   const auditSkill = skillAudit && Array.isArray(skillAudit.skills) ? skillAudit.skills[0] : null;
   const markedSystemPrompt = auditSkill ? wrapSkillBlock(auditSkill.id, systemPrompt) : systemPrompt;
   const machineContract = '【墨阑拆书接口约束】当前阶段必须返回一个合法 JSON 对象（用 JSON.parse 可直接解析），不能返回 Markdown、代码围栏、解释文字或散文分析。JSON 语法硬性要求：1) 每个字符串值都必须用英文双引号包裹并正确闭合，字符串值内部禁止再出现英文双引号（需要引用书名/台词时改用单引号或书名号《》，避免 JSON 解析提前闭合）；2) 键和值之间用英文冒号分隔；3) 数组/对象元素之间用英文逗号分隔；4) 不要省略任何括号或引号；5) 所有 value 保持简短（每项不超过 60 字），未知信息用 "unknown" 或 "candidate"；6) 严格按上方输出模板的字段结构与类型输出，不要新增顶层字段，不要改字段名。';
-  // ★ 输出解析失败时带错误说明自动重试 ≤5 次，避免“模型返回散文/空内容 → 拆书失败”
   let lastOutput = '';
   let lastError = '';
-  const waitForRetry = delay => new Promise((resolve, reject) => {
+  const waitForRetry = delayMilliseconds => new Promise((resolve, reject) => {
     if (controller.signal.aborted) return reject(Object.assign(new Error('拆书任务已取消'), { name: 'AbortError' }));
-    const timer = setTimeout(resolve, delay);
+    const retryTimer = setTimeout(resolve, delayMilliseconds);
     controller.signal.addEventListener('abort', () => {
-      clearTimeout(timer);
+      clearTimeout(retryTimer);
       reject(Object.assign(new Error('拆书任务已取消'), { name: 'AbortError' }));
     }, { once: true });
   });
   for (let attempt = 0; attempt <= 5; attempt += 1) {
+    if (postgresModeActive && ownerActor && record.id) {
+      const preflightCheck = await checkDissectionActiveInPostgres(activeRepository, ownerActor, record.id);
+      if (!preflightCheck.ok) {
+        controller.abort();
+        const cancelError = new Error(preflightCheck.message);
+        cancelError.cancelled = true;
+        cancelError.name = 'AbortError';
+        throw cancelError;
+      }
+    }
     const repairHint = attempt > 0
       ? (String(lastError).startsWith('当前阶段缺少必需产出')
         ? '\n\n【阶段字段校验重试】上一轮返回的是可解析 JSON，但缺少当前阶段的必需字段：' + lastError.replace(/^当前阶段缺少必需产出：/, '').replace(/。请严格按阶段模板补齐真实分析.*$/, '') + '。本轮必须完整返回当前阶段模板要求的顶层字段；不要返回 timeline、outline 或其他阶段字段代替它们。'
@@ -4926,12 +4116,72 @@ async function runDissectionChat(authToken, record, systemPrompt, userPrompt, ma
       ? '\n\n【上一轮原始响应，仅用于修复格式】\n' + String(lastOutput).slice(0, 12000) + '\n【原始响应结束】\n请根据当前阶段模板修复这份响应并重新输出完整 JSON，不要解释修复过程。'
       : '';
     let response;
+    let raw = '';
+    let pollTimer = null;
+    let pollError = null;
+    let pollStopped = false;
+    let inFlightPollPromise = null;
+
+    const schedulePoll = () => {
+      if (pollStopped || controller.signal.aborted) {
+        return;
+      }
+      pollTimer = setTimeout(() => {
+        pollTimer = null;
+        if (pollStopped || controller.signal.aborted) {
+          return;
+        }
+        const currentPoll = (async () => {
+          try {
+            const pollCheck = await checkDissectionActiveInPostgres(activeRepository, ownerActor, record.id);
+            if (pollStopped) return;
+            if (!pollCheck.ok) {
+              const cancelError = new Error(pollCheck.message);
+              cancelError.cancelled = true;
+              cancelError.name = 'AbortError';
+              pollError = cancelError;
+              controller.abort();
+              return;
+            }
+          } catch (checkError) {
+            if (pollStopped) return;
+            pollError = checkError;
+            controller.abort();
+            return;
+          }
+          if (!pollStopped && !controller.signal.aborted) {
+            schedulePoll();
+          }
+        })();
+        inFlightPollPromise = currentPoll;
+        currentPoll.finally(() => {
+          if (inFlightPollPromise === currentPoll) {
+            inFlightPollPromise = null;
+          }
+        });
+      }, activePollIntervalMs);
+    };
+
+    const stopPoll = async () => {
+      pollStopped = true;
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+      if (inFlightPollPromise) {
+        await inFlightPollPromise.catch(() => {});
+      }
+    };
+
+    if (postgresModeActive && ownerActor && record.id) {
+      schedulePoll();
+    }
     try {
       console.log(`[拆书诊断] 阶段=${record.phase} attempt=${attempt} 正在发起 /api/chat 请求 (model=${(record && record.selectedModel) || 'gpt-5.6-luna'})...`);
       const fetchSignal = typeof AbortSignal.any === 'function'
         ? AbortSignal.any([controller.signal, AbortSignal.timeout(120000)])
         : controller.signal;
-      response = await fetch('http://127.0.0.1:' + PORT + '/api/chat', {
+      response = await activeFetch('http://127.0.0.1:' + activePort + '/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: authToken, [INTERNAL_MODEL_ROUTE_HEADER]: INTERNAL_MODEL_ROUTE_KEY },
         body: JSON.stringify({
@@ -4943,28 +4193,34 @@ async function runDissectionChat(authToken, record, systemPrompt, userPrompt, ma
           temperature: 0.2,
           max_tokens: maxTokens,
           skillAudit,
-          jsonMode: true, // ★ 强制上游 JSON 输出模式，根治"模型返回散文/畸形 JSON"
+          jsonMode: true,
           messages: [
             { role: 'system', content: markedSystemPrompt + '\n\n' + machineContract + repairHint + previousOutputHint },
-            // 原书片段放入 user 消息，兼容只重点读取首个 system 的中转模型；
-            // 动态标记仍由服务端识别，超出窗口时只截断样本，不截断 Skill。
             { role: 'user', content: DYNAMIC_PROMPT_MARKER + '\n' + userPrompt },
             { role: 'user', content: '请执行当前阶段并只返回 JSON。' }
           ]
         }),
         signal: fetchSignal
       });
-    } catch (error) {
-      if (error && error.name === 'AbortError' && controller.signal.aborted) throw error;
-      lastError = '上游网络错误：' + String(error && error.message || error || '请求失败');
+      raw = await response.text();
+    } catch (networkOrAbortError) {
+      if (pollError) {
+        throw pollError;
+      }
+      if (networkOrAbortError && networkOrAbortError.name === 'AbortError' && controller.signal.aborted) throw networkOrAbortError;
+      lastError = '上游网络错误：' + String(networkOrAbortError && networkOrAbortError.message || networkOrAbortError || '请求失败');
       console.warn(`[拆书诊断] 阶段=${record.phase} attempt=${attempt} 网络异常: ${lastError}`);
       if (attempt < 5) {
         await waitForRetry(Math.min(4000, 600 * Math.pow(2, attempt)));
         continue;
       }
       throw new Error('拆书阶段调用失败：' + lastError);
+    } finally {
+      await stopPoll();
     }
-    const raw = await response.text();
+    if (pollError) {
+      throw pollError;
+    }
     console.log(`[拆书诊断] 阶段=${record.phase} attempt=${attempt} 收到响应 status=${response.status}, 长度=${raw.length} 字节`);
     if (!response.ok) {
       const message = raw.slice(0, 500);
@@ -5040,7 +4296,7 @@ async function runDissectionChat(authToken, record, systemPrompt, userPrompt, ma
       error.code = 'USAGE_UNAVAILABLE';
       throw error;
     }
-    if (onUsage) onUsage(usage);
+    if (onUsage) await onUsage(usage);
     lastOutput = output;
     // 优先尝试完整 JSON 解析；散文输出时兜底提取，语法轻损时自动修复
     const parsedRaw = safeJsonParse(output) || extractJsonFromMixedText(output) || autoFixJson(output);
@@ -5073,26 +4329,25 @@ async function runDissectionChat(authToken, record, systemPrompt, userPrompt, ma
 
 // ★ 千万字拆书 · 流水线主流程：预处理已在 create 时完成（章节入库 + 建批次）。
 // 运行 = 局部解析（跳过已完成批次 → 断点续跑）→ 全局聚合 → 报告。
-async function startPipelineJob(id, userEmail, authToken) {
-  if (activeDissections.has(id)) return;
-  const initial = loadDissectionRecord(id, userEmail);
-  if (!initial || (initial.status === 'completed' && dissectionPublicRecord(initial, false).isComplete) || initial.cancelRequested || initial.status === 'cancelled') return;
-  const controller = new AbortController();
-  activeDissections.set(id, { controller, authToken });
-  // ★ 阶段4 · 有限并发：全局并发超限则轮询等待（任务被取消则退出），防止多个千万字任务打满单实例
-  while (pipelineRunningCount >= PIPELINE_MAX_CONCURRENT) {
-    const latestNow = loadDissectionRecord(id, userEmail);
-    if (!latestNow || latestNow.cancelRequested || latestNow.status === 'cancelled') {
-      activeDissections.delete(id);
-      releaseDissectionUserSlot(userEmail);
-      return;
-    }
-    await new Promise(resolve => setTimeout(resolve, 5000));
-  }
-  pipelineRunningCount += 1;
-  const owner = getUserByEmail(userEmail) || { email: userEmail };
-  const record = { ...initial, selectedModel: resolveModelForUser(owner, initial.selectedModel) };
+async function startPipelineJob(id, userEmail, authToken, options = {}) {
+  if (activeDissections.has(id) && activeDissections.get(id) !== options.active) return;
+  const active = options.active || { controller: new AbortController(), authToken };
+  const controller = active.controller;
+  activeDissections.set(id, active);
+  let record = options.initial || null;
+  let runSlotHeld = false;
+  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
   try {
+    const initial = options.initial || await loadDissectionRecordAsync(id, userEmail);
+    if (!initial || (initial.status === 'completed' && dissectionPublicRecord(initial, false).isComplete) || initial.cancelRequested || initial.status === 'cancelled') return;
+    record = initial;
+    const owner = POSTGRES_MODE
+      ? postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(userEmail))
+      : getUserByEmail(userEmail);
+    if (!owner) throw new Error('拆书任务账户不存在');
+    record = { ...initial, selectedModel: resolveModelForUser(owner, initial.selectedModel) };
+    await waitForDissectionCapacity(id, userEmail, controller);
+    runSlotHeld = true;
     const pipelineSkill = dissectionSkillRecord();
     const pipelineSkillAudit = dissectionSkillAuditPayload(pipelineSkill);
     record.status = 'running';
@@ -5109,61 +4364,75 @@ async function startPipelineJob(id, userEmail, authToken) {
       },
       dissectionSkillAudit: pipelineSkillAudit
     };
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync(record);
     // ★ 阶段0：统一单元模型（preface/volume/chapter/segment，无标题不丢）
-    let units = loadDissectionUnits(record.id);
-    let batches = loadDissectionBatches(record.id);
+    let units = store ? await store.loadDissectionUnits(record) : loadDissectionUnits(record.id);
+    let batches = store ? await store.loadDissectionBatches(record) : loadDissectionBatches(record.id);
     if (!units.length || !batches.length) {
       const built = buildDissectionUnits(record.sourceText);
-      storeDissectionUnits(record, built);
+      if (store) await store.storeDissectionUnits(record, built);
+      else storeDissectionUnits(record, built);
       units = built;
-      batches = createDissectionBatches(record, built) ? loadDissectionBatches(record.id) : [];
+      if (store) {
+        await store.createDissectionBatches(record, built);
+        batches = await store.loadDissectionBatches(record);
+      } else {
+        batches = createDissectionBatches(record, built) ? loadDissectionBatches(record.id) : [];
+      }
     }
     const meta = { ...(record.meta || {}) };
     const totalUnits = units.length;
     const totalBatches = batches.length;
     const factUnitCount = units.filter(isPipelineFactUnit).length;
-    const runId = ensurePipelineRun(record, units);
+    const runId = store ? await store.ensurePipelineRun(record, units) : ensurePipelineRun(record, units);
     record.pipelineRunId = runId;
     meta.pipeline = { ...(meta.pipeline || {}), unitTotal: totalUnits, unitCompleted: 0, factCoverage: 0, chapterCount: factUnitCount, batchTotal: totalBatches, phase: 'extract', aggregated: false, failedBatches: [] };
     record.meta = meta;
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync(record);
 
     // —— 局部解析层：逐批事实抽取（completed 批次跳过 = 断点续跑，不重复扣费）——
     const freshUnits = units;
-    const freshBatches = loadDissectionBatches(record.id);
+    const freshBatches = store ? await store.loadDissectionBatches(record) : loadDissectionBatches(record.id);
     let batchDone = 0;
     let doneUnits = 0;
     for (const batch of freshBatches) {
       if (batch.status === 'completed') { batchDone += 1; doneUnits += (batch.chapter_to - batch.chapter_from + 1); continue; }
-      const latest = loadDissectionRecord(id, userEmail);
+      const latest = await loadDissectionRecordAsync(id, userEmail);
       if (!latest || latest.cancelRequested || latest.status === 'cancelled') throw Object.assign(new Error('拆书任务已取消'), { cancelled: true });
       record.phase = 'extract';
       record.phaseIndex = batch.batch_no;
       record.progress = Math.min(69, Math.round(((batch.batch_no - 1) / Math.max(1, freshBatches.length)) * 69));
       record.meta = { ...(record.meta || {}), pipeline: { ...(record.meta && record.meta.pipeline || {}), phase: 'extract', batchNo: batch.batch_no, batchDone, batchTotal: freshBatches.length, unitCompleted: Math.min(doneUnits, totalUnits), factCoverage: totalUnits ? Number((doneUnits / totalUnits).toFixed(4)) : 0 } };
-      updateDissectionRecord(record);
+      await saveDissectionRecordAsync(record);
       try {
-        updateBatchStatus(record, batch.batch_no, 'running', 0, '');
+        if (store) await store.updateBatchStatus(record, batch.batch_no, 'running', 0, '');
+        else updateBatchStatus(record, batch.batch_no, 'running', 0, '');
         // ★ 批次内局部重试（最多 3 次）；仍失败则保留失败批次进入断点续跑，不直接完成全书
         let saved = 0, lastError = null;
         for (let attempt = 1; attempt <= 3; attempt += 1) {
           try { saved = await extractBatchFacts(authToken, owner, record, batch, freshUnits, pipelineSkillAudit); break; }
-          catch (error) { lastError = error; if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 800 * attempt)); }
+          catch (error) {
+            if (POSTGRES_MODE || (error && (error.cancelled || error.name === 'AbortError'))) throw error;
+            lastError = error;
+            if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 800 * attempt));
+          }
         }
         if (!saved) throw lastError || new Error('批次抽取失败');
-        updateBatchStatus(record, batch.batch_no, 'completed', saved, '');
+        if (store) await store.updateBatchStatus(record, batch.batch_no, 'completed', saved, '');
+        else updateBatchStatus(record, batch.batch_no, 'completed', saved, '');
         batch.status = 'completed';
         batch.tokens = saved;
         batch.error = '';
         batchDone += 1;
         doneUnits += (batch.chapter_to - batch.chapter_from + 1);
-        updatePipelineRunProgress(record.id, runId, Math.min(doneUnits, totalUnits), totalUnits);
+        if (store) await store.updatePipelineRunProgress(record, runId, Math.min(doneUnits, totalUnits), totalUnits);
+        else updatePipelineRunProgress(record.id, runId, Math.min(doneUnits, totalUnits), totalUnits);
         record.meta = { ...(record.meta || {}), pipeline: { ...(record.meta && record.meta.pipeline || {}), unitCompleted: Math.min(doneUnits, totalUnits), factCoverage: totalUnits ? Number((doneUnits / totalUnits).toFixed(4)) : 0, batchDone, batchTotal: freshBatches.length } };
-        updateDissectionRecord(record);
+        await saveDissectionRecordAsync(record);
       } catch (error) {
         if (error && (error.cancelled || error.name === 'AbortError')) throw error;
-        updateBatchStatus(record, batch.batch_no, 'failed', 0, error.message);
+        if (store) await store.updateBatchStatus(record, batch.batch_no, 'failed', 0, error.message);
+        else updateBatchStatus(record, batch.batch_no, 'failed', 0, error.message);
         batch.status = 'failed';
         batch.tokens = 0;
         batch.error = String(error && error.message || error);
@@ -5174,15 +4443,19 @@ async function startPipelineJob(id, userEmail, authToken) {
     // —— 全局聚合层 ——
     // ★ 批次状态从 DB 重新加载：重试/断点续跑场景下，批次循环使用的内存快照可能是旧的 failed 状态，
     // 若已成功恢复的批次被误判为失败，会出现「覆盖率 100% 却被标记 needs_review」的假象。
-    const finalBatches = dbReady() ? loadDissectionBatches(record.id) : freshBatches;
+    const finalBatches = store ? await store.loadDissectionBatches(record) : (dbReady() ? loadDissectionBatches(record.id) : freshBatches);
     const failedBatches = finalBatches.filter(b => b.status === 'failed');
     const factCoverage = totalUnits ? Math.min(1, doneUnits / totalUnits) : 0;
     record.phase = 'aggregate';
     record.progress = 72;
     record.meta = { ...(record.meta || {}), pipeline: { ...(record.meta && record.meta.pipeline || {}), phase: 'aggregate', batchDone, batchTotal: finalBatches.length, unitCompleted: Math.min(doneUnits, totalUnits), factCoverage: Number(factCoverage.toFixed(4)), failedBatches: failedBatches.map(b => b.batch_no) } };
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync(record);
     let aggregated = null;
-    try { aggregated = await runPipelineAggregation(record, authToken, owner, { unitTotal: totalUnits, unitCompleted: doneUnits, failedBatches: failedBatches.length }); } catch (_) {}
+    try {
+      aggregated = await runPipelineAggregation(record, authToken, owner, { unitTotal: totalUnits, unitCompleted: doneUnits, failedBatches: failedBatches.length });
+    } catch (error) {
+      if (POSTGRES_MODE) throw error;
+    }
     // ★ 门禁：局部覆盖、分层摘要、证据账本和所有核心结构都完整时才允许 completed。
     // 聚合对象存在但不完整仍保留给用户复核，不能把“有结果”误报成“已完成”。
     const aggregationMissingFields = aggregated ? pipelineAggregationMissingFields(aggregated) : ['aggregation'];
@@ -5214,63 +4487,160 @@ async function startPipelineJob(id, userEmail, authToken) {
     record.status = terminalFailure ? 'failed' : (needsReview ? 'needs_review' : 'completed');
     record.phase = terminalFailure ? 'failed' : (needsReview ? 'needs_review' : 'completed');
     record.progress = terminalFailure ? 90 : (needsReview ? 95 : 100);
-    updateDissectionRecord(record);
-    try { if (aggregated) syncCharactersToLibrary(record); } catch (_) {}
+    await saveDissectionRecordAsync(record);
+    if (aggregated) {
+      if (store) await store.syncCharactersToLibrary(record);
+      else syncCharactersToLibrary(record);
+    }
   } catch (error) {
+    if (!record) throw error;
     const cancelled = error && (error.cancelled || error.name === 'AbortError');
-    const current = loadDissectionRecord(id, userEmail) || record;
+    const current = await loadDissectionRecordAsync(id, userEmail);
+    if (!current) return;
     current.status = cancelled ? 'cancelled' : 'failed';
     current.error = String(error && error.message || '拆书失败').slice(0, 1000);
     if (cancelled) current.phase = 'cancelled';
     current.meta = { ...(current.meta || {}), lastFailure: { phase: current.phase, message: current.error, at: Date.now() } };
-    updateDissectionRecord(current);
+    await saveDissectionRecordAsync(current);
   } finally {
-    activeDissections.delete(id);
+    if (activeDissections.get(id) === active) {
+      activeDissections.delete(id);
+      releaseDissectionUserSlot(userEmail);
+      if (runSlotHeld) dissectionScheduler.releaseCapacity();
+    }
+  }
+}
+
+/**
+ * 异步读取拆书记录，在 PostgreSQL 模式下直接读取 PG 仓储。
+ */
+async function loadDissectionRecordAsync(id, userEmail, ownerUserId = '') {
+  if (POSTGRES_MODE) {
+    const account = ownerUserId ? null : await postgresRepository.runtimeAccountByEmail(userEmail);
+    const actorUserId = ownerUserId || account?.legacy_user_id;
+    if (!actorUserId) return null;
+    const row = await postgresRepository.runtimeGetDissection(actorUserId, id);
+    if (!row) return null;
+    const decoded = {};
+    for (const key of ['result_json', 'meta_json']) {
+      const value = typeof row[key] === 'string' ? JSON.parse(row[key]) : row[key];
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw requestError(500, '拆书持久化文档损坏');
+      decoded[key] = value;
+    }
+    return { ...dissectionRecordFromDb({
+      ...row,
+      created_at: row.created_at_value,
+      updated_at: row.updated_at_value
+    }), result: decoded.result_json, meta: decoded.meta_json, revision: Number(row.revision) };
+  }
+  return loadDissectionRecord(id, userEmail);
+}
+
+/**
+ * 异步保存拆书记录，在 PostgreSQL 模式下直接调用 PG runtimeUpdateDissection。
+ */
+async function saveDissectionRecordAsync(record) {
+  if (POSTGRES_MODE) {
+    const actorUserId = String(record.ownerUserId || projectScope.stableUserId(record.userEmail)).trim();
+    await postgresRepository.runtimeUpdateDissection({ ...record, ownerUserId: actorUserId });
+  } else {
+    updateDissectionRecord(record);
+  }
+}
+
+async function runPostgresDissectionWorker(id, userEmail, authToken) {
+  const owner = await postgresRepository.runtimeAccountByEmail(userEmail);
+  if (!owner) {
     releaseDissectionUserSlot(userEmail);
-    pipelineRunningCount = Math.max(0, pipelineRunningCount - 1);
+    throw requestError(401, '拆书账户不存在');
+  }
+  let lease;
+  try {
+    lease = await postgresRepository.runtimeClaimDissectionWorker(
+      owner.legacy_user_id, id, 'dissection-' + process.pid + '-' + crypto.randomBytes(12).toString('hex')
+    );
+  } catch (error) {
+    releaseDissectionUserSlot(userEmail);
+    throw error;
+  }
+  if (!lease) {
+    releaseDissectionUserSlot(userEmail);
+    throw requestError(409, '拆书任务已被其他实例占用，或当前账户已有运行任务');
+  }
+  let timer = null;
+  let renewal = null;
+  try {
+    return await postgresRepository.withDissectionWorkerLease(lease, async () => {
+      timer = setInterval(() => {
+        if (renewal) return;
+        renewal = postgresRepository.runtimeRenewDissectionWorker(lease).then(renewed => {
+          if (!renewed) activeDissections.get(id)?.controller.abort(new Error('拆书运行权已失效'));
+        }).catch(error => {
+          activeDissections.get(id)?.controller.abort(error);
+        }).finally(() => { renewal = null; });
+      }, 15000);
+      timer.unref();
+      return startDissectionJob(id, userEmail, authToken);
+    });
+  } finally {
+    if (timer) clearInterval(timer);
+    if (renewal) await renewal;
+    await postgresRepository.runtimeReleaseDissectionWorker(lease);
   }
 }
 
 async function startDissectionJob(id, userEmail, authToken) {
   if (activeDissections.has(id)) return;
-  const initial = loadDissectionRecord(id, userEmail);
-  if (!initial || (initial.status === 'completed' && dissectionPublicRecord(initial, false).isComplete) || initial.cancelRequested || initial.status === 'cancelled') return;
-  // ★ 千万字级：deep 且章节数达到阈值时走「分层增量流水线」（批次事实抽取 + 全局聚合 + 断点续跑）
-  if (pipelineEnabled(initial)) return startPipelineJob(id, userEmail, authToken);
   const controller = new AbortController();
-  activeDissections.set(id, { controller, authToken });
-  const owner = getUserByEmail(userEmail) || { email: userEmail };
-  const record = { ...initial, selectedModel: resolveModelForUser(owner, initial.selectedModel) };
+  const active = { controller, authToken };
+  activeDissections.set(id, active);
+  let record = null;
+  let handedToPipeline = false;
   let runSlotHeld = false;
   try {
+    const initial = await loadDissectionRecordAsync(id, userEmail);
+    if (!initial || (initial.status === 'completed' && dissectionPublicRecord(initial, false).isComplete) || initial.cancelRequested || initial.status === 'cancelled') return;
+    record = initial;
+    const usePipeline = POSTGRES_MODE
+      ? await getPostgresDissectionPipelineStore().pipelineEnabled(initial)
+      : pipelineEnabled(initial);
+    if (usePipeline) {
+      handedToPipeline = true;
+      return await startPipelineJob(id, userEmail, authToken, { initial, active });
+    }
+    const owner = POSTGRES_MODE
+      ? postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(userEmail))
+      : getUserByEmail(userEmail);
+    if (!owner) throw new Error('拆书任务账户不存在');
+    record = { ...initial, selectedModel: resolveModelForUser(owner, initial.selectedModel) };
     // 非流水线拆书也受全局并发上限保护，避免多账户同时提交长文本打满单实例。
     await waitForDissectionCapacity(id, userEmail, controller);
     runSlotHeld = true;
     record.status = 'running';
     record.error = '';
     record.cancelRequested = false;
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync(record);
     const chunks = buildDissectionChunks(record.sourceText);
     const selected = chooseDissectionChunks(chunks, record.depth);
     const chapterIndex = buildChapterIndex(chunks);
     record.result = mergeDissectionResult(record.result, { chapterIndex });
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync(record);
     const meta = record.meta || {};
     meta.chunkCount = chunks.length;
     meta.chapterCount = new Set(chunks.map(chunk => chunk.chapterId).filter(value => /^chapter-/.test(String(value || '')))).size || chunks.length;
     meta.sampleCount = selected.length;
     meta.sampleChars = dissectionContext(selected).length;
     record.meta = meta;
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync(record);
     // F074：先做一次廉价题材预分类，结果注入各阶段 prompt（失败不影响主流程）
     try {
       const ghContext = dissectionContext(selected).slice(0, 6000);
       const gh = await classifyGenreHint(authToken, owner, record, ghContext);
       if (gh) {
         record.meta = Object.assign({}, record.meta, { genreHint: gh });
-        updateDissectionRecord(record);
+        await saveDissectionRecordAsync(record);
       }
-    } catch (_) {}
+    } catch (error) { if (POSTGRES_MODE) throw error; }
     const skill = dissectionSkillRecord();
     const skillPromptFilesForRun = dissectionSkillPromptFiles(skill);
     const skillInstruction = skillPromptInstruction(skill, skillPromptFilesForRun);
@@ -5283,19 +4653,19 @@ async function startDissectionJob(id, userEmail, authToken) {
       auditVersion: SKILL_AUDIT_VERSION
     };
     record.meta = meta;
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync(record);
     const skillAudit = {
       version: SKILL_AUDIT_VERSION,
       skills: [{ id: skill.id, name: skill.name || skill.id, files: skill.files || [], fileManifest: skill.fileManifest || [], promptFiles: skillPromptFilesForRun }]
     };
     const phaseIds = dissectionPhaseIdsForDepth(record.depth);
     for (let index = resumePhaseIndex(record); index < phaseIds.length; index += 1) {
-      const latest = loadDissectionRecord(id, userEmail);
+      const latest = await loadDissectionRecordAsync(id, userEmail);
       if (!latest || latest.cancelRequested || latest.status === 'cancelled') throw Object.assign(new Error('拆书任务已取消'), { cancelled: true });
       record.phaseIndex = index;
       record.phase = phaseIds[index];
       record.progress = Math.round(index / phaseIds.length * 100);
-      updateDissectionRecord(record);
+      await saveDissectionRecordAsync(record);
       const stage = phaseIds[index];
       const context = dissectionContextForStage(stage, selected, record.depth);
       if (!record.meta.stageInput) record.meta.stageInput = {};
@@ -5312,12 +4682,15 @@ async function startDissectionJob(id, userEmail, authToken) {
         skillInstruction,
         dissectionStagePrompt(stage, record, context, record.result),
         record.depth === 'deep' ? 7000 : 5000,
-        usage => {
-          const cost = Number(usage && usage.creditCost);
-          if (Number.isFinite(cost) && cost >= 0) record.actualCredits = Math.round((record.actualCredits + cost) * 100) / 100;
+        async usage => {
+          const knownCost = usage && usage.creditCost !== null && usage.creditCost !== undefined &&
+            Number.isFinite(Number(usage.creditCost)) && Number(usage.creditCost) >= 0;
+          if (knownCost && record.actualCredits !== null) {
+            record.actualCredits = Math.round((Number(record.actualCredits || 0) + Number(usage.creditCost)) * 100) / 100;
+          } else record.actualCredits = null;
           if (!record.meta.stageUsage) record.meta.stageUsage = {};
-          record.meta.stageUsage[stage] = { creditCost: Math.round(Math.max(0, record.actualCredits - beforeCredits) * 100) / 100, totalTokens: usage && usage.totalTokens != null ? Number(usage.totalTokens) : null, status: usage && usage.status || '', contextChars: context.length, sentChunkCount };
-          updateDissectionRecord(record);
+          record.meta.stageUsage[stage] = { creditCost: record.actualCredits === null || beforeCredits === null ? null : Math.round(Math.max(0, record.actualCredits - beforeCredits) * 100) / 100, totalTokens: usage && usage.totalTokens != null ? Number(usage.totalTokens) : null, status: usage && usage.status || '', contextChars: context.length, sentChunkCount };
+          await saveDissectionRecordAsync(record);
         },
         controller,
         skillAudit
@@ -5326,7 +4699,7 @@ async function startDissectionJob(id, userEmail, authToken) {
       record.phaseIndex = index + 1;
       record.phase = index + 1 < phaseIds.length ? phaseIds[index + 1] : 'completed';
       record.progress = Math.round((index + 1) / phaseIds.length * 100);
-      updateDissectionRecord(record);
+      await saveDissectionRecordAsync(record);
     }
     const missingResultFields = dissectionResultMissingFields(record.result, record.depth);
     if (missingResultFields.length) {
@@ -5336,12 +4709,14 @@ async function startDissectionJob(id, userEmail, authToken) {
     record.phase = 'completed';
     record.progress = 100;
     record.result = mergeDissectionResult(record.result, { sourceBoundary: { canonExcludedFromPortableStyle: true, note: '原书专属内容不会自动写入新小说' } });
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync(record);
     // F203：拆书完成时自动把人物入库（角色库）
-    try { syncCharactersToLibrary(record); } catch (_) {}
+    if (POSTGRES_MODE) await getPostgresDissectionPipelineStore().syncCharactersToLibrary(record);
+    else syncCharactersToLibrary(record);
   } catch (error) {
+    if (handedToPipeline || !record) throw error;
     const cancelled = error && (error.cancelled || error.name === 'AbortError');
-    const current = loadDissectionRecord(id, userEmail) || record;
+    const current = (await loadDissectionRecordAsync(id, userEmail)) || record;
     current.status = cancelled ? 'cancelled' : 'failed';
     const errorMessage = String(error && error.message || '拆书任务失败').slice(0, 1000);
     if (cancelled) {
@@ -5363,11 +4738,13 @@ async function startDissectionJob(id, userEmail, authToken) {
       }
     };
     current.cancelRequested = false;
-    updateDissectionRecord(current);
+    await saveDissectionRecordAsync(current);
   } finally {
-    activeDissections.delete(id);
-    releaseDissectionUserSlot(userEmail);
-    if (runSlotHeld) dissectionScheduler.releaseCapacity();
+    if (!handedToPipeline && activeDissections.get(id) === active) {
+      activeDissections.delete(id);
+      releaseDissectionUserSlot(userEmail);
+      if (runSlotHeld) dissectionScheduler.releaseCapacity();
+    }
   }
 }
 
@@ -5394,15 +4771,15 @@ function recoverDissectionJobs() {
 function handleDissectionExtract(req, res) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  readBody(req, 25 * 1024 * 1024).then(body => {
+  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  return readBody(req, 25 * 1024 * 1024).then(body => {
     const name = String((body && body.name) || '').slice(0, 200);
     const base64 = String((body && body.base64) || '');
     if (!textExtract.isExtractable(name)) return json(res, 400, { error: '仅支持 DOCX / EPUB 文件，PDF 与图片因 OCR 误差已被拒绝' });
     let buffer;
     try { buffer = Buffer.from(base64, 'base64'); } catch (_) { return json(res, 400, { error: '文件数据无效' }); }
     if (!buffer.length) return json(res, 400, { error: '文件为空' });
-    textExtract.extractDocument(name, buffer).then(out => {
+    return textExtract.extractDocument(name, buffer).then(out => {
       json(res, 200, { ok: true, text: out.text, title: out.title, format: out.format });
     }).catch(err => {
       const msg = String((err && err.message) || err || '解析失败');
@@ -5720,10 +5097,11 @@ function handleDissectionExport(req, res, id) {
 async function handleDissectionApply(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!requireSqliteForPublic(req, res)) return;
+  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
   let body = {};
-  try { body = await readBody(req).catch(() => ({})); } catch (_) {}
-  const record = loadDissectionRecord(id, auth.user.email);
+  if (POSTGRES_MODE) body = await readBody(req);
+  else { try { body = await readBody(req).catch(() => ({})); } catch (_) {} }
+  const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   if (record.status !== 'completed' || !dissectionResultHasCompleteContent(record.result, record.depth)) return json(res, 409, { error: '拆书结果不完整，请先重新分析' });
   const result = dissectionResultView(record.result);
@@ -5796,13 +5174,14 @@ function dissectionTransferJson(value, maxChars) {
 async function handleDissectionCreativeBrief(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  const record = loadDissectionRecord(id, auth.user.email);
+  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   if (!record.result || !dissectionResultHasCompleteContent(record.result, record.depth)) return json(res, 409, { error: '拆书结果不完整，请先重新分析' });
   const result = dissectionResultView(record.result);
   let body = {};
-  try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+  if (POSTGRES_MODE) body = await readBody(req);
+  else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
   const genre = String(body.genre || '').trim();
   const direction = String(body.direction || '').trim();
   // ★ 创书理念（换皮微创新）：保留骨架（开篇节奏/金手指/架构/节奏结构），替换皮相（人物/地图/地名/势力/物品）
@@ -5826,7 +5205,7 @@ async function handleDissectionCreativeBrief(req, res, id) {
     '【可复用模板】' + dissectionTransferJson(result.reusableTemplates || {}, 1000),
     '【未回收伏笔数】' + (Array.isArray(result.foreshadowing) ? result.foreshadowing.filter(f => ['planned', 'partial', 'abandoned', 'planted'].includes(f.status)).length : 0)
   ].join('\n');
-  const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = POSTGRES_MODE ? auth.user : getUserByEmail(auth.user.email) || { email: auth.user.email };
   const { json: briefJson } = await callMolanChat(String(req.headers.authorization || ''), user, {
     thinking: false, reasoningEffort: 'none',
     system: '你是资深网文新书策划师。基于原书拆书观察，为一部"换皮微创新"新作生成完整创作包，只返回 JSON。严格区分可迁移的作者 DNA/结构功能与原书专属 canon：只迁移写法、节奏、冲突机制和读者回报，不得把原书人物、地点、势力、物品、术语、事件顺序写进新书。硬性要求：1) forbiddenCopy 必须显式列出原书专属禁止复制项；2) 新书世界观、人物、关系、地图、金手指具体机制和剧情节点全部原创；3) 人物必须有目标、缺陷、阻力和弧光；4) 主线、故事树、冲突链、回报链必须能落到章节和场景；5) 所有规则/判断附适用范围、证据引用和置信度，证据不足标 candidate；6) 不输出原文长摘录；7) 各字段内容精炼扼要，数组每项简明扼要，输出紧凑有效 JSON。',
@@ -5835,7 +5214,7 @@ async function handleDissectionCreativeBrief(req, res, id) {
   });
   if (briefJson && briefJson.brief) {
     record.meta = { ...(record.meta || {}), creativeBrief: { ...briefJson, sourceDissectionId: id, createdAt: Date.now() } };
-    updateDissectionRecord(record);
+    await saveDissectionRecordAsync({ ...record, expectedRevision: record.revision });
   }
   json(res, 200, { ok: !!(briefJson && briefJson.brief), brief: briefJson && briefJson.brief ? briefJson : { error: '简报生成失败，请重试' } });
 }
@@ -5917,14 +5296,16 @@ function dissectionContextForChapter(record, chapterNo) {
   return snapshot;
 }
 
-function handleDissectionCreationContext(req, res, id) {
+async function handleDissectionCreationContext(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
+  const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   const q = queryParamsFromUrl(req.url);
   const chapterNo = Number(q.chapterNo) || 0;
-  const snapshot = dissectionContextForChapter(record, chapterNo);
+  const snapshot = POSTGRES_MODE
+    ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, chapterNo)
+    : dissectionContextForChapter(record, chapterNo);
   json(res, 200, { ok: true, context: snapshot });
 }
 
@@ -5933,11 +5314,15 @@ function handleDissectionCreationContext(req, res, id) {
 async function handleDissectionChapterContract(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
+  const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  let body = {}; try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+  let body = {};
+  if (POSTGRES_MODE) body = await readBody(req);
+  else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
   const chapterNo = Math.max(1, Number(body.chapterNo) || 1);
-  const snapshot = dissectionContextForChapter(record, body.upTo || chapterNo);
+  const snapshot = POSTGRES_MODE
+    ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo)
+    : dissectionContextForChapter(record, body.upTo || chapterNo);
   const inputBlock = [
     '本章目标：' + String(body.goal || '推进主线 / 深化冲突').slice(0, 200),
     '创作方向：' + String(body.direction || '与既有节奏一致').slice(0, 200),
@@ -5947,7 +5332,7 @@ async function handleDissectionChapterContract(req, res, id) {
     '未回收伏笔（可埋设/推进/回收）：' + JSON.stringify(snapshot.foreshadows.slice(0, 10)),
     '时间线（近期事件）：' + JSON.stringify(snapshot.timeline.slice(-12))
   ].join('\n');
-  const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = POSTGRES_MODE ? auth.user : getUserByEmail(auth.user.email) || { email: auth.user.email };
   const { json: contract } = await callMolanChat(String(req.headers.authorization || ''), user, {
     thinking: false, reasoningEffort: 'none',
     system: '你是网文章节合同策划师。基于当前故事弧、人物状态、时间线与未回收伏笔，为第 ' + chapterNo + ' 章生成结构化合同。只返回 JSON，字段严格：{chapterNo,goal,protagonistAction,opposition,informationChange,escalation,irreversibleResult,characterStateChanges:[{name,change}],foreshadowActions:[{id,action:"plant|advance|payoff",desc}],continuityInputs:[],continuityOutputs:[],mustAvoid:[]}。mustAvoid 必须包含不能违背的前文事实；未回收伏笔只能选部分在本章推进，不能无证据回收。',
@@ -5965,13 +5350,17 @@ async function handleDissectionChapterContract(req, res, id) {
 async function handleDissectionAudit(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
+  const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
-  let body = {}; try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+  let body = {};
+  if (POSTGRES_MODE) body = await readBody(req);
+  else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
   const chapterNo = Math.max(1, Number(body.chapterNo) || 1);
   const content = String(body.content || '');
   const contract = (body.contract && typeof body.contract === 'object') ? body.contract : {};
-  const snapshot = dissectionContextForChapter(record, body.upTo || chapterNo);
+  const snapshot = POSTGRES_MODE
+    ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo)
+    : dissectionContextForChapter(record, body.upTo || chapterNo);
   const auditBudget = Math.max(12000, Math.min(30000, pipelineBatchCharsFor(record)));
   const auditText = content.length <= auditBudget
     ? content
@@ -5987,7 +5376,7 @@ async function handleDissectionAudit(req, res, id) {
     '未回收伏笔台账：' + JSON.stringify(snapshot.foreshadows.slice(0, 15)),
     '时间线（前文事实）：' + JSON.stringify(snapshot.timeline.slice(-15))
   ].join('\n');
-  const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = POSTGRES_MODE ? auth.user : getUserByEmail(auth.user.email) || { email: auth.user.email };
   const { json: audit } = await callMolanChat(String(req.headers.authorization || ''), user, {
     thinking: false, reasoningEffort: 'none',
     system: '你是网文连续性审计师。对照章节合同、人物状态、时间线事实与伏笔台账，检查正文的连续性错误。只返回 JSON：{passed:boolean,issues:[{severity:"blocker|warning|info",category:"continuity|character|timeline|foreshadow|style|other",position:"",description:"",suggestion:""}],summary:"",revisionHint:"若存在 blocker 级问题，给出定向重写建议"}。只有所有 blocker 级问题都为零才允许 passed=true；伏笔只有在正文明确给出回收证据时才算回收。',
@@ -6259,9 +5648,16 @@ async function handlePostgresCreationCoreJobCreate(req, res) {
 
 
 
-function creationSkillForUser(user, skillId) {
+async function creationSkillForUser(user, skillId) {
   const id = String(skillId || '').trim();
   if (!id) return null;
+  if (POSTGRES_MODE) {
+    const catalog = await nativeSkillCatalog(user);
+    return catalog.userSkills.find(skill => skill && skill.id === id)
+      || catalog.globalSkills.find(skill => skill && skill.id === id)
+      || loadBuiltinSkills().find(skill => skill && skill.id === id)
+      || null;
+  }
   const email = String(user && user.email || '').trim().toLowerCase();
   return (email ? loadUserSkills(email) : []).find(skill => skill && skill.id === id)
     || loadGlobalSkills().find(skill => skill && skill.id === id)
@@ -6302,7 +5698,7 @@ async function handleCreationBookPlanExpand(req, res, id) {
   const endChapterNo = phase === 'chapters' ? Math.min(coverage.plan.totalChapters, startChapterNo + batchSize - 1) : 0;
   const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
   const modelId = resolveCreationModelId({ modelId: body.modelId || coverage.plan.modelId });
-  const selectedSkill = creationSkillForUser(user, coverage.plan.skillId);
+  const selectedSkill = await creationSkillForUser(user, coverage.plan.skillId);
   if (coverage.plan.skillId && (!selectedSkill || selectedSkill.complete === false || !String(selectedSkill.instruction || '').trim())) {
     return json(res, 422, { error: '创书 Skill 未完整加载，无法继续扩展规划', code: 'skill_unavailable' });
   }
@@ -6779,6 +6175,7 @@ const SOMATIC_REFLEX_PATTERN = /(?:(?:指腹|指肚|拇指|手指)反复?摩挲|
  * 再补充正文启发式提取的代价种子；按 seed 去重，返回本次新增与当前活跃概况。
  */
 function recordChapterCausalDebts(...args) { return creationDebtService.recordChapterCausalDebts(...args); }
+function getCreationDebtTracker() { return creationDebtService.getCreationDebtTracker(); }
 
 /** GET /api/creation-books/:id/debts?chapterNo= —— 返回下一章起草可注入的因果债务提示块与明细。 */
 
@@ -7014,12 +6411,31 @@ function computeRetentionCompliance(payload, snapshots, sourceStructure) {
 
 
 // 重建图谱/实体阶段（本地重算，无需模型；聚合阶段重建请走 retry 断点续跑）
-function handleDissectionRebuild(req, res, id) {
+async function handleDissectionRebuild(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  const record = loadDissectionRecord(id, auth.user.email);
+  const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   const stage = String((queryParamsFromUrl(req.url).stage) || 'entity_resolution');
+  if (POSTGRES_MODE) {
+    const store = getPostgresDissectionPipelineStore();
+    let rebuilt;
+    if (stage === 'entity_resolution' || stage === 'graph') {
+      rebuilt = {
+        entities: await store.buildDissectionEntities(record),
+        events: await store.buildDissectionEvents(record),
+        states: await store.buildEntityStates(record),
+        edges: await store.buildEventEdges(record)
+      };
+      const result = dissectionResultView(record.result);
+      if (Array.isArray(result.foreshadowing)) await store.storeDissectionForeshadows(record, result.foreshadowing);
+    } else if (stage === 'units') {
+      const units = await store.loadDissectionUnits(record);
+      rebuilt = { units: units.length, batches: await store.createDissectionBatches(record, units) };
+    } else return json(res, 400, { error: '不支持的重建阶段' });
+    const stats = await getPostgresDissectionReadService().computeDissectionStats(auth.user.userId, id, record);
+    return json(res, 200, { ok: true, stage, rebuilt, stats });
+  }
   let rebuilt = null;
   if (stage === 'entity_resolution' || stage === 'graph') {
     rebuilt = { entities: buildDissectionEntities(record), events: buildDissectionEvents(record), states: buildEntityStates(record), edges: buildEventEdges(record) };
@@ -7041,12 +6457,20 @@ const MOLAN_CHAT_DEFAULT_TIMEOUT_MS = envPositiveInt('MOLAN_INTERNAL_CHAT_TIMEOU
 // F074：题材预分类（廉价调用），结果注入各阶段 prompt，使分析按题材偏好调整焦点
 async function classifyGenreHint(authToken, user, record, context) {
   try {
-    const { json } = await callMolanChat(authToken, user, {
+    const output = await callDissectionPipelineModel(authToken, user, record, {
     thinking: false, reasoningEffort: 'none',
       system: '你是题材分类助手。根据小说片段判断题材。只返回 JSON：{primary:"男频|女频|短篇|短剧", secondary:"如都市/古言/悬疑/玄幻/科幻", tags:["创新点标签"]}。',
       userPrompt: '小说标题：' + record.title + '\n\n片段：\n' + String(context || '').slice(0, 4000),
-      maxTokens: 300, jsonMode: true, modelId: (record && record.selectedModel) || currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.1, timeoutMs: 15000
+      maxTokens: 300, jsonMode: true, modelId: (record && record.selectedModel) || currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.1, timeoutMs: 15000,
+      recordId: record.id, unitId: 'genre-hint'
     });
+    if (POSTGRES_MODE) {
+      await recordPipelineUsageAsync(record, output.usage, 'classify');
+      if (toTokenCount(output.usage?.totalTokens) === null) {
+        throw Object.assign(new Error('题材预分类的上游用量未知，停止后续派发'), { code: 'USAGE_UNAVAILABLE', unknown: true });
+      }
+    }
+    const json = output.json;
     if (json && json.primary) {
       return {
         primary: String(json.primary),
@@ -7054,7 +6478,7 @@ async function classifyGenreHint(authToken, user, record, context) {
         tags: Array.isArray(json.tags) ? json.tags.map(String).slice(0, 8) : []
       };
     }
-  } catch (_) {}
+  } catch (error) { if (POSTGRES_MODE) throw error; }
   return null;
 }
 
@@ -7066,7 +6490,7 @@ function syncCharactersToLibrary(record) {
   const now = Date.now();
   const upsert = db.prepare('INSERT INTO character_library (id,user_email,dissection_id,name,function,goal,conflict,arc,first_appearance,created_at) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_email,name) DO UPDATE SET dissection_id=excluded.dissection_id, function=excluded.function, goal=excluded.goal, conflict=excluded.conflict, arc=excluded.arc, first_appearance=excluded.first_appearance, created_at=excluded.created_at');
   let n = 0;
-  // ★ P1-6 · 人物入库事务化：node:sqlite 虽无 db.transaction()，但手工 BEGIN/COMMIT 可用，
+  // ★ P1-6 · 人物入库事务化：批量操作通过手工 BEGIN/COMMIT 事务化，
   // 一次提交替代逐条自动提交，缩短事件循环阻塞并保证原子性。
   db.exec('BEGIN IMMEDIATE');
   try {
@@ -7086,14 +6510,14 @@ function syncCharactersToLibrary(record) {
 }
 
 // F102：片段仿写
-function handleDissectionImitate(req, res, id) {
+async function handleDissectionImitate(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  const record = loadDissectionRecord(id, auth.user.email);
+  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   if (record.status !== 'completed') return json(res, 409, { error: '请先完成拆书' });
-  readBody(req, 1 * 1024 * 1024).then(body => {
+  return readBody(req, 1 * 1024 * 1024).then(body => {
     const r = dissectionResultView(record.result);
     const scene = String(body.scene || '').slice(0, 500);
     const length = Math.min(4000, Math.max(200, Number(body.length) || 800));
@@ -7104,7 +6528,7 @@ function handleDissectionImitate(req, res, id) {
     });
     const system = '你是模仿写作助手。给定一部小说的可迁移文风画像、创作技法与模板，请严格模仿其风格写一段约' + length + '字的中文' + (isOpening ? '开篇' : '场景') + '。只返回 JSON：{passage:"模仿正文（纯文本，不要解释、不要标题）", techniqueNotes:["应用的技法/模板"], appliedTemplates:["使用的模板名"]}。禁止复制原书专有名词与长段落，只迁移文风与技法。';
     const userPrompt = '可迁移素材：\n' + styleJson + '\n\n写作要求：' + (scene || ('一个体现该文风典型节奏的' + (isOpening ? '开篇章节' : '场景'))) + '\n字数约：' + length;
-    callMolanChat(String(req.headers.authorization || ''), auth.user, {
+    return callMolanChat(String(req.headers.authorization || ''), auth.user, {
       system, userPrompt, maxTokens: Math.ceil(length * 2.4), jsonMode: true, modelId: currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.85
     }).then(out => {
       const j = out.json || safeJsonParse(out.text) || {};
@@ -7119,14 +6543,14 @@ function handleDissectionImitate(req, res, id) {
 }
 
 // F103：作品诊断 / 对标
-function handleDissectionDiagnose(req, res, id) {
+async function handleDissectionDiagnose(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  const record = loadDissectionRecord(id, auth.user.email);
+  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   if (record.status !== 'completed') return json(res, 409, { error: '请先完成拆书' });
-  readBody(req, 2 * 1024 * 1024).then(body => {
+  return readBody(req, 2 * 1024 * 1024).then(body => {
     const r = dissectionResultView(record.result);
     const benchmark = String(body.benchmark || '').slice(0, 6000);
     const focus = String(body.focus || '').slice(0, 200);
@@ -7138,7 +6562,7 @@ function handleDissectionDiagnose(req, res, id) {
       logicFlaws: r.logicFlaws, genre: r.genre
     };
     const userPrompt = '作品标题：' + record.title + '\n拆书结果摘要：\n' + JSON.stringify(summary, null, 1).slice(0, 12000) + (benchmark ? '\n\n对标文本：\n' + benchmark : '') + (focus ? '\n\n重点关注：' + focus : '');
-    callMolanChat(String(req.headers.authorization || ''), auth.user, {
+    return callMolanChat(String(req.headers.authorization || ''), auth.user, {
       system, userPrompt, maxTokens: 4000, jsonMode: true, modelId: currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.4
     }).then(out => {
       const j = out.json || safeJsonParse(out.text) || {};
@@ -7151,13 +6575,14 @@ function handleDissectionDiagnose(req, res, id) {
 function handleDissectionsCompare(req, res) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  readBody(req, 1 * 1024 * 1024).then(body => {
-    const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean).slice(0, 6) : [];
+  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  return readBody(req, 1 * 1024 * 1024).then(async body => {
+    const ids = Array.isArray(body.ids) ? [...new Set(body.ids.map(String).filter(Boolean))].slice(0, 6) : [];
     if (ids.length < 2) return json(res, 400, { error: '请至少选择 2 本已完成拆书进行对比' });
     const focus = String(body.focus || '').slice(0, 200);
-    const records = ids.map(did => loadDissectionRecord(did, auth.user.email)).filter(Boolean);
+    const records = (await Promise.all(ids.map(did => loadDissectionRecordAsync(did, auth.user.email, auth.user.userId)))).filter(Boolean);
     if (records.length < 2) return json(res, 404, { error: '找不到足够的拆书记录' });
+    if (records.some(record => record.status !== 'completed')) return json(res, 409, { error: '请先完成所选拆书' });
     const books = records.map(rec => {
       const r = dissectionResultView(rec.result);
       const fp = r.sentenceFingerprint || {};
@@ -7174,7 +6599,7 @@ function handleDissectionsCompare(req, res) {
     });
     const system = '你是文学对比分析师。对比以下多部作品的拆书结果，输出横向对比报告。只返回 JSON：{summary, matrix:[{id,title,genre,sellingPoints,avgSentenceLen,dialogueRatio,conflictTotal,emotionNote}], byDimension:{题材定位差异,卖点差异,文风量化对比,情绪爽点策略,结构差异}, recommendations:[]}。';
     const userPrompt = '对比重点：' + (focus || '综合差异与各自可借鉴点') + '\n\n作品数据：\n' + JSON.stringify(books, null, 1).slice(0, 14000);
-    callMolanChat(String(req.headers.authorization || ''), auth.user, {
+    return callMolanChat(String(req.headers.authorization || ''), auth.user, {
       system, userPrompt, maxTokens: 4000, jsonMode: true, modelId: currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.4
     }).then(out => {
       const j = out.json || safeJsonParse(out.text) || {};
@@ -7256,9 +6681,23 @@ function handleDissectionsBatch(req, res) {
 }
 
 // F203：角色库列表
-function handleCharactersList(req, res) {
+function postgresCharacterView(row) {
+  const document = typeof row.document === 'string' ? JSON.parse(row.document) : row.document;
+  if (!document || typeof document !== 'object' || Array.isArray(document)) throw requestError(500, '人物库文档损坏');
+  return { id: document.id || row.row_key, name: document.name, function: document.function,
+    goal: document.goal, conflict: document.conflict, arc: document.arc,
+    firstAppearance: document.first_appearance ?? document.firstAppearance,
+    notes: document.notes || '', dissectionId: document.dissection_id || row.dissection_id,
+    createdAt: Number(document.created_at ?? document.createdAt) || 0 };
+}
+
+async function handleCharactersList(req, res) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
+  if (POSTGRES_MODE) {
+    const rows = await postgresRepository.runtimeListCharacterLibrary(auth.user.userId);
+    return json(res, 200, { ok: true, characters: rows.map(postgresCharacterView) });
+  }
   if (!requireSqliteForPublic(req, res)) return;
   if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
   const rows = db.prepare('SELECT * FROM character_library WHERE user_email = ? ORDER BY created_at DESC').all(auth.user.email);
@@ -7270,9 +6709,14 @@ function handleCharactersList(req, res) {
 }
 
 // F203：编辑角色卡（含改名/备注）
-function handleCharactersPatch(req, res, id) {
+async function handleCharactersPatch(req, res, id) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
+  if (POSTGRES_MODE) {
+    const body = await readBody(req);
+    const row = await postgresRepository.runtimePatchCharacter(auth.user.userId, id, body);
+    return json(res, 200, { ok: true, character: postgresCharacterView(row) });
+  }
   if (!requireSqliteForPublic(req, res)) return;
   if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
   const row = db.prepare('SELECT * FROM character_library WHERE id = ? AND user_email = ?').get(id, auth.user.email);
@@ -7298,9 +6742,14 @@ function handleCharactersPatch(req, res, id) {
 }
 
 // F203：合并角色卡（把 fromNames 合并进 intoName，防止 OOC 库膨胀）
-function handleCharactersMerge(req, res) {
+async function handleCharactersMerge(req, res) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
+  if (POSTGRES_MODE) {
+    const body = await readBody(req);
+    const merged = await postgresRepository.runtimeMergeCharacters(auth.user.userId, body.fromNames, body.intoName);
+    return json(res, 200, { ok: true, merged });
+  }
   if (!requireSqliteForPublic(req, res)) return;
   if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
   readBody(req).then(p => {
@@ -7330,14 +6779,19 @@ function handleCharactersMerge(req, res) {
 }
 
 // F203：角色库导出（CSV / JSON），供导入写作工具
-function handleCharactersExport(req, res) {
+async function handleCharactersExport(req, res) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
+  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  if (!POSTGRES_MODE && !dbReady()) return json(res, 503, { error: '云端存储不可用' });
   const format = new URL(req.url, 'http://localhost').searchParams.get('format') || 'json';
-  const rows = db.prepare('SELECT * FROM character_library WHERE user_email = ? ORDER BY created_at DESC').all(auth.user.email);
-  const chars = rows.map(r => ({ name: r.name, function: r.function, goal: r.goal, conflict: r.conflict, arc: r.arc, firstAppearance: r.first_appearance, notes: r.notes || '' }));
+  const rows = POSTGRES_MODE ? await postgresRepository.runtimeListCharacterLibrary(auth.user.userId)
+    : db.prepare('SELECT * FROM character_library WHERE user_email = ? ORDER BY created_at DESC').all(auth.user.email);
+  const chars = rows.map(row => {
+    const character = POSTGRES_MODE ? postgresCharacterView(row) : row;
+    return { name: character.name, function: character.function, goal: character.goal, conflict: character.conflict,
+      arc: character.arc, firstAppearance: character.firstAppearance ?? character.first_appearance, notes: character.notes || '' };
+  });
   if (format === 'csv') {
     const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
     const head = ['name', 'function', 'goal', 'conflict', 'arc', 'firstAppearance', 'notes'];
@@ -7485,9 +6939,16 @@ function handleDissectionShareDelete(req, res, id, token) {
 }
 
 // F204：列出「分享给我的」拆书（协作只读空间）
-function handleSharedDissectionsList(req, res) {
+async function handleSharedDissectionsList(req, res) {
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
+  if (POSTGRES_MODE) {
+    const rows = await postgresRepository.runtimeListMemberDissectionShares(auth.user.userId);
+    return json(res, 200, { ok: true, shared: rows.map(row => ({
+      token: row.share.token, role: row.share.role || 'view', sharedAt: row.share.created_at,
+      expiresAt: row.share.expires_at, task: row.task
+    })) });
+  }
   if (!requireSqliteForPublic(req, res)) return;
   if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
   const rows = db.prepare("SELECT token,dissection_id,user_email,role,created_at,expires_at FROM dissection_shares WHERE grantee_email = ? AND (expires_at = 0 OR expires_at > ?) ORDER BY created_at DESC LIMIT 100").all(auth.user.email.toLowerCase(), Date.now());
@@ -7504,7 +6965,16 @@ function handleSharedDissectionsList(req, res) {
 }
 
 // F204：免登录读取分享结果（不含原文）
-function handleSharedDissectionGet(req, res, token) {
+async function handleSharedDissectionGet(req, res, token) {
+  if (POSTGRES_MODE) {
+    const auth = getAuthUser(req) || getAuthUser(req, 'admin');
+    const row = await postgresRepository.runtimeReadDissectionShare(auth?.user.userId || '', token);
+    if (!row) return json(res, 404, { error: '分享链接无效或已失效' });
+    if (row.access === 'expired') return json(res, 410, { error: '分享链接已过期' });
+    if (row.access === 'auth_required') return json(res, 401, { error: '请登录后访问该成员分享' });
+    if (row.access !== 'allowed') return json(res, 403, { error: '该分享链接未授权给当前账户' });
+    return json(res, 200, { ok: true, shared: { ...row.task, result: dissectionResultView(row.task.result) } });
+  }
   if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
   const row = db.prepare('SELECT * FROM dissection_shares WHERE token = ?').get(token);
   if (!row) return json(res, 404, { error: '分享链接无效或已失效' });
@@ -7760,7 +7230,8 @@ async function handlePostgresPackageRestore(req, res, id) {
 
 const { handlePostgresResources, handlePostgresResourceHistory, handlePostgresWorkspaceList, handlePostgresWorkspaceCreate, handlePostgresWorkspaceMembers, handlePostgresWorkspaceProjectList, handlePostgresNovelMembers } = require('./services/postgres-project-service').createPostgresProjectService({
   getAuthUser: (...args) => getAuthUser(...args), json, postgresRepository, readBody, postgresActor,
-  getUserById: (...args) => getUserById(...args), getUserByEmail: (...args) => getUserByEmail(...args)
+  getUserById: async userId => postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByUserId(userId)),
+  getUserByEmail: async email => postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(email))
 });
 
 const { handlePostgresCreationBooksList, handlePostgresCreationBooksCreate, handlePostgresCreationBookBibleGet, handlePostgresCreationBookBiblePut, handlePostgresCreationBookState, handlePostgresCreationBookAudit, handlePostgresCreationBookChapterContract, handlePostgresCreationBookCommit, handlePostgresCreationBookQualityReport, handlePostgresCreationBookDebts } = require('./services/postgres-creation-http-service').createPostgresCreationHttpService({
@@ -7811,12 +7282,21 @@ const { handlePostgresCreationBooksList, handlePostgresCreationBooksCreate, hand
 let healthCache = null;
 let healthCacheAt = 0;
 /** GET /api/health —— 增加 db 字段；附带 uptime/pid/activeChatStreams，供看护脚本区分“挂了”与“忙”。 */
-function handleHealth(req, res) {
+async function handleHealth(req, res) {
   const auth = getAuthUser(req);
   const runtime = { uptime: Math.round(process.uptime()), pid: process.pid, activeChatStreams: chatAdmission.activeCount() };
   if (!auth && healthCache && Date.now() - healthCacheAt < 5000) return json(res, 200, { ...healthCache, ...runtime });
   let dbOk = false, novelCount = 0;
-  if (dbReady()) {
+  if (POSTGRES_MODE) {
+    dbOk = postgresHealth.available === true;
+    if (dbOk && auth && isAdminUser(auth.user)) {
+      try {
+        novelCount = (await postgresRepository.runtimeAdminDataRows(auth.user.userId, 'novels')).length;
+      } catch (error) {
+        return respondPostgresError(res, error);
+      }
+    }
+  } else if (dbReady()) {
     try { dbOk = true; novelCount = db.prepare('SELECT COUNT(*) AS n FROM novels').get().n; } catch (_) {}
   }
   const health = { ok: true, db: dbOk ? 'ready' : 'off', postgres: postgresHealth, models: PLATFORM_MODELS.length };
@@ -8030,21 +7510,19 @@ const authAccountService = require('./services/auth-account-service').createAuth
   USER_CACHE_TTL_MS,
   allowAuthAttempt,
   applyAuthSessionInvalidation,
-  cachePostgresRuntimeUser,
   canChooseModel,
   crypto,
   currentDefaultModel,
   dbReady,
-  enqueuePostgresRuntimeWrite,
   findPlatformModel,
   fs,
   getPostgresRuntimeUserByEmail,
   getUsageSummary,
+  getPostgresUsageSummary,
   isAdminUser,
   json,
   normalizeUserRole,
   postgresRepository,
-  postgresRuntimeState,
   postgresRuntimeUserFromRow,
   projectScope,
   readBody,
@@ -8112,7 +7590,9 @@ const { callMolanChat, dissectionStreamText } = require('./services/model-call-s
   loadGlobalSkills: (...args) => loadGlobalSkills(...args),
   loadUserSkills: (...args) => loadUserSkills(...args),
   nativeSkillCatalog: (...args) => nativeSkillCatalog(...args),
-  recordModelUsage: (...args) => recordModelUsage(...args),
+  recordModelUsage: (...args) => POSTGRES_MODE
+    ? postgresRepository.runtimeRecordModelUsage(...args)
+    : recordModelUsage(...args),
   requestError: (...args) => requestError(...args),
   resolveModelForUser: (...args) => resolveModelForUser(...args),
   safeJsonParse: (...args) => safeJsonParse(...args),
@@ -8210,7 +7690,6 @@ const skillService = require('./services/skill-service').createSkillService({
   crypto,
   dbReady,
   decodePathParam,
-  enqueuePostgresRuntimeWrite,
   firstExistingEditorSource,
   fs,
   getAuthUser,
@@ -8219,7 +7698,6 @@ const skillService = require('./services/skill-service').createSkillService({
   json,
   normalizeAuditManifest,
   postgresRepository,
-  postgresRuntimeState,
   projectScope,
   readBody,
   readJsonFile,
@@ -8232,6 +7710,7 @@ const skillService = require('./services/skill-service').createSkillService({
   validateChatMessages,
   writeJsonFile,
   assetDirectory: __dirname,
+  nativeSkillCatalog,
   getDatabase: () => db
 });
 const { resolveSkillDirs, readSkillDirectoryFiles, parseSkillMd, isSkillPromptExcluded, skillPromptFiles, skillPromptInstruction, decorateSkillPrompt, composeSkill, resolveEditorOnlySkillDir, loadEditorOnlyWritingSkill, editorOnlySkillAuditRequest, ensureEditorOnlyWritingSkill, stripEditorSkillBlocks, skillPriority, skillIdentityKey, uniqueSkillsById, publicSkillSummary, handleSkills, handleSkillImport, loadAllUserSkillRecords, saveAllUserSkillRecords, loadUserSkills, loadGlobalSkills, saveGlobalSkills, loadBuiltinSkills, normalizeSkillFilePath, normalizeSkillRuntimeFiles, skillFileNames, parseStoredSkillFiles, skillRuntimeFilesComplete, serializeSkillFiles, makeOpenSkill, openSkillFromDbRow, loadOpenSkills, saveOpenSkills, invalidateOpenSkillsCache, findOpenSkill, openSkillAuthorName, openSkillListView, openSkillDetailView, canViewOpenSkill, openSkillRecordValues, insertOpenSkill, updateOpenSkill, deleteOpenSkill, makeDownloadedSkillId, downloadOpenSkillForUser, parseOpenSkillListParams, handleOpenSkillList, handleOpenSkillGet, handleOpenSkillCreate, handleOpenSkillPatch, handleOpenSkillDelete, handleOpenSkillDownload, normalizeSkillTargets, makeGlobalSkill, builtinSkillsForAdmin, migrateSkillsToDb, migrateGlobalSkillsToDb, migrateOpenSkillsToDb, decodeSkillAuditId, skillAuditRequest, extractSkillBlocks, stripSkillBlocks, prepareSkillMessagesForUpstream, wrapSkillBlock, defaultWritingSkillRecord, resolveGenreWritingSkill, resolveHumanizerSkill, ensureDefaultWritingSkill, addDefaultWritingSkillAudit, skillAuditSnapshot, knownSkillForAudit, buildSkillAudit, legacySkillAudit, storedSkillAudit, skillIdsFromAudit } = skillService;
@@ -8245,7 +7724,6 @@ const adminService = require('./services/admin-service').createAdminService({
   SKILL_TARGETS,
   appendAdminAudit,
   builtinSkillsForAdmin,
-  cachePostgresRuntimeUser,
   calcWordCount,
   contextWindowTokensForModel,
   correctionLibraryLib,
@@ -8303,7 +7781,11 @@ const adminService = require('./services/admin-service').createAdminService({
   updateOpenSkill,
   userFromDbRow,
   getDatabase: () => db,
-  getPlatformModels: () => PLATFORM_MODELS
+  getPlatformModels: () => PLATFORM_MODELS,
+  buildUsageSummary,
+  getPostgresUsageSummary,
+  postgresRuntimeSkillFromRow,
+  serializeSkillFiles
 });
 const { handleAdminModels, handleAdminModelsPatch, handleAdminCorrectionLibrary, requireAdmin, adminUserView, handleAdminOverview, handleAdminUserPatch, handleAdminSkills, handleAdminSkillCreate, handleAdminSkillPatch, handleAdminSkillDelete, handleAdminAudit, adminDataType, adminDataJson, adminAccountRecord, adminUsageRecord, adminDataList, adminDataGetRecord, adminDataPatch, adminDataDelete } = adminService;
 
@@ -8383,6 +7865,17 @@ function skillRepository() {
   return nativeSkillRepository;
 }
 async function nativeSkillCatalog(user) {
+  if (POSTGRES_MODE) {
+    const repository = postgresRepository;
+    const [users, global] = await Promise.all([
+      repository.runtimeListUserSkills(user.userId),
+      repository.runtimeListGlobalSkills(user.userId)
+    ]);
+    return {
+      userSkills: users.map(row => postgresRuntimeSkillFromRow(row, 'user')),
+      globalSkills: global.map(row => postgresRuntimeSkillFromRow(row, 'global'))
+    };
+  }
   const [users, global] = await Promise.all([
     skillRepository().listUser({ actorUserId: user.userId, ownerEmail: user.email }), skillRepository().listGlobal()
   ]);
@@ -8488,6 +7981,71 @@ function getPostgresDissectionReadService() {
   return postgresDissectionReadServiceInstance;
 }
 
+/**
+ * 纯计划函数：基于 PG 任务记录与 PG units 计算重试目标阶段，不依赖旧 SQLite。
+ */
+async function planDissectionRetry(actorUserId, record, row, repository = postgresRepository) {
+  let isPipeline = false;
+  if (record.depth === 'deep') {
+    const unitRows = await repository.runtimeListDissectionRows(actorUserId, record.id, 'dissection_units');
+    const validUnitTypes = new Set(['preface', 'chapter', 'scene', 'segment']);
+    let validUnitCount = 0;
+    for (const unitRow of (Array.isArray(unitRows) ? unitRows : [])) {
+      let document = {};
+      if (unitRow && typeof unitRow.document === 'object' && unitRow.document !== null) {
+        document = unitRow.document;
+      } else if (unitRow && typeof unitRow.document === 'string') {
+        try {
+          document = JSON.parse(unitRow.document);
+        } catch (_) {}
+      }
+      const unitType = String(document.unit_type || document.unitType || unitRow.unit_type || unitRow.unitType || '').trim();
+      if (validUnitTypes.has(unitType)) {
+        validUnitCount += 1;
+      }
+    }
+    if (validUnitCount >= PIPELINE_MIN_CHAPTERS) {
+      isPipeline = true;
+    }
+  }
+
+  let phaseIndex = 0;
+  let phase = 'validate';
+  let progress = 0;
+
+  if (isPipeline) {
+    phaseIndex = 0;
+    phase = 'extract';
+    progress = 0;
+  } else {
+    const phaseIds = dissectionPhaseIdsForDepth(record.depth);
+    const retryIndex = firstIncompleteDissectionPhase(record.result, record.depth);
+    phaseIndex = retryIndex;
+    phase = phaseIds[retryIndex] || phaseIds[phaseIds.length - 1] || 'validate';
+    progress = Math.min(99, Math.round(retryIndex / Math.max(1, phaseIds.length) * 100));
+  }
+
+  return {
+    phaseIndex,
+    phase,
+    progress,
+    expectedRevision: row ? Number(row.revision) : undefined
+  };
+}
+planDissectionRetry.hasCompleteContent = dissectionResultHasCompleteContent;
+
+let postgresDissectionPipelineStoreInstance = null;
+function getPostgresDissectionPipelineStore() {
+  if (!postgresDissectionPipelineStoreInstance) {
+    postgresDissectionPipelineStoreInstance = require('./services/postgres-dissection-pipeline-store').createPostgresDissectionPipelineStore({
+      postgresRepository, buildDissectionUnits, dissectionWordCount, isPipelineFactUnit,
+      normalizeEntityName, normalizePipelineEventType, pipelineBatchCharsFor, toTokenCount,
+      PIPELINE_BATCH_MAX_CHAPTERS, PIPELINE_MIN_CHAPTERS, crypto
+    });
+  }
+  return postgresDissectionPipelineStoreInstance;
+}
+
 let postgresDissectionMutationServiceInstance = null;
 function getPostgresDissectionMutationService() {
   if (!postgresDissectionMutationServiceInstance) {
@@ -8505,7 +8063,26 @@ function getPostgresDissectionMutationService() {
         updated_at: row.updated_at_value
       }),
       publicRecord: dissectionPublicRecord,
-      computeStats: (...args) => readService.computeDissectionStats(...args)
+      computeStats: (...args) => readService.computeDissectionStats(...args),
+      getActiveDissection: dissectionId => activeDissections.get(dissectionId),
+      releaseUserSlot: userEmail => releaseDissectionUserSlot(userEmail),
+      acquireUserSlot: userEmail => acquireDissectionUserSlot(userEmail),
+      scheduleStartDissection: (dissectionId, userEmail, authorizationHeader) => {
+        return new Promise((resolve, reject) => {
+          setImmediate(() => {
+            runPostgresDissectionWorker(dissectionId, userEmail, authorizationHeader).then(resolve, reject);
+          });
+        });
+      },
+      planRetry: planDissectionRetry,
+      resolveModel: (user, requested) => resolveModelForUser(user, requested),
+      hasCompleteContent: dissectionResultHasCompleteContent,
+      postgresPipelineStore: getPostgresDissectionPipelineStore(),
+      normalizeDissectionInput, buildDissectionChunks, chooseDissectionChunks,
+      dissectionContext, dissectionWordCount, creditCostForUser, estimateBillingTokens,
+      pipelineEstimatedTokensFor, dissectionSkillRecord, dissectionSkillPromptFiles,
+      dissectionId, emptyDissectionResult, DISSECTION_MAX_BODY_BYTES,
+      DISSECTION_MAX_SOURCE_CHARS, PIPELINE_MIN_CHAPTERS, SKILL_AUDIT_VERSION, crypto
     });
   }
   return postgresDissectionMutationServiceInstance;
@@ -8518,6 +8095,16 @@ const server = http.createServer((req, res) => {
 async function dispatchRequest(req, res) {
   res.molanCorsHeaders = corsHeadersForOrigin(req.headers.origin);
   if (req.method === 'OPTIONS') { res.writeHead(204, responseCors(res)); return res.end(); }
+  if (POSTGRES_MODE) {
+    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (token && token.length <= 256) {
+      const session = await postgresRepository.requestAuthSession(hashSessionToken(token));
+      if (session) {
+        const user = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByUserId(session.userId));
+        if (user) req.molanPostgresAuth = { token, user, scope: session.scope };
+      }
+    }
+  }
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
     req.molanNativeAuth = await nativeAuthService().resolve(req);
   }
@@ -8703,14 +8290,23 @@ async function dispatchRequest(req, res) {
   if (domainRoutes.generation.dispatchBeforeProxy(req, res, u)) return;
   if (shouldProxyCloudRequest(req)) return handleCloudProxy(req, res);
   if (domainRoutes.knowledge.dispatch(req, res, u)) return;
-  if (domainRoutes.generation.dispatchCore(req, res, u)) return;
-  if (domainRoutes.skills(req, res, u)) return;
-  if (domainRoutes.auth(req, res, u)) return;
-  if (domainRoutes.admin(req, res, u)) return;
+  if (await domainRoutes.generation.dispatchCore(req, res, u)) return;
+  if (await domainRoutes.skills(req, res, u)) return;
+  if (await domainRoutes.auth(req, res, u)) return;
+  if (await domainRoutes.admin(req, res, u)) return;
   if (domainRoutes.generation.dispatchWebChat(req, res, u)) return;
   if (POSTGRES_MODE && await getPostgresDissectionReadService().dispatch(req, res, u)) return;
   if (POSTGRES_MODE && await getPostgresDissectionMutationService().dispatch(req, res, u)) return;
-  if (domainRoutes.dissections(req, res, u)) return;
+  if (POSTGRES_MODE && req.method === 'GET' && u === '/api/dissections/shared') {
+    await handleSharedDissectionsList(req, res);
+    return;
+  }
+  const sharedDissectionMatch = POSTGRES_MODE && req.method === 'GET' && u.match(/^\/api\/shared\/dissection\/([A-Za-z0-9]+)$/);
+  if (sharedDissectionMatch) {
+    await handleSharedDissectionGet(req, res, sharedDissectionMatch[1]);
+    return;
+  }
+  if (await domainRoutes.dissections(req, res, u)) return;
   // ★ Q1 · 创书域：新书 + 创作圣经 + 状态快照（CAS）
   if (POSTGRES_MODE && req.method === 'GET' && u === '/api/creation-books') return handlePostgresCreationBooksList(req, res).catch(error => respondPostgresError(res, error));
   if (POSTGRES_MODE && req.method === 'POST' && u === '/api/creation-books') return handlePostgresCreationBooksCreate(req, res).catch(error => respondPostgresError(res, error));
@@ -8744,14 +8340,15 @@ async function dispatchRequest(req, res) {
   if (req.method === 'POST' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/regenerate-asset$/))) return handleCreationBookRegenerateAsset(req, res, m[1]).catch(error => respondError(res, error, 502));
   if (req.method === 'POST' && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/commit$/))) return handleCreationBookCommit(req, res, m[1]).catch(error => respondError(res, error, 502));
   if (req.method === 'GET'  && (m = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/state$/))) return handleCreationBookState(req, res, m[1]);
-  if (domainRoutes.projects(req, res, u)) return;
+  if (await domainRoutes.projects(req, res, u)) return;
   if (u.startsWith('/api/books/') || u.startsWith('/api/runs/')) {
     return memoryRoutes.dispatch(req, res, u, db, getAuthUser, {
       backend: POSTGRES_MODE ? 'postgres' : process.env.MOLAN_APP_STORE === 'json' ? 'json' : 'sqlite',
       memoryStore: memoryDomainStore(),
       styleProfileStore: styleProfileStore(),
-      generate: (user, params, guard) => {
-        const account = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? user : getUserByEmail(user.email);
+      generate: async (user, params, guard) => {
+        const account = POSTGRES_MODE ? await getPostgresRuntimeUserByEmail(user.email)
+          : process.env.MOLAN_APP_STORE === 'json' ? user : getUserByEmail(user.email);
         const modelId = resolveModelForUser(account, params.modelId || currentDefaultModel());
         return benchmarkPipeline.generateChapter({
           callModel: (_auth, options) => guard(() => callMolanChat(String(req.headers.authorization || ''), account,
@@ -8765,11 +8362,11 @@ async function dispatchRequest(req, res) {
   serveStatic(req, res);
 }
 async function initializePostgresRuntime() {
+  postgresRuntimeState.ready = false;
+  postgresHealth = { enabled: true, available: false, status: 'starting' };
   const info = await postgresRepository.initialize();
-  await refreshPostgresRuntimeState();
-  await hydratePostgresSessions();
-  recoverDissectionJobs();
-  recoverPostgresCreationJobs();
+  await postgresRepository.runtimeRecoverExpiredDissectionWorkers();
+  postgresRuntimeState.ready = true;
   postgresHealth = {
     enabled: true,
     available: true,
@@ -8786,55 +8383,16 @@ if (require.main === module) {
   const preparePostgres = async () => {
     const info = await initializePostgresRuntime();
     await postgresRepository.subscribeRuntimeInvalidation(payload => {
-      // Token 预占/结算只写入费用兼容行，不改变本地业务投影。
-      // 拆书/技能在本地执行时已写入 SQLite 镜像并写回 PG，无需在此重复触发全量投影刷新。
       const kind = String(payload && payload.kind || '').trim();
       if (kind === 'generation-cancel') {
         generationRunOrchestrator().abortWorker(String(payload && payload.id || ''));
-        return;
       }
-      if (new Set([
-        'token-reserved', 'token-settled', 'token-recorded', 'token-stale-released',
-        'dissection', 'dissection-delete', 'dissection-rows', 'dissection-rows-replace', 'dissection-rows-delete',
-        'open-skill', 'open-skills', 'open-skill-download',
-        'user-skill', 'user-skills',
-        'global-skill', 'global-skills'
-      ]).has(kind)) return;
-      // 账户变更只定向刷新对应账户，避免重建整套拆书镜像与 FTS 全文索引导致 Node 长时间无响应。
-      if (kind === 'account' || kind === 'account-profile') {
-        const id = String(payload && payload.id || '').trim();
-        if (id) {
-          void postgresRepository.runtimeAccountByUserId(id).then(row => {
-            if (row) {
-              const user = postgresRuntimeUserFromRow(row);
-              cachePostgresRuntimeUser(user);
-              if (postgresRuntimeProjectionBaseline && postgresRuntimeProjectionBaseline.accounts) {
-                postgresRuntimeProjectionBaseline.accounts.set(String(row.legacy_user_id || ''), {
-                  email: String(row.email || ''), user_id: String(row.legacy_user_id || ''), name: String(row.name || ''),
-                  avatar: String(row.avatar || ''), bio: String(row.bio || ''), default_model: String(row.default_model || ''),
-                  salt: String(row.salt || ''), pwd: String(row.pwd || ''), role: String(row.role || 'normal'),
-                  level: String(row.level || 'normal'), plan: String(row.plan || 'normal'), credits: Number(row.credits) || 0,
-                  spent: Number(row.spent) || 0, created_at: String(row.created_at_text || '')
-                });
-              }
-            }
-          }).catch(error => {
-            postgresRuntimeLastWriteError = String(error && error.message || '账户刷新失败').slice(0, 500);
-          });
-          return;
-        }
-      }
-      // 跨实例通知只刷新本地派生镜像；写回由本实例的 HTTP/worker 写入路径确认，
-      // 避免“通知 -> 本地写回 -> 新通知”的循环队列。
-      void refreshPostgresRuntimeState().catch(error => {
-        postgresRuntimeLastWriteError = String(error && error.message || '跨实例刷新失败').slice(0, 500);
-      });
     });
-    const admin = postgresRuntimeAdminUser();
-    if (admin && typeof postgresRepository.recoverInterruptedUsage === 'function') {
+    const actorUserId = await postgresRepository.runtimeMaintenanceActor();
+    if (actorUserId && typeof postgresRepository.recoverInterruptedUsage === 'function') {
       const leaseTtl = Number(process.env.MOLAN_DISPATCH_LEASE_TTL_MS) || DISPATCH_LEASE_TTL_MS;
       await postgresRepository.recoverInterruptedUsage({
-        actorUserId: admin.userId,
+        actorUserId,
         instanceId: SERVER_INSTANCE_ID,
         cutoff: Date.now() - leaseTtl
       });
@@ -8877,7 +8435,7 @@ if (require.main === module) {
       recoverPostgresCreationJobs();
     }
     if (PUBLIC_MODE && !nativeJsonMode && !dbReady()) {
-      console.error('Production storage is unavailable: Node 22.5+ with --experimental-sqlite is required. AI and cloud novel APIs will stay disabled.');
+      console.error('Production storage is unavailable: PostgreSQL connection or pure-js database engine is required. AI and cloud novel APIs will stay disabled.');
     }
     if (process.env.MOLAN_GENERATION_STORE === 'json' || nativeJsonMode) {
       await generationRunStore().recoverExpiredRuns(null, { now: Date.now() });
@@ -9080,6 +8638,11 @@ module.exports = {
   computeStructuralSimilarity,
   extractSkillBlocks,
   CONTRACT_CLICHE_BLOCKLIST,
+  checkDissectionActiveInPostgres,
+  runDissectionChat,
+  planDissectionRetry,
+  loadDissectionRecordAsync,
+  saveDissectionRecordAsync,
   // 仅测试钩子：纯函数（不碰 DB / 不调模型）
-  __test: { isPublicStaticPath, buildDissectionUnits, dissectionUnitHeader, splitUnitParts, dissectionChapterTitle, buildDissectionChunks, normalizePipelineEventType, pipelineBatchCharsFor, emptyDissectionResult, normalizeEntityName, normalizeDissectionUnitId, attachPipelineCoverage, legacyPipelineCharacterAggregation, normalizePipelineAggregationResult, normalizeLegacyPipelineRecord, pipelineAggregationMissingFields, pipelineTextChunks, samplePipelineCharacterAppearances, dissectionTransferJson, deterministicContractValidation, checkForbiddenTerms, normalizeCreationPlan, creationPlanTargets, creationPlanCoverage, creationPlanRules, creationPlanProjection, creationPlanHasContent, creationPlanIssue, reviewCreationPlan, normalizeCreationPlanReviewModel, mergeCreationPlanReview, normalizeCreationPlanPatchPath, applyCreationPlanPatches, creationOriginalityGate, characterNameOverlapIssues, creationBibleSeedValidation, computeEventChainLCS, computeRoleCombinationJaccard, computeMapTopologySimilarity, computeRetentionCompliance, mergeCreationVolumes, mergeCreationChapterPlan, normalizeCreationExpansionChapter, normalizeCreationChapterPlanRhythm }
+  __test: { isPublicStaticPath, buildDissectionUnits, dissectionUnitHeader, splitUnitParts, dissectionChapterTitle, buildDissectionChunks, normalizePipelineEventType, pipelineBatchCharsFor, emptyDissectionResult, normalizeEntityName, normalizeDissectionUnitId, attachPipelineCoverage, legacyPipelineCharacterAggregation, normalizePipelineAggregationResult, normalizeLegacyPipelineRecord, pipelineAggregationMissingFields, pipelineTextChunks, samplePipelineCharacterAppearances, dissectionTransferJson, deterministicContractValidation, checkForbiddenTerms, normalizeCreationPlan, creationPlanTargets, creationPlanCoverage, creationPlanRules, creationPlanProjection, creationPlanHasContent, creationPlanIssue, reviewCreationPlan, normalizeCreationPlanReviewModel, mergeCreationPlanReview, normalizeCreationPlanPatchPath, applyCreationPlanPatches, creationOriginalityGate, characterNameOverlapIssues, creationBibleSeedValidation, computeEventChainLCS, computeRoleCombinationJaccard, computeMapTopologySimilarity, computeRetentionCompliance, mergeCreationVolumes, mergeCreationChapterPlan, normalizeCreationExpansionChapter, normalizeCreationChapterPlanRhythm, checkDissectionActiveInPostgres, runDissectionChat, planDissectionRetry, loadDissectionRecordAsync, saveDissectionRecordAsync }
 };

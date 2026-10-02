@@ -32,8 +32,9 @@ class JsonDissectionRepository {
     if (!job || job.deleted) fail('DISSECTION_NOT_FOUND', 404);
     if (job.projectId) {
       const access = accessFrom(tx.get(job.projectId, 'novels', job.projectId), actorUserId);
-      if (!access || write && !canAccess(access, WRITE_ROLES)) fail('FORBIDDEN', 403);
-    } else if (job.ownerUserId !== actor.userId && actor.role !== 'admin') fail('FORBIDDEN', 403);
+      if (!access) fail('FORBIDDEN', 404);
+      if (write && !canAccess(access, WRITE_ROLES)) fail('FORBIDDEN', 403);
+    } else if (job.ownerUserId !== actor.userId && actor.role !== 'admin') fail('FORBIDDEN', 404);
     return actor;
   }
   async transact(input, write, action) {
@@ -122,6 +123,52 @@ class JsonDissectionRepository {
       const rows = tx.list(scope, 'generation').filter(row => row.kind === 'dissection-unit' && row.jobId === job.jobId && row.ordinal > cursor).sort((a, b) => a.ordinal - b.ordinal);
       const items = rows.slice(0, limit).map(row => ({ ...row, id: row.unitId }));
       return { items, next: rows.length > limit ? items.at(-1).ordinal : '' };
+    });
+  }
+  async searchUnits(input) {
+    const raw = String(input.query || '').trim();
+    const limit = Math.min(100, Math.max(1, Number(input.limit) || 30));
+    return this.transact(input, false, (tx, job, scope) => {
+      if (raw.length < 2) return { items: [], query: raw };
+      const rows = tx.list(scope, 'generation').filter(row => row.kind === 'dissection-unit' && row.jobId === job.jobId).sort((a, b) => a.ordinal - b.ordinal);
+      const matches = [];
+      for (const unit of rows) {
+        const text = String(unit.text || '');
+        const title = String(unit.title || '');
+        const textIdx = text.indexOf(raw);
+        const titleIdx = title.indexOf(raw);
+        if (textIdx >= 0 || titleIdx >= 0) {
+          let snippet = '';
+          if (textIdx >= 0) {
+            const start = Math.max(0, textIdx - 28);
+            const end = Math.min(text.length, textIdx + raw.length + 28);
+            snippet = (start > 0 ? '…' : '') + text.slice(start, textIdx) + '[' + raw + ']' + text.slice(textIdx + raw.length, end) + (end < text.length ? '…' : '');
+          } else {
+            snippet = title;
+          }
+          matches.push({
+            ordinal: unit.ordinal,
+            unitType: unit.unitType || 'chapter',
+            title,
+            snippet
+          });
+          if (matches.length >= limit) break;
+        }
+      }
+      return { items: matches, query: raw };
+    });
+  }
+  async getQueryData(input) {
+    return this.transact(input, false, (tx, job, scope) => {
+      const units = tx.list(scope, 'generation').filter(row => row.kind === 'dissection-unit' && row.jobId === job.jobId).sort((a, b) => a.ordinal - b.ordinal);
+      const stages = tx.list(scope, 'ledger').filter(row => row.kind === 'dissection-stage' && row.jobId === job.jobId);
+      return {
+        job: this.publicJob(job),
+        units,
+        unitTotal: units.length,
+        unitCompleted: job.unitCompleted || 0,
+        stages
+      };
     });
   }
   async acquireLease(input) {
@@ -263,7 +310,7 @@ class JsonDissectionRepository {
     this.revision(input);
     return this.transact(input, true, (tx, job, scope) => {
       const actor = this.actor(tx, input.actorUserId);
-      if (job.ownerUserId !== actor.userId && actor.role !== 'admin') fail('FORBIDDEN', 403);
+      if (job.ownerUserId !== actor.userId && actor.role !== 'admin') fail('FORBIDDEN', 404);
       if (this.providerUnresolved(tx, scope, job.jobId)) fail('PROVIDER_ATTEMPT_UNKNOWN');
       if (this.providerCostPending(tx, scope, job.jobId)) fail('PROVIDER_COST_PENDING');
       if (job.lease?.expiresAt > this.now()) fail('LEASE_HELD');

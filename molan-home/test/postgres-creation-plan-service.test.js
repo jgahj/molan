@@ -47,7 +47,7 @@ function harness(overrides = {}) {
     readBody: async req => req.body || {},
     CREATION_PLAN_BATCH_SIZE: 20,
     creationPlanCoverage: coverage,
-    getUserByEmail: email => ({ email }),
+    getUserByEmail: () => { throw new Error('PG planning cannot read the account cache'); },
     resolveCreationModelId: () => 'model',
     creationSkillForUser: () => null,
     dissectionSkillAuditPayload: () => null,

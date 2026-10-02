@@ -21,7 +21,7 @@ async function request(path, options) {
 }
 
 test.before(async () => {
-  initDB();
+  initDB({ databaseFactory: require('../lib/pure-js-database').PureJsDatabase });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   baseUrl = 'http://127.0.0.1:' + address.port;

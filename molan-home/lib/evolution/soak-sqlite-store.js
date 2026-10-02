@@ -3,12 +3,9 @@
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-let DatabaseSync = null;
-try {
-  ({ DatabaseSync } = require('node:sqlite'));
-} catch {}
+const { PureJsDatabase } = require('../pure-js-database');
 
-/** 创建带持久化正文、租约续期和 fencing token 的 Soak SQLite 存储。 */
+/** 创建带持久化正文、租约续期和 fencing token 的 Soak 内存/文件存储。 */
 function createSqliteSoakStore(filePath, options = {}) {
   if (typeof filePath !== 'string' || !filePath.trim()) throw new TypeError('Soak SQLite 路径必填');
   const leaseMs = Math.max(1000, Number(options.leaseMs) || 30000);
@@ -16,7 +13,7 @@ function createSqliteSoakStore(filePath, options = {}) {
   const acquireTimeoutMs = Math.max(0, Number(options.acquireTimeoutMs) || 0);
   const databasePath = path.resolve(filePath);
   fs.mkdirSync(path.dirname(databasePath), { recursive: true });
-  const db = new DatabaseSync(databasePath);
+  const db = new PureJsDatabase(databasePath);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;');
   db.exec(`CREATE TABLE IF NOT EXISTS long_form_soak_runs (
     task_id TEXT PRIMARY KEY,

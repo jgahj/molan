@@ -119,7 +119,7 @@ function createChatService({
     };
 
     readBody(req, CHAT_MAX_JSON_BODY_BYTES).then(async payload => {
-      const nativeCatalog = !POSTGRES_MODE && getEnvironment().MOLAN_APP_STORE === 'json'
+      const nativeCatalog = POSTGRES_MODE || getEnvironment().MOLAN_APP_STORE === 'json'
         ? await nativeSkillCatalog(auth.user) : null;
       const db = getDatabase();
       const input = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};

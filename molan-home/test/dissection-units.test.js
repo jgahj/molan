@@ -127,14 +127,14 @@ test('pipeline retries clear a previously failed batch before completion', () =>
   assert.match(serverSource, /updateBatchStatus\(record, batch\.batch_no, 'completed', saved, ''\)/);
   assert.match(serverSource, /batch\.status = 'completed'/);
   // ★ 聚合门禁用「从 DB 重载」的批次状态判断失败批次，避免重试场景把已恢复批次误判为失败
-  assert.match(serverSource, /const finalBatches = dbReady\(\) \? loadDissectionBatches\(record\.id\) : freshBatches;/);
+  assert.match(serverSource, /const finalBatches = store \? await store\.loadDissectionBatches\(record\) : \(dbReady\(\) \? loadDissectionBatches\(record\.id\) : freshBatches\);/);
   assert.match(serverSource, /const failedBatches = finalBatches\.filter\(b => b\.status === 'failed'\)/);
   assert.match(serverSource, /aggregationComplete: aggOk/);
 });
 
 test('pipeline usage is persisted by stage with exact token checks', () => {
-  assert.match(serverSource, /recordPipelineUsage\(record, out\.usage, 'extract'\)/);
-  assert.match(serverSource, /recordPipelineUsage\(record, out\.usage, 'aggregate'\)/);
+  assert.match(serverSource, /await recordPipelineUsageAsync\(record, out\.usage, 'extract'\)/);
+  assert.match(serverSource, /await recordPipelineUsageAsync\(record, out\.usage, 'aggregate'\)/);
   assert.match(serverSource, /stageUsage\[key\]/);
   assert.match(serverSource, /上游模型未返回精确 Token 用量/);
 });

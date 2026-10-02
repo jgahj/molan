@@ -8,7 +8,7 @@ const { createLocalRuntime } = require('./helpers/local-runtime');
 
 const dataDirectory = createLocalRuntime();
 const app = require('../server');
-app.initDB();
+app.initDB({ databaseFactory: require('../lib/pure-js-database').PureJsDatabase });
 
 test('novel create/save CAS/delete/restore preserve HTTP permissions and revisions', async t => {
   const owner = { email: 'novel-write-owner@example.test', name: '小说作者', role: 'normal', level: 'normal', plan: 'normal', credits: 100, spent: 0 };

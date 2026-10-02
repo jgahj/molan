@@ -1,7 +1,37 @@
 'use strict';
 
-function createNativeDissectionService({ repository, getAuthUser, readBody, json, respondError, worker, resolveModel }) {
-  const run = action => (req, res, id) => Promise.resolve().then(() => action(req, res, id)).catch(error => respondError(res, error));
+const { createNativeDissectionQueryService } = require('./native-dissection-query-service');
+
+function createNativeDissectionService({
+  repository,
+  getAuthUser,
+  readBody,
+  json,
+  respondError,
+  worker,
+  resolveModel,
+  queryService,
+  buildMarkdown,
+  buildDocx,
+  resultView,
+  hasCompleteContent,
+  responseCors
+}) {
+  const query = queryService || createNativeDissectionQueryService({
+    repository,
+    getAuthUser,
+    json,
+    respondError,
+    buildMarkdown,
+    buildDocx,
+    resultView,
+    hasCompleteContent,
+    responseCors
+  });
+  const run = action => (req, res, id) => Promise.resolve().then(() => action(req, res, id)).catch(error => {
+    if (error && error.code === 'FORBIDDEN') return json(res, 404, { error: '拆书任务不存在或无权访问', code: 'DISSECTION_NOT_FOUND' });
+    return respondError(res, error);
+  });
   function auth(req, res) { const value = getAuthUser(req); if (!value) json(res, 401, { error: '请先登录' }); return value; }
   const list = run(async (req, res) => {
     const value = auth(req, res); if (!value) return;
@@ -54,6 +84,24 @@ function createNativeDissectionService({ repository, getAuthUser, readBody, json
     const result = await repository.listUnits({ actorUserId: value.user.userId, jobId: decodeURIComponent(id), cursor: url.searchParams.get('cursor'), limit: Number(url.searchParams.get('limit')) || 50 });
     json(res, 200, { ok: true, ...result });
   });
-  return { list, get, create, patch, cancel, remove, units, retry };
+  return {
+    list,
+    get,
+    create,
+    patch,
+    cancel,
+    remove,
+    units,
+    retry,
+    export: query.handleExport,
+    coverage: query.handleCoverage,
+    entities: query.handleEntities,
+    foreshadows: query.handleForeshadows,
+    summaries: query.handleSummaries,
+    validation: query.handleValidation,
+    search: query.handleSearch,
+    queryService: query,
+    dispatch: query.dispatch
+  };
 }
 module.exports = { createNativeDissectionService };

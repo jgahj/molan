@@ -5,15 +5,17 @@ function createDissectionScheduler({ maxConcurrent, loadRecord }) {
   const activeDissectionsByUser = new Map();
   let runningCount = 0;
   async function waitForDissectionCapacity(id, email, controller) {
-    while (runningCount >= maxConcurrent) {
-      const latest = loadRecord(id, email);
+    while (true) {
+      const latest = await loadRecord(id, email);
       if (!latest || latest.cancelRequested || latest.status === 'cancelled' || controller.signal.aborted) {
         throw Object.assign(new Error('拆书任务已取消'), { cancelled: true });
       }
+      if (runningCount < maxConcurrent) {
+        runningCount += 1;
+        return;
+      }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    if (controller.signal.aborted) throw Object.assign(new Error('拆书任务已取消'), { cancelled: true });
-    runningCount += 1;
   }
   function releaseCapacity() { runningCount = Math.max(0, runningCount - 1); }
   function acquireDissectionUserSlot(email) {

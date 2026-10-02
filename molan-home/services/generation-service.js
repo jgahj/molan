@@ -55,7 +55,10 @@ function createGenerationService({
     orchestrator = createGenerationOrchestrator({
       store,
       db: generationDatabase(),
-        dependenciesForRun(executionContext, request) {
+      onError(err, runId) {
+        console.error('[generation error in orchestrator]', runId, err);
+      },
+      dependenciesForRun(executionContext, request) {
         const auth = executionContext.auth;
         const user = executionContext.user;
         const runId = String(executionContext.generationId || '');
@@ -189,7 +192,7 @@ function createGenerationService({
                   reasoningTokens: Number(call.usage.reasoningTokens ?? call.usage.reasoning_tokens) || 0,
                   cachedTokens: Number(call.usage.cachedTokens ?? call.usage.cached_tokens ?? call.usage.cachedInputTokens) || 0,
                   totalTokens: Number(call.usage.totalTokens ?? call.usage.total_tokens) || 0,
-                  creditCost: Number(call.usage.creditCost) || 0,
+                  creditCost: call.usage.creditCost == null ? null : Number(call.usage.creditCost),
                   reservedCost: Number(call.usage.reservedCost) || 0,
                   billingStatus: String(call.usage.billingStatus || ''),
                   usageSource: String(call.usage.usageSource || ''),
@@ -803,8 +806,8 @@ function createGenerationService({
       return json(res, 200, {
         ...generationStatus,
         commit,
-        pauseResume: !POSTGRES_MODE && typeof selectedStore.requestPause === 'function' && typeof selectedStore.resumeRun === 'function',
-        recovery: !POSTGRES_MODE && typeof selectedStore.recoverExpiredRuns === 'function',
+        pauseResume: typeof selectedStore.requestPause === 'function' && typeof selectedStore.resumeRun === 'function',
+        recovery: typeof selectedStore.recoverExpiredRuns === 'function',
         storageMode: POSTGRES_MODE ? 'postgres' : nativeAppStore || process.env.MOLAN_GENERATION_STORE === 'json' ? 'json' : 'sqlite'
       });
     }
@@ -1088,7 +1091,7 @@ function createGenerationService({
       if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
       if (!['/api/benchmark/audit', '/api/benchmark/revise-loop', '/api/benchmark/generate'].includes(u)) return json(res, 404, { error: 'Not Found' });
       const body = await readBody(req, 160000);
-      const user = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json'
+      const user = POSTGRES_MODE || process.env.MOLAN_APP_STORE === 'json'
         ? auth.user
         : getUserByEmail(auth.user.email) || { email: auth.user.email };
       const controller = new AbortController();

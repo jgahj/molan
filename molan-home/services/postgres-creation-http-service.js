@@ -27,8 +27,7 @@ function createPostgresCreationHttpService({
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
     const books = await postgresRepository.listCreationBooks(postgresActor(auth));
-    if (books.length) return json(res, 200, { ok: true, books });
-    return handleCreationBooksList(req, res);
+    return json(res, 200, { ok: true, books });
   }
 
   /** PG 模式下创建创作书和首版圣经，支持关联已有项目或创建独立创作项目。 */
@@ -86,7 +85,7 @@ function createPostgresCreationHttpService({
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
     const result = await postgresRepository.getCreationBible(postgresActor(auth), id);
-    if (!result) return handleCreationBookBibleGet(req, res, id);
+    if (!result) return json(res, 404, { error: '创作书不存在或无权访问' });
     if (!result.bible) return json(res, 404, { error: '创作圣经不存在或无权访问' });
     json(res, 200, { ok: true, book: { ...result.book, bibleVersion: result.bible.version, stateVersion: result.book.currentStateVersion }, bible: result.bible });
   }
@@ -95,7 +94,7 @@ function createPostgresCreationHttpService({
   async function handlePostgresCreationBookBiblePut(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!await postgresRepository.getCreationBible(postgresActor(auth), id)) return handleCreationBookBiblePut(req, res, id);
+    if (!await postgresRepository.getCreationBible(postgresActor(auth), id)) return json(res, 404, { error: '创作书不存在或无权访问' });
     const body = await readBody(req);
     const payload = body.bible && typeof body.bible === 'object' && !Array.isArray(body.bible) ? body.bible : {};
     const expectedRevision = body.bibleVersion == null ? Number(body.revision) : Number(body.bibleVersion);
@@ -114,7 +113,7 @@ function createPostgresCreationHttpService({
     if (!auth) return json(res, 401, { error: '请先登录' });
     const params = new URL(req.url, 'http://molan.local').searchParams;
     const result = await postgresRepository.getCreationState(postgresActor(auth), id, Number(params.get('chapterNo')) || 0);
-    if (!result) return handleCreationBookState(req, res, id);
+    if (!result) return json(res, 404, { error: '创作书不存在或无权访问' });
     json(res, 200, { ok: true, ...result });
   }
 
@@ -122,7 +121,7 @@ function createPostgresCreationHttpService({
   async function handlePostgresCreationBookAudit(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!await postgresRepository.getCreationBible(postgresActor(auth), id)) return handleCreationBookChapterAudit(req, res, id);
+    if (!await postgresRepository.getCreationBible(postgresActor(auth), id)) return json(res, 404, { error: '创作书不存在或无权访问' });
     const body = await readBody(req);
     const audit = await postgresRepository.createChapterAudit({
       userId: postgresActor(auth),
@@ -139,7 +138,6 @@ function createPostgresCreationHttpService({
   async function handlePostgresCreationBookChapterContract(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!await postgresRepository.getCreationBible(postgresActor(auth), id)) return handleCreationBookChapterContract(req, res, id);
     const body = await readBody(req);
     const result = await postgresRepository.getCreationBible(postgresActor(auth), id);
     if (!result || !result.bible) return json(res, 404, { error: '创作圣经不存在或无权访问' });
@@ -167,7 +165,7 @@ function createPostgresCreationHttpService({
   async function handlePostgresCreationBookCommit(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!await postgresRepository.getCreationBible(postgresActor(auth), id)) return handleCreationBookCommit(req, res, id);
+    if (!await postgresRepository.getCreationBible(postgresActor(auth), id)) return json(res, 404, { error: '创作书不存在或无权访问' });
     const body = await readBody(req);
     const committed = await postgresRepository.commitChapter({
       ...body,

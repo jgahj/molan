@@ -10,6 +10,8 @@ const { __test } = require('../server');
 const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-store.js'), 'utf8');
 const querySource = fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-query-service.js'), 'utf8');
 const analysisSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-analysis-service.js'), 'utf8');
+const modelCallSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'model-call-service.js'), 'utf8');
+const postgresSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'postgres-repository.js'), 'utf8');
 const dissectionRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'dissections.js'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.js'), 'utf8');
 
@@ -82,8 +84,8 @@ test('arc and book summaries are stored as layered summaries', () => {
 
 // —— 聚合接线：状态快照/事件边/伏笔落库在聚合层执行 ——
 test('aggregation wires entity states, event edges and foreshadow persistence', () => {
-  assert.match(serverSource, /try \{ buildEntityStates\(record\); \} catch/);
-  assert.match(serverSource, /try \{ buildEventEdges\(record\); \} catch/);
+  assert.match(serverSource, /await store\.buildEntityStates\(record\)/);
+  assert.match(serverSource, /await store\.buildEventEdges\(record\)/);
   assert.match(serverSource, /storeDissectionForeshadows\(record, result\.foreshadowing\)/);
 });
 
@@ -177,7 +179,7 @@ test('deep pipeline forwards the dedicated dissection Skill to model calls', () 
   assert.match(serverSource, /function dissectionSkillAuditPayload/);
   assert.match(serverSource, /dissectionSkillAudit: pipelineSkillAudit/);
   assert.match(serverSource, /skillAudit: record && record\.meta && record\.meta\.dissectionSkillAudit/);
-  assert.match(serverSource, /systemPrompt = wrapSkillBlock\(skill\.id, instruction\)/);
+  assert.match(modelCallSource, /systemPrompt = wrapSkillBlock\(skill\.id, instruction\)/);
 });
 
 test('creative brief response does not shadow the HTTP JSON responder', () => {
@@ -242,15 +244,21 @@ test('creation domain registers book/bible/commit/state routes', () => {
 });
 
 test('creation book commit uses CAS and rejects stale state', () => {
-  assert.match(serverSource, /WHERE id = \? AND current_state_version = \?/);
-  assert.match(serverSource, /needs_rebase/);
+  const chapterSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'creation-chapter-service.js'), 'utf8');
+  const postgresSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'postgres-repository.js'), 'utf8');
+  assert.match(chapterSource, /WHERE id = \? AND current_state_version = \?/);
+  assert.match(chapterSource, /needs_rebase/);
+  assert.match(postgresSource, /AND current_state_version = \$7::bigint/);
 });
 
 // —— Q2 · 模型用量账本：表 + 幂等写入 + 采集点 ——
 test('model usage ledger is created and written idempotently', () => {
   assert.match(serverSource, /CREATE TABLE IF NOT EXISTS model_usage/);
   assert.match(serverSource, /INSERT OR IGNORE INTO model_usage/);
-  assert.match(serverSource, /recordId: o\.recordId \|\| o\.taskId \|\| ''/);
+  assert.match(postgresSource, /async function runtimeRecordModelUsage/);
+  assert.match(postgresSource, /ON CONFLICT \(owner_actor_id, source_table, row_key\) DO NOTHING/);
+  assert.match(modelCallSource, /await recordModelUsage\(/);
+  assert.match(modelCallSource, /recordId: o\.recordId \|\| o\.taskId \|\| ''/);
   assert.match(serverSource, /unitId: 'batch-' \+ \(batch && batch\.batch_no \|\| 0\)/);
   assert.match(serverSource, /unitId: 'aggregate'/);
 });

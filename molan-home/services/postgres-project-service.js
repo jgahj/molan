@@ -96,13 +96,13 @@ function createPostgresProjectService({ getAuthUser, json, postgresRepository, r
     const userId = postgresActor(auth);
     if (req.method === 'GET') {
       const members = await postgresRepository.listWorkspaceMembers(userId, workspaceId);
-      return json(res, 200, { ok: true, members: members.map(member => {
-        const account = getUserById(member.userId);
+      return json(res, 200, { ok: true, members: await Promise.all(members.map(async member => {
+        const account = await getUserById(member.userId);
         return { userId: member.userId, email: account && account.email || '', name: account && account.name || '', role: member.role };
-      }) });
+      })) });
     }
     const body = await readBody(req);
-    const account = body.userId ? getUserById(body.userId) : getUserByEmail(String(body.email || '').trim().toLowerCase());
+    const account = body.userId ? await getUserById(body.userId) : await getUserByEmail(String(body.email || '').trim().toLowerCase());
     if (!account) return json(res, 404, { error: '目标账户不存在' });
     if (req.method === 'DELETE') {
       return json(res, 200, await postgresRepository.deactivateWorkspaceMember(userId, workspaceId, account.userId));
@@ -125,13 +125,13 @@ function createPostgresProjectService({ getAuthUser, json, postgresRepository, r
     const userId = postgresActor(auth);
     if (req.method === 'GET') {
       const members = await postgresRepository.listProjectMembers(userId, workspaceId, projectId);
-      return json(res, 200, { ok: true, members: members.map(member => {
-        const account = getUserById(member.userId);
+      return json(res, 200, { ok: true, members: await Promise.all(members.map(async member => {
+        const account = await getUserById(member.userId);
         return { userId: member.userId, name: account && account.name || '', role: member.role, canSpend: member.canSpend, canExport: member.canExport };
-      }) });
+      })) });
     }
     const body = await readBody(req);
-    const account = body.userId ? getUserById(body.userId) : getUserByEmail(String(body.email || '').trim().toLowerCase());
+    const account = body.userId ? await getUserById(body.userId) : await getUserByEmail(String(body.email || '').trim().toLowerCase());
     if (!account) return json(res, 404, { error: '目标账户不存在' });
     if (req.method === 'DELETE') {
       return json(res, 200, await postgresRepository.deactivateProjectMember(userId, workspaceId, projectId, account.userId));

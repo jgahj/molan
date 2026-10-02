@@ -10,13 +10,13 @@ function createGenerationRoutes(handlers) {
     return false;
   }
 
-  function dispatchCore(req, res, url) {
+  async function dispatchCore(req, res, url) {
     const method = req.method;
     if (method === 'POST' && url === '/api/chat') { handlers.chat(req, res, handlers.legacyGenerationChat); return true; }
     if (method === 'GET' && url === '/api/models') { handlers.models(req, res); return true; }
     if (method === 'POST' && url === '/api/billing/estimate') { handlers.billingEstimate(req, res); return true; }
     if (method === 'POST' && url === '/api/billing/topup') { handlers.billingTopup(req, res); return true; }
-    if (method === 'GET' && url === '/api/health') { handlers.health(req, res); return true; }
+    if (method === 'GET' && url === '/api/health') { await handlers.health(req, res); return true; }
     return false;
   }
 

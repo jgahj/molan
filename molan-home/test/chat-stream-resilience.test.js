@@ -27,11 +27,13 @@ test('server bounds stalled and oversized upstream chat streams', () => {
 });
 
 test('PostgreSQL token ledger notifications do not rebuild the full runtime mirror', () => {
-  assert.match(serverSource, /token-reserved/);
-  assert.match(serverSource, /token-settled/);
-  assert.match(serverSource, /token-recorded/);
-  assert.match(serverSource, /token-stale-released/);
-  assert.match(serverSource, /if\s*\(new Set\(\[[\s\S]*?token-reserved[\s\S]*?\)\.has\(kind\)\)\s*return/);
+  const start = serverSource.indexOf('await postgresRepository.subscribeRuntimeInvalidation(payload => {');
+  const end = serverSource.indexOf('\n    });', start);
+  assert.ok(start >= 0 && end > start);
+  const listener = serverSource.slice(start, end);
+  assert.match(listener, /kind === 'generation-cancel'/);
+  assert.match(listener, /abortWorker/);
+  assert.doesNotMatch(listener, /refresh|loadRuntimeState|hydrate|accountsByEmail|runtimeAccountBy/);
 });
 
 test('index.html requestChatText catches stream read errors and preserves partialText', () => {

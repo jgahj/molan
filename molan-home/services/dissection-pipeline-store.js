@@ -22,9 +22,9 @@ function createDissectionPipelineStore({ buildDissectionUnits, dbReady, dissecti
 
   function storeDissectionUnits(record, units) {
     if (!dbReady()) return 0;
-    // ★ P1-6 · 批量入库事务化：node:sqlite 的 DatabaseSync 虽无 db.transaction()，
-    // 但支持手工 BEGIN/COMMIT。逐条自动提交会让千万字拆书（上万条 INSERT）在事件循环上
-    // 阻塞数百毫秒且中途失败会留下半套数据；事务化后一次提交，既快又保证原子性。
+    // ★ P1-6 · 批量入库事务化：批量操作通过手工 BEGIN/COMMIT 事务化，
+    // 逐条自动提交会让千万字拆书（上万条 INSERT）在事件循环上阻塞数百毫秒且中途失败会留下半套数据；
+    // 事务化后一次提交，既快又保证原子性。
     getDatabase().exec('BEGIN IMMEDIATE');
     try {
       getDatabase().prepare('DELETE FROM dissection_units WHERE dissection_id = ?').run(record.id);

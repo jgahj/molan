@@ -459,7 +459,7 @@ function inImmediateTransaction(db, work) {
 /** SQLite-backed idempotency and immutable settlement adapter; the caller owns the connection. */
 function createSqliteQualityLoopStore(db) {
   if (!db || typeof db.exec !== 'function' || typeof db.prepare !== 'function') {
-    throw new TypeError('SQLite quality loop store 需要 DatabaseSync 连接');
+    throw new TypeError('Quality loop store 需要有效的数据库连接 (支持 exec 和 prepare)');
   }
   db.exec(`
     CREATE TABLE IF NOT EXISTS quality_loop_runs (

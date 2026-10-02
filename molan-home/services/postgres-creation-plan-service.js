@@ -97,9 +97,9 @@ function createPostgresCreationPlanService(dependencies) {
     const batchSize = Math.max(8, Math.min(CREATION_PLAN_BATCH_SIZE, Math.floor(Number(body.batchSize) || CREATION_PLAN_BATCH_SIZE)));
     const startChapterNo = phase === 'chapters' ? coverage.nextChapterNo : 0;
     const endChapterNo = phase === 'chapters' ? Math.min(coverage.plan.totalChapters, startChapterNo + batchSize - 1) : 0;
-    const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+    const user = auth.user;
     const modelId = resolveCreationModelId({ modelId: body.modelId || coverage.plan.modelId });
-    const selectedSkill = creationSkillForUser(user, coverage.plan.skillId);
+    const selectedSkill = await creationSkillForUser(user, coverage.plan.skillId);
     if (coverage.plan.skillId && (!selectedSkill || selectedSkill.complete === false || !String(selectedSkill.instruction || '').trim())) {
       return json(res, 422, { error: '创书 Skill 未完整加载，无法继续扩展规划', code: 'skill_unavailable' });
     }
@@ -215,7 +215,7 @@ function createPostgresCreationPlanService(dependencies) {
       const body = await readBody(req);
       const current = context.current;
       if (!current || !current.bibleId || !current.payload) return json(res, 404, { error: '创作圣经不存在' });
-      const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+      const user = auth.user;
       const modelId = resolveCreationModelId(body);
       const localReview = reviewCreationPlan(current.payload);
       const baseVersion = Number(body.baseVersion) || 0;
@@ -325,7 +325,7 @@ function createPostgresCreationPlanService(dependencies) {
     if (!current || !current.payload) return json(res, 404, { error: '创作圣经不存在' });
     const name = String(body.name || '').trim().slice(0, 60);
     const guidance = String(body.guidance || '').trim().slice(0, 600);
-    const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+    const user = auth.user;
     let userPrompt = '';
     if (asset === 'characters') {
       if (!name) return json(res, 400, { error: '请指定要重生成的角色名' });
