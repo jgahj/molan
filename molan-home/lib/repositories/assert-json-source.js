@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 
 /** 旧兼容缓存打开前的只读检查，防止把真实旧库或损坏文件覆盖为空 JSON。 */
-function assertJsonSource(filename) {
+function assertJsonSource(filename, options = {}) {
   if (!filename || filename === ':memory:') return;
   let fd;
   try { fd = fs.openSync(filename, 'r'); }
@@ -13,6 +13,12 @@ function assertJsonSource(filename) {
     fs.readSync(fd, header, 0, 16, 0);
   } finally { fs.closeSync(fd); }
   if (header.toString('utf8') === 'SQLite format 3\0') {
+    if (options.resetLegacy) {
+      for (const suffix of ['', '-wal', '-shm']) {
+        try { fs.rmSync(filename + suffix, { force: true }); } catch (_) {}
+      }
+      return;
+    }
     throw Object.assign(new Error('检测到旧 SQLite 库；请先使用隔离迁移工具导出，禁止直接覆盖'), { code: 'LEGACY_SQLITE_REQUIRES_MIGRATION' });
   }
   let document;

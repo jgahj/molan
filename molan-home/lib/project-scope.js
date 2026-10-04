@@ -141,7 +141,7 @@ function migrateExistingScopes(db) {
 function getNovelAccess(db, novelId, userId) {
   const projectId = String(novelId || '').trim();
   const actorId = String(userId || '').trim();
-  if (!projectId || !actorId) return null;
+  if (!db || !projectId || !actorId) return null;
   return db.prepare(`SELECT pm.workspace_id, pm.project_id, pm.user_id, pm.role, pm.active,
       pm.can_spend, pm.can_export, np.owner_user_id, np.status, np.acl_revision
     FROM project_members pm
@@ -152,6 +152,7 @@ function getNovelAccess(db, novelId, userId) {
 
 /** 返回用户在工作区的有效成员身份；工作区身份不自动等于项目成员。 */
 function getWorkspaceAccess(db, workspaceId, userId) {
+  if (!db || !workspaceId || !userId) return null;
   return db.prepare(`SELECT workspace_id, user_id, role, active
     FROM workspace_members WHERE workspace_id = ? AND user_id = ? AND active = 1`)
     .get(String(workspaceId || ''), String(userId || '')) || null;

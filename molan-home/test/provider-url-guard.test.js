@@ -15,11 +15,20 @@ test('Provider URL 校验拒绝本机、私网、link-local、metadata 和保留
   assert.equal(addressIsPublic('2606:4700:4700::1111'), true);
 });
 
-test('Provider endpoint 只接受无凭据 HTTPS 和完全公网 DNS 解析', async () => {
-  const lookup = async () => [{ address: '203.0.113.4', family: 4 }];
-  await assert.rejects(validateProviderTarget('http://api.example.com/v1', { lookup }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
-  await assert.rejects(validateProviderTarget('https://user:secret@api.example.com/v1', { lookup }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
-  await assert.rejects(validateProviderTarget('https://localhost/v1', { lookup }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
+test('Provider endpoint 接受无凭据 HTTP 与 HTTPS，且要求公网 DNS 解析', async () => {
+  const publicLookup = async () => [{ address: '1.1.1.1', family: 4 }];
+  const httpTarget = await validateProviderTarget('http://api.example.com/v1', { lookup: publicLookup });
+  assert.equal(httpTarget.url.protocol, 'http:');
+  assert.equal(httpTarget.port, 80);
+
+  const httpsTarget = await validateProviderTarget('https://api.example.com/v1', { lookup: publicLookup });
+  assert.equal(httpsTarget.url.protocol, 'https:');
+  assert.equal(httpsTarget.port, 443);
+
+  await assert.rejects(validateProviderTarget('ftp://api.example.com/v1', { lookup: publicLookup }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
+  await assert.rejects(validateProviderTarget('http://user:secret@api.example.com/v1', { lookup: publicLookup }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
+  await assert.rejects(validateProviderTarget('https://user:secret@api.example.com/v1', { lookup: publicLookup }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
+  await assert.rejects(validateProviderTarget('https://localhost/v1', { lookup: publicLookup }), { code: 'PROVIDER_ENDPOINT_BLOCKED' });
   await assert.rejects(validateProviderTarget('https://api.example.com/v1', {
     lookup: async () => [
       { address: '1.1.1.1', family: 4 },
@@ -73,4 +82,11 @@ test('Provider endpoint 支持在配置 allowLocal 时访问本地模型服务',
   assert.equal(localTarget.hostname, '127.0.0.1');
   assert.equal(localTarget.port, 11434);
   assert.equal(localTarget.url.protocol, 'http:');
+});
+
+test('Provider endpoint 支持公网 HTTP baseURL（无需强制要求 HTTPS）', async () => {
+  const target = await validateProviderTarget('http://8.138.128.184:8080/v1/chat/completions');
+  assert.equal(target.url.protocol, 'http:');
+  assert.equal(target.hostname, '8.138.128.184');
+  assert.equal(target.port, 8080);
 });

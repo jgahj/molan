@@ -1,95 +1,402 @@
   const GENRE_FAMILY_MAP = {
-    xuanhuan: {
-      title: '玄幻修真',
-      routes: [
-        { value: 'cautious_survival', legacyValue: 'fanren', label: '《凡人修仙传》· 散修生计与谨慎藏拙' },
-        { value: 'clan_lineage_sacrifice', legacyValue: 'xuanjian', label: '《家族修仙》· 宗族谱系与族运牺牲' },
-        { value: 'industrial_cultivation', legacyValue: 'yuanshi', label: '《元始法则》· 重型战舰与修真工业' },
-        { value: 'ancient_market_mechanic', legacyValue: 'jianzhu', label: '《剑主沉浮》· 大荒机关与市井互嵌' }
+    xuanhuan_xianxia: {
+      title: '玄幻仙侠',
+      archetypes: [
+        { value: 'yandere_harem_cultivation', label: '病娇反差 / 多女主修罗场与破防流' },
+        { value: 'classical_gritty_xianxia', label: '古典仙侠 / 天崩开局与实感求生流' },
+        { value: 'peerless_slaughter_tower', label: '传统玄幻 / 丹田被废与神塔逆袭流' }
       ]
     },
     urban_martial: {
       title: '都市高武',
-      routes: [
-        { value: 'official_regulation_tactics', legacyValue: 'urban_grind', label: '《以神通之名》猪心虾仁 · 官方规制与实战攻防' },
-        { value: 'coastal_harvest_fieldwork', legacyValue: 'yucun_1982', label: '《重回1982小渔村》米饭的米 · 沿海捕捞与潮汐考据' },
-        { value: 'heavy_industry_pioneering', legacyValue: 'daguo_junken', label: '《大国军垦》大强67 · 重工拓荒与集体纪律' }
+      archetypes: [
+        { value: 'supernatural_tactics_order', label: '官方规制 / 历史超凡与战术攻防流' },
+        { value: 'street_calculating_martial', label: '低武市井 / 门派拜馆与冷硬算计流' }
+      ]
+    },
+    urban_life: {
+      title: '都市现实',
+      archetypes: [
+        { value: 'reformed_restaurant_era', label: '年代生活 / 破产餐馆与市井烟火流' },
+        { value: 'sports_tactics_legend', label: '竞技体坛 / 职业球探与逆风蜕变流' }
       ]
     },
     scifi_apocalypse: {
       title: '科幻末世',
-      routes: [
-        { value: 'wasteland_industrial_recovery', legacyValue: 'hard_survival', label: '《这游戏也太真实了》晨星LL · 废土避难所工业复苏' },
-        { value: 'magic_industrial_enlightenment', legacyValue: 'dawn_blade', label: '《黎明之剑》远瞳 · 魔导工业化与深空神明去魅' },
-        { value: 'genetic_deep_space_scale', legacyValue: 'swallow_star', label: '《吞噬星空》番茄 · 基因武者考核与深空尺度' }
+      archetypes: [
+        { value: 'planetary_gene_academy', label: '高维深空 / 基因考核与宇宙尺度流' },
+        { value: 'esports_goat_datacrush', label: '电竞游戏 / 数据复盘与战队崛起流' }
       ]
     },
-    suspense: {
+    suspense_mystery: {
       title: '悬疑惊悚',
-      routes: [
-        { value: 'river_folk_secrets', legacyValue: 'laoshiren', label: '《捞尸人》纯洁滴小龙 · 黄河捞尸门道与民俗禁忌' },
-        { value: 'spatial_rule_horror', legacyValue: 'rule_horror', label: '《玩家请上车》海晏山 · 空间规则怪谈与心理压榨' },
-        { value: 'folklore_investigation', legacyValue: 'folklore_investigation', label: '悬疑惊悚 · 民俗异闻与心理递进通用' }
+      archetypes: [
+        { value: 'folk_yinyang_memoir', label: '中式民俗 / 阴阳行当与水旱禁忌流' },
+        { value: 'tomb_exploration_secrets', label: '秘境古墓 / 九门迷局与血脉契约流' },
+        { value: 'infinite_rule_insanity', label: '规则怪谈 / 精神病反卷与空间压榨流' }
       ]
     },
-    history: {
-      title: '历史古代',
-      routes: [
-        { value: 'dynasty_legion_grand_strategy', legacyValue: 'dynasty_friction', label: '《神话版三国》坟土荒草 · 军团大阵与天下大势' },
-        { value: 'covert_cipher_camouflage', legacyValue: 'spy_years', label: '《我的谍战岁月》猪头七 · 隐蔽战线密电破译与伪装' }
-      ]
-    },
-    western_fantasy: {
-      title: '西方奇幻',
-      routes: [
-        { value: 'potion_sequence_order_cost', legacyValue: 'sequence_cost', label: '《诡秘序列》乌贼 · 秩序隐秘与魔药代价' },
-        { value: 'machinist_blueprint_forging', legacyValue: 'super_mechanic', label: '《超神机械师》齐佩甲 · 机械图纸锻造与智械军团' },
-        { value: 'hunter_contract_combat', legacyValue: 'reincarnation_paradise', label: '《轮回乐园》蚊子 · 猎杀者契约与刀术搏杀' }
+    history_military: {
+      title: '历史军事',
+      archetypes: [
+        { value: 'imposter_court_official', label: '历史权谋 / 冒名入仕与官场生存流' },
+        { value: 'dynasty_grand_narrative', label: '王朝争霸 / 运河关隘与沙盘推演流' },
+        { value: 'military_industrial_overhaul', label: '抗战兵工 / 车间机床与技术拓荒流' }
       ]
     },
     ancient_romance: {
       title: '古言世情',
-      routes: [
-        { value: 'mansion_financial_survival', legacyValue: 'mansion_secrets', label: '《深宅利益世情》· 月例账目与内宅生存策略' }
+      archetypes: [
+        { value: 'rebirth_noble_vengeance', label: '高门重生 / 摄政王契约与清醒夺权流' },
+        { value: 'empress_court_heir', label: '女帝掌朝 / 皇权博弈与帝姬谋略流' }
       ]
     },
     modern_romance: {
-      title: '现代言情',
-      routes: [
-        { value: 'corporate_duel_subtle_romance', legacyValue: 'urban_emotion', label: '《职场博弈心动》· 投行对赌与势均力敌情感' }
+      title: '现言职场',
+      archetypes: [
+        { value: 'capital_circle_sensual_duel', label: '京圈权贵 / 纯欲对弈与极限拉扯流' },
+        { value: 'gloomy_ghost_magnet', label: '病娇阴湿 / 极致占有与反向驯服流' }
       ]
     },
-    universal: {
-      title: '通用现实',
-      routes: [
-        { value: 'neutral_dramatic_realism', legacyValue: 'neutral_dramatic', label: '通用现实 · 生活本相与克制叙事' }
+    light_novel: {
+      title: '轻小说衍生',
+      archetypes: [
+        { value: 'corporate_magical_girl', label: '社畜反差 / 疲惫中年与魔法非日常流' },
+        { value: 'anime_reincarnation_overlord', label: '诸天扮演 / 满级大号与降维碾压流' }
+      ]
+    },
+    western_fantasy: {
+      title: '西方奇幻',
+      archetypes: [
+        { value: 'sequence_order_mystery', label: '诡秘秩序 / 魔药代价与隐秘低语流' },
+        { value: 'fake_lord_domain_conquest', label: '异界领主 / 领地经营与帝国博弈流' }
       ]
     }
   };
 
+  // 小说题材分组字典（7大主流大类 + 垂直赛道）
+  const NOVEL_GENRE_GROUPS = [
+    {
+      group: '幻想类（虚构世界观体系）',
+      items: [
+        { value: 'xuanhuan', label: '玄幻 (东方武道 / 灵气宗门 / 突破争霸)' },
+        { value: 'xianxia', label: '仙侠 (长生求道 / 渡劫飞升 / 道法因果)' },
+        { value: 'qihuan', label: '奇幻 (西方魔幻 / 魔法骑士 / 种族战争)' },
+        { value: 'scifi', label: '科幻 (硬核猜想 / 星际文明 / 智脑跃迁)' },
+        { value: 'infinite', label: '无限流 (副本穿梭 / 规则求生 / 团队协作)' },
+        { value: 'apocalypse', label: '末世/末日 (废土生存 / 资源争夺 / 废土基建)' },
+        { value: 'horror', label: '灵异/惊悚 (中式民俗 / 鬼怪凶宅 / 禁忌探秘)' }
+      ]
+    },
+    {
+      group: '现实向类（依托真实世界框架）',
+      items: [
+        { value: 'urban', label: '都市 (现代商战 / 异能重生 / 职场生活)' },
+        { value: 'campus', label: '校园 (青春成长 / 学业竞赛 / 青涩暗恋)' },
+        { value: 'era', label: '年代文 (改革潮头 / 家庭经营 / 烟火致富)' },
+        { value: 'realism', label: '现实题材 (市井烟火 / 乡土民情 / 人物困境)' }
+      ]
+    },
+    {
+      group: '古代背景类',
+      items: [
+        { value: 'ancient_romance', label: '古言 (古代闺阁 / 后宅生杀 / 家族权谋)' },
+        { value: 'history', label: '历史 (真实朝代 / 沙盘争霸 / 治世安民)' },
+        { value: 'farming', label: '种田文 (买田置产 / 兴旺家族 / 慢节奏发育)' }
+      ]
+    },
+    {
+      group: '情感言情类',
+      items: [
+        { value: 'modern_romance', label: '现言甜宠/虐恋 (破镜重圆 / 豪门对弈)' },
+        { value: 'ancient_romance_sub', label: '古风言情 (世家深闺 / 先婚后爱)' },
+        { value: 'republic_romance', label: '民国言情 (烽火军阀 / 乱世家国情仇)' }
+      ]
+    },
+    {
+      group: '悬疑推理类',
+      items: [
+        { value: 'deduction_pure', label: '本格推理 (密室杀人 / 机械诡计 / 逻辑至上)' },
+        { value: 'social_deduction', label: '社会派推理 (人性剖析 / 犯罪动机 / 社会议题)' },
+        { value: 'criminal_investigation', label: '刑侦探案 (警方一线 / 法医物证 / 证据链)' },
+        { value: 'folk_suspense', label: '民俗悬疑 (山野怪谈 / 宗族旧案 / 中式恐怖)' }
+      ]
+    },
+    {
+      group: '武侠类',
+      items: [
+        { value: 'traditional_wuxia', label: '传统武侠 (名门恩怨 / 正邪抗衡 / 侠义骨气)' },
+        { value: 'new_wuxia', label: '新武侠 (底层游侠 / 市井刀客 / 快意恩仇)' },
+        { value: 'chivalric_court', label: '江湖权谋 (朝堂暗桩 / 锦衣谍影 / 庙堂江湖)' }
+      ]
+    },
+    {
+      group: '特色小众与垂直赛道',
+      items: [
+        { value: 'gaming', label: '游戏竞技 (电竞职业 / 网游开荒 / 战术操作)' },
+        { value: 'gourmet', label: '美食文 (厨艺比拼 / 食材白描 / 治愈经营)' },
+        { value: 'folk_urban_legend', label: '民俗怪谈 (东北出马 / 湘西赶尸 / 禁忌规矩)' },
+        { value: 'rule_weird', label: '规则怪谈 (不可直视 / 认知污染 / 密闭求生)' },
+        { value: 'lovecraft_cthulhu', label: '克苏鲁/诡秘 (魔药序列 / 理智SAN值 / 古神低语)' },
+        { value: 'cyber_steampunk', label: '蒸汽/赛博朋克 (霓虹义体 / 齿轮反差 / 反乌托邦)' },
+        { value: 'industry_pro', label: '行业文 (专业医生/律师/刑警硬核考据)' },
+        { value: 'treasure_tomb', label: '鉴宝盗墓 (古玩捡漏 / 地宫机关 / 分金定穴)' }
+      ]
+    }
+  ];
+
+  // 写作风格分组字典（通俗流行、叙事质感、情绪表达、网文专属、名作实测）
+  const WRITING_STYLE_GROUPS = [
+    {
+      group: '通俗流行类（网文主流）',
+      items: [
+        { value: 'cool_paced', label: '爽文文风 (直白干脆 / 冲突极速 / 即时满足)' },
+        { value: 'accessible_direct', label: '小白文风 (通俗易懂 / 零认知门槛 / 心理直观)' },
+        { value: 'light_novel', label: '轻小说文风 (日系对话 / 密集吐槽 / 轻快日常)' }
+      ]
+    },
+    {
+      group: '叙事质感类',
+      items: [
+        { value: 'realistic_restrained', label: '写实文风 (克制内敛 / 生活逻辑 / 细节刻画)' },
+        { value: 'rustic_folk', label: '质朴乡土风 (接地气方言 / 泥土芳香 / 市井烟火)' },
+        { value: 'gorgeous_rhetoric', label: '华丽辞藻风 (辞藻古雅 / 景物造境 / 声韵诗意)' },
+        { value: 'cold_minimalist', label: '清冷极简风 (高度克制 / 短句留白 / 孤傲疏离)' },
+        { value: 'heavy_epic', label: '厚重史诗风 (沉稳大气 / 宏大格局 / 群像调度)' }
+      ]
+    },
+    {
+      group: '情绪表达类',
+      items: [
+        { value: 'humorous_roast', label: '幽默诙谐/吐槽风 (喜剧反差 / 玩梗自嘲 / 爆笑搞笑)' },
+        { value: 'dark_oppressive', label: '压抑暗黑风 (绝望宿命 / 人性残酷 / 代价沉重)' },
+        { value: 'poetic_prose', label: '诗意散文风 (意象抒情 / 漫思从容 / 文学韵味)' },
+        { value: 'dramatic_high_conflict', label: '戏剧强冲突风 (对白见血 / 情绪如火 / 矛盾激化)' }
+      ]
+    },
+    {
+      group: '网文专属细分文风',
+      items: [
+        { value: 'veteran_composed', label: '老白文风 (逻辑严密 / 拒绝降智 / 因果深长)' },
+        { value: 'badass_reversal', label: '装逼流文风 (低调行事 / 侧面震惊 / 反差拉满)' },
+        { value: 'fragmented_short', label: '碎片化短句风 (全短句 / 高频分段 / 疾速阅读)' },
+        { value: 'delicate_lingering', label: '缱绻细腻风 (微表情动作 / 呼吸暗涌 / 极致拉扯)' },
+        { value: 'hardcore_verified', label: '硬核干货风 (行业术语 / 设定考据 / 真实壁垒)' },
+        { value: 'parody_meme', label: '戏仿/玩梗风 (解构经典 / 脑洞爆笑 / 反套路)' }
+      ]
+    },
+    {
+      group: '名作实测经典原型',
+      items: [
+        { value: 'yandere_harem_cultivation', label: '病娇反差 / 多女主修罗场与破防流' },
+        { value: 'classical_gritty_xianxia', label: '古典仙侠 / 天崩开局与实感求生流' },
+        { value: 'supernatural_tactics_order', label: '官方规制 / 历史超凡与战术攻防流' },
+        { value: 'street_calculating_martial', label: '低武市井 / 门派拜馆与冷硬算计流' },
+        { value: 'reformed_restaurant_era', label: '年代生活 / 破产餐馆与市井烟火流' },
+        { value: 'sequence_order_mystery', label: '诡秘秩序 / 魔药代价与隐秘低语流' },
+        { value: 'folk_yinyang_memoir', label: '中式民俗 / 阴阳行当与水旱禁忌流' },
+        { value: 'rebirth_noble_vengeance', label: '高门重生 / 摄政王契约与清醒夺权流' }
+      ]
+    }
+  ];
+
+  // 章节功能分类字典（7大功能 + 黄金三章 + 结尾钩子）
+  const CHAPTER_FUNCTION_GROUPS = [
+    {
+      group: '黄金三章与开篇破局',
+      items: [
+        { value: 'golden_ch1_hook', label: '黄金第1章·破局钩子章 (交代身份+抛出核心困境+留悬念)' },
+        { value: 'golden_ch2_goldfinger', label: '黄金第2章·金手指落地章 (亮出外挂+明确目标+首个小冲突)' },
+        { value: 'golden_ch3_first_cool', label: '黄金第3章·首秀爽点章 (首次破局+打出爽点+完成开篇闭环)' },
+        { value: 'character_debut', label: '人物登场章 (引出新角色+鲜明性格+建立关系网)' },
+        { value: 'worldview_setup', label: '世界观铺陈章 (结合剧情带出设定+避免说明文)' }
+      ]
+    },
+    {
+      group: '剧情推进类（故事主干）',
+      items: [
+        { value: 'conflict_push', label: '冲突推进章 (矛盾对抗推进 / 谈判博弈 / 局势升级)' },
+        { value: 'mission_execution', label: '任务执行章 (落地行动 / 调查闯关 / 按计划执行)' },
+        { value: 'info_reveal', label: '信息揭露章 (引爆伏笔 / 揭开真相 / 解密长线悬念)' },
+        { value: 'plot_twist', label: '转折章 (局势突变反转 / 顺风遇险 / 绝境转机)' },
+        { value: 'crucial_choice', label: '抉择章 (道德利益两难 / 走向分歧 / 人格弧光)' }
+      ]
+    },
+    {
+      group: '成长爽点类（核心情绪价值）',
+      items: [
+        { value: 'harvest_reward', label: '收获章 (宝物灵石入账 / 战利品清点 / 势力收编)' },
+        { value: 'breakthrough_upgrade', label: '突破升级章 (境界跃迁 / 实力质变 / 解锁新技能)' },
+        { value: 'face_slap', label: '打脸章 (先抑后扬 / 强势反制对手 / 兑现爽感)' }
+      ]
+    },
+    {
+      group: '过渡铺垫类（蓄力备战）',
+      items: [
+        { value: 'daily_foreshadow', label: '日常铺垫章 (休整复盘 / 暗藏伏笔 / 严防水文)' },
+        { value: 'dialogue_intel', label: '对话信息章 (密谈商议 / 交换情报 / 商定战略)' },
+        { value: 'time_skip', label: '时间跳跃章 (春秋笔法掠过 / 岁月沉淀 / 呈现新貌)' }
+      ]
+    },
+    {
+      group: '人物情感类（人物深度）',
+      items: [
+        { value: 'emotional_interaction', label: '情感互动章 (感情升温 / 产生误会 / 和解交心)' },
+        { value: 'character_inner', label: '人物内心章 (心理独白 / 创伤剖析 / 深化弧光)' },
+        { value: 'flashback_memory', label: '回忆闪回章 (往事穿插 / 前世今生 / 因果解释)' }
+      ]
+    },
+    {
+      group: '高潮收尾与结尾钩子',
+      items: [
+        { value: 'minor_climax', label: '小高潮章 (阶段决战 / 局部爆发 / 解决核心敌手)' },
+        { value: 'major_climax', label: '大高潮章 (终极决战 / 所有阵营卷入 / 终极真相)' },
+        { value: 'resolution_aftermath', label: '收尾解决章 (战后善后 / 利益分配 / 抚恤疗伤)' },
+        { value: 'cliffhanger_hook', label: '悬念留尾章 (5大结尾钩子 / 危机反转断章 / 迫不及待追读)' },
+        { value: 'volume_conclusion', label: '卷末收尾章 (全卷收束 / 人物沉淀 / 埋下卷引子)' },
+        { value: 'story_ending', label: '全书结局章 (终局落幕 / 人物归宿 / 史诗余韵)' }
+      ]
+    },
+    {
+      group: '特殊结构章节',
+      items: [
+        { value: 'interlude', label: '插叙章 (跳出主角视角 / 幕后势力密谋)' },
+        { value: 'side_story', label: '支线独立章 (核心配角遭遇 / 丰满群像)' },
+        { value: 'episodic_unit', label: '单元剧章节 (独立单元故事 / 小结闭环)' }
+      ]
+    }
+  ];
+
+  // 该章侧重点选项
+  const CHAPTER_FOCUS_OPTIONS = [
+    { value: 'balanced', label: '综合推进 (剧情推进 / 节奏均衡)' },
+    { value: 'dialogue', label: '对话博弈 (机锋对白 / 试探底线 / 信息差)' },
+    { value: 'action', label: '动作战斗 (物理对抗 / 拳拳到肉 / 招式破坏)' },
+    { value: 'environment', label: '环境氛围 (空间冷硬 / 感官沉浸 / 气氛压迫)' },
+    { value: 'psychological', label: '心理暗涌 (反差内心 / 算计隐忍 / 情绪波澜)' },
+    { value: 'tactics', label: '智斗谋略 (布局设套 / 借刀杀人 / 博弈推演)' },
+    { value: 'suspense', label: '悬念破局 (伏笔收束 / 线索反转 / 危机迫近)' },
+    { value: 'emotional', label: '情感拉扯 (羁绊旧事 / 外壳碎裂 / 傲娇暧昧)' },
+    { value: 'farming', label: '种田经营 (资源核算 / 势力发育 / 功法参悟)' }
+  ];
+
   function buildGenreFamilyOptions(state) {
-    const curFamily = (state && state.genreFamily) || 'all';
-    const allOpt = `<option value="all" ${curFamily === 'all' || !curFamily ? 'selected' : ''}>全部 / 智能匹配 (auto)</option>`;
-    const options = Object.entries(GENRE_FAMILY_MAP).map(([key, item]) => {
-      return `<option value="${key}" ${curFamily === key ? 'selected' : ''}>${item.title}</option>`;
+    const curGenre = (state && (state.novelGenre || state.genreFamily || state.genre)) || 'all';
+    const allOpt = `<option value="all" ${curGenre === 'all' || !curGenre ? 'selected' : ''}>全部 / 智能匹配 (auto)</option>`;
+    const groupsHtml = NOVEL_GENRE_GROUPS.map(g => {
+      const itemsHtml = g.items.map(item =>
+        `<option value="${item.value}" ${curGenre === item.value ? 'selected' : ''}>${item.label}</option>`
+      ).join('');
+      return `<optgroup label="${g.group}">${itemsHtml}</optgroup>`;
     }).join('');
-    return allOpt + options;
+    return allOpt + groupsHtml;
   }
 
-  function buildGenreRouteOptions(state, explicitFamily) {
-    const currentRoute = (state && (state.genreRoute || state.xuanhuanRoute)) || 'auto';
-    const curFamily = explicitFamily !== undefined ? explicitFamily : ((state && state.genreFamily) || 'all');
+  function buildWritingStyleOptions(state) {
+    const curStyle = (state && (state.writingStyle || state.archetypeOverride || state.styleArchetype)) || '';
+    const autoOpt = `<option value="" ${!curStyle ? 'selected' : ''}>(自动匹配提示词 / 智能识别)</option>`;
+    const groupsHtml = WRITING_STYLE_GROUPS.map(g => {
+      const itemsHtml = g.items.map(item =>
+        `<option value="${item.value}" ${curStyle === item.value ? 'selected' : ''}>${item.label}</option>`
+      ).join('');
+      return `<optgroup label="${g.group}">${itemsHtml}</optgroup>`;
+    }).join('');
+    return autoOpt + groupsHtml;
+  }
 
-    if (curFamily && curFamily !== 'all' && GENRE_FAMILY_MAP[curFamily]) {
-      const fam = GENRE_FAMILY_MAP[curFamily];
-      const autoOption = `<option value="auto" ${currentRoute === 'auto' || !currentRoute ? 'selected' : ''}>自动 / 智能识别 (auto) · ${fam.title}优选</option>`;
-      const routesOptions = fam.routes.map(r => `<option value="${r.value}" ${(currentRoute === r.value || currentRoute === r.legacyValue) ? 'selected' : ''}>${r.label}</option>`).join('');
-      return autoOption + routesOptions;
+  function buildChapterFunctionOptions(state) {
+    const curFunc = (state && (state.chapterFunction || state.chapterPurpose)) || '';
+    const autoOpt = `<option value="" ${!curFunc ? 'selected' : ''}>综合推进 (根据剧情自然推进)</option>`;
+    const groupsHtml = CHAPTER_FUNCTION_GROUPS.map(g => {
+      const itemsHtml = g.items.map(item =>
+        `<option value="${item.value}" ${curFunc === item.value ? 'selected' : ''}>${item.label}</option>`
+      ).join('');
+      return `<optgroup label="${g.group}">${itemsHtml}</optgroup>`;
+    }).join('');
+    return autoOpt + groupsHtml;
+  }
+
+  function buildChapterFocusOptions(state) {
+    const curFocus = (state && (state.chapterFocus || state.focus)) || 'balanced';
+    return CHAPTER_FOCUS_OPTIONS.map(opt =>
+      `<option value="${opt.value}" ${curFocus === opt.value ? 'selected' : ''}>${opt.label}</option>`
+    ).join('');
+  }
+
+  const ENDING_HOOK_OPTIONS = [
+    { value: '', label: '自然收束 (根据剧情自然落地)' },
+    { value: 'crisis', label: '危机钩 (突发致命危机 / 生死一线 / 强敌迫近)' },
+    { value: 'suspense', label: '悬念钩 (认知颠覆悬念 / 诡异物证 / 巨大问号)' },
+    { value: 'twist', label: '反转钩 (局势惊天逆转 / 胜算化为圈套 / 攻守易位)' },
+    { value: 'anticipation', label: '期待钩 (预告决战大比 / 底牌蓄势待发 / 期待打脸)' },
+    { value: 'emotional', label: '情感钩 (防线失守动容 / 震撼告白决绝 / 情感引爆)' }
+  ];
+
+  function buildEndingHookOptions(state) {
+    const curHook = (state && (state.endingHook || state.hook)) || '';
+    return ENDING_HOOK_OPTIONS.map(opt =>
+      `<option value="${opt.value}" ${curHook === opt.value ? 'selected' : ''}>${opt.label}</option>`
+    ).join('');
+  }
+
+  function buildArchetypeSelectOptions(state, explicitFamily) {
+    return buildWritingStyleOptions(state);
+  }
+
+  function parseEditorWordBudget(text, options = {}) {
+    const s = String(text || '');
+    const numMap = { '零':0, '一':1, '二':2, '两':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9 };
+    const parseCn = str => {
+      if (!str) return 0;
+      if (/^[0-9]+$/.test(str)) return parseInt(str, 10);
+      let t = 0, cur = 0;
+      for (const ch of str) {
+        if (numMap[ch] !== undefined) cur = numMap[ch];
+        else if (ch === '千') { t += (cur || 1) * 1000; cur = 0; }
+        else if (ch === '百') { t += (cur || 1) * 100; cur = 0; }
+        else if (ch === '十') { t += (cur || 1) * 10; cur = 0; }
+        else if (ch === '万') { t = (t + cur) * 10000; cur = 0; }
+      }
+      return t + cur;
+    };
+    const rangeMatch = s.match(/(?:字数约?|篇幅约?|目标约?|控制在约?)?\s*([0-9]{3,5}|[一二两三四五六七八九千百]+)\s*(?:[-—~～至到]|到\s*)\s*([0-9]{3,5}|[一二两三四五六七八九千百]+)\s*字/);
+    if (rangeMatch) {
+      const min = parseCn(rangeMatch[1]);
+      const max = parseCn(rangeMatch[2]);
+      if (min > 0 && max > 0 && min <= max && min >= 300) {
+        return { hasUserInstruction: true, min, max, target: Math.round((min + max) / 2), summary: `用户指定篇幅：${min} ~ ${max} 字（目标约 ${Math.round((min + max) / 2)} 字）` };
+      }
     }
+    const atLeastMatch = s.match(/(?:不少于|至少|起码|大于)\s*([0-9]{3,5}|[一二两三四五六七八九千百]+)\s*字/);
+    if (atLeastMatch) {
+      const min = parseCn(atLeastMatch[1]);
+      if (min >= 300) return { hasUserInstruction: true, min, max: Math.round(min * 1.25), target: Math.round(min * 1.1), summary: `用户指定篇幅：不少于 ${min} 字` };
+    }
+    const atMostMatch = s.match(/(?:不超过|至多|少于|小于)\s*([0-9]{3,5}|[一二两三四五六七八九千百]+)\s*字|([0-9]{3,5}|[一二两三四五六七八九千百]+)\s*字(?:以内|以下)/);
+    if (atMostMatch) {
+      const max = parseCn(atMostMatch[1] || atMostMatch[2]);
+      if (max >= 300) return { hasUserInstruction: true, min: Math.round(max * 0.75), max, target: Math.round(max * 0.9), summary: `用户指定篇幅：不超过 ${max} 字` };
+    }
+    const singleMatch = s.match(/(?:写|扩写|续写|字数|篇幅|约|大约|目标)?\s*([0-9]{3,5}|[一二两三四五六七八九千百]+)\s*字(?:左右|上下)?/);
+    if (singleMatch) {
+      const val = parseCn(singleMatch[1]);
+      const isChap = new RegExp('第\\s*' + singleMatch[1] + '\\s*[章节回]').test(s);
+      if (val >= 300 && val <= 30000 && !isChap) {
+        return { hasUserInstruction: true, min: Math.round(val * 0.85), max: Math.round(val * 1.15), target: val, summary: `用户指定篇幅：约 ${val} 字` };
+      }
+    }
+    if (options && (options.targetWords || options.targetChars)) {
+      const val = Number(options.targetWords || options.targetChars);
+      if (val > 0 && val !== 3000) {
+        return { hasUserInstruction: true, min: Math.round(val * 0.85), max: Math.round(val * 1.15), target: val, summary: `配置指定篇幅：约 ${val} 字` };
+      }
+    }
+    return { hasUserInstruction: false, min: 2500, max: 3500, target: 3000, summary: '默认章节篇幅：2500 ~ 3500 字一章（基准约 3000 字）' };
+  }
 
-    const autoOption = `<option value="auto" ${currentRoute === 'auto' || !currentRoute ? 'selected' : ''}>自动 / 智能识别 (auto) · 题材智能匹配 (推荐兜底)</option>`;
-    const groupsMarkup = Object.values(GENRE_FAMILY_MAP).map(g => `<optgroup label="${g.title}">${g.routes.map(r => `<option value="${r.value}" ${(currentRoute === r.value || currentRoute === r.legacyValue) ? 'selected' : ''}>${r.label}</option>`).join('')}</optgroup>`).join('');
-    return autoOption + groupsMarkup;
+  // 保持兼容旧调用的存根函数
+  function buildGenreRouteOptions(state, explicitFamily) {
+    return buildChapterFocusOptions(state);
   }
 (function () {
   'use strict';
@@ -380,29 +687,53 @@
 
   function sanitizeAiFlavor(raw) {
     if (typeof raw !== 'string' || !raw) return '';
-    return raw
-      .replace(/(?:喉咙|咽喉)发紧/g, '呼吸粗重')
-      .replace(/(?:指节|指头|指尖|骨节|指骨)(?:泛白|发白)/g, '手指用力')
-      .replace(/心跳漏了一拍/g, '心头一沉')
-      .replace(/呼吸(?:一滞|骤停)/g, '屏住呼吸')
-      .replace(/下颌紧绷/g, '面色紧绷')
-      .replace(/后颈(?:发凉|一凉)/g, '后背发凉')
+    let result = raw
+      // 0. 清除思考碎片与元指令独白
+      .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '')
+      .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+      .replace(/^\s*\*Draft\s*\d+[\s\S]*?\n(?=[一-龥“])/gm, '')
+      .replace(/(?:心(?:头|中)|暗自)(?:飞速|急速|飞快|微)?(?:转过|闪过|掠过|升起|涌起)(?:一个|数个|一丝|几分)?(?:阴毒|阴沉|狠厉|复杂|算计|冰冷|怨毒)?的?念头[：:](?:“|‘)?([^”’\n]{2,100})(?:”|’)?/g, '心中暗忖：$1')
+      .replace(/(?:心(?:头|中)|暗自)(?:暗想|寻思|默念)[：:](?:“|‘)([^”’\n]{2,100})(?:”|’)/g, '心底盘算：$1')
+      // 1. 净化真实受力与内伤套话 (R-37)
+      .replace(/(?:喉头|喉咙)(?:一甜|泛起(?:一[丝抹点])?腥甜)|(?:体内)?气血翻涌/g, '胸口如遭重锤，腥气直冲齿缝')
+      .replace(/(?:震得|震得那?)(?:脚底|双脚|双腿|脚掌|虎口|手腕|手臂|五脏|耳膜|整个人)(?:发麻|发木|发酸|生疼|嗡嗡作响)/g, '掌中生铁剧烈震荡')
+      // 2. 净化神态与骨节套话 (R-14, R-42)
+      .replace(/(?:嘴角|唇角)[^。！？\n]{0,8}(?:勾起|扯起|挑起|扬起|微微勾起|缓缓勾起|浮现|挂着|掀起)[^。！？\n]{0,8}(?:一抹)?[^。！？\n]{0,8}(?:弧度|笑意|笑容|冷笑|阴狠|玩味|意味难明|讥诮)/g, '眼角微抬，冷冷吐出半句话')
+      .replace(/唇角/g, '嘴角')
+      .replace(/(?:指节|指头|指尖|骨节|指骨|关节|手指|手背)[^，。\n]{0,8}(?:泛白|发白|变白|毫无血色|失去血色|硌得发白|捏得发白|攥得发白)/g, '右手死死扣住生铁护手')
+      // 3. 瞳孔与神经反射 (R-36, R-40)
+      .replace(/瞳孔(?:骤然|猛然|急速|猛地)?(?:收缩|放大|骤缩)/g, '视线瞬间压低')
+      .replace(/心跳(?:骤然|猛然)?漏了一拍|心跳漏了半拍/g, '胸口骤然一紧')
+      .replace(/呼吸(?:骤然|猛然|不由得)?一滞|呼吸(?:一紧|骤停)/g, '气息猛地顿住')
+      .replace(/下颌(?:线)?(?:骤然)?(?:绷紧|收紧)|面色紧绷/g, '面色沉如铁石')
+      .replace(/后颈(?:发凉|一凉|汗毛倒竖)|一股凉气从脚底/g, '后心渗出一层寒意')
       .replace(/手心(?:全是冷汗|满是冷汗|冒冷汗|冷汗)/g, '掌心黏湿')
-      .replace(/牙关紧咬/g, '咬紧牙关')
-      .replace(/(?:指腹|指肚|拇指|大拇指)反复?摩挲/g, '手指抚过')
-      .replace(/食指轻叩(?:桌面|桌案)/g, '手指按在桌上')
-      .replace(/指尖(?:骤然)?(?:一顿|悬在半空|僵在半空)/g, '动作微顿')
-      .replace(/掐(?:进|入)掌心/g, '攥紧拳头')
-      .replace(/按揉发胀的太阳穴/g, '揉了揉眉心')
-      .replace(/后槽牙咬得咯咯作响/g, '紧咬着牙')
-      .replace(/喉结上下滚动/g, '移开视线')
-      .replace(/倒吸一口凉气/g, '暗吸一口气')
-      .replace(/嘴角勾起一抹(?:玩味的)?弧度/g, '眼神微动')
+      .replace(/牙关紧咬|牙关咬得咯咯作响/g, '咬紧牙关')
+      .replace(/(?:倒吸|深吸)一口凉气/g, '下意识屏住呼吸')
+      // 4. 视线游走与局部主体化 (R-13)
+      .replace(/(?:目光|视线)在(?:屋[内里]|四周|场中|众人身上)转了一圈/g, '视线扫过屋内各处')
+      .replace(/目光如刀(?:削)?|目光锐利如刀/g, '冷冷看着对方眉心')
+      .replace(/死一般的寂静|像一潭死水/g, '屋内落针可闻')
+      .replace(/面沉如水/g, '面无表情')
+      .replace(/如断线风筝(?:般)?(?:倒飞|跌落)?/g, '身躯失控砸翻两张木桌')
+      // 5. 净化隐性翻译腔与句式僵化
       .replace(/在这一刻显得格外/g, '此时格外')
       .replace(/无不在昭示着/g, '无不显露出')
       .replace(/带着一种不容置疑的/g, '带着不容置疑的')
       .replace(/试图去寻找/g, '试图寻找')
       .replace(/不得不承认的是/g, '平心而论');
+
+    // 结尾闭合防截断
+    const hasTerminal = /[。！？……”’]$/.test(result.trim());
+    if (!hasTerminal && result.length > 200) {
+      const lastPunct = Math.max(result.lastIndexOf('。'), result.lastIndexOf('！'), result.lastIndexOf('？'), result.lastIndexOf('”'));
+      if (lastPunct > result.length - 80 && lastPunct > 100) {
+        result = result.slice(0, lastPunct + 1);
+      } else {
+        result = result + '。';
+      }
+    }
+    return result;
   }
 
   function foreshadowDisplayId(item, index) {
@@ -1928,29 +2259,23 @@
     const skillSelect = `<select class="ai-select" data-completion-skill aria-label="固定写作 Skill" disabled title="AI 编辑器固定使用指定的高张力写作 Skill"><option value="${EDITOR_ONLY_SKILL_ID}">固定：高张力写作 Skill</option></select>`;
     const history = '<select class="ai-select" data-completion-history aria-label="选择历史会话"><option value="">当前会话</option></select>';
     const thinkingControl = '<label class="ai-control-field" data-completion-thinking-field><span class="ai-control-field__label">思考强度</span><select class="ai-select" data-completion-thinking-control aria-label="选择思考强度" title="当前模型的官方思考强度"><option value="">正在读取模型能力…</option></select></label>';
-    const genreFamilySelect = `<label class="ai-control-field" data-completion-family-field title="选择小说题材所属母类"><span class="ai-control-field__label">小说类型</span><select class="ai-select" data-completion-genre-family aria-label="选择小说类型母类">${buildGenreFamilyOptions(state)}</select></label>`;
-    const xuanhuanRouteSelect = `<label class="ai-control-field" data-completion-xuanhuan-field title="全题材名家精读沉淀的叙事决策引擎"><span class="ai-control-field__label">叙事引擎</span><select class="ai-select" data-completion-xuanhuan-route aria-label="选择叙事路线">${buildGenreRouteOptions(state)}</select></label>`;
+    const genreFamilySelect = `<label class="ai-control-field" data-completion-family-field title="选择小说题材所属分类"><span class="ai-control-field__label">小说题材</span><select class="ai-select" data-completion-genre-family aria-label="选择小说题材">${buildGenreFamilyOptions(state)}</select></label>`;
+    const chapterFunctionSelect = `<label class="ai-control-field" data-completion-function-field title="选择本章承担的功能定位（黄金三章/推进/打脸/铺垫/高潮等）"><span class="ai-control-field__label">本章功能</span><select class="ai-select" data-completion-chapter-function aria-label="选择本章功能">${buildChapterFunctionOptions(state)}</select></label>`;
+      const chapterFocusSelect = `<label class="ai-control-field" data-completion-focus-field title="选择本章镜头侧重点（对话/战斗/环境/心理/智斗/情感等）"><span class="ai-control-field__label">该章侧重点</span><select class="ai-select" data-completion-chapter-focus aria-label="选择该章侧重点">${buildChapterFocusOptions(state)}</select></label>`;
+    const endingHookSelect = `<label class="ai-control-field" data-completion-hook-field title="选择章末结尾断章钩子（危机/悬念/反转/期待/情感等）"><span class="ai-control-field__label">结尾钩子</span><select class="ai-select" data-completion-ending-hook aria-label="选择结尾钩子">${buildEndingHookOptions(state)}</select></label>`;
     const styleDetectorControl = `<div class="ai-control-field" data-completion-style-detector-box style="display:flex;flex-direction:column;gap:3px;padding:4px 10px;background:rgba(0,0,0,0.02);border-radius:6px;margin:2px 0">
       <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
-        <span style="display:flex;align-items:center;gap:3px;color:var(--text-secondary,#666)">文风原型</span>
+        <span style="display:flex;align-items:center;gap:3px;color:var(--text-secondary,#666)">写作风格</span>
         <span data-completion-style-badge style="font-weight:600;color:var(--accent,#4f46e5);font-size:10px">自动匹配</span>
       </div>
-      <select class="ai-select" data-completion-archetype-override style="height:24px;font-size:10px;padding:0 4px" aria-label="手动覆盖文风原型">
-        <option value="">(自动匹配提示词)</option>
-        <option value="humorous_sand_sculpture">沙雕爆笑/反差爽文</option>
-        <option value="epic_grandeur">史诗宏大/高维玄幻</option>
-        <option value="workplace_inversion">打工反卷/宗门反杀</option>
-        <option value="sweet_healing_pet">甜宠治愈/微表情拉扯</option>
-        <option value="hardcore_progression">苟道凡人/利益算计</option>
-        <option value="creepy_folklore">民俗规则/悬疑怪谈</option>
-        <option value="dark_calculating">极致利己/冷酷博弈</option>
-        <option value="urban_face_slap">都市逆袭/极速打脸</option>
+      <select class="ai-select" data-completion-archetype-override style="height:24px;font-size:10px;padding:0 4px" aria-label="选择写作风格">
+        ${buildWritingStyleOptions(state)}
       </select>
     </div>`;
     const creationCost = state.creationBookId ? '<div data-completion-creation-cost class="section-note" style="padding:4px 12px 0;font-size:10px">创作书预算正在读取…</div>' : '';
-    const paramsDrawer = `<details class="ai-params-drawer" data-completion-params-drawer><summary class="ai-params-summary"><span class="ai-params-summary-title">创作参数</span><span class="ai-params-summary-hint" data-completion-params-hint>题材·思考·文风设置</span><span class="ai-params-toggle-text">展开 ▾</span></summary><div class="ai-params-body"><label class="ai-control-field" style="margin-top:2px"><span class="ai-control-field__label">写作预设</span>${skillSelect}</label><label class="ai-control-field"><span class="ai-control-field__label">历史会话</span>${history}</label>${thinkingControl}${genreFamilySelect}${xuanhuanRouteSelect}${styleDetectorControl}${creationCost}</div></details>`;
-    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div>${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述你想让 AI 完成的创作任务…（Enter 发送，Shift + Enter 换行）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
-   }
+    const paramsDrawer = `<details class="ai-params-drawer" data-completion-params-drawer><summary class="ai-params-summary"><span class="ai-params-summary-title">创作参数</span><span class="ai-params-summary-hint" data-completion-params-hint>题材·风格·功能·侧重点·钩子</span><span class="ai-params-toggle-text">展开 ▾</span></summary><div class="ai-params-body"><label class="ai-control-field" style="margin-top:2px"><span class="ai-control-field__label">写作预设</span>${skillSelect}</label><label class="ai-control-field"><span class="ai-control-field__label">历史会话</span>${history}</label>${thinkingControl}${genreFamilySelect}${styleDetectorControl}${chapterFunctionSelect}${chapterFocusSelect}${endingHookSelect}${creationCost}</div></details>`;
+    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div>${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip" data-completion-action="assemble-final-prompt" style="color:var(--accent,#4f46e5);font-weight:600;background:rgba(79,70,229,0.06);border-color:rgba(79,70,229,0.3)" title="组装当前选择的题材+文风+章节目标+侧重点+钩子及输入指令，生成结构化最终提示词">🔍 组装最终提示词</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述你想让 AI 完成的创作任务…（Enter 发送，Shift + Enter 换行）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
+    }
 
   function renderEditorNav() {
     const stageNode = getStage();
@@ -2229,6 +2554,16 @@
     toast('已新建 AI 会话');
   }
 
+  function isRealGenerationV2Run(run, item) {
+    if (!run || typeof run !== 'object') return false;
+    if (!item || typeof item !== 'object') return false;
+    if (item.legacyBenchmark === true) return false;
+    if (run.generationV2 !== true || item.generationV2 !== true) return false;
+    if (typeof run.remoteRunId !== 'string' || !run.remoteRunId.trim()) return false;
+    if (!run.commitBase || typeof run.commitBase !== 'object') return false;
+    return true;
+  }
+
   function renderEditorChat() {
     const stageNode = getStage();
     const chat = stageNode && stageNode.querySelector('#completionEditorChat');
@@ -2251,6 +2586,7 @@
     };
     const items = records.map((item, index) => {
       const run = (editorState(false)?.generationRuns || []).find(record => record && record.id === item.workflowRunId);
+      const isRealV2 = isRealGenerationV2Run(run, item);
       const pendingCommit = run && run.pendingCommit;
       const reviewBlocked = ['needs_review', 'failed', 'interrupted', 'paused', 'commit_conflict'].includes(item.status) || run && ['needs_review', 'commit_conflict'].includes(run.status);
       const isNeedsReview = item.status === 'needs_review' || (run && run.status === 'needs_review');
@@ -2267,7 +2603,7 @@
               ? '<span class="badge gray" style="display:inline-block;margin-bottom:4px">生成未完成</span>'
               : '')));
       const hasAudit = Boolean(item.audit && (item.audit.summary || (Array.isArray(item.audit.issues) && item.audit.issues.length)));
-      const adoptBtn = (isNeedsReview && !generationPending && !item.generationV2) ? `<button class="button primary" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-adopt="${index}">直接采纳</button>` : '';
+      const adoptBtn = '';
       const reviseBtn = hasAudit ? `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-revise="${index}" data-feature="AI_AUDIT" data-action="audit-revise">按建议优化</button>` : '';
       const retryBtn = item.retryPrompt ? `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-retry="${index}">重新生成</button>` : '';
       const notice = item.errorNotice ? `<div style="margin-bottom:6px;color:var(--amber,#f59e0b);font-size:9px">${esc(item.errorNotice)}</div>` : '';
@@ -2283,21 +2619,33 @@
       if (hasResult && !item.resultId && !generationPending) {
         item.resultId = uid('ai-result');
         runtime.pendingResults = Array.isArray(runtime.pendingResults) ? runtime.pendingResults : [];
-        if (!runtime.pendingResults.some(r => r && r.id === item.resultId)) {
+        if (!runtime.pendingResults.some(resultRecord => resultRecord && resultRecord.id === item.resultId)) {
           runtime.pendingResults.push({ id: item.resultId, text: item.text, createdAt: Date.now() });
         }
       }
 
       const effectiveAudit = pendingCommit ? run?.audit : (item.audit || run?.audit);
       const auditPassed = effectiveAudit ? normalizeAudit(effectiveAudit).passed : (item.status === 'ready' || !reviewBlocked);
-      const badgeText = generationPending ? '生成 / 审校中 · 可复制' : isNeedsReview ? '审校建议 · 可采纳或优化' : reviewBlocked ? '未完成 · 仅供查看或复制' : pendingCommit ? '正文已保留 · 待确认提交' : run && run.status === 'accepted' ? '已采纳' : '待确认落点';
+      const badgeText = generationPending ? '生成 / 审校中 · 可复制' : (!isRealV2 && hasActionableProse) ? '历史草稿 · 可复制' : isNeedsReview ? '审校建议 · 可优化' : reviewBlocked ? '未完成 · 仅供查看或复制' : pendingCommit ? '正文已保留 · 待确认提交' : run && run.status === 'accepted' ? '已采纳' : '待确认落点';
       const badgeClass = isNeedsReview || reviewBlocked || pendingCommit ? 'amber' : 'blue';
       const auditIssuesHtml = (item.audit && Array.isArray(item.audit.issues) && item.audit.issues.length)
-        ? `<details style="margin-top:4px;font-size:9px;color:var(--muted)"><summary style="cursor:pointer;user-select:none">查看 ${item.audit.issues.length} 条审校建议 ▾</summary><div style="margin-top:4px;line-height:1.6;padding:4px 6px;background:var(--card,var(--paper-warm,#f9f8f6));border:1px solid var(--line);border-radius:3px">${item.audit.issues.slice(0, 6).map(iss => `<div>• ${esc(iss.problem || iss.detail || iss)}${iss.fix ? ` <span style="color:var(--ink-light,var(--muted))">（建议：${esc(iss.fix)}）</span>` : ''}</div>`).join('')}</div></details>`
+        ? `<details style="margin-top:4px;font-size:9px;color:var(--muted)"><summary style="cursor:pointer;user-select:none">查看 ${item.audit.issues.length} 条审校建议 ▾</summary><div style="margin-top:4px;line-height:1.6;padding:4px 6px;background:var(--card,var(--paper-warm,#f9f8f6));border:1px solid var(--line);border-radius:3px">${item.audit.issues.slice(0, 6).map(issueItem => `<div>• ${esc(issueItem.problem || issueItem.detail || issueItem)}${issueItem.fix ? ` <span style="color:var(--ink-light,var(--muted))">（建议：${esc(issueItem.fix)}）</span>` : ''}</div>`).join('')}</div></details>`
         : '';
 
       const applyTargets = item.generationV2 ? ['body'] : ['body', 'setting', 'outline', 'foreshadow'];
-      const applyButtons = applyTargets.map(target => `<button class="button ${target === 'body' && !generationPending && !reviewBlocked && !pendingCommit ? 'primary' : ''}" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-apply="${target}" data-result-index="${index}"${target === 'body' && item.generationV2 ? ' data-feature="AI_COMMIT" data-action="ai-commit"' : ''}${generationPending || reviewBlocked || (pendingCommit && target !== 'body') ? ' disabled' : ''}>${target === 'body' ? (pendingCommit ? '确认提交' : '写入正文') : target === 'setting' ? '保存设定' : target === 'outline' ? '保存大纲' : '记录伏笔'}</button>`).join('');
+      const applyButtons = applyTargets.map(target => {
+        if (target === 'body') {
+          const isCommitAction = Boolean(pendingCommit);
+          const buttonLabel = isCommitAction ? '确认提交' : '写入正文';
+          const isBlocked = !isRealV2 || generationPending || reviewBlocked;
+          const buttonClass = (!isBlocked && !pendingCommit) ? 'primary' : '';
+          const disabledAttr = isBlocked ? ' disabled' : '';
+          const titleAttr = !isRealV2 ? ' title="非正式 Generation V2 任务禁止正式采纳正文，可复制或重新生成"' : '';
+          const featureAttr = isRealV2 ? ' data-feature="AI_COMMIT" data-action="ai-commit"' : '';
+          return `<button class="button ${buttonClass}" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-apply="${target}" data-result-index="${index}"${featureAttr}${titleAttr}${disabledAttr}>${buttonLabel}</button>`;
+        }
+        return `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-apply="${target}" data-result-index="${index}"${generationPending || reviewBlocked || (pendingCommit && target !== 'body') ? ' disabled' : ''}>${target === 'setting' ? '保存设定' : target === 'outline' ? '保存大纲' : '记录伏笔'}</button>`;
+      }).join('');
       const actionRow = hasResult ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px"><span class="badge ${badgeClass}">${badgeText}</span>${item.audit ? `<div style="margin-top:6px;color:var(--muted);font-size:9px">审计 ${esc(normalizeAudit(item.audit).status)}${item.audit.summary ? `：${esc(item.audit.summary)}` : ''}</div>` : ''}${auditIssuesHtml}${run ? `<div class="chat-usage-meta">${esc(generationUsageSummary(run))}</div>` : ''}<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${applyButtons}<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-copy data-result-index="${index}">复制</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--blue);border-color:var(--blue)" data-completion-ai-memory-extract="${index}" title="从本段提取候选事实与认知变化">${ico('scan')}提取记忆变更</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-style-audit="${index}" title="检测本段文风套话与节奏">${ico('activity')}文风质检</button>${adoptBtn}${reviseBtn}${retryBtn}</div></div>` : (retryBtn ? `<div style="margin-top:6px">${retryBtn}</div>` : '');
       return `<div class="chat-message ${item.kind === 'user' ? 'user' : ''}"><span class="chat-avatar">${item.kind === 'user' ? '你' : '墨'}</span><div class="chat-bubble">${stageLabel}${statusBadge}${notice}${esc(item.text).replace(/\n/g, '<br>')}${actionRow}</div></div>`;
     }).join('');
@@ -2354,6 +2702,7 @@
     if (/gpt-6-luna/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: COMPLETION_OFFICIAL_REASONING.slice() };
     if (/gpt-5\.6/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: COMPLETION_OFFICIAL_REASONING.slice() };
     if (/gpt-5\.(2|4|5)/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh'] };
+    if (/gemini.*(3\.[1678]|pro|flash)|3\.[1678]f|3\.1pro/i.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] };
     if (/deepseek.*(v4|r1|reason|think)/.test(normalized)) return { id: modelId, model: modelId, supportsThinking: true };
     return null;
   }
@@ -2367,6 +2716,7 @@
     if (/gpt-6-luna/.test(name)) return COMPLETION_OFFICIAL_REASONING.slice();
     if (/gpt-5\.6/.test(name)) return COMPLETION_OFFICIAL_REASONING.slice();
     if (/gpt-5\.(2|4|5)/.test(name)) return ['none', 'low', 'medium', 'high', 'xhigh'];
+    if (/gemini/i.test(name)) return ['none', 'low', 'medium', 'high'];
     return ['none', 'low', 'medium', 'high'];
   }
 
@@ -2414,10 +2764,16 @@
     const hintNode = stageNode && stageNode.querySelector('[data-completion-params-hint]');
     if (!hintNode) return;
     const familySelect = stageNode.querySelector('[data-completion-genre-family]');
-    const thinkingSelect = stageNode.querySelector('[data-completion-thinking-control]');
-    const familyText = familySelect && familySelect.options[familySelect.selectedIndex]?.text?.split('/')[0]?.trim() || '全题材';
-    const thinkingText = thinkingSelect && thinkingSelect.options[thinkingSelect.selectedIndex]?.text?.replace(/思考[强度模式]\s*·?\s*/, '')?.trim() || '默认';
-    hintNode.textContent = `${familyText} · ${thinkingText}`;
+    const styleSelect = stageNode.querySelector('[data-completion-archetype-override]');
+    const funcSelect = stageNode.querySelector('[data-completion-chapter-function]');
+    const focusSelect = stageNode.querySelector('[data-completion-chapter-focus]');
+    const hookSelect = stageNode.querySelector('[data-completion-ending-hook]');
+    const familyText = familySelect && familySelect.value !== 'all' ? (familySelect.options[familySelect.selectedIndex]?.text?.split('(')[0]?.trim() || '定制题材') : '全题材';
+    const styleText = styleSelect && styleSelect.value ? (styleSelect.options[styleSelect.selectedIndex]?.text?.split('(')[0]?.trim() || '定制风格') : '智能风格';
+    const funcText = funcSelect && funcSelect.value ? (funcSelect.options[funcSelect.selectedIndex]?.text?.split('(')[0]?.trim() || '特定功能') : '自然推进';
+    const focusText = focusSelect && focusSelect.options[focusSelect.selectedIndex]?.text?.split('(')[0]?.trim() || '综合推进';
+    const hookText = hookSelect && hookSelect.value ? (hookSelect.options[hookSelect.selectedIndex]?.text?.split('(')[0]?.trim() || '特定钩子') : '自然收束';
+    hintNode.textContent = `${familyText} · ${styleText} · ${funcText} · ${focusText} · ${hookText}`;
   }
 
   function renderCreationCost(state) {
@@ -3377,14 +3733,36 @@
   }
 
   function editorRequestOptions(stageNode, extras) {
-    const archetypeOverride = (stageNode && stageNode.querySelector('[data-completion-archetype-override]') || {}).value;
+    const genreFamily = (stageNode && stageNode.querySelector('[data-completion-genre-family]') || {}).value;
+    const writingStyle = (stageNode && stageNode.querySelector('[data-completion-archetype-override]') || {}).value;
+    const chapterFunction = (stageNode && stageNode.querySelector('[data-completion-chapter-function]') || {}).value;
+    const focusValue = (stageNode && stageNode.querySelector('[data-completion-chapter-focus]') || {}).value;
+    const endingHookValue = (stageNode && stageNode.querySelector('[data-completion-ending-hook]') || {}).value;
+    const promptValue = (extras && extras.prompt) || (stageNode && stageNode.querySelector('[data-completion-prompt]') || {}).value || '';
+    const wordBudget = typeof parseEditorWordBudget === 'function'
+      ? parseEditorWordBudget(promptValue, extras)
+      : {
+          target: (extras && (extras.targetWords || extras.wordTarget)) || 2000,
+          min: Math.round(((extras && (extras.targetWords || extras.wordTarget)) || 2000) * 0.85),
+          max: Math.round(((extras && (extras.targetWords || extras.wordTarget)) || 2000) * 1.15),
+          summary: `目标篇幅约 ${(extras && (extras.targetWords || extras.wordTarget)) || 2000} 字`
+        };
     const preview = getPreview();
     const requestOptions = {
       model: (stageNode.querySelector('[data-completion-model]') || {}).value || undefined,
       stage: 'writing',
       projectId: isServerNovelId(preview.novelId) ? String(preview.novelId) : undefined,
       genre: resolveEditorGenre(editorState(false)),
-      styleArchetype: archetypeOverride || undefined,
+      genreFamily: (genreFamily && genreFamily !== 'all') ? genreFamily : undefined,
+      novelGenre: (genreFamily && genreFamily !== 'all') ? genreFamily : undefined,
+      writingStyle: writingStyle || undefined,
+      styleArchetype: writingStyle || undefined,
+      chapterFunction: chapterFunction || undefined,
+      chapterFocus: focusValue || 'balanced',
+      endingHook: endingHookValue || undefined,
+      targetWords: wordBudget.target,
+      targetChars: wordBudget.target,
+      wordBudget,
       disableClientTimeout: true,
       correctionPolicy: true,
       ...(extras || {}),
@@ -4127,9 +4505,23 @@
       } catch (_) { /* 债务账本不可用时静默降级 */ }
     }
     const bibleTargetWords = Number(state.creationContext?.bible?.payload?.taskConstraints?.chapterWordTarget);
-    const draftTargetChars = state.creationBookId ? bibleTargetWords || 2000
-      : Math.max(1200, Math.min(8000, Number(contract && (contract.targetWords || contract.wordTarget)) || bibleTargetWords || 2500));
+    const creationBookTarget = state.creationBookId
+      ? (Number.isFinite(bibleTargetWords) && bibleTargetWords > 0 ? bibleTargetWords : 2000)
+      : undefined;
+    const fallbackTarget = creationBookTarget || (contract && (contract.targetWords || contract.wordTarget)) || 2000;
+    const userBudget = typeof parseEditorWordBudget === 'function'
+      ? parseEditorWordBudget(prompt, {
+          targetWords: creationBookTarget || (contract && (contract.targetWords || contract.wordTarget))
+        })
+      : {
+          target: fallbackTarget,
+          min: Math.round(fallbackTarget * 0.85),
+          max: Math.round(fallbackTarget * 1.15),
+          summary: `目标篇幅约 ${fallbackTarget} 字`
+        };
+    const draftTargetChars = userBudget.target;
     run.targetWords = draftTargetChars;
+    run.wordBudget = userBudget;
     run.modelId = (stageNode.querySelector('[data-completion-model]') || {}).value || undefined;
 
     // ★ 题材基线：服务端按题材返回节奏目标块与题材族，起草硬指令据此分层（lib/genre-rule-scope）。
@@ -4175,7 +4567,7 @@ ${JSON.stringify(contract, null, 2)}
 ${budgeted.stagePlan ? '\n【局面变化合同（本章只读约束）】\n' + budgeted.stagePlan + '\n' : ''}
 ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budgeted.style ? '\n\n' + budgeted.style : ''}${budgeted.perf ? '\n\n【人物演绎指南】\n' + budgeted.perf : ''}${budgeted.debts ? '\n\n' + budgeted.debts : ''}
 
-【篇幅】目标约 ${draftTargetChars} 字（允许 ±20%）；写完自检字数，超出先删过渡句与重复状态描写。`;
+【篇幅】${userBudget.summary}；写完自检字数，超出先删过渡句与重复状态描写。`;
     ensureGenerationActive(records[assistantIndex].text);
     if (writingSystem.length + prompt.length > 28000) {
       writingSystem = writingSystem.replace(/历史版本快照：[\s\S]*?(?=\n抽取后的 Canon)/, '历史版本快照：暂无\n');
@@ -4567,14 +4959,33 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       const context = currentContext(state);
       if (isBodyTask(prompt)) {
         const capabilities = await generationV2Capabilities();
-        if (capabilities.code === 'generation_v2_disabled') {
-          if (!request) throw new Error('当前页面未加载 AI 请求接口');
-          setEditorThinking(thinking, '正在建立章节执行卡');
-          await runChapterWorkflow({ state, prompt, stageNode, records, assistantIndex, target, context });
-        } else {
-          setEditorThinking(thinking, '正在创建服务端生成任务');
-          await runChapterWorkflowV2({ state, prompt, stageNode, records, assistantIndex, target, context, capabilities });
+        const v2Unavailable = !capabilities ||
+          capabilities.generationV2 !== true ||
+          capabilities.code === 'generation_v2_disabled' ||
+          capabilities.disabled === true ||
+          capabilities.commit !== true ||
+          capabilities.recovery !== true;
+        if (v2Unavailable) {
+          const blockerNotice = 'Generation V2 正式正文生成能力当前未开启或不可用，已阻断生成；不会回退到旧章节工作流。';
+          if (thinking) thinking.classList.remove('visible');
+          records[assistantIndex] = {
+            kind: 'assistant',
+            text: blockerNotice,
+            status: 'failed',
+            workflowStage: 'failed',
+            errorNotice: blockerNotice,
+            retryPrompt: ''
+          };
+          runtime.editorBusy = false;
+          renderGenerationControl();
+          writeWorkspace('editor-chat', records);
+          persistEditorChatSession();
+          renderEditorChat();
+          toast(blockerNotice);
+          return;
         }
+        setEditorThinking(thinking, '正在创建服务端生成任务');
+        await runChapterWorkflowV2({ state, prompt, stageNode, records, assistantIndex, target, context, capabilities });
       } else {
         if (!request) throw new Error('当前页面未加载 AI 请求接口');
         setEditorThinking(thinking, '正在整理上下文');
@@ -4948,33 +5359,14 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
 
   async function applyReviewedBody(state, item, scene, mode) {
     if (runtime.aiApplyBusy || runtime.editorBusy) { toast('正在处理正文，请稍后再采纳'); return false; }
-    let run = (state.generationRuns || []).find(record => record && record.id === item.workflowRunId);
-    if (!run && !['failed', 'interrupted', 'paused', 'commit_conflict'].includes(item.status)) {
-      const textHash = await hashText(item.text);
-      run = {
-        id: uid('generation-run'),
-        chapterId: scene.chapterId || activeRefs(state).chapter?.id || '',
-        sceneId: scene.id,
-        prompt: item.retryPrompt || '',
-        status: 'awaiting_confirmation',
-        audit: { passed: true, status: 'passed', contentHash: textHash },
-        resultContentHash: textHash,
-        pendingFactLedgerHash: textHash,
-        finalText: item.text,
-        usage: {}
-      };
-      state.generationRuns = Array.isArray(state.generationRuns) ? state.generationRuns : [];
-      state.generationRuns.unshift(run);
-      item.workflowRunId = run.id;
-      item.audit = cloneValue(run.audit);
-    }
-    const generationV2 = Boolean(run.generationV2 || item.generationV2);
-    if (generationV2 && (!run.generationV2 || !run.remoteRunId || !run.commitBase)) {
-      toast('Generation V2 任务状态不完整；稿件已保留，不能直接写入');
+    const run = (state && Array.isArray(state.generationRuns) ? state.generationRuns : []).find(record => record && record.id === item.workflowRunId);
+    if (!isRealGenerationV2Run(run, item)) {
+      toast('非正式 Generation V2 任务禁止正式采纳为正文；已为您保留草稿与历史记录，可复制内容或使用 Generation V2 重新生成');
       return false;
     }
+    const generationV2 = true;
     const recovering = !!(run && (run.pendingCommit || run.appliedContentHash));
-    if (!run || ['needs_review', 'commit_conflict'].includes(run.status) || !normalizeAudit(run.audit).passed ||
+    if (['needs_review', 'commit_conflict'].includes(run.status) || !normalizeAudit(run.audit).passed ||
       (!recovering && (['needs_review', 'failed', 'interrupted', 'paused'].includes(item.status) || !normalizeAudit(item.audit).passed))) {
       toast('结果 needs_review：请完成审计后再写入正文，仍可查看或复制');
       return false;
@@ -5118,25 +5510,24 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     if (['failed', 'interrupted', 'paused', 'commit_conflict'].includes(item.status)) { toast('生成未完成，暂无法写入'); return; }
     if (target === 'body') {
       const state = editorState(false);
-      if (!completionTargetMatches(item.target, state, getPreview().editorChatSessionId)) { toast('当前编辑位置已变化，请重新生成或切回结果发起位置'); return; }
+      const run = (state && Array.isArray(state.generationRuns) ? state.generationRuns : []).find(record => record && record.id === item.workflowRunId);
+      if (!isRealGenerationV2Run(run, item)) {
+        toast('非正式 Generation V2 任务禁止正式采纳为正文；已为您保留草稿与历史记录，可复制内容或使用 Generation V2 重新生成');
+        return false;
+      }
+      if (!completionTargetMatches(item.target, state, getPreview().editorChatSessionId)) { toast('当前编辑位置已变化，请重新生成或切回结果发起位置'); return false; }
       const scene = activeScene(state);
-      if (!scene) return;
-      const run = (state.generationRuns || []).find(record => record && record.id === item.workflowRunId);
-      if (item.generationV2 && target !== 'body') { toast('Generation V2 结果只能通过服务端 Run 提交到正文'); return; }
+      if (!scene) return false;
       if (run && (run.pendingCommit || run.appliedContentHash)) return applyReviewedBody(state, item, scene, 'replace');
-       const existingChars = scene.content ? plainText(scene.content).replace(/\s/g, '').length : 0;
-       if (existingChars > (item.generationV2 ? 0 : 400)) {
-         const body = item.generationV2
-           ? '<div class="notice"><span>Generation V2 的服务端审计绑定原稿。确认后会由服务端以 revision 和场景基线校验替换当前场景；追加需要先通过服务端局部修订与复审。</span></div>'
-           : '<div class="notice"><span>当前场景已有 ' + existingChars + ' 字正文。选择「替换」将覆盖当前场景（旧内容自动进入版本历史），选择「追加」将接在现有正文之后。</span></div><div class="form-grid"><label class="segment"><input type="radio" name="completionApplyMode" value="replace" checked>替换当前场景正文</label><label class="segment"><input type="radio" name="completionApplyMode" value="append">追加到现有正文之后</label></div>';
-         openEditorForm('采纳 AI 结果', body, item.generationV2 ? '确认替换并提交' : '确认采纳', async () => {
-           const mode = item.generationV2 ? 'replace' : (document.querySelector('input[name="completionApplyMode"]:checked') ? document.querySelector('input[name="completionApplyMode"]:checked').value : 'replace');
-           return applyReviewedBody(state, item, scene, mode);
-         });
-         return;
-       }
-       await applyReviewedBody(state, item, scene, item.generationV2 ? 'replace' : 'append');
-       return;
+      const existingChars = scene.content ? plainText(scene.content).replace(/\s/g, '').length : 0;
+      if (existingChars > 0) {
+        const body = '<div class="notice"><span>Generation V2 的服务端审计绑定原稿。确认后会由服务端以 revision 和场景基线校验替换当前场景；追加需要先通过服务端局部修订与复审。</span></div>';
+        openEditorForm('采纳 AI 结果', body, '确认替换并提交', async () => {
+          return applyReviewedBody(state, item, scene, 'replace');
+        });
+        return;
+      }
+      return await applyReviewedBody(state, item, scene, 'replace');
     }
     const title = target === 'setting' ? '保存 AI 结果为设定' : target === 'outline' ? '保存 AI 结果为大纲' : '记录 AI 结果为伏笔';
     const fields = target === 'setting'
@@ -5182,67 +5573,14 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     if (runtime.aiApplyBusy || runtime.editorBusy) { toast('正在处理正文，请稍后再采纳'); return false; }
     const item = resultAt(index);
     if (!item || !item.text) { toast('该 AI 结果已不存在或正文为空'); return false; }
-    if (item.generationV2) { toast('Generation V2 结果需先通过服务端复审，不能直接采纳 needs_review 稿件'); return false; }
     const state = editorState(false);
-    if (!state) { toast('请先打开一本作品'); return false; }
-    if (!completionTargetMatches(item.target, state, getPreview().editorChatSessionId)) {
-      toast('当前编辑位置已变化，请切回结果发起位置后再采纳');
+    const run = (state && Array.isArray(state.generationRuns) ? state.generationRuns : []).find(record => record && record.id === item.workflowRunId);
+    if (!isRealGenerationV2Run(run, item)) {
+      toast('非正式 Generation V2 任务禁止正式采纳为正文；已为您保留草稿与历史记录，可复制内容或使用 Generation V2 重新生成');
       return false;
     }
-    const scene = activeScene(state);
-    if (!scene) { toast('当前没有选中的场景'); return false; }
-
-    const doAdopt = async (mode) => {
-      runtime.aiApplyBusy = true;
-      try {
-        const addition = textToHtml(item.text);
-        const previousContent = scene.content || '';
-        const nextContent = mode === 'replace'
-          ? addition
-          : `${normalizeSceneContent(previousContent)}${addition ? `${previousContent ? '\n' : ''}${addition}` : ''}`;
-        scene.content = nextContent;
-        const run = (state.generationRuns || []).find(record => record && record.id === item.workflowRunId);
-        if (run) {
-          run.status = 'accepted';
-          run.finalText = item.text;
-          run.acceptedAt = Date.now();
-          if (run.pendingFactLedgerDelta) {
-            try { await mergeAcceptedLedger(state, run); } catch (_) {}
-          }
-        }
-        item.status = 'ready';
-        item.workflowStage = 'ready';
-        item.errorNotice = '';
-        markEditorDirty(true);
-        await persistAppliedNovel({ snapshot: true });
-        renderBodyApplication(state, '作者已直接采纳该稿件至正文');
-        renderEditorChat();
-        renderEditorSurface();
-        toast('已直接采纳该稿件至正文');
-        return true;
-      } catch (err) {
-        toast('采纳失败：' + (err && err.message || '未知错误'));
-        return false;
-      } finally {
-        runtime.aiApplyBusy = false;
-      }
-    };
-
-    const existingChars = scene.content ? plainText(scene.content).replace(/\s/g, '').length : 0;
-    if (existingChars > 400) {
-      openEditorForm('采纳 AI 稿件',
-        '<div class="notice"><span>当前场景已有 ' + existingChars + ' 字正文。该稿件附带审校建议，作者可直接采纳。选择「替换」将覆盖当前场景（旧内容自动进入版本历史），选择「追加」将接在现有正文之后。</span></div><div class="form-grid"><label class="segment"><input type="radio" name="completionApplyMode" value="replace" checked>替换当前场景正文</label><label class="segment"><input type="radio" name="completionApplyMode" value="append">追加到现有正文之后</label></div>',
-        '确认采纳',
-        async () => {
-          const mode = document.querySelector('input[name="completionApplyMode"]:checked')
-            ? document.querySelector('input[name="completionApplyMode"]:checked').value
-            : 'replace';
-          return await doAdopt(mode);
-        }
-      );
-      return true;
-    }
-    return await doAdopt('append');
+    toast('Generation V2 结果需先通过服务端复审，不能直接采纳 needs_review 稿件');
+    return false;
   }
 
   function closeExistingModal() {
@@ -7504,6 +7842,51 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
         }
         return;
       }
+      if (name === 'assemble-final-prompt') {
+        const stageNode = getStage();
+        const promptInput = stageNode?.querySelector('[data-completion-prompt]');
+        const userPrompt = promptInput ? promptInput.value.trim() : '';
+        const options = editorRequestOptions(stageNode, { prompt: userPrompt });
+        toast('正在组装结构化最终提示词…');
+        fetch('/api/novel/compile-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            genre: options.novelGenre,
+            writingStyle: options.writingStyle,
+            chapterFunction: options.chapterFunction,
+            chapterFocus: options.chapterFocus,
+            endingHook: options.endingHook,
+            wordBudget: options.wordBudget,
+            userPrompt: userPrompt
+          })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.finalPrompt) {
+            const records = chatRecords();
+            const genreLabel = options.novelGenre || '全题材/智能';
+            const styleLabel = options.writingStyle || '智能风格';
+            const funcLabel = options.chapterFunction || '自然推进';
+            const focusLabel = options.chapterFocus || '综合推进';
+            const hookLabel = options.endingHook || '自然收束';
+            records.push({
+              kind: 'assistant',
+              text: `### 🎯 【全维度完全可控·最终提示词已组装完成】\n\n已根据您选择的：\n- **小说题材**：\`${genreLabel}\`\n- **写作风格**：\`${styleLabel}\`\n- **本章功能**：\`${funcLabel}\`\n- **该章侧重点**：\`${focusLabel}\`\n- **结尾钩子**：\`${hookLabel}\`\n- **用户剧情意图**：${userPrompt ? '`已注入本章专属指引`' : '`未提供额外剧情（采用通用戏剧张力）`'}\n\n深度编译生成的**【最终提示词】**如下：\n\n\`\`\`markdown\n${res.finalPrompt}\n\`\`\`\n\n> 💡 **完全可控指引**：您可以直接点击下方发送按键开始生成；也可在输入框微调剧情后再次点击【🔍 组装最终提示词】。`
+            });
+            writeWorkspace('editor-chat', records);
+            persistEditorChatSession();
+            renderEditorChat();
+            toast('最终提示词组装成功，已展示在会话中！');
+          } else {
+            toast('组装失败：' + (res && res.error || '未知错误'));
+          }
+        })
+        .catch(err => {
+          toast('组装请求失败：' + err.message);
+        });
+        return;
+      }
       if (name === 'outline-save') { void persistNovel({ snapshot: true }); return; }
       if (name === 'outline-add') { addOutlineNode(); return; }
       if (name === 'outline-timeline-add') { addTimelineEvent(); return; }
@@ -7541,43 +7924,48 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
         const state = editorState(false);
         if (state) {
           state.genreFamily = genreFamily.value;
+          state.novelGenre = genreFamily.value;
           markEditorDirty(false);
-          const stageNode = getStage();
-          const routeSelect = stageNode && stageNode.querySelector && stageNode.querySelector('[data-completion-xuanhuan-route]');
-          if (routeSelect) {
-            routeSelect.innerHTML = buildGenreRouteOptions(state, genreFamily.value);
-            const currentRoute = routeSelect.value;
-            state.genreRoute = currentRoute;
-            state.xuanhuanRoute = currentRoute;
-          }
           const selText = genreFamily.options[genreFamily.selectedIndex]?.text || genreFamily.value;
-          toast('已切换小说类型：' + selText);
+          toast('已切换小说题材：' + selText);
           updateCompletionParamsHint();
         }
         return;
       }
-      const xuanhuanRoute = event.target.closest('[data-completion-xuanhuan-route]');
-      if (xuanhuanRoute) {
+      const chapterFunction = event.target.closest('[data-completion-chapter-function]');
+      if (chapterFunction) {
         const state = editorState(false);
         if (state) {
-          state.xuanhuanRoute = xuanhuanRoute.value;
-          state.genreRoute = xuanhuanRoute.value;
-          if (xuanhuanRoute.value !== 'auto') {
-            for (const [fKey, fVal] of Object.entries(GENRE_FAMILY_MAP)) {
-              if (fVal.routes.some(r => r.value === xuanhuanRoute.value || r.legacyValue === xuanhuanRoute.value)) {
-                state.genreFamily = fKey;
-                const stageNode = getStage();
-                const famSelect = stageNode && stageNode.querySelector && stageNode.querySelector('[data-completion-genre-family]');
-                if (famSelect && famSelect.value !== fKey && famSelect.value !== 'all') {
-                  famSelect.value = fKey;
-                }
-                break;
-              }
-            }
-          }
+          state.chapterFunction = chapterFunction.value;
           markEditorDirty(false);
-          const selText = xuanhuanRoute.options[xuanhuanRoute.selectedIndex]?.text || xuanhuanRoute.value;
-          toast('已切换叙事引擎：' + selText);
+          const selText = chapterFunction.options[chapterFunction.selectedIndex]?.text || chapterFunction.value;
+          toast('已设置本章功能：' + selText);
+          updateCompletionParamsHint();
+        }
+        return;
+      }
+      const chapterFocus = event.target.closest('[data-completion-chapter-focus]') || event.target.closest('[data-completion-xuanhuan-route]');
+      if (chapterFocus) {
+        const state = editorState(false);
+        if (state) {
+          state.chapterFocus = chapterFocus.value;
+          state.focus = chapterFocus.value;
+          markEditorDirty(false);
+          const selText = chapterFocus.options[chapterFocus.selectedIndex]?.text || chapterFocus.value;
+          toast('已切换该章侧重点：' + selText);
+          updateCompletionParamsHint();
+        }
+        return;
+      }
+      const endingHook = event.target.closest('[data-completion-ending-hook]');
+      if (endingHook) {
+        const state = editorState(false);
+        if (state) {
+          state.endingHook = endingHook.value;
+          state.hook = endingHook.value;
+          markEditorDirty(false);
+          const selText = endingHook.options[endingHook.selectedIndex]?.text || endingHook.value;
+          toast('已设置结尾钩子：' + selText);
           updateCompletionParamsHint();
         }
         return;
@@ -7604,10 +7992,16 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
       if (entityArchetype) { entityArchetype.dataset.userChanged = 'true'; entityArchetype.dataset.source = entityArchetype.value ? 'explicit' : 'none'; updateKnowledgeArchetypeField(); return; }
       const archetypeOverrideSel = event.target.closest('[data-completion-archetype-override]');
       if (archetypeOverrideSel) {
+        const state = editorState(false);
+        if (state) {
+          state.archetypeOverride = archetypeOverrideSel.value;
+          state.writingStyle = archetypeOverrideSel.value;
+          markEditorDirty(false);
+        }
         const badge = document.querySelector('[data-completion-style-badge]');
         if (badge) {
           if (archetypeOverrideSel.value) {
-            badge.textContent = `已锁定: ${archetypeOverrideSel.options[archetypeOverrideSel.selectedIndex]?.text}`;
+            badge.textContent = `已锁定: ${archetypeOverrideSel.options[archetypeOverrideSel.selectedIndex]?.text?.split('(')[0]?.trim() || archetypeOverrideSel.value}`;
             badge.style.color = '#f59e0b';
           } else {
             badge.textContent = '自动匹配';
@@ -7752,6 +8146,10 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
     rendererMap.outline = renderOutlinePage;
     rendererMap.knowledge = knowledgePage;
     installDelegation();
+    window.addEventListener('molan:auth-changed', () => {
+      populateCompletionSelectors();
+    });
+    window.populateCompletionSelectors = populateCompletionSelectors;
     window.addEventListener('online', () => {
       const state = editorState(false);
       void flushEditorWalDrafts(state).catch(() => setSaveStatus('本地 WAL 草稿仍待同步'));

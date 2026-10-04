@@ -60,3 +60,31 @@ test('P2: Model Capability Registry 纳管 gpt-5.6-luna 并提供精准上下文
   assert.ok(budget.fits);
   assert.ok(budget.margin > 120000);
 });
+
+test('Model Capability Registry 支持 Gemini 3.6f~3.8f 及 3.1pro 模型与别名解析', () => {
+  const models = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-3.1-pro'];
+  for (const mId of models) {
+    const cap = getModelCapability(mId);
+    assert.equal(cap.contextWindow, 1000000, `${mId} 上下文必须为 1,000,000 tokens`);
+    assert.ok(cap.supportsReasoning, `${mId} 必须支持推理强度设置`);
+  }
+
+  // 验证别名映射解析
+  assert.equal(getModelCapability('gemini3.6f').displayName, 'Gemini 3.6 Flash (3.6f)');
+  assert.equal(getModelCapability('gemini-3.6f').contextWindow, 1000000);
+  assert.equal(getModelCapability('gemini3.7f').displayName, 'Gemini 3.7 Flash (3.7f)');
+  assert.equal(getModelCapability('gemini3.8f').displayName, 'Gemini 3.8 Flash (3.8f)');
+  assert.equal(getModelCapability('gemini3.1pro').displayName, 'Gemini 3.1 Pro (3.1pro)');
+  assert.equal(getModelCapability('3.1pro').displayName, 'Gemini 3.1 Pro (3.1pro)');
+
+  // 验证 context-budget 识别 Gemini 百万级上下文
+  const budget = calculateContextBudget({
+    modelId: 'gemini-3.7-flash',
+    system: '你是创作者。',
+    context: '超长小说上下文...',
+    targetChars: 10000
+  });
+  assert.equal(budget.limit, 1000000, 'Context Budget 必须识别 gemini-3.7-flash 的 1M 上限');
+  assert.ok(budget.fits);
+  assert.ok(budget.margin > 900000);
+});

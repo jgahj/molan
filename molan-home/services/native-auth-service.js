@@ -13,7 +13,10 @@ function createNativeAuthService({ repository, crypto, readBody, json, respondEr
   }
   function getAuthUser(req, expectedScope = 'client') {
     const auth = req.molanNativeAuth;
-    return auth && auth.scope === scopeOf(expectedScope) ? auth : null;
+    if (!auth) return null;
+    const targetScope = scopeOf(expectedScope);
+    if (targetScope === 'admin' && auth.scope !== 'admin') return null;
+    return auth;
   }
   async function issueToken(user, scope = 'client') {
     const token = crypto.randomBytes(24).toString('hex');
@@ -33,9 +36,10 @@ function createNativeAuthService({ repository, crypto, readBody, json, respondEr
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, '邮箱格式不正确');
       if (password.length < 6 || password.length > 256) fail(400, '密码长度需为 6 到 256 位');
       if (await repository.getAccount({ email })) fail(409, '该邮箱已注册，请直接登录');
+      const role = isAdminUser(email) ? 'admin' : 'normal';
       const user = await repository.saveAccount({ email, name: String(body.name || email.split('@')[0]).slice(0, 24),
-        avatar: '', ...createPasswordRecord(password), role: 'normal', level: 'normal', plan: 'normal',
-        credits: 500, spent: 0, createdAt: new Date(now()).toISOString() }, 0);
+        avatar: '', ...createPasswordRecord(password), role, level: role, plan: role,
+        credits: role === 'admin' ? 0 : 500, spent: 0, createdAt: new Date(now()).toISOString() }, 0);
       return json(res, 200, { ok: true, token: await issueToken(user), user: await publicUser(user) });
     });
   }

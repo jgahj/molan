@@ -59,14 +59,11 @@ function extractNovelMetadata(userText, clientOptions = {}) {
   // 3. 判定是否包含大纲节点结构
   const hasOutlineNodes = /(?:节点[一二三四五六七八九十\d]|剧情节点|1\.|2\.|3\.|核心事件)/i.test(text);
 
-  // 4. 提取目标字数区间（若用户显式指定）
-  let targetMin = 2400;
-  let targetMax = 3000;
-  const countMatch = text.match(/(?:字数约?|目标|篇幅约?)\s*(\d{3,5})\s*[-—~至]\s*(\d{3,5})\s*字?/);
-  if (countMatch) {
-    targetMin = parseInt(countMatch[1], 10);
-    targetMax = parseInt(countMatch[2], 10);
-  }
+  // 4. 提取目标字数区间（用户指令绝对优先，无显式指令时再默认按 2500~3500 字一章）
+  const { resolveWordBudget } = require('./generation/word-budget');
+  const wordBudget = resolveWordBudget(text, clientOptions);
+  const targetMin = wordBudget.min;
+  const targetMax = wordBudget.max;
 
   // 5. 提取关键道具（若用户显式指定）
   let keyProps = [];
@@ -567,7 +564,9 @@ function adaptIpContinuationPrompt(text) {
         ? lines.join('\n') 
         : `${lines.slice(0, 2).join('\n')}\n……\n${lines.slice(-2).join('\n')}`;
 
-      const structuredBlock = `\n\n【前情承接参考（${chapterTitle}结尾）】：\n${excerptSummary}\n\n【创作任务】：紧接上述战局与危机，直接撰写后续章节正文（篇幅约2500—3500字，包含完整章节名与正文，严禁空泛大纲，直接输出沉浸式小说内容）。`;
+      const { resolveWordBudget } = require('./generation/word-budget');
+      const continuationBudget = resolveWordBudget(text);
+      const structuredBlock = `\n\n【前情承接参考（${chapterTitle}结尾）】：\n${excerptSummary}\n\n【创作任务】：紧接上述战局与危机，直接撰写后续章节正文（篇幅约${continuationBudget.min}—${continuationBudget.max}字，包含完整章节名与正文，严禁空泛大纲，直接输出沉浸式小说内容）。`;
 
       adapted = adapted.replace(chapterMatch[0], structuredBlock);
     }
@@ -597,7 +596,7 @@ function adaptIpContinuationMessages(messages, options = {}) {
     const hasWriteDirective = /写一章|生成.*?章节|正文（约\d+.*?字）|直接撰写/i.test(userText);
     const promptToSend = hasWriteDirective
       ? userText
-      : `【经典剧情推演创作】请根据以下世界观设定、人物关系与核心大纲，以深度沉浸视角撰写高质量小说正文（篇幅约2500—3200字，严禁复述大纲，直接输出沉浸式小说正文）：\n\n${userText}`;
+      : `【经典剧情推演创作】请根据以下世界观设定、人物关系与核心大纲，以深度沉浸视角撰写高质量小说正文（篇幅约${metadata.targetMin}—${metadata.targetMax}字，严禁复述大纲，直接输出沉浸式小说正文）：\n\n${userText}`;
 
     return [
       { role: 'system', content: masterSystemPrompt },

@@ -11,6 +11,16 @@ const { detectAiFlavorFindings } = require('../genre-engine');
 const { computeAiFlavorScore } = require('../ai-flavor-detector');
 const scenePlanner = require('../scene-planner');
 const { auditSemantics } = require('./semantic-audit');
+const { sanitizeInPlace } = require('./inplace-sanitizer');
+const { isBarebonesPrompt, enrichPromptWithGemini } = require('./prompt-enricher');
+const {
+  getArchetype,
+  compileGenreDirective,
+  compileStyleDirective,
+  compileChapterFunctionDirective,
+  compileFocusDirective,
+  resolveWordBudget
+} = require('./corpus-archetypes');
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
@@ -59,7 +69,8 @@ function extractAnchorKeywords(text) {
 function evaluateQualityVector(text, { genre = 'universal', contract = {}, targetWords, targetChars: inputTargetChars, audit = {}, semanticAudit = {} } = {}) {
   const content = String(text || '').trim();
   const charCount = content.length;
-  const targetChars = Number(inputTargetChars || contract.wordBudget && contract.wordBudget.targetChars) || Number(targetWords) || 2400;
+  const wordBudget = resolveWordBudget('', { targetChars: inputTargetChars, targetWords: targetWords || contract.wordBudget?.targetChars });
+  const targetChars = wordBudget.target;
 
   const rawGenre = typeof genre === 'object' ? genre.genre || genre.id || '' : String(genre || '');
   let matchedGenre = '';
@@ -381,36 +392,152 @@ async function generateDraft(options = {}) {
   const runId = String(request.generationId || request.runId || 'run_' + Date.now());
   const projectId = String(request.projectId || request.novelId || '');
   const chapterId = String(request.chapterId || contract.chapterId || '');
-  const targetChars = Number(request.targetChars || request.targetWords || contract.wordBudget && contract.wordBudget.targetChars) || 2400;
+  const userInstructionText = String(request.userInstruction || request.prompt || contract.chapterGoal || '');
+  const wordBudget = resolveWordBudget(userInstructionText, {
+    targetChars: request.targetChars,
+    targetWords: request.targetWords,
+    wordTarget: contract.wordBudget && contract.wordBudget.targetChars
+  });
+  const targetChars = wordBudget.target;
 
   if (signal && signal.aborted) throw signal.reason || new GenerationError('MODEL_CONTENT_BLOCKED', '生成已取消');
 
-  // 1. 编译场景指示
-  const sceneDirectives = scenePlan
-    ? scenePlanner.compileSceneDirectives(scenePlan)
-    : (Array.isArray(scenes) && scenes.length
-      ? scenes.map((s, idx) => `场景 ${idx + 1}: ${s.goal || s.purpose || s.summary || ''}`).join('\n')
-      : '');
+  const effectiveNovelGenre = request.novelGenre || contract.novelGenre || options.novelGenre || (typeof genre === 'string' ? genre : '');
+  const effectiveFocus = request.chapterFocus || contract.chapterFocus || options.chapterFocus || 'balanced';
+  const effectiveWritingStyle = request.writingStyle || contract.writingStyle || request.styleArchetype || contract.styleArchetype || options.styleArchetype || '';
+  const effectiveChapterFunction = request.chapterFunction || contract.chapterFunction || options.chapterFunction || '';
 
-  // 2. 构造系统提示词
+  const genreDirective = compileGenreDirective(effectiveNovelGenre);
+  const styleDirective = compileStyleDirective(effectiveWritingStyle);
+  const functionDirective = compileChapterFunctionDirective(effectiveChapterFunction);
+  const focusDirective = compileFocusDirective(effectiveFocus);
+
+  // 1. 结构化场景分镜（支持两阶段调用：Stage 1 场景节拍结构化拆解 -> Stage 2 镜头摄像机正文渲染）
+  let structuredDirectives = '';
+  if (scenePlan) {
+    structuredDirectives = scenePlanner.compileSceneDirectives(scenePlan);
+  } else if (Array.isArray(scenes) && scenes.length >= 2) {
+    structuredDirectives = scenes.map((s, idx) => `场景 ${idx + 1}: ${s.goal || s.purpose || s.summary || ''}`).join('\n');
+  } else if (targetChars >= 500 && request.singlePass !== true) {
+    // Stage 1: 真实独立调用 - 场景节拍结构化拆解（3幕分镜卡片）
+    if (typeof onProgress === 'function') onProgress({ stage: 'scene_planning', message: '正在进行第一阶段：场景节拍结构化拆解（3幕分镜卡片）' });
+    const planStartTime = Date.now();
+    const planRecord = {
+      stage: 'scene_planning',
+      modelId: request.modelId || null,
+      startedAt: new Date(planStartTime).toISOString(),
+      status: 'started',
+      requestHash: '',
+      outputHash: '',
+      usage: null
+    };
+    calls.push(planRecord);
+    try {
+      const genreTitleForPlan = typeof genre === 'object' ? genre.genre || genre.id || '通用文学' : String(genre || '通用文学');
+      const planSystem = [
+        `你是专业小说架构师与分镜导演。题材：【${genreTitleForPlan}】。`,
+        genreDirective ? genreDirective : '',
+        styleDirective ? styleDirective : '',
+        functionDirective ? `【单章功能定位】\n${functionDirective}` : '',
+        focusDirective ? `【本章侧重点要求】\n${focusDirective}` : '',
+        '任务：将本章创作任务精准切分为【三幕分镜卡片】（3-Beat Scene Cards），返回纯合法 JSON 对象：',
+        '{\n' +
+        '  "chapterTitle": "本章建议标题",\n' +
+        '  "coreConflict": "本章核心戏剧驱动力与生杀利益线",\n' +
+        '  "beats": [\n' +
+        '    {\n' +
+        '      "sceneIndex": 1,\n' +
+        '      "title": "幕一标题",\n' +
+        '      "sceneType": "environmental_friction",\n' +
+        '      "physicalFriction": "【环境物理摩擦】：具体空间环境障碍、器物冷硬细节与现场物理阻力（如生锈铁门卡壳、烂菜叶泔水阻滞、冰冷细雨打湿破伞）",\n' +
+        '      "actionGoal": "角色在该场景下的具体生存/行动目标",\n' +
+        '      "pacingWords": 800\n' +
+        '    },\n' +
+        '    {\n' +
+        '      "sceneIndex": 2,\n' +
+        '      "title": "幕二标题",\n' +
+        '      "sceneType": "dialogue_game",\n' +
+        '      "dialogueChips": "【对白动作交错博弈】：言语交锋与动作递进抓包（严格交错：一句发难-对方动作失态-再追击反诘），外壳碎裂与破防反差，荒诞借口化解僵局",\n' +
+        '      "actionGoal": "言语交锋争夺的实质筹码与破防抓包",\n' +
+        '      "pacingWords": 900\n' +
+        '    },\n' +
+        '    {\n' +
+        '      "sceneIndex": 3,\n' +
+        '      "title": "幕三标题",\n' +
+        '      "sceneType": "irreversible_cost",\n' +
+        '      "irreversibleCost": "【记忆触媒与不可逆契约】：关键道具互动、往昔旧事闪回（100~200字解释动情/信任因果）、不可逆新规则立约（霸道索赔/长期拉扯），章末留有余韵",\n' +
+        '      "actionGoal": "破局或暂时脱身付出的实质代价与不可逆契约",\n' +
+        '      "pacingWords": 800\n' +
+        '    }\n' +
+        '  ]\n' +
+        '}',
+        '只返回纯 JSON，严禁 Markdown 围栏或额外解释。'
+      ].join('\n\n');
+      const planUser = [
+        '【只读故事上下文】\n' + context,
+        '【本章创作任务】\n' + (request.userInstruction || request.prompt || contract.chapterGoal || '推进当前章节核心目标')
+      ].join('\n\n');
+      planRecord.requestHash = sha256(planSystem + '\n' + planUser);
+
+      const planResponse = await callModel(auth, {
+        stage: 'scene_planning',
+        system: planSystem,
+        userPrompt: planUser,
+        modelId: request.modelId,
+        temperature: 0.3,
+        maxTokens: 1800,
+        jsonMode: true
+      });
+      planRecord.status = 'completed';
+      planRecord.usage = planResponse && planResponse.usage || null;
+      planRecord.providerModel = planRecord.usage && planRecord.usage.providerModel || null;
+
+      const planJson = planResponse && (planResponse.json || (planResponse.text && JSON.parse(planResponse.text.replace(/```(?:json)?/g, '').trim())));
+      if (planJson && Array.isArray(planJson.beats) && planJson.beats.length > 0) {
+        structuredDirectives = planJson.beats.map(b => [
+          `【第${b.sceneIndex || 1}幕：${b.title || ''}】（建议篇幅约 ${b.pacingWords || 800} 字）`,
+          b.physicalFriction ? `· 物理摩擦与环境障碍：${b.physicalFriction}` : '',
+          b.dialogueChips ? `· 对白博弈与利益暗流：${b.dialogueChips}` : '',
+          b.irreversibleCost ? `· 不可逆代价与变动事实：${b.irreversibleCost}` : '',
+          b.actionGoal ? `· 核心动作目标：${b.actionGoal}` : ''
+        ].filter(Boolean).join('\n')).join('\n\n');
+        planRecord.outputHash = sha256(JSON.stringify(planJson));
+      }
+    } catch (planErr) {
+      console.warn('[content-engine] Stage 1 scene breakdown non-fatal error:', planErr && planErr.message || planErr);
+      planRecord.status = 'failed';
+    } finally {
+      planRecord.finishedAt = new Date().toISOString();
+    }
+  }
+
+  const sceneDirectives = structuredDirectives || (Array.isArray(scenes) && scenes.length
+    ? scenes.map((s, idx) => `场景 ${idx + 1}: ${s.goal || s.purpose || s.summary || ''}`).join('\n')
+    : '');
+
+  // 2. 构造系统提示词（Stage 2: 镜头摄像机正文渲染）
   const genreTitle = typeof genre === 'object' ? genre.genre || genre.id || '通用文学' : String(genre || '通用文学');
   const styleText = typeof style === 'object' ? style.style || style.prompt || '' : String(style || '');
   const systemPrompt = [
     `你是专业小说创作者。当前题材归属为【${genreTitle}】。`,
-    styleText ? `【文风指导】\n${styleText}` : '',
+    genreDirective ? genreDirective : '',
+    styleDirective ? `【写作风格规范】\n${styleDirective}` : (styleText ? `【文风指导】\n${styleText}` : ''),
+    functionDirective ? `【单章功能定位】\n${functionDirective}` : '',
+    focusDirective ? `【本章核心侧重点】\n${focusDirective}` : '',
+    '【镜头摄像机执行原则】：三幕分镜与剧情骨架已锁定。你作为现场镜头摄像机，严禁写成跳跃概括的大纲流水账。必须逐幕把规划好的物理摩擦、对白暗流和不可逆代价饱满渲染。严格遵循【动作-对白交错律】（严禁单向连珠炮台词，每句台词须穿插对方生理微反应、微表情或器物交互动作）。幕三涉及关键互动或道具时，须注入往昔羁绊回忆（100~200字旧事闪回，奠定情感与破防因果），并收束于不可逆新规则或索赔契约。多用具体器物形变与冷硬动作，严禁瞳孔骤缩、嘴角勾起、骨节泛白、喉头一甜等套话，严禁角色在内心自报家门。',
     '只写原创中文小说正文，不输出提纲、前言或总结。紧扣当下人物目标、阻力与现场因果，拒绝空洞套话。',
-    sceneDirectives ? `【场景执行合同】\n${sceneDirectives}` : ''
+    sceneDirectives ? `【三幕分镜剧本执行卡】\n${sceneDirectives}` : ''
   ].filter(Boolean).join('\n\n');
 
   // 3. 构造用户提示词
   const userPrompt = [
     '【只读故事上下文】\n' + context,
     '【本章创作任务】\n' + (request.userInstruction || request.prompt || contract.chapterGoal || '推进当前章节核心目标'),
-    `目标篇幅：${targetChars} 字符。请直接输出正文。`
+    `目标篇幅：${wordBudget.summary}。请严格按该篇幅要求撰写，请直接输出正文。`
   ].join('\n\n');
 
-  // 4. 校验上下文预算
-  const writerMaxTokens = Math.min(6000, Math.ceil(targetChars * 1.8));
+  // 4. 校验上下文预算（放宽到 8192~16000 防止 thinking token 吞噬截断正文）
+  const writerMaxTokens = Math.max(8192, Math.min(16000, Math.ceil(targetChars * 3.5)));
   const promptBudget = assertContextBudget({
     messages: [
       { role: 'system', content: systemPrompt },
@@ -442,9 +569,9 @@ async function generateDraft(options = {}) {
     } : contextPlan.replayManifest
   };
 
-  if (typeof onProgress === 'function') onProgress({ stage: 'writing', message: '正在起草正文' });
+  if (typeof onProgress === 'function') onProgress({ stage: 'writing', message: '正在根据分镜剧本渲染正文镜头' });
 
-  // 5. 调用模型生成正文
+  // 5. 调用模型生成正文（Stage 2）
   const draftStartTime = Date.now();
   const draftRecord = {
     stage: 'writer',
@@ -480,9 +607,14 @@ async function generateDraft(options = {}) {
     draftRecord.finishedAt = new Date().toISOString();
   }
 
-  let text = String(draftResponse && (draftResponse.text || draftResponse.content) || '').trim();
-  if (!text) throw new GenerationError('MODEL_EMPTY', '模型未返回正文', { status: 502, retryable: true });
+  let rawText = String(draftResponse && (draftResponse.text || draftResponse.content) || '').trim();
+  if (!rawText) throw new GenerationError('MODEL_EMPTY', '模型未返回正文', { status: 502, retryable: true });
+
+  // 步骤 3: 确定性微创手术物理清洗 (Deterministic In-Place Surgical Sanitization)
+  const sanitized = sanitizeInPlace(rawText);
+  let text = sanitized.text;
   draftRecord.outputHash = sha256(text);
+  draftRecord.inPlaceReplacements = sanitized.replacementCount;
 
   // 6. 确定性审计与 AI 味非破坏性检测
   let deterministicAudit = auditDraft({

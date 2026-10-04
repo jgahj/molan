@@ -1371,12 +1371,21 @@
         if (!isCurrentBackendSession(session)) return;
         backendState.models = Array.isArray(data.models) ? data.models : [];
         backendState.modelAccess = data.access || { role: 'guest', canChooseModel: false, defaultModel: '' };
-        document.querySelectorAll('[data-model-select], #editorModelSelect, #defaultModel, #creationModelSelect').forEach(populateModelSelect);
+        if (backendState.user && (backendState.user.isAdmin || ['admin', 'vip'].includes(String(backendState.user.role || backendState.user.level || backendState.user.plan || '').toLowerCase()))) {
+          backendState.modelAccess.canChooseModel = true;
+          if (backendState.modelAccess.role === 'guest' || !backendState.modelAccess.role) {
+            backendState.modelAccess.role = backendState.user.role || (backendState.user.isAdmin ? 'admin' : 'vip');
+          }
+        }
+        document.querySelectorAll('[data-model-select], #editorModelSelect, #defaultModel, #creationModelSelect, [data-completion-model]').forEach(populateModelSelect);
+        if (typeof window.populateCompletionSelectors === 'function') window.populateCompletionSelectors();
       } catch (_) {
         if (!isCurrentBackendSession(session)) return;
-        backendState.models = [];
-        backendState.modelAccess = { role: 'guest', canChooseModel: false, defaultModel: '' };
-        document.querySelectorAll('[data-model-select], #editorModelSelect, #defaultModel, #creationModelSelect').forEach(populateModelSelect);
+        backendState.models = DEFAULT_PLATFORM_MODELS.slice();
+        const fallbackCanChoose = Boolean(backendState.token && backendState.user && (backendState.user.isAdmin || ['admin', 'vip'].includes(String(backendState.user.role || backendState.user.level || backendState.user.plan || '').toLowerCase())));
+        backendState.modelAccess = { role: backendState.user?.role || 'guest', canChooseModel: fallbackCanChoose, defaultModel: 'gemini-3.6-flash' };
+        document.querySelectorAll('[data-model-select], #editorModelSelect, #defaultModel, #creationModelSelect, [data-completion-model]').forEach(populateModelSelect);
+        if (typeof window.populateCompletionSelectors === 'function') window.populateCompletionSelectors();
       }
     }
 
@@ -1721,21 +1730,36 @@
     }
 
     function canChooseModel() {
-      return Boolean(backendState.token && backendState.modelAccess && backendState.modelAccess.canChooseModel);
+      if (!backendState.token) return false;
+      if (backendState.modelAccess && backendState.modelAccess.canChooseModel) return true;
+      const user = backendState.user;
+      if (user) {
+        if (user.isAdmin === true) return true;
+        const role = String(user.role || user.level || user.plan || '').trim().toLowerCase();
+        if (role === 'admin' || role === 'vip') return true;
+      }
+      return false;
     }
+
+    const DEFAULT_PLATFORM_MODELS = [
+      { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (3.6f)', group: 'gemini', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] },
+      { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash (3.7f)', group: 'gemini', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] },
+      { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (3.8f)', group: 'gemini', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] },
+      { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro (3.1pro)', group: 'gemini', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['low', 'medium', 'high'] },
+      { id: 'gpt-6-luna', name: 'GPT-6 Luna', group: 'gpt', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'] },
+      { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', group: 'gpt', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'] },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 极速', group: 'deepseek', provider: 'deepseek', supportsThinking: true },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 深度思考', group: 'deepseek', provider: 'deepseek', supportsThinking: true }
+    ];
 
     function populateModelSelect(select) {
       if (!select) return;
       const previous = select.value || '';
-      if (!backendState.models.length) {
-        select.innerHTML = '<option value="">模型服务不可用</option>';
-        select.disabled = true;
-        return;
-      }
+      const models = backendState.models.length ? backendState.models : DEFAULT_PLATFORM_MODELS;
       const defaultModel = platformDefaultModel();
-      select.innerHTML = backendState.models.map(model => `<option value="${escapeBackendHtml(model.id)}">${escapeBackendHtml(model.name)} · ${model.id === defaultModel ? '平台默认' : '可选'}</option>`).join('');
-      const preferred = [previous, backendState.user && backendState.user.defaultModel, defaultModel, backendState.models[0].id].find(value => value && backendState.models.some(model => model.id === value));
-      select.value = preferred || backendState.models[0].id;
+      select.innerHTML = models.map(model => `<option value="${escapeBackendHtml(model.id)}">${escapeBackendHtml(model.name)} · ${model.id === defaultModel ? '平台默认' : '可选'}</option>`).join('');
+      const preferred = [previous, backendState.user && backendState.user.defaultModel, defaultModel, models[0] && models[0].id].find(value => value && models.some(model => model.id === value));
+      select.value = preferred || (models[0] && models[0].id) || '';
       select.disabled = !canChooseModel();
       select.title = canChooseModel() ? 'VIP 和管理员可以选择模型' : (backendState.token ? '当前账户由平台默认模型提供服务' : '登录后使用 AI 功能');
     }

@@ -7,6 +7,9 @@ const { assembleContext } = require('./context');
 const { normalizeChapterContract, contractHash } = require('./contract');
 const { auditDraft } = require('./deterministic-audit');
 const { applyLocalRevision, MAX_REVISION_ROUNDS } = require('./revision');
+const { evaluateQualityGate } = require('./quality-gate');
+const { defaultConcurrencyManager } = require('../stability/concurrency');
+const { createDeadlineTracker } = require('../stability/deadline');
 const scenePlanner = require('../scene-planner');
 const LEASE_TTL_MS = 90000;
 
@@ -118,6 +121,9 @@ function createGenerationOrchestrator(options = {}) {
   /** 运行可重放的阶段序列；供应商结果未知时停止并禁止自动重发。 */
   async function execute(scope, id, executionContext = {}) {
     if (workers.has(id)) return workers.get(id).promise;
+    if (scope && scope.projectId) {
+      defaultConcurrencyManager.acquireRunLock(scope.projectId, id, { throwOnConflict: false });
+    }
     const leaseOwner = require('node:crypto').randomUUID();
     let workerScope = { ...scope };
     let lease = null;
@@ -151,6 +157,9 @@ function createGenerationOrchestrator(options = {}) {
       }
     }).finally(async () => {
       if (renewTimer) clearInterval(renewTimer);
+      if (scope && scope.projectId) {
+        defaultConcurrencyManager.releaseRunLock(scope.projectId, id);
+      }
       try {
         if (lease && typeof store.releaseLease === 'function') {
           await store.releaseLease(db, { ...scope, id, leaseOwner, fencingToken: lease.fencingToken });
@@ -237,9 +246,20 @@ function createGenerationOrchestrator(options = {}) {
         const sceneDirectives = scenePlan
           ? scenePlanner.compileSceneDirectives(scenePlan)
           : (scenes.length ? scenes.map((scene, index) => `场景 ${index + 1}: ${scene.goal || scene.purpose || scene.summary || ''}`).join('\n') : '');
+        const povDirective = contract.viewpointCharacter
+          ? `【限定视点与认知边界】：本章节核心视角人物为【${contract.viewpointCharacter}】。严格遵循限知视角叙事，禁止跨视角描写其余角色的内心独白或视线外行为，所有他者反应均须通过可见的外在神态、对白机锋与现场动作呈现。`
+          : '';
+        const qualityDirectives = [
+          '【正文质感与反套路硬约束】：',
+          '- 严禁脸谱化肢体套路：严禁‘嘴角勾起玩味弧度’、‘后槽牙咬得咯咯响’、‘瞳孔骤缩’、‘指节泛白’、‘深吸一口凉气’等机械描写；',
+          '- 严禁抽象情绪口号：严禁‘心中涌起难以言喻的暖流/愤怒’，必须通过具体的现场肌肉反应、呼吸变重、手中道具形变或外部物候传达心理；',
+          '- 严禁孤立时空硬切：严禁直接以‘三日后’硬切开篇，须有黄昏、残茶或脚步声等微观锚点过渡。'
+        ].join('\n');
         const system = [
           `你是专业小说创作者。当前题材归属为【${genreTitle}】。`,
           styleText ? `【文风指导】\n${styleText}` : '',
+          povDirective,
+          qualityDirectives,
           '只写原创中文小说正文，不输出提纲、前言或总结。紧扣当下人物目标、阻力与现场因果，拒绝空洞套话。',
           sceneDirectives ? `【场景执行合同】\n${sceneDirectives}` : ''
         ].filter(Boolean).join('\n\n');
@@ -258,7 +278,7 @@ function createGenerationOrchestrator(options = {}) {
           provider: request.provider,
           hardLimit: request.providerContextLimit,
           targetChars,
-          maxOutputTokens: Math.min(6000, Math.ceil(targetChars * 1.8)),
+          maxOutputTokens: Math.max(8192, Math.min(16000, Math.ceil(targetChars * 3.5))),
           system,
           contextWrapperPrefix: '【只读故事上下文】\n',
           contextWrapperSuffix: userSuffix,
@@ -330,7 +350,9 @@ function createGenerationOrchestrator(options = {}) {
       let generated = await runDependencies.writer({ ...promptInput, signal: controller.signal, onProgress: event => {
         Promise.resolve().then(() => store.appendEvent(db, { ...scope, id, event: event || {} })).catch(() => {});
       } });
-      let draft = String(generated && (generated.text || generated.content) || '');
+      let rawDraft = String(generated && (generated.text || generated.content) || '');
+      const { sanitizeInPlace } = require('./inplace-sanitizer');
+      let draft = sanitizeInPlace(rawDraft).text;
       const pipeline = generated && generated.pipeline && generated.pipeline.authoritative === true ? generated.pipeline : null;
       await stage(scope, id, 'writer', 'completed', promptInput, draft, { usage: generated && generated.usage, startedAt, providerRequestId: generated && generated.providerRequestId });
       if (pipeline && Array.isArray(pipeline.calls)) {
@@ -367,8 +389,13 @@ function createGenerationOrchestrator(options = {}) {
         throw new GenerationError('MODEL_CONTENT_BLOCKED', 'Writer Manifest 与本次运行正文或上下文不匹配');
       }
       const draftManifest = writerManifest;
+      // 智能检测结尾未闭合与非正常截断 (DEF-TRUNCATE-001)
+      const trimmedDraft = draft.trim();
+      const hasTerminalPunctuation = /[。！？……”’]$/.test(trimmedDraft);
+      const isSuspectedTruncated = !hasTerminalPunctuation && trimmedDraft.length >= 300 && (Number(contract.wordBudget && contract.wordBudget.minChars) ? trimmedDraft.length < Number(contract.wordBudget.minChars) : false);
+
       current = await move(scope, id, 'draft_received', { message: '正文已收到' }, {
-        ...current.result, draft, ...(pipeline ? { benchmark: pipeline } : {}),
+        ...current.result, draft, isSuspectedTruncated, ...(pipeline ? { benchmark: pipeline } : {}),
         contextPlan: pipeline && pipeline.contextPlan || context.contextPlan,
         deterministicAudit: pipeline && pipeline.deterministicAudit || null
       }, undefined, draftManifest);
@@ -446,15 +473,31 @@ function createGenerationOrchestrator(options = {}) {
 
         current = await move(scope, id, 'quality_audit', { message: '正在生成质量向量' });
         assertActive();
-        quality = pipeline
-          ? { passed: semantic.passed, qualityVector: pipeline.qualityVector || (pipeline.quality && pipeline.quality.qualityVector) || (pipeline.audit && pipeline.audit.qualityVector) || null, benchmarkStatus: pipeline.status }
-          : runDependencies.qualityAudit ? await runDependencies.qualityAudit({ draft, request, contract, genre, style, signal: controller.signal }) : {
-          qualityVector: { language: { value: Math.min(1, draft.length / Math.max(Number(contract.wordBudget.targetChars) || draft.length, 1)), confidence: 0.35, source: 'heuristic', evidence: [] } },
-          passed: true
-        };
-        await stage(scope, id, 'quality_audit', 'completed', draft, quality, { attemptNo: revisionRound + 1 });
-        if (quality && quality.passed === false) {
-          return await move(scope, id, 'needs_human', { message: '质量审计需要人工复核', quality }, { ...current.result, draft, audit: finalAudit, semanticAudit, quality });
+        let candidateQuality = null;
+        if (pipeline) {
+          candidateQuality = pipeline.quality || (pipeline.audit && pipeline.audit.quality) || null;
+          if (!candidateQuality && pipeline.qualityVector) {
+            candidateQuality = { passed: false, qualityVector: pipeline.qualityVector, status: 'NOT_MEASURED' };
+          }
+        } else if (typeof runDependencies.qualityAudit === 'function') {
+          candidateQuality = await runDependencies.qualityAudit({ draft, request, contract, genre, style, signal: controller.signal });
+        }
+        const qualityGateResult = evaluateQualityGate({
+          draft,
+          quality: candidateQuality,
+          genre,
+          contract,
+          audit: finalAudit,
+          semanticAudit
+        });
+        quality = qualityGateResult.quality;
+        await stage(scope, id, 'quality_audit', qualityGateResult.passed ? 'completed' : 'failed', draft, quality, { attemptNo: revisionRound + 1 });
+        if (!qualityGateResult.passed) {
+          return await move(scope, id, 'needs_human', {
+            message: qualityGateResult.reason || '质量审计需要人工复核',
+            code: qualityGateResult.code || 'QUALITY_UNMEASURED',
+            quality
+          }, { ...current.result, draft, audit: finalAudit, semanticAudit, quality });
         }
         break;
       }
@@ -485,6 +528,8 @@ function createGenerationOrchestrator(options = {}) {
       };
       const finalManifest = {
         ...(current.manifest || {}),
+        styleBundleHash: (current.manifest && current.manifest.styleBundleHash) || (style ? hashValue(style) : ''),
+        genreBundleHash: (current.manifest && current.manifest.genreBundleHash) || (genre ? hashValue(genre) : ''),
         promptHash: (current.manifest && current.manifest.promptHash) || draftManifest.promptHash || hashValue(promptInput),
         stateSnapshotHash: (current.manifest && current.manifest.stateSnapshotHash) || draftManifest.stateSnapshotHash || String(authoritative.snapshotHash || ''),
         contextHash: context.contextPlan.contextHash,
@@ -513,7 +558,7 @@ function createGenerationOrchestrator(options = {}) {
                 startedAt: call && call.startedAt ? Date.parse(call.startedAt) : Date.now(),
                 errorCode: 'PROVIDER_UNKNOWN'
               });
-          } catch (_) {}
+          } catch (callError) {}
         }
       }
       const publicError = toPublicError(error);
@@ -537,7 +582,7 @@ function createGenerationOrchestrator(options = {}) {
 
   /** 查询迁移表，避免失败处理覆盖已由取消或另一个 worker 完成的状态。 */
   function transitionAllows(from, to) {
-    try { transition({ state: from }, to); return true; } catch (_) { return false; }
+    try { transition({ state: from }, to); return true; } catch (transitionError) { return false; }
   }
 
   /** 创建幂等 run 并立即排入后台执行，重复相同请求只返回原 run。 */
@@ -564,6 +609,17 @@ function createGenerationOrchestrator(options = {}) {
     if (run.state === 'committed') return { run, idempotent: true };
     const recoveringCommit = run.state === 'committing';
     if (run.state !== 'waiting_author' && !recoveringCommit) throw new GenerationError('STATE_CONFLICT', '生成任务尚未准备好提交', { status: 409 });
+    const commitGateResult = evaluateQualityGate({
+      draft: submittedText,
+      quality: run.result && run.result.quality,
+      genre: run.result && run.result.genreResolution,
+      contract: run.result && run.result.contract,
+      audit: run.result && run.result.audit,
+      semanticAudit: run.result && run.result.semanticAudit
+    });
+    if (!commitGateResult.passed) {
+      throw new GenerationError('QUALITY_UNMEASURED', commitGateResult.reason || '正文文学质量未真实测量或证据不足，不能提交正式章节', { status: 422 });
+    }
     const request = await store.getRunInput(db, { ...scope, id: run.id });
     const runDependencies = typeof options.dependenciesForRun === 'function'
       ? options.dependenciesForRun(executionContext, request || {}) || deps
@@ -614,7 +670,7 @@ function createGenerationOrchestrator(options = {}) {
         if (current && transitionAllows(current.state, target)) {
           try {
             await move(workerScope, run.id, target, { message: toPublicError(error).message, code: error.code }, current.result, toPublicError(error));
-          } catch (_) {}
+          } catch (moveError) {}
         }
       }
       throw error;
@@ -703,7 +759,9 @@ function createGenerationOrchestrator(options = {}) {
 
     const nextResult = {
       ...result,
+      originalDraft: result.originalDraft || result.draft || text,
       draft: applied.text,
+      revisions: [...(result.revisions || []), applied],
       outputHash: hashValue(applied.text),
       revisionRound: revisionRound + 1,
       lastRevision: { issueId: issue.issueId, quote: issue.quote, replacement: revision.replacement, meaning: applied.meaning, at: Date.now() }
@@ -739,11 +797,45 @@ function createGenerationOrchestrator(options = {}) {
       actualCostMinor: creditsToMinor(review && review.usage && review.usage.creditCost)
     });
     await move(scope, run.id, 'quality_audit', { message: '正在复核修订后的质量' });
-    const passed = deterministicAudit.passed === true && semanticAudit.passed === true && review && review.passed === true;
-    const finalResult = { ...nextResult, audit: deterministicAudit, semanticAudit: { passed: semanticAudit.passed === true, audit: semanticAudit, issues: semanticAudit.issues || [], usage: review && review.usage }, quality: review && review.quality || result.quality };
+    let freshQuality = review && review.quality || null;
+    if (!freshQuality && typeof runDependencies.qualityAudit === 'function') {
+      try {
+        freshQuality = await runDependencies.qualityAudit({
+          draft: applied.text, request, contract: result.contract, genre: result.genreResolution, signal: executionContext.signal
+        });
+      } catch (error) {
+        const publicError = toPublicError(error);
+        if (publicError.unknown) {
+          const current = await store.getRun(db, { ...scope, id: run.id });
+          if (current && transitionAllows(current.state, 'provider_unknown')) {
+            await move(scope, run.id, 'provider_unknown', { message: publicError.message, code: publicError.code }, nextResult, publicError);
+          }
+          throw error;
+        }
+      }
+    }
+    const revisionGate = evaluateQualityGate({
+      draft: applied.text,
+      quality: freshQuality,
+      genre: result.genreResolution,
+      contract: result.contract,
+      audit: deterministicAudit,
+      semanticAudit
+    });
+    const quality = revisionGate.quality;
+    await stage(scope, run.id, 'quality_audit', revisionGate.passed ? 'completed' : 'failed', applied.text, quality, { attemptNo: revisionRound + 2 });
+    const passed = deterministicAudit.passed === true && semanticAudit.passed === true && review && review.passed === true && revisionGate.passed === true;
+    const finalResult = {
+      ...nextResult,
+      audit: deterministicAudit,
+      semanticAudit: { passed: semanticAudit.passed === true, audit: semanticAudit, issues: semanticAudit.issues || [], usage: review && review.usage },
+      quality
+    };
     const updated = await move(scope, run.id, passed ? 'waiting_author' : 'needs_human', {
-      message: passed ? '修订已通过复审，等待作者确认' : '修订后仍有问题，需要人工复核',
-      audit: semanticAudit
+      message: passed ? '修订已通过复审，等待作者确认' : (revisionGate.passed ? '修订后仍有问题，需要人工复核' : (revisionGate.reason || '修订正文质量未真实测量或证据不足，需要人工复核')),
+      code: passed ? undefined : (revisionGate.code || 'QUALITY_UNMEASURED'),
+      audit: semanticAudit,
+      quality
     }, finalResult);
     return { run: updated, revision: applied, idempotent: false };
   }

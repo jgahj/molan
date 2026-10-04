@@ -8,7 +8,7 @@
 
 `node scripts/check-db.mjs --data-dir <app-json目录>` 只读检查结构、领域计数和待恢复日志，不打开仓储写锁。日志待恢复或损坏文件使命令返回非零状态。不要把 SQLite 文件重命名为 JSON。
 
-旧 `molan.db` 或非空 `xuanhuan-lab/reading.db`、`blind.db` 不会自动覆盖或作为新空库加载；需要显式迁移。`scripts/sqlite-migration/migrate-lab-jobs.mjs` 提供精读/盲测一致性备份、关联盘点与原子导入，默认只备份盘点，`--apply` 才导入；已有目标必须显式 `--merge`，重复记录整体回滚，不覆盖评分。完整操作见同目录 README，禁止绕过旧库检测启动空仓储。
+旧 `molan.db` 仍需要按迁移流程处理。精读/盲测使用的旧 `xuanhuan-lab/reading.db`、`blind.db` 在启动原生 JSON 仓储时会自动清理（连同 SQLite 的 `-wal`、`-shm` 旁车文件），因为这些实验数据不再作为运行时数据读取；重要数据应先使用 `scripts/sqlite-migration/migrate-lab-jobs.mjs` 备份或导入。已有 JSON 目标不会被覆盖，任务仍按仓储锁和版本控制恢复。
 
 ## PostgreSQL
 

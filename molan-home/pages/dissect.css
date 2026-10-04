@@ -1,17 +1,17 @@
 :root {
-  --d-ink: #171717;
-  --d-muted: #6f7378;
-  --d-soft: #f7f7f5;
-  --d-line: #e7e5e1;
-  --d-accent: #191919;
-  --d-green: #21824c;
-  --d-warn: #a66217;
-  --d-danger: #b33a34;
-  --d-radius: 12px;
-  --d-shadow: 0 10px 30px rgba(20, 20, 20, .05);
+  --d-ink: var(--ink, #0a0a0a);
+  --d-muted: var(--muted, #74746e);
+  --d-soft: var(--canvas, #f3f3f0);
+  --d-line: var(--line, #e7e7e2);
+  --d-accent: var(--ink, #0a0a0a);
+  --d-green: var(--green, #25845a);
+  --d-warn: var(--amber, #a86b20);
+  --d-danger: var(--danger, #ae3d3d);
+  --d-radius: var(--radius-lg, 10px);
+  --d-shadow: var(--shadow, 0 10px 30px rgba(17, 17, 15, .06));
 }
 * { box-sizing: border-box; }
-body { margin: 0; color: var(--d-ink); background: #fcfcfb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+body { margin: 0; color: var(--d-ink); background: var(--canvas, #f3f3f0); font-family: var(--sans, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif); }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 .dissect-shell { min-height: 100vh; }

@@ -461,9 +461,12 @@ function createAuthAccountService({
     if (process.env.MOLAN_APP_STORE === 'json' && !POSTGRES_MODE) {
       return nativeAuthService().getAuthUser(req, expectedScope);
     }
+    const targetScope = normalizeSessionScope(expectedScope);
     if (POSTGRES_MODE) {
       const verified = req.molanPostgresAuth;
-      if (!verified || normalizeSessionScope(verified.scope) !== normalizeSessionScope(expectedScope)) return null;
+      if (!verified) return null;
+      const verifiedScope = normalizeSessionScope(verified.scope);
+      if (targetScope === 'admin' && verifiedScope !== 'admin') return null;
       return { token: verified.token, user: verified.user };
     }
     const auth = req.headers['authorization'] || '';
@@ -486,7 +489,8 @@ function createAuthAccountService({
       }
     }
     if (!session) return null;
-    if (normalizeSessionScope(session.scope) !== normalizeSessionScope(expectedScope)) return null;
+    const sessionScope = normalizeSessionScope(session.scope);
+    if (targetScope === 'admin' && sessionScope !== 'admin') return null;
     if (session.expiresAt <= Date.now()) {
       sessions.delete(tokenHash);
       markSessionRevoked(tokenHash);
@@ -553,11 +557,12 @@ function createAuthAccountService({
         throw requestError(409, '该邮箱已注册，请直接登录');
       }
       const passwordRecord = createPasswordRecord(password);
+      const role = isAdminUser(email) ? 'admin' : 'normal';
       const user = {
         email, name: String(p.name || email.split('@')[0]).slice(0, 24),
         avatar: '',
         salt: passwordRecord.salt, pwd: passwordRecord.pwd,
-        role: 'normal', level: 'normal', plan: 'normal', credits: 500, spent: 0,
+        role, level: role, plan: role, credits: role === 'admin' ? 0 : 500, spent: 0,
         createdAt: new Date().toISOString()
       };
       if (!await insertUserIfAbsent(user)) throw requestError(409, '该邮箱已注册，请直接登录');

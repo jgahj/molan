@@ -91,37 +91,68 @@ function createPostgresDissectionReadService(dependencies) {
   }
 
   async function computeDissectionStats(actor, id, record) {
-    const rows = await postgresRepository.runtimeListDissectionRows(actor, id);
-    if (!Array.isArray(rows)) {
-      throw Object.assign(new Error('PostgreSQL 拆书台账必须返回数组'), { status: 500, code: 'invalid_rows_format' });
-    }
     let entities = 0, candidates = 0, mentions = 0, events = 0, summaries = 0;
     let claims = 0, units = 0, foreshadows = 0, edges = 0, states = 0;
 
-    for (const row of rows) {
-      const table = String(row.source_table || row.sourceTable || '');
-      if (table === 'dissection_entities') {
-        entities += 1;
-        const doc = getRowDocument(row);
-        if (doc.status === 'candidate') {
-          candidates += 1;
+    if (typeof postgresRepository.runtimeCountDissectionRows === 'function') {
+      const counts = await postgresRepository.runtimeCountDissectionRows(actor, id);
+      if (!Array.isArray(counts)) {
+        throw Object.assign(new Error('PostgreSQL 拆书台账必须返回数组'), { status: 500, code: 'invalid_rows_format' });
+      }
+      for (const row of counts) {
+        const table = String(row.source_table || row.sourceTable || '');
+        const cnt = Number(row.count) || 0;
+        if (table === 'dissection_entities') {
+          entities += cnt;
+          candidates += Number(row.candidate_count || row.candidateCount) || 0;
+        } else if (table === 'dissection_entity_mentions') {
+          mentions += cnt;
+        } else if (table === 'dissection_events') {
+          events += cnt;
+        } else if (table === 'dissection_summaries') {
+          summaries += cnt;
+        } else if (table === 'dissection_claims') {
+          claims += cnt;
+        } else if (table === 'dissection_units') {
+          units += cnt;
+        } else if (table === 'dissection_foreshadows') {
+          foreshadows += cnt;
+        } else if (table === 'dissection_event_edges') {
+          edges += cnt;
+        } else if (table === 'dissection_entity_states') {
+          states += cnt;
         }
-      } else if (table === 'dissection_entity_mentions') {
-        mentions += 1;
-      } else if (table === 'dissection_events') {
-        events += 1;
-      } else if (table === 'dissection_summaries') {
-        summaries += 1;
-      } else if (table === 'dissection_claims') {
-        claims += 1;
-      } else if (table === 'dissection_units') {
-        units += 1;
-      } else if (table === 'dissection_foreshadows') {
-        foreshadows += 1;
-      } else if (table === 'dissection_event_edges') {
-        edges += 1;
-      } else if (table === 'dissection_entity_states') {
-        states += 1;
+      }
+    } else {
+      const rows = await postgresRepository.runtimeListDissectionRows(actor, id);
+      if (!Array.isArray(rows)) {
+        throw Object.assign(new Error('PostgreSQL 拆书台账必须返回数组'), { status: 500, code: 'invalid_rows_format' });
+      }
+      for (const row of rows) {
+        const table = String(row.source_table || row.sourceTable || '');
+        if (table === 'dissection_entities') {
+          entities += 1;
+          const doc = getRowDocument(row);
+          if (doc.status === 'candidate') {
+            candidates += 1;
+          }
+        } else if (table === 'dissection_entity_mentions') {
+          mentions += 1;
+        } else if (table === 'dissection_events') {
+          events += 1;
+        } else if (table === 'dissection_summaries') {
+          summaries += 1;
+        } else if (table === 'dissection_claims') {
+          claims += 1;
+        } else if (table === 'dissection_units') {
+          units += 1;
+        } else if (table === 'dissection_foreshadows') {
+          foreshadows += 1;
+        } else if (table === 'dissection_event_edges') {
+          edges += 1;
+        } else if (table === 'dissection_entity_states') {
+          states += 1;
+        }
       }
     }
 

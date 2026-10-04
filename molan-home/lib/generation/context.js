@@ -353,9 +353,18 @@ function assembleContext(input = {}, options = {}) {
     const fullRendered = wrapperPrefix + candidateText + wrapperSuffix;
     const fitsChars = fullRendered.length <= maxChars;
     const usedTokens = estimateTokens(candidateText, model);
+    const blockTokens = estimateTokens(renderBlock(block), model);
     if (fitsChars && usedTokens <= maxRenderedContextTokens) {
       includedBlocks.push(block);
-      blockDecisions.push({ id: block.id, layer: block.layer, required: block.required, decision: 'included', reason: 'within-budget' });
+      blockDecisions.push({
+        id: block.id,
+        layer: block.layer,
+        tokens: blockTokens,
+        included: true,
+        required: block.required,
+        decision: 'included',
+        reason: 'within-budget'
+      });
       continue;
     }
 
@@ -375,12 +384,30 @@ function assembleContext(input = {}, options = {}) {
       model, wrapperPrefix, wrapperSuffix
     }) : '';
     if (truncated) {
-      includedBlocks.push({ ...block, content: truncated });
+      const truncatedBlock = { ...block, content: truncated };
+      const truncatedTokens = estimateTokens(renderBlock(truncatedBlock), model);
+      includedBlocks.push(truncatedBlock);
       truncatedBlocks.push(block.id);
-      blockDecisions.push({ id: block.id, layer: block.layer, required: false, decision: 'truncated', reason: 'plain-text-boundary-fit' });
+      blockDecisions.push({
+        id: block.id,
+        layer: block.layer,
+        tokens: truncatedTokens,
+        included: true,
+        required: false,
+        decision: 'truncated',
+        reason: 'plain-text-boundary-fit'
+      });
     } else {
       omittedBlocks.push(block.id);
-      blockDecisions.push({ id: block.id, layer: block.layer, required: false, decision: 'omitted', reason: fitsChars ? 'model-token-budget' : 'character-budget' });
+      blockDecisions.push({
+        id: block.id,
+        layer: block.layer,
+        tokens: blockTokens,
+        included: false,
+        required: false,
+        decision: 'omitted',
+        reason: fitsChars ? 'model-token-budget' : 'character-budget'
+      });
     }
   }
 

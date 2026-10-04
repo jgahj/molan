@@ -1,12 +1,18 @@
 'use strict';
 
-function assertNoLegacyAppData({ fs, path, dataDir }) {
+function assertNoLegacyAppData({ fs, path, dataDir, resetLegacy = false }) {
   for (const filename of ['molan.db', 'molan.db-wal', 'users.json', 'novels.json']) {
     const target = path.join(dataDir, filename);
     if (!fs.existsSync(target) || !fs.statSync(target).size) continue;
     if (filename.endsWith('.json')) {
       const content = JSON.parse(fs.readFileSync(target, 'utf8'));
       if (Array.isArray(content) ? !content.length : content && typeof content === 'object' && !Object.keys(content).length) continue;
+    }
+    if (resetLegacy) {
+      for (const suffix of ['', '-wal', '-shm']) {
+        try { fs.rmSync(target + suffix, { force: true }); } catch (_) {}
+      }
+      continue;
     }
     throw Object.assign(new Error(`Native JSON storage cannot ignore legacy authoritative data: ${target}`), {
       code: 'LEGACY_APP_DATA_REQUIRES_MIGRATION'

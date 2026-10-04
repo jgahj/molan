@@ -980,3 +980,35 @@ test('Exact routing: non-GET write requests to subroutes pass through without in
   }
   assert.equal(h.writeCalls.length, 0);
 });
+
+test('Stats aggregation: uses runtimeCountDissectionRows when repository provides it', async () => {
+  let countCalled = false;
+  let listCalled = false;
+  const h = harness();
+  h.repository.runtimeCountDissectionRows = async (actor, id) => {
+    countCalled = true;
+    return [
+      { source_table: 'dissection_entities', count: 5, candidate_count: 2 },
+      { source_table: 'dissection_events', count: 12, candidate_count: 0 },
+      { source_table: 'dissection_foreshadows', count: 3, candidate_count: 0 }
+    ];
+  };
+  const origList = h.repository.runtimeListDissectionRows;
+  h.repository.runtimeListDissectionRows = async (...args) => {
+    listCalled = true;
+    return origList(...args);
+  };
+
+  const res = createMockResponse();
+  await h.service.dispatch(h.req('/api/dissections'), res, '/api/dissections');
+  assert.equal(res.statusCode, 200);
+  assert.equal(countCalled, true);
+  assert.equal(listCalled, false);
+  const task = res.body.tasks[0];
+  assert.equal(task.pipeline.entities, 5);
+  assert.equal(task.pipeline.candidates, 2);
+  assert.equal(task.pipeline.events, 12);
+  assert.equal(task.pipeline.foreshadows, 3);
+});
+
+
