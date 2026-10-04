@@ -874,3 +874,147 @@ test('orchestrator: 非 pipeline 纯文本自动生成在 qualityAudit 缺失或
   }
 });
 
+test('orchestrator: Single Brain Consolidation - 端到端经单审计踪迹自主达成 waiting_author 并成功提交 commit', async testContext => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-orch-brain-commit-'));
+  const repository = new JsonFileRepository(directory);
+  const store = createJsonGenerationStore(directory, { repository });
+  testContext.after(async () => {
+    await repository.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+
+  const scope = { workspaceId: 'ws-brain-commit', projectId: 'proj-brain-commit', actorUserId: 'author-brain-commit' };
+  const runId = 'run-brain-commit-1';
+  const chapterId = 'ch-brain-commit-1';
+  const draftText = '夜幕笼罩着空旷的甲板，海风裹挟着腥咸的湿气扑面而来。林巡警惕地扫视四周，在救生艇底座旁发现了那枚遗落的青铜徽记。';
+
+  let writerCalls = 0;
+  let deterministicAuditCalls = 0;
+  let semanticAuditCalls = 0;
+  let qualityAuditCalls = 0;
+  let commitCalls = 0;
+
+  const orchestratorDeps = {
+    resolveGenre: () => ({ status: 'resolved', genre: '悬疑' }),
+    resolveStyle: () => ({ status: 'resolved', style: '冷硬' }),
+    loadAuthoritativeContext: () => ({
+      ok: true,
+      snapshotHash: 'snap-hash-commit',
+      storyContext: { pov: 'third-limited', characters: ['林巡'] }
+    }),
+    preGenerationGuard: () => ({ passed: true, snapshotHash: 'snap-hash-commit' }),
+    planScenes: () => [{ id: 's1', goal: '排查甲板' }, { id: 's2', goal: '搜寻青铜徽记' }],
+    writer: async ({ request: runRequest, contract, contextPlan }) => {
+      writerCalls++;
+      return {
+        text: draftText,
+        manifest: buildGenerationManifest({
+          generationId: runId,
+          projectId: scope.projectId,
+          chapterId,
+          pipelineVersion: 'content-engine-v2',
+          contextHash: contextPlan.contextHash,
+          contractHash: contractHash(contract),
+          promptHash: 'prompt-brain-commit',
+          outputHash: hashValue(draftText)
+        })
+      };
+    },
+    deterministicAudit: async () => {
+      deterministicAuditCalls++;
+      return { passed: true, issues: [], blockerCount: 0, unverifiedCount: 0 };
+    },
+    semanticAudit: async () => {
+      semanticAuditCalls++;
+      return { passed: true, status: 'MEASURED', issues: [] };
+    },
+    qualityAudit: async ({ draft }) => {
+      qualityAuditCalls++;
+      return {
+        passed: true,
+        status: 'MEASURED',
+        score: 0.88,
+        confidence: 0.90,
+        contentDigest: hashValue(draft),
+        source: 'dual_judge_consensus',
+        qualityVector: {
+          clueIntegrity: {
+            value: 0.88,
+            confidence: 0.90,
+            status: 'MEASURED',
+            source: 'dual_judge_consensus',
+            quote: '在救生艇底座旁发现了那枚遗落的青铜徽记。',
+            evidence: '线索发现自然，悬疑链条闭合'
+          },
+          povBoundary: {
+            value: 0.90,
+            confidence: 0.92,
+            status: 'MEASURED',
+            source: 'dual_judge_consensus',
+            quote: '林巡警惕地扫视四周',
+            evidence: '第三人称限知视角严谨无越界'
+          },
+          language: {
+            value: 0.86,
+            confidence: 0.90,
+            status: 'MEASURED',
+            source: 'dual_judge_consensus',
+            quote: '海风裹挟着腥咸的湿气扑面而来。',
+            evidence: '环境质感烘托充分'
+          }
+        }
+      };
+    },
+    commit: async () => {
+      commitCalls++;
+      return { committed: true, snapshotId: 'snap-brain-commit-final', contentHash: hashValue(draftText) };
+    }
+  };
+
+  const orchestratorInstance = createGenerationOrchestrator({
+    store,
+    db: repository,
+    dependencies: orchestratorDeps
+  });
+
+  const created = await orchestratorInstance.create({
+    ...scope,
+    id: runId,
+    chapterId,
+    idempotencyKey: 'idem-brain-commit',
+    requestHash: '8'.repeat(64),
+    request: { chapterId, prompt: '甲板夜探' }
+  });
+
+  let settled = false;
+  for (let i = 0; i < 60; i++) {
+    const currentRun = await store.getRun({}, { ...scope, id: created.run.id });
+    if (currentRun && (currentRun.state === 'waiting_author' || currentRun.state === 'needs_human' || currentRun.state === 'failed')) {
+      settled = true;
+      assert.equal(currentRun.state, 'waiting_author');
+      assert.equal(currentRun.result.draft, draftText);
+      assert.equal(currentRun.result.quality.passed, true);
+      break;
+    }
+    await new Promise(r => setTimeout(r, 20));
+  }
+  assert.equal(settled, true);
+
+  // 单审计踪迹断言：每项审计严格执行恰好 1 次
+  assert.equal(writerCalls, 1);
+  assert.equal(deterministicAuditCalls, 1);
+  assert.equal(semanticAuditCalls, 1);
+  assert.equal(qualityAuditCalls, 1);
+
+  // 成功提交断言
+  const commitResult = await orchestratorInstance.commit({
+    ...scope,
+    id: created.run.id,
+    text: draftText,
+    outputHash: hashValue(draftText)
+  });
+  assert.equal(commitResult.run.state, 'committed');
+  assert.equal(commitCalls, 1);
+});
+
+

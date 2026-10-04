@@ -8,6 +8,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const { evaluateQualityGate, CRITICAL_QUALITY_DIMENSIONS } = require('../lib/generation/quality-gate');
+const { createQualityAssessment } = require('../lib/generation/quality-assessment');
 const { GenerationError } = require('../lib/generation/errors');
 const { createJsonGenerationStore } = require('../lib/generation/json-store');
 const { JsonFileRepository } = require('../lib/repositories/json-file-repository');
@@ -687,4 +688,409 @@ test('quality-gate: QUALITY_UNMEASURED 错误码不可自动重试', () => {
   assert.equal(err.code, 'QUALITY_UNMEASURED');
   assert.equal(err.retryable, false);
   assert.equal(err.status, 422);
+});
+
+test('quality-gate: 完整 4 层 QualityAssessment 实体在合规与文学达标时整洁通过门禁并达 status: passed', () => {
+  const prose = '细雨如丝，微风吹拂着湖畔的垂柳，水波荡漾映照着远山。';
+  const digest = computeSha256(prose);
+
+  const assessment = createQualityAssessment({
+    contentDigest: digest,
+    genre: '通用',
+    compliance: {
+      passed: true,
+      checks: {
+        wordCount: { passed: true, value: 2500, target: 2500 },
+        formatting: { passed: true, issues: [] }
+      },
+      blockerCount: 0,
+      issues: []
+    },
+    literary: {
+      passed: true,
+      status: 'MEASURED',
+      score: 0.88,
+      confidence: 0.90,
+      evaluator: { mode: 'single', modelId: 'literary-judge-v1' },
+      dimensions: {
+        language: {
+          score: 0.88,
+          confidence: 0.90,
+          status: 'MEASURED',
+          source: 'literary_evaluator',
+          quote: '细雨如丝，微风吹拂',
+          start: 0,
+          end: 9
+        }
+      }
+    },
+    style: {
+      passed: true,
+      score: 0.85,
+      metrics: { variance: 0.45 }
+    },
+    aiFlavor: {
+      passed: true,
+      risk: 'clean',
+      score: 0.05
+    }
+  });
+
+  const evaluation = evaluateQualityGate({
+    prose,
+    genre: '通用',
+    quality: assessment
+  });
+
+  assert.equal(evaluation.passed, true);
+  assert.equal(evaluation.status, 'passed');
+  assert.equal(evaluation.code, 'OK');
+  assert.equal(evaluation.quality.passed, true);
+  assert.equal(evaluation.quality.compliance.passed, true);
+  assert.equal(evaluation.quality.literary.passed, true);
+  assert.equal(evaluation.quality.evaluatedDimensions.language.verifiedScore, 0.88);
+  assert.equal(evaluation.quality.contentDigest, digest);
+});
+
+test('quality-gate: 去冲突验证 - compliance.checks 中的代理指标不会误报阻断文学门禁', () => {
+  const prose = '石阶两旁生满了苍苔，林间泉水淙淙流淌，清脆悦耳。';
+  const digest = computeSha256(prose);
+
+  // compliance.checks 中包含了代理统计指标（字符数、对白提取等）
+  const assessment = createQualityAssessment({
+    contentDigest: digest,
+    genre: '通用',
+    compliance: {
+      passed: true,
+      checks: {
+        language: {
+          source: 'linguistic_metrics_analyzer',
+          value: 0.95,
+          evidence: ['字符数=2400', '平均句长=22字']
+        },
+        dialogue: {
+          source: 'dialogue_extractor',
+          value: 0.85,
+          evidence: ['对白提取总句数=14']
+        },
+        presence: {
+          source: 'character_presence_verifier',
+          value: 0.90,
+          evidence: ['主角出场验证通过']
+        }
+      },
+      blockerCount: 0,
+      issues: []
+    },
+    literary: {
+      passed: true,
+      status: 'MEASURED',
+      score: 0.86,
+      confidence: 0.88,
+      dimensions: {
+        language: {
+          score: 0.86,
+          confidence: 0.88,
+          status: 'MEASURED',
+          source: 'literary_evaluator',
+          quote: '石阶两旁生满了苍苔',
+          start: 0,
+          end: 9
+        }
+      }
+    },
+    style: { passed: true, score: 0.85 },
+    aiFlavor: { passed: true, risk: 'clean', score: 0.05 }
+  });
+
+  const evaluation = evaluateQualityGate({
+    prose,
+    genre: '通用',
+    quality: assessment
+  });
+
+  // 必须整洁通过，不得触发 QUALITY_EVIDENCE_INVALID 误报
+  assert.equal(evaluation.passed, true);
+  assert.equal(evaluation.status, 'passed');
+  assert.equal(evaluation.code, 'OK');
+  assert.equal(evaluation.blockers, undefined);
+  assert.equal(evaluation.quality.compliance.checks.language.source, 'linguistic_metrics_analyzer');
+  assert.equal(evaluation.quality.evaluatedDimensions.language.source, 'literary_evaluator');
+});
+
+test('quality-gate: 严格来源门禁 - 直接在 literary.dimensions 中使用代理来源必须严格拦截 (QUALITY_EVIDENCE_INVALID)', () => {
+  const prose = '石阶两旁生满了苍苔，林间泉水淙淙流淌，清脆悦耳。';
+
+  const proxySources = [
+    'linguistic_metrics_analyzer',
+    'dialogue_extractor',
+    'character_presence_verifier',
+    'causal_debt_prose_verifier',
+    'word_count',
+    'heuristic'
+  ];
+
+  for (const proxySource of proxySources) {
+    const spoofedAssessment = {
+      schemaVersion: 'quality-assessment-v1',
+      passed: true,
+      status: 'MEASURED',
+      compliance: { passed: true, checks: {}, blockerCount: 0, issues: [] },
+      literary: {
+        passed: true,
+        status: 'MEASURED',
+        score: 0.92,
+        confidence: 0.92,
+        dimensions: {
+          language: {
+            score: 0.92,
+            confidence: 0.92,
+            status: 'MEASURED',
+            source: proxySource,
+            quote: '石阶两旁生满了苍苔',
+            start: 0,
+            end: 9
+          }
+        }
+      },
+      style: { passed: true, score: 0.85 },
+      aiFlavor: { passed: true, risk: 'clean', score: 0.05 }
+    };
+
+    const evaluation = evaluateQualityGate({
+      prose,
+      genre: '通用',
+      quality: spoofedAssessment
+    });
+
+    assert.equal(evaluation.passed, false, `代理来源「${proxySource}」必须被拦截`);
+    assert.equal(evaluation.status, 'needs_human');
+    assert.equal(evaluation.code, 'QUALITY_EVIDENCE_INVALID');
+    assert.match(evaluation.reason, /代理来源无论是否附引文都不能独自解锁必要文学维度/);
+  }
+});
+
+test('quality-gate: 合规层失败（字数超标、规则违规、compliance.passed=false）阻断门禁进入 needs_human', () => {
+  const prose = '夜半钟声到客船。姑苏城外寒山寺。';
+
+  const failedComplianceAssessment = {
+    schemaVersion: 'quality-assessment-v1',
+    passed: false,
+    status: 'needs_human',
+    compliance: {
+      passed: false,
+      blockerCount: 1,
+      issues: [
+        { message: '章节字数低于预算下限 (实际 16 字，要求 >= 2500 字)', severity: 'blocker' }
+      ],
+      checks: {
+        wordCount: { passed: false, value: 16, target: 2500 }
+      }
+    },
+    literary: {
+      passed: true,
+      status: 'MEASURED',
+      score: 0.95,
+      confidence: 0.95,
+      dimensions: {
+        language: {
+          score: 0.95,
+          confidence: 0.95,
+          status: 'MEASURED',
+          source: 'literary_evaluator',
+          quote: '夜半钟声到客船',
+          start: 0,
+          end: 7
+        }
+      }
+    },
+    style: { passed: true, score: 0.85 },
+    aiFlavor: { passed: true, risk: 'clean', score: 0.05 }
+  };
+
+  const evaluation = evaluateQualityGate({
+    prose,
+    genre: '通用',
+    quality: failedComplianceAssessment
+  });
+
+  assert.equal(evaluation.passed, false);
+  assert.equal(evaluation.status, 'needs_human');
+  assert.equal(evaluation.code, 'COMPLIANCE_CHECK_FAILED');
+  assert.match(evaluation.reason, /章节字数低于预算下限/);
+  assert.ok(evaluation.blockers.some(b => b.dimension === 'compliance'));
+});
+
+test('quality-gate: AI 笔调 Critical 风险与未通过状态严格阻断质量门禁', () => {
+  const prose = '夜半钟声到客船。姑苏城外寒山寺。';
+
+  // 1. Critical 风险拦截
+  const criticalAssessment = {
+    schemaVersion: 'quality-assessment-v1',
+    passed: true,
+    status: 'MEASURED',
+    compliance: { passed: true, checks: {}, blockerCount: 0, issues: [] },
+    aiFlavor: {
+      risk: 'critical',
+      passed: false,
+      score: 0.95,
+      status: 'MEASURED'
+    },
+    literary: {
+      passed: true,
+      status: 'MEASURED',
+      score: 0.90,
+      confidence: 0.90,
+      dimensions: {
+        language: {
+          score: 0.90,
+          confidence: 0.90,
+          status: 'MEASURED',
+          source: 'literary_evaluator',
+          quote: '夜半钟声到客船',
+          start: 0,
+          end: 7
+        }
+      }
+    }
+  };
+
+  const eval1 = evaluateQualityGate({ prose, genre: '通用', quality: criticalAssessment });
+  assert.equal(eval1.passed, false);
+  assert.equal(eval1.status, 'needs_human');
+  assert.equal(eval1.code, 'AI_FLAVOR_CRITICAL_RISK');
+
+  // 2. aiFlavor.passed === false 拦截
+  const failedAiFlavorAssessment = {
+    ...criticalAssessment,
+    aiFlavor: {
+      risk: 'high',
+      passed: false,
+      score: 0.70,
+      status: 'MEASURED'
+    }
+  };
+
+  const eval2 = evaluateQualityGate({ prose, genre: '通用', quality: failedAiFlavorAssessment });
+  assert.equal(eval2.passed, false);
+  assert.equal(eval2.status, 'needs_human');
+  assert.equal(eval2.code, 'AI_FLAVOR_CHECK_FAILED');
+});
+
+test('quality-gate: 风格层未通过 (style.passed=false) 严格阻断质量门禁', () => {
+  const prose = '夜半钟声到客船。姑苏城外寒山寺。';
+
+  const failedStyleAssessment = {
+    schemaVersion: 'quality-assessment-v1',
+    passed: true,
+    status: 'MEASURED',
+    compliance: { passed: true, checks: {}, blockerCount: 0, issues: [] },
+    style: {
+      passed: false,
+      score: 0.40,
+      reason: '句式单一单调，缺少句长方差与节奏质感'
+    },
+    literary: {
+      passed: true,
+      status: 'MEASURED',
+      score: 0.90,
+      confidence: 0.90,
+      dimensions: {
+        language: {
+          score: 0.90,
+          confidence: 0.90,
+          status: 'MEASURED',
+          source: 'literary_evaluator',
+          quote: '夜半钟声到客船',
+          start: 0,
+          end: 7
+        }
+      }
+    }
+  };
+
+  const evaluation = evaluateQualityGate({ prose, genre: '通用', quality: failedStyleAssessment });
+  assert.equal(evaluation.passed, false);
+  assert.equal(evaluation.status, 'needs_human');
+  assert.equal(evaluation.code, 'STYLE_QUALITY_FAILED');
+  assert.match(evaluation.reason, /句式单一单调/);
+});
+
+test('quality-gate: 题材多关键维度完整核验（都市题材：logic, dialogue, language）与缺失拦截', () => {
+  const prose = '顾明远推开会议室大门，目光冷冽地扫过长桌两旁的董事。「今天的议案，我不同意。」声音不大，却让全场瞬间噤声。';
+
+  // 1. 都市题材三大关键维度完整且合规检查包含代理指标 -> 顺利通过
+  const completeCityAssessment = createQualityAssessment({
+    contentDigest: computeSha256(prose),
+    genre: '都市',
+    compliance: {
+      passed: true,
+      checks: {
+        wordCount: { source: 'word_count', value: 2500, passed: true },
+        dialogueDensity: { source: 'dialogue_extractor', value: 0.22, evidence: ['对白占比=22%'] }
+      },
+      blockerCount: 0,
+      issues: []
+    },
+    literary: {
+      passed: true,
+      status: 'MEASURED',
+      score: 0.88,
+      confidence: 0.90,
+      dimensions: {
+        logic: {
+          score: 0.88,
+          confidence: 0.90,
+          status: 'MEASURED',
+          source: 'literary_evaluator',
+          quote: '顾明远推开会议室大门',
+          start: 0,
+          end: 10
+        },
+        dialogue: {
+          score: 0.86,
+          confidence: 0.88,
+          status: 'MEASURED',
+          source: 'literary_evaluator',
+          quote: '今天的议案，我不同意',
+          start: 27,
+          end: 37
+        },
+        language: {
+          score: 0.90,
+          confidence: 0.92,
+          status: 'MEASURED',
+          source: 'literary_evaluator',
+          quote: '目光冷冽地扫过长桌两旁的董事',
+          start: 11,
+          end: 25
+        }
+      }
+    },
+    style: { passed: true, score: 0.85 },
+    aiFlavor: { passed: true, risk: 'clean', score: 0.05 }
+  });
+
+  const passedEval = evaluateQualityGate({ prose, genre: '都市', quality: completeCityAssessment });
+  assert.equal(passedEval.passed, true);
+  assert.equal(passedEval.status, 'passed');
+  assert.equal(passedEval.code, 'OK');
+
+  // 2. 缺失关键维度 dialogue -> 阻断
+  const missingDimAssessment = {
+    ...completeCityAssessment,
+    literary: {
+      ...completeCityAssessment.literary,
+      dimensions: {
+        logic: completeCityAssessment.literary.dimensions.logic,
+        language: completeCityAssessment.literary.dimensions.language
+      }
+    }
+  };
+
+  const missingEval = evaluateQualityGate({ prose, genre: '都市', quality: missingDimAssessment });
+  assert.equal(missingEval.passed, false);
+  assert.equal(missingEval.code, 'QUALITY_UNMEASURED');
+  assert.equal(missingEval.blockers[0].code, 'CRITICAL_QUALITY_DIMENSION_MISSING');
+  assert.match(missingEval.reason, /题材「都市」关键质检维度「dialogue」缺失/);
 });

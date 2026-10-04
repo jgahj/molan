@@ -1,7 +1,13 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { CRITICAL_QUALITY_DIMENSIONS } = require('./audit-evidence');
+const {
+  CRITICAL_QUALITY_DIMENSIONS,
+  isProxySource,
+  PROXY_SOURCE_PATTERN,
+  PROXY_EVIDENCE_PATTERN,
+  NEGATIVE_ABSENCE_PATTERN
+} = require('./quality-assessment');
 
 const VALID_MEASURED_STATUSES = Object.freeze(new Set([
   'MEASURED',
@@ -11,23 +17,6 @@ const VALID_MEASURED_STATUSES = Object.freeze(new Set([
 
 const INITIAL_SCORE_THRESHOLD = 0.70;
 const INITIAL_CONFIDENCE_THRESHOLD = 0.75;
-
-const PROXY_SOURCE_PATTERN = /^(heuristic|presence|ratio|linguistic_metrics_analyzer|word_count|dialogue_extractor|dialogue_density_evaluator|character_presence_verifier|causal_debt_prose_verifier|chapter_goal_prose_verifier|pov_and_clue_boundary_evaluator|fact_consistency_verifier|causal_issue_detector|unmeasured|none)$/i;
-const PROXY_EVIDENCE_PATTERN = /^(字符数=|目标字数=|句子数=|平均句长=|对白提取总句数=|对白字数占比=|未检测到|未检出|无违规|无问题|零越界|无明确冲突|初筛完成)/i;
-const NEGATIVE_ABSENCE_PATTERN = /(未检测到|未检出|无违规|无问题|零越界|无明确冲突|初筛完成)/;
-
-/** 判断指定来源名称是否属于已知代理指标或规则统计检查器。 */
-function isProxySource(sourceName) {
-  const normalized = String(sourceName || '').trim().toLowerCase();
-  if (!normalized || normalized === 'none' || normalized === 'unmeasured') return true;
-  if (PROXY_SOURCE_PATTERN.test(normalized)) return true;
-  if (normalized.includes('heuristic') || normalized.includes('presence') || normalized.includes('ratio') ||
-      normalized.includes('word_count') || normalized.includes('metrics') || normalized.includes('extractor') ||
-      normalized.includes('boundary_evaluator') || normalized.includes('prose_verifier')) {
-    return true;
-  }
-  return false;
-}
 
 /** 计算文本 SHA-256 摘要供哈希一致性比对。 */
 function computeSha256(content) {
@@ -144,6 +133,13 @@ function verifyDimensionEvidence(dimensionName, dimensionEntry, proseContent) {
 /**
  * 共享质量门禁评估器，执行 Fail-Closed 策略。
  * 覆盖自动生成、手动修订复审和最终提交三处，杜绝伪造分数与绕过质量检查。
+ *
+ * 全面支持 4 层 QualityAssessment 结构 (compliance, literary, style, aiFlavor)：
+ * - compliance.checks 中的代理/启发式指标被识别为合规证据，不再误报阻断文学质量门禁；
+ * - literary.dimensions 严格核验主观文学叙事质量与正文逐字证据；
+ * - 严格 Provenance Guard 拦截代理指标潜入文学层；
+ * - aiFlavor 阻断 critical 风险与未通过状态；
+ * - 保持对既有调用方与遗留 qualityVector 的 100% 向后兼容。
  */
 function evaluateQualityGate(options = {}) {
   const rawProse = String(options.draft ?? options.text ?? options.content ?? options.prose ?? '');
@@ -166,7 +162,6 @@ function evaluateQualityGate(options = {}) {
 
   const rawQuality = options.quality;
   const rawGenre = options.genre;
-  const rawSemantic = options.semanticAudit || options.semantic;
 
   if (!rawQuality || typeof rawQuality !== 'object' || Array.isArray(rawQuality)) {
     return {
@@ -183,10 +178,15 @@ function evaluateQualityGate(options = {}) {
     };
   }
 
+  // 浅拷贝以防入参被外部 freeze 导致直接修改报错
+  const qualityData = { ...rawQuality };
+
   // 若传入了双独立评委数据，先经由双评委共识判定
-  if (rawQuality.judgeA && rawQuality.judgeB) {
+  const judgeA = qualityData.judgeA || (qualityData.literary && qualityData.literary.judgeA);
+  const judgeB = qualityData.judgeB || (qualityData.literary && qualityData.literary.judgeB);
+  if (judgeA && judgeB) {
     const { evaluateDualJudgeConsensus } = require('../quality/dual-judge');
-    const dualResult = evaluateDualJudgeConsensus(rawQuality.judgeA, rawQuality.judgeB, options);
+    const dualResult = evaluateDualJudgeConsensus(judgeA, judgeB, options);
     if (!dualResult.consensus || !dualResult.passed) {
       return {
         passed: false,
@@ -194,65 +194,57 @@ function evaluateQualityGate(options = {}) {
         code: dualResult.code || 'DUAL_JUDGE_DISCREPANCY',
         reason: dualResult.reason || '双评委质量分歧过大，已转入人工复核',
         quality: {
-          ...rawQuality,
+          ...qualityData,
           passed: false,
           status: 'needs_human',
           dualJudge: dualResult
         }
       };
     }
-    rawQuality.passed = true;
-    rawQuality.status = 'MEASURED';
-    rawQuality.qualityVector = { ...dualResult.qualityVector, ...(rawQuality.qualityVector || {}) };
-    rawQuality.score = dualResult.score;
-    rawQuality.dualJudge = dualResult;
+    qualityData.passed = true;
+    qualityData.status = 'MEASURED';
+    qualityData.qualityVector = { ...dualResult.qualityVector, ...(qualityData.qualityVector || {}) };
+    if (qualityData.literary && typeof qualityData.literary === 'object') {
+      qualityData.literary = {
+        ...qualityData.literary,
+        dimensions: { ...dualResult.qualityVector, ...(qualityData.literary.dimensions || {}) },
+        score: dualResult.score,
+        passed: true,
+        status: 'MEASURED'
+      };
+    }
+    qualityData.score = dualResult.score;
+    qualityData.dualJudge = dualResult;
   }
 
-  const topStatus = String(rawQuality.status || '').trim().toUpperCase();
-  if (!topStatus || !VALID_MEASURED_STATUSES.has(topStatus)) {
+  // 顶层状态校验：显式传入状态优先；若未传，则可降级读取 literary.status
+  const rawTopStatus = qualityData.status !== undefined
+    ? String(qualityData.status || '')
+    : (qualityData.literary && qualityData.literary.status ? String(qualityData.literary.status) : '');
+  const topStatus = rawTopStatus.trim().toUpperCase();
+
+  // 若处于明确的未测量状态，直接阻断并返回规范的 QUALITY_UNMEASURED 错误码
+  const isExplicitlyUnmeasured = !topStatus ||
+    topStatus === 'NOT_MEASURED' ||
+    topStatus === 'ESTIMATED' ||
+    topStatus === 'UNKNOWN' ||
+    (!VALID_MEASURED_STATUSES.has(topStatus) && topStatus !== 'NEEDS_HUMAN');
+
+  if (isExplicitlyUnmeasured) {
     return {
       passed: false,
       status: 'needs_human',
       code: 'QUALITY_UNMEASURED',
-      reason: `顶层质量状态为「${rawQuality.status || '未标注'}」，未真实完成测量 (仅接受 MEASURED / JUDGED / HUMAN_REVIEWED)`,
+      reason: `顶层质量状态为「${qualityData.status || '未标注'}」，未真实完成测量 (仅接受 MEASURED / JUDGED / HUMAN_REVIEWED)`,
       quality: {
-        ...rawQuality,
+        ...qualityData,
         passed: false,
-        status: rawQuality.status || 'NOT_MEASURED'
+        status: qualityData.status || 'NOT_MEASURED'
       }
     };
   }
 
-  if (rawQuality.passed !== true) {
-    return {
-      passed: false,
-      status: 'needs_human',
-      code: 'QUALITY_UNMEASURED',
-      reason: '质量评估未被标记为严格通过 (passed !== true)',
-      quality: {
-        ...rawQuality,
-        passed: false,
-        status: rawQuality.status || 'NOT_MEASURED'
-      }
-    };
-  }
-
-  const qualityVector = rawQuality.qualityVector || rawQuality.vector;
-  if (!qualityVector || typeof qualityVector !== 'object' || Array.isArray(qualityVector) || Object.keys(qualityVector).length === 0) {
-    return {
-      passed: false,
-      status: 'needs_human',
-      code: 'QUALITY_UNMEASURED',
-      reason: '质量向量 (qualityVector) 为空或无效',
-      quality: {
-        ...rawQuality,
-        passed: false,
-        status: 'NOT_MEASURED',
-        qualityVector: {}
-      }
-    };
-  }
-
+  // 哈希摘要校验
   const hashChecks = [
     { label: 'options.contentDigest', value: options.contentDigest },
     { label: 'options.contentHash', value: options.contentHash },
@@ -260,9 +252,9 @@ function evaluateQualityGate(options = {}) {
     { label: 'options.expectedContentDigest', value: options.expectedContentDigest },
     { label: 'options.expectedContentHash', value: options.expectedContentHash },
     { label: 'options.expectedOutputHash', value: options.expectedOutputHash },
-    { label: 'quality.contentDigest', value: rawQuality.contentDigest },
-    { label: 'quality.contentHash', value: rawQuality.contentHash },
-    { label: 'quality.outputHash', value: rawQuality.outputHash }
+    { label: 'quality.contentDigest', value: qualityData.contentDigest },
+    { label: 'quality.contentHash', value: qualityData.contentHash },
+    { label: 'quality.outputHash', value: qualityData.outputHash }
   ];
   for (const check of hashChecks) {
     if (check.value !== undefined) {
@@ -273,9 +265,9 @@ function evaluateQualityGate(options = {}) {
           code: 'QUALITY_UNMEASURED',
           reason: `正文内容摘要格式非法: 「${check.label}」必须为 64 位 SHA-256 字符串，不能以 null、空串或非哈希值绕过`,
           quality: {
-            ...rawQuality,
+            ...qualityData,
             passed: false,
-            status: rawQuality.status || 'NOT_MEASURED'
+            status: qualityData.status || 'NOT_MEASURED'
           }
         };
       }
@@ -286,35 +278,132 @@ function evaluateQualityGate(options = {}) {
           code: 'QUALITY_UNMEASURED',
           reason: `正文内容摘要不一致: 「${check.label}」为「${check.value}」，当前正文实际「${currentProseDigest}」`,
           quality: {
-            ...rawQuality,
+            ...qualityData,
             passed: false,
-            status: rawQuality.status || 'NOT_MEASURED'
+            status: qualityData.status || 'NOT_MEASURED'
           }
         };
       }
     }
   }
 
-  if (rawQuality.independentEvidence === false) {
+  if (qualityData.independentEvidence === false) {
     return {
       passed: false,
       status: 'needs_human',
       code: 'QUALITY_UNMEASURED',
       reason: '当前结果仅有语义审计通过，缺少独立文学质量评估证据',
       quality: {
-        ...rawQuality,
+        ...qualityData,
         passed: false,
         status: 'NOT_MEASURED'
       }
     };
   }
 
-  const { genreKey, dimensions } = resolveGenreDimensions(rawGenre);
-  const evaluatedDimensions = {};
   const blockers = [];
 
+  // 1. Compliance 层检查（合规层与代理指标去冲突）
+  if (qualityData.compliance && typeof qualityData.compliance === 'object') {
+    const compliance = qualityData.compliance;
+    const complianceIssues = Array.isArray(compliance.issues) ? compliance.issues : [];
+    const hasBlocker = Number(compliance.blockerCount) > 0 ||
+      complianceIssues.some(i => i && i.severity === 'blocker');
+
+    if (compliance.passed !== true || hasBlocker) {
+      const issueReason = complianceIssues.find(i => i && (i.message || i.reason))?.message ||
+        complianceIssues.find(i => i && (i.message || i.reason))?.reason ||
+        compliance.reason ||
+        '质量评估合规层检查未通过 (compliance.passed !== true 或存在阻断项)';
+      blockers.push({
+        dimension: 'compliance',
+        code: 'COMPLIANCE_CHECK_FAILED',
+        reason: issueReason
+      });
+    }
+  }
+
+  // 2. AI Flavor 层检查
+  const aiFlavorObj = (qualityData.aiFlavor && typeof qualityData.aiFlavor === 'object')
+    ? qualityData.aiFlavor
+    : ((qualityData.ai_flavor_risk && typeof qualityData.ai_flavor_risk === 'object') ? qualityData.ai_flavor_risk : null);
+
+  if (aiFlavorObj) {
+    const aiRisk = String(aiFlavorObj.risk || '').trim().toLowerCase();
+    if (aiRisk === 'critical') {
+      blockers.push({
+        dimension: 'aiFlavor',
+        code: 'AI_FLAVOR_CRITICAL_RISK',
+        reason: 'AI笔调检测处于 critical 风险，禁止通过质量门禁'
+      });
+    } else if (aiFlavorObj.passed === false) {
+      blockers.push({
+        dimension: 'aiFlavor',
+        code: 'AI_FLAVOR_CHECK_FAILED',
+        reason: 'AI笔调检测未通过 (aiFlavor.passed === false)'
+      });
+    }
+  }
+
+  // 3. Style 层检查
+  if (qualityData.style && typeof qualityData.style === 'object') {
+    if (qualityData.style.passed === false) {
+      blockers.push({
+        dimension: 'style',
+        code: 'STYLE_QUALITY_FAILED',
+        reason: qualityData.style.reason || '质量评估风格质感未通过 (style.passed === false)'
+      });
+    }
+  }
+
+  // 4. 文学维度解析与来源门禁 (Provenance Guard)
+  // 核心：优先从 quality.literary.dimensions 读取主观文学维度，fallback 到 legacy qualityVector
+  let literaryDimensions = null;
+  if (qualityData.literary && qualityData.literary.dimensions && typeof qualityData.literary.dimensions === 'object' && !Array.isArray(qualityData.literary.dimensions)) {
+    literaryDimensions = qualityData.literary.dimensions;
+  } else if (qualityData.qualityVector && typeof qualityData.qualityVector === 'object' && !Array.isArray(qualityData.qualityVector)) {
+    literaryDimensions = qualityData.qualityVector;
+  } else if (qualityData.vector && typeof qualityData.vector === 'object' && !Array.isArray(qualityData.vector)) {
+    literaryDimensions = qualityData.vector;
+  }
+
+  const qualityVector = qualityData.qualityVector || qualityData.vector || literaryDimensions || {};
+
+  // 若无具体层级 blocker 产生，但顶层 qualityData.passed 并非严格 true，执行未测量兜底阻断
+  if (qualityData.passed !== true && blockers.length === 0) {
+    return {
+      passed: false,
+      status: 'needs_human',
+      code: 'QUALITY_UNMEASURED',
+      reason: '质量评估未被标记为严格通过 (passed !== true)',
+      quality: {
+        ...qualityData,
+        passed: false,
+        status: qualityData.status || 'NOT_MEASURED'
+      }
+    };
+  }
+
+  if (!literaryDimensions || typeof literaryDimensions !== 'object' || Array.isArray(literaryDimensions) || Object.keys(literaryDimensions).length === 0) {
+    return {
+      passed: false,
+      status: 'needs_human',
+      code: 'QUALITY_UNMEASURED',
+      reason: '质量向量或文学维度 (qualityVector / literary.dimensions) 为空或无效',
+      quality: {
+        ...qualityData,
+        passed: false,
+        status: 'NOT_MEASURED',
+        qualityVector: {}
+      }
+    };
+  }
+
+  const { genreKey, dimensions } = resolveGenreDimensions(rawGenre);
+  const evaluatedDimensions = {};
+
   for (const dimensionName of dimensions) {
-    const entry = qualityVector[dimensionName];
+    const entry = literaryDimensions[dimensionName];
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
       blockers.push({
         dimension: dimensionName,
@@ -392,6 +481,24 @@ function evaluateQualityGate(options = {}) {
     };
   }
 
+  // 5. 文学层整体状态检查（若前面无具体维度 blocker，但 literary.passed === false）
+  if (qualityData.literary && qualityData.literary.passed === false && blockers.length === 0) {
+    blockers.push({
+      dimension: 'literary',
+      code: 'LITERARY_QUALITY_REQUIRED',
+      reason: qualityData.literary.reason || '质量评估文学层未通过 (literary.passed !== true)'
+    });
+  }
+
+  // 若顶层为 needs_human 且前面没有定位到细分 blocker，兜底作为 unmeasured
+  if (!VALID_MEASURED_STATUSES.has(topStatus) && blockers.length === 0) {
+    blockers.push({
+      dimension: 'status',
+      code: 'QUALITY_UNMEASURED',
+      reason: `顶层质量状态为「${qualityData.status || '未标注'}」，未真实完成测量`
+    });
+  }
+
   if (blockers.length > 0) {
     const firstBlocker = blockers[0];
     const isUnmeasured = firstBlocker.code.includes('NOT_MEASURED') || firstBlocker.code.includes('MISSING');
@@ -402,9 +509,9 @@ function evaluateQualityGate(options = {}) {
       reason: firstBlocker.reason,
       blockers,
       quality: {
-        ...rawQuality,
+        ...qualityData,
         passed: false,
-        status: isUnmeasured ? 'NOT_MEASURED' : (rawQuality.status || 'MEASURED'),
+        status: isUnmeasured ? 'NOT_MEASURED' : (qualityData.status || 'MEASURED'),
         qualityVector,
         unmeasuredReason: firstBlocker.reason,
         initialThresholdNote: 'score>=0.70, confidence>=0.75 (未校准初值)'
@@ -412,18 +519,26 @@ function evaluateQualityGate(options = {}) {
     };
   }
 
+  const finalLiterary = qualityData.literary ? {
+    ...qualityData.literary,
+    passed: true,
+    status: qualityData.literary.status || 'MEASURED',
+    dimensions: literaryDimensions
+  } : undefined;
+
   return {
     passed: true,
     status: 'passed',
     code: 'OK',
     reason: '全题材必要维度质检与正文证据核验通过',
     quality: {
-      ...rawQuality,
+      ...qualityData,
       passed: true,
-      status: rawQuality.status || 'MEASURED',
+      status: qualityData.status || 'MEASURED',
       qualityVector,
       genreKey,
       evaluatedDimensions,
+      ...(finalLiterary ? { literary: finalLiterary } : {}),
       contentHash: currentProseDigest,
       contentDigest: currentProseDigest,
       outputHash: currentProseDigest,
@@ -433,9 +548,11 @@ function evaluateQualityGate(options = {}) {
 }
 
 module.exports = {
+  CRITICAL_QUALITY_DIMENSIONS,
   INITIAL_SCORE_THRESHOLD,
   INITIAL_CONFIDENCE_THRESHOLD,
   resolveGenreDimensions,
   verifyDimensionEvidence,
-  evaluateQualityGate
+  evaluateQualityGate,
+  isProxySource
 };

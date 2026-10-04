@@ -17,6 +17,12 @@
 
 const crypto = require('node:crypto');
 
+const SEMANTIC_AUDIT_STATUS = Object.freeze({
+  NOT_REQUESTED: 'NOT_REQUESTED',
+  MEASURED: 'MEASURED',
+  EVALUATION_FAILED: 'EVALUATION_FAILED'
+});
+
 function sha256(text) {
   return crypto.createHash('sha256').update(String(text || ''), 'utf8').digest('hex');
 }
@@ -141,22 +147,32 @@ async function auditSemantics(options = {}) {
   const textHash = sha256(text);
 
   if (!text) {
+    const emptyIssues = [{
+      issueId: 'empty_content',
+      category: 'causality',
+      severity: 'blocker',
+      quote: '',
+      problem: '待审稿正文为空',
+      fixHint: '生成正文后重试',
+      status: 'unverified'
+    }];
     return {
       passed: false,
+      status: SEMANTIC_AUDIT_STATUS.NOT_REQUESTED,
       blockerCount: 1,
-      issues: [{
-        issueId: 'empty_content',
-        category: 'causality',
-        severity: 'blocker',
-        quote: '',
-        problem: '待审稿正文为空',
-        fixHint: '生成正文后重试',
-        status: 'unverified'
-      }],
+      textHash,
+      issues: emptyIssues,
       dimensions: {
         causality: { value: null, status: 'NOT_MEASURED', confidence: 0, source: 'none', evidence: [] },
         povBoundary: { value: null, status: 'NOT_MEASURED', confidence: 0, source: 'none', evidence: [] },
         characterConsistency: { value: null, status: 'NOT_MEASURED', confidence: 0, source: 'none', evidence: [] }
+      },
+      evaluationError: null,
+      audit: {
+        passed: false,
+        status: SEMANTIC_AUDIT_STATUS.NOT_REQUESTED,
+        issues: emptyIssues,
+        blockerCount: 1
       }
     };
   }
@@ -168,12 +184,27 @@ async function auditSemantics(options = {}) {
   // 2. 深度 LLM 语义判断（当显式配置 judgeModelId 或 enableModelJudge 时启动，避免每章无节制消耗）
   const shouldCallModelJudge = Boolean(
     options.enableModelJudge ||
+    options.enableSemanticJudge ||
     options.judgeModelId ||
     (options.request && (options.request.judgeModelId || options.request.enableSemanticJudge))
   );
 
-  if (shouldCallModelJudge && typeof callModel === 'function' && auth) {
+  let evaluationStatus = shouldCallModelJudge ? SEMANTIC_AUDIT_STATUS.MEASURED : SEMANTIC_AUDIT_STATUS.NOT_REQUESTED;
+  let evaluationError = null;
+
+  if (shouldCallModelJudge) {
     try {
+      if (typeof callModel !== 'function') {
+        const err = new Error('已请求语义模型审计，但未提供有效的 callModel 函数');
+        err.code = 'CALL_MODEL_NOT_A_FUNCTION';
+        throw err;
+      }
+      if (!auth) {
+        const err = new Error('已请求语义模型审计，但未提供有效的认证凭据 (auth)');
+        err.code = 'AUTH_MISSING';
+        throw err;
+      }
+
       const prompt = {
         task: '文学与逻辑语义审计',
         instruction: '请审查小说正文是否存在以下维度的严重文学或逻辑硬缺陷：1.因果断裂 2.角色行为严重OOC 3.视角越界 4.前后事实矛盾。若有缺陷，必须提供正文中逐字准确的原句 quote。严禁虚构引文。',
@@ -193,33 +224,83 @@ async function auditSemantics(options = {}) {
         userPrompt: JSON.stringify(prompt)
       });
 
-      const modelJson = response && response.json;
-      if (modelJson && Array.isArray(modelJson.issues)) {
-        for (const item of modelJson.issues) {
-          const rawQuote = String(item.quote || '').trim();
-          const isVerified = verifyQuoteInText(text, rawQuote);
+      if (!response) {
+        const err = new Error('语义模型服务无响应 (response is null or undefined)');
+        err.code = 'MODEL_EMPTY_RESPONSE';
+        throw err;
+      }
 
-          issues.push({
-            issueId: `semantic_judge_${issues.length + 1}`,
-            category: item.category || 'causality',
-            severity: isVerified ? (item.severity === 'blocker' ? 'blocker' : 'warning') : 'warning',
-            quote: rawQuote,
-            factIds: [],
-            problem: String(item.problem || '语义逻辑不自然'),
-            fixHint: String(item.fixHint || '请结合上下文修改'),
-            status: isVerified ? 'verified' : 'unverified'
-          });
+      let modelJson = response.json;
+      if (!modelJson && typeof response.text === 'string') {
+        const rawText = response.text.trim();
+        if (rawText) {
+          try {
+            const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+            modelJson = JSON.parse(cleaned);
+          } catch (parseErr) {
+            const err = new Error(`语义模型输出无法解析为 JSON: ${parseErr.message}`);
+            err.code = 'JSON_PARSE_ERROR';
+            throw err;
+          }
         }
       }
-    } catch (_) {
-      // LLM 审计超时或异常时不阻断流水线，保留确定性筛查结果
+
+      if (!modelJson || typeof modelJson !== 'object') {
+        const err = new Error('语义模型返回结构无效或无法解析');
+        err.code = 'INVALID_MODEL_OUTPUT';
+        throw err;
+      }
+
+      if (!Array.isArray(modelJson.issues)) {
+        const err = new Error('语义模型返回结构缺少 issues 列表');
+        err.code = 'INVALID_MODEL_SCHEMA';
+        throw err;
+      }
+
+      for (const item of modelJson.issues) {
+        if (!item || typeof item !== 'object') continue;
+        const rawQuote = String(item.quote || '').trim();
+        const isVerified = verifyQuoteInText(text, rawQuote);
+
+        issues.push({
+          issueId: `semantic_judge_${issues.length + 1}`,
+          category: item.category || 'causality',
+          severity: isVerified ? (item.severity === 'blocker' ? 'blocker' : 'warning') : 'warning',
+          quote: rawQuote,
+          factIds: [],
+          problem: String(item.problem || '语义逻辑不自然'),
+          fixHint: String(item.fixHint || '请结合上下文修改'),
+          status: isVerified ? 'verified' : 'unverified'
+        });
+      }
+    } catch (err) {
+      evaluationStatus = SEMANTIC_AUDIT_STATUS.EVALUATION_FAILED;
+      const errorObj = err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'LLM 语义审计执行异常');
+      evaluationError = {
+        name: errorObj.name || 'SemanticAuditError',
+        message: errorObj.message || 'LLM 语义审计执行异常',
+        code: errorObj.code || (err && err.code) || 'SEMANTIC_EVALUATION_FAILED'
+      };
+      issues.push({
+        issueId: 'semantic_eval_failure',
+        category: 'semantic_audit',
+        severity: 'blocker',
+        quote: '',
+        factIds: [],
+        problem: `语义模型审计执行失败: ${errorObj.message || '超时或服务异常'}`,
+        fixHint: '检查语义审计模型服务状态或网络连接',
+        status: 'verified'
+      });
     }
   }
 
   // 过滤：只有 verified 且具备真实正文 quote 的 blocker 才计入真实阻断
+  // 注意：确定性规则与模型检出问题需 quote 验证，但模型自身评估异常 (semantic_eval_failure) 为基础设施/流程级阻断
   const verifiedBlockers = issues.filter(i => i.severity === 'blocker' && i.status === 'verified');
   const blockerCount = verifiedBlockers.length;
-  const passed = blockerCount === 0;
+
+  // 刚性不变式：当 status === 'EVALUATION_FAILED' 时，passed 必须严格为 false。严禁自我认证通过。
+  const passed = evaluationStatus !== SEMANTIC_AUDIT_STATUS.EVALUATION_FAILED && blockerCount === 0;
 
   // 3. 构建可信维度证据评估
   const charCount = text.length;
@@ -275,13 +356,21 @@ async function auditSemantics(options = {}) {
           source: 'causal_issue_detector',
           evidence: verifiedCausalityIssues.map(i => `因果阻断[${i.issueId}]: 引文「${i.quote}」(${i.problem})`)
         }
-      : {
-          value: null,
-          status: 'NOT_MEASURED',
-          confidence: 0,
-          source: 'none',
-          evidence: []
-        },
+      : (evaluationStatus === SEMANTIC_AUDIT_STATUS.MEASURED
+          ? {
+              value: 1.0,
+              status: 'MEASURED',
+              confidence: 0.85,
+              source: 'semantic_judge',
+              evidence: ['语义模型审计完成：未发现因果硬缺陷']
+            }
+          : {
+              value: null,
+              status: 'NOT_MEASURED',
+              confidence: 0,
+              source: 'none',
+              evidence: []
+            }),
     characterConsistency: verifiedCharacterIssues.length > 0
       ? {
           value: Math.max(0.1, Number((1.0 - verifiedCharacterIssues.length * 0.35).toFixed(2))),
@@ -290,23 +379,34 @@ async function auditSemantics(options = {}) {
           source: 'character_conflict_detector',
           evidence: verifiedCharacterIssues.map(i => `角色冲突[${i.issueId}]: 引文「${i.quote}」(${i.problem})`)
         }
-      : {
-          value: null,
-          status: 'NOT_MEASURED',
-          confidence: 0,
-          source: 'none',
-          evidence: []
-        }
+      : (evaluationStatus === SEMANTIC_AUDIT_STATUS.MEASURED
+          ? {
+              value: 1.0,
+              status: 'MEASURED',
+              confidence: 0.85,
+              source: 'semantic_judge',
+              evidence: ['语义模型审计完成：未发现角色行为硬冲突']
+            }
+          : {
+              value: null,
+              status: 'NOT_MEASURED',
+              confidence: 0,
+              source: 'none',
+              evidence: []
+            })
   };
 
   return {
     passed,
+    status: evaluationStatus,
     blockerCount,
     textHash,
     issues,
     dimensions,
+    evaluationError,
     audit: {
       passed,
+      status: evaluationStatus,
       issues,
       blockerCount
     }
@@ -314,6 +414,7 @@ async function auditSemantics(options = {}) {
 }
 
 module.exports = {
+  SEMANTIC_AUDIT_STATUS,
   verifyQuoteInText,
   screenDeterministicSemantics,
   auditSemantics
