@@ -377,10 +377,10 @@ function createGenerationOrchestrator(options = {}) {
         }
       }
       if (!draft) throw new GenerationError('MODEL_EMPTY', '模型未返回正文', { status: 502, retryable: true });
-      if (!pipeline || !pipeline.manifest || typeof pipeline.manifest !== 'object') {
+      const writerManifest = (pipeline && pipeline.manifest) || (generated && generated.manifest);
+      if (!writerManifest || typeof writerManifest !== 'object') {
         throw new GenerationError('MODEL_CONTENT_BLOCKED', 'Writer 未返回可信 Generation Manifest');
       }
-      const writerManifest = pipeline.manifest;
       const expectedChapterId = String(request.chapterId || contract.chapterId || '');
       if (String(writerManifest.generationId || '') !== id || String(writerManifest.projectId || '') !== scope.projectId ||
           String(writerManifest.chapterId || '') !== expectedChapterId ||
@@ -396,36 +396,44 @@ function createGenerationOrchestrator(options = {}) {
 
       current = await move(scope, id, 'draft_received', { message: '正文已收到' }, {
         ...current.result, draft, isSuspectedTruncated, ...(pipeline ? { benchmark: pipeline } : {}),
-        contextPlan: pipeline && pipeline.contextPlan || context.contextPlan,
-        deterministicAudit: pipeline && pipeline.deterministicAudit || null
+        contextPlan: (pipeline && pipeline.contextPlan) || context.contextPlan,
+        deterministicAudit: null
       }, undefined, draftManifest);
 
-      let revisionRound = Math.max(0, Number(pipeline && Array.isArray(pipeline.rounds)
-        ? pipeline.rounds.filter(round => round && round.accepted === true).length
-        : 0));
+      let revisionRound = Math.max(0, Number(current.result && current.result.revisionRound) || 0);
       let finalAudit = null;
       let semantic = null;
       let quality = null;
       while (true) {
         current = await move(scope, id, 'deterministic_audit', { message: '正在检查正文结构与证据' });
-        finalAudit = pipeline
-          ? pipeline.deterministicAudit
-          : auditDraft({
-              text: draft,
-              minChars: Number(contract.wordBudget.minChars) || 0,
-              maxChars: Number(contract.wordBudget.maxChars) || 0
-            });
-        if (!pipeline && runDependencies.deterministicAudit) {
-          const extra = await runDependencies.deterministicAudit({ draft, request, contract, context: context.text });
-          if (extra && Array.isArray(extra.issues)) {
-            finalAudit.issues.push(...extra.issues);
-            finalAudit.blockerCount += extra.issues.filter(item => item && item.severity === 'blocker' && item.status !== 'unverified').length;
-            finalAudit.passed = finalAudit.blockerCount === 0 && finalAudit.unverifiedCount === 0;
-          }
+        assertActive();
+        if (typeof runDependencies.deterministicAudit === 'function') {
+          finalAudit = await runDependencies.deterministicAudit({
+            draft, request, contract, context: context.text, signal: controller.signal, attempt: revisionRound + 1
+          });
+        } else if (pipeline && pipeline.deterministicAudit) {
+          finalAudit = pipeline.deterministicAudit;
+        } else {
+          finalAudit = auditDraft({
+            text: draft,
+            minChars: Number(contract.wordBudget && contract.wordBudget.minChars) || 0,
+            maxChars: Number(contract.wordBudget && contract.wordBudget.maxChars) || 0
+          });
         }
-        await stage(scope, id, 'deterministic_audit', 'completed', draft, finalAudit, { attemptNo: revisionRound + 1 });
+        if (!finalAudit || typeof finalAudit !== 'object') {
+          finalAudit = { passed: false, issues: [{ severity: 'blocker', status: 'verified', quote: draft.slice(0, 50), problem: '确定性审计结果无效' }] };
+        }
+        if (!Array.isArray(finalAudit.issues)) finalAudit.issues = [];
+        if (finalAudit.blockerCount === undefined) {
+          finalAudit.blockerCount = finalAudit.issues.filter(item => item && item.severity === 'blocker' && item.status !== 'unverified').length;
+        }
+        if (finalAudit.passed === undefined) {
+          finalAudit.passed = finalAudit.blockerCount === 0 && (Number(finalAudit.unverifiedCount) || 0) === 0;
+        }
+
+        await stage(scope, id, 'deterministic_audit', finalAudit.passed ? 'completed' : 'failed', draft, finalAudit, { attemptNo: revisionRound + 1 });
         if (!finalAudit.passed) {
-          const blocker = finalAudit.issues.find(item => item.severity === 'blocker');
+          const blocker = finalAudit.issues.find(item => item && item.severity === 'blocker');
           if (!blocker || blocker.status !== 'verified' || revisionRound >= MAX_REVISION_ROUNDS || typeof runDependencies.revise !== 'function') {
             return await move(scope, id, 'needs_human', { message: '确定性审计需要人工复核', audit: finalAudit }, { ...current.result, draft, audit: finalAudit });
           }
@@ -446,18 +454,32 @@ function createGenerationOrchestrator(options = {}) {
 
         current = await move(scope, id, 'semantic_audit', { message: '正在进行语义审计' });
         assertActive();
-        semantic = pipeline
-          ? { passed: pipeline.status === 'passed' && pipeline.audit && pipeline.audit.passed === true, issues: [], usage: pipeline.usage, audit: pipeline.audit }
-          : runDependencies.semanticAudit ? await runDependencies.semanticAudit({ draft, request, contract, context: context.text, signal: controller.signal, attempt: revisionRound + 1 }) : { passed: true, issues: [] };
-        const semanticAudit = pipeline
-          ? { ...pipeline.audit, passed: semantic.passed }
-          : auditDraft({ text: draft, findings: semantic && semantic.issues });
-        if (!pipeline && semantic && semantic.passed === false) semanticAudit.passed = false;
-        await stage(scope, id, 'semantic_audit', 'completed', draft, semanticAudit, { attemptNo: revisionRound + 1, usage: semantic && semantic.usage });
-        if (!semanticAudit.passed) {
-          const blocker = semanticAudit.issues.find(item => item.severity === 'blocker');
+        if (typeof runDependencies.semanticAudit === 'function') {
+          semantic = await runDependencies.semanticAudit({
+            draft, request, contract, context: context.text, genre, style, signal: controller.signal, attempt: revisionRound + 1
+          });
+        } else if (pipeline && (pipeline.semanticAudit || pipeline.audit)) {
+          semantic = pipeline.semanticAudit || pipeline.audit;
+        } else {
+          semantic = { passed: true, status: 'NOT_REQUESTED', issues: [] };
+        }
+        if (!semantic || typeof semantic !== 'object') {
+          semantic = { passed: false, status: 'EVALUATION_FAILED', issues: [{ severity: 'blocker', status: 'verified', quote: draft.slice(0, 50), problem: '语义审计结果无效' }] };
+        }
+        if (!Array.isArray(semantic.issues)) semantic.issues = [];
+        if (semantic.status === 'EVALUATION_FAILED') {
+          semantic.passed = false;
+        } else if (semantic.passed === undefined) {
+          const blockers = semantic.issues.filter(i => i && i.severity === 'blocker' && (i.status === 'verified' || !i.status));
+          semantic.passed = blockers.length === 0;
+        }
+
+        const semanticAuditRecord = semantic.audit || semantic;
+        await stage(scope, id, 'semantic_audit', semantic.passed ? 'completed' : 'failed', draft, semanticAuditRecord, { attemptNo: revisionRound + 1, usage: semantic.usage });
+        if (!semantic.passed) {
+          const blocker = semantic.issues.find(item => item && item.severity === 'blocker');
           if (!blocker || blocker.status !== 'verified' || revisionRound >= MAX_REVISION_ROUNDS || typeof runDependencies.revise !== 'function') {
-            return await move(scope, id, 'needs_human', { message: '语义审计需要人工复核', audit: semanticAudit }, { ...current.result, draft, audit: finalAudit, semanticAudit });
+            return await move(scope, id, 'needs_human', { message: '语义审计需要人工复核', audit: semanticAuditRecord }, { ...current.result, draft, audit: finalAudit, semanticAudit: semanticAuditRecord });
           }
           current = await move(scope, id, 'revision', { message: `正在局部修订（${revisionRound + 1}/${MAX_REVISION_ROUNDS}）`, issueId: blocker.issueId });
           const window = require('./revision').locateReplacementWindow(draft, blocker.quote);
@@ -474,13 +496,15 @@ function createGenerationOrchestrator(options = {}) {
         current = await move(scope, id, 'quality_audit', { message: '正在生成质量向量' });
         assertActive();
         let candidateQuality = null;
-        if (pipeline) {
+        if (typeof runDependencies.qualityAudit === 'function') {
+          candidateQuality = await runDependencies.qualityAudit({
+            draft, request, contract, genre, style, signal: controller.signal, attempt: revisionRound + 1
+          });
+        } else if (pipeline && (pipeline.quality || pipeline.qualityVector || (pipeline.audit && pipeline.audit.quality))) {
           candidateQuality = pipeline.quality || (pipeline.audit && pipeline.audit.quality) || null;
           if (!candidateQuality && pipeline.qualityVector) {
             candidateQuality = { passed: false, qualityVector: pipeline.qualityVector, status: 'NOT_MEASURED' };
           }
-        } else if (typeof runDependencies.qualityAudit === 'function') {
-          candidateQuality = await runDependencies.qualityAudit({ draft, request, contract, genre, style, signal: controller.signal });
         }
         const qualityGateResult = evaluateQualityGate({
           draft,
@@ -488,7 +512,7 @@ function createGenerationOrchestrator(options = {}) {
           genre,
           contract,
           audit: finalAudit,
-          semanticAudit
+          semanticAudit: semantic
         });
         quality = qualityGateResult.quality;
         await stage(scope, id, 'quality_audit', qualityGateResult.passed ? 'completed' : 'failed', draft, quality, { attemptNo: revisionRound + 1 });
@@ -497,7 +521,7 @@ function createGenerationOrchestrator(options = {}) {
             message: qualityGateResult.reason || '质量审计需要人工复核',
             code: qualityGateResult.code || 'QUALITY_UNMEASURED',
             quality
-          }, { ...current.result, draft, audit: finalAudit, semanticAudit, quality });
+          }, { ...current.result, draft, audit: finalAudit, semanticAudit: semantic, quality });
         }
         break;
       }

@@ -2,16 +2,7 @@
 
 const crypto = require('node:crypto');
 
-const CRITICAL_QUALITY_DIMENSIONS = Object.freeze({
-  '玄幻': ['causality', 'consistency', 'language'],
-  '都市': ['logic', 'dialogue', 'language'],
-  '悬疑': ['clueIntegrity', 'povBoundary', 'language'],
-  '历史': ['historicalPlausibility', 'logic', 'language'],
-  '言情': ['emotionalArc', 'relationshipDynamics', 'language'],
-  '科幻': ['speculativeConsistency', 'logic', 'language'],
-  '西幻': ['worldRules', 'consistency', 'language'],
-  '轻小说': ['characterVoice', 'pacing', 'language']
-});
+const { CRITICAL_QUALITY_DIMENSIONS, isProxySource } = require('./quality-assessment');
 
 /** 计算正文摘要，供提交门禁绑定完整输出。 */
 function sha256(value) {
@@ -46,8 +37,13 @@ function validateGenerationAuditEvidence(input = {}) {
   const semantic = result.semanticAudit;
   const semanticEvidence = semantic && semantic.audit;
   const quality = result.quality;
-  const qualityVector = quality && (quality.qualityVector || quality.vector);
   const contractChapterNo = Number(result.contract && result.contract.chapterNo);
+
+  const isQualityAssessment = Boolean(quality && (quality.schemaVersion === 'quality-assessment-v1' || quality.literary || quality.compliance));
+  let qualityVector = quality && (quality.qualityVector || quality.vector);
+  if (!qualityVector && quality && quality.literary && quality.literary.dimensions) {
+    qualityVector = quality.literary.dimensions;
+  }
 
   if (!generationId || !Number.isInteger(chapterNo) || chapterNo < 1 || !content.trim() || String(input.contentHash || '') !== contentHash ||
       String(result.draft || '') !== content || String(result.outputHash || '') !== contentHash ||
@@ -61,7 +57,27 @@ function validateGenerationAuditEvidence(input = {}) {
       auditHasBlocker(semanticEvidence) || auditHasBlocker(semantic)) {
     return { ok: false, code: 'SEMANTIC_AUDIT_REQUIRED', message: '语义审计证据未通过' };
   }
-  if (!quality || quality.passed !== true || !qualityVector || typeof qualityVector !== 'object' ||
+  if (!quality || typeof quality !== 'object' || Array.isArray(quality)) {
+    return { ok: false, code: 'QUALITY_AUDIT_REQUIRED', message: '质量评估未提供或格式无效' };
+  }
+
+  // QualityAssessment 分层约束校验优先（提供细分错误码）
+  if (isQualityAssessment) {
+    if (quality.compliance && (quality.compliance.passed !== true || auditHasBlocker(quality.compliance))) {
+      return { ok: false, code: 'COMPLIANCE_AUDIT_REQUIRED', message: '质量评估合规层未通过' };
+    }
+    if (quality.literary && quality.literary.passed !== true) {
+      return { ok: false, code: 'LITERARY_QUALITY_REQUIRED', message: '质量评估文学质量未通过' };
+    }
+    if (quality.style && quality.style.passed === false) {
+      return { ok: false, code: 'STYLE_QUALITY_REQUIRED', message: '质量评估风格质感未通过' };
+    }
+    if (quality.aiFlavor && (quality.aiFlavor.risk === 'critical' || quality.aiFlavor.passed === false)) {
+      return { ok: false, code: 'AI_FLAVOR_CRITICAL_RISK', message: '质量评估检测到严重 AI 笔调风险' };
+    }
+  }
+
+  if (quality.passed !== true || !qualityVector || typeof qualityVector !== 'object' ||
       Array.isArray(qualityVector) || !Object.keys(qualityVector).length) {
     return { ok: false, code: 'QUALITY_AUDIT_REQUIRED', message: '质量向量未通过或缺失' };
   }
@@ -69,12 +85,18 @@ function validateGenerationAuditEvidence(input = {}) {
   // 严格题材质量维度门禁检验
   const rawGenre = input.genre ||
     (result.genreResolution && (result.genreResolution.genre || result.genreResolution.id)) ||
-    result.effectiveGenre || '';
+    result.effectiveGenre ||
+    (quality && quality.genre) ||
+    '';
   const genreKey = matchGenreKey(rawGenre);
   const requiredDimensions = genreKey ? CRITICAL_QUALITY_DIMENSIONS[genreKey] : ['language'];
 
+  const dimensionsSource = (quality && quality.literary && quality.literary.dimensions && Object.keys(quality.literary.dimensions).length > 0)
+    ? quality.literary.dimensions
+    : qualityVector;
+
   for (const dim of requiredDimensions) {
-    const entry = qualityVector[dim];
+    const entry = dimensionsSource[dim] || qualityVector[dim];
     if (!entry) {
       return {
         ok: false,
@@ -89,7 +111,17 @@ function validateGenerationAuditEvidence(input = {}) {
         message: `关键质检维度「${dim}」未真实测量 (status=NOT_MEASURED)`
       };
     }
-    const score = typeof entry === 'number' ? entry : Number(entry.value);
+    if (isQualityAssessment) {
+      const sourceName = typeof entry === 'object' && entry ? entry.source : '';
+      if (isProxySource(sourceName)) {
+        return {
+          ok: false,
+          code: 'CRITICAL_QUALITY_DIMENSION_PROVENANCE_VIOLATION',
+          message: `关键质检维度「${dim}」来源于代理指标「${sourceName || '未标注'}」，代理来源不可满足文学层维度`
+        };
+      }
+    }
+    const score = typeof entry === 'number' ? entry : Number(entry.value !== undefined ? entry.value : entry.score);
     if (!Number.isFinite(score) || score < 0.4) {
       return {
         ok: false,
@@ -109,9 +141,10 @@ function validateGenerationAuditEvidence(input = {}) {
       passed: true,
       deterministicAudit: deterministic,
       semanticAudit: semanticEvidence,
-      quality
+      quality,
+      qualityAssessment: (quality && quality.schemaVersion === 'quality-assessment-v1') ? quality : undefined
     }
   };
 }
 
-module.exports = { CRITICAL_QUALITY_DIMENSIONS, validateGenerationAuditEvidence };
+module.exports = { CRITICAL_QUALITY_DIMENSIONS, validateGenerationAuditEvidence, matchGenreKey, auditHasBlocker };
