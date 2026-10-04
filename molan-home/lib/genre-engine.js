@@ -1553,37 +1553,13 @@ function sanitizeAiFlavor(text, options = {}) {
   if (options.force !== true && process.env.MOLAN_AI_FLAVOR_REWRITE === 'false') {
     return text;
   }
-  let result = text;
-
-  // 1. 净化躯体化神经痉挛套话（替换为实打实的物理状态、动作或沉稳描写）
-  result = result
-    .replace(/(?:喉咙|咽喉)发紧/g, '呼吸粗重')
-    .replace(/(?:指节|指头|指尖|骨节|指骨)(?:泛白|发白)/g, '手指用力')
-    .replace(/心跳漏了一拍/g, '心头一沉')
-    .replace(/呼吸(?:一滞|骤停)/g, '屏住呼吸')
-    .replace(/下颌紧绷/g, '面色紧绷')
-    .replace(/后颈(?:发凉|一凉)/g, '后背发凉')
-    .replace(/手心(?:全是冷汗|满是冷汗|冒冷汗|冷汗)/g, '掌心黏湿')
-    .replace(/牙关紧咬/g, '咬紧牙关')
-    .replace(/(?:指腹|指肚|拇指|大拇指)反复?摩挲/g, '手指抚过')
-    .replace(/食指轻叩(?:桌面|桌案)/g, '手指按在桌上')
-    .replace(/指尖(?:骤然)?(?:一顿|悬在半空|僵在半空)/g, '动作微顿')
-    .replace(/掐(?:进|入)掌心/g, '攥紧拳头')
-    .replace(/按揉发胀的太阳穴/g, '揉了揉眉心')
-    .replace(/后槽牙咬得咯咯作响/g, '紧咬着牙')
-    .replace(/喉结上下滚动/g, '移开视线')
-    .replace(/倒吸一口凉气/g, '暗吸一口气')
-    .replace(/嘴角勾起一抹(?:玩味的)?弧度/g, '眼神微动');
-
-  // 2. 净化隐性翻译腔与句式僵化
-  result = result
-    .replace(/在这一刻显得格外/g, '此时格外')
-    .replace(/无不在昭示着/g, '无不显露出')
-    .replace(/带着一种不容置疑的/g, '带着不容置疑的')
-    .replace(/试图去寻找/g, '试图寻找')
-    .replace(/不得不承认的是/g, '平心而论');
-
-  return result;
+  try {
+    const { sanitizeInPlace } = require('./generation/inplace-sanitizer');
+    const res = sanitizeInPlace(text, options);
+    return res.text;
+  } catch (_) {
+    return text;
+  }
 }
 
 module.exports = {

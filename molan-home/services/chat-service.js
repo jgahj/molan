@@ -2,6 +2,20 @@ const crypto = require('node:crypto');
 const { createChatStreamRuntime } = require('./chat-stream-runtime');
 const { sanitizeUserPrompt } = require('../lib/ip-continuation-adapter');
 
+function resolveUpstreamModelForReasoning(pm, eff) {
+  const isGemini = pm && (pm.group === 'gemini' || /gemini/i.test(String(pm.model || pm.id)));
+  if (!isGemini) return (pm && (pm.model || pm.id)) || '';
+  const base = String(pm.model || pm.id || '').replace(/-(low|medium|high)$/i, '');
+  const effort = String(eff || 'medium').toLowerCase();
+  if (effort === 'low') return `${base}-low`;
+  if (effort === 'high') return `${base}-high`;
+  if (effort === 'medium') {
+    if (/gemini-3\.1-pro/i.test(base)) return `${base}-high`;
+    return `${base}-medium`;
+  }
+  return `${base}-high`;
+}
+
 function createChatService({
   getDatabase,
   getEnvironment,
@@ -9,6 +23,8 @@ function createChatService({
   getDeepseekUrl,
   getProxyUrl,
   POSTGRES_MODE,
+  postgresRepository,
+  postgresActor,
   getAuthUser,
   requireSqliteForPublic,
   allowChatRate,
@@ -118,7 +134,7 @@ function createChatService({
       releaseChatSlot(auth.user);
     };
 
-    readBody(req, CHAT_MAX_JSON_BODY_BYTES).then(async payload => {
+    return readBody(req, CHAT_MAX_JSON_BODY_BYTES).then(async payload => {
       const nativeCatalog = POSTGRES_MODE || getEnvironment().MOLAN_APP_STORE === 'json'
         ? await nativeSkillCatalog(auth.user) : null;
       const db = getDatabase();
@@ -126,25 +142,47 @@ function createChatService({
       const requestedProjectId = String(input.projectId || input.novelId || '').trim();
       let chatScope = null;
       if (requestedProjectId) {
-        let access = !POSTGRES_MODE && getEnvironment().MOLAN_APP_STORE === 'json'
-          ? await appRepository().getAccess({ userId: auth.user.userId, projectId: requestedProjectId })
-          : projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
-        if (!access && db && getEnvironment().MOLAN_APP_STORE !== 'json') {
+        const actorUserId = (typeof postgresActor === 'function' ? postgresActor(auth) : (auth.user && auth.user.userId)) || '';
+        let access = null;
+        if (POSTGRES_MODE && postgresRepository) {
           try {
-            const novel = db.prepare('SELECT id, user_email, owner_user_id, title FROM novels WHERE id = ?').get(requestedProjectId);
-            if (novel) {
-              const isOwner = (novel.user_email && String(novel.user_email).toLowerCase() === String(auth.user.email || '').toLowerCase()) ||
-                              (novel.owner_user_id && novel.owner_user_id === auth.user.userId) ||
-                              (!novel.owner_user_id && !novel.user_email);
-              if (isOwner || (typeof isAdminUser === 'function' && isAdminUser(auth.user))) {
-                projectScope.ensureNovelProject(db, auth.user, requestedProjectId, novel.title || '未命名作品');
-                access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
+            access = await postgresRepository.getProjectAccess(actorUserId, requestedProjectId);
+            if (!access) {
+              const profile = await postgresRepository.getProfile(actorUserId, requestedProjectId);
+              if (profile && profile.access) {
+                access = profile.access;
+              } else {
+                const saved = await postgresRepository.saveProfile({
+                  userId: actorUserId,
+                  projectId: requestedProjectId,
+                  title: '未命名作品',
+                  state: { _formatVersion: 3, title: '未命名作品', volumes: [] }
+                });
+                access = (saved && saved.access) || (await postgresRepository.getProjectAccess(actorUserId, requestedProjectId));
               }
-            } else {
-              projectScope.ensureNovelProject(db, auth.user, requestedProjectId, '未命名作品');
-              access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
             }
           } catch (_) {}
+        } else if (!POSTGRES_MODE && getEnvironment().MOLAN_APP_STORE === 'json') {
+          access = await appRepository().getAccess({ userId: auth.user.userId, projectId: requestedProjectId });
+        } else if (db) {
+          access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
+          if (!access && getEnvironment().MOLAN_APP_STORE !== 'json') {
+            try {
+              const novel = db.prepare('SELECT id, user_email, owner_user_id, title FROM novels WHERE id = ?').get(requestedProjectId);
+              if (novel) {
+                const isOwner = (novel.user_email && String(novel.user_email).toLowerCase() === String(auth.user.email || '').toLowerCase()) ||
+                                (novel.owner_user_id && novel.owner_user_id === auth.user.userId) ||
+                                (!novel.owner_user_id && !novel.user_email);
+                if (isOwner || (typeof isAdminUser === 'function' && isAdminUser(auth.user))) {
+                  projectScope.ensureNovelProject(db, auth.user, requestedProjectId, novel.title || '未命名作品');
+                  access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
+                }
+              } else {
+                projectScope.ensureNovelProject(db, auth.user, requestedProjectId, '未命名作品');
+                access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
+              }
+            } catch (_) {}
+          }
         }
         if (!projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) {
           releaseSlot();
@@ -234,6 +272,40 @@ function createChatService({
               creationMode: true,
               stylePreset: input.stylePreset || effectiveGenre
             });
+          }
+        }
+        // ★ 真实注入从【小说创作分类体系完整手册】与 1276 部小说沉淀的三大维度创作指令
+        const {
+          compileFullWritingSpecification
+        } = require('../lib/generation/corpus-archetypes');
+
+        const effectiveNovelGenre = input.novelGenre || input.genreFamily || '';
+        const effectiveStyle = input.writingStyle || input.styleArchetype || '';
+        const effectiveChapterFunction = input.chapterFunction || '';
+        const effectiveFocus = input.chapterFocus || 'balanced';
+        const effectiveEndingHook = input.endingHook || '';
+
+        // ★ 字数预算与全维度规范：用户指令绝对最高优先，无指令时默认 2500~3500 字一章
+        const lastUser = validatedMessages.slice().reverse().find(m => m && m.role === 'user');
+        const userPromptText = lastUser && typeof lastUser.content === 'string' ? lastUser.content : '';
+
+        const fullSpec = compileFullWritingSpecification({
+          genre: effectiveNovelGenre,
+          writingStyle: effectiveStyle,
+          chapterFunction: effectiveChapterFunction,
+          chapterFocus: effectiveFocus,
+          endingHook: effectiveEndingHook,
+          characters: input.characters,
+          userPrompt: userPromptText,
+          wordBudget: input.wordBudget || { targetWords: input.targetWords, targetChars: input.targetChars }
+        });
+
+        if (fullSpec && fullSpec.directive) {
+          const sysIdx = validatedMessages.findIndex(m => m && m.role === 'system');
+          if (sysIdx >= 0) {
+            validatedMessages[sysIdx].content += '\n\n' + fullSpec.directive;
+          } else {
+            validatedMessages.unshift({ role: 'system', content: fullSpec.directive });
           }
         }
       }
@@ -361,14 +433,13 @@ function createChatService({
         : (isChapterWriting ? 0.82 : (stage === 'writing' ? 0.82 : 0.85));
       const presencePenalty = typeof input.presence_penalty === 'number' && Number.isFinite(input.presence_penalty)
         ? input.presence_penalty
-        : undefined;
+        : (isChapterWriting ? 0.08 : undefined);
       const frequencyPenalty = typeof input.frequency_penalty === 'number' && Number.isFinite(input.frequency_penalty)
         ? input.frequency_penalty
-        : undefined;
-      const requestedMaxTokens = Number(input.max_tokens || input.max_completion_tokens || (isChapterWriting ? 6500 : 8192));
+      const requestedMaxTokens = Number(input.max_tokens || input.max_completion_tokens || 8192);
       let max_tokens = Number.isFinite(requestedMaxTokens) ? Math.max(1, Math.min(128000, Math.floor(requestedMaxTokens))) : 8192;
-      if (isChapterWriting && max_tokens < 6500) {
-        max_tokens = 6500;
+      if (isChapterWriting && max_tokens < 8192) {
+        max_tokens = 8192;
       }
 
       // 平台模型路由：前端只传 model（平台 id），服务端取自己的 key 转发。
@@ -385,8 +456,19 @@ function createChatService({
       const targetURL = isOpenAI
         ? (pm.baseURL.replace(/\/+$/, '') + '/chat/completions')
         : getDeepseekUrl();
-      const model = pm.model || modelId;
-      const effectiveProxy = isOpenAI && getProxyUrl() ? getProxyUrl() : '';
+      const isGemini = pm.group === 'gemini' || /gemini/i.test(String(pm.model || pm.id));
+      let reasoningEffort = null;
+      if (pm.supportsReasoning) {
+        reasoningEffort = normalizeReasoningEffort(pm, input.reasoningEffort);
+        if (!reasoningEffort && /^gpt-6-luna$/i.test(String(pm.model || pm.id))) {
+          reasoningEffort = (input.stage === 'skill_analysis' || input.stage === 'planning') ? 'max' : 'medium';
+        } else if (!reasoningEffort && isGemini) {
+          reasoningEffort = (input.stage === 'skill_analysis' || input.stage === 'planning') ? 'high' : 'medium';
+        }
+      }
+      const model = resolveUpstreamModelForReasoning(pm, reasoningEffort);
+      const isLocalOrHostTarget = /^(https?:\/\/)?(127\.0\.0\.1|localhost|8\.138\.128\.184|::1)(:\d+)?(\/|$)/i.test(targetURL);
+      const effectiveProxy = isOpenAI && getProxyUrl() && !isLocalOrHostTarget ? getProxyUrl() : '';
       const characterMaterialReview = editorOnly
         ? { approvedIds: [], audit: { required: false, status: 'disabled_for_editor_only', checkedCount: 0, passedCount: 0, rejectedCount: 0, calls: [] } }
         : await reviewCharacterMaterialSamples(String(req.headers.authorization || ''), auth.user, characterMaterialResult, messages, modelId);
@@ -477,11 +559,9 @@ function createChatService({
         const officialMessages = addPromptCacheBreakpoint(messages, pm);
         bodyObj = { model, messages: officialMessages, stream: true, stream_options: { include_usage: true } };
         if (pm.supportsReasoning) {
-          let eff = normalizeReasoningEffort(pm, input.reasoningEffort);
-          if (!eff && /^gpt-6-luna$/i.test(String(pm.model || pm.id)) && input.stage === 'writing') eff = 'max';
-          if (eff) bodyObj.reasoning_effort = eff;
+          if (reasoningEffort) bodyObj.reasoning_effort = reasoningEffort;
           bodyObj.max_completion_tokens = max_tokens;
-          if (typeof temperature === 'number' && (!/^gpt-6-luna$/i.test(String(pm.model || pm.id)) || eff === 'none')) bodyObj.temperature = temperature;
+          if (typeof temperature === 'number' && (!/^gpt-6-luna$/i.test(String(pm.model || pm.id)) || reasoningEffort === 'none')) bodyObj.temperature = temperature;
         } else {
           bodyObj.temperature = temperature;
           bodyObj.max_tokens = max_tokens;
@@ -632,7 +712,11 @@ function createChatService({
        */
       function flushDraftAsSSE(text) {
         if (!canWriteResponse() || !res.headersSent) return;
-        const content = String(text || '');
+        let content = String(text || '');
+        try {
+          const { sanitizeInPlace } = require('../lib/generation/inplace-sanitizer');
+          content = sanitizeInPlace(content).text;
+        } catch (_) {}
         if (!content) { try { res.write('data: [DONE]\n\n'); } catch (_) {} return; }
         const CHUNK = 240;
         for (let i = 0; i < content.length; i += CHUNK) {
@@ -942,9 +1026,7 @@ function createChatService({
           const officialMessages = addPromptCacheBreakpoint(secondMessages, pm);
           const obj = { model, messages: officialMessages, stream: true, stream_options: { include_usage: true } };
           if (pm.supportsReasoning) {
-            let eff = normalizeReasoningEffort(pm, input.reasoningEffort);
-            if (!eff && /^gpt-6-luna$/i.test(String(pm.model || pm.id)) && input.stage === 'writing') eff = 'max';
-            if (eff) obj.reasoning_effort = eff;
+            if (reasoningEffort) obj.reasoning_effort = reasoningEffort;
             obj.max_completion_tokens = secondMaxTokens;
           } else {
             obj.temperature = temperature;
@@ -1329,4 +1411,4 @@ function createChatService({
   return { handleChat };
 }
 
-module.exports = { createChatService };
+module.exports = { createChatService, resolveUpstreamModelForReasoning };

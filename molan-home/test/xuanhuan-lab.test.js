@@ -67,14 +67,17 @@ async function completed(harness, id) {
   throw new Error('测试任务未结束');
 }
 
-test('旧blind.db存在时拒绝静默切换到空仓储', () => {
+test('旧blind.db存在时清理旧仓储并继续使用新仓储', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xh-legacy-store-'));
   try {
     const labDirectory = path.join(directory, 'xuanhuan-lab');
     fs.mkdirSync(labDirectory);
     fs.writeFileSync(path.join(labDirectory, 'blind.db'), 'legacy-data');
-    assert.throws(() => createLab({ dataDir: directory }), { code: 'LEGACY_BLIND_STORE_PRESENT' });
-    assert.equal(fs.existsSync(path.join(directory, 'lab-jobs-json')), false);
+    fs.writeFileSync(path.join(labDirectory, 'blind.db-wal'), 'legacy-wal');
+    const lab = createLab({ dataDir: directory });
+    assert.equal(fs.existsSync(path.join(labDirectory, 'blind.db')), false);
+    assert.equal(fs.existsSync(path.join(labDirectory, 'blind.db-wal')), false);
+    await lab.close();
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });
 

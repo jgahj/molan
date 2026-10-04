@@ -37,6 +37,8 @@ function buildGenerationManifest(input = {}) {
     storyBibleVersion: Number(input.storyBibleVersion) || 0,
     stateVersion: Number(input.stateVersion) || 0,
     stateSnapshotHash: String(input.stateSnapshotHash || ''),
+    styleBundleHash: String(input.styleBundleHash || ''),
+    genreBundleHash: String(input.genreBundleHash || ''),
     contextHash: String(input.contextHash || ''),
     contractHash: String(input.contractHash || ''),
     promptHash: String(input.promptHash || ''),

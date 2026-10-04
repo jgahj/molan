@@ -81,9 +81,33 @@ function createGenerationService({
               prompt: request.prompt
             });
           },
-          resolveStyle: value => {
-            const style = value.style || story.styleDNA || story.styleProfile || '';
-            return style ? { status: 'resolved', style, source: 'explicit' } : { status: 'needs_choice', style: '', candidates: [] };
+          resolveStyle: async (value, genre) => {
+            let authoritativeContext = null;
+            try {
+              const authoritative = await loadAuthoritativeGenerationContext({
+                actorUserId, projectId, workspaceId, request: value, contract: value && value.contract
+              });
+              if (authoritative && authoritative.ok) {
+                authoritativeContext = {
+                  ...authoritative.storyContext,
+                  title: (authoritative.novelState && authoritative.novelState.title) || (authoritative.storyContext && authoritative.storyContext.title),
+                  styleDNA: authoritative.styleInfo?.styleDNA || authoritative.novelState?.styleDNA,
+                  styleProfile: authoritative.styleInfo?.styleProfile || authoritative.novelState?.styleProfile,
+                  narrativeStyle: authoritative.styleInfo?.narrativeStyle || authoritative.novelState?.narrativeStyle || authoritative.novelState?.style,
+                  authorDna: authoritative.styleInfo?.authorDna || authoritative.novelState?.authorDna,
+                  proseSamples: authoritative.styleInfo?.proseSamples || []
+                };
+              }
+            } catch (authoritativeError) {}
+            const { resolveStyle } = require('../lib/style/style-resolver');
+            return resolveStyle({
+              request: value,
+              genre,
+              scene: value && (value.scene || (value.storyContext && value.storyContext.currentScene) || (value.chapterContract && value.chapterContract.currentScene)),
+              chapterContract: value && (value.chapterContract || value.contract),
+              storyContext: value && value.storyContext,
+              authoritativeContext
+            });
           },
           loadAuthoritativeContext: async ({ request: runRequest, contract }) => loadAuthoritativeGenerationContext({
             actorUserId, projectId, workspaceId, request: runRequest, contract
@@ -152,7 +176,7 @@ function createGenerationService({
                 context: typeof passedContext === 'string' && passedContext ? passedContext : (runRequest.storyContext && runRequest.storyContext.planText) || '',
                 contextPlan: passedContextPlan || null,
                 genre: passedGenre || runRequest.genre || 'universal',
-                style: passedStyle || runRequest.style || story.styleDNA || story.styleProfile || '',
+                style: (passedStyle && typeof passedStyle === 'object') ? (passedStyle.style || passedStyle.prompt || '') : (passedStyle || runRequest.style || story.styleDNA || story.styleProfile || ''),
                 signal,
                 onProgress
               });
@@ -610,7 +634,7 @@ function createGenerationService({
       bible = { bibleId: storedBible.bibleId, version: storedBible.version, payload: storedBible.payload };
       snapshots = loadCreationSnapshots(bookId, 0);
       try { novelState = sanitizeNovelStateForStorage(JSON.parse(String(novel.state_json || '{}'))); }
-      catch (_) { return { ok: false, reason: 'project_state_invalid' }; }
+      catch (parseError) { return { ok: false, reason: 'project_state_invalid' }; }
       projectRevision = Number(novel.revision) || 0;
     }
   
@@ -668,7 +692,48 @@ function createGenerationService({
       activeCausalDebts: factLedger.promises,
       planText: JSON.stringify(chapterContext).slice(0, 12000)
     };
-    return { ok: true, storyContext, snapshotHash, projectRevision, stateVersion, chapterNo, chapterContext, novelState };
+    const storedStyleDNA = biblePayload.styleDNA || biblePayload.styleDna || novelState.styleDNA || novelState.styleDna || null;
+    const storedStyleProfile = biblePayload.styleProfile || novelState.styleProfile || null;
+    const storedNarrativeStyle = biblePayload.narrativeStyle || novelState.narrativeStyle || novelState.style || null;
+    const storedAuthorDna = biblePayload.authorDna || biblePayload.authorDNA || novelState.authorDna || null;
+
+    const proseSamples = [];
+    const extractProseFromChapters = (chapterList) => {
+      if (!Array.isArray(chapterList)) return;
+      for (const chapterItem of chapterList) {
+        if (typeof chapterItem.content === 'string' && chapterItem.content.trim().length >= 15) {
+          proseSamples.push(chapterItem.content.trim());
+        }
+        if (Array.isArray(chapterItem.scenes)) {
+          for (const sceneItem of chapterItem.scenes) {
+            if (typeof sceneItem.content === 'string' && sceneItem.content.trim().length >= 15) {
+              proseSamples.push(sceneItem.content.trim());
+            }
+          }
+        }
+      }
+    };
+    if (Array.isArray(novelState.chapters)) {
+      extractProseFromChapters(novelState.chapters);
+    }
+    if (Array.isArray(novelState.volumes)) {
+      for (const volumeItem of novelState.volumes) {
+        extractProseFromChapters(volumeItem.chapters);
+      }
+    }
+    if (proseSamples.length === 0 && previous && typeof previous.content === 'string' && previous.content.trim().length >= 15) {
+      proseSamples.push(previous.content.trim());
+    }
+
+    const styleInfo = {
+      styleDNA: storedStyleDNA,
+      styleProfile: storedStyleProfile,
+      narrativeStyle: storedNarrativeStyle,
+      authorDna: storedAuthorDna,
+      proseSamples
+    };
+
+    return { ok: true, storyContext, snapshotHash, projectRevision, stateVersion, chapterNo, chapterContext, novelState, styleInfo };
   }
   
   function scenePatchError(res, error) {
@@ -1087,6 +1152,18 @@ function createGenerationService({
         const dist = benchmarkDatabase.getQualityProfileDistribution();
         const comparison = profiler.compareQualityProfiles(targetProfile, dist);
         return json(res, 200, { ok: true, comparison });
+      }
+      if (req.method === 'POST' && u === '/api/quality/story-check') {
+        const body = await readBody(req, 2000000);
+        const { evaluateStoryQuality } = require('../lib/quality/story-quality');
+        const report = evaluateStoryQuality(body.chapters || [], body.options || {});
+        return json(res, 200, { ok: true, report });
+      }
+      if (req.method === 'POST' && u === '/api/quality/texture-check') {
+        const body = await readBody(req, 1000000);
+        const { analyzeHumanTexture } = require('../lib/style/human-texture');
+        const result = analyzeHumanTexture(body.text || '', body.options || {});
+        return json(res, 200, { ok: true, result });
       }
       if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
       if (!['/api/benchmark/audit', '/api/benchmark/revise-loop', '/api/benchmark/generate'].includes(u)) return json(res, 404, { error: 'Not Found' });

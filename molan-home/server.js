@@ -17,6 +17,7 @@ const { createLab: createXuanhuanLab, authenticateCloud: authenticateXuanhuanClo
 let xuanhuanLab = null;
 const { createReadingLab } = require('./lib/xuanhuan-reading');
 let xuanhuanReadingLab = null;
+process.env.MOLAN_AI_FLAVOR_REWRITE = process.env.MOLAN_AI_FLAVOR_REWRITE || 'true';
 const genreEngine = require('./lib/genre-engine');
 const {
   CausalDebtTracker,
@@ -293,16 +294,37 @@ function loadPlatformModels() {
   } catch (_) { /* 配置缺失时回退空列表 */ }
   return list;
 }
+const PLATFORM_MODEL_ALIASES = {
+  'gemini3.6f': 'gemini-3.6-flash',
+  'gemini-3.6f': 'gemini-3.6-flash',
+  'gemini3.7f': 'gemini-3.7-flash',
+  'gemini-3.7f': 'gemini-3.7-flash',
+  'gemini3.8f': 'gemini-3.8-flash',
+  'gemini-3.8f': 'gemini-3.8-flash',
+  'gemini3.1pro': 'gemini-3.1-pro',
+  'gemini-3.1pro': 'gemini-3.1-pro',
+  '3.1pro': 'gemini-3.1-pro',
+  'grok4.5': 'grok-4.5',
+  'grok45': 'grok-4.5',
+  'grok4.6': 'grok-4.6',
+  'grok46': 'grok-4.6'
+};
+
 function findPlatformModel(id) {
   if (!id) return null;
-  const s = String(id);
-  return PLATFORM_MODELS.find(m => m.id === s) || null;
+  const s = String(id).trim();
+  const direct = PLATFORM_MODELS.find(m => m.id === s || m.id.toLowerCase() === s.toLowerCase());
+  if (direct) return direct;
+  const targetId = PLATFORM_MODEL_ALIASES[s.toLowerCase()];
+  if (targetId) return PLATFORM_MODELS.find(m => m.id === targetId) || null;
+  return null;
 }
 PLATFORM_MODELS = loadPlatformModels();
 
 function normalizeConfiguredModel(value) {
   const requested = String(value || '').trim();
-  if (requested && findPlatformModel(requested)) return requested;
+  const matched = findPlatformModel(requested);
+  if (matched) return matched.id;
   const fallback = findPlatformModel('gpt-5.6-luna') || findPlatformModel('deepseek-v4-flash') || PLATFORM_MODELS[0];
   return fallback ? fallback.id : '';
 }
@@ -444,7 +466,7 @@ function addPromptCacheBreakpoint(messages, pm) {
 }
 
 const ADMIN_EMAILS = new Set(
-  (process.env.MOLAN_ADMIN_EMAILS || '1271055010@qq.com')
+  (process.env.MOLAN_ADMIN_EMAILS || '1271055010@qq.com,p.orschefky8@gmail.com')
     .split(',').map(v => v.trim().toLowerCase()).filter(Boolean)
 );
 const ACCOUNT_ROLES = new Set(['admin', 'vip', 'normal']);
@@ -651,6 +673,8 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
       getDeepseekUrl: () => DEEPSEEK_URL,
       getProxyUrl: () => PROXY_URL,
       POSTGRES_MODE,
+      postgresRepository,
+      postgresActor: auth => String(auth && auth.user && (auth.user.userId || projectScope.stableUserId(auth.user.email)) || '').trim(),
       getAuthUser, requireSqliteForPublic, allowChatRate, acquireChatSlot, releaseChatSlot,
       json, readBody, respondError, CHAT_MAX_JSON_BODY_BYTES, nativeSkillCatalog, appRepository, projectScope,
       isAdminUser, INTERNAL_MODEL_ROUTE_KEY, INTERNAL_MODEL_ROUTE_HEADER, generationV2Enabled,
@@ -679,7 +703,7 @@ function handleModels(req, res) {
   const role = auth ? normalizeUserRole(auth.user) : 'guest';
   const defaultModel = currentDefaultModel();
   const allowed = canChooseModel(auth && auth.user);
-  const visibleModels = allowed ? PLATFORM_MODELS : PLATFORM_MODELS.filter(m => m.id === defaultModel);
+  const visibleModels = PLATFORM_MODELS.length ? PLATFORM_MODELS : loadPlatformModels();
   const safe = visibleModels.map(m => ({
     id: m.id, name: m.name, group: m.group, provider: m.provider,
     model: m.model, supportsThinking: m.supportsThinking, supportsReasoning: m.supportsReasoning,
@@ -921,7 +945,7 @@ function emptyEditorOnlyCharacterMaterialResult() {
 /* ===================== 账号体系（本地 JSON 存储，零依赖） ===================== */
 const DATA_DIR = path.resolve(process.env.MOLAN_DATA_DIR || path.join(__dirname, 'data'));
 if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-  require('./services/native-domain-service').assertNoLegacyAppData({ fs, path, dataDir: DATA_DIR });
+  require('./services/native-domain-service').assertNoLegacyAppData({ fs, path, dataDir: DATA_DIR, resetLegacy: true });
 }
 const CHARACTER_MATERIAL_REPORT_FILE = path.join(__dirname, 'lib', 'character-material', 'quality-report.json');
 const CHARACTER_MATERIAL_APPROVAL_FILE = path.join(DATA_DIR, 'character-material-audit.json');
@@ -1554,7 +1578,7 @@ function initDB(options = {}) {
   try {
     const dbPath = path.join(DATA_DIR, 'molan.db');
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (DatabaseSync.name === 'PureJsDatabase') assertJsonSource(dbPath);
+    if (DatabaseSync.name === 'PureJsDatabase') assertJsonSource(dbPath, { resetLegacy: true });
     db = new DatabaseSync(dbPath);
       db.exec('PRAGMA journal_mode = WAL');        // 并发读 + 写不阻塞
       db.exec('PRAGMA synchronous = NORMAL');      // 折衷性能与安全
@@ -7412,6 +7436,35 @@ function handleChapterHealthCheck(req, res) {
   }).catch(error => respondError(res, error));
 }
 
+async function handleNovelPromptCompilation(req, res) {
+  try {
+    const { compileFullWritingSpecification, getAtomicPromptBlocks } = require('./lib/generation/corpus-archetypes');
+    if (req.method === 'GET') {
+      return json(res, 200, { ok: true, blocks: getAtomicPromptBlocks() });
+    }
+    const body = await readBody(req);
+    const input = body && typeof body === 'object' ? body : {};
+    const compiled = compileFullWritingSpecification({
+      genre: input.genre || input.novelGenre,
+      writingStyle: input.writingStyle || input.styleArchetype,
+      chapterFunction: input.chapterFunction,
+      chapterFocus: input.chapterFocus,
+      endingHook: input.endingHook,
+      characters: input.characters,
+      userPrompt: input.userPrompt || input.prompt || '',
+      wordBudget: input.wordBudget
+    });
+    return json(res, 200, {
+      ok: true,
+      success: true,
+      finalPrompt: compiled.directive,
+      wordBudget: compiled.wordBudget
+    });
+  } catch (err) {
+    return json(res, 500, { error: err.message || '编译提示词异常' });
+  }
+}
+
 function handleCausalDebtsGet(req, res, bookId) {
   const tracker = getCreationDebtTracker();
   const q = queryParamsFromUrl(req.url);
@@ -8286,6 +8339,9 @@ async function dispatchRequest(req, res) {
   if (u.startsWith('/api/genre-lab/')) {
     return handleGenreLab(req, res, u);
   }
+  if (u === '/api/novel/compile-prompt' || u === '/api/generation/compile-prompt') {
+    return handleNovelPromptCompilation(req, res);
+  }
   if (domainRoutes.knowledge.dispatchLocal(req, res, u)) return;
   if (domainRoutes.generation.dispatchBeforeProxy(req, res, u)) return;
   if (shouldProxyCloudRequest(req)) return handleCloudProxy(req, res);
@@ -8489,8 +8545,10 @@ module.exports = {
   globalUsageSummary,
   getUsageSummariesByUser,
   reasoningEffortsForModel,
+  normalizeReasoningEffort,
   canChooseModel,
   currentDefaultModel,
+  findPlatformModel,
   resolveModelForUser,
   resolveCreationModelId,
   internalModelIdFromRequest,

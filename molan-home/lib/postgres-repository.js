@@ -4939,7 +4939,13 @@ function createPostgresRepository(options = {}) {
   async function runtimeListDissections(actorUserId) {
     return withTransaction(actorUserId, async client => {
       const result = await client.query(
-        `SELECT * FROM luna.runtime_dissections
+        `SELECT id, owner_actor_id, owner_user_id, user_email, title, source_type, source_name,
+                '' AS source_text,
+                depth, purpose, selected_model, status, phase, phase_index, progress,
+                estimated_credits, actual_credits, result_json, meta_json, error, cancel_requested,
+                created_at_value, updated_at_value, revision, created_at, updated_at,
+                worker_id, worker_fence, worker_lease_until
+         FROM luna.runtime_dissections
          WHERE owner_actor_id = luna.actor_id()
          ORDER BY updated_at_value DESC, id ASC`
       );
@@ -5453,6 +5459,22 @@ function createPostgresRepository(options = {}) {
         `SELECT * FROM luna.runtime_dissection_rows
          WHERE owner_actor_id = luna.actor_id() AND dissection_id = $1::text AND deleted_at IS NULL${condition}
          ORDER BY source_table ASC, source_row_no ASC NULLS LAST, row_key ASC`, values
+      );
+      return result.rows;
+    });
+  }
+
+  async function runtimeCountDissectionRows(actorUserId, dissectionId) {
+    return withTransaction(actorUserId, async client => {
+      const result = await client.query(
+        `SELECT
+           source_table,
+           count(*)::int AS count,
+           count(*) FILTER (WHERE source_table = 'dissection_entities' AND (document->>'status') = 'candidate')::int AS candidate_count
+         FROM luna.runtime_dissection_rows
+         WHERE owner_actor_id = luna.actor_id() AND dissection_id = $1::text AND deleted_at IS NULL
+         GROUP BY source_table`,
+        [String(dissectionId || '')]
       );
       return result.rows;
     });
@@ -7297,6 +7319,7 @@ function createPostgresRepository(options = {}) {
     runtimeRequeueDissection,
     runtimeDeleteDissection,
     runtimeListDissectionRows,
+    runtimeCountDissectionRows,
     runtimeListCharacterLibrary,
     runtimeSyncCharactersToLibrary,
     runtimePatchCharacter,

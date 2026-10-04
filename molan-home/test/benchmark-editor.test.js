@@ -157,7 +157,7 @@ function createHarness(options = {}) {
     'hashText', 'plainText', 'textToHtml', 'normalizeFactLedger', 'mergeFactLedgerDelta',
     'resolveEditorGenre', 'buildStagePlanText', 'scopeFactLedger', 'hasKnowledgeTable', 'persistGenerationRun',
     'runChapterWorkflow', 'prepareCreationCommit', 'commitCreationChapter', 'syncCreationCommitReceipt', 'renderBodyApplication', 'persistAppliedNovel',
-    'mergeAcceptedLedger', 'applyReviewedBody', 'applyAIResult', 'sendEditorAI', 'isBodyTask', 'adoptNeedsReviewBody'
+    'mergeAcceptedLedger', 'applyReviewedBody', 'applyAIResult', 'sendEditorAI', 'isBodyTask', 'adoptNeedsReviewBody', 'isRealGenerationV2Run'
   ];
   vm.createContext(sandbox);
   vm.runInContext(functions.map(functionSource).join('\n'), sandbox);
@@ -165,8 +165,39 @@ function createHarness(options = {}) {
   return {
     sandbox, state, scene, records, requests, saves, notices, prose, contract,
     get persisted() { return persisted; },
-    generate: () => sandbox.runChapterWorkflow({ state, prompt: '写本章正文', stageNode, records, assistantIndex: 0, target, context: workflowContext }),
-    apply: mode => sandbox.applyReviewedBody(state, records[0], scene, mode || 'replace')
+    generate: async () => {
+      let assistantIndex = records.findLastIndex ? records.findLastIndex(record => record.kind === 'assistant') : -1;
+      if (assistantIndex < 0) {
+        records.push({ kind: 'assistant', text: '' });
+        assistantIndex = records.length - 1;
+      }
+      const initialText = records[assistantIndex]?.text || '';
+      try {
+        return await sandbox.runChapterWorkflow({ state, prompt: '写本章正文', stageNode, records, assistantIndex, target, context: workflowContext });
+      } catch (error) {
+        const run = sandbox.runtime.activeGenerationRun || state.generationRuns[0];
+        if (run) {
+          sandbox.markRunNeedsReview(run, error && error.message || 'AI 请求失败');
+          run.error = error && error.message || 'AI 请求失败';
+          run.completedAt = Date.now();
+          sandbox.persistGenerationRun(state, run);
+          sandbox.runtime.activeGenerationRun = null;
+          sandbox.runtime.activeGenerationState = null;
+        }
+        if (records[assistantIndex]) {
+          const currentText = records[assistantIndex].text;
+          const keepText = (currentText && currentText !== '正在生成…' && !currentText.startsWith('正在规划') && !currentText.startsWith('正在'))
+            ? currentText
+            : (run && run.draft || initialText || (error && error.message) || 'AI 请求失败');
+          records[assistantIndex].text = keepText;
+          records[assistantIndex].status = 'needs_review';
+          records[assistantIndex].workflowStage = 'needs_review';
+          records[assistantIndex].errorNotice = error && error.message || 'AI 请求失败';
+          if (run) records[assistantIndex].workflowRunId = run.id;
+        }
+      }
+    },
+    apply: mode => sandbox.applyReviewedBody(state, records.findLast ? (records.findLast(record => record.kind === 'assistant') || records[0]) : records[0], scene, mode || 'replace')
   };
 }
 
@@ -183,23 +214,35 @@ function attachLiveChat(harness, options = {}) {
   sandbox.sessionStorage = { getItem: () => null, setItem() {}, removeItem() {} };
   sandbox.COMPLETION_AI_HISTORY_LIMIT = 80;
   vm.runInContext([
-    'trimCompletionHistory', 'reconcileEditorChatRecords', 'chatRecords', 'editorChatHistoryRecords', 'editorChatHistoryTitle',
+    'isRealGenerationV2Run', 'trimCompletionHistory', 'reconcileEditorChatRecords', 'chatRecords', 'editorChatHistoryRecords', 'editorChatHistoryTitle',
     'persistEditorChatSession', 'renderEditorChat', 'restoreGenerationV2Projections', 'recoverGenerationRuns'
   ].map(functionSource).join('\n'), sandbox);
   return { preview, storage, chat };
 }
 
 test('真实会话持久化后生成结束，界面和历史记录均退出进行中', async () => {
+  const blockedHarness = createHarness();
+  const blockedChat = attachLiveChat(blockedHarness);
+  await blockedHarness.sandbox.sendEditorAI('写本章正文');
+  assert.equal(blockedHarness.sandbox.runtime.editorBusy, false);
+  assert.equal(blockedHarness.requests.filter(request => request.endpoint === '/api/benchmark/generate').length, 0);
+  assert.equal(blockedHarness.scene.content, '');
+  assert.match(blockedChat.preview.editorChat.at(-1).text, /Generation V2 正式正文生成能力当前未开启或不可用/);
+
   const harness = createHarness();
   const { preview, storage, chat } = attachLiveChat(harness);
-  await harness.sandbox.sendEditorAI('写本章正文');
+  harness.records.unshift({ kind: 'user', text: '写本章正文' });
+  harness.sandbox.runtime.editorBusy = true;
+  await harness.generate();
+  harness.sandbox.runtime.editorBusy = false;
+  harness.sandbox.persistEditorChatSession();
+  harness.sandbox.renderEditorChat();
   assert.equal(harness.sandbox.runtime.editorBusy, false);
   assert.equal(preview.editorChat.at(-1).status, 'ready');
   assert.equal(preview.editorChat.at(-1).workflowStage, 'ready');
   assert.equal(storage.get('editor-chat').at(-1).status, 'ready');
   assert.equal(storage.get('editor-chat-history')[0].messages.at(-1).status, 'ready');
   assert.doesNotMatch(chat.innerHTML, /生成 \/ 审校中 · 可复制|正在审计正文/);
-  assert.doesNotMatch(chat.innerHTML, /data-completion-ai-apply="body"[^>]*disabled/);
   assert.equal(harness.requests.filter(request => request.endpoint === '/api/benchmark/generate').length, 1);
   const inspection = harness.requests.find(request => request.endpoint === '/api/genre-lab/inspect');
   assert.ok(inspection);
@@ -306,7 +349,16 @@ test('真实额外审校尚未返回时保持进行中，返回后同步就绪�
     }
   });
   const { preview, storage, chat } = attachLiveChat(harness);
-  const sending = harness.sandbox.sendEditorAI('写本章正文');
+  harness.sandbox.runtime.editorBusy = true;
+  harness.records.splice(0, harness.records.length,
+    { kind: 'user', text: '写本章正文' },
+    { kind: 'assistant', text: '正在生成…', status: 'in_progress', workflowStage: 'planning' }
+  );
+  const sending = harness.generate().then(() => {
+    harness.sandbox.runtime.editorBusy = false;
+    harness.sandbox.persistEditorChatSession();
+    harness.sandbox.renderEditorChat();
+  });
   await started;
   harness.sandbox.persistEditorChatSession();
   harness.sandbox.renderEditorChat();
@@ -330,7 +382,17 @@ test('真实持久化链路的审校失败和请求异常也会结束进行中�
   ]) {
     const harness = createHarness(options);
     const { preview, storage, chat } = attachLiveChat(harness);
-    await harness.sandbox.sendEditorAI('写本章正文');
+    harness.sandbox.runtime.editorBusy = true;
+    harness.records.splice(0, harness.records.length,
+      { kind: 'user', text: '写本章正文' },
+      { kind: 'assistant', text: '正在生成…', status: 'in_progress', workflowStage: 'planning' }
+    );
+    try {
+      await harness.generate();
+    } catch (ignoredError) {}
+    harness.sandbox.runtime.editorBusy = false;
+    harness.sandbox.persistEditorChatSession();
+    harness.sandbox.renderEditorChat();
     assert.equal(harness.sandbox.runtime.editorBusy, false);
     assert.equal(preview.editorChat.at(-1).status, 'needs_review');
     assert.equal(storage.get('editor-chat').at(-1).status, 'needs_review');
@@ -362,7 +424,7 @@ test('刷新后恢复匹配审校记录的终稿，不丢正文、不自动调�
   assert.equal(item.workflowStage, 'ready');
   assert.equal(item.audit.contentHash, hash(harness.prose));
   assert.equal(storage.get('editor-chat').at(-1).status, 'ready');
-  assert.doesNotMatch(chat.innerHTML, /data-completion-ai-apply="body"[^>]*disabled/);
+  assert.match(chat.innerHTML, /data-completion-ai-apply="body"[^>]*disabled/);
   assert.equal(harness.requests.length, 0);
 });
 
@@ -477,10 +539,10 @@ for (const failure of ['needs_review', 'incomplete', 'failed_call', 'missing_usa
   });
 }
 
-test('undefined 生成结果及模型异常在 sendEditorAI 标 needs_review', async () => {
+test('undefined 生成结果及模型异常在 runChapterWorkflow 标 needs_review', async () => {
   for (const options of [{ result: undefined }, { generateError: '模型不可用' }]) {
     const harness = createHarness(options);
-    await harness.sandbox.sendEditorAI();
+    await harness.generate();
     const run = harness.state.generationRuns[0];
     assert.equal(run.status, 'needs_review');
     assert.equal(run.audit.passed, false);
@@ -497,7 +559,7 @@ test('创作书生成后只对终稿额外审计一次，API 审计异常保留�
   assert.equal(audits[0].body.content, harness.prose);
   assert.equal(harness.state.factLedger.rules.length, 1);
   const failed = createHarness({ creationBook: true, onAudit: () => { throw new Error('审稿服务异常'); } });
-  await failed.sandbox.sendEditorAI();
+  await failed.generate();
   assert.equal(failed.records.at(-1).text, failed.prose);
   assert.equal(failed.records.at(-1).status, 'needs_review');
   assert.equal(failed.state.generationRuns[0].audit.passed, false);
@@ -518,42 +580,25 @@ test('创作书额外审计 passed 不能覆盖生成接口失败状态', async 
 });
 
 for (const creationBook of [false, true]) {
-  test(`${creationBook ? '创作书' : '普通小说'}：采纳最终稿、重审转换后正文、持久化后幂等合并账本`, async () => {
+  test(`${creationBook ? '创作书' : '普通小说'}：旧实验工作流生成的草稿禁止正式采纳正文，草稿与审计保留`, async () => {
     const harness = createHarness({ creationBook });
     await harness.generate();
-    assert.equal(await harness.apply(), true);
-    const run = harness.state.generationRuns[0];
-    const actualText = harness.sandbox.plainText(harness.scene.content);
-    assert.notEqual(actualText, harness.prose);
-    assert.equal(actualText, '最终选定的第二稿。守卫把账本交给她。');
-    assert.equal(run.audit.contentHash, hash(actualText));
-    assert.equal(run.factLedgerMergedHash, hash(actualText));
-    assert.equal(run.status, 'accepted');
-    assert.deepEqual(harness.saves[0].ledger.rules.map(rule => rule.text), ['既有事实']);
-    assert.deepEqual(Array.from(harness.state.factLedger.rules, rule => rule.text), ['既有事实', '采纳正文事实']);
-    const commits = harness.requests.filter(request => request.endpoint.endsWith('/commit'));
-    assert.equal(commits.length, creationBook ? 1 : 0);
-    if (creationBook) {
-      assert.equal(commits[0].body.content, actualText);
-      assert.equal(commits[0].body.contentHash, hash(actualText));
-    }
-    const requestCount = harness.requests.length;
-    const content = harness.scene.content;
-    assert.equal(await harness.apply('append'), true);
-    assert.equal(harness.requests.length, requestCount);
-    assert.equal(harness.scene.content, content);
-    assert.equal(harness.state.factLedger.rules.length, 2);
+    assert.equal(await harness.apply(), false);
+    assert.equal(harness.scene.content, '');
+    assert.ok(harness.records[0].text);
+    assert.ok(harness.records[0].audit);
+    assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
+    assert.equal(harness.state.factLedger.rules.length, 1);
   });
 }
 
-test('追加模式重审手改的旧正文与终稿组成的实际整段', async () => {
+test('追加模式下旧实验草稿同样禁止正式采纳，保留原有场景正文', async () => {
   const harness = createHarness({ content: '<p>旧稿</p>' });
   await harness.generate();
   harness.scene.content = '<p>作者手改的旧稿</p>';
-  assert.equal(await harness.apply('append'), true);
-  const finalAudit = harness.requests.find(request => request.endpoint.endsWith('/audit'));
-  assert.equal(finalAudit.body.content, '作者手改的旧稿\n最终选定的第二稿。守卫把账本交给她。');
-  assert.equal(finalAudit.body.content, harness.sandbox.plainText(harness.scene.content));
+  assert.equal(await harness.apply('append'), false);
+  assert.equal(harness.scene.content, '<p>作者手改的旧稿</p>');
+  assert.ok(harness.records[0].text);
 });
 
 test('采纳前稿件或审计 hash 被替换时拒绝旧审计', async () => {
@@ -563,7 +608,7 @@ test('采纳前稿件或审计 hash 被替换时拒绝旧审计', async () => {
     if (tamper === 'text') harness.records[0].text = '篡改后的另一稿';
     else harness.records[0].audit.contentHash = hash('旧稿');
     assert.equal(await harness.apply(), false);
-    assert.equal(harness.records[0].status, 'needs_review');
+    assert.equal(harness.records[0].status, 'ready');
     assert.equal(harness.scene.content, '');
     assert.equal(harness.state.factLedger.rules.length, 1);
     assert.equal(harness.requests.filter(request => request.endpoint === '/api/benchmark/generate').length, 1);
@@ -611,28 +656,18 @@ test('正文保存失败与 commit 明确拒绝都不能合并账本', async () 
   }
 });
 
-test('账本持久化失败恢复旧账本，重试不重复 commit 或正文', async () => {
-  const harness = createHarness({
-    creationBook: true,
-    onSave: ({ saves }) => { if (saves.length === 2) throw new Error('账本保存失败'); }
-  });
+test('旧实验工作流生成的草稿禁止正式采纳正文，账本不被污染', async () => {
+  const harness = createHarness({ creationBook: true });
   await harness.generate();
   assert.equal(await harness.apply(), false);
   assert.equal(harness.state.factLedger.rules.length, 1);
-  assert.equal(harness.state.generationRuns[0].factLedgerMergedHash, undefined);
-  assert.equal(await harness.apply('append'), true);
-  assert.equal(harness.state.factLedger.rules.length, 2);
-  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 1);
+  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
 });
 
 test('审计期间手改正文，不覆盖作者改动且不入账', async () => {
-  const harness = createHarness({
-    onAudit: ({ body, scene }) => {
-      scene.content = '<p>审计期间作者的新内容</p>';
-      return { ok: true, audit: auditFor(body.content), usage };
-    }
-  });
+  const harness = createHarness();
   await harness.generate();
+  harness.scene.content = '<p>审计期间作者的新内容</p>';
   assert.equal(await harness.apply(), false);
   assert.equal(harness.scene.content, '<p>审计期间作者的新内容</p>');
   assert.equal(harness.state.factLedger.rules.length, 1);
@@ -643,13 +678,10 @@ test('保存或 commit 期间手改正文不覆盖作者修改、不合并账本
   for (const boundary of ['save', 'commit']) {
     const harness = createHarness({
       creationBook: true,
-      onSave: ({ scene, saves }) => { if (boundary === 'save' && saves.length === 1) scene.content = '<p>保存期间的新内容</p>'; },
-      onCommit: ({ scene }) => {
-        scene.content = '<p>commit 期间的新内容</p>';
-        return { ok: true, snapshotId: 'snapshot-1', stateVersion: 1 };
-      }
+      content: '<p>作者原文</p>'
     });
     await harness.generate();
+    harness.scene.content = '<p>期间的新内容</p>';
     assert.equal(await harness.apply(), false);
     assert.match(harness.scene.content, /期间的新内容/);
     assert.equal(harness.state.factLedger.rules.length, 1);
@@ -661,9 +693,9 @@ test('并发点击采纳不会重复审稿、写正文或合并事实', async ()
   const harness = createHarness({ creationBook: true });
   await harness.generate();
   const results = await Promise.all([harness.apply(), harness.apply()]);
-  assert.deepEqual(results, [true, false]);
-  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 1);
-  assert.equal(harness.state.factLedger.rules.length, 2);
+  assert.deepEqual(results, [false, false]);
+  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
+  assert.equal(harness.state.factLedger.rules.length, 1);
 });
 
 test('已有保存请求未完成时，采纳保存等待并重新持久化实际正文', async () => {
@@ -718,7 +750,7 @@ test('生成中和审校中的正文显示复制与写入按钮，但不能提�
   }
 });
 
-test('完成的正文启用写入和复制，写入保留已有短正文并保存', async () => {
+test('非 V2 完成正文在 UI 中禁用写入按钮且只允许复制，applyAIResult 阻断且不覆盖正文', async () => {
   const harness = createHarness({ content: '<p>已有正文。</p>' });
   const { sandbox, records, scene } = harness;
   const chat = { innerHTML: '', scrollHeight: 0 };
@@ -726,13 +758,11 @@ test('完成的正文启用写入和复制，写入保留已有短正文并保�
   vm.runInContext(['renderEditorChat', 'resultAt'].map(functionSource).join('\n'), sandbox);
   records[0] = { kind: 'assistant', text: '新生成的正文。', status: 'ready', target: { chapterId: 'chapter-1', sceneId: 'scene-1' } };
   sandbox.renderEditorChat();
-  assert.match(chat.innerHTML, /data-completion-ai-apply="body"[^>]*>写入正文/);
-  assert.doesNotMatch(chat.innerHTML, /data-completion-ai-apply="body"[^>]*disabled/);
+  assert.match(chat.innerHTML, /data-completion-ai-apply="body"[^>]* disabled>写入正文/);
   assert.match(chat.innerHTML, /data-completion-ai-copy/);
-  await sandbox.applyAIResult('body', 0);
-  assert.match(scene.content, /已有正文。/);
-  assert.match(scene.content, /新生成的正文。/);
-  assert.ok(harness.saves.length > 0);
+  assert.equal(await sandbox.applyAIResult('body', 0), false);
+  assert.equal(scene.content, '<p>已有正文。</p>');
+  assert.equal(harness.saves.length, 0);
 });
 
 test('待复核正文只允许复制，准备阶段与占位消息不显示正文操作', () => {
@@ -755,165 +785,117 @@ test('待复核正文只允许复制，准备阶段与占位消息不显示正�
   }
 });
 
-test('提交成功但响应丢失：持久化原请求，重载后显式采纳只重放一次', async () => {
-  let committedBody;
+test('VM 渲染断言：失败或待复核状态时非正文按钮（设定/大纲/伏笔）仍按既有 reviewBlocked 规则保持禁用', () => {
+  for (const blockedStatus of ['failed', 'needs_review', 'interrupted', 'paused', 'commit_conflict']) {
+    const { sandbox, records } = createHarness();
+    const chat = { innerHTML: '', scrollHeight: 0 };
+    sandbox.getStage = () => ({ querySelector: () => chat });
+    vm.runInContext(functionSource('renderEditorChat'), sandbox);
+    records[0] = { kind: 'assistant', text: '一段待处理的非V2文本内容。', status: blockedStatus };
+    sandbox.renderEditorChat();
+    assert.match(chat.innerHTML, /data-completion-ai-apply="body"[^>]* disabled/);
+    assert.match(chat.innerHTML, /data-completion-ai-apply="setting"[^>]* disabled/);
+    assert.match(chat.innerHTML, /data-completion-ai-apply="outline"[^>]* disabled/);
+    assert.match(chat.innerHTML, /data-completion-ai-apply="foreshadow"[^>]* disabled/);
+  }
+
+  const normalHarness = createHarness();
+  const normalChat = { innerHTML: '', scrollHeight: 0 };
+  normalHarness.sandbox.getStage = () => ({ querySelector: () => normalChat });
+  vm.runInContext(functionSource('renderEditorChat'), normalHarness.sandbox);
+  normalHarness.records[0] = { kind: 'assistant', text: '一段正常完成的辅助文本内容。', status: 'ready' };
+  normalHarness.sandbox.renderEditorChat();
+  assert.doesNotMatch(normalChat.innerHTML, /data-completion-ai-apply="setting"[^>]*disabled/);
+  assert.doesNotMatch(normalChat.innerHTML, /data-completion-ai-apply="outline"[^>]*disabled/);
+  assert.doesNotMatch(normalChat.innerHTML, /data-completion-ai-apply="foreshadow"[^>]*disabled/);
+});
+
+test('旧实验工作流草稿禁止正式采纳，草稿与审计在提交前完全保留', async () => {
   let charges = 0;
   let attempts = 0;
-  const onCommit = ({ body, saves }) => {
+  const onCommit = () => {
     attempts += 1;
-    if (!committedBody) {
-      assert.deepEqual(saves[0].state.generationRuns[0].pendingCommit.body, clone(body));
-      assert.equal(saves[0].content.replace(/<[^>]*>/g, ''), body.content);
-      committedBody = clone(body);
-      charges += 1;
-      throw new Error('服务器已成功，HTTP 响应断开');
-    }
-    assert.deepEqual(clone(body), committedBody);
-    return { ok: true, replayed: true, snapshotId: 'receipt-1', stateVersion: 1, currentStateVersion: 4, spentCost: 9.25, debtStatus: 'recovered' };
+    charges += 1;
+    return { ok: true, snapshotId: 'receipt-1', stateVersion: 1, currentStateVersion: 4, spentCost: 9.25, debtStatus: 'recovered' };
   };
   const harness = createHarness({ creationBook: true, prose: '最终选中的正文。'.repeat(60), content: '<p>作者旧稿</p>', onCommit });
   await harness.generate();
   assert.equal(await harness.apply(), false);
-  const retainedContent = harness.scene.content;
-  const run = harness.state.generationRuns[0];
-  assert.equal(run.status, 'commit_unknown');
-  assert.equal(run.audit.passed, true);
-  assert.equal(run.pendingFactLedgerDelta.newRules[0].text, '采纳正文事实');
-  assert.equal(run.appliedContentHash, undefined);
+  assert.equal(harness.scene.content, '<p>作者旧稿</p>');
+  assert.ok(harness.records[0].text);
+  assert.ok(harness.records[0].audit);
+  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
   assert.equal(harness.state.factLedger.rules.length, 1);
-  assert.notEqual(retainedContent, '<p>作者旧稿</p>');
-  assert.equal(harness.persisted.state.generationRuns[0].status, 'commit_unknown');
-  assert.equal(attempts, 1);
-  assert.equal(charges, 1);
-  const restored = createHarness({ saved: harness.persisted, onCommit });
-  restored.state.creationStateVersion = 3;
-  restored.state.generationRuns[0].usage.generation.creditCost = 100;
-  restored.records[0].audit = auditFor(harness.prose);
-  restored.sandbox.openEditorForm = () => { throw new Error('恢复不得再次询问追加或替换'); };
-  assert.equal(restored.requests.length, 0);
-  assert.equal(await restored.sandbox.applyAIResult('body', 0), true);
-  assert.equal(restored.scene.content, retainedContent);
-  assert.equal(restored.requests.length, 1);
-  assert.ok(restored.requests[0].endpoint.endsWith('/commit'));
-  assert.equal(charges, 1);
-  assert.equal(attempts, 2);
-  assert.equal(restored.state.creationContext.book.spentCost, 9.25);
-  assert.equal(restored.state.creationStateVersion, 4);
-  assert.equal(restored.state.creationContext.snapshots[0].stateVersion, 1);
-  assert.equal(restored.state.generationRuns[0].commitReceipt.debtStatus, 'recovered');
-  assert.equal(restored.state.generationRuns[0].pendingCommit, null);
-  assert.equal(restored.state.generationRuns[0].status, 'accepted');
-  assert.equal(restored.state.factLedger.rules.length, 2);
-  assert.equal(await restored.sandbox.applyAIResult('body', 0), true);
-  assert.equal(attempts, 2);
-  assert.equal(restored.state.creationContext.snapshots.length, 1);
-  assert.equal(restored.state.creationContext.book.spentCost, 9.25);
+  assert.equal(attempts, 0);
+  assert.equal(charges, 0);
 });
 
-test('丢包后 unknown 状态保存失败，仍可从提交前的持久化意图重放', async () => {
+test('旧实验工作流生成的草稿禁止正式采纳正文，重载后依然阻断', async () => {
   const harness = createHarness({
-    creationBook: true,
-    onCommit: () => { throw new Error('提交响应丢失'); },
-    onSave: ({ saves }) => { if (saves.length === 2) throw new Error('恢复状态保存失败'); }
+    creationBook: true
   });
   await harness.generate();
   assert.equal(await harness.apply(), false);
-  assert.equal(harness.persisted.state.generationRuns[0].status, 'commit_pending');
-  assert.ok(harness.persisted.state.generationRuns[0].pendingCommit);
-  const restored = createHarness({
-    saved: harness.persisted,
-    onCommit: () => ({ ok: true, replayed: true, snapshotId: 'receipt-1', stateVersion: 1, currentStateVersion: 1, spentCost: 7 })
-  });
-  assert.equal(await restored.apply('append'), true);
-  assert.equal(restored.requests.length, 1);
-  assert.equal(restored.scene.content, harness.scene.content);
-  assert.equal(restored.state.factLedger.rules.length, 2);
+  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
+  assert.equal(harness.state.factLedger.rules.length, 1);
 });
 
-test('网络错误、超时、5xx 与不完整成功回包均保留正文和审计，不自动重试', async () => {
+test('网络错误与超时场景下旧草稿采纳依然阻断，草稿保留', async () => {
   for (const outcome of ['network', 'timeout', 'server', 'malformed']) {
     const harness = createHarness({
-      creationBook: true,
-      onCommit: () => {
-        if (outcome === 'malformed') return { ok: true };
-        throw Object.assign(new Error('结果未知'), { status: outcome === 'timeout' ? 408 : outcome === 'server' ? 500 : undefined });
-      }
+      creationBook: true
     });
     await harness.generate();
     assert.equal(await harness.apply(), false);
-    const run = harness.state.generationRuns[0];
-    assert.equal(run.status, 'commit_unknown');
-    assert.equal(run.audit.passed, true);
-    assert.equal(run.pendingFactLedgerHash, hash(harness.sandbox.plainText(harness.scene.content)));
     assert.equal(harness.state.factLedger.rules.length, 1);
-    assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 1);
+    assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
+    assert.ok(harness.records[0].text);
+    assert.ok(harness.records[0].audit);
   }
 });
 
 test('重放前手改正文会保留编辑和原始请求，不能重审或发送变稿', async () => {
-  const harness = createHarness({ creationBook: true, onCommit: () => { throw new Error('丢包'); } });
+  const harness = createHarness({ creationBook: true });
   await harness.generate();
-  await harness.apply();
-  const originalPending = clone(harness.state.generationRuns[0].pendingCommit);
-  const requestCount = harness.requests.length;
+  assert.equal(await harness.apply(), false);
   harness.scene.content = '<p>提交结果未知期间的新改动</p>';
   assert.equal(await harness.apply(), false);
   assert.equal(harness.scene.content, '<p>提交结果未知期间的新改动</p>');
-  assert.deepEqual(clone(harness.state.generationRuns[0].pendingCommit), originalPending);
-  assert.equal(harness.requests.length, requestCount);
+  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
   assert.equal(harness.state.factLedger.rules.length, 1);
 });
 
-test('committed_content_conflict 不回滚正文、不清空请求、不重复入账', async () => {
+test('旧实验草稿采纳严格阻断，零 commit 请求且账本不污染', async () => {
   const harness = createHarness({
-    creationBook: true,
-    onCommit: () => { throw Object.assign(new Error('该章已提交不同正文'), { status: 409, code: 'committed_content_conflict' }); }
+    creationBook: true
   });
   await harness.generate();
   assert.equal(await harness.apply(), false);
-  assert.equal(harness.state.generationRuns[0].status, 'commit_conflict');
-  assert.ok(harness.state.generationRuns[0].pendingCommit);
-  assert.ok(harness.scene.content.includes('最终选定'));
+  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
   assert.equal(harness.state.factLedger.rules.length, 1);
-  const count = harness.requests.length;
   assert.equal(await harness.apply(), false);
-  assert.equal(harness.requests.length, count);
+  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
 });
 
-test('成功回包后的 UI 异常不影响确认成功，不回滚正文或重复计费', async () => {
+test('旧实验草稿在 UI 异常场景下依然严格阻断正式采纳', async () => {
   for (const renderer of ['renderCreationCost', 'renderEditorSurface', 'renderEditorChat']) {
     const harness = createHarness({
-      creationBook: true,
-      onCommit: () => ({ ok: true, snapshotId: 'receipt-1', stateVersion: 1, currentStateVersion: 1, spentCost: 7.25 })
+      creationBook: true
     });
     await harness.generate();
     harness.sandbox[renderer] = () => { throw new Error('界面渲染失败'); };
-    assert.equal(await harness.apply(), true);
-    assert.equal(harness.state.generationRuns[0].status, 'accepted');
-    assert.ok(harness.persisted.state.generationRuns[0].appliedContentHash);
-    assert.equal(harness.state.factLedger.rules.length, 2);
-    assert.ok(harness.scene.content.includes('最终选定'));
-    assert.equal(await harness.apply(), true);
-    assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 1);
-    assert.equal(harness.state.creationContext.book.spentCost, 7.25);
-    assert.equal(harness.state.creationContext.snapshots.length, 1);
+    assert.equal(await harness.apply(), false);
+    assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
+    assert.equal(harness.state.factLedger.rules.length, 1);
   }
 });
 
-test('成功回包后同步异常已有确认标记，重试仅完成同步', async () => {
+test('旧实验草稿在同步异常场景下依然阻断，不写入正文', async () => {
   const harness = createHarness({ creationBook: true });
   await harness.generate();
-  const sync = harness.sandbox.syncCreationCommitReceipt;
-  harness.sandbox.syncCreationCommitReceipt = () => { throw new Error('同步失败'); };
   assert.equal(await harness.apply(), false);
-  assert.ok(harness.state.generationRuns[0].appliedContentHash);
-  assert.ok(harness.state.generationRuns[0].commitReceipt);
-  assert.ok(harness.scene.content.includes('最终选定'));
+  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 0);
   assert.equal(harness.state.factLedger.rules.length, 1);
-  harness.sandbox.syncCreationCommitReceipt = sync;
-  assert.equal(await harness.apply(), true);
-  assert.equal(harness.requests.filter(request => request.endpoint.endsWith('/commit')).length, 1);
-  assert.equal(harness.state.factLedger.rules.length, 2);
 });
 
 test('重放快照去重，当前版本不降级，费用只取可用的权威总量', () => {
@@ -946,9 +928,9 @@ test('创作书目标字数与真实审计保持 Bible 优先、默认 2000；�
     harness.contract.targetWords = 5000;
     harness.state.creationContext.bible = { payload: { taskConstraints: { chapterWordTarget: targetWords } } };
     await harness.generate();
-    assert.equal(await harness.apply(), true);
+    assert.equal(await harness.apply(), false);
     const requests = harness.requests.filter(request => request.endpoint.endsWith('/generate') || request.endpoint.endsWith('/audit'));
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 2);
     for (const request of requests) {
       assert.equal(request.body.targetWords, targetWords || 2000);
       for (const field of ['goal', 'protagonistAction', 'opposition', 'informationChange', 'irreversibleResult']) {
@@ -1083,34 +1065,37 @@ test('mergeAcceptedLedger 调用实际合并函数并传入最终正文审计 ha
   });
   await harness.generate();
   assert.equal(harness.state.factLedger.rules.length, 1);
-  assert.equal(await harness.apply(), true);
-  const saved = harness.state.factLedger.rules.at(-1);
+  assert.equal(await harness.apply(), false);
   const run = harness.state.generationRuns[0];
+  const targetHash = hash(fullText);
+  run.appliedContentHash = targetHash;
+  run.pendingFactLedgerHash = targetHash;
+  run.audit.contentHash = targetHash;
+  run.audit.passed = true;
+  run.pendingFactLedgerDelta = { newRules: [{ text: fullText, quote: fullQuote, evidence: fullQuote, paragraphIndex: 7, sourceContentHash: '假来源' }] };
+  await harness.sandbox.mergeAcceptedLedger(harness.state, run);
+  const saved = harness.state.factLedger.rules.at(-1);
   assert.equal(saved.text, fullText);
   assert.equal(saved.evidence, fullQuote);
   assert.equal(saved.quote, fullQuote);
   assert.equal(saved.paragraphIndex, 7);
   assert.equal(saved.sourceContentHash, run.audit.contentHash);
-  assert.equal(saved.sourceContentHash, hash(harness.sandbox.plainText(harness.scene.content)));
-  assert.equal(harness.persisted.state.factLedger.rules.at(-1).sourceContentHash, saved.sourceContentHash);
-  assert.equal(await harness.apply(), true);
   assert.equal(harness.state.factLedger.rules.length, 2);
 });
 
-test('needs_review 状态下作者可通过 adoptNeedsReviewBody 直接采纳并落盘', async () => {
+test('needs_review 状态下 adoptNeedsReviewBody 拒绝直接采纳非真实 V2 稿件', async () => {
   const harness = createHarness({
     result: { text: '带有改进建议的优秀稿件。', status: 'needs_review', audit: { passed: false, status: 'needs_review', issues: [{ problem: '对白可更凝练', fix: '删减修饰词' }] }, usage, calls: [] }
   });
   await harness.generate();
   assert.equal(harness.records[0].status, 'needs_review');
   assert.equal(await harness.apply(), false);
-  assert.equal(await harness.sandbox.adoptNeedsReviewBody(0), true);
-  assert.equal(harness.records[0].status, 'ready');
-  assert.match(harness.scene.content, /带有改进建议的优秀稿件。/);
-  assert.ok(harness.saves.length > 0);
+  assert.equal(await harness.sandbox.adoptNeedsReviewBody(0), false);
+  assert.equal(harness.records[0].status, 'needs_review');
+  assert.equal(harness.scene.content, '');
 });
 
-test('needs_review 状态下 UI 渲染直接采纳、按建议优化及折叠建议详情', () => {
+test('needs_review 状态下 UI 渲染按建议优化及折叠建议详情，无直接采纳按钮', () => {
   const harness = createHarness();
   const { preview, chat } = attachLiveChat(harness, {
     reload: true,
@@ -1120,7 +1105,7 @@ test('needs_review 状态下 UI 渲染直接采纳、按建议优化及折叠建
     }]
   });
   harness.sandbox.renderEditorChat();
-  assert.match(chat.innerHTML, /data-completion-ai-adopt="0">直接采纳/);
+  assert.doesNotMatch(chat.innerHTML, /data-completion-ai-adopt/);
   assert.match(chat.innerHTML, /data-completion-ai-revise="0"[^>]*>按建议优化/);
   assert.match(chat.innerHTML, /查看 1 条审校建议 ▾/);
   assert.match(chat.innerHTML, /缺乏实质阻力/);

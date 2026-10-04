@@ -8,6 +8,8 @@ const { STYLE_ARCHETYPES } = require('./style-archetypes');
 
 function getGenreFamilies() {
   try {
+    const { GENRE_FAMILIES_WITH_ROUTES } = require('./genre/genre-route-index');
+    if (GENRE_FAMILIES_WITH_ROUTES) return GENRE_FAMILIES_WITH_ROUTES;
     return require('./genre-engine').GENRE_FAMILIES || {};
   } catch (_) {
     return {};
@@ -46,8 +48,65 @@ const IP_UNIVERSE_MAP = [
   }
 ];
 
+const { getArchetype } = require('./generation/corpus-archetypes');
+
 // 情绪语调扫描特征模式
 const TONE_PATTERNS = [
+  {
+    styleArchetype: 'yandere_harem_cultivation',
+    weight: 3.5,
+    regex: /(病娇|师尊.*检查|解腰带|纯阳真元|天外天|审核|修罗场|合欢宗|玩物|白发红瞳)/i
+  },
+  {
+    styleArchetype: 'classical_gritty_xianxia',
+    weight: 3,
+    regex: /(天崩开局|李代桃僵|血衣|麻布单|残破洞府|皂荚|如履薄冰)/i
+  },
+  {
+    styleArchetype: 'supernatural_tactics_order',
+    weight: 3,
+    regex: /(官方规制|嘉靖成仙|神通.*特警|战术攻防|刑侦|行政条令)/i
+  },
+  {
+    styleArchetype: 'street_calculating_martial',
+    weight: 3,
+    regex: /(武馆|拜馆|踢馆|月费|鱼丸|青膜|紫膜|黑膜|海沙流|老黄|李修文)/i
+  },
+  {
+    styleArchetype: 'folk_yinyang_memoir',
+    weight: 3,
+    regex: /(民间阴阳|崔九|水旱禁忌|纸钱|黄布道袍|古井|阴司)/i
+  },
+  {
+    styleArchetype: 'imposter_court_official',
+    weight: 3,
+    regex: /(冒名入仕|大明权臣|东方笑笑生|县衙|差役|公文|官场机锋)/i
+  },
+  {
+    styleArchetype: 'rebirth_noble_vengeance',
+    weight: 3,
+    regex: /(摄政王撑腰|侯府忘恩义|断情绝义|绝不原谅|主奴契约)/i
+  },
+  {
+    styleArchetype: 'capital_circle_sensual_duel',
+    weight: 3,
+    regex: /(京圈太子爷|欲燃|鎏金打火机|泪痣|纯欲|勾心又勾身)/i
+  },
+  {
+    styleArchetype: 'corporate_magical_girl',
+    weight: 3,
+    regex: /(魔法少女|996社畜|钉钉|挤电车|中年疲惫)/i
+  },
+  {
+    styleArchetype: 'planetary_gene_academy',
+    weight: 3,
+    regex: /(基地市|武者考核|拳力.*公斤|神经反应|荒野区|大灾变)/i
+  },
+  {
+    styleArchetype: 'sequence_order_mystery',
+    weight: 3,
+    regex: /(非凡魔药|序列进阶|不可逆疯狂|隐秘低语|古老仪式)/i
+  },
   {
     styleArchetype: 'humorous_sand_sculpture',
     weight: 3,
@@ -176,11 +235,18 @@ function detectNovelStyle(inputQuery, context = {}) {
     detectedFamily = context.genreFamily;
   }
   if (context.genreRoute && context.genreRoute !== 'auto') {
-    // 允许通过 route 反查
-    for (const [fName, fObj] of Object.entries(getGenreFamilies())) {
-      if (fObj.routes?.some(r => r.id === context.genreRoute || r.value === context.genreRoute)) {
-        detectedFamily = fName;
-        break;
+    try {
+      const { findFamilyByRoute } = require('./genre/genre-route-index');
+      const found = findFamilyByRoute(context.genreRoute);
+      if (found && found.familyTitle) {
+        detectedFamily = found.familyTitle;
+      }
+    } catch (_) {
+      for (const [fName, fObj] of Object.entries(getGenreFamilies())) {
+        if (fObj.routes?.some(r => r.id === context.genreRoute || r.value === context.genreRoute || r.legacyValue === context.genreRoute)) {
+          detectedFamily = fName;
+          break;
+        }
       }
     }
   }
@@ -250,7 +316,16 @@ function getEpistemicAndFriction(family) {
   }
 }
 
-  const archetypeDef = STYLE_ARCHETYPES[bestArchetype] || STYLE_ARCHETYPES.workplace_inversion || Object.values(STYLE_ARCHETYPES)[0];
+  const corpusArch = getArchetype(bestArchetype);
+  const archetypeDef = corpusArch ? {
+    id: corpusArch.id,
+    name: corpusArch.label,
+    description: corpusArch.label,
+    tone: corpusArch.label,
+    voiceSpec: { dialogueTone: '遵循原型规范', allowInnerMonologue: true },
+    narrativeDirectives: [corpusArch.prompt],
+    defaultWordBounds: [2200, 3200]
+  } : (STYLE_ARCHETYPES[bestArchetype] || STYLE_ARCHETYPES.workplace_inversion || Object.values(STYLE_ARCHETYPES)[0]);
   const epData = getEpistemicAndFriction(detectedFamily);
 
   return {

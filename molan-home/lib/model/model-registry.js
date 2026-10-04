@@ -173,6 +173,102 @@ const MODEL_REGISTRY = new Map([
     cjkTokenRatio: 0.68,
     nonCjkTokenRatio: 0.28
   }],
+  ['gemini-3.6-flash', {
+    modelId: 'gemini-3.6-flash',
+    displayName: 'Gemini 3.6 Flash (3.6f)',
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
+    supportsReasoning: true,
+    reasoningModes: ['low', 'medium', 'high'],
+    supportsJson: true,
+    supportsSeed: true,
+    supportsCaching: true,
+    supportsStream: true,
+    recommendedRole: 'writer',
+    tokenizer: 'gemini',
+    cjkTokenRatio: 0.70,
+    nonCjkTokenRatio: 0.28
+  }],
+  ['gemini-3.7-flash', {
+    modelId: 'gemini-3.7-flash',
+    displayName: 'Gemini 3.7 Flash (3.7f)',
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
+    supportsReasoning: true,
+    reasoningModes: ['low', 'medium', 'high'],
+    supportsJson: true,
+    supportsSeed: true,
+    supportsCaching: true,
+    supportsStream: true,
+    recommendedRole: 'writer',
+    tokenizer: 'gemini',
+    cjkTokenRatio: 0.70,
+    nonCjkTokenRatio: 0.28
+  }],
+  ['gemini-3.8-flash', {
+    modelId: 'gemini-3.8-flash',
+    displayName: 'Gemini 3.8 Flash (3.8f)',
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
+    supportsReasoning: true,
+    reasoningModes: ['low', 'medium', 'high'],
+    supportsJson: true,
+    supportsSeed: true,
+    supportsCaching: true,
+    supportsStream: true,
+    recommendedRole: 'writer',
+    tokenizer: 'gemini',
+    cjkTokenRatio: 0.70,
+    nonCjkTokenRatio: 0.28
+  }],
+  ['gemini-3.1-pro', {
+    modelId: 'gemini-3.1-pro',
+    displayName: 'Gemini 3.1 Pro (3.1pro)',
+    contextWindow: 1000000,
+    maxOutputTokens: 16000,
+    supportsReasoning: true,
+    reasoningModes: ['low', 'medium', 'high'],
+    supportsJson: true,
+    supportsSeed: true,
+    supportsCaching: true,
+    supportsStream: true,
+    recommendedRole: 'judge',
+    tokenizer: 'gemini',
+    cjkTokenRatio: 0.70,
+    nonCjkTokenRatio: 0.28
+  }],
+  ['grok-4.5', {
+    modelId: 'grok-4.5',
+    displayName: 'xAI Grok 4.5',
+    contextWindow: 131072,
+    maxOutputTokens: 8192,
+    supportsReasoning: true,
+    reasoningModes: ['low', 'medium', 'high'],
+    supportsJson: true,
+    supportsSeed: true,
+    supportsCaching: true,
+    supportsStream: true,
+    recommendedRole: 'writer',
+    tokenizer: 'o200k_base',
+    cjkTokenRatio: 0.70,
+    nonCjkTokenRatio: 0.30
+  }],
+  ['grok-4.6', {
+    modelId: 'grok-4.6',
+    displayName: 'xAI Grok 4.6',
+    contextWindow: 131072,
+    maxOutputTokens: 8192,
+    supportsReasoning: true,
+    reasoningModes: ['low', 'medium', 'high', 'xhigh'],
+    supportsJson: true,
+    supportsSeed: true,
+    supportsCaching: true,
+    supportsStream: true,
+    recommendedRole: 'writer',
+    tokenizer: 'o200k_base',
+    cjkTokenRatio: 0.70,
+    nonCjkTokenRatio: 0.30
+  }],
   ['standard-local', {
     modelId: 'standard-local',
     displayName: '本地离线模型',
@@ -207,6 +303,22 @@ const MODEL_REGISTRY = new Map([
   }]
 ]);
 
+const MODEL_ALIAS_MAP = {
+  'gemini3.6f': 'gemini-3.6-flash',
+  'gemini-3.6f': 'gemini-3.6-flash',
+  'gemini3.7f': 'gemini-3.7-flash',
+  'gemini-3.7f': 'gemini-3.7-flash',
+  'gemini3.8f': 'gemini-3.8-flash',
+  'gemini-3.8f': 'gemini-3.8-flash',
+  'gemini3.1pro': 'gemini-3.1-pro',
+  'gemini-3.1pro': 'gemini-3.1-pro',
+  '3.1pro': 'gemini-3.1-pro',
+  'grok4.5': 'grok-4.5',
+  'grok45': 'grok-4.5',
+  'grok4.6': 'grok-4.6',
+  'grok46': 'grok-4.6'
+};
+
 /**
  * 获取指定模型的完整能力规范
  * @param {string} modelId 模型标识
@@ -214,13 +326,14 @@ const MODEL_REGISTRY = new Map([
  */
 function getModelCapability(modelId = '') {
   const normalizedId = String(modelId || '').trim();
-  if (MODEL_REGISTRY.has(normalizedId)) {
-    return { ...MODEL_REGISTRY.get(normalizedId) };
+  const canonicalId = MODEL_ALIAS_MAP[normalizedId.toLowerCase()] || normalizedId;
+  if (MODEL_REGISTRY.has(canonicalId)) {
+    return { ...MODEL_REGISTRY.get(canonicalId), modelId: normalizedId };
   }
 
   // 模糊前缀匹配 (如 gpt-5.6-luna-2026 -> gpt-5.6-luna)
   for (const [id, config] of MODEL_REGISTRY) {
-    if (id !== 'default' && normalizedId.startsWith(id)) {
+    if (id !== 'default' && canonicalId.startsWith(id)) {
       return { ...config, modelId: normalizedId };
     }
   }

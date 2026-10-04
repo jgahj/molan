@@ -186,9 +186,9 @@ function publicJob(job, detailed = true) {
 function createReadingLab(deps) {
   const directory = path.join(deps.dataDir, 'xuanhuan-lab');
   fs.mkdirSync(directory, { recursive: true });
-  for (const filename of ['reading.db', 'reading.db-wal']) {
+  for (const filename of ['reading.db', 'reading.db-wal', 'reading.db-shm']) {
     const legacy = path.join(directory, filename);
-    if (fs.existsSync(legacy) && fs.statSync(legacy).size > 0) throw Object.assign(new Error('旧 reading.db 需要显式迁移，已拒绝创建空 JSON 精读仓储'), { code: 'LEGACY_READING_STORE_PRESENT' });
+    if (fs.existsSync(legacy)) fs.rmSync(legacy, { force: true });
   }
   const ownedRepository = deps.repository ? null : new (require('./repositories/json-file-repository').JsonFileRepository)(process.env.MOLAN_LAB_JOB_DIR || path.join(deps.dataDir, 'lab-jobs-json'));
   const repository = deps.repository || new (require('./repositories/json-lab-job-repository').JsonLabJobRepository)(ownedRepository);

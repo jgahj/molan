@@ -34,9 +34,21 @@ function auditDraft(input = {}) {
   const paragraphs = text.split(/\n\s*\n/).map(value => value.trim()).filter(Boolean);
   const seen = new Set();
   for (const paragraph of paragraphs) {
-    const key = paragraph.replace(/\s+/g, '');
-    if (key.length >= 30 && seen.has(key)) add('repetition', 'blocker', paragraph, '正文包含完全重复段落');
-    seen.add(key);
+  const key = paragraph.replace(/\s+/g, '');
+  if (key.length >= 30 && seen.has(key)) add('repetition', 'blocker', paragraph, '正文包含完全重复段落');
+  seen.add(key);
+}
+  // 人性化肌理与 AI 套路识别集成 (Human Texture & Anti-Template integration)
+  if (input.skipTextureAudit !== true && text.length >= 60) {
+    try {
+      const { analyzeHumanTexture } = require('../style/human-texture');
+      const textureAnalysis = analyzeHumanTexture(text);
+      if (textureAnalysis && Array.isArray(textureAnalysis.cliches)) {
+        for (const cliche of textureAnalysis.cliches) {
+          add('cliche_expression', 'warning', cliche.quote, `出现脸谱化陈词套路「${cliche.name}」`, cliche.suggestion || '请改用现场物理细节或动作传达心理');
+        }
+      }
+    } catch (_) {}
   }
   for (const finding of Array.isArray(input.findings) ? input.findings : []) {
     const quote = String(finding && (finding.quote || finding.evidence) || '');

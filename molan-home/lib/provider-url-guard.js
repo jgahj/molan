@@ -104,15 +104,15 @@ function makePinnedLookup(addresses) {
   };
 }
 
-/** 校验 HTTPS Provider endpoint 并返回固定 DNS 解析结果供 socket lookup 使用。 */
+/** 校验 Provider endpoint 并返回固定 DNS 解析结果供 socket lookup 使用。 */
 async function validateProviderTarget(input, options = {}) {
   let url;
   try { url = new URL(String(input || '')); }
   catch (_) { throw Object.assign(new Error('Provider endpoint URL 无效'), { code: 'PROVIDER_ENDPOINT_BLOCKED', status: 503 }); }
   const allowLocal = Boolean(options.allowLocal || process.env.MOLAN_ALLOW_LOCAL_MODELS === '1');
-  const allowedProtocols = allowLocal ? ['https:', 'http:'] : ['https:'];
+  const allowedProtocols = ['https:', 'http:'];
   if (!allowedProtocols.includes(url.protocol) || url.username || url.password || url.hash || url.search) {
-    throw Object.assign(new Error(allowLocal ? 'Provider endpoint 必须使用无凭据的 HTTP/HTTPS URL' : 'Provider endpoint 必须使用无凭据的 HTTPS URL'), { code: 'PROVIDER_ENDPOINT_BLOCKED', status: 503 });
+    throw Object.assign(new Error('Provider endpoint 必须使用无凭据的 HTTP/HTTPS URL'), { code: 'PROVIDER_ENDPOINT_BLOCKED', status: 503 });
   }
   const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
   const isLocalHost = hostname === 'localhost' || hostname.endsWith('.localhost');

@@ -1,16 +1,16 @@
 :root {
-  --skill-bg: #f7f8f6;
-  --skill-paper: #ffffff;
-  --skill-ink: #192019;
-  --skill-muted: #69736a;
-  --skill-faint: #8b958c;
-  --skill-line: #e1e7e0;
-  --skill-soft: #eef2ed;
-  --skill-green: #315d39;
-  --skill-gold: #80601d;
-  --skill-shadow: 0 12px 34px rgba(23, 37, 26, .07);
-  --skill-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --skill-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --skill-bg: var(--canvas, #f3f3f0);
+  --skill-paper: var(--paper, #ffffff);
+  --skill-ink: var(--ink, #0a0a0a);
+  --skill-muted: var(--muted, #74746e);
+  --skill-faint: var(--muted-light, #a5a59f);
+  --skill-line: var(--line, #e7e7e2);
+  --skill-soft: var(--paper-warm, #fbfbf9);
+  --skill-green: var(--green, #25845a);
+  --skill-gold: var(--amber, #a86b20);
+  --skill-shadow: var(--shadow, 0 10px 30px rgba(17, 17, 15, .06));
+  --skill-font: var(--sans, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif);
+  --skill-serif: var(--serif, "Noto Serif SC", "Songti SC", "SimSun", serif);
 }
 
 * { box-sizing: border-box; }

@@ -106,10 +106,13 @@
    * 首次同步：登录后遍历本地 novels 全部 POST 到云端。同步按钮：从云端拉取覆盖本地。
    */
   const TOKEN_KEY = 'ml_token';
-  function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return ''; } }
+  function getToken() { try { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return ''; } }
+  function getStoredUser() {
+    try { return JSON.parse(localStorage.getItem('ml_user') || sessionStorage.getItem('ml_user') || 'null'); } catch (_) { return null; }
+  }
   function getStoredUserIdentity() {
     try {
-      const user = JSON.parse(localStorage.getItem('ml_user') || 'null');
+      const user = getStoredUser();
       if (user && (user.userId || user.id)) return String(user.userId || user.id).trim();
       return user && user.email ? String(user.email).trim().toLowerCase() : '';
     } catch (_) { return ''; }
@@ -671,6 +674,7 @@
   function formatContextWindow(tokens) {
     const value = Number(tokens);
     if (!Number.isFinite(value) || value <= 0) return '未知';
+    if (value >= 1000000) return (Math.round(value / 100000) / 10) + 'M token';
     return value >= 1000 ? (Math.round(value / 100) / 10) + 'K token' : Math.floor(value) + ' token';
   }
   function currentUnifiedModel() {
@@ -682,9 +686,12 @@
   }
   function reasoningOptionsForModel(pm) {
     if (!pm || !pm.supportsReasoning) return [];
+    const model = String(pm.model || pm.id || '').toLowerCase();
+    if (/gemini/i.test(model) || pm.group === 'gemini') return ['low', 'medium', 'high'];
+    if (/grok-4\.6/i.test(model)) return ['low', 'medium', 'high', 'xhigh'];
+    if (/grok/i.test(model) || pm.group === 'grok') return ['low', 'medium', 'high'];
     const official = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
     if (Array.isArray(pm.reasoningEfforts) && pm.reasoningEfforts.length) return pm.reasoningEfforts.filter(v => official.includes(v));
-    const model = String(pm.model || pm.id || '').toLowerCase();
     if (/gpt-5\.6/.test(model)) return official;
     if (/gpt-5\.(2|4|5)/.test(model)) return ['none', 'low', 'medium', 'high', 'xhigh'];
     return ['none', 'low', 'medium', 'high'];
@@ -703,6 +710,15 @@
           SERVER_DEFAULT_MODEL = String(j.access.defaultModel || SERVER_DEFAULT_MODEL);
           SERVER_CAN_CHOOSE_MODEL = j.access.canChooseModel === true;
         }
+        const stored = getStoredUser();
+        if (stored) {
+          const storedRole = normalizeClientUserRole(stored);
+          if (storedRole === 'admin' || storedRole === 'vip') {
+            SERVER_USER_ROLE = storedRole;
+            SERVER_CAN_CHOOSE_MODEL = true;
+            SERVER_IS_ADMIN = storedRole === 'admin';
+          }
+        }
       }
     } catch (_) {}
     if (!PLATFORM_MODELS.length) {
@@ -710,6 +726,10 @@
       PLATFORM_MODELS = [
         {id:'deepseek-v4-flash',name:'DeepSeek V4 极速',group:'deepseek',provider:'deepseek',supportsThinking:true,contextWindowTokens:65536},
         {id:'deepseek-v4-pro',name:'DeepSeek V4 深度思考',group:'deepseek',provider:'deepseek',supportsThinking:true,contextWindowTokens:65536},
+        {id:'gemini-3.6-flash',name:'Gemini 3.6 Flash (3.6f)',group:'gemini',provider:'openai-compat',supportsReasoning:true,contextWindowTokens:1000000},
+        {id:'gemini-3.7-flash',name:'Gemini 3.7 Flash (3.7f)',group:'gemini',provider:'openai-compat',supportsReasoning:true,contextWindowTokens:1000000},
+        {id:'gemini-3.8-flash',name:'Gemini 3.8 Flash (3.8f)',group:'gemini',provider:'openai-compat',supportsReasoning:true,contextWindowTokens:1000000},
+        {id:'gemini-3.1-pro',name:'Gemini 3.1 Pro (3.1pro)',group:'gemini',provider:'openai-compat',supportsReasoning:true,contextWindowTokens:1000000},
         {id:'gpt-5.6-sol',name:'GPT-5.6 Sol',group:'gpt',provider:'openai-compat',supportsReasoning:true,contextWindowTokens:32768},
         {id:'gpt-5.6-terra',name:'GPT-5.6 Terra',group:'gpt',provider:'openai-compat',supportsReasoning:true,contextWindowTokens:32768},
         {id:'gpt-5.6-luna',name:'GPT-5.6 Luna',group:'gpt',provider:'openai-compat',supportsReasoning:true,contextWindowTokens:32768},
@@ -786,7 +806,7 @@
         }
       } else if (res.status === 401) {
         // 令牌失效（如本次部署前遗留的旧会话，或 token 被服务端清除）→ 清理本地态并引导重新登录
-        try { localStorage.removeItem('ml_token'); localStorage.removeItem('ml_user'); } catch (_) {}
+        try { localStorage.removeItem('ml_token'); localStorage.removeItem('ml_user'); sessionStorage.removeItem('ml_token'); sessionStorage.removeItem('ml_user'); } catch (_) {}
         toast('登录状态已失效，即将返回首页重新登录…');
         setTimeout(function () { location.href = '../index.html'; }, 1500);
       }
@@ -876,6 +896,10 @@
     m = (m || '').toLowerCase();
     if (platformModelById(m)) return m;   // 平台 ID 直接透传，避免 deepseek-v4-pro 被误判为 Flash
     if (!m) return 'gpt-5.6-luna';
+    if (m.includes('gemini-3.6') || m.includes('3.6f')) return 'gemini-3.6-flash';
+    if (m.includes('gemini-3.7') || m.includes('3.7f')) return 'gemini-3.7-flash';
+    if (m.includes('gemini-3.8') || m.includes('3.8f')) return 'gemini-3.8-flash';
+    if (m.includes('gemini-3.1') || m.includes('3.1pro')) return 'gemini-3.1-pro';
     if (m === 'v4-flash' || m.includes('flash') || m.includes('deepseek') || m.includes('chat')) return 'deepseek-v4-flash';
     if (m === 'v4-pro' || m.includes('pro') || m.includes('r1') || m.includes('reason')) return 'deepseek-v4-pro';
     return 'gpt-5.6-luna';
@@ -1122,13 +1146,13 @@
     let analysisResult = null;
     if (shouldAnalyzeSkill) {
       const analysisMessages = (Array.isArray(payload.messages) ? payload.messages : []).map(message => ({ ...message }));
-      const analysisInstruction = '\n\n\u3010\u58a8\u9611 Skill \u524d\u7f6e\u5206\u6790\u9636\u6bb5\u3011\n' +
-        '\u4f60\u73b0\u5728\u53ea\u8d1f\u8d23\u5206\u6790\u672c\u6b21\u8bf7\u6c42\u5c06\u6267\u884c\u7684\u5168\u90e8 Skill\u3002\u8bf7\u5148\u8bfb\u53d6\u6240\u6709\u5df2\u6ce8\u5165\u7684 Skill \u6587\u4ef6\u4e0e\u5f53\u524d\u4f5c\u54c1\u8bbe\u5b9a\uff0c\u7136\u540e\u8f93\u51fa\u7ed9\u540e\u7eed\u6b63\u6587\u751f\u6210\u4f7f\u7528\u7684\u6267\u884c\u6e05\u5355\u3002\n' +
-        '1. \u5fc5\u987b\u9075\u5b88\u7684 Skill \u89c4\u5219\uff1a\u6587\u98ce\u3001\u53d9\u4e8b\u3001\u4eba\u7269\u4e0e\u4e16\u754c\u89c2\u7ea6\u675f\u3002\n' +
-        '2. \u672c\u6b21\u8bf7\u6c42\u5fc5\u987b\u4fdd\u6301\u7684\u4f5c\u54c1\u8bbe\u5b9a\u4e0e\u4e8b\u5b9e\u3002\n' +
-        '3. \u672c\u6b21\u6b63\u6587\u7684\u521b\u4f5c\u91cd\u70b9\u4e0e\u5fc5\u987b\u56de\u6536\u7684\u8fde\u7eed\u6027\u3002\n' +
-        '4. \u7981\u6b62\u4e8b\u9879\uff1a\u4e0d\u80fd\u51b2\u7a81\u7684\u89c4\u5219\u3001\u4e0d\u80fd\u65e0\u6839\u636e\u65b0\u589e\u7684\u8bbe\u5b9a\u3002\n' +
-        '\u8fd9\u4e00\u9636\u6bb5\u4e0d\u8981\u5199\u5c0f\u8bf4\u6b63\u6587\uff0c\u4e0d\u8981\u8f93\u51fa\u901a\u7528\u82f1\u6587\u63a8\u7406\u6458\u8981\uff0c\u53ea\u8f93\u51fa\u53ef\u6267\u884c\u7684 Skill \u5206\u6790\u3002';
+      const analysisInstruction = '\n\n【墨阑剧情节拍与场景分镜执行蓝图】\n' +
+        '你是中文网文金牌主编与架构师。在正文动笔前，请依据已注入的设定、大纲与前文，输出一份专门指导本章高质感落地的【剧情节拍与场景分镜执行蓝图】。\n' +
+        '不要写小说正文，不要输出长篇大论的元规则复述，重点输出以下四项实操指引：\n' +
+        '1. 【三幕式场景分镜】：规划 3~4 幕递进场景（起·入场与即时阻力；承·信息差摩擦与对峙；转/合·决断破局与不可逆结果）。\n' +
+        '2. 【物理感官锚点与阻力】：列出本章具体涉及的 2~3 处物理环境摩擦（光影、气味、器物触感、受力形变），拒绝主角无痛顺滑平推。\n' +
+        '3. 【对白潜台词与利益暗流】：关键角色各怀何种隐藏筹码？言语试探与攻防退让如何展开（话里有刺，禁止直接交代剧情或口号互怼）。\n' +
+        '4. 【不可逆变动与章末钩子】：本章必须落实的确凿战果/信息变化，以及章末留下的悬念钩子。';
       const analysisSystem = analysisMessages.find(message => message && message.role === 'system');
       if (analysisSystem) analysisSystem.content = String(analysisSystem.content || '') + analysisInstruction;
       else analysisMessages.unshift({ role: 'system', content: analysisInstruction.trim() });
@@ -1165,7 +1189,7 @@
       if (!skillAnalysis.trim()) return messages;
       const output = (Array.isArray(messages) ? messages : []).map(message => ({ ...message }));
       const userIndex = [...output].map(message => message && message.role).lastIndexOf('user');
-      const context = '\n\n\u3010\u58a8\u9611 Skill \u6267\u884c\u5206\u6790\uff08\u672c\u6b21\u8bf7\u6c42\uff09\u3011\n' + skillAnalysis.trim() + '\n\u3010Skill \u6267\u884c\u5206\u6790\u7ed3\u675f\u3011';
+      const context = '\n\n【模型自主规划·金牌策划执行蓝图与场景分镜】\n' + skillAnalysis.trim() + '\n【分镜执行蓝图结束，请严格依据上述场景分镜展开高质感正文撰写】';
       if (userIndex >= 0) output[userIndex].content = String(output[userIndex].content || '') + context;
       else output.push({ role: 'user', content: context.trim() });
       return output;
@@ -4269,7 +4293,7 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
     streamInsertActive = true;
     setStreamInsertUI(true);
     try {
-      await streamSkillPipeline({ model: streamModel, thinking: false, skillMode: 'write', analyzeSkill: true, humanize: false, characterMaterial, messages: [{ role: 'system', content: sys }, { role: 'user', content: userMsg }] }, {
+      await streamSkillPipeline({ model: streamModel, thinking: false, skillMode: 'write', analyzeSkill: false, humanize: false, characterMaterial, messages: [{ role: 'system', content: sys }, { role: 'user', content: userMsg }] }, {
       onStage: stage => { if (isCurrentAITarget(requestTarget)) updateAITask(task, { stage: stage === 'skill_analysis' ? '正在分析已选 Skill' : stage === 'humanizer' ? '正在执行 humanizer 后处理' : '正在流式续写' }); },
       onStart: c => { if (!isCurrentAITarget(requestTarget)) return; streamInsertCtl = c; bindAITaskController(task, c); updateAITask(task, { stage: '正在流式续写', progress: 8 }); },
       onBilling: billing => { if (isCurrentAITarget(requestTarget)) updateAITaskBilling(task, billing); },
@@ -4382,23 +4406,39 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
     const forbidden = forbiddenCopyTerms();
     const foreshadowPlan = (state.foreshadows || []).filter(f => !['resolved', 'abandoned'].includes(f.status)).slice(0, 8)
       .map(f => ({ id: String(f.id || ''), action: 'advance', desc: String(f.description || f.title || '').slice(0, 80) }));
+    const chapterTitle = String(plan && (plan.title || plan.num) || (target && target.title) || ('第' + (Number(idx != null ? idx : 0) + 1) + '章'));
     return {
       chapterNo: Number(idx != null ? idx : 0) + 1,
       arcId: '',
-      goal,
-      protagonistAction: '',
-      opposition: '',
-      informationChange: '',
-      escalation: '',
-      irreversibleResult: '',
+      goal: goal || ('推进《' + chapterTitle + '》核心事件，确立明确阶段成果'),
+      protagonistAction: goal ? ('围绕目标「' + goal.slice(0, 60) + '」主动出击、探查或周旋') : '携带具体动机进入场景，主动展开行动与取舍',
+      opposition: '遭遇具体的物理环境阻隔、守备警戒或对手反制，禁止无痛顺滑过关',
+      informationChange: '打破原初认知平衡，揭开一处隐秘线索、底牌或异样信息',
+      escalation: '利益与危险逐步加码，矛盾从暗流试探升级至台面实质交锋',
+      irreversibleResult: '锁定不可逆战果或既成事实（达成约定/物品易手/损伤代价/身份暴露/阵营异动）',
       characterStateChanges: [],
       foreshadowActions: foreshadowPlan,
       continuityInputs: [],
       continuityOutputs: [],
       mustAvoid: forbidden.slice(0, 30).map(term => ({ term, reason: '原创禁止复制项（来自创作简报）' })),
-      endHook: '',
+      endHook: '章末落在即时危机逼近、信物悬疑或迫切抉择的强钩子上',
       source: 'local' // 标记本地生成合同；有 dissectionId 时由服务端生成
     };
+  }
+  function renderChapterContractDirective(contract) {
+    if (!contract || typeof contract !== 'object') return '';
+    let md = '\n\n【章节结构合同（硬性戏剧约束）】\n';
+    if (contract.goal) md += '• 核心剧情目标：' + contract.goal + '\n';
+    if (contract.protagonistAction) md += '• 主角行动线：' + contract.protagonistAction + '\n';
+    if (contract.opposition) md += '• 外部阻力与反制：' + contract.opposition + '\n';
+    if (contract.informationChange) md += '• 信息差与真相揭示：' + contract.informationChange + '\n';
+    if (contract.escalation) md += '• 冲突加剧节奏：' + contract.escalation + '\n';
+    if (contract.irreversibleResult) md += '• 必须锁定的不可逆结果：' + contract.irreversibleResult + '\n';
+    if (contract.endHook) md += '• 章末强钩子：' + contract.endHook + '\n';
+    if (Array.isArray(contract.mustAvoid) && contract.mustAvoid.length) {
+      md += '• 原创避让词：' + contract.mustAvoid.map(m => m && (m.term || m)).filter(Boolean).slice(0, 15).join('、') + '\n';
+    }
+    return md;
   }
   // ★ Q0 · 本地确定性审计：无 dissectionId 的新书必须运行真实检查，禁止 skipped + passed 假通过（方案 11.3-1.1 / 9.1）。
   function localChapterAudit(content, target, contract) {
@@ -4598,7 +4638,7 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
       chapterContract = await requestChapterContract({ ...target, index: nextIdx, outlineIndex: nextIdx }, ch);
       chapterCall.contract = chapterContract;
       chapterWorkflowStage(botMessage, chapterCall, 'core', '章节合同已生成：本章必须产生明确的信息变化、升级压力和不可逆结果。', 'completed');
-      const contractBlock = chapterContract ? '\n\n【章节合同】\n' + JSON.stringify(chapterContract) : '';
+      const contractBlock = chapterContract ? renderChapterContractDirective(chapterContract) : '';
       const sys = await buildSystemReady('你是正文生成智能体，负责创作「下一章」。必须严格依据下方【章节蓝图】中的「目标章节」规划与【已有内容回顾】承接剧情、自然推进；保持文风、叙事视角与人物设定前后一致；不要随意引入与规划冲突的新主线、新设定或突兀转折；只输出该章正文（按场景/情节自然分段为多个段落），不要章节标题、不要解释、不要重复前文。' + (contractBlock ? '章节合同是硬约束，必须逐项兑现，不得无证据回收伏笔或改变既有事实。' : ''), targetSeed + contractBlock);
       if (sessionIdentity() !== requestSession || !isCurrentAITarget(requestTarget)) return;
       if (!sys) {
@@ -4632,7 +4672,12 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
         const t = c.scenes.map(s => htmlToText(s.content)).join('\n\n');
         userMsg += '\n《' + c.title + (c.sub ? ('·' + c.sub) : '') + '》（' + countWords(c.scenes.reduce((a, s) => a + s.content, '')) + ' 字，保留结尾用于衔接）：\n' + t.slice(-5000);
       });
-      userMsg += '\n\n请依据上述蓝图与前文，创作《' + title + '》的完整正文（建议 1500–3000 字，按场景/情节自然分段）。';
+      userMsg += '\n\n【名家级创作质量与叙事要求】：\n' +
+        '1. 【分镜递进】：自然切分为 3~4 个递进场景（入场阻力 → 博弈试探 → 决断爆发 → 局面定型），篇幅严格控制在 2,200 ~ 2,800 字区间（杜绝无痛平推与注水流水账）；\n' +
+        '2. 【具象感官与阻力】：通过具体的环境受力、器物损耗、声色冷暖与肌肉负荷展现阻力，让现场冲突落在可触摸的物理现实上；\n' +
+        '3. 【对白潜台词】：对白话里有刺，承载利益博弈与微动作打断，禁止直接解释剧情或口号互怼；\n' +
+        '4. 【文流起伏】：破局决断处用 4~8 字短句斩截有力，博弈处长短句交织，严禁连续匀质长句。\n\n' +
+        '请依据上述蓝图与前文，直接创作《' + title + '》的完整正文：';
       if (contractBlock) userMsg += contractBlock;
 
       let buf = '';
@@ -10243,6 +10288,17 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
     if (editorScroll) editorScroll.style.display = hasChapters ? '' : 'none';
     if (areaHeader) areaHeader.style.display = hasChapters ? '' : 'none';
   }
+
+  window.addEventListener('molan:auth-changed', () => {
+    loadPlatformModels();
+    refreshServerCredits();
+  });
+  window.addEventListener('storage', (e) => {
+    if (e && (e.key === 'ml_token' || e.key === 'ml_user' || e.key === 'ml_remember_me')) {
+      loadPlatformModels();
+      refreshServerCredits();
+    }
+  });
 
   /* ---------------- 启动 ---------------- */
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

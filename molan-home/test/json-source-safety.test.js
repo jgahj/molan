@@ -25,3 +25,17 @@ test('legacy binary and corrupt JSON are rejected without changing source bytes'
     assert.doesNotThrow(() => assertJsonSource(':memory:'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('JSON startup mode can discard legacy SQLite files explicitly', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-json-reset-'));
+  try {
+    const filename = path.join(dir, 'legacy.db');
+    fs.writeFileSync(filename, Buffer.from('SQLite format 3\0legacy data'));
+    fs.writeFileSync(filename + '-wal', 'stale wal');
+    fs.writeFileSync(filename + '-shm', 'stale shm');
+    assert.doesNotThrow(() => assertJsonSource(filename, { resetLegacy: true }));
+    assert.equal(fs.existsSync(filename), false);
+    assert.equal(fs.existsSync(filename + '-wal'), false);
+    assert.equal(fs.existsSync(filename + '-shm'), false);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

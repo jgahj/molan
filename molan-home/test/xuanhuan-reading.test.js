@@ -33,13 +33,16 @@ function harness(context, overrides = {}) {
   return instance;
 }
 const consent = { modelId: 'test-model', consent: true, maxCalls: 38, maxCredits: 0, chapterCount: 3 };
-test('旧 reading.db 明确拒绝，不创建新空仓储', () => {
+test('旧 reading.db 存在时清理旧仓储并继续使用新仓储', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'reading-legacy-'));
   try {
     fs.mkdirSync(path.join(directory, 'xuanhuan-lab'));
     fs.writeFileSync(path.join(directory, 'xuanhuan-lab/reading.db'), 'legacy');
-    assert.throws(() => createReadingLab({ dataDir: directory }), error => error.code === 'LEGACY_READING_STORE_PRESENT');
-    assert.equal(fs.existsSync(path.join(directory, 'lab-jobs-json')), false);
+    fs.writeFileSync(path.join(directory, 'xuanhuan-lab/reading.db-shm'), 'legacy-shm');
+    const lab = createReadingLab({ dataDir: directory });
+    assert.equal(fs.existsSync(path.join(directory, 'xuanhuan-lab/reading.db')), false);
+    assert.equal(fs.existsSync(path.join(directory, 'xuanhuan-lab/reading.db-shm')), false);
+    await lab.close();
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });
 async function settled(instance, id) { for (let attempt = 0; attempt < 300; attempt += 1) { const response = await instance.request('/jobs/' + id); if (!['running', 'queued'].includes(response.body.status)) return response.body; await new Promise(resolve => setTimeout(resolve, 5)); } throw new Error('Test job did not settle'); }

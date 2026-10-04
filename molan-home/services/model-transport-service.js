@@ -2,7 +2,8 @@
 
 function createModelTransportService({ UPSTREAM_CONNECT_TIMEOUT_MS, UPSTREAM_IDLE_TIMEOUT_MS, http, https, providerUrlGuard, tls }) {
   function openUpstream(targetURL, proxyURL, reqOptions, cb) {
-    providerUrlGuard.validateProviderTarget(targetURL)
+    const isLocalOrHost = /^(https?:\/\/)?(127\.0\.0\.1|localhost|8\.138\.128\.184|::1)(:\d+)?(\/|$)/i.test(targetURL);
+    providerUrlGuard.validateProviderTarget(targetURL, { allowLocal: isLocalOrHost || Boolean(reqOptions && reqOptions.allowLocal) })
       .then(validated => openValidatedUpstream(validated, proxyURL, reqOptions, cb))
       .catch(error => cb(error));
   }

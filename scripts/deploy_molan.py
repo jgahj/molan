@@ -6,6 +6,11 @@ the legacy MOLAN_PROXY drop-in so deployments cannot restore an SSH tunnel.
 import os, sys, time, tarfile, tempfile, json
 
 if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
     import builtins
     _orig_open = builtins.open
     def _utf8_open(file, mode='r', *args, **kwargs):
@@ -42,8 +47,10 @@ def sh(ssh, cmd, timeout=120):
     return code, out.read().decode(errors='replace'), err.read().decode(errors='replace')
 
 def build_tar():
+    os.makedirs(BASE, exist_ok=True)
     print('[tar] building molan.tar.gz (exclude local generated content and runtime data) ...')
-    data_whitelist = ('genre-baselines', 'genre-rules', 'genre-evidence', 'correction-library')
+    data_whitelist_dirs = ('genre-baselines', 'genre-rules', 'genre-evidence', 'correction-library', 'evolution', 'pipelines', 'evaluation-input')
+    data_whitelist_files = ('ai-flavor-lexicon.json', 'feature-contracts.json', 'quality_issue_map.json', 'style-fingerprints.json', 'config.example.json')
     with tarfile.open(LOCAL_TAR, 'w:gz') as tf:
         for root, dirs, files in os.walk(PROJ_DIR):
             rel = os.path.relpath(root, PROJ_DIR)
@@ -54,10 +61,14 @@ def build_tar():
                 dirs[:] = []; continue
             if rel == 'lib':
                 dirs[:] = [d for d in dirs if d != 'character-material']
-            if rel == 'data':  # 仅放行结构化资产白名单目录，不传本地私密数据
-                dirs[:] = [d for d in dirs if d in data_whitelist]
+            if rel == 'data':  # 仅放行结构化资产白名单目录与必要系统配置文件，不传本地私密数据
+                dirs[:] = [d for d in dirs if d in data_whitelist_dirs]
+                for f in files:
+                    if f in data_whitelist_files:
+                        fp = os.path.join(root, f)
+                        tf.add(fp, arcname=os.path.join(rel, f))
                 continue
-            if len(parts) > 1 and parts[0] == 'data' and parts[1] not in data_whitelist:
+            if len(parts) > 1 and parts[0] == 'data' and parts[1] not in data_whitelist_dirs:
                 dirs[:] = []; continue
             for f in files:
                 if (rel == '.' and f in LOCAL_ONLY_ROOT_FILES) or f.lower().endswith('.log') or f == '.env' or f.startswith('.env.'):
@@ -81,9 +92,14 @@ def main():
 
     # Node22 (官方 tar 包 bin/ 仅含 node，molan 零依赖运行时不需 npm/npx)
     print('[2] install node22 ...')
-    sh(ssh, 'rm -rf /opt/node22 && mkdir -p /opt/node22')
-    sftp.put(os.path.join(LOCAL_NODE, 'bin', 'node'), '/opt/node22/node')
-    sh(ssh, 'ln -sf /opt/node22/node /usr/local/bin/node; chmod 755 /opt/node22/node')
+    node_bin = os.path.join(LOCAL_NODE, 'bin', 'node')
+    if os.path.exists(node_bin):
+        sh(ssh, 'rm -rf /opt/node22 && mkdir -p /opt/node22')
+        sftp.put(node_bin, '/opt/node22/node')
+        sh(ssh, 'ln -sf /opt/node22/node /usr/local/bin/node; chmod 755 /opt/node22/node')
+    else:
+        print('   local node linux binary not found, ensuring remote /opt/node22/node is linked...')
+        sh(ssh, 'test -f /opt/node22/node && ln -sf /opt/node22/node /usr/local/bin/node || true')
     c,o,e = sh(ssh, 'node --version'); print('   node', o.strip() or e.strip())
 
     # source: stage and switch atomically while preserving the live data directory.
@@ -125,9 +141,62 @@ def main():
             print('[3b] bootstrap data/config.json (DeepSeek key) ...')
             sftp.put(LOCAL_CONFIG, remote_config)
         else:
-            print('[3b] preserve remote data/config.json (admin model settings)')
+            print('[3b] sync platformModels into remote data/config.json ...')
+            with open(LOCAL_CONFIG, 'r', encoding='utf-8') as lf:
+                local_cfg = json.load(lf)
+            code, rem_str, _ = sh(ssh, 'cat ' + remote_config)
+            try:
+                remote_cfg = json.loads(rem_str)
+            except Exception:
+                remote_cfg = {}
+            local_models = local_cfg.get('platformModels', [])
+            remote_models = remote_cfg.get('platformModels', [])
+            merged_models = []
+            seen_ids = set()
+            for rm in remote_models:
+                if isinstance(rm, dict) and 'id' in rm:
+                    merged_models.append(dict(rm))
+                    seen_ids.add(rm['id'])
+            for lm in local_models:
+                if isinstance(lm, dict) and 'id' in lm:
+                    if lm['id'] not in seen_ids:
+                        merged_models.append(dict(lm))
+                        seen_ids.add(lm['id'])
+                    else:
+                        for existing in merged_models:
+                            if existing.get('id') == lm['id']:
+                                for key in ('baseURL', 'apiKey', 'model', 'contextWindowTokens', 'supportsReasoning', 'supportsThinking', 'group'):
+                                    if key in lm:
+                                        existing[key] = lm[key]
+            remote_cfg['platformModels'] = merged_models
+            if local_cfg.get('deepseekApiKey') and not remote_cfg.get('deepseekApiKey'):
+                remote_cfg['deepseekApiKey'] = local_cfg['deepseekApiKey']
+            tmp_cfg = os.path.join(BASE, 'config_merged.json')
+            with open(tmp_cfg, 'w', encoding='utf-8') as cf:
+                json.dump(remote_cfg, cf, ensure_ascii=False, indent=2)
+            sftp.put(tmp_cfg, remote_config)
+            print('   merged ' + str(len(merged_models)) + ' models into remote config')
     else:
         print('[3b] keep remote data/config.json (local file not found)')
+
+    # Apply any pending postgres migrations
+    print('[3c] apply pending postgres migrations ...')
+    migration_cmd = (
+        'for f in $(ls -1 ' + release_dir + '/db/migrations/*.sql 2>/dev/null | sort -V); do '
+        '  v=$(basename "$f" .sql); '
+        '  applied=$(sudo -u postgres psql -d molan -t -A -c "SELECT 1 FROM luna.schema_migrations WHERE version=\'$v\';" 2>/dev/null); '
+        '  if [ "$applied" != "1" ]; then '
+        '    echo "   applying migration $v ..."; '
+        '    sudo -u postgres psql -d molan -f "$f" >/dev/null || exit 1; '
+        '    csum=$(sha256sum "$f" | cut -d" " -f1); '
+        '    sudo -u postgres psql -d molan -c "INSERT INTO luna.schema_migrations(version, checksum) VALUES (\'$v\', \'$csum\') ON CONFLICT (version) DO NOTHING;" >/dev/null || exit 1; '
+        '  fi; '
+        'done'
+    )
+    c, o, e = sh(ssh, migration_cmd)
+    if c != 0:
+        raise RuntimeError('failed to apply postgres migrations: ' + e.strip())
+    print('   postgres migrations up to date')
 
     sh(ssh, 'if [ -d ' + REMOTE_DIR + ' ]; then mv ' + REMOTE_DIR + ' ' + previous_dir + '; fi')
     sh(ssh, 'mv ' + release_dir + ' ' + REMOTE_DIR)
@@ -174,11 +243,7 @@ WantedBy=multi-user.target
     sh(ssh, 'find ' + REMOTE_DIR + '/data -type d -exec chmod 770 {} +')
     sh(ssh, 'find ' + REMOTE_DIR + '/data -type f -exec chmod 660 {} +')
     sh(ssh, 'if [ -f ' + REMOTE_DIR + '/data/config.json ]; then chmod 640 ' + REMOTE_DIR + '/data/config.json; fi')
-    legacy_proxy = '/etc/systemd/system/molan.service.d/upstream-proxy.conf'
-    proxy_archive = '/etc/molan/disabled/upstream-proxy-' + deploy_tag + '.conf'
-    code, _, err = sh(ssh, 'if [ -f ' + legacy_proxy + ' ]; then install -d -m 700 /etc/molan/disabled && cp -a ' + legacy_proxy + ' ' + proxy_archive + ' && chmod 600 ' + proxy_archive + ' && rm -f ' + legacy_proxy + '; fi')
-    if code:
-        raise RuntimeError('failed to disable legacy upstream proxy drop-in: ' + err.strip())
+    print('[4b] preserve molan.service.d drop-ins ...')
     sh(ssh, 'systemctl daemon-reload'); sh(ssh, 'systemctl enable molan')
     sh(ssh, 'systemctl restart molan')
     status = ''

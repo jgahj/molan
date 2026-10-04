@@ -41,9 +41,8 @@ molan-home/data/token_usage.json
 molan-home/data/user_skills.json
 molan-home/data/global_skills.json
 molan-home/data/admin_audit.json
-molan-home/lib/character-material/index.json
-molan-home/scratch/*.sqlite
-molan-home/scratch/*.sqlite-*
+molan-home/scratch/
+molan-home/corpus_pipeline/
 molan-home/generated/*
 !molan-home/generated/月圆夜前的布局-20260910/
 !molan-home/generated/月圆夜前的布局-20260910/**

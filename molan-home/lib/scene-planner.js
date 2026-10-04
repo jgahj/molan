@@ -43,6 +43,14 @@ function planScenes(outlineNodes = [], options = {}) {
   const nodes = Array.isArray(outlineNodes) ? outlineNodes : [];
   const scenes = [];
 
+  const pacingPolicy = {
+    transitionRange: options.pacingPolicy?.transitionRange || [10, 30],
+    breathingAllowed: options.pacingPolicy?.breathingAllowed !== false,
+    breathingRange: options.pacingPolicy?.breathingRange || [60, 90],
+    actionDensity: options.pacingPolicy?.actionDensity || { min: 0.2, max: 0.65 },
+    ...options.pacingPolicy
+  };
+
   const capacity = evaluateChapterCapacity(nodes, targetWordCount);
   let previousLocation = '';
   let accumulatedTime = '';
@@ -65,27 +73,31 @@ function planScenes(outlineNodes = [], options = {}) {
     if (i > 0 && (hasTemporalShift || hasSpatialShift)) {
       requiresTransitionBridge = true;
       const jumpDesc = temporalMatch ? temporalMatch[0] : '跨越新场景';
-      transitionBridgeDirective = `【反过度平滑转场桥梁指令 (DEF-PACING-001 / OPT-SCENE-002)】：此处涉及时空位移（${jumpDesc}）。严禁直接以孤立词“${jumpDesc}”硬切开篇；但同时【严禁书写冗长的闭门调息流水账】，调息与环境说明控制在 30 字以内（如仅以黄昏光影或风声简单锚定），确保篇幅重心留给实质剧情。`;
+      const maxTrans = pacingPolicy.transitionRange[1] || 30;
+      transitionBridgeDirective = `【反过度平滑转场桥梁指令 (DEF-PACING-001 / OPT-SCENE-002)】：此处涉及时空位移（${jumpDesc}）。严禁直接以孤立词“${jumpDesc}”硬切开篇；但同时【严禁书写冗长的闭门调息流水账】，调息与环境说明控制在 ${maxTrans} 字以内（如仅以黄昏光影或风声简单锚定），确保篇幅重心留给实质剧情。`;
     }
 
     // 3. 呼吸留白预算判定 (Downtime Allocation)
     // 在中段或高潮交锋之后（如场景 3、5）强制要求 1 段休整呼吸镜头
     const isPostClimaxOrMidway = i === 2 || (i > 0 && i === Math.floor(nodes.length / 2));
-    const allocateDowntime = isPostClimaxOrMidway;
+    const allocateDowntime = pacingPolicy.breathingAllowed && isPostClimaxOrMidway;
+    const [bMin, bMax] = pacingPolicy.breathingRange || [60, 90];
     const downtimeDirective = allocateDowntime
-      ? `【呼吸留白指令 (DEF-PACING-002)】：此处安排约 60~90 字的从容沉淀留白。可书写角色片刻的沉思、环境景物光影变迁、或对杯盏/器物的把玩，为读者提供战后消化与心流回落空间，严禁挤占后续高潮交锋的动作烈度。`
+      ? `【呼吸留白指令 (DEF-PACING-002)】：此处安排约 ${bMin}~${bMax} 字的从容沉淀留白。可书写角色片刻的沉思、环境景物光影变迁、或对杯盏/器物的把玩，为读者提供战后消化与心流回落空间，严禁挤占后续高潮交锋的动作烈度。`
       : null;
 
     // 4. 场景类型推断
-    let sceneType = 'narrative';
-    if (/(交锋|踢门|神威|压迫|神灵|出手|对决|斗法|死战)/.test(nodeText)) {
-      sceneType = 'action_conflict';
-    } else if (/(谈话|抱怨|点破|结拜|设宴|双关|机锋|试探)/.test(nodeText)) {
-      sceneType = 'dialogue_game';
-    } else if (/(借宝|观悟|日晷|天魔石刻|突破|感悟)/.test(nodeText)) {
-      sceneType = 'comprehension_turning';
-    } else if (/(吐露|揭秘|反转|悬念|异样|轻笑|离开)/.test(nodeText)) {
-      sceneType = 'cliffhanger_reveal';
+    let sceneType = (typeof rawNode === 'object' && (rawNode.sceneType || rawNode.sceneMode || rawNode.type)) || 'narrative';
+    if (sceneType === 'narrative') {
+      if (/(交锋|踢门|神威|压迫|神灵|出手|对决|斗法|死战|战斗|搏杀|冲突|刺杀)/.test(nodeText)) {
+        sceneType = 'action_conflict';
+      } else if (/(谈话|抱怨|点破|结拜|设宴|双关|机锋|试探|交涉|谈判|对话|审讯)/.test(nodeText)) {
+        sceneType = 'dialogue_game';
+      } else if (/(借宝|观悟|日晷|天魔石刻|突破|感悟|顿悟|推演|领悟|觉醒)/.test(nodeText)) {
+        sceneType = 'comprehension_turning';
+      } else if (/(吐露|揭秘|反转|悬念|异样|轻笑|离开|突发|伏笔|危机)/.test(nodeText)) {
+        sceneType = 'cliffhanger_reveal';
+      }
     }
 
     // 5. 开篇动作动量守恒门禁 (OPT-SCENE-002)
