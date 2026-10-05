@@ -390,17 +390,52 @@ function compileDraftPrompt(options = {}) {
   const effectiveWritingStyle = req.writingStyle || activeContract.writingStyle || req.styleArchetype || activeContract.styleArchetype || options.styleArchetype || (typeof style === 'string' ? style : (style && (style.style || style.prompt))) || '';
   const effectiveChapterFunction = req.chapterFunction || activeContract.chapterFunction || options.chapterFunction || '';
 
-  const genreDirective = compileGenreDirective(effectiveNovelGenre);
-  const styleDirective = compileStyleDirective(effectiveWritingStyle);
-  const functionDirective = compileChapterFunctionDirective(effectiveChapterFunction);
-  const focusDirective = compileFocusDirective(effectiveFocus);
-
   let structuredDirectives = '';
   if (scenePlan) {
     structuredDirectives = scenePlanner.compileSceneDirectives(scenePlan);
   } else if (Array.isArray(scenes) && scenes.length >= 1) {
     structuredDirectives = scenes.map((s, idx) => `场景 ${idx + 1}: ${s.goal || s.purpose || s.summary || ''}`).join('\n');
   }
+
+  // 创作策略编译器挂载点 (V3 Composition Strategy Compiler Hook)
+  const compSpecInput = req.compositionSpec || activeContract.compositionSpec || options.compositionSpec;
+  if (compSpecInput) {
+    const { defaultProfileRegistry } = require('../composition/profiles/profile-registry');
+    const { compileChapterStrategy } = require('../composition/compiler/strategy-compiler');
+    const { defaultEvidenceCatalog } = require('../composition/corpus/evidence-catalog');
+
+    const spec = (compSpecInput && compSpecInput.schemaVersion === 'composition-spec-v1')
+      ? compSpecInput
+      : defaultProfileRegistry.resolveCompositionSpec(compSpecInput);
+
+    const evidenceCards = defaultEvidenceCatalog.findRelevantCards({
+      dimensions: [spec.focus?.id, spec.style?.id, spec.chapterGoal?.id].filter(Boolean),
+      minStrength: 'B'
+    });
+
+    const compiledStrategy = compileChapterStrategy({
+      spec,
+      bible: options.bible || req.bible || null,
+      chapterContract: activeContract,
+      chapterContext: context,
+      evidenceCards,
+      options
+    });
+
+    return {
+      systemPrompt: compiledStrategy.systemPrompt,
+      userPrompt: compiledStrategy.userPrompt,
+      wordBudget: compiledStrategy.wordBudget,
+      sceneDirectives: structuredDirectives,
+      effectiveGenre: spec.genre?.name || (typeof genre === 'string' ? genre : (genre && (genre.genre || genre.id)) || '通用文学'),
+      compositionStrategy: compiledStrategy
+    };
+  }
+
+  const genreDirective = compileGenreDirective(effectiveNovelGenre);
+  const styleDirective = compileStyleDirective(effectiveWritingStyle);
+  const functionDirective = compileChapterFunctionDirective(effectiveChapterFunction);
+  const focusDirective = compileFocusDirective(effectiveFocus);
 
   const genreTitle = typeof genre === 'object' && genre !== null ? genre.genre || genre.id || '通用文学' : String(genre || '通用文学');
   const styleText = typeof style === 'object' && style !== null ? style.style || style.prompt || '' : String(style || '');
