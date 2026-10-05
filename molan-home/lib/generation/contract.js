@@ -12,12 +12,14 @@ function normalizeChapterContract(input = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new GenerationError('CONTRACT_INVALID', '章节合同格式无效', { status: 422 });
   }
+  const rawGoal = input.chapterGoal || input.goal || (input.compositionSpec && (input.compositionSpec.chapterGoal?.name || input.compositionSpec.chapterGoal?.id || input.compositionSpec.chapterGoal)) || '';
   const contract = {
     ...input,
     chapterId: String(input.chapterId || ''),
-    chapterGoal: String(input.chapterGoal || input.goal || '').trim(),
-    genreProfileId: String(input.genreProfileId || ''),
-    styleBundleId: String(input.styleBundleId || ''),
+    chapterGoal: String(rawGoal).trim(),
+    genreProfileId: String(input.genreProfileId || (input.compositionSpec && (input.compositionSpec.genre?.id || input.compositionSpec.genre)) || ''),
+    styleBundleId: String(input.styleBundleId || (input.compositionSpec && (input.compositionSpec.style?.id || input.compositionSpec.style)) || ''),
+    compositionSpec: input.compositionSpec && typeof input.compositionSpec === 'object' ? input.compositionSpec : null,
     stateSnapshotHash: String(input.stateSnapshotHash || input.storyStateSnapshotHash || ''),
     pov: String(input.pov || 'third-limited'),
     viewpointCharacter: String(input.viewpointCharacter || ''),

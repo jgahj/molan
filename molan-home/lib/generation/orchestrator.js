@@ -441,7 +441,9 @@ function createGenerationOrchestrator(options = {}) {
           const window = require('./revision').locateReplacementWindow(draft, blocker.quote);
           if (!window.ok) return await move(scope, id, 'needs_human', { message: '审计证据无法唯一定位', reason: window.reason });
           assertActive();
-          const revised = await runDependencies.revise({ request, contract, issue: blocker, window, round: revisionRound, signal: controller.signal });
+          const { routeRepairStrategy } = require('../composition/audit-repair/targeted-repair-router');
+          const repairPlan = routeRepairStrategy(blocker, draft, { contract, request });
+          const revised = await runDependencies.revise({ request, contract, issue: blocker, window, round: revisionRound, signal: controller.signal, repairPlan });
           const applied = applyLocalRevision({
             text: draft, quote: blocker.quote, replacement: revised && revised.replacement,
             protectedTerms: revised && revised.preservedFacts, round: revisionRound
@@ -485,7 +487,9 @@ function createGenerationOrchestrator(options = {}) {
           const window = require('./revision').locateReplacementWindow(draft, blocker.quote);
           if (!window.ok) return await move(scope, id, 'needs_human', { message: '审计证据无法唯一定位', reason: window.reason });
           assertActive();
-          const revised = await runDependencies.revise({ request, contract, issue: blocker, window, round: revisionRound, signal: controller.signal });
+          const { routeRepairStrategy: routeRepair } = require('../composition/audit-repair/targeted-repair-router');
+          const semanticRepairPlan = routeRepair(blocker, draft, { contract, request });
+          const revised = await runDependencies.revise({ request, contract, issue: blocker, window, round: revisionRound, signal: controller.signal, repairPlan: semanticRepairPlan });
           const applied = applyLocalRevision({ text: draft, quote: blocker.quote, replacement: revised && revised.replacement, protectedTerms: revised && revised.preservedFacts, round: revisionRound });
           if (!applied.ok) return await move(scope, id, 'needs_human', { message: '局部修订未通过语义保留检查', revision: applied });
           draft = applied.text;

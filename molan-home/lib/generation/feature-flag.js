@@ -43,4 +43,16 @@ function alignClusterFeatureState(sharedStoreResult, env = process.env) {
   };
 }
 
-module.exports = { generationV2Enabled, generationV2Status, alignClusterFeatureState };
+/** 检查是否激活 V3 正交创作策略组合引擎 (Composition Strategy Engine)。 */
+function compositionV3Enabled(env = process.env, request = null) {
+  if (request && typeof request === 'object') {
+    if (request.compositionSpec || request.enableCompositionV3 === true) return true;
+    if (request.enableCompositionV3 === false) return false;
+  }
+  const raw = String(env.MOLAN_COMPOSITION_V3 || '').trim().toLowerCase();
+  if (['1', 'true', 'on', 'enabled'].includes(raw)) return true;
+  if (['0', 'false', 'off', 'disabled'].includes(raw)) return false;
+  return Boolean(request && request.compositionSpec);
+}
+
+module.exports = { generationV2Enabled, generationV2Status, alignClusterFeatureState, compositionV3Enabled };
