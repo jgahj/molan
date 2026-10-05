@@ -10,6 +10,8 @@
  * 3. 产出强约束的章节驱动策略（Chapter Objective Policy）。
  */
 
+const { createNarrativeOutcomeContract } = require('../models/data-schemas');
+
 /**
  * 规范化并校验 State Delta 结构
  * @param {Object} rawDelta
@@ -46,7 +48,7 @@ function createChapterGoalProfile(options = {}) {
 
   const readerEffect = Array.isArray(input.readerEffect)
     ? input.readerEffect.map(String).filter(Boolean)
-    : [];
+    : (input.readerEffect && typeof input.readerEffect === 'object' ? [input.readerEffect.knowledgeDelta || input.readerEffect.emotionalShift].filter(Boolean) : []);
   const mustHave = Array.isArray(input.mustHave)
     ? input.mustHave.map(String).filter(Boolean)
     : [];
@@ -54,10 +56,11 @@ function createChapterGoalProfile(options = {}) {
     ? input.mustNot.map(String).filter(Boolean)
     : [];
 
-  const defaultStateDelta = normalizeStateDelta(input.defaultStateDelta);
+  const defaultStateDelta = normalizeStateDelta(input.defaultStateDelta || input.outcomeContract?.stateDelta);
+  const outcomeContract = input.outcomeContract ? createNarrativeOutcomeContract(input.outcomeContract) : null;
 
   const profile = {
-    schemaVersion: 'chapter-goal-profile-v1',
+    schemaVersion: 'chapter-goal-profile-v2',
     id,
     name,
     category: String(input.category || 'plot'),
@@ -65,6 +68,8 @@ function createChapterGoalProfile(options = {}) {
     mustHave,
     mustNot,
     defaultStateDelta,
+    outcomeContract,
+    characterEffect: input.characterEffect && typeof input.characterEffect === 'object' ? { ...input.characterEffect } : null,
     description: String(input.description || ''),
     metadata: typeof input.metadata === 'object' && input.metadata !== null ? { ...input.metadata } : {}
   };
@@ -75,12 +80,21 @@ function createChapterGoalProfile(options = {}) {
 /**
  * 编译章节目标策略指令块 (Chapter Goal Policy Directive)
  * @param {Object} profile 
- * @param {Object} activeDelta 当前章节传入的实例化状态跃迁
+ * @param {Object} activeDelta 当前章节传入的实例化状态跃迁或完整 Outcome Contract
  * @returns {string}
  */
 function compileGoalPolicy(profile, activeDelta = null) {
   if (!profile) return '';
-  const delta = activeDelta ? normalizeStateDelta(activeDelta) : profile.defaultStateDelta;
+  const input = activeDelta || {};
+  const delta = (input.stateDelta || input.stateBefore || input.events || input.stateAfter)
+    ? normalizeStateDelta(input.stateDelta || input)
+    : profile.defaultStateDelta;
+
+  const characterEffect = input.characterEffect || profile.characterEffect || null;
+  const rawReader = input.readerEffect || profile.readerEffect || [];
+  const readerTexts = Array.isArray(rawReader)
+    ? rawReader.map(String).filter(Boolean)
+    : [rawReader.knowledgeDelta, rawReader.emotionalShift, rawReader.curiosityTrigger].filter(Boolean);
 
   function formatState(val) {
     if (typeof val === 'string') return val;
@@ -93,15 +107,27 @@ function compileGoalPolicy(profile, activeDelta = null) {
 
   const lines = [
     `【本章核心目标·${profile.name}】`,
-    `读者阅读收益目标：${profile.readerEffect.join('、') || '推进核心剧情与获得信息'}`,
+    `读者阅读收益目标：${readerTexts.join('、') || '推进核心剧情与获得信息'}`,
     '【状态跃迁契约 (State Delta)】：',
     `· 章前状态：${formatState(delta.stateBefore)}`,
     delta.events.length ? `· 推进事件：${delta.events.join(' -> ')}` : '',
     `· 章后状态：${formatState(delta.stateAfter)}`,
-    `· 存在性检验：若删除本章，必须导致【${delta.invalidIfRemoved}】失效！`,
-    profile.mustHave.length ? `必须达成的关键要素：\n${profile.mustHave.map(m => `· ${m}`).join('\n')}` : '',
-    profile.mustNot.length ? `严厉禁止的违规形式：\n${profile.mustNot.map(m => `· ${m}`).join('\n')}` : ''
-  ].filter(Boolean);
+    `· 存在性检验：若删除本章，必须导致【${delta.invalidIfRemoved}】失效！`
+  ];
+
+  if (characterEffect && (characterEffect.beliefShift || characterEffect.motivationDelta)) {
+    lines.push('【人物信念与内在位移 (Character Shift)】：');
+    if (characterEffect.beliefShift) lines.push(`· 认知/信念裂痕：${characterEffect.beliefShift}`);
+    if (characterEffect.motivationDelta) lines.push(`· 动机转变：${characterEffect.motivationDelta}`);
+    if (characterEffect.internalStakes) lines.push(`· 心理代价：${characterEffect.internalStakes}`);
+  }
+
+  if (profile.mustHave && profile.mustHave.length) {
+    lines.push(`必须达成的关键要素：\n${profile.mustHave.map(m => `· ${m}`).join('\n')}`);
+  }
+  if (profile.mustNot && profile.mustNot.length) {
+    lines.push(`严厉禁止的违规形式：\n${profile.mustNot.map(m => `· ${m}`).join('\n')}`);
+  }
 
   return lines.join('\n');
 }

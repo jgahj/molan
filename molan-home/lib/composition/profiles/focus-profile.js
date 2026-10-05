@@ -89,6 +89,8 @@ function calculateCharacterBudgets(weights, totalChars = 3000) {
   return budgets;
 }
 
+const { createSoftFocusBudget } = require('../models/data-schemas');
+
 /**
  * 创建合规的 FocusProfile 实体
  * @param {Object} options 
@@ -107,12 +109,28 @@ function createFocusProfile(options = {}) {
     ? { ...input.directives }
     : {};
 
+  // 软预算与层级划分
+  const sortedKeys = [...FOCUS_BUDGET_KEYS].sort((a, b) => (budgetWeights[b] || 0) - (budgetWeights[a] || 0));
+  const dominant = input.dominant || sortedKeys.filter(k => budgetWeights[k] >= 0.20);
+  const supporting = input.supporting || sortedKeys.filter(k => budgetWeights[k] >= 0.10 && budgetWeights[k] < 0.20);
+  const optional = input.optional || sortedKeys.filter(k => budgetWeights[k] > 0 && budgetWeights[k] < 0.10);
+  const forbidden = input.forbidden || sortedKeys.filter(k => budgetWeights[k] === 0);
+
+  const softBudget = createSoftFocusBudget({
+    dominant,
+    supporting,
+    optional,
+    forbidden,
+    ranges: input.ranges
+  });
+
   const profile = {
-    schemaVersion: 'focus-profile-v1',
+    schemaVersion: 'focus-profile-v2',
     id,
     name,
     budgetWeights,
     directives,
+    softBudget,
     description: String(input.description || ''),
     metadata: typeof input.metadata === 'object' && input.metadata !== null ? { ...input.metadata } : {}
   };
@@ -129,21 +147,27 @@ function createFocusProfile(options = {}) {
 function compileFocusPolicy(profile, targetChars = 3000) {
   if (!profile) return '';
   const breakdown = calculateCharacterBudgets(profile.budgetWeights, targetChars);
-
-  const budgetLines = FOCUS_BUDGET_KEYS
-    .filter(k => breakdown[k].weight >= 0.08)
-    .sort((a, b) => breakdown[b].weight - breakdown[a].weight)
-    .map(k => {
-      const b = breakdown[k];
-      const dir = profile.directives[k] ? `（${profile.directives[k]}）` : '';
-      return `· 【${k}】占比 ${b.percentageText}（约 ${b.targetChars} 字）${dir}`;
-    });
+  const soft = profile.softBudget || {};
+  const tiers = soft.priorityTiers || {};
 
   const lines = [
-    `【本章镜头与笔墨预算分配·${profile.name}】（基准总字数：${targetChars} 字）`,
-    budgetLines.join('\n'),
-    '镜头执行准则：严格根据上述预算控制笔墨深浅，严禁非重点元素侵占主预算空间。'
-  ].filter(Boolean);
+    `【本章镜头与笔墨预算分配·${profile.name}】（基准总字数：${targetChars} 字）`
+  ];
+
+  if (tiers.dominant && tiers.dominant.length) {
+    lines.push(`· 【重点倾斜 (Dominant)】：${tiers.dominant.map(k => `${k}（预期约 ${breakdown[k]?.percentageText || '主控'}，约 ${breakdown[k]?.targetChars || 0} 字）`).join('、')}`);
+  }
+  if (tiers.supporting && tiers.supporting.length) {
+    lines.push(`· 【辅助呼应 (Supporting)】：${tiers.supporting.map(k => `${k}（预期约 ${breakdown[k]?.percentageText || '辅助'}，约 ${breakdown[k]?.targetChars || 0} 字）`).join('、')}`);
+  }
+  if (tiers.optional && tiers.optional.length) {
+    lines.push(`· 【克制点缀 (Optional)】：${tiers.optional.join('、')}`);
+  }
+  if (tiers.forbidden && tiers.forbidden.length) {
+    lines.push(`· 【禁止抢戏 (Forbidden)】：严禁本章大篇幅描写 ${tiers.forbidden.join('、')}`);
+  }
+
+  lines.push('【镜头资源软预算准则】：上述配比为镜头关注倾向与软预算区间，非逐字硬性配额；严禁为凑对白比例而机械对话，重点关注主倾斜元素的情节推进力。');
 
   return lines.join('\n');
 }
