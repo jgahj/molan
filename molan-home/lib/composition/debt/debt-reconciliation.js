@@ -22,26 +22,32 @@ const { DEBT_TYPES, DEBT_EVENT_TYPES, DEBT_STATUSES } = require('./debt-types');
 function reconcileChapterDebts(params = {}) {
   const {
     ledger,
-    chapterNo = 1,
-    chapterId = '',
-    draftText = '',
     auditResult = {},
     contract = {},
-    compositionSpec = null,
-    declaredResolutions = [],
-    declaredDebtsToCreate = []
+    compositionSpec = null
   } = params;
 
   if (!ledger || typeof ledger.recordEvent !== 'function') {
     throw new TypeError('reconcileChapterDebts 需要有效的 StoryDebtLedger 实例');
   }
 
-  const text = String(draftText || '').trim();
+  const chapterNo = Number(params.chapterNo ?? params.chapterInfo?.chapterNo ?? contract.chapterNo ?? 1) || 1;
+  const chapterId = String(params.chapterId ?? params.chapterInfo?.chapterId ?? contract.chapterId ?? '').trim();
+  const text = String(params.draftText ?? params.chapterInfo?.draftText ?? '').trim();
+
   const eventsRecorded = [];
   const debtsUpdated = [];
   const debtsCreated = [];
+  const processedDebtIds = new Set();
 
   // 1. 处理显式声明的结算动作 (Declared Resolutions)
+  const rawDeclared = params.declaredResolutions
+    || params.chapterInfo?.declaredResolutions
+    || params.options?.declaredResolutions
+    || contract.declaredResolutions
+    || [];
+  const declaredResolutions = Array.isArray(rawDeclared) ? rawDeclared : [rawDeclared];
+
   for (const item of declaredResolutions) {
     const debtId = item.debtId || item.debt_id;
     if (!debtId) continue;
@@ -54,7 +60,7 @@ function reconcileChapterDebts(params = {}) {
       chapterNo,
       chapterId,
       evidence: item.evidence || '',
-      notes: item.notes || `第 ${chapterNo} 章结算`,
+      notes: item.notes || `第 ${chapterNo} 章显式结算声明`,
       operator: 'reconciliation'
     };
 
@@ -68,17 +74,88 @@ function reconcileChapterDebts(params = {}) {
       record = ledger.reframeDebt(debtId, { ...opts, payload: item.payload || {} });
     } else if (action === DEBT_EVENT_TYPES.DEFERRED) {
       record = ledger.deferDebt(debtId, opts);
+    } else if (action === DEBT_EVENT_TYPES.PROPOSED_RESOLUTION) {
+      record = ledger.proposeResolution(debtId, opts);
     }
 
     if (record) {
       eventsRecorded.push(record.event);
       debtsUpdated.push(record.debt);
+      processedDebtIds.add(debtId);
     }
   }
 
-  // 2. 基于正文引文和关键词的启发式核销检测 (Heuristic Evidence Match)
+  // 2. 处理形式语义验证确权通道 (Formal Semantic Verification)
+  const rawSemantic = params.semanticVerification
+    || params.options?.semanticVerification
+    || params.chapterInfo?.semanticVerification
+    || auditResult.semanticVerification
+    || auditResult.verifiedResolutions
+    || contract.semanticVerification;
+
+  const semanticVerifications = [];
+  if (rawSemantic) {
+    if (Array.isArray(rawSemantic)) {
+      for (const item of rawSemantic) {
+        if (typeof item === 'string') {
+          semanticVerifications.push({ debtId: item, evidence: '', notes: '形式语义验证确权' });
+        } else if (item && typeof item === 'object') {
+          const debtId = item.debtId || item.debt_id;
+          if (debtId && item.verified !== false) {
+            semanticVerifications.push({
+              debtId,
+              evidence: item.evidence || '',
+              notes: item.notes || '形式语义验证确权'
+            });
+          }
+        }
+      }
+    } else if (typeof rawSemantic === 'object') {
+      if (Array.isArray(rawSemantic.verifiedDebts)) {
+        for (const debtId of rawSemantic.verifiedDebts) {
+          if (debtId) {
+            semanticVerifications.push({
+              debtId,
+              evidence: rawSemantic.evidence || '',
+              notes: rawSemantic.notes || '形式语义验证确权'
+            });
+          }
+        }
+      } else if (rawSemantic.debtId || rawSemantic.debt_id) {
+        const debtId = rawSemantic.debtId || rawSemantic.debt_id;
+        if (debtId && rawSemantic.verified !== false) {
+          semanticVerifications.push({
+            debtId,
+            evidence: rawSemantic.evidence || '',
+            notes: rawSemantic.notes || '形式语义验证确权'
+          });
+        }
+      }
+    }
+  }
+
+  for (const item of semanticVerifications) {
+    if (processedDebtIds.has(item.debtId)) continue;
+    const existing = ledger.getDebt(item.debtId);
+    if (!existing) continue;
+
+    const record = ledger.payDebt(item.debtId, {
+      chapterNo,
+      chapterId,
+      evidence: item.evidence || '形式语义验证通过',
+      notes: item.notes || `第 ${chapterNo} 章形式语义验证确认偿还`,
+      operator: 'semantic_verification'
+    });
+
+    if (record) {
+      eventsRecorded.push(record.event);
+      debtsUpdated.push(record.debt);
+      processedDebtIds.add(item.debtId);
+    }
+  }
+
+  // 3. 基于正文引文和关键词的启发式核销检测 (Heuristic Evidence Match -> PROPOSED_RESOLUTION)
   const openDebts = ledger.getOpenDebts();
-  const processedDebtIds = new Set(declaredResolutions.map(r => r.debtId || r.debt_id));
 
   for (const debt of openDebts) {
     if (processedDebtIds.has(debt.debt_id)) continue;
@@ -126,11 +203,12 @@ function reconcileChapterDebts(params = {}) {
     }
 
     if (matchedSnippet && matchedSignalWord) {
-      const record = ledger.payDebt(debt.debt_id, {
+      // 核心门禁：启发式匹配降级为提出提议 (PROPOSED_RESOLUTION)，严禁直接置为 PAID
+      const record = ledger.proposeResolution(debt.debt_id, {
         chapterNo,
         chapterId,
         evidence: matchedSnippet,
-        notes: `紧邻检测到解决动词【${matchedSignalWord}】与关键标的词汇`,
+        notes: `紧邻检测到解决动词【${matchedSignalWord}】与关键标的词汇（候选解决提议，待显式声明或形式语义验证确认）`,
         operator: 'heuristic_audit'
       });
 
@@ -140,7 +218,12 @@ function reconcileChapterDebts(params = {}) {
     }
   }
 
-  // 3. 处理显式声明的新增债务 (Declared Debts To Create)
+  // 4. 处理显式声明的新增债务 (Declared Debts To Create)
+  const rawDebtsToCreate = params.declaredDebtsToCreate
+    || params.chapterInfo?.declaredDebtsToCreate
+    || [];
+  const declaredDebtsToCreate = Array.isArray(rawDebtsToCreate) ? rawDebtsToCreate : [rawDebtsToCreate];
+
   for (const newDebtInput of declaredDebtsToCreate) {
     const created = ledger.createDebt(newDebtInput, {
       chapterNo,

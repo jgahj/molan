@@ -69,6 +69,7 @@ class IsolationManager {
     this.sourceDir = options.sourceDir ? path.resolve(options.sourceDir) : null;
     this.quotaManager = new CorpusQuotaManager(options.quotaOptions || {});
     this._activeWorkers = 0;
+    this._waiters = [];
   }
 
   /**
@@ -132,17 +133,25 @@ class IsolationManager {
   }
 
   /**
-   * 4. CPU 隔离并发控制
+   * 4. CPU 隔离并发控制 (FIFO 事件队列无锁防竞态)
    */
   async acquireWorkerSlot() {
-    while (this._activeWorkers >= this.maxWorkers) {
-      await new Promise(resolve => setTimeout(resolve, 50));
+    if (this._activeWorkers < this.maxWorkers) {
+      this._activeWorkers++;
+      return;
     }
-    this._activeWorkers++;
+    return new Promise(resolve => {
+      this._waiters.push(resolve);
+    });
   }
 
   releaseWorkerSlot() {
     this._activeWorkers = Math.max(0, this._activeWorkers - 1);
+    if (this._waiters.length > 0 && this._activeWorkers < this.maxWorkers) {
+      this._activeWorkers++;
+      const next = this._waiters.shift();
+      next();
+    }
   }
 
   /**

@@ -6,15 +6,33 @@
  * 
  * 核心功能：
  * 1. 预装纯正正交的种子 Profile 资产（题材无角色锁定、文风量化、目标含 State Delta、侧重含预算、钩子含兑现期）；
- * 2. 支持自定义 Profile 动态注册与热替换；
- * 3. 实现 resolveCompositionSpec：将用户简明 5 维输入无缝解析为标准 CompositionSpec，并自动推导其余 7 维系统策略。
+ * 2. 挂载 standalone first-class 故事引擎 (StoryEngineRegistry) 与读者契约 (ReaderPromiseRegistry) 注册中心；
+ * 3. 严格解析契约：消除静默回退，支持 ProfileResolutionError 阻断与显式未决描述符；
+ * 4. 全维 Profile 模式追踪 (profileModes: explicit / inferred / locked / adaptive) 与 provenance 元数据存证。
  */
+
+class ProfileResolutionError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+    this.name = 'ProfileResolutionError';
+    this.dimension = String(details.dimension || 'unknown');
+    this.query = String(details.query || '');
+    this.available = Array.isArray(details.available) ? details.available : [];
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ProfileResolutionError);
+    }
+  }
+}
+
+module.exports.ProfileResolutionError = ProfileResolutionError;
 
 const { createGenreProfile } = require('./genre-profile');
 const { createStyleProfile } = require('./style-profile');
 const { createChapterGoalProfile } = require('./chapter-goal-profile');
 const { createFocusProfile } = require('./focus-profile');
 const { createHookProfile } = require('./hook-profile');
+const { StoryEngineRegistry, defaultStoryEngineRegistry, SEED_STORY_ENGINES } = require('./story-engine-registry');
+const { ReaderPromiseRegistry, defaultReaderPromiseRegistry, SEED_READER_PROMISES } = require('./reader-promise-registry');
 
 // ===========================================================================
 // 一、预装内置种子 Profile 库
@@ -250,12 +268,19 @@ const SEED_HOOKS = [
 // ===========================================================================
 
 class ProfileRegistry {
-  constructor() {
+  constructor(options = {}) {
     this._genres = new Map();
     this._styles = new Map();
     this._goals = new Map();
     this._focuses = new Map();
     this._hooks = new Map();
+
+    this._storyEngineRegistry = new StoryEngineRegistry({
+      seeds: options.storyEngines || SEED_STORY_ENGINES
+    });
+    this._readerPromiseRegistry = new ReaderPromiseRegistry({
+      seeds: options.readerPromises || SEED_READER_PROMISES
+    });
 
     // 加载种子库
     for (const g of SEED_GENRES) this.registerGenre(g);
@@ -271,80 +296,509 @@ class ProfileRegistry {
   registerFocus(profile) { this._focuses.set(profile.id, profile); return this; }
   registerHook(profile) { this._hooks.set(profile.id, profile); return this; }
 
-  getGenre(idOrAlias) {
+  // 挂载 StoryEngineRegistry 方法
+  registerStoryEngine(profile) {
+    return this._storyEngineRegistry.registerStoryEngine(profile);
+  }
+  getStoryEngine(idOrAlias, options = {}) {
+    return this._storyEngineRegistry.getStoryEngine(idOrAlias, options);
+  }
+  hasStoryEngine(idOrAlias) {
+    return this._storyEngineRegistry.hasStoryEngine(idOrAlias);
+  }
+  listStoryEngines() {
+    return this._storyEngineRegistry.listStoryEngines();
+  }
+
+  // 挂载 ReaderPromiseRegistry 方法
+  registerReaderPromise(profile) {
+    return this._readerPromiseRegistry.registerReaderPromise(profile);
+  }
+  getReaderPromise(idOrAlias, options = {}) {
+    return this._readerPromiseRegistry.getReaderPromise(idOrAlias, options);
+  }
+  resolveReaderPromises(listOrItem, options = {}) {
+    return this._readerPromiseRegistry.resolveReaderPromises(listOrItem, options);
+  }
+  hasReaderPromise(idOrAlias) {
+    return this._readerPromiseRegistry.hasReaderPromise(idOrAlias);
+  }
+  listReaderPromises() {
+    return this._readerPromiseRegistry.listReaderPromises();
+  }
+
+  getGenre(idOrAlias, options = {}) {
+    const strict = Boolean(options && options.strict);
     const key = String(idOrAlias || '').trim();
+
+    if (!key) {
+      if (strict) {
+        throw new ProfileResolutionError('Cannot resolve genre profile for empty query', {
+          dimension: 'genre',
+          query: idOrAlias,
+          available: Array.from(this._genres.keys())
+        });
+      }
+      return null;
+    }
+
     if (this._genres.has(key)) return this._genres.get(key);
+
     for (const g of this._genres.values()) {
-      if (g.name.includes(key) || key.includes(g.family)) return g;
+      if (g.name === key || g.id === key || g.family === key) return g;
     }
-    return SEED_GENRES[0]; // 默认安全兜底
+    for (const g of this._genres.values()) {
+      if (g.name.includes(key) || g.id.includes(key) || key.includes(g.name) || key.includes(g.id) || key.includes(g.family) || g.family.includes(key)) return g;
+    }
+
+    if (strict) {
+      throw new ProfileResolutionError(`Unregistered genre profile query: "${key}"`, {
+        dimension: 'genre',
+        query: key,
+        available: Array.from(this._genres.keys())
+      });
+    }
+
+    return null;
   }
 
-  getStyle(idOrAlias) {
+  getStyle(idOrAlias, options = {}) {
+    const strict = Boolean(options && options.strict);
     const key = String(idOrAlias || '').trim();
+
+    if (!key) {
+      if (strict) {
+        throw new ProfileResolutionError('Cannot resolve style profile for empty query', {
+          dimension: 'style',
+          query: idOrAlias,
+          available: Array.from(this._styles.keys())
+        });
+      }
+      return null;
+    }
+
     if (this._styles.has(key)) return this._styles.get(key);
+
     for (const s of this._styles.values()) {
-      if (s.name.includes(key) || key.includes(s.id)) return s;
+      if (s.name === key || s.id === key) return s;
     }
-    return SEED_STYLES[0];
+    for (const s of this._styles.values()) {
+      if (s.name.includes(key) || s.id.includes(key) || key.includes(s.name) || key.includes(s.id)) return s;
+    }
+
+    if (strict) {
+      throw new ProfileResolutionError(`Unregistered style profile query: "${key}"`, {
+        dimension: 'style',
+        query: key,
+        available: Array.from(this._styles.keys())
+      });
+    }
+
+    return null;
   }
 
-  getGoal(idOrAlias) {
+  getGoal(idOrAlias, options = {}) {
+    const strict = Boolean(options && options.strict);
     const key = String(idOrAlias || '').trim();
+
+    if (!key) {
+      if (strict) {
+        throw new ProfileResolutionError('Cannot resolve goal profile for empty query', {
+          dimension: 'goal',
+          query: idOrAlias,
+          available: Array.from(this._goals.keys())
+        });
+      }
+      return null;
+    }
+
     if (this._goals.has(key)) return this._goals.get(key);
+
     for (const g of this._goals.values()) {
-      if (g.name.includes(key) || key.includes(g.id)) return g;
+      if (g.name === key || g.id === key) return g;
     }
-    return SEED_GOALS[0];
+    for (const g of this._goals.values()) {
+      if (g.name.includes(key) || g.id.includes(key) || key.includes(g.name) || key.includes(g.id)) return g;
+    }
+
+    if (strict) {
+      throw new ProfileResolutionError(`Unregistered goal profile query: "${key}"`, {
+        dimension: 'goal',
+        query: key,
+        available: Array.from(this._goals.keys())
+      });
+    }
+
+    return null;
   }
 
-  getFocus(idOrAlias) {
+  getFocus(idOrAlias, options = {}) {
+    const strict = Boolean(options && options.strict);
     const key = String(idOrAlias || '').trim();
+
+    if (!key) {
+      if (strict) {
+        throw new ProfileResolutionError('Cannot resolve focus profile for empty query', {
+          dimension: 'focus',
+          query: idOrAlias,
+          available: Array.from(this._focuses.keys())
+        });
+      }
+      return null;
+    }
+
     if (this._focuses.has(key)) return this._focuses.get(key);
+
     for (const f of this._focuses.values()) {
-      if (f.name.includes(key) || key.includes(f.id)) return f;
+      if (f.name === key || f.id === key) return f;
     }
-    return SEED_FOCUSES[0];
+    for (const f of this._focuses.values()) {
+      if (f.name.includes(key) || f.id.includes(key) || key.includes(f.name) || key.includes(f.id)) return f;
+    }
+
+    if (strict) {
+      throw new ProfileResolutionError(`Unregistered focus profile query: "${key}"`, {
+        dimension: 'focus',
+        query: key,
+        available: Array.from(this._focuses.keys())
+      });
+    }
+
+    return null;
   }
 
-  getHook(idOrAlias) {
+  getHook(idOrAlias, options = {}) {
+    const strict = Boolean(options && options.strict);
     const key = String(idOrAlias || '').trim();
-    if (this._hooks.has(key)) return this._hooks.get(key);
-    for (const h of this._hooks.values()) {
-      if (h.name.includes(key) || h.type === key) return h;
+
+    if (!key) {
+      if (strict) {
+        throw new ProfileResolutionError('Cannot resolve hook profile for empty query', {
+          dimension: 'hook',
+          query: idOrAlias,
+          available: Array.from(this._hooks.keys())
+        });
+      }
+      return null;
     }
-    return SEED_HOOKS[0];
+
+    if (this._hooks.has(key)) return this._hooks.get(key);
+
+    for (const h of this._hooks.values()) {
+      if (h.name === key || h.id === key || h.type === key) return h;
+    }
+    for (const h of this._hooks.values()) {
+      if (h.name.includes(key) || h.id.includes(key) || key.includes(h.name) || key.includes(h.id) || key.includes(h.type) || h.type.includes(key)) return h;
+    }
+
+    if (strict) {
+      throw new ProfileResolutionError(`Unregistered hook profile query: "${key}"`, {
+        dimension: 'hook',
+        query: key,
+        available: Array.from(this._hooks.keys())
+      });
+    }
+
+    return null;
   }
 
   /**
    * 将用户选择与上下文解析为完整的 CompositionSpec 规范对象
    * @param {Object} input 包含 5 维选择及可选高级覆盖参数
-   * @returns {Object} 包含全部 14 维规范的 CompositionSpec
+   * @param {Object} [options] 解析选项 (strict, allowUnresolved 等)
+   * @returns {Object} 包含全部 14 维规范与 7 维 profileModes/provenance 的 CompositionSpec
    */
-  resolveCompositionSpec(input = {}) {
+  resolveCompositionSpec(input = {}, options = {}) {
     const raw = input || {};
+    const opts = { ...(raw.options || {}), ...(options || {}) };
+    const strict = Boolean(opts.strict);
+    const allowUnresolved = Boolean(opts.allowUnresolved);
 
-    const genre = this.getGenre(raw.genre || raw.genreId);
-    const style = this.getStyle(raw.style || raw.styleId);
-    const chapterGoal = this.getGoal(raw.chapterGoal || raw.goalId);
-    const focus = this.getFocus(raw.focus || raw.focusId);
-    const hook = this.getHook(raw.hook || raw.hookId);
+    // 辅助解析模式判定 (explicit, inferred, locked, adaptive, unresolved)
+    const determineMode = (dim, wasSupplied) => {
+      if (raw.profileModes && raw.profileModes[dim]) {
+        return raw.profileModes[dim];
+      }
+      if (Array.isArray(raw.lockedDimensions) && raw.lockedDimensions.includes(dim)) {
+        return 'locked';
+      }
+      if (Array.isArray(raw.adaptiveDimensions) && raw.adaptiveDimensions.includes(dim)) {
+        return 'adaptive';
+      }
+      return wasSupplied ? 'explicit' : 'inferred';
+    };
 
-    // 系统自动推导 7 维参数
+    // 1. 题材 Genre
+    const genreQuery = raw.genre !== undefined ? raw.genre : raw.genreId;
+    const genreSupplied = genreQuery !== undefined && genreQuery !== null && genreQuery !== '';
+    let genreMode = determineMode('genre', genreSupplied);
+    let genre = null;
+
+    if (genreSupplied) {
+      if (typeof genreQuery === 'object' && genreQuery !== null && genreQuery.id) {
+        genre = genreQuery;
+      } else {
+        genre = this.getGenre(genreQuery);
+        if (!genre) {
+          if (allowUnresolved) {
+            genre = { resolved: false, query: String(genreQuery), error: 'Unregistered profile' };
+            genreMode = 'unresolved';
+          } else {
+            throw new ProfileResolutionError(`Unregistered genre profile query: "${genreQuery}"`, {
+              dimension: 'genre',
+              query: String(genreQuery),
+              available: Array.from(this._genres.keys())
+            });
+          }
+        }
+      }
+    } else {
+      if (strict) {
+        throw new ProfileResolutionError('Genre profile is required in strict mode', {
+          dimension: 'genre',
+          query: '',
+          available: Array.from(this._genres.keys())
+        });
+      }
+      genre = SEED_GENRES[0];
+      if (genreMode === 'explicit') genreMode = 'inferred';
+    }
+
+    // 2. 文风 Style
+    const styleQuery = raw.style !== undefined ? raw.style : raw.styleId;
+    const styleSupplied = styleQuery !== undefined && styleQuery !== null && styleQuery !== '';
+    let styleMode = determineMode('style', styleSupplied);
+    let style = null;
+
+    if (styleSupplied) {
+      if (typeof styleQuery === 'object' && styleQuery !== null && styleQuery.id) {
+        style = styleQuery;
+      } else {
+        style = this.getStyle(styleQuery);
+        if (!style) {
+          if (allowUnresolved) {
+            style = { resolved: false, query: String(styleQuery), error: 'Unregistered profile' };
+            styleMode = 'unresolved';
+          } else {
+            throw new ProfileResolutionError(`Unregistered style profile query: "${styleQuery}"`, {
+              dimension: 'style',
+              query: String(styleQuery),
+              available: Array.from(this._styles.keys())
+            });
+          }
+        }
+      }
+    } else {
+      if (strict) {
+        throw new ProfileResolutionError('Style profile is required in strict mode', {
+          dimension: 'style',
+          query: '',
+          available: Array.from(this._styles.keys())
+        });
+      }
+      style = SEED_STYLES[0];
+      if (styleMode === 'explicit') styleMode = 'inferred';
+    }
+
+    // 3. 章节目标 Goal / ChapterGoal
+    const goalQuery = raw.chapterGoal !== undefined ? raw.chapterGoal : (raw.goal !== undefined ? raw.goal : raw.goalId);
+    const goalSupplied = goalQuery !== undefined && goalQuery !== null && goalQuery !== '';
+    let goalMode = raw.profileModes?.goal || raw.profileModes?.chapterGoal || determineMode('goal', goalSupplied);
+    let chapterGoal = null;
+
+    if (goalSupplied) {
+      if (typeof goalQuery === 'object' && goalQuery !== null && goalQuery.id) {
+        chapterGoal = goalQuery;
+      } else {
+        chapterGoal = this.getGoal(goalQuery);
+        if (!chapterGoal) {
+          if (allowUnresolved) {
+            chapterGoal = { resolved: false, query: String(goalQuery), error: 'Unregistered profile' };
+            goalMode = 'unresolved';
+          } else {
+            throw new ProfileResolutionError(`Unregistered goal profile query: "${goalQuery}"`, {
+              dimension: 'goal',
+              query: String(goalQuery),
+              available: Array.from(this._goals.keys())
+            });
+          }
+        }
+      }
+    } else {
+      if (strict) {
+        throw new ProfileResolutionError('Goal profile is required in strict mode', {
+          dimension: 'goal',
+          query: '',
+          available: Array.from(this._goals.keys())
+        });
+      }
+      chapterGoal = SEED_GOALS[0];
+      if (goalMode === 'explicit') goalMode = 'inferred';
+    }
+
+    // 4. 镜头侧重 Focus
+    const focusQuery = raw.focus !== undefined ? raw.focus : raw.focusId;
+    const focusSupplied = focusQuery !== undefined && focusQuery !== null && focusQuery !== '';
+    let focusMode = determineMode('focus', focusSupplied);
+    let focus = null;
+
+    if (focusSupplied) {
+      if (typeof focusQuery === 'object' && focusQuery !== null && focusQuery.id) {
+        focus = focusQuery;
+      } else {
+        focus = this.getFocus(focusQuery);
+        if (!focus) {
+          if (allowUnresolved) {
+            focus = { resolved: false, query: String(focusQuery), error: 'Unregistered profile' };
+            focusMode = 'unresolved';
+          } else {
+            throw new ProfileResolutionError(`Unregistered focus profile query: "${focusQuery}"`, {
+              dimension: 'focus',
+              query: String(focusQuery),
+              available: Array.from(this._focuses.keys())
+            });
+          }
+        }
+      }
+    } else {
+      if (strict) {
+        throw new ProfileResolutionError('Focus profile is required in strict mode', {
+          dimension: 'focus',
+          query: '',
+          available: Array.from(this._focuses.keys())
+        });
+      }
+      focus = SEED_FOCUSES[0];
+      if (focusMode === 'explicit') focusMode = 'inferred';
+    }
+
+    // 5. 钩子 Hook
+    const hookQuery = raw.hook !== undefined ? raw.hook : raw.hookId;
+    const hookSupplied = hookQuery !== undefined && hookQuery !== null && hookQuery !== '';
+    let hookMode = determineMode('hook', hookSupplied);
+    let hook = null;
+
+    if (hookSupplied) {
+      if (typeof hookQuery === 'object' && hookQuery !== null && hookQuery.id) {
+        hook = hookQuery;
+      } else {
+        hook = this.getHook(hookQuery);
+        if (!hook) {
+          if (allowUnresolved) {
+            hook = { resolved: false, query: String(hookQuery), error: 'Unregistered profile' };
+            hookMode = 'unresolved';
+          } else {
+            throw new ProfileResolutionError(`Unregistered hook profile query: "${hookQuery}"`, {
+              dimension: 'hook',
+              query: String(hookQuery),
+              available: Array.from(this._hooks.keys())
+            });
+          }
+        }
+      }
+    } else {
+      if (strict) {
+        throw new ProfileResolutionError('Hook profile is required in strict mode', {
+          dimension: 'hook',
+          query: '',
+          available: Array.from(this._hooks.keys())
+        });
+      }
+      hook = SEED_HOOKS[0];
+      if (hookMode === 'explicit') hookMode = 'inferred';
+    }
+
+    // 6. 故事驱动引擎 StoryEngine (First-Class)
+    const engineQuery = raw.storyEngine !== undefined ? raw.storyEngine : raw.storyEngineId;
+    const engineSupplied = engineQuery !== undefined && engineQuery !== null && engineQuery !== '';
+    let engineMode = determineMode('storyEngine', engineSupplied);
+    let storyEngine = null;
+
+    if (engineSupplied) {
+      if (typeof engineQuery === 'object' && engineQuery !== null && engineQuery.id) {
+        storyEngine = engineQuery;
+      } else {
+        storyEngine = this.getStoryEngine(engineQuery);
+        if (!storyEngine) {
+          if (allowUnresolved) {
+            storyEngine = { resolved: false, query: String(engineQuery), error: 'Unregistered profile' };
+            engineMode = 'unresolved';
+          } else {
+            throw new ProfileResolutionError(`Unregistered story engine profile query: "${engineQuery}"`, {
+              dimension: 'storyEngine',
+              query: String(engineQuery),
+              available: this.listStoryEngines().map(e => e.id)
+            });
+          }
+        }
+      }
+    } else {
+      const inferredId = (genre && Array.isArray(genre.commonStoryEngines) && genre.commonStoryEngines[0]) || 'growth_clash';
+      storyEngine = this.getStoryEngine(inferredId) || { id: inferredId, name: inferredId };
+      if (engineMode === 'explicit') engineMode = 'inferred';
+    }
+
+    // 7. 读者阅读契约 ReaderPromises (First-Class)
+    const promisesQuery = raw.readerPromises !== undefined ? raw.readerPromises : raw.readerPromise;
+    const promisesSupplied = promisesQuery !== undefined && promisesQuery !== null && (Array.isArray(promisesQuery) ? promisesQuery.length > 0 : Boolean(promisesQuery));
+    let promisesMode = raw.profileModes?.readerPromises || raw.profileModes?.readerPromise || determineMode('readerPromises', promisesSupplied);
+    let readerPromises = [];
+
+    if (promisesSupplied) {
+      try {
+        readerPromises = this.resolveReaderPromises(promisesQuery, { strict: !allowUnresolved });
+      } catch (err) {
+        if (allowUnresolved) {
+          readerPromises = [{ resolved: false, query: promisesQuery, error: err.message }];
+          promisesMode = 'unresolved';
+        } else {
+          throw err;
+        }
+      }
+    } else {
+      const genrePromises = (genre && Array.isArray(genre.readerPromises)) ? genre.readerPromises : [];
+      readerPromises = this.resolveReaderPromises(genrePromises, { strict: false });
+      if (promisesMode === 'explicit') promisesMode = 'inferred';
+    }
+
+    // 归一化 profileModes（含别名映射）
+    const profileModes = Object.freeze({
+      genre: genreMode,
+      style: styleMode,
+      goal: goalMode,
+      chapterGoal: goalMode,
+      focus: focusMode,
+      hook: hookMode,
+      storyEngine: engineMode,
+      readerPromises: promisesMode,
+      readerPromise: promisesMode
+    });
+
+    const provenance = Object.freeze({
+      profileModes,
+      resolvedAt: new Date().toISOString(),
+      registryVersion: 'composition-profile-registry-v2'
+    });
+
+    // 系统自动推导 7 维参数（保留向后兼容）
     const derived = {
-      storyEngine: String(raw.storyEngine || (genre.commonStoryEngines[0] || 'growth_clash')),
-      pace: String(raw.pace || (chapterGoal.id === 'conflict_push' ? 'fast' : 'moderate')),
-      informationFlow: String(raw.informationFlow || (chapterGoal.id === 'info_reveal' ? 'partial_reveal' : 'normal')),
-      conflictMode: String(raw.conflictMode || (focus.id === 'dialogue_game' ? 'verbal_sparring' : 'physical_confrontation')),
-      emotionArc: String(raw.emotionArc || (chapterGoal.id === 'conflict_push' ? 'tension_escalation' : 'steady_curiosity')),
+      storyEngine: typeof storyEngine === 'object' && storyEngine !== null
+        ? (storyEngine.id || storyEngine.name || 'growth_clash')
+        : String(raw.storyEngine || (genre?.commonStoryEngines?.[0] || 'growth_clash')),
+      pace: String(raw.pace || (chapterGoal?.id === 'conflict_push' ? 'fast' : 'moderate')),
+      informationFlow: String(raw.informationFlow || (chapterGoal?.id === 'info_reveal' ? 'partial_reveal' : 'normal')),
+      conflictMode: String(raw.conflictMode || (focus?.id === 'dialogue_game' ? 'verbal_sparring' : 'physical_confrontation')),
+      emotionArc: String(raw.emotionArc || (chapterGoal?.id === 'conflict_push' ? 'tension_escalation' : 'steady_curiosity')),
       narrativePov: String(raw.narrativePov || raw.pov || 'third_limited'),
-      readerPromise: Array.isArray(raw.readerPromise) ? raw.readerPromise : genre.readerPromises,
+      readerPromise: Array.isArray(readerPromises) && readerPromises.length > 0
+        ? readerPromises.map(p => p.name || p.id || String(p))
+        : (Array.isArray(raw.readerPromise) ? raw.readerPromise : (genre?.readerPromises || [])),
       continuity: typeof raw.continuity === 'object' && raw.continuity !== null ? { ...raw.continuity } : {},
       creativity: String(raw.creativity || 'balanced')
     };
 
     // 局部文风调制
-    const localStyleModulation = raw.localStyleModulation || (chapterGoal.id === 'conflict_push' ? {
+    const localStyleModulation = raw.localStyleModulation || (chapterGoal?.id === 'conflict_push' ? {
       shortSentenceRatio: +0.10,
       averageSentenceLength: -3.0,
       emotionalIntensity: +0.15
@@ -355,9 +809,14 @@ class ProfileRegistry {
       genre,
       style,
       chapterGoal,
+      goal: chapterGoal,
       focus,
       hook,
-      stateDelta: raw.stateDelta ? raw.stateDelta : chapterGoal.defaultStateDelta,
+      storyEngine,
+      readerPromises,
+      profileModes,
+      provenance,
+      stateDelta: raw.stateDelta ? raw.stateDelta : (chapterGoal?.defaultStateDelta || null),
       localStyleModulation,
       targetChars: Number(raw.targetChars) || 3000,
       userInstruction: String(raw.userInstruction || raw.prompt || ''),
@@ -372,9 +831,16 @@ const defaultProfileRegistry = new ProfileRegistry();
 module.exports = {
   ProfileRegistry,
   defaultProfileRegistry,
+  ProfileResolutionError,
   SEED_GENRES,
   SEED_STYLES,
   SEED_GOALS,
   SEED_FOCUSES,
-  SEED_HOOKS
+  SEED_HOOKS,
+  StoryEngineRegistry,
+  defaultStoryEngineRegistry,
+  SEED_STORY_ENGINES,
+  ReaderPromiseRegistry,
+  defaultReaderPromiseRegistry,
+  SEED_READER_PROMISES
 };

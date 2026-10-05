@@ -152,9 +152,9 @@ test('Hardening: DebtReconciliation 局部窗口紧邻匹配防范全人物债�
     draftText: battleDraftText
   });
 
-  // 必须只核销斩杀黑虎，绝不能因提及“李巡”而连带核销身世之谜
+  // 必须只提议解决斩杀黑虎（启发式降级为 proposed_resolution），绝不能因提及“李巡”而连带影响身世之谜
   assert.equal(reconResult.reconciledCount, 1);
-  assert.equal(ledger.getDebt('debt_tiger').status, 'paid');
+  assert.equal(ledger.getDebt('debt_tiger').status, 'proposed_resolution');
   assert.equal(ledger.getDebt('debt_identity').status, 'open');
 });
 

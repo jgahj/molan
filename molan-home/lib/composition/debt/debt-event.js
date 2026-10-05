@@ -31,6 +31,16 @@ function createDebtEvent(input = {}) {
 
   const eventType = normalizeDebtEventType(input.eventType || input.event_type || 'CREATED');
   const eventId = String(input.eventId || input.event_id || generateEventId()).trim();
+
+  let idempotencyKey = null;
+  const rawIdempotencyKey = input.idempotencyKey ?? input.idempotency_key;
+  if (rawIdempotencyKey !== undefined && rawIdempotencyKey !== null) {
+    idempotencyKey = String(rawIdempotencyKey).trim();
+    if (!idempotencyKey) {
+      throw new TypeError('DebtEvent idempotencyKey 不能为空字符串');
+    }
+  }
+
   const chapterId = String(input.chapterId || input.chapter_id || '').trim();
   const chapterNo = Number(input.chapterNo ?? input.chapter_no ?? input.chapter ?? 0) || 0;
   const sceneId = String(input.sceneId || input.scene_id || '').trim();
@@ -45,6 +55,7 @@ function createDebtEvent(input = {}) {
   const event = {
     schemaVersion: 'debt-event-v1',
     eventId,
+    idempotencyKey,
     debtId,
     eventType,
     chapterId,

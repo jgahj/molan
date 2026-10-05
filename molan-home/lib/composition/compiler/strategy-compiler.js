@@ -125,6 +125,29 @@ function compileToStrategyIR(params = {}) {
     }
   };
 
+  const profileVersions = {
+    genre: spec.genre?.version || options.profileVersions?.genre || 'genre-profile-v1',
+    style: spec.style?.version || options.profileVersions?.style || 'style-profile-v2',
+    chapterGoal: spec.chapterGoal?.version || options.profileVersions?.chapterGoal || 'chapter-goal-profile-v2',
+    focus: spec.focus?.version || options.profileVersions?.focus || 'focus-profile-v2',
+    hook: spec.hook?.version || options.profileVersions?.hook || 'hook-profile-v1',
+    storyEngine: spec.derived?.storyEngine?.version || spec.storyEngine?.version || options.profileVersions?.storyEngine || 'story-engine-profile-v1',
+    readerPromise: options.profileVersions?.readerPromise || 'reader-promise-profile-v1',
+    ...(options.profileVersions || {})
+  };
+
+  const provenanceInput = options.provenance || {};
+  const provenance = {
+    compilerVersion: provenanceInput.compilerVersion || options.compilerVersion,
+    loweringVersion: provenanceInput.loweringVersion || options.loweringVersion,
+    compatibilityRuleVersion: provenanceInput.compatibilityRuleVersion || options.compatibilityRuleVersion,
+    knowledgePackageVersion: provenanceInput.knowledgePackageVersion || options.knowledgePackageVersion,
+    profileVersions: {
+      ...profileVersions,
+      ...(provenanceInput.profileVersions || {})
+    }
+  };
+
   return createStrategyIR({
     metadata: {
       generationId: options.generationId || '',
@@ -132,6 +155,7 @@ function compileToStrategyIR(params = {}) {
       chapterId: chapterContract.chapterId || '',
       targetModelFamily: options.targetModelFamily || 'generic'
     },
+    provenance,
     hardConstraints,
     bookIdentity,
     chapterOutcomeContract: outcome,
@@ -172,10 +196,13 @@ function compileChapterStrategy(params = {}) {
   const strategyIR = compileToStrategyIR(params);
 
   // 3. 降级渲染为特定模型 Prompt (Lowering)
+  const targetModelFamily = options.targetModelFamily || strategyIR.metadata?.targetModelFamily || 'generic';
   const lowered = lowerToPrompt(strategyIR, {
     chapterContext,
     userInstruction: spec.userInstruction || options.userInstruction || '',
-    context: chapterContext
+    context: chapterContext,
+    targetModelFamily,
+    ...options
   });
 
   // 4. 注意力分级打包 (Attention Tiering)
@@ -184,7 +211,10 @@ function compileChapterStrategy(params = {}) {
     chapterStrategy: lowered.systemPrompt,
     evidenceCards,
     immediateContext: lowered.userPrompt,
-    maxTotalTokens: options.maxTokens || 6000
+    maxTotalTokens: options.maxTokens || options.maxTotalTokens || 6000,
+    targetModelFamily,
+    chapterObjective: spec.chapterGoal?.name || strategyIR.chapterOutcomeContract?.objectiveName || '',
+    spec
   });
 
   const digest = strategyIR.irDigest;

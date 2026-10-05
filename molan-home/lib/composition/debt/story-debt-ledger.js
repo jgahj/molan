@@ -22,6 +22,9 @@ const {
   normalizeDebtPriority,
   normalizeDebtEventType
 } = require('./debt-types');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const { createDebtEvent } = require('./debt-event');
 
 class StoryDebtLedger {
@@ -33,6 +36,18 @@ class StoryDebtLedger {
     this.schemaVersion = 'story-debt-ledger-v1';
     this._events = []; // Append-only 事件流
     this._debts = new Map(); // 当前物化视图 (debtId -> 聚合状态)
+    this._idempotencyKeys = new Set(); // 复合幂等键集合 (storyId:idempotencyKey 及 storyId:evt:eventId)
+    this.storageDir = (options.storageDir || options.storage_dir)
+      ? path.resolve(String(options.storageDir || options.storage_dir))
+      : null;
+    this.snapshotInterval = Number(options.snapshotInterval || options.snapshot_interval || 20);
+    this._eventsSinceSnapshot = 0;
+
+    if (this.storageDir) {
+      this.eventsFilePath = path.join(this.storageDir, `${this.storyId}.events.jsonl`);
+      this.snapshotFilePath = path.join(this.storageDir, `${this.storyId}.snapshot.json`);
+      this._hydrateFromStorage();
+    }
   }
 
   /**
@@ -41,10 +56,58 @@ class StoryDebtLedger {
    * @returns {Object} { event: 记录的事件, debt: 更新后的债务快照 }
    */
   recordEvent(eventInput) {
+    const rawIdempotencyKey = eventInput.idempotencyKey ?? eventInput.idempotency_key;
+    const rawEventId = eventInput.eventId ?? eventInput.event_id;
+
+    if (rawIdempotencyKey !== undefined && rawIdempotencyKey !== null) {
+      const trimmedIdem = String(rawIdempotencyKey).trim();
+      if (trimmedIdem) {
+        const compoundIdemKey = `${this.storyId}:${trimmedIdem}`;
+        if (this._idempotencyKeys.has(compoundIdemKey)) {
+          const err = new Error(`Idempotency conflict: key "${trimmedIdem}" already processed for story "${this.storyId}"`);
+          err.code = 'ERR_DUPLICATE_IDEMPOTENCY_KEY';
+          err.idempotencyKey = trimmedIdem;
+          err.storyId = this.storyId;
+          throw err;
+        }
+      }
+    }
+
+    if (rawEventId !== undefined && rawEventId !== null) {
+      const trimmedEvtId = String(rawEventId).trim();
+      if (trimmedEvtId) {
+        const compoundEvtKey = `${this.storyId}:evt:${trimmedEvtId}`;
+        if (this._idempotencyKeys.has(compoundEvtKey)) {
+          const err = new Error(`Idempotency conflict: event ID "${trimmedEvtId}" already processed for story "${this.storyId}"`);
+          err.code = 'ERR_DUPLICATE_IDEMPOTENCY_KEY';
+          err.eventId = trimmedEvtId;
+          err.storyId = this.storyId;
+          throw err;
+        }
+      }
+    }
+
     const event = createDebtEvent(eventInput);
+    if (event.idempotencyKey) {
+      this._idempotencyKeys.add(`${this.storyId}:${event.idempotencyKey}`);
+    }
+    if (event.eventId) {
+      this._idempotencyKeys.add(`${this.storyId}:evt:${event.eventId}`);
+    }
+
     this._events.push(event);
 
     const updatedDebt = this._applyEvent(event);
+
+    if (this.storageDir) {
+      fs.mkdirSync(this.storageDir, { recursive: true });
+      fs.appendFileSync(this.eventsFilePath, JSON.stringify(event) + '\n', 'utf8');
+      this._eventsSinceSnapshot++;
+      if (this._eventsSinceSnapshot >= this.snapshotInterval) {
+        this.saveSnapshot();
+      }
+    }
+
     return {
       event,
       debt: updatedDebt ? this._cloneDebt(updatedDebt) : null
@@ -62,6 +125,9 @@ class StoryDebtLedger {
     if (!input.summary && !eventContext.summary) {
       throw new TypeError('创建债务必须具备 summary 说明');
     }
+
+    const idempotencyKey = input.idempotencyKey || input.idempotency_key || eventContext.idempotencyKey || eventContext.idempotency_key || null;
+    const eventId = input.eventId || input.event_id || eventContext.eventId || eventContext.event_id || null;
 
     const payload = {
       story_id: String(input.storyId || input.story_id || this.storyId).trim(),
@@ -88,6 +154,8 @@ class StoryDebtLedger {
 
     const record = this.recordEvent({
       debtId,
+      idempotencyKey,
+      eventId,
       eventType: DEBT_EVENT_TYPES.CREATED,
       chapterId: payload.origin_chapter_id,
       chapterNo: payload.created_at_chapter,
@@ -114,6 +182,8 @@ class StoryDebtLedger {
       evidence: options.evidence,
       notes: options.notes || '因果加深或危机升级',
       operator: options.operator || 'system',
+      idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      eventId: options.eventId || options.event_id,
       payload: options.payload || {}
     });
   }
@@ -131,6 +201,8 @@ class StoryDebtLedger {
       evidence: options.evidence,
       notes: options.notes || '伏笔重构或认知反转',
       operator: options.operator || 'system',
+      idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      eventId: options.eventId || options.event_id,
       payload: options.payload || {}
     });
   }
@@ -148,6 +220,28 @@ class StoryDebtLedger {
       evidence: options.evidence,
       notes: options.notes || '部分信息解密或部分兑现',
       operator: options.operator || 'system',
+      idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      eventId: options.eventId || options.event_id,
+      payload: options.payload || {}
+    });
+  }
+
+  /**
+   * 债务候选解决提议 (PROPOSED_RESOLUTION)
+   * 由启发式分析匹配检出，将债务状态推进至 proposed_resolution，待显式声明或形式语义验证确认
+   */
+  proposeResolution(debtId, options = {}) {
+    return this.recordEvent({
+      debtId,
+      eventType: DEBT_EVENT_TYPES.PROPOSED_RESOLUTION,
+      chapterId: options.chapterId,
+      chapterNo: options.chapterNo,
+      sceneId: options.sceneId,
+      evidence: options.evidence,
+      notes: options.notes || '正文启发式匹配提出候选解决方案',
+      operator: options.operator || 'heuristic_audit',
+      idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      eventId: options.eventId || options.event_id,
       payload: options.payload || {}
     });
   }
@@ -165,6 +259,8 @@ class StoryDebtLedger {
       evidence: options.evidence,
       notes: options.notes || '伏笔或承诺完全回收兑现',
       operator: options.operator || 'system',
+      idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      eventId: options.eventId || options.event_id,
       payload: options.payload || {}
     });
   }
@@ -182,6 +278,8 @@ class StoryDebtLedger {
       evidence: options.evidence,
       notes: options.notes || '因主线推进节奏延后兑现窗口',
       operator: options.operator || 'system',
+      idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      eventId: options.eventId || options.event_id,
       payload: {
         deferUntilChapter: options.deferUntilChapter || null,
         ...(options.payload || {})
@@ -202,6 +300,8 @@ class StoryDebtLedger {
       evidence: options.evidence,
       notes: options.notes || '因果前提已被不可逆剧情推翻而失效',
       operator: options.operator || 'system',
+      idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      eventId: options.eventId || options.event_id,
       payload: options.payload || {}
     });
   }
@@ -219,6 +319,8 @@ class StoryDebtLedger {
       evidence: options.evidence,
       notes: options.notes || '创作取舍战略性放弃该支线',
       operator: options.operator || 'system',
+      idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      eventId: options.eventId || options.event_id,
       payload: options.payload || {}
     });
   }
@@ -252,7 +354,13 @@ class StoryDebtLedger {
       if (createdEvt.evidence) auditStatement += `（产生证据：“${createdEvt.evidence}”）`;
     }
 
-    const midEvents = events.filter(e => [DEBT_EVENT_TYPES.ESCALATED, DEBT_EVENT_TYPES.REFRAMED, DEBT_EVENT_TYPES.PARTIALLY_PAID, DEBT_EVENT_TYPES.DEFERRED].includes(e.eventType));
+    const midEvents = events.filter(e => [
+      DEBT_EVENT_TYPES.ESCALATED,
+      DEBT_EVENT_TYPES.REFRAMED,
+      DEBT_EVENT_TYPES.PARTIALLY_PAID,
+      DEBT_EVENT_TYPES.DEFERRED,
+      DEBT_EVENT_TYPES.PROPOSED_RESOLUTION
+    ].includes(e.eventType));
     for (const mid of midEvents) {
       auditStatement += `；第 ${mid.chapterNo} 章【${mid.eventType}】（${mid.notes || mid.evidence}）`;
     }
@@ -326,10 +434,132 @@ class StoryDebtLedger {
   replay(events = []) {
     this._events = [];
     this._debts.clear();
+    this._idempotencyKeys.clear();
     for (const evt of events) {
       this.recordEvent(evt);
     }
     return this;
+  }
+
+  /**
+   * 保存当前总账物化快照到磁盘 (原子写入)
+   * @returns {Object|null}
+   */
+  saveSnapshot() {
+    if (!this.storageDir) return null;
+    fs.mkdirSync(this.storageDir, { recursive: true });
+
+    const lastEventId = this._events.length > 0 ? this._events[this._events.length - 1].eventId : null;
+    const debts = Array.from(this._debts.values()).map(d => this._cloneDebt(d));
+
+    const snapshotData = {
+      schemaVersion: 'story-debt-snapshot-v1',
+      storyId: this.storyId,
+      lastEventId,
+      eventCount: this._events.length,
+      timestamp: new Date().toISOString(),
+      debts
+    };
+
+    const randSuffix = crypto.randomBytes(4).toString('hex');
+    const tmpPath = path.join(this.storageDir, `${this.storyId}.snapshot.json.tmp_${process.pid}_${randSuffix}`);
+    fs.writeFileSync(tmpPath, JSON.stringify(snapshotData, null, 2), 'utf8');
+
+    try {
+      fs.renameSync(tmpPath, this.snapshotFilePath);
+    } catch (err) {
+      if (err.code === 'EPERM' || err.code === 'EBUSY') {
+        fs.copyFileSync(tmpPath, this.snapshotFilePath);
+        try {
+          fs.unlinkSync(tmpPath);
+        } catch (_) {}
+      } else {
+        try {
+          fs.unlinkSync(tmpPath);
+        } catch (_) {}
+        throw err;
+      }
+    }
+
+    this._eventsSinceSnapshot = 0;
+    return snapshotData;
+  }
+
+  /**
+   * 从磁盘存储目录执行确定性水合 (快照 + 尾部增量日志重放)
+   */
+  _hydrateFromStorage() {
+    if (!this.storageDir) return;
+    if (!fs.existsSync(this.storageDir)) {
+      fs.mkdirSync(this.storageDir, { recursive: true });
+      return;
+    }
+
+    let snapshotData = null;
+    if (fs.existsSync(this.snapshotFilePath)) {
+      try {
+        const raw = fs.readFileSync(this.snapshotFilePath, 'utf8');
+        snapshotData = JSON.parse(raw);
+        if (Array.isArray(snapshotData.debts)) {
+          this._debts.clear();
+          for (const debt of snapshotData.debts) {
+            if (debt && debt.debt_id) {
+              this._debts.set(debt.debt_id, this._cloneDebt(debt));
+            }
+          }
+        }
+      } catch (_) {
+        snapshotData = null;
+        this._debts.clear();
+      }
+    }
+
+    const diskEvents = [];
+    if (fs.existsSync(this.eventsFilePath)) {
+      try {
+        const rawEvents = fs.readFileSync(this.eventsFilePath, 'utf8');
+        const lines = rawEvents.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          diskEvents.push(JSON.parse(trimmed));
+        }
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    this._events = [];
+    this._idempotencyKeys.clear();
+    for (const evt of diskEvents) {
+      this._events.push(evt);
+      if (evt.idempotencyKey) {
+        this._idempotencyKeys.add(`${this.storyId}:${evt.idempotencyKey}`);
+      }
+      if (evt.eventId) {
+        this._idempotencyKeys.add(`${this.storyId}:evt:${evt.eventId}`);
+      }
+    }
+
+    let lastIdx = -1;
+    if (snapshotData && snapshotData.lastEventId) {
+      lastIdx = diskEvents.findIndex(e => e.eventId === snapshotData.lastEventId);
+    }
+
+    if (snapshotData && lastIdx !== -1) {
+      // 快照定位成功：仅重放尾部增量事件
+      for (let i = lastIdx + 1; i < diskEvents.length; i++) {
+        this._applyEvent(diskEvents[i]);
+      }
+      this._eventsSinceSnapshot = diskEvents.length - (lastIdx + 1);
+    } else {
+      // 未匹配到快照锚点或无快照：全量重放
+      this._debts.clear();
+      for (const evt of diskEvents) {
+        this._applyEvent(evt);
+      }
+      this._eventsSinceSnapshot = diskEvents.length;
+    }
   }
 
   /**
@@ -339,6 +569,7 @@ class StoryDebtLedger {
     return {
       schemaVersion: this.schemaVersion,
       storyId: this.storyId,
+      storageDir: this.storageDir,
       events: this._events.map(e => ({ ...e })),
       debts: Array.from(this._debts.values()).map(d => this._cloneDebt(d))
     };
@@ -348,7 +579,7 @@ class StoryDebtLedger {
    * 从 JSON 恢复总账
    */
   static fromJSON(data = {}) {
-    const ledger = new StoryDebtLedger({ storyId: data.storyId });
+    const ledger = new StoryDebtLedger({ storyId: data.storyId, storageDir: data.storageDir });
     if (Array.isArray(data.events) && data.events.length > 0) {
       ledger.replay(data.events);
     }
@@ -455,6 +686,14 @@ class StoryDebtLedger {
         debt.payoff_evidence = debt.payoff_evidence
           ? `${debt.payoff_evidence}；第${chapterNo}章局部兑现：${evidence || notes}`
           : (evidence || notes);
+        break;
+
+      case DEBT_EVENT_TYPES.PROPOSED_RESOLUTION:
+        debt.status = DEBT_STATUSES.PROPOSED_RESOLUTION;
+        debt.payoff_evidence = debt.payoff_evidence
+          ? `${debt.payoff_evidence}；第${chapterNo}章候选解决提议：${evidence || notes}`
+          : (evidence || notes);
+        debt.resolution_notes = notes || '启发式检出候选解决提议';
         break;
 
       case DEBT_EVENT_TYPES.PAID:

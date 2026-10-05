@@ -22,7 +22,25 @@ const { mineStrategiesFromFeatures } = require('./strategy-miner');
 const { PackagePublisher } = require('./package-publisher');
 
 const DEFAULT_SOURCE_DIR = path.resolve(__dirname, '../../../../资源库/小说原本');
-const CHAPTER_REGEX = /^[ \t\r]*(第[0-9零一二三四五六七八九十百千万]+[章回节折卷]|Chapter\s*[0-9]+)[ \t\r]+([^\r\n]*)/gm;
+const CHAPTER_REGEX = /^[ \t\r]*(第[0-9零一二两三四五六七八九十百千万]+[章回节折卷]|Chapter\s*[0-9]+|楔子|序章|尾声|番外|引子)[ \t\r]*([^\r\n]*)/gim;
+
+/**
+ * 从书名中解析潜在作者
+ * @param {string} name 
+ * @returns {string|null}
+ */
+function parseAuthorFromBookName(name = '') {
+  const str = String(name || '').trim();
+  if (str.includes('_')) {
+    const parts = str.split('_');
+    if (parts.length >= 2 && parts[1].trim()) return parts[1].trim();
+  }
+  const matchColon = str.match(/作者[：:]([^\s_]+)/);
+  if (matchColon) return matchColon[1].trim();
+  const matchBracket = str.match(/^\[(.*?)\]/);
+  if (matchBracket) return matchBracket[1].trim();
+  return null;
+}
 
 /**
  * 扫描并发现原始语料中的书目列表
@@ -53,9 +71,11 @@ function discoverSourceBooks(sourceDir, filterOptions = {}) {
           if (filterOptions.bookId && bookId !== filterOptions.bookId) {
             continue;
           }
+          const author = parseAuthorFromBookName(bookId);
           books.push({
             bookId,
             title: bookId,
+            author,
             category,
             filePath: path.join(fullPath, sub.name)
           });
@@ -66,9 +86,11 @@ function discoverSourceBooks(sourceDir, filterOptions = {}) {
       if (filterOptions.bookId && bookId !== filterOptions.bookId) {
         continue;
       }
+      const author = parseAuthorFromBookName(bookId);
       books.push({
         bookId,
         title: bookId,
+        author,
         category: '根目录',
         filePath: fullPath
       });
@@ -85,7 +107,7 @@ function discoverSourceBooks(sourceDir, filterOptions = {}) {
 /**
  * 从小说正文中切分出章节列表（纯内存流式按需分片）
  * @param {string} rawText 小说全文本
- * @returns {Array<Object>} 章节数组 [{ chapterNo, title, content }]
+ * @returns {Array<Object>} 章节数组 [{ chapterNo, title, content, unsegmented? }]
  */
 function splitChaptersFromText(rawText = '') {
   const chapters = [];
@@ -103,25 +125,23 @@ function splitChaptersFromText(rawText = '') {
   }
 
   if (!matches.length) {
-    // 无法匹配正则时，按固定字数切分成虚拟章节
-    const chunkSize = 3000;
-    for (let i = 0; i < text.length; i += chunkSize) {
-      chapters.push({
-        chapterNo: Math.floor(i / chunkSize) + 1,
-        title: `片段 ${Math.floor(i / chunkSize) + 1}`,
-        content: text.slice(i, i + chunkSize)
-      });
-    }
-    return chapters;
+    // 无法匹配正则时，标记为 UNSEGMENTED，严防切分成虚拟章节污染下游策略训练或特征
+    return [{
+      chapterNo: 0,
+      title: 'UNSEGMENTED',
+      content: text,
+      unsegmented: true
+    }];
   }
 
   for (let i = 0; i < matches.length; i++) {
     const cur = matches[i];
     const next = matches[i + 1];
     const chContent = next ? text.slice(cur.index, next.index) : text.slice(cur.index);
+    const fullTitle = `${cur.header} ${cur.title}`.trim();
     chapters.push({
       chapterNo: i + 1,
-      title: `${cur.header} ${cur.title}`.trim(),
+      title: fullTitle,
       content: chContent
     });
   }
@@ -205,19 +225,41 @@ class CorpusBatchPipeline {
     let chaptersProcessedThisRun = 0;
     const quotaManager = this.isolationManager.getQuotaManager();
 
-    for (const book of pendingBooks) {
-      await this.isolationManager.acquireWorkerSlot();
-      try {
-        manifestManager.markBookStart(book.book_id);
+    // 建立每书独立暂存目录 (Per-book Staging Directory)
+    const stagingBooksDir = path.join(runDir, 'staging_books');
+    if (!fs.existsSync(stagingBooksDir)) {
+      fs.mkdirSync(stagingBooksDir, { recursive: true });
+    }
 
+    const maxConcurrency = Math.max(1, Math.min(8, Number(options.workers || this.isolationManager.maxWorkers || 2)));
+    this.isolationManager.maxWorkers = maxConcurrency;
+
+    // 互斥提交锁，保障暂存特征合并至 chapter-features.jsonl 及检查点更新的原子性，彻底杜绝行交叉
+    let commitChain = Promise.resolve();
+    const withCommitLock = async (fn) => {
+      const p = commitChain.then(() => fn(), () => fn());
+      commitChain = p;
+      return p;
+    };
+
+    const processSingleBook = async (book) => {
+      manifestManager.markBookStart(book.book_id);
+      try {
         // 3. 严格只读打开与解码原始语料 (O_RDONLY + UTF-8/GB18030 容错)
         const fileContent = this.isolationManager.readReadOnlyFileText(book.filePath);
         const chapters = splitChaptersFromText(fileContent);
 
         let bookCandidates = 0;
+        let validChaptersCount = 0;
         const featureLines = [];
 
         for (const chapter of chapters) {
+          if (chapter.unsegmented || chapter.title === 'UNSEGMENTED' || chapter.chapterNo === 0) {
+            // 标记跳过未切分章节，严防虚拟章节污染下游特征库与策略挖掘
+            continue;
+          }
+
+          validChaptersCount++;
           // 第一阶段：便宜物理初筛
           const screener = screenCandidateChapter(chapter.content, {
             bookId: book.book_id,
@@ -233,12 +275,18 @@ class CorpusBatchPipeline {
               const factors = factorizeCandidateChapter(chapter.content, {
                 bookId: book.book_id,
                 title: book.title,
+                author: book.author || null,
                 chapterNo: chapter.chapterNo,
                 chapterTitle: chapter.title,
                 genre: book.category
               }, screener);
 
-              featureLines.push(JSON.stringify(factors));
+              const enriched = {
+                ...factors,
+                author: factors.author || book.author || (book.title?.includes('_') ? book.title.split('_')[1] : null) || factors.novelTitle || '未知作者'
+              };
+
+              featureLines.push(JSON.stringify(enriched));
               bookCandidates++;
               totalCandidateChapters++;
             }
@@ -246,29 +294,63 @@ class CorpusBatchPipeline {
           chaptersProcessedThisRun++;
         }
 
-        // 追加写入暂存区 JSONL (Database Isolation)
-        if (featureLines.length > 0) {
-          fs.appendFileSync(featuresFile, featureLines.join('\n') + '\n', 'utf8');
-        }
+        // 写入独立书目暂存文件 (Per-book Staging: staging_books/<book_id>.features.jsonl)
+        const bookStagingFile = path.join(stagingBooksDir, `${book.book_id}.features.jsonl`);
+        fs.writeFileSync(bookStagingFile, featureLines.join('\n') + (featureLines.length ? '\n' : ''), 'utf8');
 
-        manifestManager.markBookComplete(book.book_id, {
-          lastChapter: chapters.length,
-          chaptersProcessed: chapters.length,
-          candidateChapters: bookCandidates,
-          newChapters: chapters.length
+        // 互斥原子提交暂存特征与更新断点清单
+        await withCommitLock(async () => {
+          if (featureLines.length > 0 && fs.existsSync(bookStagingFile)) {
+            const stagingContent = fs.readFileSync(bookStagingFile, 'utf8');
+            if (stagingContent) {
+              fs.appendFileSync(featuresFile, stagingContent, 'utf8');
+            }
+          }
+
+          manifestManager.markBookComplete(book.book_id, {
+            lastChapter: validChaptersCount,
+            chaptersProcessed: validChaptersCount,
+            candidateChapters: bookCandidates,
+            newChapters: validChaptersCount,
+            unsegmented: validChaptersCount === 0
+          });
         });
       } catch (err) {
-        manifestManager.markBookFailed(book.book_id, err.message);
+        await withCommitLock(async () => {
+          manifestManager.markBookFailed(book.book_id, err.message);
+        });
       } finally {
         this.isolationManager.releaseWorkerSlot();
       }
 
       // 内存隔离监控看门狗
       const memHealth = this.isolationManager.checkMemoryHealth();
-      if (memHealth.warning) {
-        if (global.gc) global.gc();
+      if (memHealth.warning && global.gc) {
+        global.gc();
       }
+    };
+
+    const workerTasks = [];
+    const queue = [...pendingBooks];
+    let queueIndex = 0;
+    const activeWorkersCount = Math.min(maxConcurrency, queue.length);
+
+    for (let w = 0; w < activeWorkersCount; w++) {
+      workerTasks.push((async () => {
+        while (true) {
+          let currentBook = null;
+          if (queueIndex < queue.length) {
+            currentBook = queue[queueIndex++];
+          } else {
+            break;
+          }
+          await this.isolationManager.acquireWorkerSlot();
+          await processSingleBook(currentBook);
+        }
+      })());
     }
+
+    await Promise.all(workerTasks);
 
     return {
       status: 'extract_completed',
