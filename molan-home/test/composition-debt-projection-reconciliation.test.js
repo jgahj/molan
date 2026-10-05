@@ -135,19 +135,19 @@ test('DebtReconciliation: 章节生成后对账闭环 (显式结算 + 证据启�
   assert.equal(debt1.status, 'paid');
   assert.ok(debt1.payoff_evidence.includes('亲手将黑煞令交还'));
 
-  // 验证 debt_reconcile_2 被正文启发式“终于说出”识别并核销
+  // 验证 debt_reconcile_2 被正文启发式“终于说出”识别并推进至 proposed_resolution 候选提议
   const debt2 = ledger.getDebt('debt_reconcile_2');
-  assert.equal(debt2.status, 'paid');
+  assert.equal(debt2.status, 'proposed_resolution');
   assert.ok(debt2.payoff_evidence.includes('终于说出'));
 
   // 验证新钩子被自动录入 Ledger
   const openDebts = ledger.getOpenDebts();
   assert.ok(openDebts.some(d => d.summary.includes('古池底部的低沉龙吟异动')));
 
-  // 验证审计溯源回答
+  // 验证审计溯源回答：候选提议阶段尚未 resolved
   const explain = ledger.explainDebt('debt_reconcile_2');
-  assert.equal(explain.isResolved, true);
-  assert.ok(explain.auditStatement.includes('PAID'));
+  assert.equal(explain.isResolved, false);
+  assert.ok(explain.auditStatement.includes('PROPOSED_RESOLUTION'));
 });
 
 test('Composition E2E: Content Engine 全链路贯通 Story Debt Ledger (投影 -> 编译 -> 生成 -> 对账)', async () => {
@@ -207,8 +207,8 @@ test('Composition E2E: Content Engine 全链路贯通 Story Debt Ledger (投影 
   assert.ok(draftResult.debtReconciliation !== null);
   assert.ok(draftResult.debtReconciliation.reconciledCount >= 1);
 
-  // 验证 Ledger 状态已被自动推进至 paid
+  // 验证 Ledger 状态被启发式自动推进至 proposed_resolution 候选提议
   const reconciledDebt = ledger.getDebt('debt_token_reveal');
-  assert.equal(reconciledDebt.status, 'paid');
+  assert.equal(reconciledDebt.status, 'proposed_resolution');
   assert.ok(reconciledDebt.payoff_evidence.includes('终于说出'));
 });

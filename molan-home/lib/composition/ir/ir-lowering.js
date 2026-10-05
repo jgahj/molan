@@ -5,16 +5,237 @@
  * 创作策略 IR 降级渲染器 (Strategy IR Lowering Engine)
  * 
  * 核心功能：
- * 1. 将模型无关的 StrategyIR 下沉渲染为针对特定大模型架构的最佳提示词形态（System/User 分层与 P0~P8 优先级梯队）；
+ * 1. 将模型无关的 StrategyIR 下沉渲染为针对特定大模型架构的最佳提示词形态（支持 Claude XML 标签、GPT 尾部强化 Markdown、DeepSeek 中文叙事框架、Local LLM 高密度压缩）；
  * 2. 严格执行“抽象规则优先、微示例示范、失败模式警戒、严禁小说原句大段直出”的降级过滤纪律；
- * 3. 支持输出完全兼容既有管线的 systemPrompt、userPrompt 与 priorityCascade 结构。
+ * 3. 彻底剥除旧版硬编码的“动作-对白交错律”与模板化三幕闪回指令；
+ * 4. 支持针对目标模型的分词器校准 Token 消耗评估。
  */
+
+const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
+
+const TOKENIZER_RATIOS = {
+  // o200k_base (GPT-4o, GPT-5.6-Luna, Grok 4.5/4.6)
+  o200k_base: { cjkRatio: 0.70, nonCjkRatio: 0.30 },
+  // cl100k_base (GPT-4)
+  cl100k_base: { cjkRatio: 0.85, nonCjkRatio: 0.32 },
+  // Claude tokenizer (Claude 3.5 Sonnet / Opus)
+  claude: { cjkRatio: 0.75, nonCjkRatio: 0.30 },
+  // DeepSeek tokenizer (DeepSeek V3 / R1)
+  deepseek: { cjkRatio: 0.72, nonCjkRatio: 0.28 },
+  // Qwen tokenizer (Qwen 2.5 / Plus / Max)
+  qwen: { cjkRatio: 0.68, nonCjkRatio: 0.28 },
+  // Local / standard fallback
+  standard: { cjkRatio: 0.75, nonCjkRatio: 0.30 }
+};
+
+/**
+ * 校验并估算提示词 Token 消耗（模型分词器校准）
+ * @param {string} text 待测提示词
+ * @param {Object} options 降级选项
+ * @returns {number} 估算的 Token 数量
+ */
+function estimatePromptTokens(text, options = {}) {
+  const str = String(text || '');
+  if (!str) return 0;
+
+  const modelFamily = String(options.targetModelFamily || options.modelFamily || 'generic').toLowerCase();
+  const tokenizerKey = options.tokenizer || (
+    modelFamily.includes('gpt') || modelFamily.includes('o1') || modelFamily.includes('o3') ? 'o200k_base' :
+    modelFamily.includes('claude') ? 'claude' :
+    modelFamily.includes('deepseek') ? 'deepseek' :
+    modelFamily.includes('qwen') || modelFamily.includes('llama') || modelFamily.includes('local') ? 'qwen' :
+    'standard'
+  );
+
+  const ratios = TOKENIZER_RATIOS[tokenizerKey] || TOKENIZER_RATIOS.standard;
+  const cjkMatches = str.match(CJK_REGEX);
+  const cjkCount = cjkMatches ? cjkMatches.length : 0;
+  const nonCjkCount = str.length - cjkCount;
+
+  const rawTokens = Math.ceil(cjkCount * ratios.cjkRatio + nonCjkCount * ratios.nonCjkRatio);
+  const safetyMargin = Number(options.safetyMargin) || 1.05;
+  return Math.ceil(rawTokens * safetyMargin);
+}
+
+/**
+ * 解析并归一化目标模型家族
+ */
+function resolveModelFamily(options = {}, strategyIR = {}) {
+  const raw = String(
+    options.targetModelFamily ||
+    options.modelFamily ||
+    options.modelId ||
+    strategyIR.metadata?.targetModelFamily ||
+    ''
+  ).toLowerCase().trim();
+
+  if (raw.includes('claude')) return 'claude';
+  if (raw.includes('gpt') || raw.includes('openai') || raw.includes('o1') || raw.includes('o3')) return 'gpt';
+  if (raw.includes('deepseek')) return 'deepseek';
+  if (raw.includes('qwen') || raw.includes('llama') || raw.includes('mistral') || raw.includes('local')) return 'local';
+  return 'generic';
+}
+
+/**
+ * Claude 架构定制渲染器 (XML 语义边界，防止 Prompt Bleed，上下文置于任务之前)
+ */
+function renderForClaude(cascade, strategyIR, contextText, userInstructionText, targetWordRange) {
+  const systemPrompt = [
+    '<system_directives>',
+    '<hard_constraints>',
+    cascade.P0_HARD_CONSTRAINTS,
+    '</hard_constraints>',
+    cascade.P2_CREATION_BIBLE ? `<creation_bible>\n${cascade.P2_CREATION_BIBLE}\n</creation_bible>` : '',
+    '<genre_policy>',
+    cascade.P4_GENRE_POLICY,
+    '</genre_policy>',
+    '<style_policy>',
+    cascade.P5_STYLE_POLICY,
+    '</style_policy>',
+    '<focus_budget>',
+    cascade.P6_FOCUS_BUDGET,
+    '</focus_budget>',
+    '<hook_policy>',
+    cascade.P7_HOOK_POLICY,
+    '</hook_policy>',
+    '</system_directives>'
+  ].filter(Boolean).join('\n');
+
+  const userPrompt = [
+    '<narrative_context>',
+    contextText,
+    '</narrative_context>',
+    '<chapter_task>',
+    cascade.P1_USER_DIRECTIVE,
+    '</chapter_task>',
+    '<outcome_contract>',
+    cascade.P3_CHAPTER_OBJECTIVE,
+    '</outcome_contract>',
+    cascade.P8_EVIDENCE ? `<evidence_guidance>\n${cascade.P8_EVIDENCE}\n</evidence_guidance>` : ''
+  ].filter(Boolean).join('\n\n');
+
+  return { systemPrompt, userPrompt };
+}
+
+/**
+ * GPT 架构定制渲染器 (清晰 Markdown 层级，尾部 Recency Reinforcement 强化字数与视点遵从)
+ */
+function renderForGpt(cascade, strategyIR, contextText, userInstructionText, targetWordRange) {
+  const { min, max, target } = targetWordRange;
+  const pov = strategyIR.hardConstraints?.narrativePov || '第三人称限制视角';
+
+  const systemPrompt = [
+    '### P0 核心物理与字数围栏',
+    cascade.P0_HARD_CONSTRAINTS,
+    cascade.P2_CREATION_BIBLE ? `\n### P2 创作圣经\n${cascade.P2_CREATION_BIBLE}` : '',
+    '\n### P4 题材策略',
+    cascade.P4_GENRE_POLICY,
+    '\n### P5 文风质感策略',
+    cascade.P5_STYLE_POLICY,
+    '\n### P6 镜头与笔墨预算分配',
+    cascade.P6_FOCUS_BUDGET,
+    '\n### P7 钩子与因果债务策略',
+    cascade.P7_HOOK_POLICY
+  ].filter(Boolean).join('\n');
+
+  const userPrompt = [
+    '### 只读故事上下文\n' + contextText,
+    '### P1 用户指令\n' + cascade.P1_USER_DIRECTIVE,
+    '### P3 结果契约与状态跃迁\n' + cascade.P3_CHAPTER_OBJECTIVE,
+    cascade.P8_EVIDENCE ? '### P8 策略卡引导\n' + cascade.P8_EVIDENCE : '',
+    `### 执行确认 (Recency Reinforcement)\n- 目标篇幅：${min} ~ ${max} 字（基准 ${target} 字）\n- 视点准则：${pov}\n- 最终指令：只写原创中文正文，直接从第一句叙事动作展开，严禁前言与解释性旁白。`
+  ].filter(Boolean).join('\n\n');
+
+  return { systemPrompt, userPrompt };
+}
+
+/**
+ * DeepSeek 架构定制渲染器 (原生中文文学语境化，凸显暗流、因果与留白标尺)
+ */
+function renderForDeepSeek(cascade, strategyIR, contextText, userInstructionText, targetWordRange) {
+  const systemPrompt = [
+    '【底层物理与创作硬界】\n' + cascade.P0_HARD_CONSTRAINTS,
+    cascade.P2_CREATION_BIBLE ? '【创作圣经·全局基因】\n' + cascade.P2_CREATION_BIBLE : '',
+    '【题材基石与矛盾主轴】\n' + cascade.P4_GENRE_POLICY,
+    '【笔触规范与留白标尺】\n' + cascade.P5_STYLE_POLICY,
+    '【镜头焦距与软预算】\n' + cascade.P6_FOCUS_BUDGET,
+    '【章末余波与暗流因果】\n' + cascade.P7_HOOK_POLICY
+  ].filter(Boolean).join('\n\n');
+
+  const userPrompt = [
+    '【现场因果前情】\n' + contextText,
+    cascade.P1_USER_DIRECTIVE,
+    '【核心位移契约·状态跃迁】\n' + cascade.P3_CHAPTER_OBJECTIVE,
+    cascade.P8_EVIDENCE ? '【推演逻辑与因果暗流参考】\n' + cascade.P8_EVIDENCE : ''
+  ].filter(Boolean).join('\n\n');
+
+  return { systemPrompt, userPrompt };
+}
+
+/**
+ * Local LLM 定制渲染器 (精简紧凑指令，适应短注意力与小上下文窗口)
+ */
+function renderForLocal(cascade, strategyIR, contextText, userInstructionText, targetWordRange) {
+  const { min, max, target } = targetWordRange;
+  const hard = strategyIR.hardConstraints || {};
+  const book = strategyIR.bookIdentity || {};
+  const style = strategyIR.stylePolicy || {};
+  const focus = strategyIR.focusPolicy || {};
+  const hook = strategyIR.hookPolicy || {};
+  const outcome = strategyIR.chapterOutcomeContract || {};
+
+  const systemPrompt = [
+    `[物理约束] 字数:${min}-${max}字(基准${target}) | 视点:${hard.narrativePov || '第三人称'}${hard.viewpointCharacter ? '【' + hard.viewpointCharacter + '】' : ''} | 禁载:${(hard.forbiddenKnowledge || []).join('、') || '无'}`,
+    `[题材策略] ${book.genre?.name || '通用'}: ${(book.genre?.coreConflicts || []).join('、') || '核心推进'}`,
+    `[文风准则] 风格:${style.name || '沉稳'} | 规范:${(style.positiveRules || []).slice(0, 2).join('；') || '现场实感'} | 禁忌:${(style.negativeRules || []).slice(0, 2).join('；') || '拒绝空洞'}`,
+    `[镜头分配] 重点:${(focus.priorityTiers?.dominant || []).join('、')} | 钩子:${hook.name || '悬念'}`
+  ].join('\n');
+
+  const stateBeforeStr = typeof outcome.stateDelta?.stateBefore === 'object'
+    ? JSON.stringify(outcome.stateDelta.stateBefore)
+    : (outcome.stateDelta?.stateBefore || '初始');
+  const stateAfterStr = typeof outcome.stateDelta?.stateAfter === 'object'
+    ? JSON.stringify(outcome.stateDelta.stateAfter)
+    : (outcome.stateDelta?.stateAfter || '推进');
+
+  const userPrompt = [
+    `[前情] ${contextText}`,
+    `[目标] ${outcome.objectiveName || '核心推进'}: 章前【${stateBeforeStr}】 -> 章后【${stateAfterStr}】`,
+    `[指令] ${userInstructionText || '推进剧情'}`,
+    '[要求] 直接输出原创中文正文，严禁大纲、前言或总结。'
+  ].join('\n\n');
+
+  return { systemPrompt, userPrompt };
+}
+
+/**
+ * 通用基线渲染器 (标准 Markdown，向下兼容)
+ */
+function renderGeneric(cascade, strategyIR, contextText, userInstructionText, targetWordRange) {
+  const systemPrompt = [
+    cascade.P0_HARD_CONSTRAINTS,
+    cascade.P2_CREATION_BIBLE,
+    cascade.P4_GENRE_POLICY,
+    cascade.P5_STYLE_POLICY,
+    cascade.P6_FOCUS_BUDGET,
+    cascade.P7_HOOK_POLICY
+  ].filter(Boolean).join('\n\n');
+
+  const userPrompt = [
+    '【前情与环境上下文】\n' + contextText,
+    cascade.P1_USER_DIRECTIVE,
+    cascade.P3_CHAPTER_OBJECTIVE,
+    cascade.P8_EVIDENCE
+  ].filter(Boolean).join('\n\n');
+
+  return { systemPrompt, userPrompt };
+}
 
 /**
  * 将 StrategyIR 渲染降级为模型提示词
  * @param {Object} strategyIR 规范化的 StrategyIR 实体
  * @param {Object} options 降级选项 (targetModelFamily, contextText, userInstruction)
- * @returns {Object} 包含 systemPrompt, userPrompt, priorityCascade 的提示词包
+ * @returns {Object} 包含 systemPrompt, userPrompt, priorityCascade, wordBudget, modelFamily, tokens 的提示词包
  */
 function lowerToPrompt(strategyIR, options = {}) {
   if (!strategyIR || typeof strategyIR !== 'object') {
@@ -35,6 +256,7 @@ function lowerToPrompt(strategyIR, options = {}) {
   const targetChars = hardConstraints.targetWordRange?.target || 3000;
   const minChars = hardConstraints.targetWordRange?.min || Math.round(targetChars * 0.85);
   const maxChars = hardConstraints.targetWordRange?.max || Math.round(targetChars * 1.15);
+  const targetWordRange = { target: targetChars, min: minChars, max: maxChars };
 
   const cascade = {};
 
@@ -201,37 +423,39 @@ function lowerToPrompt(strategyIR, options = {}) {
   cascade.P8_EVIDENCE = cards.length
     ? `【工业创作策略规则库·抽象模式示范与警戒】\n${cards.slice(0, 3).map(c => `· 规则：${c.rule || c.ruleStatement || ''}\n· 抽象模式：${c.abstractPattern || '现场因果触发'}\n· 微示例：${c.microExample || '现场动作对应'}\n· 警戒反例：${c.failureMode || '直接旁白解释'}`).join('\n\n')}\n【执行纪律】：上述规则卡为创作技巧与结构模式引导，严禁整段抄袭或直出示例原句！`
     : '';
-  cascade.P8_NEGATIVE_GUARDS = '严禁“嘴角勾起一抹弧度”、严禁“倒吸一口凉气”等套路AI腔调。';
+  cascade.P8_NEGATIVE_GUARDS = (Array.isArray(hardConstraints.negativeGuards) && hardConstraints.negativeGuards.length)
+    ? hardConstraints.negativeGuards.join('\n')
+    : '严禁“嘴角勾起一抹弧度”、严禁“倒吸一口凉气”等套路AI腔调。';
   cascade.P3_OUTCOME_CONTRACT = cascade.P3_CHAPTER_OBJECTIVE;
   cascade.P7_EVIDENCE_CARDS = cascade.P8_EVIDENCE;
   cascade.P5_FOCUS_BUDGET = cascade.P6_FOCUS_BUDGET;
 
   // =========================================================================
-  // 组装最终提示词与注意力分层 (System & User Partitioning)
+  // 目标模型家族分发与分层渲染 (Model-Family Dispatch & Partitioning)
   // =========================================================================
-  const systemBlocks = [
-    cascade.P0_HARD_CONSTRAINTS,
-    cascade.P4_GENRE_POLICY,
-    cascade.P5_STYLE_POLICY,
-    cascade.P6_FOCUS_BUDGET,
-    cascade.P7_HOOK_POLICY,
-    '【镜头摄像机执行准则】：遵循【动作-对白交错律】（每句关键台词必须穿插对方微表情或微动作），严禁空洞套话，严禁角色内心自报家门。'
-  ].filter(Boolean).join('\n\n');
-
+  const resolvedFamily = resolveModelFamily(options, strategyIR);
   const contextText = typeof options.chapterContext === 'string'
     ? options.chapterContext
     : (options.context || '');
 
-  const userBlocks = [
-    '【前情与环境上下文】\n' + contextText,
-    cascade.P1_USER_DIRECTIVE,
-    cascade.P3_CHAPTER_OBJECTIVE,
-    cascade.P8_EVIDENCE
-  ].filter(Boolean).join('\n\n');
+  let rendered;
+  if (resolvedFamily === 'claude') {
+    rendered = renderForClaude(cascade, strategyIR, contextText, userInstruction, targetWordRange);
+  } else if (resolvedFamily === 'gpt') {
+    rendered = renderForGpt(cascade, strategyIR, contextText, userInstruction, targetWordRange);
+  } else if (resolvedFamily === 'deepseek') {
+    rendered = renderForDeepSeek(cascade, strategyIR, contextText, userInstruction, targetWordRange);
+  } else if (resolvedFamily === 'local') {
+    rendered = renderForLocal(cascade, strategyIR, contextText, userInstruction, targetWordRange);
+  } else {
+    rendered = renderGeneric(cascade, strategyIR, contextText, userInstruction, targetWordRange);
+  }
+
+  const { systemPrompt, userPrompt } = rendered;
 
   return {
-    systemPrompt: systemBlocks,
-    userPrompt: userBlocks,
+    systemPrompt,
+    userPrompt,
     priorityCascade: Object.freeze(cascade),
     wordBudget: {
       target: targetChars,
@@ -241,10 +465,21 @@ function lowerToPrompt(strategyIR, options = {}) {
       max: maxChars,
       maxChars,
       summary: `${minChars} ~ ${maxChars} 字（基准 ${targetChars} 字）`
+    },
+    modelFamily: resolvedFamily,
+    tokens: {
+      systemTokens: estimatePromptTokens(systemPrompt, { targetModelFamily: resolvedFamily }),
+      userTokens: estimatePromptTokens(userPrompt, { targetModelFamily: resolvedFamily }),
+      totalTokens: estimatePromptTokens(systemPrompt + '\n\n' + userPrompt, { targetModelFamily: resolvedFamily }),
+      targetModelFamily: resolvedFamily,
+      calibrated: true
     }
   };
 }
 
 module.exports = {
-  lowerToPrompt
+  lowerToPrompt,
+  estimatePromptTokens,
+  resolveModelFamily,
+  TOKENIZER_RATIOS
 };

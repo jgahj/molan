@@ -36,6 +36,7 @@ const DEBT_STATUSES = Object.freeze({
   OPEN: 'open',
   DEVELOPING: 'developing',
   PARTIALLY_PAID: 'partially_paid',
+  PROPOSED_RESOLUTION: 'proposed_resolution',
   PAID: 'paid',
   DEFERRED: 'deferred',
   INVALIDATED: 'invalidated',
@@ -46,6 +47,7 @@ const DEBT_STATUS_DESCRIPTIONS = Object.freeze({
   open: '已建立未解决（处于待触发或初期潜伏状态）',
   developing: '加深/推进中（已通过新章节事件升级或复杂化）',
   partially_paid: '部分兑现/部分解释（核心谜底揭开局部，仍有余波）',
+  proposed_resolution: '已提出候选解决方案（由正文启发式匹配检出，待显式声明或形式语义验证确认）',
   paid: '已偿还/已闭环（伏笔回收、钩子兑现、承诺履行）',
   deferred: '延期兑现（因主线剧情转移调整兑现窗口）',
   invalidated: '已失效（剧情前提或因果已被不可逆事件打破）',
@@ -57,6 +59,7 @@ const DEBT_EVENT_TYPES = Object.freeze({
   ESCALATED: 'ESCALATED',
   REFRAMED: 'REFRAMED',
   PARTIALLY_PAID: 'PARTIALLY_PAID',
+  PROPOSED_RESOLUTION: 'PROPOSED_RESOLUTION',
   PAID: 'PAID',
   DEFERRED: 'DEFERRED',
   INVALIDATED: 'INVALIDATED',
@@ -99,6 +102,9 @@ const STATUS_ALIAS_MAP = Object.freeze({
   escalated: 'developing',
   partially_paid: 'partially_paid',
   partially_resolved: 'partially_paid',
+  proposed_resolution: 'proposed_resolution',
+  proposed: 'proposed_resolution',
+  candidate_resolution: 'proposed_resolution',
   paid: 'paid',
   resolved: 'paid',
   deferred: 'deferred',
@@ -156,7 +162,8 @@ function normalizeDebtPriority(priority) {
  * @returns {string}
  */
 function normalizeDebtEventType(eventType) {
-  const key = String(eventType || '').trim().toUpperCase();
+  let key = String(eventType || '').trim().toUpperCase();
+  if (key === 'PROPOSED') key = 'PROPOSED_RESOLUTION';
   if (!DEBT_EVENT_TYPES[key]) {
     throw new TypeError(`非法的债务事件类型: ${eventType}。有效类型为: ${Object.keys(DEBT_EVENT_TYPES).join(', ')}`);
   }

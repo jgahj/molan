@@ -13,6 +13,10 @@
 const crypto = require('node:crypto');
 
 const STRATEGY_IR_SCHEMA_VERSION = 'strategy-ir-v1';
+const STRATEGY_COMPILER_VERSION = 'strategy-compiler-v2';
+const LOWERING_VERSION = 'ir-lowering-v2';
+const COMPATIBILITY_RULE_VERSION = 'compatibility-matrix-v1';
+const KNOWLEDGE_PACKAGE_VERSION = 'strategy-knowledge-base-v1';
 
 function sha256(val) {
   return crypto.createHash('sha256').update(String(val || ''), 'utf8').digest('hex');
@@ -31,6 +35,25 @@ function createStrategyIR(input = {}) {
     targetModelFamily: String(input.metadata?.targetModelFamily || 'generic').trim(),
     createdAt: Number(input.metadata?.createdAt) || Date.now()
   };
+
+  const provenanceInput = input.provenance || {};
+  const profileVersionsInput = provenanceInput.profileVersions || input.profileVersions || {};
+  const provenance = Object.freeze({
+    compilerVersion: String(provenanceInput.compilerVersion || input.compilerVersion || STRATEGY_COMPILER_VERSION).trim(),
+    schemaVersion: STRATEGY_IR_SCHEMA_VERSION,
+    loweringVersion: String(provenanceInput.loweringVersion || input.loweringVersion || LOWERING_VERSION).trim(),
+    compatibilityRuleVersion: String(provenanceInput.compatibilityRuleVersion || input.compatibilityRuleVersion || COMPATIBILITY_RULE_VERSION).trim(),
+    knowledgePackageVersion: String(provenanceInput.knowledgePackageVersion || input.knowledgePackageVersion || KNOWLEDGE_PACKAGE_VERSION).trim(),
+    profileVersions: Object.freeze({
+      genre: String(profileVersionsInput.genre || 'genre-profile-v1').trim(),
+      style: String(profileVersionsInput.style || 'style-profile-v2').trim(),
+      chapterGoal: String(profileVersionsInput.chapterGoal || 'chapter-goal-profile-v2').trim(),
+      focus: String(profileVersionsInput.focus || 'focus-profile-v2').trim(),
+      hook: String(profileVersionsInput.hook || 'hook-profile-v1').trim(),
+      storyEngine: String(profileVersionsInput.storyEngine || 'story-engine-profile-v1').trim(),
+      readerPromise: String(profileVersionsInput.readerPromise || 'reader-promise-profile-v1').trim()
+    })
+  });
 
   const hardConstraints = {
     targetWordRange: {
@@ -136,8 +159,10 @@ function createStrategyIR(input = {}) {
     ? { ...input.repairInstructions }
     : null;
 
-  // 严格确定性指纹计算
+  // 严格确定性指纹计算（绑定全量架构与 7 维版本元数据）
   const canonicalPayload = JSON.stringify({
+    schemaVersion: STRATEGY_IR_SCHEMA_VERSION,
+    provenance,
     hardConstraints,
     bookIdentity,
     chapterOutcomeContract,
@@ -152,6 +177,7 @@ function createStrategyIR(input = {}) {
   const ir = {
     schemaVersion: STRATEGY_IR_SCHEMA_VERSION,
     irDigest,
+    provenance,
     metadata: Object.freeze(metadata),
     hardConstraints: Object.freeze(hardConstraints),
     bookIdentity: Object.freeze(bookIdentity),
@@ -168,5 +194,9 @@ function createStrategyIR(input = {}) {
 
 module.exports = {
   STRATEGY_IR_SCHEMA_VERSION,
+  STRATEGY_COMPILER_VERSION,
+  LOWERING_VERSION,
+  COMPATIBILITY_RULE_VERSION,
+  KNOWLEDGE_PACKAGE_VERSION,
   createStrategyIR
 };

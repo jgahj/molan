@@ -28,26 +28,96 @@ function extractChapterFactors(chapterText = '', metadata = {}) {
     throw new TypeError('extractChapterFactors 正文不能为空');
   }
 
-  // 1. 文风正交因子测算 (11 维物理指标)
+  // 1. 文风正交因子测算 (11 维真实物理指标 + 方差与虚词熵)
   const sentences = content.split(/[。！？!?\n]+/).map(s => s.trim()).filter(Boolean);
-  const sentenceCount = Math.max(1, sentences.length);
+  const sentenceLengths = sentences.map(s => s.length).filter(l => l > 0);
+  const sentenceCount = Math.max(1, sentenceLengths.length);
   const avgSentenceLen = Number((totalChars / sentenceCount).toFixed(1));
-  const shortSentences = sentences.filter(s => s.length <= 15).length;
+  const shortSentences = sentenceLengths.filter(l => l <= 15).length;
   const shortSentenceRatio = Number((shortSentences / sentenceCount).toFixed(3));
 
-  // 对白占比
+  // 句长方差 (Sentence Length Variance)
+  const sentenceVariance = Number((sentenceLengths.reduce((acc, l) => acc + Math.pow(l - avgSentenceLen, 2), 0) / sentenceCount).toFixed(2));
+
+  // 对白占比 (Dialogue Ratio)
   const dialogueMatches = content.match(/“[^”]+”|"([^"]+)"|‘[^’]+’/g) || [];
   const dialogueCharCount = dialogueMatches.reduce((acc, d) => acc + d.length, 0);
-  const dialogueRatio = Number((dialogueCharCount / totalChars).toFixed(3));
+  const dialogueRatio = Number(Math.max(0, Math.min(1, dialogueCharCount / totalChars)).toFixed(3));
+  const nonDialogueText = content.replace(/“[^”]*”|"([^"]*)"|‘[^’]*’/g, '');
+  const nonDialogueChars = Math.max(1, nonDialogueText.length);
 
-  // 动作与物理动词密度指标
-  const actionVerbs = (content.match(/撞|砸|劈|退|抽|按|扣|崩|裂|刺|撕|握|抵|踩/g) || []).length;
+  // 叙事动作密度 (Narrative Density)：非对白叙事中的动态物理动作动词密度
+  const actionVerbsList = nonDialogueText.match(/[走跑冲杀拔斩劈跃闪退踏落扣按握推扯抓掠转翻立起跨迎挡震崩裂刺撞击轰]/g) || [];
+  const actionVerbs = actionVerbsList.length;
+  const narrativeDensity = Number(Math.max(0, Math.min(1.0, actionVerbs / (nonDialogueChars / 22))).toFixed(3));
   const actionDensity = Math.min(1.0, Number((actionVerbs / Math.max(10, totalChars / 100)).toFixed(3)));
 
-  // 疑问与悬念词条密度
+  // 情绪浓度 (Emotional Intensity)：生理应激、强烈情绪词与感叹标点
+  const emotionMarkers = (content.match(/心跳|心头|呼吸|冷汗|发麻|颤抖|战栗|惊骇|震颤|煞白|僵住|窒息|怒火|暴怒|恐惧|惊愕|咬牙|绝望|痛楚|悲怆|狞笑|狂喜/g) || []).length;
+  const exclamations = (content.match(/[！!]/g) || []).length;
+  const emotionalIntensity = Number(Math.max(0, Math.min(1.0, (emotionMarkers * 2 + exclamations) / Math.max(4, totalChars / 120))).toFixed(3));
+
+  // 修辞丰度 (Rhetorical Abundance / Rhetorical Density)：比喻词、四字成语成片
+  const simileMarkers = (content.match(/宛如|仿佛|犹如|好似|恰似|似是/g) || []).length;
+  const fourCharIdioms = (content.match(/[\u4e00-\u9fa5]{4}/g) || []).filter(w => /^[^\s，。！？]{4}$/.test(w)).length;
+  const rhetoricalAbundance = Number(Math.max(0, Math.min(1.0, (simileMarkers * 3 + fourCharIdioms * 0.15) / Math.max(5, totalChars / 180))).toFixed(3));
+
+  // 口语化程度 (Colloquial Level)：对白中的语气助词与口语表达密度
+  const dialogueText = dialogueMatches.join('');
+  const colloquialParticles = (dialogueText.match(/[呢吧啊呀嘛哇啦嘿哟哎哈哪哦嗯]/g) || []).length;
+  const colloquialLevel = dialogueText.length > 0
+    ? Number(Math.max(0, Math.min(1.0, colloquialParticles / Math.max(2, dialogueText.length / 25))).toFixed(3))
+    : 0.10;
+
+  // 心理描写占比 (Psychological Ratio)：非对白中的内省、内心独白与认知揣测
+  const psychMarkers = (nonDialogueText.match(/心想|暗忖|寻思|自忖|只觉|暗道|深知|意识到|念头|思忖|暗自|心中暗|心下|暗暗/g) || []).length;
+  const psychologicalRatio = Number(Math.max(0, Math.min(1.0, psychMarkers / Math.max(2, nonDialogueChars / 200))).toFixed(3));
+
+  // 环境描写占比 (Setting Ratio)：环境、天候、建筑、感官意象词
+  const settingMarkers = (nonDialogueText.match(/天色|夜幕|风雪|青石|殿宇|月光|夕阳|雨幕|草木|残阳|空气中|四周|阴影|晨曦|迷雾|长阶|幽暗|残垣|枯井|寒风|雷鸣|暮色/g) || []).length;
+  const settingRatio = Number(Math.max(0, Math.min(1.0, settingMarkers / Math.max(2, nonDialogueChars / 180))).toFixed(3));
+
+  // 信息密度 (Information Density)：Bigram Type-Token Ratio 与词汇信息负载
+  const bigramSet = new Set();
+  let totalBigrams = 0;
+  for (let i = 0; i < content.length - 1; i++) {
+    const bg = content.slice(i, i + 2);
+    if (!/[\s，。！？、“”"’‘：；\r\n]/.test(bg)) {
+      bigramSet.add(bg);
+      totalBigrams++;
+    }
+  }
+  const ttr = totalBigrams > 0 ? bigramSet.size / totalBigrams : 0.5;
   const questionMarks = (content.match(/[？?]/g) || []).length;
   const suspenseKeywords = (content.match(/到底|为何|秘密|残缺|疑云|异样|冷笑|暗藏/g) || []).length;
   const mysteryIntensity = Math.min(1.0, Number(((questionMarks * 2 + suspenseKeywords) / Math.max(5, sentenceCount / 10)).toFixed(3)));
+  const informationDensity = Number(Math.max(0.1, Math.min(1.0, 0.25 + ttr * 0.5 + mysteryIntensity * 0.25)).toFixed(3));
+
+  // 留白程度 (Negative Space Ratio)：破折号、省略号、言尽意未尽之停顿
+  const ellipsisCount = (content.match(/……|\.{3,6}/g) || []).length;
+  const dashCount = (content.match(/——/g) || []).length;
+  const negativeSpaceRatio = Number(Math.max(0.05, Math.min(0.95, (ellipsisCount * 2 + dashCount) / Math.max(2, sentenceCount / 8))).toFixed(3));
+
+  // 虚词熵 (Function Word Entropy)
+  const functionWords = ['的', '了', '在', '是', '着', '而', '之', '于', '也', '与', '为', '以', '所', '其', '则'];
+  let totalFunctionCount = 0;
+  const fwCounts = {};
+  for (const fw of functionWords) {
+    const c = (content.match(new RegExp(fw, 'g')) || []).length;
+    fwCounts[fw] = c;
+    totalFunctionCount += c;
+  }
+  let fwEntropy = 0;
+  if (totalFunctionCount > 0) {
+    for (const fw of functionWords) {
+      const p = fwCounts[fw] / totalFunctionCount;
+      if (p > 0) {
+        fwEntropy -= p * Math.log2(p);
+      }
+    }
+  }
+  const maxEntropy = Math.log2(functionWords.length);
+  const normalizedFwEntropy = maxEntropy > 0 ? Number(Math.max(0, Math.min(1.0, fwEntropy / maxEntropy)).toFixed(3)) : 0.5;
 
   // 2. 多目标加权推断 (Primary + Secondary Goals with Weights)
   let primaryGoal = 'plot_progression';
@@ -135,11 +205,23 @@ function extractChapterFactors(chapterText = '', metadata = {}) {
       strength: hookStrength,
       tailSnippet: tailText.slice(-80)
     },
-    stylometry: normalizeStyleVector({
-      averageSentenceLength: avgSentenceLen,
-      shortSentenceRatio,
-      dialogueRatio,
-      informationDensity: Number(Math.min(1.0, 0.5 + mysteryIntensity * 0.4).toFixed(3))
+    stylometry: Object.freeze({
+      ...normalizeStyleVector({
+        narrativeDensity,
+        emotionalIntensity,
+        rhetoricalAbundance,
+        colloquialLevel,
+        dialogueRatio,
+        psychologicalRatio,
+        settingRatio,
+        averageSentenceLength: avgSentenceLen,
+        shortSentenceRatio,
+        informationDensity,
+        negativeSpaceRatio
+      }),
+      sentenceLengthVariance: sentenceVariance,
+      functionWordEntropy: normalizedFwEntropy,
+      rhetoricalDensity: rhetoricalAbundance
     }),
     metadata: {
       novelTitle: metadata.title || '',
@@ -165,8 +247,17 @@ function disentangleStyleFromGoal(chapterStylometry = {}, chapterGoal = 'balance
     if (corrected.averageSentenceLength != null) {
       corrected.averageSentenceLength = Number((corrected.averageSentenceLength + 3.5).toFixed(1));
     }
+    if (corrected.narrativeDensity != null) {
+      corrected.narrativeDensity = Math.max(0.1, Number((corrected.narrativeDensity - 0.10).toFixed(3)));
+    }
   }
-  return normalizeStyleVector(corrected);
+  const normalized = normalizeStyleVector(corrected);
+  return Object.freeze({
+    ...normalized,
+    sentenceLengthVariance: corrected.sentenceLengthVariance ?? (chapterStylometry.sentenceLengthVariance ?? 15.0),
+    functionWordEntropy: corrected.functionWordEntropy ?? (chapterStylometry.functionWordEntropy ?? 0.65),
+    rhetoricalDensity: normalized.rhetoricalAbundance
+  });
 }
 
 module.exports = {

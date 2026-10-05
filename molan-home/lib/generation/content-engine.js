@@ -397,7 +397,35 @@ function compileDraftPrompt(options = {}) {
     structuredDirectives = scenes.map((s, idx) => `场景 ${idx + 1}: ${s.goal || s.purpose || s.summary || ''}`).join('\n');
   }
 
-  // 创作策略编译器挂载点 (V3 Composition Strategy Compiler Hook)
+  // 1. 创作策略中间表示直接挂载 (Direct StrategyIR Mount Hook)
+  const strategyIRInput = req.strategyIR || activeContract.strategyIR || options.strategyIR;
+  if (strategyIRInput && typeof strategyIRInput === 'object') {
+    const { lowerToPrompt } = require('../composition/ir/ir-lowering');
+    const lowered = lowerToPrompt(strategyIRInput, {
+      ...options,
+      targetModelFamily: options.targetModelFamily || req.targetModelFamily || req.modelId || options.modelId,
+      chapterContext: context,
+      userInstruction: userInstructionText
+    });
+    return {
+      systemPrompt: lowered.systemPrompt,
+      userPrompt: lowered.userPrompt,
+      wordBudget: lowered.wordBudget,
+      sceneDirectives: structuredDirectives,
+      effectiveGenre: strategyIRInput.bookIdentity?.genre?.name || (typeof genre === 'string' ? genre : (genre && (genre.genre || genre.id)) || '通用文学'),
+      strategyIR: strategyIRInput,
+      compositionStrategy: {
+        systemPrompt: lowered.systemPrompt,
+        userPrompt: lowered.userPrompt,
+        wordBudget: lowered.wordBudget,
+        priorityCascade: lowered.priorityCascade,
+        strategyIR: strategyIRInput,
+        digest: strategyIRInput.irDigest
+      }
+    };
+  }
+
+  // 2. 创作策略编译器挂载点 (V3 Composition Strategy Compiler Hook)
   const compSpecInput = req.compositionSpec || activeContract.compositionSpec || options.compositionSpec;
   if (compSpecInput) {
     const { defaultProfileRegistry } = require('../composition/profiles/profile-registry');
@@ -449,9 +477,8 @@ function compileDraftPrompt(options = {}) {
     styleDirective ? `【写作风格规范】\n${styleDirective}` : (styleText ? `【文风指导】\n${styleText}` : ''),
     functionDirective ? `【单章功能定位】\n${functionDirective}` : '',
     focusDirective ? `【本章核心侧重点】\n${focusDirective}` : '',
-    '【镜头摄像机执行原则】：三幕分镜与剧情骨架已锁定。你作为现场镜头摄像机，严禁写成跳跃概括的大纲流水账。必须逐幕把规划好的物理摩擦、对白暗流和不可逆代价饱满渲染。严格遵循【动作-对白交错律】（严禁单向连珠炮台词，每句台词须穿插对方生理微反应、微表情或器物交互动作）。幕三涉及关键互动或道具时，须注入往昔羁绊回忆（100~200字旧事闪回，奠定情感与破防因果），并收束于不可逆新规则或索赔契约。多用具体器物形变与冷硬动作，严禁瞳孔骤缩、嘴角勾起、骨节泛白、喉头一甜等套话，严禁角色在内心自报家门。',
-    '只写原创中文小说正文，不输出提纲、前言或总结。紧扣当下人物目标、阻力与现场因果，拒绝空洞套话。',
-    structuredDirectives ? `【三幕分镜剧本执行卡】\n${structuredDirectives}` : ''
+    '只写原创中文小说正文，不输出提纲、前言或总结。紧扣当下人物目标、阻力与现场因果，保持叙事连贯与现场实感。',
+    structuredDirectives ? `【场景规划执行卡】\n${structuredDirectives}` : ''
   ].filter(Boolean).join('\n\n');
 
   const userPrompt = [

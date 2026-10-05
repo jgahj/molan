@@ -124,13 +124,16 @@ class CheckpointManifest {
   markBookStart(bookId) {
     if (!this.data || !this.data.books[bookId]) return;
     this.data.books[bookId].status = 'in_progress';
+    this.data.books[bookId].startedAt = this.data.books[bookId].startedAt || new Date().toISOString();
     this.data.updatedAt = new Date().toISOString();
+    this.save();
   }
 
   markBookComplete(bookId, stats = {}) {
     if (!this.data || !this.data.books[bookId]) return;
     const entry = this.data.books[bookId];
     entry.status = 'completed';
+    entry.completedAt = new Date().toISOString();
     entry.last_chapter = stats.lastChapter || stats.last_chapter || entry.last_chapter;
     entry.chaptersProcessed = stats.chaptersProcessed || stats.chaptersCount || entry.chaptersProcessed;
     entry.candidateChapters = stats.candidateChapters || entry.candidateChapters;
@@ -147,6 +150,7 @@ class CheckpointManifest {
     if (!this.data || !this.data.books[bookId]) return;
     const entry = this.data.books[bookId];
     entry.status = 'failed';
+    entry.failedAt = new Date().toISOString();
     entry.error = String(errorMsg || '未知错误');
     entry.retry_count = (entry.retry_count || 0) + 1;
 
@@ -175,9 +179,19 @@ class CheckpointManifest {
 
   save() {
     if (!this.data) return;
-    const tmp = `${this.manifestFile}.tmp_${Date.now()}`;
+    const nonce = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(8).toString('hex');
+    const tmp = `${this.manifestFile}.tmp_${Date.now()}_${process.pid}_${nonce}`;
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), 'utf8');
-    fs.renameSync(tmp, this.manifestFile);
+    try {
+      fs.renameSync(tmp, this.manifestFile);
+    } catch (err) {
+      try {
+        fs.copyFileSync(tmp, this.manifestFile);
+        if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+      } catch (_) {
+        throw err;
+      }
+    }
   }
 
   /**

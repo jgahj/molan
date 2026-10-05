@@ -6,13 +6,21 @@
  * 
  * 核心功能：
  * 1. 解耦保真度评测 (Disentanglement Fidelity)：检测题材边界围栏 (forbiddenAssumptions) 是否被越权破坏；
- * 2. Outcome Contract 达成度检验：评估状态跃迁与人物信念/读者预期是否在正文中扎实落定；
+ * 2. Outcome Contract 达成度检验：深度三层判准状态跃迁与人物信念/读者预期是否在正文中扎实落定；
  * 3. 文风距离稳定性测算 (Style Distance Stability)：以欧氏距离度量正文实际风格与目标向量的偏离度；
- * 4. 闭环反馈更新器 (Strategy Feedback Updater)：根据生成质量评测结果，自适应更新策略规则的置信度与质量增益。
+ * 4. 归因净化策略反馈学习器 (Attribution-Clean Strategy Feedback Learning)：通过反事实 A-B 对照与对照保留集，
+ *    消除共现污染与信贷分配误赋，自适应驱动策略规则的置信度、质量增益与混淆度演化。
  */
 
 const { checkForbiddenAssumptions } = require('../profiles/genre-profile');
 const { STYLE_VECTOR_KEYS } = require('../profiles/style-profile');
+const {
+  evaluateOutcomeContractFulfillment,
+  detectEntityMentions,
+  detectEventOccurrences,
+  verifyNarrativeStateTransition,
+  TRANSITION_DOMAINS
+} = require('./outcome-contract');
 
 /**
  * 评估正文与题材的解耦保真度（越权假设拦截）
@@ -31,50 +39,6 @@ function evaluateDisentanglementFidelity(text, genreProfile) {
     passed: check.passed,
     fidelityScore,
     violations: check.violations
-  });
-}
-
-/**
- * 检验正文对结果契约 (Narrative Outcome Contract) 的履约达成度
- * @param {string} text 生成正文
- * @param {Object} outcomeContract 结果契约实体
- * @returns {Object} { passed, fulfillmentScore, observations }
- */
-function evaluateOutcomeContractFulfillment(text, outcomeContract) {
-  const content = String(text || '');
-  if (!content) return { passed: false, fulfillmentScore: 0, observations: ['正文为空'] };
-
-  const delta = outcomeContract?.stateDelta || {};
-  const observations = [];
-  let score = 0.85;
-
-  // 1. 存在性检验：如果定义了推进事件，检查正文中是否有事件关键实体提及
-  if (Array.isArray(delta.events) && delta.events.length) {
-    const matchedCount = delta.events.filter(ev => {
-      // 提取事件中的实词（简单2字以上片段）
-      const tokens = String(ev).match(/[\u4e00-\u9fa5]{2,4}/g) || [];
-      return tokens.some(t => content.includes(t));
-    }).length;
-
-    if (matchedCount > 0) {
-      score += 0.10;
-      observations.push(`检测到 ${matchedCount} 项推进事件的核心事实落地`);
-    } else {
-      score -= 0.15;
-      observations.push('未检测到推进事件的核心实体');
-    }
-  }
-
-  // 2. 状态跃迁达成检验
-  if (delta.stateAfter?.summary && content.length > 200) {
-    score += 0.05;
-  }
-
-  const finalScore = Math.max(0.1, Math.min(1.0, Number(score.toFixed(2))));
-  return Object.freeze({
-    passed: finalScore >= 0.75,
-    fulfillmentScore: finalScore,
-    observations
   });
 }
 
@@ -120,12 +84,20 @@ function evaluateStyleDistance(observedVector = {}, targetVector = {}) {
 }
 
 /**
- * 闭环反馈：根据本次生成审计质量，自适应更新策略卡的置信度与质量提振度
+ * 闭环反馈：归因净化策略反馈学习器 (Attribution-Clean Strategy Feedback Updater)
+ * 
+ * 支持三种模式：
+ * 1. 标量分值兼容回退 (Legacy Scalar Score): 接受纯数字 auditScore，执行 EMA 增益与置信度更新；
+ * 2. 反事实配对 A-B 对照 (Counterfactual Paired A-B): 计算孤立干预效应 ΔQ = Q_treatment - Q_control，
+ *    消解 parasitic hitchhiker 寄生搭便车，并显著降低 confoundScore；
+ * 3. 对照保留集比较 (Controlled Holdout Comparison): 消除多规则共现通胀，按混淆度惩罚边际贡献。
+ * 
  * @param {Object} strategyCard 原策略卡实体
- * @param {Object} auditScore 本次生成质检得分 (0.0 ~ 1.0)
+ * @param {number|Object} feedbackContext 审计得分标量或结构化反馈上下文
+ * @param {Object} options 更新选项 (alpha, causalAlpha 等)
  * @returns {Object} 带有更新后统计指标的新策略卡实体
  */
-function updateStrategyFeedback(strategyCard, auditScore = 0.85) {
+function updateStrategyFeedback(strategyCard, feedbackContext = 0.85, options = {}) {
   if (!strategyCard || typeof strategyCard !== 'object') {
     throw new TypeError('updateStrategyFeedback 需要有效的 strategyCard');
   }
@@ -134,13 +106,82 @@ function updateStrategyFeedback(strategyCard, auditScore = 0.85) {
   const oldSupport = Number(oldStats.supportCount) || 1;
   const oldConfidence = Number(oldStats.confidence) || 0.85;
   const oldLift = Number(oldStats.qualityLift) || 0.15;
+  const oldConfound = Number(oldStats.confoundScore ?? 0.10);
 
   const newSupport = oldSupport + 1;
-  // EMA 滑动更新置信度
-  const alpha = 0.15;
-  const newConfidence = Math.max(0.1, Math.min(1.0, Number((oldConfidence * (1 - alpha) + (auditScore >= 0.75 ? 1.0 : 0.4) * alpha).toFixed(3))));
-  const sampleLift = Number(auditScore) - 0.75;
-  const newLift = Number((oldLift * (1 - alpha) + sampleLift * alpha).toFixed(3));
+  const alpha = Number(options.alpha ?? 0.15);
+
+  let newConfidence = oldConfidence;
+  let newLift = oldLift;
+  let newConfound = oldConfound;
+
+  if (typeof feedbackContext === 'number') {
+    // Mode 3: Legacy numeric scalar score fallback
+    const auditScore = Number(feedbackContext);
+    const targetConf = auditScore >= 0.75 ? 1.0 : 0.4;
+    newConfidence = Math.max(0.1, Math.min(1.0, Number((oldConfidence * (1 - alpha) + targetConf * alpha).toFixed(3))));
+    const sampleLift = auditScore - 0.75;
+    newLift = Number((oldLift * (1 - alpha) + sampleLift * alpha).toFixed(3));
+    newConfound = oldConfound;
+  } else if (feedbackContext && typeof feedbackContext === 'object') {
+    const mode = feedbackContext.mode || (
+      feedbackContext.counterfactual || (feedbackContext.treatmentScore !== undefined && feedbackContext.controlScore !== undefined)
+        ? 'counterfactual_ab'
+        : (feedbackContext.holdout || (feedbackContext.auditScore !== undefined && feedbackContext.holdoutBaselineScore !== undefined)
+          ? 'holdout_comparison'
+          : (feedbackContext.cleanLift !== undefined ? 'ablation' : 'standard'))
+    );
+
+    if (mode === 'counterfactual_ab') {
+      // Mode 1: Counterfactual paired A-B comparisons
+      const treatmentScore = Number(feedbackContext.treatmentScore ?? 0.85);
+      const controlScore = Number(feedbackContext.controlScore ?? 0.75);
+      const cleanLift = treatmentScore - controlScore;
+
+      newLift = Number((oldLift * (1 - alpha) + cleanLift * alpha).toFixed(3));
+
+      // 干净干预效应驱动置信度更新 (如果 ΔQ 为负，即使总体合格也予以惩罚)
+      const targetConf = cleanLift > 0 ? 1.0 : (cleanLift === 0 ? 0.5 : 0.35);
+      newConfidence = Math.max(0.1, Math.min(1.0, Number((oldConfidence * (1 - alpha) + targetConf * alpha).toFixed(3))));
+
+      // 因果 A-B 对照消解混淆度风险
+      const causalAlpha = Number(options.causalAlpha ?? 0.20);
+      newConfound = Math.max(0.01, Math.min(1.0, Number((oldConfound * (1 - causalAlpha)).toFixed(3))));
+    } else if (mode === 'holdout_comparison') {
+      // Mode 2: Controlled holdout comparisons
+      const auditScore = Number(feedbackContext.auditScore ?? 0.85);
+      const holdoutBaseline = Number(feedbackContext.holdoutBaselineScore ?? feedbackContext.baselineScore ?? 0.75);
+      const activeRuleCount = Math.max(1, Number(feedbackContext.activeRuleCount ?? feedbackContext.ruleCount ?? 1));
+      const groupLift = auditScore - holdoutBaseline;
+
+      // 剔除共现通胀，按混淆度惩罚边际贡献
+      const cleanLift = (groupLift / activeRuleCount) * (1.0 - 0.5 * oldConfound);
+      newLift = Number((oldLift * (1 - alpha) + cleanLift * alpha).toFixed(3));
+
+      const targetConf = cleanLift > 0 ? 0.90 : 0.40;
+      newConfidence = Math.max(0.1, Math.min(1.0, Number((oldConfidence * (1 - alpha) + targetConf * alpha).toFixed(3))));
+
+      // 多规则共现未做干预剥离时，混淆度不降低 (规则过多时轻微递增)
+      const confoundInc = activeRuleCount > 2 ? 0.02 : 0;
+      newConfound = Math.min(1.0, Number((oldConfound + confoundInc).toFixed(3)));
+    } else if (mode === 'ablation') {
+      // Mode 4: Direct ablation / clean lift
+      const cleanLift = Number(feedbackContext.cleanLift ?? 0);
+      newLift = Number((oldLift * (1 - alpha) + cleanLift * alpha).toFixed(3));
+
+      const targetConf = cleanLift > 0 ? 0.95 : 0.35;
+      newConfidence = Math.max(0.1, Math.min(1.0, Number((oldConfidence * (1 - alpha) + targetConf * alpha).toFixed(3))));
+      newConfound = Math.max(0.01, Math.min(1.0, Number((oldConfound * 0.95).toFixed(3))));
+    } else {
+      // Standard / fallback object
+      const auditScore = Number(feedbackContext.auditScore ?? 0.85);
+      const targetConf = auditScore >= 0.75 ? 1.0 : 0.4;
+      newConfidence = Math.max(0.1, Math.min(1.0, Number((oldConfidence * (1 - alpha) + targetConf * alpha).toFixed(3))));
+      const sampleLift = auditScore - 0.75;
+      newLift = Number((oldLift * (1 - alpha) + sampleLift * alpha).toFixed(3));
+      newConfound = oldConfound;
+    }
+  }
 
   const updatedCard = {
     ...strategyCard,
@@ -148,16 +189,116 @@ function updateStrategyFeedback(strategyCard, auditScore = 0.85) {
       ...oldStats,
       supportCount: newSupport,
       confidence: newConfidence,
-      qualityLift: newLift
+      qualityLift: newLift,
+      confoundScore: newConfound
     })
   };
 
   return Object.freeze(updatedCard);
 }
 
+/**
+ * 批量执行归因净化策略反馈学习
+ * @param {Array<Object>} strategyCards 策略规则卡列表
+ * @param {Object} feedbackBatch 批量反馈上下文
+ * @param {Object} options 更新选项
+ * @returns {Array<Object>} 带有 attributionReport 属性的更新后策略卡列表
+ */
+function batchUpdateStrategyFeedback(strategyCards = [], feedbackBatch = {}, options = {}) {
+  if (!Array.isArray(strategyCards)) {
+    throw new TypeError('batchUpdateStrategyFeedback 需要策略卡数组');
+  }
+
+  const baselineScore = Number(feedbackBatch.baselineScore ?? feedbackBatch.holdoutBaselineScore ?? 0.75);
+  const updatedCards = [];
+  const attributionDetails = [];
+
+  const dimensionScores = feedbackBatch.dimensionScores || null;
+  const ruleFeedbackMap = feedbackBatch.ruleFeedback || feedbackBatch.rules || null;
+
+  for (const card of strategyCards) {
+    let cardContext = null;
+
+    if (ruleFeedbackMap && (ruleFeedbackMap[card.id] !== undefined)) {
+      cardContext = ruleFeedbackMap[card.id];
+    } else if (dimensionScores && typeof dimensionScores === 'object') {
+      // 维度靶向归因
+      const cardText = `${card.id || ''} ${card.ruleStatement || ''} ${card.abstractPattern || ''} ${(card.tags || []).join(' ')} ${card.category || ''}`.toLowerCase();
+      
+      let matchedDim = null;
+      let matchedScore = null;
+
+      for (const [dim, score] of Object.entries(dimensionScores)) {
+        const dimLower = String(dim).toLowerCase();
+        let isMatch = false;
+        if (cardText.includes(dimLower)) isMatch = true;
+        if ((dimLower === 'suspense' || dimLower === '悬念') && (cardText.includes('悬念') || cardText.includes('suspense') || cardText.includes('hook'))) isMatch = true;
+        if ((dimLower === 'dialogue' || dimLower === '对话') && (cardText.includes('对话') || cardText.includes('dialogue') || cardText.includes('留白'))) isMatch = true;
+        if ((dimLower === 'pacing' || dimLower === '节奏') && (cardText.includes('节奏') || cardText.includes('pacing'))) isMatch = true;
+
+        if (isMatch) {
+          matchedDim = dim;
+          matchedScore = Number(score);
+          break;
+        }
+      }
+
+      if (matchedScore !== null) {
+        const cleanLift = Number((matchedScore - baselineScore).toFixed(3));
+        cardContext = {
+          mode: 'ablation',
+          cleanLift,
+          dimension: matchedDim,
+          score: matchedScore
+        };
+      } else {
+        cardContext = {
+          mode: 'holdout_comparison',
+          auditScore: baselineScore,
+          holdoutBaselineScore: baselineScore,
+          activeRuleCount: strategyCards.length
+        };
+      }
+    } else {
+      cardContext = {
+        ...feedbackBatch,
+        activeRuleCount: feedbackBatch.activeRuleCount ?? strategyCards.length
+      };
+    }
+
+    const updated = updateStrategyFeedback(card, cardContext, options);
+    updatedCards.push(updated);
+    attributionDetails.push({
+      cardId: card.id,
+      oldLift: card.stats?.qualityLift,
+      newLift: updated.stats?.qualityLift,
+      oldConfidence: card.stats?.confidence,
+      newConfidence: updated.stats?.confidence,
+      context: cardContext
+    });
+  }
+
+  const attributionReport = Object.freeze({
+    ruleCount: strategyCards.length,
+    mode: feedbackBatch.mode || (dimensionScores ? 'dimension_targeted' : 'batch_holdout'),
+    details: attributionDetails
+  });
+
+  const output = [...updatedCards];
+  output.updatedCards = Object.freeze(updatedCards);
+  output.attributionReport = attributionReport;
+
+  return Object.freeze(output);
+}
+
 module.exports = {
   evaluateDisentanglementFidelity,
   evaluateOutcomeContractFulfillment,
   evaluateStyleDistance,
-  updateStrategyFeedback
+  updateStrategyFeedback,
+  batchUpdateStrategyFeedback,
+  detectEntityMentions,
+  detectEventOccurrences,
+  verifyNarrativeStateTransition,
+  TRANSITION_DOMAINS
 };
