@@ -415,10 +415,13 @@ function compileDraftPrompt(options = {}) {
 
     const compiledStrategy = compileChapterStrategy({
       spec,
-      bible: options.bible || req.bible || null,
+      bible: options.bible || req.bible || activeContract.bible || null,
       chapterContract: activeContract,
       chapterContext: context,
       evidenceCards,
+      debtContext: options.debtContext || req.debtContext || activeContract.debtContext || null,
+      debtProjection: options.debtProjection || req.debtProjection || activeContract.debtProjection || null,
+      storyDebtLedger: options.storyDebtLedger || req.storyDebtLedger || activeContract.storyDebtLedger || null,
       options
     });
 
@@ -569,6 +572,7 @@ async function generateDraft(options = {}) {
   const chapterId = String(request.chapterId || contract.chapterId || '');
 
   const compiled = compileDraftPrompt({
+    ...options,
     request,
     contract,
     scenes,
@@ -648,12 +652,30 @@ async function generateDraft(options = {}) {
 
   const usage = aggregateUsage(calls);
 
+  // 可选叙事债务对账闭环 (Story Debt Reconciliation Hook)
+  let debtReconciliation = null;
+  const activeLedger = options.storyDebtLedger || (request && request.storyDebtLedger) || (contract && contract.storyDebtLedger);
+  if (activeLedger && typeof activeLedger.recordEvent === 'function') {
+    const { reconcileChapterDebts } = require('../composition/debt/debt-reconciliation');
+    debtReconciliation = reconcileChapterDebts({
+      ledger: activeLedger,
+      chapterNo: contract.chapterNo || (request && request.chapterNo) || 1,
+      chapterId: contract.chapterId || chapterId,
+      draftText: text,
+      contract,
+      compositionSpec: options.compositionSpec || (request && request.compositionSpec) || (contract && contract.compositionSpec) || null,
+      declaredResolutions: options.declaredResolutions || (request && request.declaredResolutions) || [],
+      declaredDebtsToCreate: options.declaredDebtsToCreate || (request && request.declaredDebtsToCreate) || []
+    });
+  }
+
   const result = {
     draft: text,
     text,
     calls,
     manifest,
     usage,
+    debtReconciliation,
     status: 'draft_created',
     pipeline: {
       authoritative: true,

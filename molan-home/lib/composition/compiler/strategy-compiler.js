@@ -44,6 +44,17 @@ function compileToStrategyIR(params = {}) {
     throw new TypeError('compileToStrategyIR 需要有效的 CompositionSpec');
   }
 
+  let effectiveDebtContext = debtContext || params.debtProjection || null;
+  if (!effectiveDebtContext && params.storyDebtLedger) {
+    const { projectDebtsForChapter } = require('../debt/debt-projection');
+    effectiveDebtContext = projectDebtsForChapter(params.storyDebtLedger, {
+      currentChapter: chapterContract.chapterNo || spec.chapterNo || 1,
+      activeCharacters: chapterContract.characters || [],
+      arcId: chapterContract.arcId || '',
+      volumeId: chapterContract.volumeId || ''
+    });
+  }
+
   const compatibility = evaluateCompatibility(spec);
   const effectiveModulation = spec.localStyleModulation || compatibility.recommendedModulation || null;
 
@@ -107,8 +118,10 @@ function compileToStrategyIR(params = {}) {
     closingHook: spec.hook?.closingHook || { gapType: spec.hook?.gapType || '悬念缺口' },
     payoffHorizon: spec.hook?.payoffHorizon || { label: '即时/短线' },
     debtTracking: {
-      debtsToAddress: Array.isArray(debtContext?.debtsToAddress) ? debtContext.debtsToAddress : [],
-      debtsToCreate: Array.isArray(debtContext?.debtsToCreate) ? debtContext.debtsToCreate : []
+      debtsToAddress: Array.isArray(effectiveDebtContext?.debtsToAddress) ? effectiveDebtContext.debtsToAddress : [],
+      debtsToCreate: Array.isArray(effectiveDebtContext?.debtsToCreate) ? effectiveDebtContext.debtsToCreate : [],
+      projection: effectiveDebtContext?.projection || null,
+      promptGuidance: effectiveDebtContext?.promptGuidance || ''
     }
   };
 

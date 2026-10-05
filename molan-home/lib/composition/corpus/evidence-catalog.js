@@ -128,6 +128,11 @@ class EvidenceCatalog {
   }
 
   findRelevantCards(options = {}) {
+    if (!this._activePackageChecked) {
+      this._activePackageChecked = true;
+      this.loadActivePublishedPackage();
+    }
+
     const {
       dimensions = [],
       minStrength = 'B',
@@ -153,12 +158,67 @@ class EvidenceCatalog {
 
     return matched.slice(0, limit);
   }
+
+  /**
+   * 自动发现并加载当前生效的已发布知识包 (data/strategy-knowledge-base/active_package.json)
+   * 彻底打通 语料离线发布 -> 运行时生成策略检索 的生产闭环
+   * @param {string|null} customKnowledgeBaseDir
+   * @returns {number} 成功加载的规则卡数
+   */
+  loadActivePublishedPackage(customKnowledgeBaseDir = null) {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const baseDir = customKnowledgeBaseDir || path.join(process.cwd(), 'data', 'strategy-knowledge-base');
+    const pointerFile = path.join(baseDir, 'active_package.json');
+    if (!fs.existsSync(pointerFile)) return 0;
+
+    try {
+      const pointer = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
+      if (pointer.packageDir && fs.existsSync(pointer.packageDir)) {
+        return this.loadFromPublishedPackage(pointer.packageDir);
+      }
+    } catch (_) {}
+    return 0;
+  }
+
+  loadFromPublishedPackage(packageDir) {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const rulesFile = path.join(packageDir, 'strategy-rules.jsonl');
+    if (!fs.existsSync(rulesFile)) return 0;
+
+    let loadedCount = 0;
+    const lines = fs.readFileSync(rulesFile, 'utf8').split('\n').filter(Boolean);
+    for (const line of lines) {
+      try {
+        const item = JSON.parse(line);
+        if (['A', 'B'].includes(item.evidenceStrength)) {
+          this.registerCard({
+            id: item.id,
+            name: item.name,
+            type: item.type || 'combo',
+            rule: item.rule || item.ruleStatement,
+            abstractPattern: item.abstractPattern,
+            microExample: item.microExample,
+            counterExample: item.counterExample,
+            failureMode: item.failureMode,
+            evidenceStrength: item.evidenceStrength,
+            stats: item.stats,
+            applicableDimensions: item.applicableDimensions || ['dialogue_game', 'laobai_restrained', 'conflict_push']
+          });
+          loadedCount++;
+        }
+      } catch (_) {}
+    }
+    return loadedCount;
+  }
 }
 
 const defaultEvidenceCatalog = new EvidenceCatalog();
 
 module.exports = {
   createStrategyCard,
+  calculateStatisticalStrength,
   EvidenceCatalog,
   defaultEvidenceCatalog,
   SEED_STRATEGY_CARDS
