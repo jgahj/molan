@@ -165,26 +165,39 @@ function createSoftFocusBudget(input = {}) {
  * @returns {Object} 规范化的 Narrative Debt 实体
  */
 function createNarrativeDebt(input = {}) {
-  const debtId = String(input.debtId || input.id || 'debt_' + Date.now()).trim();
-  const debtType = ['plot_debt', 'hook_debt', 'character_debt', 'world_debt', 'relationship_debt'].includes(input.debtType)
-    ? input.debtType
-    : 'hook_debt';
+  const debtId = String(input.debtId || input.id || input.debt_id || 'debt_' + Date.now()).trim();
+  const { normalizeDebtType } = require('../debt/debt-types');
+  const rawType = input.debtType || input.debt_type || '';
+  const allowedTypes = [
+    'plot_debt', 'hook_debt', 'character_debt', 'world_debt', 'relationship_debt',
+    'information_debt', 'reader_promise_debt',
+    'plot', 'hook', 'character', 'information', 'relationship', 'world',
+    'reader_expectation', 'reader_promise'
+  ];
+  let debtType;
+  if (allowedTypes.includes(rawType)) {
+    debtType = rawType;
+  } else {
+    debtType = normalizeDebtType(rawType) || 'hook_debt';
+  }
 
   const debt = {
     schemaVersion: 'narrative-debt-v1',
     debtId,
     debtType,
-    createdChapter: Number(input.createdChapter) || 1,
+    createdChapter: Number(input.createdChapter || input.created_at_chapter) || 1,
     summary: String(input.summary || '').trim(),
-    evidence: String(input.evidence || '').trim(), // 产生债务的原文章节引文或事实
+    evidence: String(input.evidence || input.creation_evidence || '').trim(), // 产生债务的原文章节引文或事实
     payoffHorizon: {
-      minChapters: Math.max(1, Number(input.payoffHorizon?.minChapters) || 2),
-      maxChapters: Math.max(2, Number(input.payoffHorizon?.maxChapters) || 5),
+      minChapters: Math.max(1, Number(input.payoffHorizon?.minChapters || input.expected_payoff_from) || 2),
+      maxChapters: Math.max(2, Number(input.payoffHorizon?.maxChapters || input.expected_payoff_to) || 5),
       label: String(input.payoffHorizon?.label || '中长线兑现')
     },
-    status: ['active', 'deepened', 'partially_resolved', 'resolved'].includes(input.status) ? input.status : 'active',
+    status: ['active', 'deepened', 'partially_resolved', 'resolved', 'open', 'developing', 'partially_paid', 'paid', 'deferred', 'invalidated', 'abandoned'].includes(input.status)
+      ? input.status
+      : 'active',
     trackingHistory: Array.isArray(input.trackingHistory) ? input.trackingHistory.map(item => ({ ...item })) : [],
-    resolutionNotes: String(input.resolutionNotes || '').trim()
+    resolutionNotes: String(input.resolutionNotes || input.resolution_notes || '').trim()
   };
 
   if (!debt.summary) throw new TypeError('NarrativeDebt 必须具备 summary 说明');

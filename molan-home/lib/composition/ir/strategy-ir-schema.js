@@ -115,7 +115,9 @@ function createStrategyIR(input = {}) {
       : { label: '即时/短线' },
     debtTracking: {
       debtsToAddress: Array.isArray(input.hookPolicy?.debtTracking?.debtsToAddress) ? [...input.hookPolicy.debtTracking.debtsToAddress] : [],
-      debtsToCreate: Array.isArray(input.hookPolicy?.debtTracking?.debtsToCreate) ? [...input.hookPolicy.debtTracking.debtsToCreate] : []
+      debtsToCreate: Array.isArray(input.hookPolicy?.debtTracking?.debtsToCreate) ? [...input.hookPolicy.debtTracking.debtsToCreate] : [],
+      projection: input.hookPolicy?.debtTracking?.projection || null,
+      promptGuidance: String(input.hookPolicy?.debtTracking?.promptGuidance || '')
     }
   };
 

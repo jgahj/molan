@@ -18,6 +18,8 @@ lib/character-material/index.json
 data/watchdog.lock
 data/benchmark-local-runtime/
 data/benchmark-runs/
+data/corpus-build/
+data/strategy-knowledge-base/
 
 # Local logs and temporary files
 *.log

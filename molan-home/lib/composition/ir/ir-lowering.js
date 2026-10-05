@@ -187,7 +187,9 @@ function lowerToPrompt(strategyIR, options = {}) {
     hook.payoffHorizon ? `预期兑现周期：${hook.payoffHorizon.label || '中短线'}` : ''
   ].filter(Boolean);
 
-  if (hook.debtTracking?.debtsToAddress?.length) {
+  if (hook.debtTracking?.promptGuidance) {
+    hookLines.push(hook.debtTracking.promptGuidance);
+  } else if (hook.debtTracking?.debtsToAddress?.length) {
     hookLines.push(`本章须呼应/推进的既有因果债：\n${hook.debtTracking.debtsToAddress.map(d => `· ${d.summary || d}`).join('\n')}`);
   }
   cascade.P7_HOOK_POLICY = hookLines.join('\n');
