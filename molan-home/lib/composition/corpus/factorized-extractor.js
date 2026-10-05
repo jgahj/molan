@@ -104,12 +104,31 @@ function extractChapterFactors(chapterText = '', metadata = {}) {
     hookStrength = 0.82;
   }
 
+  // 5. 结果契约与意图抽取 (Outcome Contract)
+  const outcomeContract = {
+    stateDelta: {
+      stateBefore: '章节开端情境',
+      events: secondaryGoals.map(g => `推进【${g.id}】`),
+      stateAfter: primaryGoal === 'conflict_push' ? '冲突激化并产生阶段性对抗结果' : (primaryGoal === 'info_reveal' ? '关键物证/信息浮出水面' : '局面不可逆推进'),
+      invalidIfRemoved: '若删除本章，后续因果链断裂'
+    },
+    readerEffect: {
+      knowledgeDelta: mysteryIntensity >= 0.3 ? '获得关键反常线索' : '掌握人物行动意图',
+      emotionalShift: actionDensity >= 0.4 ? '紧张压迫感' : '探究与悬念好奇'
+    },
+    characterEffect: {
+      motivationDelta: '目标明确化',
+      beliefShift: mysteryIntensity >= 0.4 ? '对原有常识产生怀疑' : ''
+    }
+  };
+
   return Object.freeze({
     totalChars,
     sentenceCount,
     primaryGoal,
     secondaryGoals,
     focusVector,
+    outcomeContract,
     tailHook: {
       type: tailHookType,
       gapType: tailGapType,
@@ -130,6 +149,27 @@ function extractChapterFactors(chapterText = '', metadata = {}) {
   });
 }
 
+/**
+ * 将章节瞬态文风失真与作者稳定文风基因剥离 (Style Disentangling)
+ * @param {Object} chapterStylometry 当前章节测算的表层向量
+ * @param {string} chapterGoal 当前章节目标 (如 conflict_push)
+ * @returns {Object} 修正剥离后的作者纯净基准向量
+ */
+function disentangleStyleFromGoal(chapterStylometry = {}, chapterGoal = 'balanced_narrative') {
+  const corrected = { ...chapterStylometry };
+  // 若属于激烈战斗冲突章，短句比通常会临时飙升 +0.15~0.20，基线文风需反向平抑
+  if (chapterGoal === 'conflict_push' || chapterGoal === 'action_combat') {
+    if (corrected.shortSentenceRatio != null) {
+      corrected.shortSentenceRatio = Math.max(0.1, Number((corrected.shortSentenceRatio - 0.15).toFixed(3)));
+    }
+    if (corrected.averageSentenceLength != null) {
+      corrected.averageSentenceLength = Number((corrected.averageSentenceLength + 3.5).toFixed(1));
+    }
+  }
+  return normalizeStyleVector(corrected);
+}
+
 module.exports = {
-  extractChapterFactors
+  extractChapterFactors,
+  disentangleStyleFromGoal
 };

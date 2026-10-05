@@ -17,6 +17,8 @@ const { compileGoalPolicy } = require('../profiles/chapter-goal-profile');
 const { compileFocusPolicy } = require('../profiles/focus-profile');
 const { compileHookPolicy } = require('../profiles/hook-profile');
 const { evaluateCompatibility } = require('./compatibility-matrix');
+const { createStrategyIR } = require('../ir/strategy-ir-schema');
+const { lowerToPrompt } = require('../ir/ir-lowering');
 const { tierAttention } = require('./attention-tiering');
 
 function sha256(val) {
@@ -24,9 +26,115 @@ function sha256(val) {
 }
 
 /**
- * 编译章节创作策略 (Compile Chapter Creation Strategy)
+ * 第一阶段：纯确定性编译为 StrategyIR 中间表示
  * @param {Object} params
- * @returns {Object} 编译好的分级提示词结构体
+ * @returns {Object} 冻结的 StrategyIR 实体
+ */
+function compileToStrategyIR(params = {}) {
+  const {
+    spec,
+    bible = null,
+    chapterContract = {},
+    evidenceCards = [],
+    debtContext = null,
+    options = {}
+  } = params;
+
+  if (!spec || typeof spec !== 'object') {
+    throw new TypeError('compileToStrategyIR 需要有效的 CompositionSpec');
+  }
+
+  const compatibility = evaluateCompatibility(spec);
+  const effectiveModulation = spec.localStyleModulation || compatibility.recommendedModulation || null;
+
+  const targetChars = Number(chapterContract.wordBudget?.targetChars || spec.targetChars || 3000);
+  const minChars = Number(chapterContract.wordBudget?.minChars || Math.round(targetChars * 0.85));
+  const maxChars = Number(chapterContract.wordBudget?.maxChars || Math.round(targetChars * 1.15));
+
+  const hardConstraints = {
+    targetWordRange: { min: minChars, max: maxChars, target: targetChars },
+    narrativePov: spec.derived?.narrativePov || chapterContract.pov || '第三人称限制视角',
+    viewpointCharacter: chapterContract.viewpointCharacter || '',
+    forbiddenKnowledge: Array.isArray(chapterContract.forbiddenKnowledge) ? chapterContract.forbiddenKnowledge : [],
+    continuityInvariants: Array.isArray(chapterContract.mustPreserve) ? chapterContract.mustPreserve : [],
+    negativeGuards: [
+      '严禁脸谱化肢体套路：严禁‘嘴角勾起玩味弧度’、‘瞳孔骤缩’、‘倒吸一口凉气’等机械描写',
+      '严禁抽象情绪口号：严禁‘心中涌起难以言喻的暖流/愤怒’，必须通过具体的现场肌肉反应、呼吸变重传达心理',
+      '严禁孤立时空硬切开篇，须有残茶、物候或脚步声等微观锚点过渡'
+    ]
+  };
+
+  const bookIdentity = {
+    worldRuleSummary: bible?.worldRuleSummary || bible?.title || '',
+    genre: spec.genre || { name: '通用文学' },
+    storyEngine: spec.derived?.storyEngine || { name: '主线推进' },
+    baseStyleDna: spec.style?.stableDna || {},
+    readerPromises: spec.genre?.readerPromises || []
+  };
+
+  const outcome = spec.chapterGoal?.outcomeContract || {
+    objectiveName: spec.chapterGoal?.name || '核心推进',
+    stateDelta: spec.stateDelta || spec.chapterGoal?.defaultStateDelta || {},
+    readerEffect: { summary: Array.isArray(spec.chapterGoal?.readerEffect) ? spec.chapterGoal.readerEffect.join('、') : '' }
+  };
+
+  const effectiveVector = effectiveModulation
+    ? require('../profiles/style-profile').modulateStyle(spec.style?.baseVector || {}, effectiveModulation)
+    : (spec.style?.baseVector || {});
+
+  const stylePolicy = {
+    name: spec.style?.name || '标准沉稳',
+    stableDna: spec.style?.stableDna || {},
+    modulatedVector: effectiveVector,
+    narrativeDistance: spec.style?.stableDna?.narrativeDistance || 'medium',
+    positiveRules: spec.style?.positiveRules || [],
+    negativeRules: spec.style?.negativeRules || []
+  };
+
+  const tiers = spec.focus?.softBudget?.priorityTiers || {
+    dominant: ['conflict', 'dialogue'], supporting: ['character', 'action'], optional: ['setting'], forbidden: []
+  };
+  const focusPolicy = {
+    name: spec.focus?.name || '均衡推进',
+    priorityTiers: tiers,
+    softRanges: spec.focus?.softBudget?.softRanges || {},
+    sceneDirectives: chapterContract.scenes ? chapterContract.scenes.map((s, idx) => `场景 ${idx + 1}: ${s.goal || ''}`).join('\n') : ''
+  };
+
+  const hookPolicy = {
+    name: spec.hook?.name || '章末余波',
+    openingHook: spec.hook?.openingHook || null,
+    closingHook: spec.hook?.closingHook || { gapType: spec.hook?.gapType || '悬念缺口' },
+    payoffHorizon: spec.hook?.payoffHorizon || { label: '即时/短线' },
+    debtTracking: {
+      debtsToAddress: Array.isArray(debtContext?.debtsToAddress) ? debtContext.debtsToAddress : [],
+      debtsToCreate: Array.isArray(debtContext?.debtsToCreate) ? debtContext.debtsToCreate : []
+    }
+  };
+
+  return createStrategyIR({
+    metadata: {
+      generationId: options.generationId || '',
+      runId: options.runId || '',
+      chapterId: chapterContract.chapterId || '',
+      targetModelFamily: options.targetModelFamily || 'generic'
+    },
+    hardConstraints,
+    bookIdentity,
+    chapterOutcomeContract: outcome,
+    stylePolicy,
+    focusPolicy,
+    hookPolicy,
+    abstractEvidenceCards: Array.isArray(evidenceCards) ? evidenceCards : [],
+    repairInstructions: options.repairInstructions || null
+  });
+}
+
+/**
+ * 编译章节创作策略 (Compile Chapter Creation Strategy)
+ * 经历 IR 编译 -> 下沉渲染 -> 注意力分包三阶段
+ * @param {Object} params
+ * @returns {Object} 编译好的分级提示词结构体与 StrategyIR
  */
 function compileChapterStrategy(params = {}) {
   const {
@@ -43,109 +151,45 @@ function compileChapterStrategy(params = {}) {
     throw new TypeError('compileChapterStrategy 需要有效的 CompositionSpec');
   }
 
-  // 1. 兼容性矩阵评估与自适应调制参数获取
+  // 1. 评估兼容性与局部文风调制
   const compatibility = evaluateCompatibility(spec);
   const effectiveModulation = spec.localStyleModulation || compatibility.recommendedModulation || null;
 
-  // 2. 提取并计算字数预算
-  const targetChars = Number(spec.targetChars || chapterContract.wordBudget?.targetChars || 3000);
-  const minChars = Number(chapterContract.wordBudget?.minChars || Math.round(targetChars * 0.85));
-  const maxChars = Number(chapterContract.wordBudget?.maxChars || Math.round(targetChars * 1.15));
+  // 2. 编译第一公民 StrategyIR (中间表示)
+  const strategyIR = compileToStrategyIR(params);
 
-  // 3. 构建 P0 ~ P8 优先级阶梯块 (Priority Cascade)
-  const cascade = {};
-
-  // P0: 绝对事实与物理围栏
-  const forbiddenKnowledge = Array.isArray(chapterContract.forbiddenKnowledge) && chapterContract.forbiddenKnowledge.length
-    ? `\n· 本章绝对禁载泄露知识：${chapterContract.forbiddenKnowledge.join('、')}`
-    : '';
-  const povText = spec.derived?.narrativePov || chapterContract.pov || '第三人称限制视角';
-  cascade.P0_HARD_CONSTRAINTS = [
-    '【P0 绝对事实与物理围栏（最高指令，不得违反）】',
-    `· 篇幅字数硬性预算：基准 ${targetChars} 字（允许范围：${minChars} ~ ${maxChars} 字）`,
-    `· 叙事视角准则：${povText}（严禁全知越界，严禁旁白窥探非视点角色内心）`,
-    forbiddenKnowledge,
-    '· 只写原创小说正文，严禁输出任何大纲、总结、问候语或解释性旁白。'
-  ].filter(Boolean).join('\n');
-
-  // P1: 用户明确指令
-  cascade.P1_USER_DIRECTIVE = spec.userInstruction
-    ? `【P1 用户明确不可变指令（高于常规模板规则）】\n${spec.userInstruction}`
-    : '【P1 用户明确指令】\n紧扣当前章节任务推进，以现场因果为第一驱动力。';
-
-  // P2: 创作圣经
-  const bibleSummary = bible && typeof bible === 'object'
-    ? `世界底层运行法则：${bible.worldRuleSummary || bible.title || '统一世界观'} | 核心受众基调：${bible.audience || '大众'}`
-    : '';
-  cascade.P2_CREATION_BIBLE = bibleSummary
-    ? `【P2 创作圣经·全局基因】\n${bibleSummary}`
-    : '';
-
-  // P3: 本章核心目标与状态跃迁
-  cascade.P3_CHAPTER_OBJECTIVE = compileGoalPolicy(spec.chapterGoal, spec.stateDelta);
-
-  // P4: 题材叙事契约
-  cascade.P4_GENRE_POLICY = compileGenrePolicy(spec.genre);
-
-  // P5: 文风策略与局部调制
-  cascade.P5_STYLE_POLICY = compileStylePolicy(spec.style, effectiveModulation);
-
-  // P6: 镜头与笔墨预算分配
-  cascade.P6_FOCUS_BUDGET = compileFocusPolicy(spec.focus, targetChars);
-
-  // P7: 结尾钩子与因果债务
-  cascade.P7_HOOK_POLICY = compileHookPolicy(spec.hook, debtContext);
-
-  // P8: 因子化参考策略卡与失败模式反例
-  const cards = Array.isArray(evidenceCards) ? evidenceCards : [];
-  cascade.P8_EVIDENCE = cards.length
-    ? `【P8 语料策略示范与警戒】\n${cards.slice(0, 3).map(c => `· 规则：${c.rule || ''}\n· 警戒反例：${c.failureMode || ''}`).join('\n\n')}`
-    : '';
+  // 3. 降级渲染为特定模型 Prompt (Lowering)
+  const lowered = lowerToPrompt(strategyIR, {
+    chapterContext,
+    userInstruction: spec.userInstruction || options.userInstruction || '',
+    context: chapterContext
+  });
 
   // 4. 注意力分级打包 (Attention Tiering)
-  const systemBlocks = [
-    cascade.P0_HARD_CONSTRAINTS,
-    cascade.P4_GENRE_POLICY,
-    cascade.P5_STYLE_POLICY,
-    cascade.P6_FOCUS_BUDGET,
-    cascade.P7_HOOK_POLICY,
-    '【镜头摄像机执行准则】：遵循【动作-对白交错律】（每句关键台词必须穿插对方微表情或微动作），严禁空洞套话，严禁角色内心自报家门。'
-  ].filter(Boolean).join('\n\n');
-
-  const userBlocks = [
-    '【前情与环境上下文】\n' + (typeof chapterContext === 'string' ? chapterContext : JSON.stringify(chapterContext)),
-    cascade.P1_USER_DIRECTIVE,
-    cascade.P3_CHAPTER_OBJECTIVE,
-    cascade.P8_EVIDENCE
-  ].filter(Boolean).join('\n\n');
-
   const attention = tierAttention({
-    permanentContext: cascade.P2_CREATION_BIBLE,
-    chapterStrategy: systemBlocks,
+    permanentContext: lowered.priorityCascade.P2_CREATION_BIBLE,
+    chapterStrategy: lowered.systemPrompt,
     evidenceCards,
-    immediateContext: userBlocks,
+    immediateContext: lowered.userPrompt,
     maxTotalTokens: options.maxTokens || 6000
   });
 
-  const digest = sha256(systemBlocks + '\n---\n' + userBlocks);
+  const digest = strategyIR.irDigest;
 
   return Object.freeze({
-    systemPrompt: systemBlocks,
-    userPrompt: userBlocks,
-    wordBudget: {
-      target: targetChars,
-      min: minChars,
-      max: maxChars,
-      summary: `${minChars} ~ ${maxChars} 字（基准 ${targetChars} 字）`
-    },
-    priorityCascade: Object.freeze(cascade),
+    systemPrompt: lowered.systemPrompt,
+    userPrompt: lowered.userPrompt,
+    wordBudget: lowered.wordBudget,
+    priorityCascade: lowered.priorityCascade,
     compatibility,
     attentionMetrics: attention.metrics,
     effectiveModulation,
+    strategyIR,
     digest
   });
 }
 
 module.exports = {
+  compileToStrategyIR,
   compileChapterStrategy
 };

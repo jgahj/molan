@@ -14,7 +14,34 @@
  * 3. 仅允许 A/B 级高质量策略卡注入编译流水线，防止作者个人癖好或坏味道污染生成。
  */
 
+function calculateStatisticalStrength(stats = {}) {
+  const conf = Number(stats.confidence ?? 0.85);
+  const lift = Number(stats.qualityLift ?? 0.15);
+  const books = Number(stats.bookCount ?? 2);
+  const authors = Number(stats.authorCount ?? 2);
+  const confound = Number(stats.confoundScore ?? 0.10);
+
+  // 跨作品、跨作者复现度与混杂抵抗力综合得分
+  const score = conf * (1 - confound) * (lift > 0 ? 1.2 : 0.8) * Math.min(2.0, Math.log2(books + authors + 1));
+  if (score >= 1.5 && books >= 2 && authors >= 2) return 'A';
+  if (score >= 0.8) return 'B';
+  if (score >= 0.4) return 'C';
+  return 'D';
+}
+
 function createStrategyCard(input = {}) {
+  const stats = {
+    supportCount: Math.max(0, Number(input.stats?.supportCount ?? 12)),
+    bookCount: Math.max(0, Number(input.stats?.bookCount ?? 3)),
+    authorCount: Math.max(0, Number(input.stats?.authorCount ?? 3)),
+    genreCount: Math.max(0, Number(input.stats?.genreCount ?? 2)),
+    qualityLift: Number(input.stats?.qualityLift ?? 0.18),
+    confidence: Math.max(0, Math.min(1, Number(input.stats?.confidence ?? 0.88))),
+    confoundScore: Math.max(0, Math.min(1, Number(input.stats?.confoundScore ?? 0.08)))
+  };
+
+  const dynamicStrength = input.evidenceStrength || calculateStatisticalStrength(stats);
+
   const card = {
     id: String(input.id || 'card_' + Date.now()).trim(),
     name: String(input.name || '经典创作范式').trim(),
@@ -24,9 +51,12 @@ function createStrategyCard(input = {}) {
     microExample: String(input.microExample || '').trim(),
     counterExample: String(input.counterExample || '').trim(),
     failureMode: String(input.failureMode || '').trim(),
-    evidenceStrength: ['A', 'B', 'C', 'D'].includes(input.evidenceStrength) ? input.evidenceStrength : 'B',
+    abstractionLevel: ['high', 'medium', 'low'].includes(input.abstractionLevel) ? input.abstractionLevel : 'high',
+    evidenceStrength: ['A', 'B', 'C', 'D'].includes(dynamicStrength) ? dynamicStrength : 'B',
+    stats: Object.freeze(stats),
     applicableDimensions: Array.isArray(input.applicableDimensions) ? input.applicableDimensions.map(String) : [],
     tags: Array.isArray(input.tags) ? input.tags.map(String) : [],
+    similarityRiskPolicy: 'prohibit_verbatim_quote',
     metadata: typeof input.metadata === 'object' && input.metadata !== null ? { ...input.metadata } : {}
   };
 

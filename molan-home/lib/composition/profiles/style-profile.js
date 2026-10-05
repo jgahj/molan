@@ -112,12 +112,20 @@ function createStyleProfile(options = {}) {
     ? input.negativeRules.map(String).filter(Boolean)
     : [];
 
+  const stableDna = {
+    syntaxHabits: Array.isArray(input.stableDna?.syntaxHabits) ? input.stableDna.syntaxHabits.map(String) : [],
+    lexicalPreferences: Array.isArray(input.stableDna?.lexicalPreferences) ? input.stableDna.lexicalPreferences.map(String) : [],
+    narrativeDistance: String(input.stableDna?.narrativeDistance || input.narrativeDistance || 'medium'),
+    rhetoricDiscipline: Array.isArray(input.stableDna?.rhetoricDiscipline) ? input.stableDna.rhetoricDiscipline.map(String) : []
+  };
+
   const profile = {
-    schemaVersion: 'style-profile-v1',
+    schemaVersion: 'style-profile-v2',
     id,
     name,
     category: String(input.category || 'general'),
     baseVector,
+    stableDna: Object.freeze(stableDna),
     positiveRules,
     negativeRules,
     description: String(input.description || ''),
@@ -149,9 +157,16 @@ function compileStylePolicy(profile, localModulation = null) {
     `留白克制: ${(effectiveVector.negativeSpaceRatio * 100).toFixed(0)}%`
   ].join(' | ');
 
+  const dna = profile.stableDna || {};
+  const dnaLines = [];
+  if (dna.syntaxHabits?.length) dnaLines.push(`· 句法特征：${dna.syntaxHabits.join('；')}`);
+  if (dna.lexicalPreferences?.length) dnaLines.push(`· 词汇习惯：${dna.lexicalPreferences.join('；')}`);
+  if (dna.narrativeDistance) dnaLines.push(`· 叙事距离：${dna.narrativeDistance}`);
+
   const lines = [
     `【文风质感策略·${profile.name}】`,
-    `风格量化标尺：${vectorDesc}`,
+    dnaLines.length ? `【稳定文风基因 (Stable DNA)】：\n${dnaLines.join('\n')}` : '',
+    `本章量化调制标尺：${vectorDesc}`,
     profile.positiveRules.length ? `必须遵循的笔触规范：\n${profile.positiveRules.map(r => `· ${r}`).join('\n')}` : '',
     profile.negativeRules.length ? `严厉禁止的行文禁忌：\n${profile.negativeRules.map(r => `· ${r}`).join('\n')}` : ''
   ].filter(Boolean);
