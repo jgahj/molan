@@ -95,7 +95,7 @@ const DOMAIN_CONFIG = Object.freeze({
     ],
     synonymMap: {
       '击杀': ['击杀', '斩杀', '刺穿', '诛杀', '重创', '除掉'],
-      '刺客': ['刺客', '重铠', '敌人', '凶手']
+      '刺客': ['刺客', '重铠', '敌人', '凶手', '敌手', '对手', '黑衣人', '目标']
     }
   },
   relationship: {
@@ -175,9 +175,27 @@ const ACTION_VERBS = [
   '摸索', '贯穿', '运转', '破境', '度劫', '登基', '册封', '闭合', '戒严'
 ];
 
+const ALL_ACTION_VERBS = Array.from(new Set([
+  ...ACTION_VERBS,
+  ...Object.values(DOMAIN_CONFIG).flatMap(d => d.catalystVerbs || []),
+  ...Object.values(DOMAIN_CONFIG).flatMap(d => Object.keys(d.synonymMap || {})),
+  ...Object.values(DOMAIN_CONFIG).flatMap(d => Object.values(d.synonymMap || {}).flat()),
+  '盗取', '夺取', '翻找', '搜查', '启出', '偷取', '拔出',
+  '击中', '轰中', '命中', '下毒', '重击', '挥刀', '开弓', '斩首', '手刃', '格杀',
+  '审讯', '逼问', '辨认', '查阅', '偷听', '窥见', '看清', '获知', '洞察',
+  '斩断', '拔刀', '撕破脸', '结义', '告发', '结交', '反戈',
+  '领命', '宣读圣旨', '闭关', '结丹', '炼化', '入定',
+  '推动', '促成', '引发', '导致', '触发', '扭转', '锁定',
+  '身负重伤', '倒地不起', '气绝身亡'
+])).sort((a, b) => b.length - a.length);
+
 const NEGATION_MARKERS = [
   '未曾', '未能', '并未', '没有', '不曾', '未见', '无法', '难以',
   '未果', '未成', '未得', '决不', '绝不', '毫不'
+];
+
+const POST_VERB_NEGATION_MARKERS = [
+  '未果', '未成', '未得', '不成', '失败', '无果', '落空'
 ];
 
 const FAILURE_MARKERS = [
@@ -203,7 +221,7 @@ function splitIntoSentences(text) {
   const content = String(text || '');
   if (!content) return [];
   return content
-    .split(/([。！？；\n]+)/)
+    .split(/([。！？；\n]+[”"’」』]*)/)
     .filter(Boolean)
     .reduce((acc, cur, idx, arr) => {
       if (idx % 2 === 0) {
@@ -214,35 +232,187 @@ function splitIntoSentences(text) {
     }, []);
 }
 
+const CONTRADICTION_NEGATION_MARKERS = [
+  '未曾', '未能', '并未', '没有', '不曾', '未见', '无法', '难以',
+  '未果', '未成', '未得', '决不', '绝不', '毫不', '并非', '绝非',
+  '决非', '休想', '绝无', '毫无', '并不', '绝不会', '不是', '不曾有',
+  '不可能', '岂会', '怎会', '怎能', '岂能', '断不会', '断不可能'
+];
+
+const NON_ENTITY_PREFIX = /^(终究|最终|然而|但是|不过|却|依然|依旧|仍然|随后|随即|旋即|遂|于是|只得|不得不|只能|结果|到底|其实|果然|甚至|便|又|再|亦|也|且|并|倒|反倒|竟然|居然|竟|偏偏|终归|到头来|总归|不料|未料|谁料|岂料|当下|这才|但|可|可是|是|还是|实则|实际|终是|更是|只是|仅仅|只|光|犹|尚|仍|总|甚|极其|极为|分明|明明|偏|自己|自身|其|之|已|皆|咸|尽|俱|统统|全部|彻底|完全|几乎|大体|基本|虽|虽然|虽说|即使|纵使|就算|倘若|若是|如果|即|就|当|在|从|自|由|向|往|朝|经|早已|仍旧|已然|两手|双手|双足|浑身|全身|周身|他|她|它|此人|对方|双方)*$/;
+
+function maskDialogueQuotes(text) {
+  return String(text || '')
+    .replace(
+      /(?:“[^”]{0,1000}”|"[^"\r\n]{0,1000}"|‘[^’]{0,1000}’|「[^」]{0,1000}」|『[^』]{0,1000}』|(?<=[\s，。！？；、\n]|^)'[^'\r\n]{0,1000}')/g,
+      match => ' '.repeat(match.length)
+    )
+    .replace(
+      /(?:[“「『][^”」』\r\n]{0,1000}|(?<=[\s，。！？；、\n:：]|^)"[^"\r\n]{0,1000})(?=$|\r?\n)/g,
+      match => ' '.repeat(match.length)
+    );
+}
+
+function hasUnnegatedFailure(text, targetTerms = null) {
+  const masked = maskDialogueQuotes(text);
+  const targets = targetTerms ? (Array.isArray(targetTerms) ? targetTerms : Array.from(targetTerms)).filter(Boolean) : null;
+
+  for (const fail of FAILURE_MARKERS) {
+    if (!masked.includes(fail)) continue;
+    const clauses = masked.split(/[，,；;、\n]+/).map(c => c.trim()).filter(Boolean);
+    for (const clause of clauses) {
+      if (!clause.includes(fail)) continue;
+      const idx = clause.indexOf(fail);
+      const prefix = clause.slice(0, idx).trim();
+      const preceding = prefix.slice(-8);
+      if (CONTRADICTION_NEGATION_MARKERS.some(m => preceding.includes(m))) {
+        continue;
+      }
+
+      // 若未限定目标词项上下文，保留全局兜底匹配能力
+      if (!targets || targets.length === 0) {
+        return true;
+      }
+
+      // 1. 子句直接包含目标词项 (实体、谓词或状态关键词)
+      if (targets.some(t => clause.includes(t))) {
+        return true;
+      }
+
+      // 2. 主句包含目标词项，且子句无其他辅助独立实体介入 (主语承接)
+      if (targets.some(t => text.includes(t))) {
+        const cleanedPrefix = prefix.replace(/[^\u4e00-\u9fa5]/g, '');
+        if (NON_ENTITY_PREFIX.test(cleanedPrefix)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function isVerbNegatedInText(text, verbCandidates = [], evStr = '') {
+  const masked = maskDialogueQuotes(text);
+  const clauses = masked.split(/[，,；;、\n]+/).map(c => c.trim()).filter(Boolean);
+  for (const clause of clauses) {
+    const hasVerb = verbCandidates.some(v => v && clause.includes(v)) || (evStr && clause.includes(evStr));
+    if (!hasVerb) continue;
+    for (const neg of NEGATION_MARKERS) {
+      if (!clause.includes(neg)) continue;
+      const negIdx = clause.indexOf(neg);
+      const matchingVerbs = verbCandidates.filter(v => v && clause.includes(v));
+      const verbIdx = matchingVerbs.length ? Math.min(...matchingVerbs.map(v => clause.indexOf(v))) : (evStr ? clause.indexOf(evStr) : -1);
+      const verbLen = matchingVerbs.length ? Math.max(...matchingVerbs.filter(v => clause.indexOf(v) === verbIdx).map(v => v.length)) : (evStr ? evStr.length : 2);
+
+      if (verbIdx !== -1 && negIdx < verbIdx) {
+        const between = clause.slice(negIdx + neg.length, verbIdx);
+        const hasNegatedFail = FAILURE_MARKERS.some(f => between.includes(f));
+        if (!hasNegatedFail) {
+          return true;
+        }
+      } else if (verbIdx !== -1 && negIdx >= verbIdx + verbLen) {
+        if (POST_VERB_NEGATION_MARKERS.includes(neg)) {
+          const distance = negIdx - (verbIdx + verbLen);
+          if (distance <= 6) {
+            return true;
+          }
+        }
+      } else if (verbIdx === -1) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /**
- * 提取事件中的谓词与客体核心实体
+ * 提取事件中的谓词与客体核心实体 (支持 SVO、把/将处置句式 与 被字被动句式)
  */
 function parseEventStructure(eventStr) {
-  const ev = String(eventStr || '').trim();
-  if (!ev) return { verb: '', entity: '', raw: '' };
+  const trimmed = String(eventStr || '').trim();
+  if (!trimmed) return { verb: '', entity: '', subject: '', object: '', raw: '' };
+
+  const ev = trimmed.replace(/^[\s“”"'「」『』()（）《》〈〉【】,\.!?，。！？；;、]+|[\s“”"'「」『』()（）《》〈〉【】,\.!?，。！？；;、]+$/g, '').trim();
+  if (!ev) return { verb: '', entity: '', subject: '', object: '', raw: trimmed };
 
   let matchedVerb = '';
-  for (const v of ACTION_VERBS) {
-    if (ev.includes(v)) {
+  let subject = '';
+  let object = '';
+
+  // 1. 优先识别处置句式（把/将字句: 主语 + 把/将 + 宾语 + [修饰] + 动词 + [补语/助词]）
+  for (const v of ALL_ACTION_VERBS) {
+    const baPattern = new RegExp(`^(.+?)[把将](.+?)(?:给|当场|直接|彻底|顺势|顺手|生生|一并|全部|痛快|予以|便|就|顺带|随手|亲手|悄然|赫然|径直|奋力|断然|终于|终究)*${v}(?:[了着过掉]|致死|于地|到手)?$`);
+    const m = ev.match(baPattern);
+    if (m) {
       matchedVerb = v;
+      subject = m[1].trim();
+      object = m[2].trim();
       break;
     }
   }
 
-  let entity = '';
-  if (matchedVerb) {
-    entity = ev.replace(matchedVerb, '').trim();
+  // 2. 识别被动句式（被字句: 宾语 + 被 + [主语] + [修饰] + 动词 + [补语/助词]）
+  if (!matchedVerb) {
+    for (const v of ALL_ACTION_VERBS) {
+      const beiPatternWithSubject = new RegExp(`^(.+?)被(.+?)(?:给|当场|直接|彻底|顺势|顺手|生生|予以|便|就|随手|亲手|直接|彻底)*${v}(?:[了着过掉]|致死|于地)?$`);
+      const m1 = ev.match(beiPatternWithSubject);
+      if (m1) {
+        matchedVerb = v;
+        object = m1[1].trim();
+        subject = m1[2].trim();
+        break;
+      }
+      const beiPatternNoSubject = new RegExp(`^(.+?)被(?:给|当场|直接|彻底|顺势|顺手|生生|予以|便|就|随手|亲手|直接|彻底)*${v}(?:[了着过掉]|致死|于地)?$`);
+      const m2 = ev.match(beiPatternNoSubject);
+      if (m2) {
+        matchedVerb = v;
+        object = m2[1].trim();
+        subject = '';
+        break;
+      }
+    }
   }
 
-  if (!entity) {
+  // 3. 标准 SVO 句式
+  if (!matchedVerb) {
+    for (const v of ALL_ACTION_VERBS) {
+      if (ev.includes(v)) {
+        matchedVerb = v;
+        const vIdx = ev.indexOf(v);
+        subject = ev.slice(0, vIdx).trim();
+        object = ev.slice(vIdx + v.length).trim();
+        break;
+      }
+    }
+  }
+
+  if (matchedVerb) {
+    // 清理客体开头的动态助词与尾部补语 (如 "斩杀了刺客" -> "刺客", "斩杀刺客致死" -> "刺客")
+    object = object.replace(/^[了着过]+/, '').replace(/([了着过掉]|致死|于地|到手)$/, '').trim();
+    // 清理客体开头的指示代词量词 (如 "这名刺客" -> "刺客", "那枚暗黑古钱" -> "暗黑古钱")
+    object = object.replace(/^(这名|那名|该|此|这个|那个|这枚|那枚|这一|那一)/, '').trim();
+    // 清理客体末尾的副词与连词 (如 把字句中 "刺客亲手" -> "刺客", "刺客当场" -> "刺客")
+    object = object.replace(/(已|已经|成功|顺势|当场|悄然|赫然|径直|奋力|直接|彻底|随手|亲手|断然|终于|终究|一并|全部|痛快|予以|便|就|顺带|并|且)+$/, '').trim();
+
+    // 清理主体前缀常见时态副词与连词 (如 "适逢李巡" -> "李巡", "随后李巡" -> "李巡")
+    subject = subject.replace(/^(适逢|随后|随即|旋即|只见|忽然|突然|此时|这时|随之|接着|紧接着|不料|未料|终究|最终)+/, '').trim();
+    // 清理主体末尾的副词与连词 (如 "李巡已经成功起获" -> "李巡", "李巡当场斩杀" -> "李巡")
+    subject = subject.replace(/(已|已经|成功|顺势|当场|悄然|赫然|径直|奋力|直接|彻底|随手|亲手|断然|终于|终究|并|且|将|把)+$/, '').trim();
+
+    // 清洗主客体外围残余标点与引号
+    subject = subject.replace(/^[\s“”"'「」『』()（）《》〈〉【】,\.!?，。！？；;、]+|[\s“”"'「」『』()（）《》〈〉【】,\.!?，。！？；;、]+$/g, '').trim();
+    object = object.replace(/^[\s“”"'「」『』()（）《》〈〉【】,\.!?，。！？；;、]+|[\s“”"'「」『』()（）《》〈〉【】,\.!?，。！？；;、]+$/g, '').trim();
+  }
+
+  let entity = object || subject || '';
+
+  if (!entity && !subject && !object) {
     const tokens = ev.match(/[\u4e00-\u9fa5]{2,6}/g) || [];
     entity = tokens[tokens.length - 1] || ev;
-  }
-  if (!matchedVerb) {
-    matchedVerb = ev.slice(0, 2);
+    object = entity;
   }
 
-  return { verb: matchedVerb, entity, raw: ev };
+  return { verb: matchedVerb, entity, subject, object, raw: trimmed };
 }
 
 /**
@@ -357,9 +527,12 @@ function detectEventOccurrences(text, events = [], options = {}) {
   let verifiedCount = 0;
 
   for (const evStr of rawEvents) {
-    const { verb, entity } = parseEventStructure(evStr);
+    const { verb, entity, subject, object } = parseEventStructure(evStr);
     const verbCandidates = expandSynonyms(verb, domain);
-    const entityCandidates = expandSynonyms(entity, domain);
+    const targetEntities = [object, subject, entity].filter(Boolean);
+    const entityCandidates = Array.from(new Set(
+      (targetEntities.length ? targetEntities : [entity]).flatMap(e => expandSynonyms(e, domain))
+    ));
 
     let bestStatus = 'NOT_FOUND';
     let bestConfidence = 0;
@@ -390,11 +563,11 @@ function detectEventOccurrences(text, events = [], options = {}) {
       const isHearsay = HEARSAY_MARKERS.some(m => windowText.includes(m));
       // 2. 检查假设性/非实模态
       const isHypo = HYPOTHETICAL_MARKERS.some(m => windowText.includes(m));
-      // 3. 检查否定词与挫折未果标记
-      const hasNegation = NEGATION_MARKERS.some(m => windowText.includes(m));
-      const hasFailure = FAILURE_MARKERS.some(m => windowText.includes(m));
+      // 3. 检查否定词与挫折未果标记 (排除双重否定，并限定至目标实体与事件谓词)
+      const hasFailure = hasUnnegatedFailure(windowText, [...entityCandidates, ...verbCandidates]);
+      const isNegated = isVerbNegatedInText(windowText, verbCandidates, evStr);
 
-      if (hasFailure || (hasNegation && (hasVerb || hasRaw))) {
+      if (hasFailure || isNegated) {
         bestStatus = 'FAILED_ATTEMPT';
         bestConfidence = 0.85;
         evidenceSnippet = windowText.slice(0, 100);
@@ -434,7 +607,7 @@ function detectEventOccurrences(text, events = [], options = {}) {
         verbDistance = Math.abs(vPos - ePos);
       }
 
-      if (hasRaw || (hasVerb && hasEntity && verbDistance <= maxWindow) || (hasVerb && !entity && !hasNegation)) {
+      if (hasRaw || (hasVerb && hasEntity && verbDistance <= maxWindow) || (hasVerb && !entity && !isNegated)) {
         bestStatus = 'VERIFIED_OCCURRED';
         bestConfidence = 0.95;
         evidenceSnippet = windowText.slice(0, 100);
@@ -527,24 +700,135 @@ function verifyNarrativeStateTransition(text, stateDelta = {}, options = {}) {
   const domain = options.domain || resolveTransitionDomain({ stateDelta }, options);
   const cfg = DOMAIN_CONFIG[domain] || DOMAIN_CONFIG.general;
 
-  // 1. 扫描矛盾标记
+  // 1. 收集跃迁目标词项 (实体、谓词、状态实词)，用于上下文矛盾作用域界定
+  const rawEvents = Array.isArray(stateDelta.events) ? stateDelta.events : (stateDelta.events ? [stateDelta.events] : []);
+  const targetTerms = new Set();
+  const combatSubjects = new Set();
+  let hasCombatObject = false;
+
+  for (const ev of rawEvents) {
+    const { subject, object, entity, verb } = parseEventStructure(ev);
+    if (domain === 'condition' && object) {
+      hasCombatObject = true;
+      if (subject) combatSubjects.add(subject);
+      targetTerms.add(object);
+      expandSynonyms(object, domain).forEach(s => targetTerms.add(s));
+    } else {
+      if (subject) {
+        targetTerms.add(subject);
+        expandSynonyms(subject, domain).forEach(s => targetTerms.add(s));
+      }
+      if (object) {
+        targetTerms.add(object);
+        expandSynonyms(object, domain).forEach(s => targetTerms.add(s));
+      }
+    }
+    if (entity && (domain !== 'condition' || !object || entity === object)) {
+      targetTerms.add(entity);
+      expandSynonyms(entity, domain).forEach(s => targetTerms.add(s));
+    }
+    if (verb) {
+      targetTerms.add(verb);
+      expandSynonyms(verb, domain).forEach(s => targetTerms.add(s));
+    }
+  }
+  if (stateDelta.targetEntity) {
+    targetTerms.add(String(stateDelta.targetEntity));
+    expandSynonyms(String(stateDelta.targetEntity), domain).forEach(s => targetTerms.add(s));
+  }
+  if (Array.isArray(stateDelta.targetEntities)) {
+    stateDelta.targetEntities.forEach(e => {
+      targetTerms.add(String(e));
+      expandSynonyms(String(e), domain).forEach(s => targetTerms.add(s));
+    });
+  }
+  if (Array.isArray(options.entities)) {
+    options.entities.forEach(e => {
+      targetTerms.add(String(e));
+      expandSynonyms(String(e), domain).forEach(s => targetTerms.add(s));
+    });
+  }
+  const afterSummary = stateDelta.stateAfter?.summary || (typeof stateDelta.stateAfter === 'string' ? stateDelta.stateAfter : '');
+  if (afterSummary) {
+    const afterTokens = afterSummary.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+    afterTokens.forEach(t => targetTerms.add(t));
+  }
+  const beforeSummary = stateDelta.stateBefore?.summary || (typeof stateDelta.stateBefore === 'string' ? stateDelta.stateBefore : '');
+  if (beforeSummary) {
+    const beforeTokens = beforeSummary.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+    beforeTokens.forEach(t => targetTerms.add(t));
+  }
+
+  // 辅助实体与修饰语前缀过滤器：允许副词、连词、语气助词承接主语，拦截非目标实词主体 (如 "师妹安好" 中的 "师妹")
+  const NON_ENTITY_PREFIX = /^(终究|最终|然而|但是|不过|却|依然|依旧|仍然|随后|随即|旋即|遂|于是|只得|不得不|只能|结果|到底|其实|果然|甚至|便|又|再|亦|也|且|并|倒|反倒|竟然|居然|竟|偏偏|终归|到头来|总归|不料|未料|谁料|岂料|当下|这才|但|可|可是|是|还是|实则|实际|终是|更是|只是|仅仅|只|光|犹|尚|仍|总|甚|极其|极为|分明|明明|偏|自己|自身|其|之|已|皆|咸|尽|俱|统统|全部|彻底|完全|几乎|大体|基本|虽|虽然|虽说|即使|纵使|就算|倘若|若是|如果|即|就|当|在|从|自|由|向|往|朝|经|早已|仍旧|已然|两手|双手|双足|浑身|全身|周身|他|她|它|此人|对方|双方)*$/;
+
+  // 全文预先对白引号脱敏，用于矛盾标记扫描
+  const maskedContent = maskDialogueQuotes(content);
+  const contradictionSentences = splitIntoSentences(maskedContent);
+  const sentences = splitIntoSentences(content);
+
+  // 1. 扫描矛盾标记 (作用域限制在描述目标实体/事件的句子与子句，排除对白引号与否定前缀)
   const contradictions = [];
-  for (const neg of cfg.contradictionKeywords) {
-    if (content.includes(neg)) {
-      contradictions.push(neg);
+  for (const sent of contradictionSentences) {
+    for (const neg of cfg.contradictionKeywords) {
+      if (!sent.includes(neg)) continue;
+
+      const clauses = sent.split(/[，,；;、\n]+/).map(c => c.trim()).filter(Boolean);
+      for (const clause of clauses) {
+        if (!clause.includes(neg)) continue;
+
+        const idx = clause.indexOf(neg);
+        const prefix = clause.slice(0, idx).trim();
+
+        // 排除被否定词修饰的矛盾词（如 "并未空手而归"、"没有毫发无损"）
+        const precedingWindow = prefix.slice(-8);
+        if (CONTRADICTION_NEGATION_MARKERS.some(m => precedingWindow.includes(m))) {
+          continue;
+        }
+
+        // 1. 子句直接包含目标实体或核心事件/谓词
+        const clauseHasTarget = Array.from(targetTerms).some(t => t && clause.includes(t));
+        if (clauseHasTarget) {
+          if (!contradictions.includes(neg)) contradictions.push(neg);
+          continue;
+        }
+
+        // 2. 主句包含目标实体，且子句无其他辅助独立实体介入 (主语承接)
+        const sentHasTarget = Array.from(targetTerms).some(t => t && sent.includes(t));
+        if (sentHasTarget) {
+          const cleanedPrefix = prefix.replace(/[^\u4e00-\u9fa5]/g, '');
+          if (NON_ENTITY_PREFIX.test(cleanedPrefix)) {
+            // 特殊保护：在 condition 领域，如果存在战斗施动主体且 cleanedPrefix 包含承接施动者的代词 ("自身"/"自己"/"他"/"她"/"其")，
+            // 且主句明确包含施动者主体，则承接的是施动者主体而非受击客体，不得判定为矛盾
+            if (
+              domain === 'condition' &&
+              hasCombatObject &&
+              (/(自身|自己|他|她|其|本人|此人)/.test(cleanedPrefix) && !/(对方|刺客|敌人|受害者)/.test(cleanedPrefix)) &&
+              Array.from(combatSubjects).some(cs => sent.includes(cs))
+            ) {
+              continue;
+            }
+            if (!contradictions.includes(neg)) contradictions.push(neg);
+            continue;
+          }
+        }
+
+        // 3. 兜底保护：当目标上下文全空时保留全局匹配能力
+        if (targetTerms.size === 0) {
+          if (!contradictions.includes(neg)) contradictions.push(neg);
+        }
+      }
     }
   }
 
   // 2. 收集催化动词集合 (领域词典 + 来自 stateDelta.events 的动词)
   const allCatalystVerbs = new Set(cfg.catalystVerbs);
-  const rawEvents = Array.isArray(stateDelta.events) ? stateDelta.events : (stateDelta.events ? [stateDelta.events] : []);
   for (const ev of rawEvents) {
     const { verb } = parseEventStructure(ev);
     if (verb) allCatalystVerbs.add(verb);
   }
 
   // 3. 逐句扫描催化动作与状态确认标记（严格排除假设句与否定句）
-  const sentences = splitIntoSentences(content);
   let catalystFound = false;
   let affirmativeFound = false;
   const catalystSnippets = [];
@@ -552,11 +836,11 @@ function verifyNarrativeStateTransition(text, stateDelta = {}, options = {}) {
 
   for (const sent of sentences) {
     const isHypo = HYPOTHETICAL_MARKERS.some(m => sent.includes(m));
-    const hasFailure = FAILURE_MARKERS.some(m => sent.includes(m));
-    const hasNegation = NEGATION_MARKERS.some(m => sent.includes(m));
+    const hasFailure = hasUnnegatedFailure(sent, targetTerms);
+    const hasVerbNegation = isVerbNegatedInText(sent, Array.from(allCatalystVerbs));
 
     // 假设句、失败未果句或否定句中的动作不得作为正向跃迁依据
-    if (isHypo || hasFailure || hasNegation) {
+    if (isHypo || hasFailure || hasVerbNegation) {
       continue;
     }
 
@@ -576,15 +860,14 @@ function verifyNarrativeStateTransition(text, stateDelta = {}, options = {}) {
   }
 
   // 4. stateAfter 核心摘要实词检查（同样要求在肯定语境中落地）
-  const afterSummary = stateDelta.stateAfter?.summary || (typeof stateDelta.stateAfter === 'string' ? stateDelta.stateAfter : '');
   let afterSummaryAffirmed = false;
   if (afterSummary) {
     const afterTokens = afterSummary.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
     for (const sent of sentences) {
       const isHypo = HYPOTHETICAL_MARKERS.some(m => sent.includes(m));
-      const hasFailure = FAILURE_MARKERS.some(m => sent.includes(m));
-      const hasNegation = NEGATION_MARKERS.some(m => sent.includes(m));
-      if (isHypo || hasFailure || hasNegation) continue;
+      const hasFailure = hasUnnegatedFailure(sent, afterTokens);
+      const hasVerbNegation = isVerbNegatedInText(sent, afterTokens);
+      if (isHypo || hasFailure || hasVerbNegation) continue;
 
       if (afterTokens.some(tok => sent.includes(tok))) {
         afterSummaryAffirmed = true;
@@ -663,10 +946,12 @@ function evaluateOutcomeContractFulfillment(textOrContract, contractOrText, opti
   const events = Array.isArray(delta.events) ? delta.events.map(String).filter(Boolean) : (delta.events ? [String(delta.events)] : []);
   const domain = resolveTransitionDomain(outcomeContract, options);
 
-  // 1. 提取目标实体集
+  // 1. 提取目标实体集 (独立提取主客体)
   const entityCandidates = new Set();
   for (const ev of events) {
-    const { entity } = parseEventStructure(ev);
+    const { subject, object, entity } = parseEventStructure(ev);
+    if (subject) entityCandidates.add(subject);
+    if (object) entityCandidates.add(object);
     if (entity) entityCandidates.add(entity);
   }
   if (options.entities && Array.isArray(options.entities)) {
@@ -759,6 +1044,7 @@ function evaluateOutcomeContractFulfillment(textOrContract, contractOrText, opti
 module.exports = {
   TRANSITION_DOMAINS,
   DOMAIN_CONFIG,
+  parseEventStructure,
   detectEntityMentions,
   detectEventOccurrences,
   verifyNarrativeStateTransition,

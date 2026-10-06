@@ -105,7 +105,7 @@ function updateStrategyFeedback(strategyCard, feedbackContext = 0.85, options = 
   const oldStats = strategyCard.stats || {};
   const oldSupport = Number(oldStats.supportCount) || 1;
   const oldConfidence = Number(oldStats.confidence) || 0.85;
-  const oldLift = Number(oldStats.qualityLift) || 0.15;
+  const oldLift = Number.isFinite(Number(oldStats.qualityLift)) ? Number(oldStats.qualityLift) : 0.15;
   const oldConfound = Number(oldStats.confoundScore ?? 0.10);
 
   const newSupport = oldSupport + 1;

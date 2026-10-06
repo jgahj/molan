@@ -160,6 +160,14 @@ function mineStrategiesFromFeatures(options = {}) {
     };
   });
 
+  // 按综合质量提升度与置信度降序排列
+  gradedRules.sort((a, b) => {
+    if (a.stats.qualityLift !== b.stats.qualityLift) {
+      return b.stats.qualityLift - a.stats.qualityLift;
+    }
+    return b.stats.confidence - a.stats.confidence;
+  });
+
   // 6. 写入暂存文件 (JSONL 与 JSON)
   const ruleJsonlContent = gradedRules.map(r => JSON.stringify(r)).join('\n') + '\n';
   fs.writeFileSync(rulesFile, ruleJsonlContent, 'utf8');
@@ -332,7 +340,7 @@ function synthesizeRuleFromCluster(clusterKey, clusterChapters, allFeatures, dis
     baselineScore = nonClusterScores.reduce((a, b) => a + b, 0) / nonClusterScores.length;
   }
   const liftDelta = clusterMean - baselineScore;
-  const qualityLift = Number((liftDelta !== 0 ? liftDelta : clusterMean - 0.65).toFixed(3));
+  const qualityLift = Number(liftDelta.toFixed(3));
 
   // 置信度：达标或优秀的比例
   const qualifiedRatio = clusterChapters.filter(f => {
@@ -356,7 +364,7 @@ function synthesizeRuleFromCluster(clusterKey, clusterChapters, allFeatures, dis
     supportCount: clusterChapters.length,
     bookCount: clusterBooks,
     authorCount: clusterAuthors,
-    qualityLift: qualityLift > 0 ? qualityLift : 0.15,
+    qualityLift,
     confidence,
     confoundScore
   };
