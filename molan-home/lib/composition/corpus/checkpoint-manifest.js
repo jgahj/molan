@@ -61,6 +61,7 @@ class CheckpointManifest {
         booksCompleted: 0,
         chaptersProcessed: 0,
         candidateChaptersFound: 0,
+        unsegmented: 0,
         failed: 0,
         status: 'in_progress',
         books: {}
@@ -78,6 +79,7 @@ class CheckpointManifest {
             last_chapter: 0,
             chaptersProcessed: 0,
             candidateChapters: 0,
+            unsegmented: 0,
             feature_version: '1.0.0',
             error: null,
             retry_count: 0
@@ -99,6 +101,7 @@ class CheckpointManifest {
             last_chapter: 0,
             chaptersProcessed: 0,
             candidateChapters: 0,
+            unsegmented: 0,
             feature_version: '1.0.0',
             error: null,
             retry_count: 0
@@ -139,6 +142,16 @@ class CheckpointManifest {
     entry.candidateChapters = stats.candidateChapters || entry.candidateChapters;
     entry.error = null;
 
+    if (typeof stats.unsegmented !== 'undefined') {
+      const rawUnseg = typeof stats.unsegmented === 'boolean'
+        ? (stats.unsegmented ? 1 : 0)
+        : Number(stats.unsegmented || 0);
+      const unsegCount = Number.isFinite(rawUnseg) ? Math.max(0, rawUnseg) : 0;
+      const prevUnseg = entry.unsegmented || 0;
+      entry.unsegmented = unsegCount;
+      this.data.unsegmented = (this.data.unsegmented || 0) - prevUnseg + unsegCount;
+    }
+
     this.data.booksCompleted++;
     this.data.chaptersProcessed += (stats.newChapters || entry.chaptersProcessed);
     this.data.candidateChaptersFound += (stats.candidateChapters || 0);
@@ -172,6 +185,7 @@ class CheckpointManifest {
       booksCompleted: this.data.booksCompleted,
       chaptersProcessed: this.data.chaptersProcessed,
       candidateChaptersFound: this.data.candidateChaptersFound,
+      unsegmented: this.data.unsegmented || 0,
       failed: this.data.failed,
       status: this.data.booksCompleted >= this.data.booksTotal ? 'completed' : 'in_progress'
     };

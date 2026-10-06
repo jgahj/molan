@@ -251,11 +251,16 @@ class CorpusBatchPipeline {
 
         let bookCandidates = 0;
         let validChaptersCount = 0;
+        let unsegmentedCount = 0;
         const featureLines = [];
 
         for (const chapter of chapters) {
+          // 协作式事件循环让渡，防止高密集初筛与因子化垄断事件循环
+          await new Promise(resolve => setImmediate(resolve));
+
           if (chapter.unsegmented || chapter.title === 'UNSEGMENTED' || chapter.chapterNo === 0) {
             // 标记跳过未切分章节，严防虚拟章节污染下游特征库与策略挖掘
+            unsegmentedCount++;
             continue;
           }
 
@@ -312,7 +317,7 @@ class CorpusBatchPipeline {
             chaptersProcessed: validChaptersCount,
             candidateChapters: bookCandidates,
             newChapters: validChaptersCount,
-            unsegmented: validChaptersCount === 0
+            unsegmented: unsegmentedCount
           });
         });
       } catch (err) {
