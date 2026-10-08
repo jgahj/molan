@@ -20,6 +20,7 @@ const { evaluateClimaxShockGate, generateMicroPatchPrompt } = require('../genre-
 const { PipelineCoordinator, PIPELINE_STATES, parseDecoupledStream, applyHunkPatch } = require('./pipeline-coordinator');
 const { validateEntityTreeConsistency, compileStoryBiblePrompt } = require('../story-bible-schema');
 const { evaluateUnifiedQuality } = require('../quality/unified-quality-gate');
+const { legacyUsageTelemetry } = require('./legacy-telemetry');
 
 
 /**
@@ -64,6 +65,7 @@ const ENTITY_RELATION_SCHEMA = Object.freeze({
  * 整合：分场景切片 + 转场契约 + 人物情绪弱点 + 实体图谱 + 物理抗阻门禁
  */
 function assembleUpgradedGenerationPrompt(rawPrompt, options = {}) {
+  legacyUsageTelemetry.record('generation-pipeline-coordinator', { action: 'assembleUpgradedGenerationPrompt' });
   const targetWordCount = options.targetWordCount || 2400;
 
   // 1. 提取或解析大纲节点
@@ -136,6 +138,7 @@ function assembleUpgradedGenerationPrompt(rawPrompt, options = {}) {
  * @returns {Object} 门禁审计结果
  */
 function auditGeneratedChapter(chapterText, context = {}) {
+  legacyUsageTelemetry.record('generation-pipeline-coordinator', { action: 'auditGeneratedChapter' });
   const genre = context.genre || '通用';
   const contract = {
     isClimax: true,
@@ -175,6 +178,7 @@ function auditGeneratedChapter(chapterText, context = {}) {
 }
 
 module.exports = {
+  legacyUsageTelemetry,
   ENTITY_RELATION_SCHEMA,
   PIPELINE_STATES,
   PipelineCoordinator,
