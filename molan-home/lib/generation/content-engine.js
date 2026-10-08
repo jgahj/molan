@@ -409,7 +409,7 @@ function compileDraftPrompt(options = {}) {
       userInstruction: userInstructionText
     });
 
-    const maxTotalTokens = options.maxTotalTokens || options.maxTokens || req.maxTokens || 6000;
+    const maxTotalTokens = options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? 6000;
     const attention = tierAttention({
       permanentContext: lowered.priorityCascade?.P2_CREATION_BIBLE || '',
       chapterStrategy: lowered.systemPrompt,
@@ -526,7 +526,7 @@ function compileDraftPrompt(options = {}) {
     chapterStrategy: systemPrompt,
     evidenceCards: [],
     immediateContext: userPrompt,
-    maxTotalTokens: options.maxTotalTokens || options.maxTokens || req.maxTokens || 6000
+    maxTotalTokens: options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? 6000
   });
 
   const fallbackPayload = fallbackAttention.attention || {
@@ -567,16 +567,75 @@ function buildDraftRequest(options = {}) {
     ? prompt
     : compileDraftPrompt(options);
 
-  const targetChars = compiled.wordBudget.target || Number(req.targetChars) || 2400;
-  const writerMaxTokens = Math.max(8192, Math.min(16000, Math.ceil(targetChars * 3.5)));
+  const attention = options.attention || options.tieredAttention || req.attention || compiled.attention || compiled.tieredAttention || compiled.compositionStrategy?.attention || null;
+
+  let effectiveSystem = String(compiled.systemPrompt || '').trim();
+  let effectiveUser = String(compiled.userPrompt || '').trim();
+
+  // P0-1 Attention 真实安全送入模型上下文（带幂等去重）
+  if (attention && typeof attention === 'object') {
+    // 1. Tier 1 永驻上下文（创作圣经/底层铁律）：合并入 system
+    const t1 = typeof attention.tier1Permanent === 'string' ? attention.tier1Permanent.trim() : '';
+    if (t1) {
+      const alreadyHasT1 = effectiveSystem.includes(t1) ||
+        (t1.includes('世界底层运行法则') && effectiveSystem.includes('世界底层运行法则')) ||
+        (t1.includes('【P2 创作圣经') && effectiveSystem.includes('【P2 创作圣经'));
+      if (!alreadyHasT1) {
+        effectiveSystem = effectiveSystem ? `${effectiveSystem}\n\n【创作圣经·永驻上下文】\n${t1}` : t1;
+      }
+    }
+
+    // 2. Tier 2 章节策略：确保已在 system 中
+    const t2 = typeof attention.tier2Strategy === 'string' ? attention.tier2Strategy.trim() : '';
+    if (t2 && !effectiveSystem.includes(t2)) {
+      effectiveSystem = effectiveSystem ? `${effectiveSystem}\n\n${t2}` : t2;
+    }
+
+    // 3. Tier 3 证据卡：合并入 userPrompt（或系统指令），包含性幂等去重（防范与 ir-lowering 双重膨胀）
+    const t3 = typeof attention.tier3Evidence === 'string' ? attention.tier3Evidence.trim() : '';
+    if (t3 && !effectiveUser.includes(t3) && !effectiveSystem.includes(t3)) {
+      const cardBlocks = t3.split(/(?=\n*【参考策略卡\s*\d*·?)/).map(b => b.trim()).filter(Boolean);
+      const blocksToInclude = [];
+      const effectiveCandidate = (cardBlocks.length ? cardBlocks : [t3]);
+      for (const block of effectiveCandidate) {
+        if (effectiveUser.includes(block) || effectiveSystem.includes(block)) {
+          continue;
+        }
+        const ruleMatch = block.match(/(?:·\s*)?规则[：:]\s*([^\n]+)/);
+        const rule = ruleMatch ? ruleMatch[1].trim() : '';
+        if (rule && (effectiveUser.includes(rule) || effectiveSystem.includes(rule))) {
+          continue;
+        }
+        const nameMatch = block.match(/【参考策略卡\s*\d*·(.*?)】/);
+        const name = nameMatch ? nameMatch[1].trim() : '';
+        if (name && (effectiveUser.includes(name) || effectiveSystem.includes(name))) {
+          continue;
+        }
+        blocksToInclude.push(block);
+      }
+      if (blocksToInclude.length > 0) {
+        const newEvidenceText = blocksToInclude.join('\n\n');
+        effectiveUser = effectiveUser ? `${effectiveUser}\n\n【参考策略卡引导】\n${newEvidenceText}` : newEvidenceText;
+      }
+    }
+
+    // 4. Tier 4 即时上下文：确保已在 userPrompt 中
+    const t4 = typeof attention.tier4Immediate === 'string' ? attention.tier4Immediate.trim() : '';
+    if (t4 && !effectiveUser.includes(t4)) {
+      effectiveUser = effectiveUser ? `${t4}\n\n${effectiveUser}` : t4;
+    }
+  }
+
+  const targetChars = compiled.wordBudget?.target ?? (req.targetChars != null ? Number(req.targetChars) : null) ?? 2400;
+  const writerMaxTokens = (req.modelParams?.maxTokens ?? req.maxTokens ?? options.maxTokens) ?? Math.max(8192, Math.min(16000, Math.ceil(targetChars * 3.5)));
 
   const promptBudget = assertContextBudget({
     messages: [
-      { role: 'system', content: compiled.systemPrompt },
-      { role: 'user', content: compiled.userPrompt }
+      { role: 'system', content: effectiveSystem },
+      { role: 'user', content: effectiveUser }
     ],
     modelId: req.modelId || options.modelId,
-    providerContextLimit: options.providerContextLimit || req.providerContextLimit || (req.modelParams && req.modelParams.contextWindow),
+    providerContextLimit: options.providerContextLimit ?? req.providerContextLimit ?? req.modelParams?.contextWindow ?? null,
     targetChars,
     outputReserve: writerMaxTokens,
     maxOutputTokens: writerMaxTokens
@@ -603,16 +662,14 @@ function buildDraftRequest(options = {}) {
     } : basePlan.replayManifest
   };
 
-  const attention = compiled.attention || compiled.tieredAttention || compiled.compositionStrategy?.attention || null;
-
   return {
     stage: 'writer',
-    system: compiled.systemPrompt,
-    userPrompt: compiled.userPrompt,
+    system: effectiveSystem,
+    userPrompt: effectiveUser,
     modelId: req.modelId || options.modelId,
-    temperature: (req.modelParams && req.modelParams.temperature) ?? (options.temperature ?? 0.75),
-    topP: (req.modelParams && req.modelParams.topP) ?? options.topP ?? null,
-    seed: (req.modelParams && req.modelParams.seed) ?? options.seed ?? null,
+    temperature: req.modelParams?.temperature ?? options.temperature ?? 0.75,
+    topP: req.modelParams?.topP ?? options.topP ?? null,
+    seed: req.modelParams?.seed ?? options.seed ?? null,
     maxTokens: writerMaxTokens,
     jsonMode: false,
     contextPlan,
@@ -794,8 +851,8 @@ async function generateDraft(options = {}) {
         if (!cachedDeterministicAudit) {
           cachedDeterministicAudit = auditDraft({
             text,
-            minChars: Number(contract.wordBudget && contract.wordBudget.minChars) || Math.ceil(targetChars * 0.8),
-            maxChars: Number(contract.wordBudget && contract.wordBudget.maxChars) || Math.floor(targetChars * 1.2),
+            minChars: contract.wordBudget?.minChars != null ? Number(contract.wordBudget.minChars) : Math.ceil(targetChars * 0.8),
+            maxChars: contract.wordBudget?.maxChars != null ? Number(contract.wordBudget.maxChars) : Math.floor(targetChars * 1.2),
             strictLength: true
           });
         }

@@ -15,6 +15,8 @@
  * 4. 将差量实验结果反哺更新 StrategyCard 的 stats 与 evidenceStrength，并在兼容矩阵中登记实际协同样本。
  */
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { calculateStatisticalStrength, createStrategyCard } = require('../corpus/evidence-catalog');
 
 // 典型 AI 恶习与套话词表
@@ -53,7 +55,12 @@ const TENSION_CRISIS_PATTERNS = [
 class ExperimentEngine {
   constructor(options = {}) {
     this.compatibilityMatrix = options.compatibilityMatrix || null;
+    this.persistencePath = options.persistencePath || options.storagePath || options.journalPath || null;
     this.synergyRecords = new Map();
+
+    if (this.persistencePath) {
+      this.loadSynergyRecords(this.persistencePath);
+    }
   }
 
   /**
@@ -220,7 +227,103 @@ class ExperimentEngine {
   }
 
   /**
-   * 记录 5 维上下文元组的协同提升度
+   * 从 JSONL 磁盘日志文件恢复协同记录 (启动恢复)
+   * @param {string} filePath 文件路径
+   * @returns {number} 成功恢复的记录数
+   */
+  loadSynergyRecords(filePath = this.persistencePath) {
+    if (!filePath) return 0;
+    try {
+      if (!fs.existsSync(filePath)) return 0;
+      const content = fs.readFileSync(filePath, 'utf8');
+      const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+      let count = 0;
+      for (const line of lines) {
+        try {
+          const record = JSON.parse(line);
+          if (record && record.key && typeof record.observedLift === 'number' && Number.isFinite(record.observedLift)) {
+            this.synergyRecords.set(record.key, record.observedLift);
+            count++;
+          }
+        } catch (_) {
+          // 容错处理损坏行
+        }
+      }
+      return count;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /**
+   * 追加写单条记录到 JSONL 磁盘文件 (追加写日志)
+   * @param {Object} record 待持久化实体
+   * @param {string} filePath 文件路径
+   */
+  appendSynergyRecord(record, filePath = this.persistencePath) {
+    if (!filePath || !record) return;
+    try {
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const line = JSON.stringify(record) + '\n';
+      fs.appendFileSync(filePath, line, 'utf8');
+    } catch (_) {
+      // 容错降级，不阻塞内存主流程
+    }
+  }
+
+  /**
+   * 将当前内存中的全部协同记录持久化写入目标 JSONL 文件
+   * @param {string} filePath 文件路径
+   * @returns {number} 写入条目数
+   */
+  flushSynergyRecords(filePath = this.persistencePath) {
+    if (!filePath) return 0;
+    try {
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const lines = [];
+      for (const [key, observedLift] of this.synergyRecords.entries()) {
+        lines.push(JSON.stringify({ key, observedLift, flushedAt: new Date().toISOString() }));
+      }
+      fs.writeFileSync(filePath, lines.join('\n') + (lines.length ? '\n' : ''), 'utf8');
+      return lines.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /**
+   * 查询协同提升度记录（支持字符串 key 或元组查询对象）
+   * @param {string|Object} keyOrParams 键值或包含 tuple/strategyId 的参数对象
+   * @returns {number|null}
+   */
+  getSynergyLift(keyOrParams) {
+    if (typeof keyOrParams === 'string') {
+      return this.synergyRecords.get(keyOrParams) ?? null;
+    }
+    if (keyOrParams && typeof keyOrParams === 'object') {
+      const tuple = keyOrParams.tuple || keyOrParams;
+      const strategyId = keyOrParams.strategyId || '';
+      const key = [
+        tuple.genre || '*',
+        tuple.style || '*',
+        tuple.chapterGoal || '*',
+        tuple.focus || '*',
+        tuple.hook || '*',
+        strategyId || '*'
+      ].join('::');
+      return this.synergyRecords.get(key) ?? null;
+    }
+    return null;
+  }
+
+  /**
+   * 记录 5 维上下文元组的协同提升度（支持追加写磁盘日志）
    * @param {Object} params
    * @returns {Promise<Object>}
    */
@@ -237,12 +340,29 @@ class ExperimentEngine {
 
     this.synergyRecords.set(key, observedLift);
 
+    const record = {
+      key,
+      tuple,
+      strategyId,
+      observedLift,
+      recordedAt: new Date().toISOString()
+    };
+
+    const targetPath = params.persistencePath || this.persistencePath;
+    if (targetPath) {
+      if (!this.persistencePath) {
+        this.persistencePath = targetPath;
+      }
+      this.appendSynergyRecord(record, targetPath);
+    }
+
     return {
       success: true,
       tuple,
       strategyId,
       observedLift,
-      key
+      key,
+      persisted: Boolean(targetPath)
     };
   }
 }

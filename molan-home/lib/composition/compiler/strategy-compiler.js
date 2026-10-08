@@ -53,7 +53,7 @@ function compileToStrategyIR(params = {}) {
   if (!effectiveDebtContext && params.storyDebtLedger) {
     const { projectDebtsForChapter } = require('../debt/debt-projection');
     effectiveDebtContext = projectDebtsForChapter(params.storyDebtLedger, {
-      currentChapter: chapterContract.chapterNo || spec.chapterNo || 1,
+      currentChapter: chapterContract.chapterNo ?? spec.chapterNo ?? 1,
       activeCharacters: chapterContract.characters || [],
       arcId: chapterContract.arcId || '',
       volumeId: chapterContract.volumeId || ''
@@ -63,9 +63,9 @@ function compileToStrategyIR(params = {}) {
   const compatibility = evaluateCompatibility(spec);
   const effectiveModulation = spec.localStyleModulation || compatibility.recommendedModulation || null;
 
-  const targetChars = Number(chapterContract.wordBudget?.targetChars || spec.targetChars || 3000);
-  const minChars = Number(chapterContract.wordBudget?.minChars || Math.round(targetChars * 0.85));
-  const maxChars = Number(chapterContract.wordBudget?.maxChars || Math.round(targetChars * 1.15));
+  const targetChars = Number(chapterContract.wordBudget?.targetChars ?? spec.targetChars ?? 3000);
+  const minChars = Number(chapterContract.wordBudget?.minChars ?? Math.round(targetChars * 0.85));
+  const maxChars = Number(chapterContract.wordBudget?.maxChars ?? Math.round(targetChars * 1.15));
 
   const hardConstraints = {
     targetWordRange: { min: minChars, max: maxChars, target: targetChars },
@@ -216,7 +216,7 @@ function compileChapterStrategy(params = {}) {
   });
 
   // 4. 注意力分级打包 (Attention Tiering)
-  const maxTotalTokens = options.maxTotalTokens || options.maxTokens || params.maxTotalTokens || params.maxTokens || 6000;
+  const maxTotalTokens = options.maxTotalTokens ?? options.maxTokens ?? params.maxTotalTokens ?? params.maxTokens ?? 6000;
   const attention = tierAttention({
     permanentContext: lowered.priorityCascade?.P2_CREATION_BIBLE || '',
     chapterStrategy: lowered.systemPrompt,
