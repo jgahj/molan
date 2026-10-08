@@ -55,6 +55,13 @@ function reconcileChapterDebts(params = {}) {
     if (!existing) continue;
 
     const action = String(item.action || 'PAID').toUpperCase();
+
+    // 若债务已处于 PAID 终态且声明动作亦为 PAID，视为已结清，幂等跳过以避免抛出状态机拒绝异常
+    if (existing.status === DEBT_STATUSES.PAID && action === DEBT_EVENT_TYPES.PAID) {
+      processedDebtIds.add(debtId);
+      continue;
+    }
+
     let record = null;
     const opts = {
       chapterNo,
@@ -138,6 +145,12 @@ function reconcileChapterDebts(params = {}) {
     if (processedDebtIds.has(item.debtId)) continue;
     const existing = ledger.getDebt(item.debtId);
     if (!existing) continue;
+
+    // 若债务已处于 PAID 终态，形式语义验证通道视为已确权，幂等跳过
+    if (existing.status === DEBT_STATUSES.PAID) {
+      processedDebtIds.add(item.debtId);
+      continue;
+    }
 
     const record = ledger.payDebt(item.debtId, {
       chapterNo,

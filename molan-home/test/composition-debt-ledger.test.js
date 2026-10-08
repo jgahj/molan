@@ -12,6 +12,9 @@ const {
   DEBT_STATUSES,
   DEBT_EVENT_TYPES,
   DEBT_PRIORITIES,
+  TERMINAL_DEBT_STATUSES,
+  ALLOWED_TRANSITIONS,
+  StateTransitionRejectedError,
   normalizeDebtType,
   normalizeDebtStatus
 } = require('../lib/composition/debt');
@@ -522,4 +525,167 @@ test('DebtEvent: 顶层 idempotencyKey 提取与校验 (T-R4-05)', () => {
       idempotencyKey: '   '
     });
   }, /DebtEvent idempotencyKey 不能为空字符串/);
+});
+
+test('StoryDebtLedger: 规范导出与静态成员完整性 (R5: ALLOWED_TRANSITIONS, TERMINAL_DEBT_STATUSES, StateTransitionRejectedError)', () => {
+  assert.equal(StoryDebtLedger.StateTransitionRejectedError, StateTransitionRejectedError);
+  assert.equal(StoryDebtLedger.ALLOWED_TRANSITIONS, ALLOWED_TRANSITIONS);
+  assert.equal(StoryDebtLedger.TERMINAL_DEBT_STATUSES, TERMINAL_DEBT_STATUSES);
+
+  assert.equal(TERMINAL_DEBT_STATUSES.size, 3);
+  assert.ok(TERMINAL_DEBT_STATUSES.has(DEBT_STATUSES.PAID));
+  assert.ok(TERMINAL_DEBT_STATUSES.has(DEBT_STATUSES.INVALIDATED));
+  assert.ok(TERMINAL_DEBT_STATUSES.has(DEBT_STATUSES.ABANDONED));
+
+  assert.equal(ALLOWED_TRANSITIONS[DEBT_STATUSES.PAID].length, 0);
+  assert.equal(ALLOWED_TRANSITIONS[DEBT_STATUSES.INVALIDATED].length, 0);
+  assert.equal(ALLOWED_TRANSITIONS[DEBT_STATUSES.ABANDONED].length, 0);
+});
+
+test('StoryDebtLedger: 终态保护 (PAID, INVALIDATED, ABANDONED) 严禁所有状态跃迁并抛出 STATE_TRANSITION_REJECTED (R5)', () => {
+  const ledger = new StoryDebtLedger({ storyId: 'story_terminal_unit' });
+
+  // 1. PAID 终态测试
+  ledger.createDebt({ debtId: 'd_paid', summary: '已结清测试债务' });
+  ledger.payDebt('d_paid', { chapterNo: 2 });
+  assert.equal(ledger.getDebt('d_paid').status, DEBT_STATUSES.PAID);
+
+  const mutationAttempts = [
+    () => ledger.proposeResolution('d_paid', { chapterNo: 3 }),
+    () => ledger.escalateDebt('d_paid', { chapterNo: 3 }),
+    () => ledger.reframeDebt('d_paid', { chapterNo: 3, payload: { summary: '改写' } }),
+    () => ledger.partiallyPayDebt('d_paid', { chapterNo: 3 }),
+    () => ledger.deferDebt('d_paid', { chapterNo: 3 }),
+    () => ledger.payDebt('d_paid', { chapterNo: 3 }),
+    () => ledger.invalidateDebt('d_paid', { chapterNo: 3 }),
+    () => ledger.abandonDebt('d_paid', { chapterNo: 3 }),
+    () => ledger.recordEvent({ debtId: 'd_paid', eventType: DEBT_EVENT_TYPES.CREATED, payload: { summary: '重建' } })
+  ];
+
+  for (const fn of mutationAttempts) {
+    assert.throws(fn, (err) => {
+      assert.equal(err.code, 'STATE_TRANSITION_REJECTED');
+      assert.equal(err.currentStatus, DEBT_STATUSES.PAID);
+      assert.equal(err.debtId, 'd_paid');
+      assert.equal(err.name, 'StateTransitionRejectedError');
+      return true;
+    });
+  }
+  assert.equal(ledger.getDebt('d_paid').status, DEBT_STATUSES.PAID);
+
+  // 2. INVALIDATED 终态测试
+  ledger.createDebt({ debtId: 'd_inv', summary: '已失效测试债务' });
+  ledger.invalidateDebt('d_inv', { chapterNo: 2 });
+  assert.equal(ledger.getDebt('d_inv').status, DEBT_STATUSES.INVALIDATED);
+
+  assert.throws(() => {
+    ledger.payDebt('d_inv', { chapterNo: 3 });
+  }, (err) => {
+    assert.equal(err.code, 'STATE_TRANSITION_REJECTED');
+    assert.equal(err.currentStatus, DEBT_STATUSES.INVALIDATED);
+    assert.equal(err.debtId, 'd_inv');
+    return true;
+  });
+
+  assert.throws(() => {
+    ledger.escalateDebt('d_inv', { chapterNo: 3 });
+  }, (err) => {
+    assert.equal(err.code, 'STATE_TRANSITION_REJECTED');
+    assert.equal(err.currentStatus, DEBT_STATUSES.INVALIDATED);
+    assert.equal(err.debtId, 'd_inv');
+    return true;
+  });
+
+  // 3. ABANDONED 终态测试
+  ledger.createDebt({ debtId: 'd_ab', summary: '已放弃测试债务' });
+  ledger.abandonDebt('d_ab', { chapterNo: 2 });
+  assert.equal(ledger.getDebt('d_ab').status, DEBT_STATUSES.ABANDONED);
+
+  assert.throws(() => {
+    ledger.payDebt('d_ab', { chapterNo: 3 });
+  }, (err) => {
+    assert.equal(err.code, 'STATE_TRANSITION_REJECTED');
+    assert.equal(err.currentStatus, DEBT_STATUSES.ABANDONED);
+    assert.equal(err.debtId, 'd_ab');
+    return true;
+  });
+
+  assert.throws(() => {
+    ledger.escalateDebt('d_ab', { chapterNo: 3 });
+  }, (err) => {
+    assert.equal(err.code, 'STATE_TRANSITION_REJECTED');
+    assert.equal(err.currentStatus, DEBT_STATUSES.ABANDONED);
+    assert.equal(err.debtId, 'd_ab');
+    return true;
+  });
+});
+
+test('StoryDebtLedger: 非终态非法回退至 OPEN 受到严密拦截 (R5)', () => {
+  const ledger = new StoryDebtLedger({ storyId: 'story_regression_unit' });
+  ledger.createDebt({ debtId: 'd_reg', summary: '推进中债务' });
+  ledger.escalateDebt('d_reg', { chapterNo: 2 });
+  assert.equal(ledger.getDebt('d_reg').status, DEBT_STATUSES.DEVELOPING);
+
+  assert.throws(() => {
+    ledger.recordEvent({
+      debtId: 'd_reg',
+      eventType: DEBT_EVENT_TYPES.CREATED,
+      payload: { summary: '非法回退到OPEN' }
+    });
+  }, (err) => {
+    assert.equal(err.code, 'STATE_TRANSITION_REJECTED');
+    assert.equal(err.currentStatus, DEBT_STATUSES.DEVELOPING);
+    assert.equal(err.debtId, 'd_reg');
+    return true;
+  });
+
+  assert.equal(ledger.getDebt('d_reg').status, DEBT_STATUSES.DEVELOPING);
+});
+
+test('StoryDebtLedger: StateTransitionRejectedError 错误对象字段契约完整性 (R5)', () => {
+  const ledger = new StoryDebtLedger({ storyId: 'story_err_contract_unit' });
+  ledger.createDebt({ debtId: 'd_contract', summary: '契约完整性测试' });
+  ledger.payDebt('d_contract', { chapterNo: 2 });
+
+  try {
+    ledger.escalateDebt('d_contract', { chapterNo: 3 });
+    assert.fail('Should have thrown StateTransitionRejectedError');
+  } catch (err) {
+    assert.ok(err instanceof StateTransitionRejectedError);
+    assert.ok(err instanceof Error);
+    assert.equal(err.name, 'StateTransitionRejectedError');
+    assert.equal(err.code, 'STATE_TRANSITION_REJECTED');
+    assert.equal(err.debtId, 'd_contract');
+    assert.equal(err.currentStatus, DEBT_STATUSES.PAID);
+    assert.equal(err.targetStatus, DEBT_STATUSES.DEVELOPING);
+    assert.equal(err.eventType, DEBT_EVENT_TYPES.ESCALATED);
+    assert.equal(err.storyId, 'story_err_contract_unit');
+    assert.ok(/STATE_TRANSITION_REJECTED/.test(err.message));
+  }
+});
+
+test('DebtReconciliation: 已结清 (PAID) 债务在 declaredResolutions 与 semanticVerification 中重复结算保持幂等不崩溃 (R5)', () => {
+  const ledger = new StoryDebtLedger({ storyId: 'story_recon_repeat_unit' });
+  ledger.createDebt({ debtId: 'd_already_paid', summary: '已结清债务' });
+  ledger.payDebt('d_already_paid', { chapterNo: 2 });
+  assert.equal(ledger.getDebt('d_already_paid').status, DEBT_STATUSES.PAID);
+
+  // 1. declaredResolutions 重复声明 PAID 不抛错，幂等跳过
+  const report1 = reconcileChapterDebts({
+    ledger,
+    chapterNo: 3,
+    declaredResolutions: [{ debtId: 'd_already_paid', action: 'PAID' }]
+  });
+  assert.equal(report1.reconciledCount, 0);
+
+  // 2. semanticVerification 通道重复验证已 PAID 债务不抛错，幂等跳过
+  const report2 = reconcileChapterDebts({
+    ledger,
+    chapterNo: 4,
+    semanticVerification: [{ debtId: 'd_already_paid', verified: true, evidence: '重复语义确权' }]
+  });
+  assert.equal(report2.reconciledCount, 0);
+
+  // 3. 终态依然保持 PAID
+  assert.equal(ledger.getDebt('d_already_paid').status, DEBT_STATUSES.PAID);
 });

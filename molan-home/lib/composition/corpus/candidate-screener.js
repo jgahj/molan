@@ -182,10 +182,16 @@ function factorizeCandidateChapter(chapterText = '', metadata = {}, screenerResu
   const baseFactors = extractChapterFactors(chapterText, metadata);
   const pureStylometry = disentangleStyleFromGoal(baseFactors.stylometry, baseFactors.primaryGoal);
 
+  const rawAuthor = metadata.author || metadata.novelAuthor || null;
+  const normalizedAuthor = (typeof rawAuthor === 'string' && rawAuthor.trim() && rawAuthor.trim() !== '未知作者')
+    ? rawAuthor.trim()
+    : null;
+
   return Object.freeze({
     schemaVersion: 'chapter-features-v2',
     novelTitle: metadata.title || metadata.novelTitle || '',
     bookId: metadata.bookId || metadata.book_id || '',
+    author: normalizedAuthor,
     chapterNo: metadata.chapterNo ?? metadata.chapter_no ?? 1,
     chapterTitle: metadata.chapterTitle || metadata.title || '',
     genre: metadata.genre || 'universal',

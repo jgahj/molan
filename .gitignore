@@ -47,6 +47,10 @@ molan-home/generated/*
 !molan-home/generated/月圆夜前的布局-20260910/
 !molan-home/generated/月圆夜前的布局-20260910/**
 !molan-home/generated/月圆夜前的布局-20260910/*.txt
+data/corpus-build/
+data/strategy-knowledge-base/
+molan-home/data/corpus-build/
+molan-home/data/strategy-knowledge-base/
 
 # ==========================================
 # 工具链二进制、构建归档与敏感备份

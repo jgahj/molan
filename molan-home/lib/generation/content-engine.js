@@ -401,26 +401,56 @@ function compileDraftPrompt(options = {}) {
   const strategyIRInput = req.strategyIR || activeContract.strategyIR || options.strategyIR;
   if (strategyIRInput && typeof strategyIRInput === 'object') {
     const { lowerToPrompt } = require('../composition/ir/ir-lowering');
+    const { tierAttention } = require('../composition/compiler/attention-tiering');
     const lowered = lowerToPrompt(strategyIRInput, {
       ...options,
       targetModelFamily: options.targetModelFamily || req.targetModelFamily || req.modelId || options.modelId,
       chapterContext: context,
       userInstruction: userInstructionText
     });
+
+    const maxTotalTokens = options.maxTotalTokens || options.maxTokens || req.maxTokens || 6000;
+    const attention = tierAttention({
+      permanentContext: lowered.priorityCascade?.P2_CREATION_BIBLE || '',
+      chapterStrategy: lowered.systemPrompt,
+      evidenceCards: Array.isArray(strategyIRInput.abstractEvidenceCards) ? strategyIRInput.abstractEvidenceCards : [],
+      immediateContext: lowered.userPrompt,
+      maxTotalTokens,
+      targetModelFamily: options.targetModelFamily || req.targetModelFamily || req.modelId || options.modelId,
+      chapterObjective: strategyIRInput.chapterOutcomeContract?.objectiveName || '',
+      spec: options.spec || options.compositionSpec || req.compositionSpec || null
+    });
+
+    const attentionPayload = attention.attention || {
+      tier1Permanent: attention.tier1Permanent,
+      tier2Strategy: attention.tier2Strategy,
+      tier3Evidence: attention.tier3Evidence,
+      tier4Immediate: attention.tier4Immediate
+    };
+
+    const effectiveSys = (attention.tier2Strategy !== undefined && attention.tier2Strategy !== '') ? attention.tier2Strategy : lowered.systemPrompt;
+    const effectiveUser = (attention.tier4Immediate !== undefined && attention.tier4Immediate !== '') ? attention.tier4Immediate : lowered.userPrompt;
+
     return {
-      systemPrompt: lowered.systemPrompt,
-      userPrompt: lowered.userPrompt,
+      systemPrompt: effectiveSys,
+      userPrompt: effectiveUser,
       wordBudget: lowered.wordBudget,
       sceneDirectives: structuredDirectives,
       effectiveGenre: strategyIRInput.bookIdentity?.genre?.name || (typeof genre === 'string' ? genre : (genre && (genre.genre || genre.id)) || '通用文学'),
       strategyIR: strategyIRInput,
+      attention: attentionPayload,
+      tieredAttention: attentionPayload,
+      attentionMetrics: attention.metrics,
       compositionStrategy: {
-        systemPrompt: lowered.systemPrompt,
-        userPrompt: lowered.userPrompt,
+        systemPrompt: effectiveSys,
+        userPrompt: effectiveUser,
         wordBudget: lowered.wordBudget,
         priorityCascade: lowered.priorityCascade,
         strategyIR: strategyIRInput,
-        digest: strategyIRInput.irDigest
+        digest: strategyIRInput.irDigest,
+        attention: attentionPayload,
+        tieredAttention: attentionPayload,
+        attentionMetrics: attention.metrics
       }
     };
   }
@@ -459,7 +489,10 @@ function compileDraftPrompt(options = {}) {
       wordBudget: compiledStrategy.wordBudget,
       sceneDirectives: structuredDirectives,
       effectiveGenre: spec.genre?.name || (typeof genre === 'string' ? genre : (genre && (genre.genre || genre.id)) || '通用文学'),
-      compositionStrategy: compiledStrategy
+      compositionStrategy: compiledStrategy,
+      attention: compiledStrategy.attention,
+      tieredAttention: compiledStrategy.tieredAttention || compiledStrategy.attention,
+      attentionMetrics: compiledStrategy.attentionMetrics
     };
   }
 
@@ -487,14 +520,33 @@ function compileDraftPrompt(options = {}) {
     `目标篇幅：${wordBudget.summary}。请严格按该篇幅要求撰写，请直接输出正文。`
   ].join('\n\n');
 
+  const { tierAttention } = require('../composition/compiler/attention-tiering');
+  const fallbackAttention = tierAttention({
+    permanentContext: '',
+    chapterStrategy: systemPrompt,
+    evidenceCards: [],
+    immediateContext: userPrompt,
+    maxTotalTokens: options.maxTotalTokens || options.maxTokens || req.maxTokens || 6000
+  });
+
+  const fallbackPayload = fallbackAttention.attention || {
+    tier1Permanent: fallbackAttention.tier1Permanent,
+    tier2Strategy: fallbackAttention.tier2Strategy,
+    tier3Evidence: fallbackAttention.tier3Evidence,
+    tier4Immediate: fallbackAttention.tier4Immediate
+  };
+
   return {
-    systemPrompt,
-    userPrompt,
+    systemPrompt: (fallbackAttention.tier2Strategy !== undefined && fallbackAttention.tier2Strategy !== '') ? fallbackAttention.tier2Strategy : systemPrompt,
+    userPrompt: (fallbackAttention.tier4Immediate !== undefined && fallbackAttention.tier4Immediate !== '') ? fallbackAttention.tier4Immediate : userPrompt,
     wordBudget,
     sceneDirectives: structuredDirectives,
     effectiveGenre: genreTitle,
     genreDirective,
-    styleDirective
+    styleDirective,
+    attention: fallbackPayload,
+    tieredAttention: fallbackPayload,
+    attentionMetrics: fallbackAttention.metrics
   };
 }
 
@@ -551,6 +603,8 @@ function buildDraftRequest(options = {}) {
     } : basePlan.replayManifest
   };
 
+  const attention = compiled.attention || compiled.tieredAttention || compiled.compositionStrategy?.attention || null;
+
   return {
     stage: 'writer',
     system: compiled.systemPrompt,
@@ -564,6 +618,8 @@ function buildDraftRequest(options = {}) {
     contextPlan,
     promptBudget,
     wordBudget: compiled.wordBudget,
+    attention,
+    tieredAttention: attention,
     compiled
   };
 }
@@ -633,7 +689,7 @@ async function generateDraft(options = {}) {
 
   let draftResponse;
   try {
-    draftResponse = await callModel(auth, {
+    const modelPayload = {
       stage: 'writer',
       system: draftRequest.system,
       userPrompt: draftRequest.userPrompt,
@@ -643,7 +699,12 @@ async function generateDraft(options = {}) {
       seed: draftRequest.seed,
       maxTokens: draftRequest.maxTokens,
       jsonMode: false
-    });
+    };
+    if (draftRequest.attention) {
+      modelPayload.attention = draftRequest.attention;
+      modelPayload.tieredAttention = draftRequest.tieredAttention || draftRequest.attention;
+    }
+    draftResponse = await callModel(auth, modelPayload);
     draftRecord.status = 'completed';
     draftRecord.usage = draftResponse && draftResponse.usage || null;
     draftRecord.providerModel = draftRecord.usage && draftRecord.usage.providerModel || null;
@@ -704,6 +765,8 @@ async function generateDraft(options = {}) {
     usage,
     debtReconciliation,
     status: 'draft_created',
+    attention: draftRequest.attention || null,
+    tieredAttention: draftRequest.tieredAttention || draftRequest.attention || null,
     pipeline: {
       authoritative: true,
       status: 'draft_created',
@@ -713,7 +776,9 @@ async function generateDraft(options = {}) {
       calls,
       candidates: [{ contentHash: sha256(text) }],
       selectedHash: sha256(text),
-      effectiveGenre: compiled.effectiveGenre
+      effectiveGenre: compiled.effectiveGenre,
+      attention: draftRequest.attention || null,
+      tieredAttention: draftRequest.tieredAttention || draftRequest.attention || null
     }
   };
 

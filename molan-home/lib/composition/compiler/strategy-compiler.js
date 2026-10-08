@@ -31,8 +31,13 @@ function sha256(val) {
  * @returns {Object} 冻结的 StrategyIR 实体
  */
 function compileToStrategyIR(params = {}) {
+  let spec = params.spec || params.compositionSpec;
+  if (spec && typeof spec === 'object' && spec.schemaVersion !== 'composition-spec-v1') {
+    const { defaultProfileRegistry } = require('../profiles/profile-registry');
+    spec = defaultProfileRegistry.resolveCompositionSpec(spec);
+  }
+
   const {
-    spec,
     bible = null,
     chapterContract = {},
     evidenceCards = [],
@@ -174,8 +179,13 @@ function compileToStrategyIR(params = {}) {
  * @returns {Object} 编译好的分级提示词结构体与 StrategyIR
  */
 function compileChapterStrategy(params = {}) {
+  let spec = params.spec || params.compositionSpec;
+  if (spec && typeof spec === 'object' && spec.schemaVersion !== 'composition-spec-v1') {
+    const { defaultProfileRegistry } = require('../profiles/profile-registry');
+    spec = defaultProfileRegistry.resolveCompositionSpec(spec);
+  }
+
   const {
-    spec,
     bible = null,
     chapterContract = {},
     chapterContext = '',
@@ -193,7 +203,7 @@ function compileChapterStrategy(params = {}) {
   const effectiveModulation = spec.localStyleModulation || compatibility.recommendedModulation || null;
 
   // 2. 编译第一公民 StrategyIR (中间表示)
-  const strategyIR = compileToStrategyIR(params);
+  const strategyIR = compileToStrategyIR({ ...params, spec });
 
   // 3. 降级渲染为特定模型 Prompt (Lowering)
   const targetModelFamily = options.targetModelFamily || strategyIR.metadata?.targetModelFamily || 'generic';
@@ -206,12 +216,13 @@ function compileChapterStrategy(params = {}) {
   });
 
   // 4. 注意力分级打包 (Attention Tiering)
+  const maxTotalTokens = options.maxTotalTokens || options.maxTokens || params.maxTotalTokens || params.maxTokens || 6000;
   const attention = tierAttention({
-    permanentContext: lowered.priorityCascade.P2_CREATION_BIBLE,
+    permanentContext: lowered.priorityCascade?.P2_CREATION_BIBLE || '',
     chapterStrategy: lowered.systemPrompt,
     evidenceCards,
     immediateContext: lowered.userPrompt,
-    maxTotalTokens: options.maxTokens || options.maxTotalTokens || 6000,
+    maxTotalTokens,
     targetModelFamily,
     chapterObjective: spec.chapterGoal?.name || strategyIR.chapterOutcomeContract?.objectiveName || '',
     spec
@@ -219,12 +230,21 @@ function compileChapterStrategy(params = {}) {
 
   const digest = strategyIR.irDigest;
 
+  const attentionPayload = attention.attention || {
+    tier1Permanent: attention.tier1Permanent,
+    tier2Strategy: attention.tier2Strategy,
+    tier3Evidence: attention.tier3Evidence,
+    tier4Immediate: attention.tier4Immediate
+  };
+
   return Object.freeze({
-    systemPrompt: lowered.systemPrompt,
-    userPrompt: lowered.userPrompt,
+    systemPrompt: (attention.tier2Strategy !== undefined && attention.tier2Strategy !== '') ? attention.tier2Strategy : lowered.systemPrompt,
+    userPrompt: (attention.tier4Immediate !== undefined && attention.tier4Immediate !== '') ? attention.tier4Immediate : lowered.userPrompt,
     wordBudget: lowered.wordBudget,
     priorityCascade: lowered.priorityCascade,
     compatibility,
+    attention: attentionPayload,
+    tieredAttention: attentionPayload,
     attentionMetrics: attention.metrics,
     effectiveModulation,
     strategyIR,

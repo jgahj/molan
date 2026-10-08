@@ -18,6 +18,96 @@ function sha256(val) {
   return crypto.createHash('sha256').update(String(val || ''), 'utf8').digest('hex');
 }
 
+/**
+ * 计算确定性的语料库 sourceSnapshot SHA-256 哈希值
+ * 基于所有语料源文件的 (bookId, size, mtimeMs, contentSha)，并按 bookId 字典序排序
+ * @param {Array<Object|string>} books
+ * @param {string} sourceDir
+ * @returns {string} 64 位 SHA-256 十六进制字符串
+ */
+function computeSourceSnapshot(books = [], sourceDir = '') {
+  const hash = crypto.createHash('sha256');
+  const records = [];
+  const bookList = Array.isArray(books) ? books : (books && typeof books === 'object' ? Object.values(books) : []);
+
+  if (bookList.length > 0) {
+    for (const b of bookList) {
+      const bookId = typeof b === 'string' ? b : String(b.bookId || b.id || b.book_id || b.title || '').trim();
+      if (!bookId) continue;
+
+      let targetPath = (typeof b === 'object' && b.filePath) ? b.filePath : '';
+      if (targetPath) {
+        if (!path.isAbsolute(targetPath) && sourceDir) {
+          const cand = path.resolve(sourceDir, targetPath);
+          if (fs.existsSync(cand)) targetPath = cand;
+        }
+      } else if (sourceDir && bookId) {
+        const candidates = [
+          path.join(sourceDir, `${bookId}.txt`),
+          path.join(sourceDir, bookId),
+          path.join(sourceDir, `${(b && b.title) || bookId}.txt`),
+          path.join(sourceDir, `${bookId}.md`)
+        ];
+        for (const cand of candidates) {
+          if (fs.existsSync(cand)) {
+            targetPath = cand;
+            break;
+          }
+        }
+      }
+
+      let size = 0;
+      let mtimeMs = 0;
+      let contentSha = '';
+      if (targetPath && fs.existsSync(targetPath)) {
+        try {
+          const stat = fs.statSync(targetPath);
+          size = stat.size || 0;
+          mtimeMs = Math.round(stat.mtimeMs || 0);
+          if (size > 0 && size <= 20 * 1024 * 1024) {
+            const buf = fs.readFileSync(targetPath);
+            contentSha = crypto.createHash('sha256').update(buf).digest('hex');
+          }
+        } catch (_) {}
+      }
+      records.push({ bookId, size, mtimeMs, contentSha });
+    }
+  } else if (sourceDir && fs.existsSync(sourceDir)) {
+    try {
+      const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+      for (const ent of entries) {
+        if (ent.isFile()) {
+          const filePath = path.join(sourceDir, ent.name);
+          const bookId = path.parse(ent.name).name;
+          let size = 0;
+          let mtimeMs = 0;
+          let contentSha = '';
+          try {
+            const stat = fs.statSync(filePath);
+            size = stat.size || 0;
+            mtimeMs = Math.round(stat.mtimeMs || 0);
+            if (size > 0 && size <= 20 * 1024 * 1024) {
+              const buf = fs.readFileSync(filePath);
+              contentSha = crypto.createHash('sha256').update(buf).digest('hex');
+            }
+          } catch (_) {}
+          records.push({ bookId, size, mtimeMs, contentSha });
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (records.length === 0) {
+    return sha256('empty_corpus');
+  }
+
+  records.sort((a, b) => a.bookId.localeCompare(b.bookId));
+  for (const r of records) {
+    hash.update(`${r.bookId}:${r.size}:${r.mtimeMs}:${r.contentSha}\n`);
+  }
+  return hash.digest('hex');
+}
+
 class CheckpointManifest {
   /**
    * @param {Object} options
@@ -27,6 +117,7 @@ class CheckpointManifest {
     this.runId = options.runId || `corpus_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
     this.runDir = path.join(this.stagingRoot, this.runId);
     this.manifestFile = path.join(this.runDir, 'manifest.json');
+    this.sourceDir = options.sourceDir ? path.resolve(options.sourceDir) : '';
     this.data = null;
   }
 
@@ -36,7 +127,7 @@ class CheckpointManifest {
    * @returns {Object} 当前 manifest 数据
    */
   initOrResume(params = {}) {
-    const { books = [], resume = true, sourceSnapshot = '' } = params;
+    const { books = [], resume = true, sourceSnapshot = '', sourceDir = '' } = params;
 
     if (!fs.existsSync(this.runDir)) {
       fs.mkdirSync(this.runDir, { recursive: true });
@@ -51,12 +142,32 @@ class CheckpointManifest {
       }
     }
 
+    if (this.data && resume) {
+      // 恢复中断状态：将 stranded 的 in_progress 书目重置为 pending，以供断点续跑重新调度
+      if (this.data.books) {
+        let hasReset = false;
+        for (const bookEntry of Object.values(this.data.books)) {
+          if (bookEntry.status === 'in_progress') {
+            bookEntry.status = 'pending';
+            bookEntry.error = 'Interrupted by process termination (auto-recovered)';
+            hasReset = true;
+          }
+        }
+        if (hasReset) {
+          this.data.updatedAt = new Date().toISOString();
+          this.save();
+        }
+      }
+    }
+
     if (!this.data) {
+      const effectiveSourceDir = sourceDir || this.sourceDir || '';
+      const effectiveSnapshot = sourceSnapshot || computeSourceSnapshot(books, effectiveSourceDir);
       this.data = {
         runId: this.runId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        sourceSnapshot: sourceSnapshot || sha256(this.runId),
+        sourceSnapshot: effectiveSnapshot,
         booksTotal: books.length,
         booksCompleted: 0,
         chaptersProcessed: 0,
@@ -135,12 +246,32 @@ class CheckpointManifest {
   markBookComplete(bookId, stats = {}) {
     if (!this.data || !this.data.books[bookId]) return;
     const entry = this.data.books[bookId];
+    const wasCompleted = entry.status === 'completed';
+
     entry.status = 'completed';
-    entry.completedAt = new Date().toISOString();
-    entry.last_chapter = stats.lastChapter || stats.last_chapter || entry.last_chapter;
-    entry.chaptersProcessed = stats.chaptersProcessed || stats.chaptersCount || entry.chaptersProcessed;
-    entry.candidateChapters = stats.candidateChapters || entry.candidateChapters;
+    entry.completedAt = wasCompleted ? entry.completedAt : new Date().toISOString();
+    entry.last_chapter = stats.lastChapter ?? stats.last_chapter ?? entry.last_chapter;
     entry.error = null;
+
+    const prevChapters = Number(entry.chaptersProcessed || 0);
+    const prevCandidates = Number(entry.candidateChapters || 0);
+
+    let newChapters = prevChapters;
+    if (typeof stats.chaptersProcessed !== 'undefined') {
+      newChapters = Number(stats.chaptersProcessed || 0);
+    } else if (typeof stats.chaptersCount !== 'undefined') {
+      newChapters = Number(stats.chaptersCount || 0);
+    } else if (typeof stats.newChapters !== 'undefined' && !wasCompleted) {
+      newChapters = prevChapters + Number(stats.newChapters || 0);
+    }
+
+    let newCandidates = prevCandidates;
+    if (typeof stats.candidateChapters !== 'undefined') {
+      newCandidates = Number(stats.candidateChapters || 0);
+    }
+
+    entry.chaptersProcessed = newChapters;
+    entry.candidateChapters = newCandidates;
 
     if (typeof stats.unsegmented !== 'undefined') {
       const rawUnseg = typeof stats.unsegmented === 'boolean'
@@ -152,9 +283,15 @@ class CheckpointManifest {
       this.data.unsegmented = (this.data.unsegmented || 0) - prevUnseg + unsegCount;
     }
 
-    this.data.booksCompleted++;
-    this.data.chaptersProcessed += (stats.newChapters || entry.chaptersProcessed);
-    this.data.candidateChaptersFound += (stats.candidateChapters || 0);
+    if (!wasCompleted) {
+      this.data.booksCompleted = (this.data.booksCompleted || 0) + 1;
+    }
+
+    const deltaChapters = newChapters - prevChapters;
+    const deltaCandidates = newCandidates - prevCandidates;
+    this.data.chaptersProcessed = Math.max(0, (this.data.chaptersProcessed || 0) + deltaChapters);
+    this.data.candidateChaptersFound = Math.max(0, (this.data.candidateChaptersFound || 0) + deltaCandidates);
+
     this.data.updatedAt = new Date().toISOString();
     this.save();
   }
@@ -241,8 +378,15 @@ class CheckpointManifest {
     }
     return null;
   }
+
+  static computeSourceSnapshot(books, sourceDir) {
+    return computeSourceSnapshot(books, sourceDir);
+  }
 }
 
+CheckpointManifest.computeSourceSnapshot = computeSourceSnapshot;
+
 module.exports = {
-  CheckpointManifest
+  CheckpointManifest,
+  computeSourceSnapshot
 };

@@ -65,6 +65,31 @@ class PackagePublisher {
 
     const version = options.version || runId;
     const targetPackageDir = path.join(this.packagesDir, version);
+
+    // 计算待发布文件的指纹，校验版本防篡改冲突
+    const incomingChecksums = {};
+    for (const file of requiredFiles) {
+      const src = path.join(sourceRun, file);
+      incomingChecksums[file] = sha256File(src);
+    }
+
+    const existingManifestFile = path.join(targetPackageDir, 'package-manifest.json');
+    if (fs.existsSync(existingManifestFile)) {
+      const oldManifest = JSON.parse(fs.readFileSync(existingManifestFile, 'utf8'));
+      const oldChecksums = oldManifest.checksums || {};
+      const isIdentical = requiredFiles.every(f => incomingChecksums[f] === oldChecksums[f]);
+      if (isIdentical) {
+        return {
+          status: 'idempotent',
+          version,
+          packageDir: targetPackageDir,
+          activePointerFile: this.activePointerFile,
+          manifest: oldManifest
+        };
+      }
+      throw new Error(`版本冲突：已存在同名版本 [${version}] 但校验和不匹配 (Checksum mismatch)`);
+    }
+
     if (!fs.existsSync(targetPackageDir)) {
       fs.mkdirSync(targetPackageDir, { recursive: true });
     }
@@ -75,7 +100,7 @@ class PackagePublisher {
       const src = path.join(sourceRun, file);
       const dest = path.join(targetPackageDir, file);
       fs.copyFileSync(src, dest);
-      checksums[file] = sha256File(dest);
+      checksums[file] = incomingChecksums[file];
     }
 
     // 4. 生成包元数据清单
@@ -90,10 +115,11 @@ class PackagePublisher {
     };
     fs.writeFileSync(path.join(targetPackageDir, 'package-manifest.json'), JSON.stringify(packageManifest, null, 2), 'utf8');
 
-    // 5. 原子发布指针切换 (Atomic Pointer Switch)
+    // 5. 原子发布指针切换 (存储相对 POSIX 路径确保容器跨机移植性)
+    const relPackageDir = path.relative(this.targetBase, targetPackageDir).replace(/\\/g, '/');
     const activePointer = {
       activeVersion: version,
-      packageDir: targetPackageDir,
+      packageDir: relPackageDir,
       publishedAt: packageManifest.publishedAt,
       checksum: sha256File(path.join(targetPackageDir, 'package-manifest.json'))
     };
@@ -118,12 +144,20 @@ class PackagePublisher {
     if (!fs.existsSync(this.activePointerFile)) return null;
     try {
       const pointer = JSON.parse(fs.readFileSync(this.activePointerFile, 'utf8'));
-      const manifestFile = path.join(pointer.packageDir, 'package-manifest.json');
+      const absPackageDir = path.isAbsolute(pointer.packageDir)
+        ? pointer.packageDir
+        : path.resolve(this.targetBase, pointer.packageDir);
+      const resolvedPointer = {
+        ...pointer,
+        packageDir: absPackageDir,
+        relativePackageDir: pointer.packageDir
+      };
+      const manifestFile = path.join(absPackageDir, 'package-manifest.json');
       if (fs.existsSync(manifestFile)) {
         const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
-        return { pointer, manifest };
+        return { ...resolvedPointer, pointer: resolvedPointer, manifest };
       }
-      return { pointer, manifest: null };
+      return { ...resolvedPointer, pointer: resolvedPointer, manifest: null };
     } catch (_) {
       return null;
     }

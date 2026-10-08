@@ -14,9 +14,10 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const readline = require('node:readline');
 const { IsolationManager } = require('./isolation-manager');
-const { CheckpointManifest } = require('./checkpoint-manifest');
+const { CheckpointManifest, computeSourceSnapshot } = require('./checkpoint-manifest');
 const { screenCandidateChapter, factorizeCandidateChapter } = require('./candidate-screener');
 const { mineStrategiesFromFeatures } = require('./strategy-miner');
 const { PackagePublisher } = require('./package-publisher');
@@ -31,14 +32,16 @@ const CHAPTER_REGEX = /^[ \t\r]*(第[0-9零一二两三四五六七八九十百�
  */
 function parseAuthorFromBookName(name = '') {
   const str = String(name || '').trim();
-  if (str.includes('_')) {
-    const parts = str.split('_');
-    if (parts.length >= 2 && parts[1].trim()) return parts[1].trim();
+  if (!str) return null;
+
+  const matchColon = str.match(/(?:^|[_\s])作者[：:]\s*([^\s_.[\]()]+)/);
+  if (matchColon && matchColon[1]) {
+    const author = matchColon[1].trim();
+    if (author && author !== '未知作者') {
+      return author;
+    }
   }
-  const matchColon = str.match(/作者[：:]([^\s_]+)/);
-  if (matchColon) return matchColon[1].trim();
-  const matchBracket = str.match(/^\[(.*?)\]/);
-  if (matchBracket) return matchBracket[1].trim();
+
   return null;
 }
 
@@ -155,8 +158,10 @@ class CorpusBatchPipeline {
    */
   constructor(options = {}) {
     this.sourceDir = options.sourceDir ? path.resolve(options.sourceDir) : DEFAULT_SOURCE_DIR;
-    this.stagingRoot = path.resolve(options.stagingRoot || path.join(process.cwd(), 'data', 'corpus-build', 'runs'));
+    this.stagingRoot = path.resolve(options.stagingRoot || (options.baseDir ? options.baseDir : path.join(process.cwd(), 'data', 'corpus-build', 'runs')));
     this.runId = options.runId || null;
+    this.runDir = options.runDir ? path.resolve(options.runDir) : null;
+    this.baseDir = options.baseDir ? path.resolve(options.baseDir) : null;
     this.isolationManager = new IsolationManager({
       workers: options.workers || 2,
       outputDir: path.dirname(this.stagingRoot),
@@ -199,15 +204,42 @@ class CorpusBatchPipeline {
       limit: options.limit
     });
 
+    const sourceSnapshot = CheckpointManifest.computeSourceSnapshot(discoveredBooks, this.sourceDir);
+
     manifestManager.initOrResume({
       books: discoveredBooks,
-      resume: resumeRequested
+      resume: resumeRequested,
+      sourceSnapshot,
+      sourceDir: this.sourceDir
     });
 
     const pendingBooks = manifestManager.getPendingBooks();
     const featuresFile = path.join(runDir, 'chapter-features.jsonl');
     if (!fs.existsSync(featuresFile)) {
       fs.writeFileSync(featuresFile, '', 'utf8');
+    }
+
+    // 若请求断点续跑，对已有 features 文件执行复合主键 (bookId#chapterNo) 去重清洗
+    if (resumeRequested && fs.existsSync(featuresFile)) {
+      try {
+        const rawContent = fs.readFileSync(featuresFile, 'utf8');
+        const lines = rawContent.split('\n').filter(Boolean);
+        const seenKeys = new Set();
+        const dedupedLines = [];
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line);
+            const key = `${parsed.bookId || ''}#${parsed.chapterNo ?? ''}`;
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              dedupedLines.push(line);
+            }
+          } catch (_) {
+            dedupedLines.push(line);
+          }
+        }
+        fs.writeFileSync(featuresFile, dedupedLines.join('\n') + (dedupedLines.length ? '\n' : ''), 'utf8');
+      } catch (_) {}
     }
 
     if (options.dryRun) {
@@ -247,6 +279,7 @@ class CorpusBatchPipeline {
       try {
         // 3. 严格只读打开与解码原始语料 (O_RDONLY + UTF-8/GB18030 容错)
         const fileContent = this.isolationManager.readReadOnlyFileText(book.filePath);
+        const bookFingerprint = crypto.createHash('sha256').update(fileContent || '', 'utf8').digest('hex');
         const chapters = splitChaptersFromText(fileContent);
 
         let bookCandidates = 0;
@@ -286,9 +319,14 @@ class CorpusBatchPipeline {
                 genre: book.category
               }, screener);
 
+              const rawAuthor = factors.author || book.author || null;
+              const author = (typeof rawAuthor === 'string' && rawAuthor.trim() && rawAuthor.trim() !== '未知作者')
+                ? rawAuthor.trim()
+                : null;
+
               const enriched = {
                 ...factors,
-                author: factors.author || book.author || (book.title?.includes('_') ? book.title.split('_')[1] : null) || factors.novelTitle || '未知作者'
+                author
               };
 
               featureLines.push(JSON.stringify(enriched));
@@ -299,18 +337,79 @@ class CorpusBatchPipeline {
           chaptersProcessedThisRun++;
         }
 
-        // 写入独立书目暂存文件 (Per-book Staging: staging_books/<book_id>.features.jsonl)
+        // 写入独立书目暂存文件与提交凭据 (staging_books/<book_id>.features.jsonl & .receipt.json)
+        const stagingContent = featureLines.join('\n') + (featureLines.length ? '\n' : '');
+        const featuresHash = crypto.createHash('sha256').update(stagingContent, 'utf8').digest('hex');
         const bookStagingFile = path.join(stagingBooksDir, `${book.book_id}.features.jsonl`);
-        fs.writeFileSync(bookStagingFile, featureLines.join('\n') + (featureLines.length ? '\n' : ''), 'utf8');
+        const bookReceiptFile = path.join(stagingBooksDir, `${book.book_id}.receipt.json`);
+
+        const receipt = {
+          bookId: book.book_id,
+          bookFingerprint: bookFingerprint || featuresHash,
+          featuresCount: featureLines.length,
+          featuresHash,
+          stagedAt: new Date().toISOString(),
+          status: 'staged'
+        };
+
+        const nonce = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(8).toString('hex');
+        const tmpStaging = `${bookStagingFile}.tmp_${Date.now()}_${process.pid}_${nonce}`;
+        fs.writeFileSync(tmpStaging, stagingContent, 'utf8');
+        try {
+          fs.renameSync(tmpStaging, bookStagingFile);
+        } catch (_) {
+          fs.copyFileSync(tmpStaging, bookStagingFile);
+          if (fs.existsSync(tmpStaging)) fs.unlinkSync(tmpStaging);
+        }
+
+        const tmpReceipt = `${bookReceiptFile}.tmp_${Date.now()}_${process.pid}_${nonce}`;
+        fs.writeFileSync(tmpReceipt, JSON.stringify(receipt, null, 2), 'utf8');
+        try {
+          fs.renameSync(tmpReceipt, bookReceiptFile);
+        } catch (_) {
+          fs.copyFileSync(tmpReceipt, bookReceiptFile);
+          if (fs.existsSync(tmpReceipt)) fs.unlinkSync(tmpReceipt);
+        }
 
         // 互斥原子提交暂存特征与更新断点清单
         await withCommitLock(async () => {
-          if (featureLines.length > 0 && fs.existsSync(bookStagingFile)) {
-            const stagingContent = fs.readFileSync(bookStagingFile, 'utf8');
-            if (stagingContent) {
-              fs.appendFileSync(featuresFile, stagingContent, 'utf8');
+          if (fs.existsSync(bookStagingFile)) {
+            let existingLines = [];
+            if (fs.existsSync(featuresFile)) {
+              const existingRaw = fs.readFileSync(featuresFile, 'utf8');
+              if (existingRaw.trim()) {
+                existingLines = existingRaw.split('\n').filter(Boolean);
+              }
+            }
+
+            // 防重保护：若 featuresFile 中已存在当前 book_id 的旧记录（如因中断重算），先行剔除替换
+            const retainedLines = existingLines.filter(line => {
+              try {
+                const parsed = JSON.parse(line);
+                return parsed.bookId !== book.book_id;
+              } catch (_) {
+                return true;
+              }
+            });
+
+            const combinedLines = retainedLines.concat(featureLines);
+            const combinedContent = combinedLines.join('\n') + (combinedLines.length ? '\n' : '');
+
+            const tmpFeatures = `${featuresFile}.tmp_${Date.now()}_${process.pid}_${nonce}`;
+            fs.writeFileSync(tmpFeatures, combinedContent, 'utf8');
+            try {
+              fs.renameSync(tmpFeatures, featuresFile);
+            } catch (_) {
+              fs.copyFileSync(tmpFeatures, featuresFile);
+              if (fs.existsSync(tmpFeatures)) fs.unlinkSync(tmpFeatures);
             }
           }
+
+          receipt.status = 'committed';
+          receipt.committedAt = new Date().toISOString();
+          try {
+            fs.writeFileSync(bookReceiptFile, JSON.stringify(receipt, null, 2), 'utf8');
+          } catch (_) {}
 
           manifestManager.markBookComplete(book.book_id, {
             lastChapter: validChaptersCount,
@@ -367,32 +466,73 @@ class CorpusBatchPipeline {
   }
 
   /**
+   * 解析有效的暂存运行目录
+   * @param {Object} options
+   * @returns {string|null}
+   */
+  _resolveRunDir(options = {}) {
+    if (options.runDir) return path.resolve(options.runDir);
+    if (this.runDir) return path.resolve(this.runDir);
+    const runId = options.runId || this.runId || CheckpointManifest.findLatestRunId(this.stagingRoot);
+    if (!runId) return null;
+    return path.join(this.stagingRoot, runId);
+  }
+
+  /**
    * 2. 构建与挖掘创作策略 (corpus:build-strategy)
    */
   async runBuildStrategy(options = {}) {
-    const runId = options.runId || this.runId || CheckpointManifest.findLatestRunId(this.stagingRoot);
-    if (!runId) throw new Error('未指定 runId 且未找到可构建的暂存运行');
-    const runDir = path.join(this.stagingRoot, runId);
+    const runDir = this._resolveRunDir(options);
+    if (!runDir || !fs.existsSync(runDir)) {
+      throw new Error(`未指定 runId/runDir 且未找到可构建的暂存运行: ${runDir || '未定义'}`);
+    }
 
-    return mineStrategiesFromFeatures({ runDir });
+    return mineStrategiesFromFeatures({ runDir, includeSeedCards: true, ...options });
   }
 
   /**
    * 3. 聚类章节运作原型 (corpus:discover-patterns)
+   * 严格解耦：独立运行原型挖掘引擎，直接生成 archetypes.json，绝不触发策略规则挖掘或覆写 strategy-rules.jsonl
    */
   async runDiscoverPatterns(options = {}) {
-    return this.runBuildStrategy(options);
+    const runDir = this._resolveRunDir(options);
+    if (!runDir || !fs.existsSync(runDir)) {
+      throw new Error(`未指定有效 runDir/runId，或运行目录不存在: ${runDir || '未定义'}`);
+    }
+
+    const featuresFile = options.featuresFile || path.join(runDir, 'chapter-features.jsonl');
+    if (!fs.existsSync(featuresFile)) {
+      throw new Error(`暂存目录中未找到特征文件: ${featuresFile}`);
+    }
+
+    const { discoverChapterArchetypes } = require('./archetype-discoverer');
+    const k = options.k !== undefined && options.k !== null
+      ? options.k
+      : (options.clusters !== undefined && options.clusters !== null ? options.clusters : 5);
+    const minClusterSize = options.minClusterSize !== undefined && options.minClusterSize !== null
+      ? options.minClusterSize
+      : 1;
+    const outputFile = options.output || options.outputFile || path.join(runDir, 'archetypes.json');
+
+    return discoverChapterArchetypes({
+      runDir,
+      featuresFile,
+      outputFile,
+      k,
+      minClusterSize,
+      ...options
+    });
   }
 
   /**
    * 4. 产出质量评估报告 (corpus:quality-report)
    */
   async runQualityReport(options = {}) {
-    const runId = options.runId || this.runId || CheckpointManifest.findLatestRunId(this.stagingRoot);
-    if (!runId) throw new Error('未指定 runId');
-    const reportFile = path.join(this.stagingRoot, runId, 'quality-report.json');
+    const runDir = this._resolveRunDir(options);
+    if (!runDir || !fs.existsSync(runDir)) throw new Error('未指定有效 runDir/runId');
+    const reportFile = path.join(runDir, 'quality-report.json');
     if (!fs.existsSync(reportFile)) {
-      await this.runBuildStrategy({ runId });
+      await this.runBuildStrategy({ runDir });
     }
     return JSON.parse(fs.readFileSync(reportFile, 'utf8'));
   }
@@ -401,13 +541,12 @@ class CorpusBatchPipeline {
    * 5. 原子发布已验证知识包至生产环境 (corpus:publish)
    */
   async runPublish(options = {}) {
-    const runId = options.runId || this.runId || CheckpointManifest.findLatestRunId(this.stagingRoot);
-    if (!runId) throw new Error('未指定 runId 且未找到可发布的暂存运行');
-    const runDir = path.join(this.stagingRoot, runId);
+    const runDir = this._resolveRunDir(options);
+    if (!runDir || !fs.existsSync(runDir)) throw new Error('未指定 runId 且未找到可发布的暂存运行');
 
     // 若尚未生成策略规则，自动触发构建
     if (!fs.existsSync(path.join(runDir, 'strategy-rules.jsonl'))) {
-      await this.runBuildStrategy({ runId });
+      await this.runBuildStrategy({ runDir });
     }
 
     return this.publisher.publishRun(runDir, options);

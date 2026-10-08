@@ -17,6 +17,10 @@ const {
   DEBT_STATUSES,
   DEBT_EVENT_TYPES,
   DEBT_PRIORITIES,
+  TERMINAL_DEBT_STATUSES,
+  ALLOWED_TRANSITIONS,
+  StateTransitionRejectedError,
+  resolveTargetStatus,
   normalizeDebtType,
   normalizeDebtStatus,
   normalizeDebtPriority,
@@ -88,6 +92,62 @@ class StoryDebtLedger {
     }
 
     const event = createDebtEvent(eventInput);
+
+    // -----------------------------------------------------------------
+    // FSM State Transition Pre-validation (R5 Guard)
+    // -----------------------------------------------------------------
+    const existingDebt = this._debts.get(event.debtId);
+    if (existingDebt) {
+      const currentStatus = existingDebt.status;
+      const targetStatus = resolveTargetStatus(event.eventType, currentStatus);
+
+      // 1. 终态绝对保护：PAID, INVALIDATED, ABANDONED 拒绝任何后续事件
+      if (TERMINAL_DEBT_STATUSES.has(currentStatus)) {
+        throw new StateTransitionRejectedError(
+          `Cannot transition debt "${event.debtId}" from terminal status "${currentStatus}" via event "${event.eventType}" (STATE_TRANSITION_REJECTED)`,
+          {
+            debtId: event.debtId,
+            currentStatus,
+            targetStatus,
+            eventType: event.eventType,
+            storyId: this.storyId
+          }
+        );
+      }
+
+      // 2. 合法状态跃迁表校验
+      const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
+      if (!allowed.includes(targetStatus)) {
+        throw new StateTransitionRejectedError(
+          `Cannot transition debt "${event.debtId}" from status "${currentStatus}" to "${targetStatus}" via event "${event.eventType}" (STATE_TRANSITION_REJECTED)`,
+          {
+            debtId: event.debtId,
+            currentStatus,
+            targetStatus,
+            eventType: event.eventType,
+            storyId: this.storyId
+          }
+        );
+      }
+    } else if (event.eventType !== DEBT_EVENT_TYPES.CREATED) {
+      // 自愈生成骨架以 OPEN 起始，校验 OPEN 到 targetStatus 的跃迁合法性
+      const currentStatus = DEBT_STATUSES.OPEN;
+      const targetStatus = resolveTargetStatus(event.eventType, currentStatus);
+      const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
+      if (!allowed.includes(targetStatus)) {
+        throw new StateTransitionRejectedError(
+          `Cannot transition non-existent/auto-healed debt "${event.debtId}" from status "${currentStatus}" to "${targetStatus}" via event "${event.eventType}" (STATE_TRANSITION_REJECTED)`,
+          {
+            debtId: event.debtId,
+            currentStatus,
+            targetStatus,
+            eventType: event.eventType,
+            storyId: this.storyId
+          }
+        );
+      }
+    }
+
     if (event.idempotencyKey) {
       this._idempotencyKeys.add(`${this.storyId}:${event.idempotencyKey}`);
     }
@@ -376,7 +436,7 @@ class StoryDebtLedger {
       summary: debt.summary,
       debtType: debt.debt_type,
       status: debt.status,
-      isResolved: [DEBT_STATUSES.PAID, DEBT_STATUSES.INVALIDATED, DEBT_STATUSES.ABANDONED].includes(debt.status),
+      isResolved: TERMINAL_DEBT_STATUSES.has(debt.status),
       originChapter: debt.created_at_chapter,
       lastTouchedChapter: debt.last_touched_chapter,
       totalEvents: events.length,
@@ -406,7 +466,7 @@ class StoryDebtLedger {
       if (filter.priority && d.priority !== normalizeDebtPriority(filter.priority)) return false;
       if (filter.targetEntityId && d.target_entity_id !== filter.targetEntityId) return false;
       if (filter.isResolved !== undefined) {
-        const resolved = [DEBT_STATUSES.PAID, DEBT_STATUSES.INVALIDATED, DEBT_STATUSES.ABANDONED].includes(d.status);
+        const resolved = TERMINAL_DEBT_STATUSES.has(d.status);
         if (resolved !== Boolean(filter.isResolved)) return false;
       }
       return true;
@@ -594,6 +654,19 @@ class StoryDebtLedger {
     const { debtId, eventType, chapterNo, evidence, notes, payload } = event;
     let debt = this._debts.get(debtId);
 
+    if (debt && debt.status && TERMINAL_DEBT_STATUSES.has(debt.status)) {
+      throw new StateTransitionRejectedError(
+        `_applyEvent: Debt "${debtId}" is in terminal status "${debt.status}", cannot process event "${eventType}" (STATE_TRANSITION_REJECTED)`,
+        {
+          debtId,
+          currentStatus: debt.status,
+          targetStatus: resolveTargetStatus(eventType, debt.status),
+          eventType,
+          storyId: this.storyId
+        }
+      );
+    }
+
     if (eventType === DEBT_EVENT_TYPES.CREATED) {
       debt = {
         schemaVersion: 'debt-entity-v1',
@@ -731,6 +804,10 @@ class StoryDebtLedger {
     return JSON.parse(JSON.stringify(debt));
   }
 }
+
+StoryDebtLedger.StateTransitionRejectedError = StateTransitionRejectedError;
+StoryDebtLedger.ALLOWED_TRANSITIONS = ALLOWED_TRANSITIONS;
+StoryDebtLedger.TERMINAL_DEBT_STATUSES = TERMINAL_DEBT_STATUSES;
 
 module.exports = {
   StoryDebtLedger
