@@ -541,7 +541,7 @@ class ProfileRegistry {
         genre = this.getGenre(genreQuery);
         if (!genre) {
           if (allowUnresolved) {
-            genre = { resolved: false, query: String(genreQuery), error: 'Unregistered profile' };
+            genre = { resolved: false, id: null, query: String(genreQuery), error: 'Unregistered profile', mode: 'unresolved', reason: 'unregistered_profile' };
             genreMode = 'unresolved';
           } else {
             throw new ProfileResolutionError(`Unregistered genre profile query: "${genreQuery}"`, {
@@ -560,8 +560,13 @@ class ProfileRegistry {
           available: Array.from(this._genres.keys())
         });
       }
-      genre = SEED_GENRES[0];
-      if (genreMode === 'explicit') genreMode = 'inferred';
+      if (allowUnresolved) {
+        genre = { id: null, name: '未指定题材', resolved: false, mode: 'unresolved', reason: 'genre_not_selected' };
+        genreMode = 'unresolved';
+      } else {
+        genre = SEED_GENRES[0];
+        if (genreMode === 'explicit') genreMode = 'inferred';
+      }
     }
 
     // 2. 文风 Style
@@ -577,7 +582,7 @@ class ProfileRegistry {
         style = this.getStyle(styleQuery);
         if (!style) {
           if (allowUnresolved) {
-            style = { resolved: false, query: String(styleQuery), error: 'Unregistered profile' };
+            style = { resolved: false, id: null, query: String(styleQuery), error: 'Unregistered profile', mode: 'unresolved', reason: 'unregistered_profile' };
             styleMode = 'unresolved';
           } else {
             throw new ProfileResolutionError(`Unregistered style profile query: "${styleQuery}"`, {
@@ -596,8 +601,13 @@ class ProfileRegistry {
           available: Array.from(this._styles.keys())
         });
       }
-      style = SEED_STYLES[0];
-      if (styleMode === 'explicit') styleMode = 'inferred';
+      if (allowUnresolved) {
+        style = { id: null, name: '未指定文风', resolved: false, mode: 'unresolved', reason: 'style_not_selected' };
+        styleMode = 'unresolved';
+      } else {
+        style = SEED_STYLES[0];
+        if (styleMode === 'explicit') styleMode = 'inferred';
+      }
     }
 
     // 3. 章节目标 Goal / ChapterGoal
@@ -613,7 +623,7 @@ class ProfileRegistry {
         chapterGoal = this.getGoal(goalQuery);
         if (!chapterGoal) {
           if (allowUnresolved) {
-            chapterGoal = { resolved: false, query: String(goalQuery), error: 'Unregistered profile' };
+            chapterGoal = { resolved: false, id: null, query: String(goalQuery), error: 'Unregistered profile', mode: 'unresolved', reason: 'unregistered_profile' };
             goalMode = 'unresolved';
           } else {
             throw new ProfileResolutionError(`Unregistered goal profile query: "${goalQuery}"`, {
@@ -632,8 +642,13 @@ class ProfileRegistry {
           available: Array.from(this._goals.keys())
         });
       }
-      chapterGoal = SEED_GOALS[0];
-      if (goalMode === 'explicit') goalMode = 'inferred';
+      if (allowUnresolved) {
+        chapterGoal = { id: null, name: '未指定章节目标', resolved: false, mode: 'unresolved', reason: 'goal_not_selected' };
+        goalMode = 'unresolved';
+      } else {
+        chapterGoal = SEED_GOALS[0];
+        if (goalMode === 'explicit') goalMode = 'inferred';
+      }
     }
 
     // 4. 镜头侧重 Focus
@@ -649,7 +664,7 @@ class ProfileRegistry {
         focus = this.getFocus(focusQuery);
         if (!focus) {
           if (allowUnresolved) {
-            focus = { resolved: false, query: String(focusQuery), error: 'Unregistered profile' };
+            focus = { resolved: false, id: null, query: String(focusQuery), error: 'Unregistered profile', mode: 'unresolved', reason: 'unregistered_profile' };
             focusMode = 'unresolved';
           } else {
             throw new ProfileResolutionError(`Unregistered focus profile query: "${focusQuery}"`, {
@@ -668,8 +683,13 @@ class ProfileRegistry {
           available: Array.from(this._focuses.keys())
         });
       }
-      focus = SEED_FOCUSES[0];
-      if (focusMode === 'explicit') focusMode = 'inferred';
+      if (allowUnresolved) {
+        focus = { id: null, name: '未指定侧重', resolved: false, mode: 'unresolved', reason: 'focus_not_selected' };
+        focusMode = 'unresolved';
+      } else {
+        focus = SEED_FOCUSES[0];
+        if (focusMode === 'explicit') focusMode = 'inferred';
+      }
     }
 
     // 5. 钩子 Hook
@@ -685,7 +705,7 @@ class ProfileRegistry {
         hook = this.getHook(hookQuery);
         if (!hook) {
           if (allowUnresolved) {
-            hook = { resolved: false, query: String(hookQuery), error: 'Unregistered profile' };
+            hook = { resolved: false, id: null, query: String(hookQuery), error: 'Unregistered profile', mode: 'unresolved', reason: 'unregistered_profile' };
             hookMode = 'unresolved';
           } else {
             throw new ProfileResolutionError(`Unregistered hook profile query: "${hookQuery}"`, {
@@ -704,8 +724,13 @@ class ProfileRegistry {
           available: Array.from(this._hooks.keys())
         });
       }
-      hook = SEED_HOOKS[0];
-      if (hookMode === 'explicit') hookMode = 'inferred';
+      if (allowUnresolved) {
+        hook = { id: null, name: '未指定钩子', resolved: false, mode: 'unresolved', reason: 'hook_not_selected' };
+        hookMode = 'unresolved';
+      } else {
+        hook = SEED_HOOKS[0];
+        if (hookMode === 'explicit') hookMode = 'inferred';
+      }
     }
 
     // 6. 故事驱动引擎 StoryEngine (First-Class)

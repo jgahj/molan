@@ -118,18 +118,68 @@ class ExperimentEngine {
       const m = text.match(pat);
       if (m) tensionHits += m.length;
     }
-    const tensionDelta = Number((Math.min(0.8, Math.max(-0.4, (tensionHits * 0.15) - (aiFlavorRisk * 0.30) + 0.10))).toFixed(3));
+    const rawTensionDelta = Number((Math.min(0.8, Math.max(-0.4, (tensionHits * 0.15) - (aiFlavorRisk * 0.30) + 0.10))).toFixed(3));
+
+    // L0 Pre-screen: 正则词频与表层特征（降级为前筛信号，不可被单独投机）
+    const l0Prescreen = {
+      causalHits,
+      sensoryHits,
+      tensionHits,
+      aiClicheCount
+    };
+
+    // L1 Structural Truth: 结构位移与事实对账（防关键词堆砌投机）
+    // 检查是否存在真实伏笔因果清偿（debtReconciliation）或真实状态跃迁（stateDelta）
+    const debtRecon = input.debtReconciliation || context.debtReconciliation || null;
+    const stateDelta = input.stateDelta || context.stateDelta || null;
+    let structuralCausalBonus = 0;
+    let speculativeTensionDiscount = 0;
+    let hasStructuralVerification = false;
+
+    if (debtRecon && typeof debtRecon === 'object') {
+      hasStructuralVerification = true;
+      const resolvedCount = Array.isArray(debtRecon.resolvedDebts) ? debtRecon.resolvedDebts.length : 0;
+      if (resolvedCount > 0) {
+        structuralCausalBonus += Math.min(0.15, resolvedCount * 0.08);
+      }
+      if (debtRecon.status === 'reconciled' || debtRecon.reconciled === true) {
+        structuralCausalBonus += 0.05;
+      }
+    }
+
+    if (stateDelta && typeof stateDelta === 'object') {
+      hasStructuralVerification = true;
+      const beforeStr = JSON.stringify(stateDelta.stateBefore || '');
+      const afterStr = JSON.stringify(stateDelta.stateAfter || '');
+      if (beforeStr !== afterStr && afterStr !== '""') {
+        structuralCausalBonus += 0.05;
+      }
+    }
+
+    // 投机张力折扣：若关键词堆砌（tensionHits >= 3）且存在结构检验但没有任何状态改变或债务推进，扣减虚假张力分
+    if (hasStructuralVerification && tensionHits >= 3 && structuralCausalBonus === 0) {
+      speculativeTensionDiscount = 0.15;
+    }
+
+    const effectiveCausalScore = Number(Math.min(0.98, Math.max(0.1, causalScore + structuralCausalBonus)).toFixed(3));
+    const effectiveTensionDelta = Number(Math.max(-0.4, rawTensionDelta - speculativeTensionDiscount).toFixed(3));
 
     // 5. 综合复合评分 (Composite Score)
-    const rawComposite = 0.35 * causalScore + 0.35 * literaryScore + 0.30 * Math.max(0, tensionDelta + 0.5) - (aiFlavorRisk * 0.60);
+    const rawComposite = 0.35 * effectiveCausalScore + 0.35 * literaryScore + 0.30 * Math.max(0, effectiveTensionDelta + 0.5) - (aiFlavorRisk * 0.60);
     const compositeScore = Number(Math.max(0.01, Math.min(1.0, rawComposite)).toFixed(3));
 
     return {
-      causalScore,
+      causalScore: effectiveCausalScore,
       literaryScore,
       aiFlavorRisk,
-      tensionDelta,
-      compositeScore
+      tensionDelta: effectiveTensionDelta,
+      compositeScore,
+      l0Prescreen,
+      l1Structural: {
+        hasStructuralVerification,
+        structuralCausalBonus,
+        speculativeTensionDiscount
+      }
     };
   }
 

@@ -465,4 +465,96 @@ describe('Phase 2 Engine Enhancements & Robustness Verification', () => {
     });
   });
 
+  // =========================================================================
+  // 6. P0-4: Profile Registry allowUnresolved & Strict Mode Invariant
+  // =========================================================================
+  describe('P0-4: Profile Registry allowUnresolved & Inferred Default Invariant', () => {
+    it('6.1: allowUnresolved = true returns structured unresolved profile when dimensions omitted', () => {
+      const spec = defaultProfileRegistry.resolveCompositionSpec({
+        genre: 'xuanhuan_cautious'
+      }, { allowUnresolved: true });
+
+      assert.strictEqual(spec.genre.id, 'xuanhuan_cautious');
+      assert.strictEqual(spec.style.resolved, false, 'Style must be unresolved');
+      assert.strictEqual(spec.style.mode, 'unresolved');
+      assert.strictEqual(spec.style.reason, 'style_not_selected');
+      assert.strictEqual(spec.chapterGoal.resolved, false);
+      assert.strictEqual(spec.focus.resolved, false);
+      assert.strictEqual(spec.hook.resolved, false);
+    });
+
+    it('6.2: standard mode maintains inferred defaults preventing downstream crashes', () => {
+      const spec = defaultProfileRegistry.resolveCompositionSpec({
+        genre: 'xuanhuan_cautious'
+      });
+
+      assert.strictEqual(spec.style.id, 'laobai_restrained');
+      assert.strictEqual(spec.profileModes.style, 'inferred');
+      assert.ok(typeof spec.style.name === 'string');
+    });
+
+    it('6.3: strict mode strictly throws ProfileResolutionError when dimensions omitted', () => {
+      assert.throws(
+        () => defaultProfileRegistry.resolveCompositionSpec({ genre: 'xuanhuan_cautious' }, { strict: true }),
+        (err) => err.name === 'ProfileResolutionError' && err.dimension === 'style'
+      );
+    });
+  });
+
+  // =========================================================================
+  // 7. P0-6 & P1-2: L1 Structural Truth Evaluation & RenderedPromptPackage
+  // =========================================================================
+  describe('P0-6 & P1-2: Structural Truth Evaluation & RenderedPromptPackage', () => {
+    it('7.1: evaluateCandidate incorporates L1 debt reconciliation bonus and flags speculative tension discount', async () => {
+      const engine = new ExperimentEngine();
+
+      // Case A: With real debt resolution
+      const resWithRecon = await engine.evaluateCandidate({
+        text: '刀光破空，他侧身闪过，反手刺出。',
+        debtReconciliation: {
+          status: 'reconciled',
+          resolvedDebts: [{ debtId: 'hook_1' }]
+        }
+      });
+
+      assert.ok(resWithRecon.l1Structural.hasStructuralVerification, 'Must flag structural verification');
+      assert.ok(resWithRecon.l1Structural.structuralCausalBonus > 0, 'Must award causal bonus for resolved debts');
+
+      // Case B: Speculative tension keyword stuffing without state delta or debt resolution
+      const resSpeculative = await engine.evaluateCandidate({
+        text: '死战！生死存亡！极度危险的危机与杀机！千钧一发！',
+        debtReconciliation: {
+          status: 'pending',
+          resolvedDebts: []
+        },
+        stateDelta: { stateBefore: '原地', stateAfter: '原地' }
+      });
+
+      assert.ok(resSpeculative.l1Structural.speculativeTensionDiscount > 0, 'Must apply speculative tension discount when keywords stuffed without state change');
+      assert.ok(resSpeculative.l0Prescreen.tensionHits >= 3, 'Must record L0 prescreen tension hits');
+    });
+
+    it('7.2: buildDraftRequest outputs structured renderedPromptPackage', () => {
+      const spec = defaultProfileRegistry.resolveCompositionSpec({
+        genre: 'xuanhuan_cautious',
+        style: 'laobai_restrained',
+        chapterGoal: 'conflict_push',
+        focus: 'action',
+        hook: 'crisis'
+      });
+
+      const draftReq = buildDraftRequest({
+        request: { compositionSpec: spec },
+        contract: { chapterGoal: '推进', wordBudget: { target: 2000 } }
+      });
+
+      assert.ok(draftReq.renderedPromptPackage, 'Must output renderedPromptPackage');
+      assert.strictEqual(draftReq.renderedPromptPackage.schemaVersion, 'rendered-prompt-package-v1');
+      assert.strictEqual(typeof draftReq.renderedPromptPackage.system, 'string');
+      assert.strictEqual(typeof draftReq.renderedPromptPackage.userPrompt, 'string');
+      assert.ok(Array.isArray(draftReq.renderedPromptPackage.messages));
+    });
+  });
+
 });
+

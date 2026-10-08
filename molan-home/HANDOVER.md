@@ -114,3 +114,51 @@ molan-home/
 2. **后续建议待办**：
    - **接入真实数据反馈闭环**：当正文生成完成并触发用户审核/接受事件时，调用 `experimentEngine.recordCompatibilitySynergy` 将实际提升度追加沉淀到磁盘日志；
    - **Prompt 渲染器标签正交化微调**：进一步理顺 `ir-lowering.js` 特定模型渲染器（Claude XML / GPT Markdown）与 `tierAttention` 策略卡的分工边界。
+
+---
+
+## 阶段记录：Phase 2 提案完整归档与架构演进加固 (2026-10-08)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/PHASE2_ARCHITECTURE_PROPOSAL.md` | 文档归档 | 完整生成并归档用户提出的 10 项 Phase 2 引擎架构审查建议原始提案。 |
+| `molan-home/lib/composition/profiles/profile-registry.js` | 契约加固 (P0-4) | `resolveCompositionSpec` 支持 `allowUnresolved: true` 返回安全结构化未解析对象（带 `reason: 'style_not_selected'` 等）；非严格模式下保持合法默认属性对象，杜绝下游编译器发生 `TypeError` 崩溃。 |
+| `molan-home/lib/composition/evaluation/experiment-engine.js` | 评测升级 (P0-6) | `evaluateCandidate` 将正则词频降级为 `l0Prescreen`；新增接收 `debtReconciliation` / `stateDelta` 提取 `l1Structural` 结构真值，并对关键词堆砌且无状态位移的样本实施投机张力折扣。 |
+| `molan-home/lib/generation/content-engine.js` | 接口规范 (P1-2) | `buildDraftRequest` 正式输出符合规范的 `renderedPromptPackage` 结构体，统一系统与用户提示词、注意力与预算装配。 |
+| `molan-home/test/phase2-engine-enhancements.test.js` | 自动化测试 | 新增 5 项针对 `allowUnresolved` 契约、`inferred` 兜底、L1 结构对账及 `renderedPromptPackage` 的端到端测试。 |
+
+### 二、技术决策与权衡（负面影响分析）
+
+1. **为什么不能粗暴改 Profile Registry 默认返回 UNRESOLVED 裸对象 (P0-4 负面影响)**：
+   - 下游 `strategy-compiler` 与 `ir-lowering` 强依赖完整 Profile 对象（如 `spec.style.name`、`spec.style.stableDna`）。
+   - 若在非 strict 模式下直接把缺省维度改为 `{ resolved: false, mode: 'unresolved' }` 裸对象，会导致已有数十个单测与生产调用读取 `undefined` 字段直接报 `TypeError` 崩溃。
+   - **本次解决方案**：显式传入 `allowUnresolved: true` 时返回结构完备的未解析对象；默认非 strict 时保持安全推导兜底，strict 模式严格抛出 `ProfileResolutionError`。
+2. **为什么在线生成不能引入 L2 双盲在线裁判 (P0-6 负面影响)**：
+   - 每次生成章节若再阻塞调用双盲 LLM 评测，会额外增加 20~40 秒的大模型网络耗时，大幅增加网络中断与超时故障率。
+   - **本次解决方案**：接入系统既有的 `debt-reconciliation.js` 真实状态位移检查作为 L1 结构真值，将词频降为 L0 前筛，零网络延迟防范投机套利。
+3. **为什么坚决暂缓前置 Composition Planner (P1-8 负面影响)**：
+   - 系统已有 `scene-planner.js` 与 `creation-plan-service.js`。在生成前再生硬堆一层 Planning LLM 属于过度工程化，首字延迟增加 15~30s 且增加断点。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **执行命令与结果**：
+  1. 增强回归套件（21 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/phase2-engine-enhancements.test.js
+     # 21 tests, 21 passed, 0 failed (duration: ~50ms)
+     ```
+  2. Phase 2 E2E 与对抗性剪裁核心测试（95 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/e2e-phase2-engine.test.js test/adversarial-attention-tiering.test.js
+     # 95 tests, 95 passed, 0 failed (duration: ~950ms)
+     ```
+  3. 全局关联单测套件（87 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/composition-profiles.test.js test/composition-debt-ledger.test.js test/orchestrator-brain-consolidation.test.js test/milestone-4-strategy-provenance-lowering.test.js test/strategy-compiler.test.js test/content-engine.test.js test/context-plan-replay-p4.test.js test/replay-manifest.test.js
+     # 87 tests, 87 passed, 0 failed (duration: ~1130ms)
+     ```
+  - **总计自动化测试用例**：**203 / 203 passed (100% 全部通过，0 失败)**。
+
