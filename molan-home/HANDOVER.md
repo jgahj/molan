@@ -162,3 +162,66 @@ molan-home/
      ```
   - **总计自动化测试用例**：**203 / 203 passed (100% 全部通过，0 失败)**。
 
+
+
+---
+
+## 阶段记录：工作区无关项目与历史过时废弃内容彻底清理 (2026-10-08)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 路径 | 改动类型 | 清理对象与核心逻辑 |
+| :--- | :---: | :--- |
+| `ai-novel-landing/`、`maliang-writer-restore/`、`maliangwriter-clone/` | 彻底移除 | 移除 2026-07 早期外部克隆与独立原型项目（含独立 package.json、server.js 及静态 HTML/CSS），与墨阑主工程无关，彻底消除全局符号冲突与搜索干扰。 |
+| `DeterminFlow_借鉴落地方案_2026-08-19.md`、`UI_审计报告_2026-08-18.md`、`enhanced_prompt_maliangwriter.md` | 彻底移除 | 移除早期草稿、原型审计及马良提示词历史文档。 |
+| 根目录 `_*.py`、`build_authorized_character_library.py`、中间 JSON（`nl_tree.json`、`novel_list.json`、`novels_pool.json`、`types_novels.json`） | 彻底移除 | 移除历史一次性爬虫探针、探测脚本与数十兆中间 JSON 缓冲池，主项目全链路零依赖。 |
+| `资源库/scripts/_probe_*.py`（共 39 个探针）、`_test_pipeline.py`、`_test_out/` | 彻底移除 | 移除历史镜像站、起点、全本探测脚本及测试输出目录。 |
+| `资源库/scripts/muye.js`、`library.js`、`fanqie-probe.py` | 彻底移除 | 移除番茄小说前端逆向分析遗留的 3.9MB + 158KB 打包 JS 产物及对应探针脚本，剥离外来无用大体积资产。 |
+| `.gitignore` | 规则精简 | 移除已删除文件 `!molan-deploy-current.txt` 的废弃反向忽略规则。 |
+
+### 二、技术决策与权衡（负面影响分析）
+
+1. **彻底解除全局污染与 Token 浪费**：
+   - 工作区根目录此前堆积大量与 `molan-home` 无关的项目目录（`ai-novel-landing/`、`maliang*`）和 4MB+ 的外部 JS 逆向打包文件（`muye.js`、`library.js`），在 Agent 启动或全局 Grep 检索时造成严重的无关命中与 Token 浪费。
+2. **保护核心生产资产与数据边界**：
+   - 严格保护核心数据目录 `资源库/小说原本/`、工程级工具链 `scripts/`、写作 Skill `write-high-tension-fiction/`、核心参考规约 `纠错库.md` 及评测基准文件（`quality-report.md`、`optimization-plan.json` 等）。
+3. **闭环暂存与原子化提交流程**：
+   - 前序尝试仅在工作区中留下未暂存删除状态，极易被并发任务或分支检出静默撤销。本次对清理集合完成显式暂存与验证，确保工程交付闭环。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **执行命令与结果**：
+  1. Phase 2 增强回归套件（21 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/phase2-engine-enhancements.test.js
+     # 21 tests, 21 passed, 0 failed (duration: ~50ms)
+     ```
+  2. Phase 2 E2E 与对抗性剪裁核心测试（95 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/e2e-phase2-engine.test.js test/adversarial-attention-tiering.test.js
+     # 95 tests, 95 passed, 0 failed (duration: ~950ms)
+     ```
+  3. 全局关联单测套件（87 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/composition-profiles.test.js test/composition-debt-ledger.test.js test/orchestrator-brain-consolidation.test.js test/milestone-4-strategy-provenance-lowering.test.js test/strategy-compiler.test.js test/content-engine.test.js test/context-plan-replay-p4.test.js test/replay-manifest.test.js
+     # 87 tests, 87 passed, 0 failed (duration: ~1130ms)
+     ```
+  4. 写作 Skill 与纠错库加载合同（6 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" test/editor-only-sources.test.js
+     # 6 tests, 6 passed, 0 failed
+     ```
+  5. 生产导入架构审计：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/production-import-audit.mjs
+     # 扫描 220 个生产文件，依赖隔离合规无异常 (PASS)
+     ```
+  6. 黄金数据集任务验证：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/audit-golden-suite.mjs
+     # 80 个黄金任务全部验证通过 (PASS)
+     ```
+  - **总计核心自动化测试用例**：**209 / 209 passed (100% 全部通过，0 失败)**。
+
+---
