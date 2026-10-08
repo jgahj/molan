@@ -799,8 +799,22 @@ class ProfileRegistry {
       readerPromise: promisesMode
     });
 
+    const profileOrigins = Object.freeze({
+      genre: genreSupplied ? 'explicit' : (genreMode === 'unresolved' ? 'unresolved' : 'fallback'),
+      style: styleSupplied ? 'explicit' : (styleMode === 'unresolved' ? 'unresolved' : 'fallback'),
+      goal: goalSupplied ? 'explicit' : (goalMode === 'unresolved' ? 'unresolved' : 'fallback'),
+      chapterGoal: goalSupplied ? 'explicit' : (goalMode === 'unresolved' ? 'unresolved' : 'fallback'),
+      focus: focusSupplied ? 'explicit' : (focusMode === 'unresolved' ? 'unresolved' : 'fallback'),
+      hook: hookSupplied ? 'explicit' : (hookMode === 'unresolved' ? 'unresolved' : 'fallback'),
+      storyEngine: engineSupplied ? 'explicit' : (engineMode === 'unresolved' ? 'unresolved' : 'inferred'),
+      readerPromises: promisesSupplied ? 'explicit' : (promisesMode === 'unresolved' ? 'unresolved' : 'inferred'),
+      readerPromise: promisesSupplied ? 'explicit' : (promisesMode === 'unresolved' ? 'unresolved' : 'inferred'),
+      ...(typeof raw.profileOrigins === 'object' && raw.profileOrigins !== null ? raw.profileOrigins : {})
+    });
+
     const provenance = Object.freeze({
       profileModes,
+      profileOrigins,
       resolvedAt: new Date().toISOString(),
       registryVersion: 'composition-profile-registry-v2'
     });
@@ -840,6 +854,7 @@ class ProfileRegistry {
       storyEngine,
       readerPromises,
       profileModes,
+      profileOrigins,
       provenance,
       stateDelta: raw.stateDelta ? raw.stateDelta : (chapterGoal?.defaultStateDelta || null),
       localStyleModulation,

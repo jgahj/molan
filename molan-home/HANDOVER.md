@@ -37,6 +37,9 @@ molan-home/
 │   ├── generation/                     # 正文生成引擎
 │   │   ├── content-engine.js           # 草稿请求装配 (buildDraftRequest 幂等去重入模)、生成调度
 │   │   └── context-budget.js           # 供应商上下文窗口预算断言 (assertContextBudget)
+│   ├── legacy/                         # 历史组件平滑治理与隔离
+│   │   ├── generation-pipeline-coordinator.js # 历史生成流水线 (已隔离)
+│   │   └── legacy-telemetry.js         # 历史废弃模块调用生命周期遥测器
 │   └── scene-planner.js                # 细纲场景规划与冲突推进
 ├── services/                           # 业务服务层
 │   ├── model-call-service.js           # 全站通用模型调用客户端 (内部 HTTP 路由与流解析)
@@ -45,7 +48,7 @@ molan-home/
 └── test/                               # 核心自动化测试集 (Node 22 运行)
     ├── e2e-phase2-engine.test.js       # Phase 2 引擎 4 梯队 60 项 E2E 验收用例
     ├── adversarial-attention-tiering.test.js # 注意力裁剪对抗性极限压力测试 (35 项)
-    └── phase2-engine-enhancements.test.js    # 边界 ??、确定性 Debt ID、单一真相等 26 项回归测试
+    └── phase2-engine-enhancements.test.js    # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
 ```
 
 ---
@@ -290,3 +293,69 @@ molan-home/
   - **总计核心自动化测试用例**：**251 / 251 passed (100% 全部通过，0 失败)**。
 
 ---
+
+## 阶段记录：Profile 来源解耦、Legacy 路径遥测、CI 确定性与权威文档现代化 (2026-10-08)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/lib/composition/profiles/profile-registry.js` | 语义精化 (R1) | 新增 `profileOrigins` 结构体：明确区分 `explicit`（用户显式提供）、`inferred`（上下文/题材推导如 storyEngine）、`fallback`（未提供且无推导依据时的安全默认种子）；保持 `spec.profileModes` 兼容性的同时，将 `profileOrigins` 暴露于 `spec` 与 `provenance`，杜绝兜底样本污染下游文风协同实验。 |
+| `molan-home/lib/legacy/legacy-telemetry.js` | 观测治理 (R2) | 新建 `LegacyUsageTelemetry` 历史组件遥测器，单例 `legacyUsageTelemetry` 支持记录历史模块调用来源、频次、最近时间戳与调用上下文，支持数据重置与状态查询。 |
+| `molan-home/lib/legacy/generation-pipeline-coordinator.js` | 遥测接入 (R2) | 在 `assembleUpgradedGenerationPrompt` 与 `auditGeneratedChapter` 入口无侵入挂载 `legacyUsageTelemetry.record`，并在模块导出中暴露遥测实例，为历史模块物理下线提供可观测数据支撑。 |
+| `.github/workflows/ci.yml` | 确定性构建 (R3) | 将 CI 依赖安装步骤从 `npm install` 升级为 `npm ci`，严格依据 `package-lock.json` 版本锁进行确定性安装，杜绝云端环境依赖漂移。 |
+| `molan-home/README.md` | 文档重构 (R4) | 全面重写项目根目录说明文档：彻底移除 2026-07 早期原型描述，完整呈现 Phase 2 创作编译器架构、单一生产生态链、核心模块索引、Node 22 规范及自动化门禁指令。 |
+| `molan-home/test/phase2-engine-enhancements.test.js` | 自动化测试 | 新增 Suite 9（4 项自动化测试，总数增至 30 项），覆盖 `profileOrigins` 兜底/推导分离、显式来源标记、遥测器计数与历史流水线自动打点。 |
+
+### 二、设计决策与权衡（负面影响分析与叫停项）
+
+1. **为什么坚决叫停盲目大拆 8700 行的 `server.js` (优化.txt 第八条负面影响)**：
+   - `server.js` 是全站唯一的生产 HTTP/WebSocket 宿主服务，承载近百个路由分发、中间件、SSE 流通道和复杂全局状态。
+   - 在缺乏针对每一个路由的完整 E2E 契约覆盖下，若单次变更对其进行激进拆解，极易引发路由丢失、中间件顺序颠倒、闭包变量不可见等隐蔽 Crash。
+   - **本次解决方案**：不盲目冒进大拆；优先通过挂载轻量遥测与路由规范固化主链，后续演进采用增量 Router 挂载策略平滑过渡。
+2. **为什么坚决叫停强行剥离代码仓库中的 `资源库/` (优化.txt 第十二条负面影响)**：
+   - 80 项黄金任务全量测试（`scripts/audit-golden-suite.mjs`）、写作 Skill（`write-high-tension-fiction`）和离线语料挖掘（`corpus-cli.js`）强依赖本地 `资源库/` 中的标准样本。
+   - 若粗暴将语料迁移至外部对象存储，将直接破坏本地离线开发能力与 CI 自动构建流水线，造成灾难性基础设施断裂。
+   - **本次解决方案**：保持黄金基准语料在库内，仅清理历史生成的废弃临时探针脚本与大型中间 JSON（已于前序完成）。
+3. **为什么严禁直接物理删除历史遗留接口 `/api/chat` 或 `generation-pipeline-coordinator`**：
+   - 老版本前端或历史脚本可能仍存在对旧接口的偶发调用，直接物理删除会导致老页面白屏或报 404 故障。
+   - **本次解决方案**：通过 `legacy-telemetry.js` 实施无感知流量统计，待连续 30 天观测为 0 调用后再安全物理移除。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **执行命令与结果**：
+  1. Phase 2 增强回归套件（30 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/phase2-engine-enhancements.test.js
+     # 30 tests, 30 passed, 0 failed (duration: ~60ms)
+     ```
+  2. Phase 2 E2E 与对抗性剪裁核心测试（95 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/e2e-phase2-engine.test.js test/adversarial-attention-tiering.test.js
+     # 95 tests, 95 passed, 0 failed (duration: ~950ms)
+     ```
+  3. 全局关联与核心回归套件（124 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/composition-profiles.test.js test/composition-debt-ledger.test.js test/orchestrator-brain-consolidation.test.js test/milestone-4-strategy-provenance-lowering.test.js test/strategy-compiler.test.js test/content-engine.test.js test/context-plan-replay-p4.test.js test/replay-manifest.test.js test/quality-assessment.test.js test/generation-quality-gate.test.js
+     # 124 tests, 124 passed, 0 failed (duration: ~1050ms)
+     ```
+  4. 写作 Skill 与纠错库加载合同（6 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" test/editor-only-sources.test.js
+     # 6 tests, 6 passed, 0 failed (duration: ~43ms)
+     ```
+  5. 生产架构依赖隔离审计：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/production-import-audit.mjs
+     # 扫描 220 个生产文件，依赖隔离合规无异常 (PASS)
+     ```
+  6. 黄金数据集全量任务验证：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/audit-golden-suite.mjs
+     # 80 个黄金任务全部验证通过 (PASS)
+     ```
+  - **总计核心自动化测试用例**：**255 / 255 passed (100% 全部通过，0 失败)**。
+
+---
+

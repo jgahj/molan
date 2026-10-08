@@ -33,6 +33,8 @@ const { ExperimentEngine } = require('../lib/composition/evaluation/experiment-e
 const { defaultProfileRegistry } = require('../lib/composition/profiles/profile-registry');
 const { StoryDebtLedger, generateDeterministicDebtId } = require('../lib/composition/debt/story-debt-ledger');
 const { createQualityAssessment } = require('../lib/generation/quality-assessment');
+const { legacyUsageTelemetry } = require('../lib/legacy/legacy-telemetry');
+const { auditGeneratedChapter } = require('../lib/legacy/generation-pipeline-coordinator');
 
 describe('Phase 2 Engine Enhancements & Robustness Verification', () => {
 
@@ -681,6 +683,74 @@ describe('Phase 2 Engine Enhancements & Robustness Verification', () => {
       assert.strictEqual(engine.getFailedRecords()[0].key, 'test_tuple_key');
     });
 
+  });
+
+  // =========================================================================
+  // 9. Profile Origin Decoupling & Legacy Telemetry Verification
+  // =========================================================================
+  describe('9. Profile Origin Decoupling & Legacy Telemetry Verification', () => {
+    it('9.1: resolveCompositionSpec marks profileOrigins as fallback for default dimensions and inferred for derived engine', () => {
+      const spec = defaultProfileRegistry.resolveCompositionSpec({
+        genre: 'xuanhuan_cautious'
+      });
+
+      assert.strictEqual(spec.profileOrigins.genre, 'explicit', 'Provided genre must be explicit');
+      assert.strictEqual(spec.profileOrigins.style, 'fallback', 'Unspecified style must have fallback origin');
+      assert.strictEqual(spec.profileOrigins.chapterGoal, 'fallback', 'Unspecified goal must have fallback origin');
+      assert.strictEqual(spec.profileOrigins.focus, 'fallback', 'Unspecified focus must have fallback origin');
+      assert.strictEqual(spec.profileOrigins.hook, 'fallback', 'Unspecified hook must have fallback origin');
+      assert.strictEqual(spec.profileOrigins.storyEngine, 'inferred', 'Derived storyEngine must have inferred origin');
+      assert.strictEqual(spec.profileOrigins.readerPromises, 'inferred', 'Derived readerPromises must have inferred origin');
+
+      // Backward compatibility of profileModes remains intact
+      assert.strictEqual(spec.profileModes.genre, 'explicit');
+      assert.strictEqual(spec.profileModes.style, 'inferred');
+      assert.strictEqual(spec.provenance.profileOrigins.style, 'fallback');
+    });
+
+    it('9.2: resolveCompositionSpec marks explicit origin when dimensions are supplied', () => {
+      const spec = defaultProfileRegistry.resolveCompositionSpec({
+        genre: 'xuanhuan_cautious',
+        style: 'laobai_restrained',
+        chapterGoal: 'conflict_push',
+        focus: 'dialogue_game',
+        hook: 'life_death_crisis'
+      });
+
+      assert.strictEqual(spec.profileOrigins.genre, 'explicit');
+      assert.strictEqual(spec.profileOrigins.style, 'explicit');
+      assert.strictEqual(spec.profileOrigins.chapterGoal, 'explicit');
+      assert.strictEqual(spec.profileOrigins.focus, 'explicit');
+      assert.strictEqual(spec.profileOrigins.hook, 'explicit');
+    });
+
+    it('9.3: legacyUsageTelemetry tracks invocation counts, timestamps, and caller details', () => {
+      legacyUsageTelemetry.reset();
+      assert.strictEqual(legacyUsageTelemetry.getStats('test_module'), null);
+
+      legacyUsageTelemetry.record('test_module', { caller: 'unit_test_9_3' });
+      const stats = legacyUsageTelemetry.getStats('test_module');
+
+      assert.strictEqual(stats.callCount, 1);
+      assert.strictEqual(stats.recentCalls.length, 1);
+      assert.strictEqual(stats.recentCalls[0].caller, 'unit_test_9_3');
+
+      legacyUsageTelemetry.record('test_module', { caller: 'unit_test_second_call' });
+      assert.strictEqual(legacyUsageTelemetry.getStats('test_module').callCount, 2);
+    });
+
+    it('9.4: generation-pipeline-coordinator transparently triggers legacyUsageTelemetry', () => {
+      legacyUsageTelemetry.reset();
+      const mockChapter = '张若尘手握沉渊古剑，剑气纵横激荡。地姥静坐罗祖云山界深处。';
+      
+      const result = auditGeneratedChapter(mockChapter, { genre: '玄幻' });
+      assert.ok(result);
+
+      const stats = legacyUsageTelemetry.getStats('generation-pipeline-coordinator');
+      assert.ok(stats, 'Coordinator must record telemetry');
+      assert.strictEqual(stats.callCount, 1);
+      assert.strictEqual(stats.recentCalls[0].action, 'auditGeneratedChapter');
+    });
   });
 
 });
