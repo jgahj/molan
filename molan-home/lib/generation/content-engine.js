@@ -662,6 +662,21 @@ function buildDraftRequest(options = {}) {
     } : basePlan.replayManifest
   };
 
+  const renderedPromptPackage = {
+    schemaVersion: 'rendered-prompt-package-v1',
+    system: effectiveSystem,
+    userPrompt: effectiveUser,
+    messages: [
+      { role: 'system', content: effectiveSystem },
+      { role: 'user', content: effectiveUser }
+    ],
+    attention,
+    wordBudget: compiled.wordBudget,
+    targetChars,
+    writerMaxTokens,
+    promptBudget
+  };
+
   return {
     stage: 'writer',
     system: effectiveSystem,
@@ -677,6 +692,7 @@ function buildDraftRequest(options = {}) {
     wordBudget: compiled.wordBudget,
     attention,
     tieredAttention: attention,
+    renderedPromptPackage,
     compiled
   };
 }
