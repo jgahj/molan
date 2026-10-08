@@ -214,30 +214,39 @@ function createQualityAssessment(options = {}) {
 
   const literaryEvaluator = rawLiterary.evaluator && typeof rawLiterary.evaluator === 'object'
     ? { ...rawLiterary.evaluator }
-    : { mode: 'single', modelId: 'literary-judge-v1' };
+    : (literaryDimensionCount > 0 ? { mode: 'single', modelId: 'literary-judge-v1' } : { mode: 'unmeasured', modelId: null });
 
-  // 3. Style 层处理
-  const stylePassed = rawStyle.passed !== false;
+  // 3. Style 层处理（未测量与已测量彻底分离，未测时不虚构 0.85 高分）
+  const hasStyleInput = Boolean(opts.style && typeof opts.style === 'object' && Object.keys(opts.style).length > 0);
+  const rawStyleStatus = String(rawStyle.status || '').trim().toUpperCase();
+  const styleStatus = rawStyleStatus || (hasStyleInput ? 'MEASURED' : 'NOT_MEASURED');
+  const stylePassed = hasStyleInput ? (rawStyle.passed !== false) : true;
   const styleScore = typeof rawStyle.score === 'number' && Number.isFinite(rawStyle.score)
     ? rawStyle.score
-    : (stylePassed ? 0.85 : 0.5);
+    : (hasStyleInput && stylePassed ? 0.85 : (styleStatus === 'NOT_MEASURED' ? 0 : 0.5));
   const styleMetrics = rawStyle.metrics && typeof rawStyle.metrics === 'object' ? { ...rawStyle.metrics } : {};
   const styleEvidence = Array.isArray(rawStyle.evidence) ? [...rawStyle.evidence] : [];
 
-  // 4. AI Flavor 层处理
-  const aiFlavorRisk = String(rawAiFlavor.risk || 'clean').toLowerCase();
-  const aiFlavorPassed = rawAiFlavor.passed !== false && aiFlavorRisk !== 'critical';
+  // 4. AI Flavor 层处理（未测量时标为 unmeasured，禁止伪造 clean 与 detector 来源）
+  const hasAiFlavorInput = Boolean(
+    (opts.aiFlavor && typeof opts.aiFlavor === 'object' && Object.keys(opts.aiFlavor).length > 0) ||
+    (opts.ai_flavor_risk && typeof opts.ai_flavor_risk === 'object' && Object.keys(opts.ai_flavor_risk).length > 0)
+  );
+  const rawAiStatus = String(rawAiFlavor.status || '').trim().toUpperCase();
+  const aiFlavorStatus = rawAiStatus || (hasAiFlavorInput ? 'MEASURED' : 'NOT_MEASURED');
+  const aiFlavorRisk = hasAiFlavorInput ? String(rawAiFlavor.risk || 'clean').toLowerCase() : 'unmeasured';
+  const aiFlavorPassed = hasAiFlavorInput ? (rawAiFlavor.passed !== false && aiFlavorRisk !== 'critical') : true;
   const aiFlavorScore = typeof rawAiFlavor.score === 'number' && Number.isFinite(rawAiFlavor.score) ? rawAiFlavor.score : 0;
-  const aiFlavorStatus = String(rawAiFlavor.status || 'MEASURED');
-  const aiFlavorSource = String(rawAiFlavor.source || 'ai_flavor_detector');
+  const aiFlavorSource = String(rawAiFlavor.source || (hasAiFlavorInput ? 'ai_flavor_detector' : 'unmeasured'));
   const aiFlavorEvidence = Array.isArray(rawAiFlavor.evidence) ? [...rawAiFlavor.evidence] : [];
 
   // Overall 整合
-  // 核心不变式：compliance.passed 绝不能单独解锁 overallPassed
-  const overallPassed = compliancePassed && literaryPassed && stylePassed && aiFlavorPassed;
+  // 核心不变式：compliance.passed 绝不能单独解锁 overallPassed；strict 模式下任何层 NOT_MEASURED 均直接阻断
+  const strictFailure = Boolean(opts.strict && (styleStatus === 'NOT_MEASURED' || aiFlavorStatus === 'NOT_MEASURED'));
+  const overallPassed = compliancePassed && literaryPassed && stylePassed && aiFlavorPassed && !strictFailure;
   const overallStatus = overallPassed
     ? (literaryStatus === 'JUDGED' ? 'JUDGED' : 'MEASURED')
-    : (literaryStatus === 'NOT_MEASURED' ? 'NOT_MEASURED' : 'needs_human');
+    : (literaryStatus === 'NOT_MEASURED' || strictFailure ? 'NOT_MEASURED' : 'needs_human');
   const overallScore = literaryScore;
   const overallConfidence = literaryConfidence;
 
@@ -271,6 +280,7 @@ function createQualityAssessment(options = {}) {
     },
     style: {
       passed: stylePassed,
+      status: styleStatus,
       score: styleScore,
       metrics: styleMetrics,
       evidence: styleEvidence

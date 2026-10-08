@@ -31,6 +31,26 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createDebtEvent } = require('./debt-event');
 
+function generateDeterministicDebtId(input = {}, eventContext = {}, defaultStoryId = '') {
+  const storyId = String(input.storyId || input.story_id || eventContext.storyId || eventContext.novelId || defaultStoryId || '').trim();
+  const chapterNo = input.createdAtChapter ?? input.created_at_chapter ?? eventContext.chapterNo ?? eventContext.chapter_no ?? '';
+  const chapterId = String(input.originChapterId || input.origin_chapter_id || eventContext.chapterId || '').trim();
+  const rawType = input.debtType || input.debt_type || 'generic';
+  let debtType = 'generic';
+  try {
+    debtType = normalizeDebtType(rawType);
+  } catch (_) {
+    debtType = String(rawType || 'generic').trim();
+  }
+  const originEntity = String(input.targetEntityId || input.target_entity_id || input.originEntity || eventContext.originEntity || '').trim();
+  const summary = String(input.summary || eventContext.summary || '').trim();
+  const seed = String(input.idempotencyKey || input.idempotency_key || eventContext.idempotencyKey || '').trim();
+
+  const raw = [storyId, chapterNo, chapterId, debtType, originEntity, summary, seed].join('|');
+  const hash = crypto.createHash('sha256').update(raw, 'utf8').digest('hex').slice(0, 20);
+  return `debt_${debtType}_${hash}`;
+}
+
 class StoryDebtLedger {
   /**
    * @param {Object} options
@@ -181,10 +201,15 @@ class StoryDebtLedger {
    * @returns {Object} 创建后的完整债务实体快照
    */
   createDebt(input = {}, eventContext = {}) {
-    const debtId = String(input.debtId || input.debt_id || `debt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`).trim();
     if (!input.summary && !eventContext.summary) {
       throw new TypeError('创建债务必须具备 summary 说明');
     }
+
+    const debtId = String(
+      input.debtId ||
+      input.debt_id ||
+      generateDeterministicDebtId(input, eventContext, this.storyId)
+    ).trim();
 
     const idempotencyKey = input.idempotencyKey || input.idempotency_key || eventContext.idempotencyKey || eventContext.idempotency_key || null;
     const eventId = input.eventId || input.event_id || eventContext.eventId || eventContext.event_id || null;
@@ -808,7 +833,9 @@ class StoryDebtLedger {
 StoryDebtLedger.StateTransitionRejectedError = StateTransitionRejectedError;
 StoryDebtLedger.ALLOWED_TRANSITIONS = ALLOWED_TRANSITIONS;
 StoryDebtLedger.TERMINAL_DEBT_STATUSES = TERMINAL_DEBT_STATUSES;
+StoryDebtLedger.generateDeterministicDebtId = generateDeterministicDebtId;
 
 module.exports = {
-  StoryDebtLedger
+  StoryDebtLedger,
+  generateDeterministicDebtId
 };

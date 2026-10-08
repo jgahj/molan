@@ -40,7 +40,13 @@ function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HE
       if (!instruction) throw new Error('Skill 未完整加载：' + (o.skillId || 'dissection'));
       systemPrompt = wrapSkillBlock(skill.id, instruction) + '\n\n' + systemPrompt;
     }
-    const messages = [
+    const providedMessages = Array.isArray(o.messages) && o.messages.length > 0
+      ? o.messages
+      : (o.renderedPromptPackage && Array.isArray(o.renderedPromptPackage.messages) && o.renderedPromptPackage.messages.length > 0
+        ? o.renderedPromptPackage.messages
+        : null);
+
+    const messages = providedMessages || [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: DYNAMIC_PROMPT_MARKER + '\n' + (o.userPrompt || '') },
       { role: 'user', content: o.jsonMode ? '请只返回一个合法 JSON 对象，不要任何解释或 Markdown 围栏。' : '请直接输出内容，不要解释。' }
