@@ -9,7 +9,6 @@ raws/
 tmp-booktest/
 extracted/
 *.txt
-!molan-deploy-current.txt
 !molan-home/data/genre-lab/benchmark-suite/control-prompt.txt
 *.epub
 *.mobi
