@@ -170,6 +170,132 @@ function normalizeDebtEventType(eventType) {
   return key;
 }
 
+/**
+ * 叙事债务终态集合 (Terminal Debt Statuses)
+ * 一旦进入终态，严禁任何进一步状态跃迁或字段修改
+ */
+const TERMINAL_DEBT_STATUSES = Object.freeze(new Set([
+  DEBT_STATUSES.PAID,
+  DEBT_STATUSES.INVALIDATED,
+  DEBT_STATUSES.ABANDONED
+]));
+
+/**
+ * 严格生命周期状态转移表 (Story Debt FSM Allowed Transitions)
+ */
+const ALLOWED_TRANSITIONS = Object.freeze({
+  [DEBT_STATUSES.OPEN]: Object.freeze([
+    DEBT_STATUSES.DEVELOPING,
+    DEBT_STATUSES.PARTIALLY_PAID,
+    DEBT_STATUSES.PROPOSED_RESOLUTION,
+    DEBT_STATUSES.PAID,
+    DEBT_STATUSES.DEFERRED,
+    DEBT_STATUSES.INVALIDATED,
+    DEBT_STATUSES.ABANDONED
+  ]),
+  [DEBT_STATUSES.DEVELOPING]: Object.freeze([
+    DEBT_STATUSES.DEVELOPING,
+    DEBT_STATUSES.PARTIALLY_PAID,
+    DEBT_STATUSES.PROPOSED_RESOLUTION,
+    DEBT_STATUSES.PAID,
+    DEBT_STATUSES.DEFERRED,
+    DEBT_STATUSES.INVALIDATED,
+    DEBT_STATUSES.ABANDONED
+  ]),
+  [DEBT_STATUSES.PARTIALLY_PAID]: Object.freeze([
+    DEBT_STATUSES.PARTIALLY_PAID,
+    DEBT_STATUSES.DEVELOPING,
+    DEBT_STATUSES.PROPOSED_RESOLUTION,
+    DEBT_STATUSES.PAID,
+    DEBT_STATUSES.DEFERRED,
+    DEBT_STATUSES.INVALIDATED,
+    DEBT_STATUSES.ABANDONED
+  ]),
+  [DEBT_STATUSES.PROPOSED_RESOLUTION]: Object.freeze([
+    DEBT_STATUSES.PROPOSED_RESOLUTION,
+    DEBT_STATUSES.PAID,
+    DEBT_STATUSES.PARTIALLY_PAID,
+    DEBT_STATUSES.DEVELOPING,
+    DEBT_STATUSES.DEFERRED,
+    DEBT_STATUSES.INVALIDATED,
+    DEBT_STATUSES.ABANDONED
+  ]),
+  [DEBT_STATUSES.DEFERRED]: Object.freeze([
+    DEBT_STATUSES.DEFERRED,
+    DEBT_STATUSES.DEVELOPING,
+    DEBT_STATUSES.PARTIALLY_PAID,
+    DEBT_STATUSES.PROPOSED_RESOLUTION,
+    DEBT_STATUSES.PAID,
+    DEBT_STATUSES.INVALIDATED,
+    DEBT_STATUSES.ABANDONED
+  ]),
+  [DEBT_STATUSES.PAID]: Object.freeze([]),
+  [DEBT_STATUSES.INVALIDATED]: Object.freeze([]),
+  [DEBT_STATUSES.ABANDONED]: Object.freeze([])
+});
+
+/**
+ * 状态机跃迁被拒异常
+ */
+class StateTransitionRejectedError extends Error {
+  constructor(message, context = {}) {
+    super(String(message || 'State transition rejected'));
+    this.name = 'StateTransitionRejectedError';
+    this.code = 'STATE_TRANSITION_REJECTED';
+    this.debtId = context.debtId != null ? String(context.debtId) : null;
+    this.currentStatus = context.currentStatus != null ? String(context.currentStatus) : null;
+    this.targetStatus = context.targetStatus != null ? String(context.targetStatus) : null;
+    this.eventType = context.eventType != null ? String(context.eventType) : null;
+    this.storyId = context.storyId != null ? String(context.storyId) : null;
+    if (context.details && typeof context.details === 'object') {
+      this.details = context.details;
+    }
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, StateTransitionRejectedError);
+    }
+  }
+}
+
+/**
+ * 依据事件类型与当前状态推导目标状态
+ * @param {string} eventType
+ * @param {string|null} currentStatus
+ * @returns {string|null}
+ */
+function resolveTargetStatus(eventType, currentStatus = null) {
+  let normalizedType;
+  try {
+    normalizedType = normalizeDebtEventType(eventType);
+  } catch (_) {
+    normalizedType = String(eventType || '').trim().toUpperCase();
+  }
+
+  switch (normalizedType) {
+    case DEBT_EVENT_TYPES.CREATED:
+      return DEBT_STATUSES.OPEN;
+    case DEBT_EVENT_TYPES.ESCALATED:
+    case DEBT_EVENT_TYPES.REFRAMED:
+      if (!currentStatus || currentStatus === DEBT_STATUSES.OPEN || currentStatus === DEBT_STATUSES.DEFERRED || TERMINAL_DEBT_STATUSES.has(currentStatus)) {
+        return DEBT_STATUSES.DEVELOPING;
+      }
+      return currentStatus;
+    case DEBT_EVENT_TYPES.PARTIALLY_PAID:
+      return DEBT_STATUSES.PARTIALLY_PAID;
+    case DEBT_EVENT_TYPES.PROPOSED_RESOLUTION:
+      return DEBT_STATUSES.PROPOSED_RESOLUTION;
+    case DEBT_EVENT_TYPES.PAID:
+      return DEBT_STATUSES.PAID;
+    case DEBT_EVENT_TYPES.DEFERRED:
+      return DEBT_STATUSES.DEFERRED;
+    case DEBT_EVENT_TYPES.INVALIDATED:
+      return DEBT_STATUSES.INVALIDATED;
+    case DEBT_EVENT_TYPES.ABANDONED:
+      return DEBT_STATUSES.ABANDONED;
+    default:
+      return currentStatus || null;
+  }
+}
+
 module.exports = {
   DEBT_TYPES,
   DEBT_TYPE_DESCRIPTIONS,
@@ -177,6 +303,10 @@ module.exports = {
   DEBT_STATUS_DESCRIPTIONS,
   DEBT_EVENT_TYPES,
   DEBT_PRIORITIES,
+  TERMINAL_DEBT_STATUSES,
+  ALLOWED_TRANSITIONS,
+  StateTransitionRejectedError,
+  resolveTargetStatus,
   normalizeDebtType,
   normalizeDebtStatus,
   normalizeDebtPriority,

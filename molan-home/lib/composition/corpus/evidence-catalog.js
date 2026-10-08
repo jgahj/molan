@@ -15,17 +15,54 @@
  */
 
 function calculateStatisticalStrength(stats = {}) {
-  const conf = Number(stats.confidence ?? 0.85);
+  const conf = Math.max(0, Math.min(1, Number(stats.confidence ?? 0.85)));
   const lift = Number(stats.qualityLift ?? 0.15);
-  const books = Number(stats.bookCount ?? 2);
-  const authors = Number(stats.authorCount ?? 2);
-  const confound = Number(stats.confoundScore ?? 0.10);
+  const books = Math.max(0, Number(stats.bookCount ?? 2));
+  const authors = Math.max(0, Number(stats.authorCount ?? 2));
+  const confound = Math.max(0, Math.min(1, Number(stats.confoundScore ?? 0.10)));
+  const support = Math.max(0, Number(stats.supportCount ?? 12));
+
+  // Gate 1: supportCount <= 1 -> 'D'
+  if (support <= 1) {
+    return 'D';
+  }
+
+  // Gate 2: books < 2 || authors < 2 -> 'C'
+  if (books < 2 || authors < 2) {
+    return 'C';
+  }
+
+  // Gate 3: supportCount < 3 -> 'C'
+  if (support < 3) {
+    return 'C';
+  }
+
+  // Gate 4: qualityLift <= 0 -> barred from Tier A and B (calculate score with 0.8 multiplier -> 'C' if >= 0.4 else 'D')
+  if (lift <= 0) {
+    const score = conf * (1 - confound) * 0.8 * Math.min(2.0, Math.log2(books + authors + 1));
+    return score >= 0.4 ? 'C' : 'D';
+  }
 
   // 跨作品、跨作者复现度与混杂抵抗力综合得分
-  const score = conf * (1 - confound) * (lift > 0 ? 1.2 : 0.8) * Math.min(2.0, Math.log2(books + authors + 1));
-  if (score >= 1.5 && books >= 2 && authors >= 2) return 'A';
-  if (score >= 0.8) return 'B';
-  if (score >= 0.4) return 'C';
+  const score = conf * (1 - confound) * 1.2 * Math.min(2.0, Math.log2(books + authors + 1));
+
+  // Gate 5: Tier A vs Tier B
+  // score >= 1.5 && supportCount >= 5 && books >= 2 && authors >= 2 -> 'A'
+  if (score >= 1.5 && support >= 5 && books >= 2 && authors >= 2) {
+    return 'A';
+  }
+
+  // score >= 0.8 && supportCount >= 3 && books >= 2 && authors >= 2 -> 'B' (note: supportCount == 4 with score >= 1.5 capped at 'B')
+  if (score >= 0.8 && support >= 3 && books >= 2 && authors >= 2) {
+    return 'B';
+  }
+
+  // score >= 0.4 -> 'C'
+  if (score >= 0.4) {
+    return 'C';
+  }
+
+  // else -> 'D'
   return 'D';
 }
 
@@ -46,7 +83,7 @@ function createStrategyCard(input = {}) {
     id: String(input.id || 'card_' + Date.now()).trim(),
     name: String(input.name || '经典创作范式').trim(),
     type: ['style', 'goal', 'focus', 'hook', 'combo'].includes(input.type) ? input.type : 'combo',
-    rule: String(input.rule || '').trim(),
+    rule: String(input.rule || input.ruleStatement || '').trim(),
     abstractPattern: String(input.abstractPattern || '').trim(),
     microExample: String(input.microExample || '').trim(),
     counterExample: String(input.counterExample || '').trim(),
@@ -112,9 +149,15 @@ const SEED_STRATEGY_CARDS = [
 class EvidenceCatalog {
   constructor() {
     this._cards = new Map();
+    this._seedCards = new Map();
     for (const card of SEED_STRATEGY_CARDS) {
-      this.registerCard(card);
+      const validated = createStrategyCard(card);
+      this._cards.set(validated.id, validated);
+      this._seedCards.set(validated.id, validated);
     }
+    this._activeBaseDir = null;
+    this._loadedPackageVersion = null;
+    this._loadedPackageMtime = 0;
   }
 
   registerCard(card) {
@@ -123,15 +166,33 @@ class EvidenceCatalog {
     return this;
   }
 
-  getCard(id) {
+  _checkHotReload(customBaseDir = null) {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const baseDir = customBaseDir || this._activeBaseDir || path.join(process.cwd(), 'data', 'strategy-knowledge-base');
+    const pointerFile = path.join(baseDir, 'active_package.json');
+    if (!fs.existsSync(pointerFile)) return;
+
+    try {
+      const stat = fs.statSync(pointerFile);
+      if (stat.mtimeMs !== this._loadedPackageMtime || baseDir !== this._activeBaseDir) {
+        this.loadActivePublishedPackage(baseDir);
+      }
+    } catch (_) {}
+  }
+
+  getCard(id, options = {}) {
+    const baseDir = (options && typeof options === 'object' ? options.baseDir : null) ||
+                    (typeof options === 'string' ? options : null);
+    if (baseDir || this._activeBaseDir) {
+      this._checkHotReload(baseDir);
+    }
     return this._cards.get(id) || null;
   }
 
   findRelevantCards(options = {}) {
-    if (!this._activePackageChecked) {
-      this._activePackageChecked = true;
-      this.loadActivePublishedPackage();
-    }
+    const baseDir = options.baseDir || this._activeBaseDir;
+    this._checkHotReload(baseDir);
 
     const {
       dimensions = [],
@@ -168,24 +229,42 @@ class EvidenceCatalog {
   loadActivePublishedPackage(customKnowledgeBaseDir = null) {
     const fs = require('node:fs');
     const path = require('node:path');
-    const baseDir = customKnowledgeBaseDir || path.join(process.cwd(), 'data', 'strategy-knowledge-base');
+    const baseDir = customKnowledgeBaseDir || this._activeBaseDir || path.join(process.cwd(), 'data', 'strategy-knowledge-base');
+    this._activeBaseDir = baseDir;
     const pointerFile = path.join(baseDir, 'active_package.json');
     if (!fs.existsSync(pointerFile)) return 0;
 
     try {
+      const stat = fs.statSync(pointerFile);
       const pointer = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
-      if (pointer.packageDir && fs.existsSync(pointer.packageDir)) {
-        return this.loadFromPublishedPackage(pointer.packageDir);
+      this._loadedPackageMtime = stat.mtimeMs;
+      this._loadedPackageVersion = pointer.activeVersion;
+
+      let pkgDir = pointer.packageDir;
+      if (pkgDir) {
+        if (!path.isAbsolute(pkgDir)) {
+          pkgDir = path.resolve(baseDir, pkgDir);
+        }
+        if (fs.existsSync(pkgDir)) {
+          return this.loadFromPublishedPackage(pkgDir);
+        }
       }
     } catch (_) {}
     return 0;
   }
 
-  loadFromPublishedPackage(packageDir) {
+  loadFromPublishedPackage(packageDir, customBaseDir = null) {
     const fs = require('node:fs');
     const path = require('node:path');
-    const rulesFile = path.join(packageDir, 'strategy-rules.jsonl');
+    const baseDir = customBaseDir || this._activeBaseDir || path.join(process.cwd(), 'data', 'strategy-knowledge-base');
+    const resolvedPackageDir = path.isAbsolute(packageDir)
+      ? packageDir
+      : (fs.existsSync(packageDir) ? path.resolve(packageDir) : path.resolve(baseDir, packageDir));
+    const rulesFile = path.join(resolvedPackageDir, 'strategy-rules.jsonl');
     if (!fs.existsSync(rulesFile)) return 0;
+
+    // 清空非种子卡，确保版本切换时陈旧卡被原子剔除 (Purge stale cards on reload)
+    this._cards = new Map(this._seedCards);
 
     let loadedCount = 0;
     const lines = fs.readFileSync(rulesFile, 'utf8').split('\n').filter(Boolean);

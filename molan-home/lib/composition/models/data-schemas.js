@@ -222,11 +222,16 @@ function createStrategyRule(input = {}) {
   if (!ruleStatement) throw new TypeError('StrategyRule 必须具备 ruleStatement 正向规则陈述');
   if (!abstractPattern) throw new TypeError('StrategyRule 必须具备 abstractPattern 抽象运行模式');
 
+  const rawSupport = input.stats?.supportCount;
+  const rawBooks = input.stats?.bookCount;
+  const rawAuthors = input.stats?.authorCount;
+  const rawGenres = input.stats?.genreCount;
+
   const stats = {
-    supportCount: Math.max(0, Number(input.stats?.supportCount) || 1),
-    bookCount: Math.max(0, Number(input.stats?.bookCount) || 1),
-    authorCount: Math.max(0, Number(input.stats?.authorCount) || 1),
-    genreCount: Math.max(0, Number(input.stats?.genreCount) || 1),
+    supportCount: rawSupport !== undefined && Number.isFinite(Number(rawSupport)) ? Math.max(0, Number(rawSupport)) : 1,
+    bookCount: rawBooks !== undefined && Number.isFinite(Number(rawBooks)) ? Math.max(0, Number(rawBooks)) : 1,
+    authorCount: rawAuthors !== undefined && Number.isFinite(Number(rawAuthors)) ? Math.max(0, Number(rawAuthors)) : 0,
+    genreCount: rawGenres !== undefined && Number.isFinite(Number(rawGenres)) ? Math.max(0, Number(rawGenres)) : 1,
     qualityLift: Number(input.stats?.qualityLift ?? 0.15), // 采用该规则相对基准章节的平均质量提振度 (-1.0 ~ +1.0)
     confidence: Math.max(0, Math.min(1, Number(input.stats?.confidence ?? 0.85))),
     confoundScore: Math.max(0, Math.min(1, Number(input.stats?.confoundScore ?? 0.10))) // 混杂因素风险评分 (0~1)

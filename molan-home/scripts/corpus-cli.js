@@ -34,6 +34,12 @@ function parseArgs(args) {
     sourceDir: null,
     outputDir: null,
     runId: null,
+    runDir: null,
+    k: null,
+    clusters: null,
+    minClusterSize: null,
+    output: null,
+    outputFile: null,
     version: null,
     stage1Only: false
   };
@@ -61,6 +67,18 @@ function parseArgs(args) {
       options.outputDir = args[++i];
     } else if (arg === '--run-id' && args[i + 1]) {
       options.runId = args[++i];
+    } else if (arg === '--run-dir' && args[i + 1]) {
+      options.runDir = args[++i];
+    } else if ((arg === '--k' || arg === '--clusters') && args[i + 1]) {
+      const parsedK = parseInt(args[++i], 10);
+      options.k = parsedK;
+      options.clusters = parsedK;
+    } else if ((arg === '--min-cluster-size' || arg === '--min-support') && args[i + 1]) {
+      options.minClusterSize = parseInt(args[++i], 10);
+    } else if ((arg === '--output' || arg === '--output-file') && args[i + 1]) {
+      const parsedOut = args[++i];
+      options.output = parsedOut;
+      options.outputFile = parsedOut;
     } else if (arg === '--version' && args[i + 1]) {
       options.version = args[++i];
     } else if (arg === '--stage1-only') {
@@ -105,6 +123,10 @@ Molan 离线小说语料批处理与策略知识库构建 CLI
   --source-dir <dir>  指定只读原始语料目录
   --output-dir <dir>  指定 staging 输出目录
   --run-id <id>       指定特定批处理运行 ID
+  --run-dir <dir>     指定特定批处理运行目录 (直接指定路径)
+  --k, --clusters <n> 指定原型聚类簇数 (默认 5，自适应钳制至有效样本数)
+  --min-cluster-size <n> 指定每簇最小样本数
+  --output, --output-file <file> 指定 archetypes.json 输出文件路径
   --stage1-only       仅执行第一阶段初筛
   --help, -h          打印本帮助信息
 `);
@@ -122,6 +144,7 @@ async function main() {
     sourceDir: options.sourceDir,
     stagingRoot: options.outputDir,
     runId: options.runId,
+    runDir: options.runDir,
     workers: options.workers
   });
 
