@@ -502,6 +502,12 @@ function tierAttention(options = {}) {
     }).join('\n\n');
   }
 
+  const immediateContextFloorTokens = Math.min(
+    maxTotalTokens,
+    Math.min(256, Math.max(64, Math.floor(maxTotalTokens * 0.10)))
+  );
+  const hasOriginalImmediate = Boolean(String(immediateContext || '').trim());
+
   let tier1Text = String(permanentContext || '').trim();
   let tier2Text = String(chapterStrategy || '').trim();
   let tier3Text = buildTier3Text(selectedCards);
@@ -529,7 +535,7 @@ function tierAttention(options = {}) {
       pruningActions.push(`pruned_evidence_card: ${removedCard.name || removedCard.id || 'card'}`);
     }
 
-    // 阶段 B: 对 Tier 1 永驻规则执行渐进式摘要（移除 100 硬编码底线）
+    // 阶段 B: 对 Tier 1 永驻规则执行渐进式摘要
     if (totalTokens > maxTotalTokens && tier1Text) {
       const maxTier1Budget = Math.max(1, Math.floor(maxTotalTokens * 0.20));
       tier1Text = summarizePermanentContext(tier1Text, maxTier1Budget, tokenOpts);
@@ -538,16 +544,16 @@ function tierAttention(options = {}) {
       pruningActions.push('progressive_summarization_tier1');
     }
 
-    // 阶段 C: 对 Tier 4 即时上下文执行尾部因果截断（移除 100 硬编码底线）
+    // 阶段 C: 对 Tier 4 即时上下文执行尾部因果截断（设立保底水位线 immediateContextFloorTokens）
     if (totalTokens > maxTotalTokens && tier4Text) {
-      const maxTier4Budget = Math.max(1, Math.floor(maxTotalTokens * 0.20));
+      const maxTier4Budget = Math.max(immediateContextFloorTokens, Math.floor(maxTotalTokens * 0.20));
       tier4Text = pruneImmediateContext(tier4Text, maxTier4Budget, tokenOpts);
       tier4Tokens = estimateTokens(tier4Text, tokenOpts);
       totalTokens = tier1Tokens + tier2Tokens + tier3Tokens + tier4Tokens;
       pruningActions.push('truncated_immediate_context');
     }
 
-    // 阶段 D: 若仍超额，在关键保留守则前提下剪裁/浓缩 Tier 2（移除 200 硬编码底线）
+    // 阶段 D: 若仍超额，在关键保留守则前提下剪裁/浓缩 Tier 2
     if (totalTokens > maxTotalTokens && tier2Text) {
       const remainingForTier2 = Math.max(0, maxTotalTokens - tier1Tokens - tier3Tokens - tier4Tokens);
       tier2Text = pruneChapterStrategyWithCriticalRetention(tier2Text, remainingForTier2, tokenOpts);
@@ -556,13 +562,7 @@ function tierAttention(options = {}) {
       pruningActions.push('pruned_tier2_critical_retention');
     }
 
-    // 阶段 E: 极端紧缩（压制 Tier 4 与 Tier 1，让位给关键策略）
-    if (totalTokens > maxTotalTokens && tier4Text) {
-      tier4Text = '';
-      tier4Tokens = 0;
-      totalTokens = tier1Tokens + tier2Tokens + tier3Tokens + tier4Tokens;
-      pruningActions.push('suppressed_tier4_for_critical_budget');
-    }
+    // 阶段 E: 极端紧缩重排——优先压制 Tier 1 永驻设定，让位给关键策略与 Tier 4 即时因果
     if (totalTokens > maxTotalTokens && tier1Text) {
       tier1Text = '';
       tier1Tokens = 0;
@@ -570,13 +570,38 @@ function tierAttention(options = {}) {
       pruningActions.push('suppressed_tier1_for_critical_budget');
     }
 
-    // 阶段 F: 终极确定性二分截断保障
+    // 阶段 F: Tier 1 清除后若仍超额，对 Tier 2 进行确定性二分硬边界截断，保护 Tier 4 现场因果不失忆
+    if (totalTokens > maxTotalTokens && tier2Text) {
+      const remainingForTier2 = Math.max(0, maxTotalTokens - tier1Tokens - tier3Tokens - tier4Tokens);
+      tier2Text = truncateToBudget(tier2Text, remainingForTier2, tokenOpts);
+      tier2Tokens = estimateTokens(tier2Text, tokenOpts);
+      totalTokens = tier1Tokens + tier2Tokens + tier3Tokens + tier4Tokens;
+      pruningActions.push('compacted_tier2_hard_boundary');
+    }
+
+    // 阶段 G: 极端数学超紧缩边界（当 maxTotalTokens 无法容纳 Tier 2 + Tier 4 保底水位线时）：
+    // 禁止在存在业务上下文时粗暴直接清空 Tier 4；按剩余可用预算弹性逆向截断 Tier 4，仅当预算为 0 时才置空
+    if (totalTokens > maxTotalTokens && tier4Text) {
+      const remainingForTier4 = Math.max(0, maxTotalTokens - tier1Tokens - tier2Tokens - tier3Tokens);
+      if (remainingForTier4 > 0 && hasOriginalImmediate) {
+        tier4Text = pruneImmediateContext(tier4Text, remainingForTier4, tokenOpts);
+        tier4Tokens = estimateTokens(tier4Text, tokenOpts);
+        pruningActions.push('truncated_tier4_to_emergency_floor');
+      } else {
+        tier4Text = '';
+        tier4Tokens = 0;
+        pruningActions.push('suppressed_tier4_for_critical_budget');
+      }
+      totalTokens = tier1Tokens + tier2Tokens + tier3Tokens + tier4Tokens;
+    }
+
+    // 阶段 H: 终极确定性硬边界兜底
     if (totalTokens > maxTotalTokens && tier2Text) {
       const remaining = Math.max(0, maxTotalTokens - tier1Tokens - tier3Tokens - tier4Tokens);
       tier2Text = truncateToBudget(tier2Text, remaining, tokenOpts);
       tier2Tokens = estimateTokens(tier2Text, tokenOpts);
       totalTokens = tier1Tokens + tier2Tokens + tier3Tokens + tier4Tokens;
-      pruningActions.push('compacted_tier2_hard_boundary');
+      pruningActions.push('compacted_tier2_final_boundary');
     }
   }
 
@@ -601,6 +626,7 @@ function tierAttention(options = {}) {
       tier4Immediate: tier4Text
     },
     metrics: {
+      immediateContextFloorTokens,
       tier1Tokens,
       tier2Tokens,
       tier3Tokens,
@@ -620,8 +646,14 @@ function tierAttention(options = {}) {
   });
 }
 
+function computeImmediateContextFloorTokens(maxTotalTokens) {
+  const max = Math.max(0, Number(maxTotalTokens) || 0);
+  return Math.min(max, Math.min(256, Math.max(64, Math.floor(max * 0.10))));
+}
+
 module.exports = {
   tierAttention,
+  computeImmediateContextFloorTokens,
   estimateTokens,
   scoreEvidenceCard,
   pruneChapterStrategyWithCriticalRetention,

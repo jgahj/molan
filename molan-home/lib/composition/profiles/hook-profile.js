@@ -10,6 +10,8 @@
  * 3. 深度联动 Molan 现有因果债务系统 (Causal Debt / Hook Debt Manager)。
  */
 
+const crypto = require('node:crypto');
+
 const HOOK_TYPES = Object.freeze([
   'crisis',        // 危机钩：强敌压境、生死千钧一发
   'suspense',      // 悬念钩：物证异样、未解之谜、颠覆认知
@@ -96,6 +98,38 @@ function createHookProfile(options = {}) {
 }
 
 /**
+ * 确定性生成 Hook Debt ID，消除 Date.now() 引起的幽灵债务重复登记
+ * 基于 (projectId, chapterId, chapterNo, profile.id, hookSeed) 生成 SHA-256 切片
+ * @param {Object} params
+ * @param {string} params.projectId
+ * @param {string} params.chapterId
+ * @param {number|string} params.chapterNo
+ * @param {string} params.profileId
+ * @param {string} params.hookSeed
+ * @returns {string} 确定性 debtId
+ */
+function generateHookDebtId(params = {}) {
+  const projectId = params.projectId ?? params.novelId ?? '';
+  const chapterId = params.chapterId ?? '';
+  const chapterNo = (params.chapterNo != null && !Number.isNaN(Number(params.chapterNo)))
+    ? Number(params.chapterNo)
+    : 1;
+  const profileId = params.profileId ?? params.hookId ?? '';
+  const hookSeed = params.hookSeed ?? params.seed ?? params.clue ?? params.summary ?? '';
+
+  const raw = [
+    String(projectId || '').trim(),
+    String(chapterId || '').trim(),
+    String(chapterNo).trim(),
+    String(profileId || '').trim(),
+    String(hookSeed || '').trim()
+  ].join('::');
+
+  const hashSlice = crypto.createHash('sha256').update(raw, 'utf8').digest('hex').slice(0, 16);
+  return `hook_debt_${hashSlice}_${profileId || 'generic'}`;
+}
+
+/**
  * 构造用于存入 Molan 因果债管理器的注册载荷
  * @param {Object} profile 
  * @param {Object} chapterContext
@@ -103,15 +137,31 @@ function createHookProfile(options = {}) {
  */
 function toCausalDebtRegistration(profile, chapterContext = {}) {
   if (!profile) return null;
+  const projectId = chapterContext.projectId ?? chapterContext.novelId ?? '';
+  const chapterId = String(chapterContext.chapterId ?? '');
+  const chapterNo = (chapterContext.chapterNo != null && !Number.isNaN(Number(chapterContext.chapterNo)))
+    ? Number(chapterContext.chapterNo)
+    : 1;
+  const hookSeed = chapterContext.hookSeed ?? chapterContext.seed ?? chapterContext.clue ?? chapterContext.summary ?? profile.exampleSnippet ?? '';
+  const debtId = chapterContext.debtId || generateHookDebtId({
+    projectId,
+    chapterId,
+    chapterNo,
+    profileId: profile.id,
+    hookSeed
+  });
+
+  const maxChapters = profile.payoffHorizon?.maxChapters ?? 1;
+
   return {
-    debtId: `hook_debt_${Date.now()}_${profile.id}`,
-    chapterId: String(chapterContext.chapterId || ''),
+    debtId,
+    chapterId,
     hookId: profile.id,
     hookType: profile.type,
     gapType: profile.gapType,
     strength: profile.strength,
-    createdChapterNo: Number(chapterContext.chapterNo) || 1,
-    targetPayoffChapterNo: (Number(chapterContext.chapterNo) || 1) + profile.payoffHorizon.maxChapters,
+    createdChapterNo: chapterNo,
+    targetPayoffChapterNo: chapterNo + maxChapters,
     payoffHorizon: profile.payoffHorizon,
     status: 'active',
     clueOrIncident: String(chapterContext.clue || chapterContext.summary || profile.exampleSnippet || '')
@@ -142,6 +192,7 @@ function compileHookPolicy(profile, debtContext = null) {
 module.exports = {
   createHookProfile,
   normalizePayoffHorizon,
+  generateHookDebtId,
   toCausalDebtRegistration,
   compileHookPolicy,
   HOOK_TYPES,
