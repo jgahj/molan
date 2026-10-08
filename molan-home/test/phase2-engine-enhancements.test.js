@@ -26,10 +26,13 @@ const {
 const {
   tierAttention,
   computeImmediateContextFloorTokens,
-  FINAL_BUDGET_ASSERT
+  FINAL_BUDGET_ASSERT,
+  estimateTokens
 } = require('../lib/composition/compiler/attention-tiering');
 const { ExperimentEngine } = require('../lib/composition/evaluation/experiment-engine');
 const { defaultProfileRegistry } = require('../lib/composition/profiles/profile-registry');
+const { StoryDebtLedger, generateDeterministicDebtId } = require('../lib/composition/debt/story-debt-ledger');
+const { createQualityAssessment } = require('../lib/generation/quality-assessment');
 
 describe('Phase 2 Engine Enhancements & Robustness Verification', () => {
 
@@ -554,6 +557,130 @@ describe('Phase 2 Engine Enhancements & Robustness Verification', () => {
       assert.strictEqual(typeof draftReq.renderedPromptPackage.userPrompt, 'string');
       assert.ok(Array.isArray(draftReq.renderedPromptPackage.messages));
     });
+  });
+
+  // =========================================================================
+  // 8. P0-1, P0-2, P0-3, P0-4, P1-6: 优化方案加固与单一真相闭环测试
+  // =========================================================================
+  describe('8. Canonical Pipeline Invariants & Hard Boundary Remediation', () => {
+
+    it('8.1: buildDraftRequest generates canonical 3-message renderedPromptPackage with promptDigest', () => {
+      const spec = defaultProfileRegistry.resolveCompositionSpec({
+        genre: 'xuanhuan_cautious',
+        style: 'laobai_restrained',
+        chapterGoal: 'conflict_push',
+        focus: 'action',
+        hook: 'crisis'
+      });
+
+      const draftReq = buildDraftRequest({
+        request: { compositionSpec: spec },
+        contract: { chapterGoal: '推进', wordBudget: { target: 2000 } }
+      });
+
+      const pkg = draftReq.renderedPromptPackage;
+      assert.ok(pkg, 'Must output renderedPromptPackage');
+      assert.strictEqual(pkg.messages.length, 3, 'Must have 3 canonical messages (system, user, instruction)');
+      assert.strictEqual(pkg.messages[0].role, 'system');
+      assert.strictEqual(pkg.messages[1].role, 'user');
+      assert.strictEqual(pkg.messages[2].role, 'user');
+      assert.strictEqual(pkg.messages[2].content, '请直接输出内容，不要解释。');
+      assert.ok(typeof pkg.promptDigest === 'string' && pkg.promptDigest.length === 64, 'Must compute sha256 promptDigest');
+    });
+
+    it('8.2: attention-tiering aligns token estimation with model capability registry', () => {
+      const text = '陈寻站在断裂的青石板上，周身灵气奔涌不息。';
+      const defaultTokens = estimateTokens(text);
+      const lunaTokens = estimateTokens(text, { modelId: 'gpt-5.6-luna' });
+      const claudeTokens = estimateTokens(text, { modelId: 'claude-3-5-sonnet' });
+
+      assert.ok(defaultTokens > 0);
+      assert.ok(lunaTokens > 0);
+      assert.ok(claudeTokens > 0);
+      // Claude has 0.75 CJK ratio vs Luna 0.70 CJK ratio
+      assert.ok(claudeTokens >= lunaTokens, 'Claude CJK token estimate must reflect higher ratio');
+    });
+
+    it('8.3: QualityAssessment fail-closed when style or aiFlavor unmeasured', () => {
+      // 未提供 style 与 aiFlavor 时，状态严格标为 NOT_MEASURED，且不伪造高分或 clean 来源
+      const qa = createQualityAssessment({
+        compliance: { passed: true, checks: { wordCount: { passed: true } } },
+        literary: {
+          passed: true,
+          status: 'MEASURED',
+          dimensions: {
+            language: { score: 0.85, status: 'MEASURED', confidence: 0.85, source: 'literary_evaluator', quote: '正文引文' }
+          }
+        }
+      });
+
+      assert.strictEqual(qa.style.status, 'NOT_MEASURED');
+      assert.strictEqual(qa.style.score, 0, 'Must not fabricate 0.85 default score');
+      assert.strictEqual(qa.aiFlavor.status, 'NOT_MEASURED');
+      assert.strictEqual(qa.aiFlavor.risk, 'unmeasured', 'Must not fabricate clean default risk');
+      assert.strictEqual(qa.aiFlavor.source, 'unmeasured');
+
+      // strict: true 时，存在 NOT_MEASURED 层必须直接阻断 overallPassed
+      const strictQa = createQualityAssessment({
+        strict: true,
+        compliance: { passed: true, checks: { wordCount: { passed: true } } },
+        literary: {
+          passed: true,
+          status: 'MEASURED',
+          dimensions: {
+            language: { score: 0.85, status: 'MEASURED', confidence: 0.85, source: 'literary_evaluator', quote: '正文引文' }
+          }
+        }
+      });
+
+      assert.strictEqual(strictQa.passed, false, 'Strict mode must fail-closed when layers unmeasured');
+      assert.strictEqual(strictQa.status, 'NOT_MEASURED');
+    });
+
+    it('8.4: StoryDebtLedger creates deterministic generic debt IDs across retries and restarts', () => {
+      const ledger = new StoryDebtLedger({ storyId: 'novel_test_42' });
+
+      const debtInput = {
+        debtType: 'causality',
+        summary: '主角服用了带有微量尸毒的聚灵丹',
+        targetEntityId: 'char_chen_xun',
+        createdAtChapter: 3
+      };
+
+      const eventContext = {
+        chapterNo: 3,
+        chapterId: 'chap_003'
+      };
+
+      // 连续两次生成相同债务实体（未提供 explicit debtId）
+      const id1 = generateDeterministicDebtId(debtInput, eventContext, ledger.storyId);
+      const id2 = generateDeterministicDebtId(debtInput, eventContext, ledger.storyId);
+
+      assert.strictEqual(id1, id2, 'Deterministic debt ID must be identical across calls');
+      assert.ok(id1.startsWith('debt_plot_'), 'Must include normalized debt type prefix (plot)');
+
+      // createDebt 采用该确定性 ID
+      const created = ledger.createDebt(debtInput, eventContext);
+      assert.strictEqual(created.debt_id, id1);
+      assert.strictEqual(created.summary, debtInput.summary);
+    });
+
+    it('8.5: ExperimentEngine tracks _dirty state and logs warning on persistence failure', () => {
+      const invalidPath = process.platform === 'win32'
+        ? 'Z:\\non_existent_drive_999\\forbidden\\synergy.jsonl'
+        : '/root/forbidden/synergy.jsonl';
+
+      const engine = new ExperimentEngine({ persistencePath: invalidPath });
+      assert.strictEqual(engine.isDirty(), false);
+
+      // 追加写失败不抛出致命异常，但置位 dirty 且缓存失败记录
+      engine.appendSynergyRecord({ key: 'test_tuple_key', observedLift: 0.15 });
+
+      assert.strictEqual(engine.isDirty(), true, 'Engine must flag dirty state on disk failure');
+      assert.strictEqual(engine.getFailedRecords().length, 1);
+      assert.strictEqual(engine.getFailedRecords()[0].key, 'test_tuple_key');
+    });
+
   });
 
 });

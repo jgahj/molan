@@ -45,7 +45,7 @@ molan-home/
 └── test/                               # 核心自动化测试集 (Node 22 运行)
     ├── e2e-phase2-engine.test.js       # Phase 2 引擎 4 梯队 60 项 E2E 验收用例
     ├── adversarial-attention-tiering.test.js # 注意力裁剪对抗性极限压力测试 (35 项)
-    └── phase2-engine-enhancements.test.js    # 边界 ??、确定性 Debt ID、Floor 保底等 16 项回归测试
+    └── phase2-engine-enhancements.test.js    # 边界 ??、确定性 Debt ID、单一真相等 26 项回归测试
 ```
 
 ---
@@ -223,5 +223,70 @@ molan-home/
      # 80 个黄金任务全部验证通过 (PASS)
      ```
   - **总计核心自动化测试用例**：**209 / 209 passed (100% 全部通过，0 失败)**。
+
+---
+
+## 阶段记录：单一真相加固、Token 预算模型统合与 Fail-Closed 质检 (2026-10-08)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/services/model-call-service.js` | 单一真相 (P0-1) | `callMolanChat` 增加对外部提供 `messages` / `renderedPromptPackage.messages` 的优先直接透传支持，彻底消除底层二次拆解与隐藏 Prompt 指令注入，保障请求与 `promptHash` 绝对同构。 |
+| `molan-home/lib/generation/content-engine.js` | 契约对齐 (P0-1) | `buildDraftRequest` 输出规范化 3-message `canonicalMessages`（含最终输出指令），将 `promptBudget` 预算断言与 `promptDigest`（完整哈希）严格绑定到该真实请求体；`generateDraft` 原封不动透传 `messages` 与 `renderedPromptPackage`。 |
+| `molan-home/lib/composition/compiler/attention-tiering.js` | 预算统合 (P0-2) | `estimateTokens` 增加接收 `options.modelId` / `options.model`，优先联动 `model-registry.js` 获取模型能力库专属的 CJK / 非 CJK 折算比率，消除 Attention 预算与 Context Budget 之间的分词器计算分歧。 |
+| `molan-home/lib/generation/quality-assessment.js` | 严格门禁 (P0-3) | 彻底消除 `style` 与 `aiFlavor` 未测量即默认为 `passed: true` / `clean` / `0.85` 的假绿灯漏洞；未提供数据时明确标记为 `NOT_MEASURED` 且分数置 0；未跑评委时文学层标为 `unmeasured`；严格模式 (`strict: true`) 下存在 `NOT_MEASURED` 层直接 Fail-Closed 阻断。 |
+| `molan-home/lib/composition/debt/story-debt-ledger.js` | 幂等加固 (P0-4) | 拔除 `createDebt` 中普通债务的 `Date.now() + Math.random()` 非确定性随机 ID，实现模块级与类静态方法 `generateDeterministicDebtId`，基于 `(storyId, chapterNo, chapterId, debtType, originEntity, summary, seed)` 生成 20 位 SHA-256 确定性哈希切片，确保 Replay、Retry 与断线恢复时账本绝对幂等。 |
+| `molan-home/lib/composition/evaluation/experiment-engine.js` | 观测加固 (P1-6) | `appendSynergyRecord` 与 `flushSynergyRecords` 写盘失败时严禁静默吞异常，增加告警日志输出并置位 `this._dirty = true` 与 `this._failedRecords` 追踪，提供 `isDirty()` 与 `getFailedRecords()` 状态观测接口。 |
+| `molan-home/services/generation-service.js` | 视野增强 (P1-8) | 新增 `buildJudgeEvidencePacket`，将原先单一的 `slice(0, 4000)` 粗暴前序截断替换为覆盖【章节开篇 1500 字 + 中段推进与高潮 1300 字 + 章末转折与钩子 1200 字】的复合证据包（Composite Evidence Packet），赋予质量裁判宏观章节视野。 |
+| `molan-home/test/phase2-engine-enhancements.test.js` | 自动化测试 | 新增 Suite 8（5 项回归测试，总数增至 26 项），全面覆盖 canonical 3-message、模型能力分词对齐、质检 fail-closed、普通债务确定性 ID 与实验引擎写盘脏状态追踪。 |
+
+### 二、设计决策与权衡（负面影响分析与叫停项）
+
+1. **为什么坚决叫停在线生成链路引入 L2 双盲 LLM 裁判 (P0-5 负面影响)**：
+   - 章节生成本身属于 15~30 秒的长耗时链路。若同步串联引入 A/B 双盲 LLM 评委，每次生成将额外增加 20~40 秒的大模型网络等待，且翻倍消耗 Token 成本；一旦评委调用发生超时或断网，将导致整章生成直接崩溃。
+   - **本次解决方案**：在线主链坚持采用零网络延迟的 L0 规则预筛 + L1 债务与状态位移结构对账（`debt-reconciliation.js`）；双盲评测仅适合作为离线 Benchmark 或异步 Worker 任务。
+2. **为什么坚决叫停前置 Composition Planner LLM (优化.txt 第十三条-1 负面影响)**：
+   - 系统内部已有 `scene-planner.js` 与 `creation-plan-service.js` 负责镜头与场景推进。再生硬插入一层 LLM Planning 属于过度工程化，首字延迟严重翻倍且引入新一轮幻觉断点。
+3. **为什么坚决叫停 5D 边际张量数学推演 (优化.txt 第十三条-2 负面影响)**：
+   - 在缺乏海量真实用户接受/修改反馈样本的前提下，提前推演 5 维高阶张量属于“空中楼阁”和数学空转；当前应聚焦夯实追加写 JSONL 实验日志基础。
+4. **为什么坚持在 `content-engine.js` 装配 RenderedPromptPackage 而非在底座拼接 (P0-1 负面影响)**：
+   - 底座 `model-call-service.js` 承担全站公共调用（包括拆书、题材判别、设定解析等）。若在底座强制追加 Attention 规则，会污染全站非正文调用，且导致领域层算好的 `assertContextBudget` 与 `promptHash` 审计完全失效。本次方案由 `buildDraftRequest` 组装完成包含输出格式的唯一真实 messages，底座直接原样透传。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **执行命令与结果**：
+  1. Phase 2 增强回归套件（26 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/phase2-engine-enhancements.test.js
+     # 26 tests, 26 passed, 0 failed (duration: ~170ms)
+     ```
+  2. Phase 2 E2E 与对抗性剪裁核心测试（95 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/e2e-phase2-engine.test.js test/adversarial-attention-tiering.test.js
+     # 95 tests, 95 passed, 0 failed (duration: ~1220ms)
+     ```
+  3. 全局关联与回归套件（124 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/composition-profiles.test.js test/composition-debt-ledger.test.js test/orchestrator-brain-consolidation.test.js test/milestone-4-strategy-provenance-lowering.test.js test/strategy-compiler.test.js test/content-engine.test.js test/context-plan-replay-p4.test.js test/replay-manifest.test.js test/quality-assessment.test.js test/generation-quality-gate.test.js
+     # 124 tests, 124 passed, 0 failed (duration: ~1150ms)
+     ```
+  4. 写作 Skill 与纠错库加载合同（6 项）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" test/editor-only-sources.test.js
+     # 6 tests, 6 passed, 0 failed (duration: ~188ms)
+     ```
+  5. 生产架构依赖隔离审计：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/production-import-audit.mjs
+     # 扫描 220 个生产文件，依赖隔离合规无异常 (PASS)
+     ```
+  6. 黄金数据集全量任务验证：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/audit-golden-suite.mjs
+     # 80 个黄金任务全部验证通过 (PASS)
+     ```
+  - **总计核心自动化测试用例**：**251 / 251 passed (100% 全部通过，0 失败)**。
 
 ---

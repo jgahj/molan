@@ -315,6 +315,23 @@ function createGenerationService({
             }
             const criticalDimensions = CRITICAL_QUALITY_DIMENSIONS[matchedGenreKey] || ['language'];
 
+            const buildJudgeEvidencePacket = (draftText, maxTotalChars = 4000) => {
+              const fullText = String(draftText || '').trim();
+              if (!fullText || fullText.length <= maxTotalChars) {
+                return fullText;
+              }
+              const openingChars = Math.min(1500, Math.floor(maxTotalChars * 0.375));
+              const endingChars = Math.min(1200, Math.floor(maxTotalChars * 0.30));
+              const middleChars = Math.max(800, maxTotalChars - openingChars - endingChars);
+
+              const opening = fullText.slice(0, openingChars);
+              const midStart = Math.floor((fullText.length - middleChars) / 2);
+              const middle = fullText.slice(midStart, midStart + middleChars);
+              const ending = fullText.slice(fullText.length - endingChars);
+
+              return `【章节开篇】\n${opening}\n\n……【中段推进与高潮】……\n${middle}\n\n……【章末转折与钩子】……\n${ending}`;
+            };
+
             const runJudge = async (judgeSlot, modelId) => {
               if (judgeSlot === 'judge_a' && req.mockJudgeA) {
                 return createJudgeEvaluationRecord(req.mockJudgeA, 'judge_a');
@@ -325,7 +342,7 @@ function createGenerationService({
 
               const promptVersion = 'judge_prompt_v2.1';
               const inputPayload = {
-                draftExcerpt: String(draft || '').slice(0, 4000),
+                draftExcerpt: buildJudgeEvidencePacket(draft, 4000),
                 genre: effectiveGenre,
                 style: (passedStyle && typeof passedStyle === 'object') ? (passedStyle.style || passedStyle.prompt || '') : String(passedStyle || req.style || ''),
                 chapterGoal: activeContract.chapterGoal || activeContract.goal || req.userInstruction || '',

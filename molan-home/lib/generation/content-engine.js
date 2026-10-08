@@ -629,11 +629,14 @@ function buildDraftRequest(options = {}) {
   const targetChars = compiled.wordBudget?.target ?? (req.targetChars != null ? Number(req.targetChars) : null) ?? 2400;
   const writerMaxTokens = (req.modelParams?.maxTokens ?? req.maxTokens ?? options.maxTokens) ?? Math.max(8192, Math.min(16000, Math.ceil(targetChars * 3.5)));
 
+  const canonicalMessages = [
+    { role: 'system', content: effectiveSystem },
+    { role: 'user', content: effectiveUser },
+    { role: 'user', content: '请直接输出内容，不要解释。' }
+  ];
+
   const promptBudget = assertContextBudget({
-    messages: [
-      { role: 'system', content: effectiveSystem },
-      { role: 'user', content: effectiveUser }
-    ],
+    messages: canonicalMessages,
     modelId: req.modelId || options.modelId,
     providerContextLimit: options.providerContextLimit ?? req.providerContextLimit ?? req.modelParams?.contextWindow ?? null,
     targetChars,
@@ -662,14 +665,14 @@ function buildDraftRequest(options = {}) {
     } : basePlan.replayManifest
   };
 
+  const promptDigest = sha256(canonicalMessages.map(m => `${m.role}:${m.content}`).join('\n---\n'));
+
   const renderedPromptPackage = {
     schemaVersion: 'rendered-prompt-package-v1',
     system: effectiveSystem,
     userPrompt: effectiveUser,
-    messages: [
-      { role: 'system', content: effectiveSystem },
-      { role: 'user', content: effectiveUser }
-    ],
+    messages: canonicalMessages,
+    promptDigest,
     attention,
     wordBudget: compiled.wordBudget,
     targetChars,
@@ -754,7 +757,7 @@ async function generateDraft(options = {}) {
     modelId: draftRequest.modelId || null,
     startedAt: new Date(draftStartTime).toISOString(),
     status: 'started',
-    requestHash: sha256(draftRequest.system + '\n' + draftRequest.userPrompt),
+    requestHash: draftRequest.renderedPromptPackage?.promptDigest || sha256(draftRequest.system + '\n' + draftRequest.userPrompt),
     outputHash: '',
     usage: null
   };
@@ -766,6 +769,8 @@ async function generateDraft(options = {}) {
       stage: 'writer',
       system: draftRequest.system,
       userPrompt: draftRequest.userPrompt,
+      messages: draftRequest.renderedPromptPackage?.messages,
+      renderedPromptPackage: draftRequest.renderedPromptPackage,
       modelId: draftRequest.modelId,
       temperature: draftRequest.temperature,
       topP: draftRequest.topP,

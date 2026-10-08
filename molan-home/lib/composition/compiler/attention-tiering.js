@@ -36,16 +36,32 @@ function estimateTokens(text, options = {}) {
   const str = String(text || '');
   if (!str) return 0;
 
-  const modelFamily = String(options.targetModelFamily || options.modelFamily || '').toLowerCase();
-  const tokenizerKey = options.tokenizer || (
-    modelFamily.includes('gpt') || modelFamily.includes('o1') || modelFamily.includes('o3') ? 'o200k_base' :
-    modelFamily.includes('claude') ? 'claude' :
-    modelFamily.includes('deepseek') ? 'deepseek' :
-    modelFamily.includes('qwen') || modelFamily.includes('llama') || modelFamily.includes('local') ? 'qwen' :
-    'standard'
-  );
+  let ratios = null;
+  const modelId = options.modelId || options.model || options.targetModel;
+  if (modelId) {
+    try {
+      const { getModelCapability } = require('../../model/model-registry');
+      const cap = getModelCapability(modelId);
+      if (cap) {
+        ratios = {
+          cjkRatio: cap.cjkTokenRatio || 0.75,
+          nonCjkRatio: cap.nonCjkTokenRatio || 0.30
+        };
+      }
+    } catch (_) {}
+  }
 
-  const ratios = TOKENIZER_RATIOS[tokenizerKey] || TOKENIZER_RATIOS.standard;
+  if (!ratios) {
+    const modelFamily = String(options.targetModelFamily || options.modelFamily || '').toLowerCase();
+    const tokenizerKey = options.tokenizer || (
+      modelFamily.includes('gpt') || modelFamily.includes('o1') || modelFamily.includes('o3') ? 'o200k_base' :
+      modelFamily.includes('claude') ? 'claude' :
+      modelFamily.includes('deepseek') ? 'deepseek' :
+      modelFamily.includes('qwen') || modelFamily.includes('llama') || modelFamily.includes('local') ? 'qwen' :
+      'standard'
+    );
+    ratios = TOKENIZER_RATIOS[tokenizerKey] || TOKENIZER_RATIOS.standard;
+  }
   const cjkMatches = str.match(CJK_REGEX);
   const cjkCount = cjkMatches ? cjkMatches.length : 0;
   const nonCjkCount = str.length - cjkCount;

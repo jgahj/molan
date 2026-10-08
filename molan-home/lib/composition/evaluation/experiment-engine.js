@@ -57,6 +57,8 @@ class ExperimentEngine {
     this.compatibilityMatrix = options.compatibilityMatrix || null;
     this.persistencePath = options.persistencePath || options.storagePath || options.journalPath || null;
     this.synergyRecords = new Map();
+    this._dirty = false;
+    this._failedRecords = [];
 
     if (this.persistencePath) {
       this.loadSynergyRecords(this.persistencePath);
@@ -319,8 +321,11 @@ class ExperimentEngine {
       }
       const line = JSON.stringify(record) + '\n';
       fs.appendFileSync(filePath, line, 'utf8');
-    } catch (_) {
-      // 容错降级，不阻塞内存主流程
+    } catch (err) {
+      this._dirty = true;
+      if (!this._failedRecords) this._failedRecords = [];
+      this._failedRecords.push(record);
+      console.warn(`[ExperimentEngine] 协同实验记录追加落盘失败: ${err.message}`, { recordKey: record?.key });
     }
   }
 
@@ -341,10 +346,22 @@ class ExperimentEngine {
         lines.push(JSON.stringify({ key, observedLift, flushedAt: new Date().toISOString() }));
       }
       fs.writeFileSync(filePath, lines.join('\n') + (lines.length ? '\n' : ''), 'utf8');
+      this._dirty = false;
+      this._failedRecords = [];
       return lines.length;
-    } catch (_) {
+    } catch (err) {
+      this._dirty = true;
+      console.warn(`[ExperimentEngine] 协同实验快照刷盘失败: ${err.message}`);
       return 0;
     }
+  }
+
+  isDirty() {
+    return Boolean(this._dirty);
+  }
+
+  getFailedRecords() {
+    return Array.isArray(this._failedRecords) ? [...this._failedRecords] : [];
   }
 
   /**
