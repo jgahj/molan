@@ -903,6 +903,74 @@ molan-home/
   ```
 - **核心结论**：云端 ECS 生产环境完全健康可用，核心创作链路 100% 闭环跑通。
 
+---
+
+## 阶段记录：客户端纯 JS SHA-256 兜底与云端 Nginx 80 端口反代闭环落地 (2026-10-09)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/lib/client/local-wal.js` | 兼容性优化 | 引入标准 FIPS 180-4 纯 JavaScript SHA-256 兜底算法 `sha256Fallback(bytes)`。在非安全上下文（纯 HTTP 公网 IP 访问）环境下自动平滑降级，彻底消除编辑器差量保存时 `当前环境不支持 SHA-256` 弹窗。 |
+| `molan-home/test/local-wal.test.js` | 自动化测试 | 补充非安全上下文环境模拟单测，验证 `cryptoSource.subtle` 为空时纯 JS 算法与 `node:crypto` 的字节级完全一致性。 |
+| `scripts/setup_nginx.py` | 生产运维 | 编写云端 Nginx 自动化配置脚本，实现 HTTP 80 反向代理至本地 3000 端口、WebSocket 支持、流式输出免缓冲（`proxy_buffering off`）及 UFW 防火墙端口放行。 |
+| 阿里云 ECS 生产环境 (`8.138.128.184`) | 基础设施 | 1. 成功安装并启动 Nginx 1.18 反向代理服务；<br>2. 修复 UFW 防火墙配置：放行 `80/tcp` 与 `443/tcp`；<br>3. 重新发布部署最新前端生产包，完成线上版本热更新。 |
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **客户端原生 Web Crypto 与纯 JS 算法分层协同**：
+   - *权衡*：在 HTTPS 或 Localhost 安全上下文中优先使用硬件加速的 `crypto.subtle.digest`；当检测到非安全上下文或调用异常时，平滑降级至纯 JS 算法（无任何第三方外部依赖），既保证了极致性能，又保障了任意部署环境下的坚韧可用性。
+2. **Nginx 反向代理流式传输支持**：
+   - 在 Nginx 中显式设置 `proxy_buffering off` 与 `proxy_cache off`，确保大模型生成的 Server-Sent Events (SSE) 流式打字机效果在经过 80 端口反代时不会产生网络缓冲滞后。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **本地测试执行**：
+  1. WAL 差量与纯 JS SHA-256 兜底单测：
+     ```powershell
+     & "tools\node22_runtime\node.exe" --test molan-home/test/local-wal.test.js
+     # 5 tests, 5 passed, 0 failed (duration: ~390ms)
+     ```
+  2. Phase 2 引擎全套核心回归套件：
+     ```powershell
+     & "tools\node22_runtime\node.exe" --test molan-home/test/local-wal.test.js molan-home/test/e2e-phase2-engine.test.js molan-home/test/adversarial-attention-tiering.test.js molan-home/test/phase2-engine-enhancements.test.js
+     # 130 tests, 130 passed, 0 failed
+     ```
+- **云端线上实测数据**：
+  1. 公网 80 端口 HTTP 请求：
+     ```text
+     [200] http://8.138.128.184/api/health (237 bytes)
+     [200] http://8.138.128.184/ (334858 bytes)
+     [200] http://8.138.128.184/lib/client/local-wal.js (14498 bytes) [sha256Fallback: True]
+     ```
+  2. 公网 3000 端口 HTTP 请求：
+     ```text
+     [200] http://8.138.128.184:3000/api/health (237 bytes)
+     [200] http://8.138.128.184:3000/lib/client/local-wal.js (14498 bytes) [sha256Fallback: True]
+     ```
+  3. 服务健康状态：
+     ```json
+     {
+       "ok": true,
+       "db": "ready",
+       "postgres": {
+         "enabled": true,
+         "available": true,
+         "status": "ready",
+         "database": "molan",
+         "serverVersion": "14.24 (Ubuntu 14.24-0ubuntu0.22.04.1)",
+         "tableCount": 84
+       },
+       "models": 17,
+       "uptime": 20,
+       "pid": 2661686,
+       "activeChatStreams": 0
+     }
+     ```
+- **结论**：80 端口反代完全打通（无需手动拼接 `:3000` 端口），非 HTTPS 访问下客户端正文 WAL 校验 100% 顺畅。
+
+
 
 
 

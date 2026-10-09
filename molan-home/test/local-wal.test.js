@@ -187,6 +187,14 @@ test('SHA-256 matches the endpoint baseHash contract', async () => {
   assert.equal(await walApi.hashText('章内正文'), createHash('sha256').update('章内正文').digest('hex'));
 });
 
+test('SHA-256 fallback matches node:crypto when crypto.subtle is unavailable (non-secure context)', async () => {
+  const mockNonSecureCrypto = {};
+  const sample = '九霄云外，天剑破空。阿里云端验证测试正文正常运行。';
+  const expected = createHash('sha256').update(sample).digest('hex');
+  const actual = await walApi.hashText(sample, mockNonSecureCrypto);
+  assert.equal(actual, expected);
+});
+
 test('IndexedDB WAL detects cross-tab version conflicts and conditionally clears acknowledged operations', async () => {
   const indexedDB = new FakeIndexedDB();
   const first = walApi.create({ indexedDB, BroadcastChannel: FakeBroadcastChannel });
