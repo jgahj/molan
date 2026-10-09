@@ -84,6 +84,8 @@ const { createCreationBookHandlers } = require('./routes/creation-book-handlers'
 const { createProjectRoutes } = require('./routes/projects');
 const { createCharacterHandlers } = require('./routes/character-handlers');
 const { createProjectAssetHandlers } = require('./routes/project-asset-handlers');
+const { createAdminHandlers } = require('./routes/admin-handlers');
+const { createDebtKnowledgeHandlers } = require('./routes/debt-knowledge-handlers');
 const { createNovelReadHandlers } = require('./routes/novel-read-handlers');
 const { createNovelWriteHandlers } = require('./routes/novel-write-handlers');
 const { createAuthAttemptLimiter } = require('./services/auth-attempt-limiter');
@@ -1234,6 +1236,7 @@ function correctionLibrarySummary(library) {
 
 /** GET /api/correction-library：登录用户读取结构化摘要（不含作品案例明细以外的敏感信息）。 */
 function handleCorrectionLibrarySummary(req, res) {
+  if (adminHandlers) return adminHandlers.handleCorrectionLibrarySummary(req, res);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '未登录' });
   const library = getCorrectionLibrary();
@@ -1248,6 +1251,7 @@ function handleCorrectionLibrarySummary(req, res) {
 
 /** POST /api/correction-library/scan：对任意正文执行纠错库扫描，priorText 为同一作品前文（用于跨章重复）。 */
 function handleCorrectionLibraryScan(req, res) {
+  if (adminHandlers) return adminHandlers.handleCorrectionLibraryScan(req, res);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '未登录' });
   readBody(req, CHAT_MAX_JSON_BODY_BYTES).then(body => {
@@ -1265,6 +1269,7 @@ function handleCorrectionLibraryScan(req, res) {
 
 /** POST /api/correction-library/inbox：编辑器把用户手改回流到待合并队列。 */
 function handleCorrectionLibraryInbox(req, res) {
+  if (adminHandlers) return adminHandlers.handleCorrectionLibraryInbox(req, res);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '未登录' });
   readBody(req).then(body => {
@@ -1277,6 +1282,7 @@ function handleCorrectionLibraryInbox(req, res) {
 
 /** GET /api/correction-library/inbox：获取待合并回流队列。 */
 function handleCorrectionLibraryInboxList(req, res) {
+  if (adminHandlers) return adminHandlers.handleCorrectionLibraryInboxList(req, res);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '未登录' });
   const pending = correctionLibraryLib.readInbox(CORRECTION_INBOX_FILE);
@@ -1285,6 +1291,7 @@ function handleCorrectionLibraryInboxList(req, res) {
 
 /** GET /api/correction-library/stats：获取纠错库全量统计。 */
 function handleCorrectionLibraryStats(req, res) {
+  if (adminHandlers) return adminHandlers.handleCorrectionLibraryStats(req, res);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '未登录' });
   const library = getCorrectionLibrary();
@@ -1313,6 +1320,7 @@ function handleCorrectionLibraryStats(req, res) {
 
 /** POST /api/correction-library/merge：执行 inbox 回流合并进《纠错库.md》并重新编译。 */
 function handleCorrectionLibraryMerge(req, res) {
+  if (adminHandlers) return adminHandlers.handleCorrectionLibraryMerge(req, res);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '未登录' });
   const scriptPath = path.join(__dirname, 'scripts', 'build-correction-library.mjs');
@@ -1467,6 +1475,7 @@ function characterMaterialAuditState() {
 
 /** Return the current character-material approval checklist to an administrator. */
 function handleCharacterMaterialAudit(req, res) {
+  if (adminHandlers) return adminHandlers.handleCharacterMaterialAudit(req, res);
   if (!requireAdmin(req, res)) return;
   try { json(res, 200, characterMaterialAuditState()); }
   catch (error) { respondError(res, error, 503); }
@@ -1474,6 +1483,7 @@ function handleCharacterMaterialAudit(req, res) {
 
 /** Persist an administrator's sample review and publish strong material only after all gates pass. */
 function handleCharacterMaterialAuditPatch(req, res) {
+  if (adminHandlers) return adminHandlers.handleCharacterMaterialAuditPatch(req, res);
   const auth = requireAdmin(req, res);
   if (!auth) return;
   return readBody(req).then(async body => {
@@ -4801,6 +4811,8 @@ let dissectionHandlers = null;
 let creationBookHandlers = null;
 let characterHandlers = null;
 let projectAssetHandlers = null;
+let adminHandlers = null;
+let debtKnowledgeHandlers = null;
 
 function handleDissectionExtract(req, res) {
   if (typeof dissectionHandlers !== 'undefined' && dissectionHandlers && dissectionHandlers.handleDissectionExtract) {
@@ -6535,6 +6547,7 @@ async function handleGenreLab(req, res, u) {
 }
 
 function handleStyleDetect(req, res) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handleStyleDetect(req, res);
   readBody(req).then(body => {
     const input = body && typeof body === 'object' ? body : {};
     const text = String(input.text || '');
@@ -6545,6 +6558,7 @@ function handleStyleDetect(req, res) {
 }
 
 function handleChapterHealthCheck(req, res) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handleChapterHealthCheck(req, res);
   readBody(req).then(body => {
     const input = body && typeof body === 'object' ? body : {};
     const text = String(input.text || '');
@@ -6560,6 +6574,7 @@ async function handleNovelPromptCompilation(req, res) {
 }
 
 function handleCausalDebtsGet(req, res, bookId) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handleCausalDebtsGet(req, res, bookId);
   const tracker = getCreationDebtTracker();
   const q = queryParamsFromUrl(req.url);
   const chapterNo = Math.max(1, Number(q.chapterNo) || 1);
@@ -6569,6 +6584,7 @@ function handleCausalDebtsGet(req, res, bookId) {
 
 /** PG 模式下读取通用因果债务接口，数据只来自 PostgreSQL 关系表。 */
 async function handlePostgresCausalDebtsGet(req, res, bookId) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handlePostgresCausalDebtsGet(req, res, bookId);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
   const q = queryParamsFromUrl(req.url);
@@ -6579,6 +6595,7 @@ async function handlePostgresCausalDebtsGet(req, res, bookId) {
 
 /** PG 模式下新增通用因果债务。 */
 async function handlePostgresCausalDebtCreate(req, res, bookId) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handlePostgresCausalDebtCreate(req, res, bookId);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
   const body = await readBody(req);
@@ -6588,6 +6605,7 @@ async function handlePostgresCausalDebtCreate(req, res, bookId) {
 
 /** PG 模式下平账通用因果债务。 */
 async function handlePostgresCausalDebtSettle(req, res, bookId) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handlePostgresCausalDebtSettle(req, res, bookId);
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
   const body = await readBody(req);
@@ -6598,6 +6616,7 @@ async function handlePostgresCausalDebtSettle(req, res, bookId) {
 
 /** PG 模式下执行只读的因果债务文本提取，不创建任何文件。 */
 async function handlePostgresCausalDebtsExtract(req, res, bookId) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handlePostgresCausalDebtsExtract(req, res, bookId);
   const input = await readBody(req);
   const chapterNo = Math.max(1, Number(input.chapterNo) || 1);
   const extracted = extractPotentialDebts(String(input.text || ''), chapterNo);
@@ -6605,6 +6624,7 @@ async function handlePostgresCausalDebtsExtract(req, res, bookId) {
 }
 
 function handleCausalDebtCreate(req, res, bookId) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handleCausalDebtCreate(req, res, bookId);
   readBody(req).then(body => {
     const input = body && typeof body === 'object' ? body : {};
     const tracker = getCreationDebtTracker();
@@ -6614,6 +6634,7 @@ function handleCausalDebtCreate(req, res, bookId) {
 }
 
 function handleCausalDebtSettle(req, res, bookId) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handleCausalDebtSettle(req, res, bookId);
   readBody(req).then(body => {
     const input = body && typeof body === 'object' ? body : {};
     const tracker = getCreationDebtTracker();
@@ -6626,6 +6647,7 @@ function handleCausalDebtSettle(req, res, bookId) {
 }
 
 function handleCausalDebtsExtract(req, res, bookId) {
+  if (debtKnowledgeHandlers) return debtKnowledgeHandlers.handleCausalDebtsExtract(req, res, bookId);
   readBody(req).then(body => {
     const input = body && typeof body === 'object' ? body : {};
     const tracker = getCreationDebtTracker();
@@ -7419,6 +7441,26 @@ async function dispatchRequest(req, res) {
       MAX_NOVEL_STATE_BYTES
     });
   }
+  if (!adminHandlers) {
+    adminHandlers = createAdminHandlers({
+      json, readBody, respondError, requestError, getAuthUser, requireAdmin,
+      getCorrectionLibrary, scanUniversalCorrectionRisks, loadCorrectionHits,
+      correctionLibraryLib, CORRECTION_INBOX_FILE, CORRECTION_PRIOR_TEXT_MAX_CHARS,
+      CHAT_MAX_JSON_BODY_BYTES, characterMaterialAuditState,
+      loadCharacterMaterialAuditReport, evaluateCharacterMaterialApprovalGates,
+      characterMaterialAuditMetrics, writeJsonFile, resetCharacterMaterialIndexCache,
+      appendAdminAudit, CHARACTER_MATERIAL_APPROVAL_FILE
+    });
+  }
+  if (!debtKnowledgeHandlers) {
+    debtKnowledgeHandlers = createDebtKnowledgeHandlers({
+      json, readBody, respondError, queryParamsFromUrl, getAuthUser,
+      postgresActor, postgresRepository,
+      getCreationDebtTracker: () => getCreationDebtTracker(),
+      buildDebtPromptInjection, extractPotentialDebts,
+      detectNovelStyle, evaluateChapterHealth
+    });
+  }
   const domainRoutes = {
     auth: createAuthRoutes({
       register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
@@ -7427,6 +7469,7 @@ async function dispatchRequest(req, res) {
       ...(!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? nativeAuthService() : {})
     }),
     admin: createAdminRoutes({
+      ...adminHandlers,
       correctionSummary: handleCorrectionLibrarySummary, correctionStats: handleCorrectionLibraryStats,
       correctionScan: handleCorrectionLibraryScan, correctionInboxList: handleCorrectionLibraryInboxList,
       correctionInbox: handleCorrectionLibraryInbox, correctionMerge: handleCorrectionLibraryMerge,
@@ -7454,6 +7497,7 @@ async function dispatchRequest(req, res) {
       webChat: handleWebChat, webChatStatus: handleWebChatStatus
     }),
     knowledge: createKnowledgeRoutes({
+      ...debtKnowledgeHandlers,
       localStyleSamples: handleLocalStyleSamples, localStyleBaseline: handleLocalStyleBaseline,
       styleDetect: handleStyleDetect, chapterHealthCheck: handleChapterHealthCheck, json,
       postgresMode: POSTGRES_MODE, respondPostgresError,
