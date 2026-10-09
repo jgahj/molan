@@ -760,6 +760,47 @@ molan-home/
      ```
   - **总计自动化测试用例**：**466 项真实通过 / 467 项执行 (100% 真实通过，0 失败，1 预设跳过)**。
 
+---
+
+## 阶段记录：云端 ECS 生产环境发布部署闭环 (2026-10-09)
+
+### 一、发布范围与核心操作
+
+- **目标服务器**：`8.138.128.184:22` (Ubuntu Linux 5.15, Node v22.22.2, PostgreSQL 14)
+- **部署脚本**：`scripts/deploy_molan.py`
+- **执行过程**：
+  1. 排除无用与运行态文件，将 `molan-home/` 打包构建为 `molan.tar.gz` (9.2 MB)；
+  2. 原子迁移发布至 `/opt/molan-releases/release-<tag>` 并保留历史快照；
+  3. 同步合并本地 17 个平台模型至云端 `data/config.json`；
+  4. 验证 PostgreSQL 迁移状态（`luna.schema_migrations` 84 张表，已是最新）；
+  5. 原子切换 `/opt/molan` 软链并安全刷新 systemd 单元及 drop-ins；
+  6. 触发 `systemctl restart molan` 并通过健康检查探针。
+
+### 二、线上真实验证证据
+
+- **远程服务状态**：`systemctl is-active molan` -> `active`
+- **远程健康探针** (`http://127.0.0.1:3000/api/health`)：
+  ```json
+  {
+    "ok": true,
+    "db": "ready",
+    "postgres": {
+      "enabled": true,
+      "available": true,
+      "status": "ready",
+      "database": "molan",
+      "serverVersion": "14.24 (Ubuntu 14.24-0ubuntu0.22.04.1)",
+      "tableCount": 84
+    },
+    "models": 17,
+    "uptime": 13,
+    "pid": 2653720,
+    "activeChatStreams": 0
+  }
+  ```
+- **发布结论**：云端 ECS 生产环境无缝热切换完成，零停机，PostgreSQL 与 17 个平台模型全部就绪。
+
+
 
 
 
