@@ -436,6 +436,7 @@ function createChatService({
         : (isChapterWriting ? 0.08 : undefined);
       const frequencyPenalty = typeof input.frequency_penalty === 'number' && Number.isFinite(input.frequency_penalty)
         ? input.frequency_penalty
+        : (isChapterWriting ? 0.08 : undefined);
       const requestedMaxTokens = Number(input.max_tokens || input.max_completion_tokens || 8192);
       let max_tokens = Number.isFinite(requestedMaxTokens) ? Math.max(1, Math.min(128000, Math.floor(requestedMaxTokens))) : 8192;
       if (isChapterWriting && max_tokens < 8192) {

@@ -660,6 +660,57 @@ molan-home/
    - 所有生产核心业务路由已解耦为无循环依赖、可纯净测试的工厂注入实例；
    - 全网 436+ 项自动化测试真实 100% PASS。
 
+---
+
+## 阶段记录：项目全域废弃与死代码深度审计及 chat-service 语法修复 (2026-10-09)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/services/chat-service.js` | 缺陷修复 | 修复第 438 行 `frequencyPenalty` 变量声明中缺失三元分支 `: (isChapterWriting ? 0.08 : undefined);` 导致的 SyntaxError 阻断，恢复原生聊天调度与计量日志单测全绿。 |
+| 全工程废弃内容全域审计报告 | 架构排查 | 完成对 `molan-home/`、`scripts/` 及工作区根目录的死代码、断链脚本、测试残余及无用产物的全量静态交叉盘点。 |
+
+### 二、全域废弃内容核心排查结果摘要
+
+1. **废弃文件与断链脚本**：
+   - `molan-home/webchat.js`：已彻底断链的 Playwright 网页版桥接脚本（全库 0 引用，可物理清理）；
+   - `molan-home/prototypes/`：`all-pages-preview.html` 与 `editor-home-style.html` 历史预览页面（Git 误追踪，可物理清理）；
+   - `molan-home/corpus_pipeline/`：历史旧书目抽取产物目录（包含 1197 个快照 JSON 与 48 个蒸馏报告，已被 `corpus-cli.js` 替代，可物理清理）；
+   - `molan-home/scratch/`：历史调试草稿与截图（含 81 个误入 Git 的脚本/截图，以及 108MB+ 本地未追踪大文件，可解除 Git 追踪并清空）；
+   - `molan-home-publish/`：断裂的历史 Worktree 遗留镜像（可物理移除）；
+   - `scripts/deploy.py`、`scripts/debug_*.js` 等：根目录已被 `deploy_molan.py` 替代的旧部署脚本与一次性探针（可清理）；
+   - `molan-home/scripts/` 中 65 个一次性生成/评测/硬打补丁历史脚本。
+2. **孤立工具与死代码**：
+   - `lib/evolution/regression.js` 与 `lib/evolution/shadow.js`：无任何引用的 4 行重定向垫片（可删除）；
+   - `pages/demo.html`：65KB 早期雅集工作台独立 Demo（0 引用，可删除）；
+   - `test/test_compare_audit.js`：未适配 `node:test` 且从未在 `npm test` 中执行的对比脚本（需改造或清理）；
+   - `lib/generation-pipeline-coordinator.js`：生产已隔离但仍有旧单测强依赖，遵循 30 天观测期规则严格保留。
+3. **已下线路由与 AST 锚点**：
+   - `/api/web-chat` 墓碑路由由 `test/routes-phase4-generation.test.js` 显式断言 410，不可单边删除；
+   - `server.js:7639` 路由注释锚点由 `test/dissection-graph.test.js` 与 `test/creation-main-flow.test.js` 源码 AST 正则强断言，绝对不可删除。
+4. **测试残余与冗余产物**：
+   - `molan-home/.ds-profile/`：4.2MB Edge 浏览器缓存残余（可物理删除）；
+   - `molan-home/data/molan-clone.db`：18.3MB 历史数据库迁移快照（可物理删除）；
+   - `molan-home/data/test-causal-debts/`：单测遗留空目录（可清理）；
+   - 根目录 7 个重复/陈旧的评测报告（可从 Git 解除追踪并以 `molan-home/` 为单一真相源）。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **语法验证**：
+  ```powershell
+  & ".\tools\node22_runtime\node.exe" --check molan-home/services/chat-service.js
+  # 退出码 0，语法检验 100% 通过
+  ```
+- **原生聊天与调度测试（17 项全绿）**：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" --test test/native-chat-http.test.js test/native-chat-dispatch-journal.test.js test/gemini-models.test.js
+  # 17 tests, 17 passed, 0 failed
+  ```
+- **全站 34 个核心测试文件全量通过（453 项测试真实全绿，0 失败）**。
+
+
 
 
 
