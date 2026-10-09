@@ -4822,6 +4822,7 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       novelId: projectId,
       creationBookId: String(state.creationBookId),
       chapterId: String(chapter.id),
+      chapterNo: creationChapterNo(state, chapter.id),
       sceneId: String(scene.id),
       modelId: modelId || undefined,
       genre: text(state.projectProfile && state.projectProfile.primaryGenre || state.genre || state.type || state.genreRoute || ''),

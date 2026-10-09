@@ -90,6 +90,15 @@ const ERROR_CATALOG = Object.freeze({
     userMessage: '生成任务状态已变化，请刷新后重试',
     resolutionGuidance: '当前任务状态已被其他请求更新，请获取最新状态快照后重试。'
   },
+  CHAPTER_POSITION_CONFLICT: {
+    code: 'CHAPTER_POSITION_CONFLICT',
+    httpStatus: 409,
+    retryable: false,
+    unknown: false,
+    category: 'state',
+    userMessage: '章节编号与服务端权威目录位置不一致',
+    resolutionGuidance: '客户端传入的章节序号与服务端权威作品结构树中的章节物理位置产生冲突，为防止大纲与上下文错位已阻断生成。请刷新目录重新提交。'
+  },
   INVALID_STATE_TRANSITION: {
     code: 'INVALID_STATE_TRANSITION',
     httpStatus: 409,

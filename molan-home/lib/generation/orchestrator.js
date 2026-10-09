@@ -217,10 +217,14 @@ function createGenerationOrchestrator(options = {}) {
 
       const contractInput = request.chapterContract || {
         chapterId: request.chapterId,
+        chapterNo: request.chapterNo,
         chapterGoal: request.userInstruction || '推进当前章节合同中的核心目标',
         pov: request.storyContext && request.storyContext.pov || 'third-limited',
         wordBudget: request.modelParams && request.modelParams.wordBudget || {}
       };
+      if (contractInput.chapterNo == null && request.chapterNo != null) {
+        contractInput.chapterNo = request.chapterNo;
+      }
       const contract = normalizeChapterContract(contractInput);
       if (typeof runDependencies.loadAuthoritativeContext !== 'function') {
         throw new GenerationError('MODEL_CONTENT_BLOCKED', '服务端故事状态加载器未配置');
@@ -229,12 +233,52 @@ function createGenerationOrchestrator(options = {}) {
       if (!authoritative || authoritative.ok !== true || !authoritative.storyContext) {
         throw new GenerationError('STATE_CONFLICT', '无法读取服务端权威故事状态，已停止生成', { status: 409 });
       }
-      request.storyContext = { ...(request.storyContext || {}), ...authoritative.storyContext };
-      if (Object.hasOwn(authoritative.storyContext, 'characters')) request.characters = authoritative.storyContext.characters;
-      if (Object.hasOwn(authoritative.storyContext, 'factLedger')) request.factLedger = authoritative.storyContext.factLedger;
-      if (Object.hasOwn(authoritative.storyContext, 'continuity')) request.continuity = authoritative.storyContext.continuity;
-      if (Object.hasOwn(authoritative.storyContext, 'previousEnding')) request.previousEnding = authoritative.storyContext.previousEnding;
-      if (Object.hasOwn(authoritative.storyContext, 'planText')) request.planText = authoritative.storyContext.planText;
+
+      const clientStoryContext = (request && request.storyContext && typeof request.storyContext === 'object') ? request.storyContext : {};
+      const clientContinuity = (clientStoryContext.continuity && typeof clientStoryContext.continuity === 'object')
+        ? clientStoryContext.continuity
+        : ((request.continuity && typeof request.continuity === 'object') ? request.continuity : {});
+
+      const authStoryContext = authoritative.storyContext || {};
+      const authContinuity = (authStoryContext.continuity && typeof authStoryContext.continuity === 'object') ? authStoryContext.continuity : {};
+
+      // 深度合并 continuity：权威优先覆盖世界与人物事实，深度保留客户端现场草稿、大纲与下章规划
+      const mergedContinuity = {
+        ...clientContinuity,
+        ...authContinuity
+      };
+      if (clientContinuity.currentBody && !authContinuity.currentBody) mergedContinuity.currentBody = clientContinuity.currentBody;
+      if (clientContinuity.outline && !authContinuity.outline) mergedContinuity.outline = clientContinuity.outline;
+      if (clientContinuity.nextChapter && !authContinuity.nextChapter) mergedContinuity.nextChapter = clientContinuity.nextChapter;
+      if (clientContinuity.dossier && !authContinuity.dossier) mergedContinuity.dossier = clientContinuity.dossier;
+      if (clientContinuity.history && !authContinuity.history) mergedContinuity.history = clientContinuity.history;
+      if (clientContinuity.sceneName && !authContinuity.sceneName) mergedContinuity.sceneName = clientContinuity.sceneName;
+      if (clientContinuity.chapterTitle && !authContinuity.chapterTitle) mergedContinuity.chapterTitle = clientContinuity.chapterTitle;
+
+      request.storyContext = {
+        ...clientStoryContext,
+        ...authStoryContext,
+        continuity: mergedContinuity
+      };
+      request.continuity = mergedContinuity;
+
+      // 确保现场大纲和正文草稿作为独立高优先级字段提升到 storyContext 根层级
+      if (mergedContinuity.outline && !request.storyContext.currentChapterOutline && !request.storyContext.chapterOutline) {
+        request.storyContext.currentChapterOutline = mergedContinuity.outline;
+      }
+      if (mergedContinuity.currentBody && !request.storyContext.currentBody) {
+        request.storyContext.currentBody = mergedContinuity.currentBody;
+      }
+      if (mergedContinuity.nextChapter && !request.storyContext.nextChapterOutline) {
+        request.storyContext.nextChapterOutline = typeof mergedContinuity.nextChapter === 'object' && mergedContinuity.nextChapter.outline
+          ? mergedContinuity.nextChapter.outline
+          : mergedContinuity.nextChapter;
+      }
+
+      if (Object.hasOwn(authStoryContext, 'characters')) request.characters = authStoryContext.characters;
+      if (Object.hasOwn(authStoryContext, 'factLedger')) request.factLedger = authStoryContext.factLedger;
+      if (Object.hasOwn(authStoryContext, 'previousEnding')) request.previousEnding = authStoryContext.previousEnding;
+      if (Object.hasOwn(authStoryContext, 'planText')) request.planText = authStoryContext.planText;
       const sourceContext = { ...(request.storyContext || {}), sceneContract: contract };
       const mechanismCandidates = request.genreMechanisms || genre.mechanisms || style.mechanisms;
       if (mechanismCandidates != null && sourceContext.genreMechanisms == null) sourceContext.genreMechanisms = mechanismCandidates;

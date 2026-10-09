@@ -16,6 +16,7 @@ function normalizeChapterContract(input = {}) {
   const contract = {
     ...input,
     chapterId: String(input.chapterId || ''),
+    chapterNo: Number.isFinite(Number(input.chapterNo)) && Number(input.chapterNo) > 0 ? Math.floor(Number(input.chapterNo)) : undefined,
     chapterGoal: String(rawGoal).trim(),
     genreProfileId: String(input.genreProfileId || (input.compositionSpec && (input.compositionSpec.genre?.id || input.compositionSpec.genre)) || ''),
     styleBundleId: String(input.styleBundleId || (input.compositionSpec && (input.compositionSpec.style?.id || input.compositionSpec.style)) || ''),

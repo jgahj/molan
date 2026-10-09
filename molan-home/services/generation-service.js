@@ -838,19 +838,76 @@ function createGenerationService({
     }
   }
   
-  function generationChapterNo(request, contract, book) {
-    const match = String(request && request.chapterId || '').match(/(\d+)/);
-    return Math.max(1, Number(contract && contract.chapterNo || match && match[1] || Number(book && book.currentChapterNo || book && book.current_chapter_no) + 1) || 1);
+  function extractAuthoritativeChapters(novelState) {
+    if (!novelState || typeof novelState !== 'object') return [];
+    const list = [];
+    if (Array.isArray(novelState.volumes)) {
+      for (const volume of novelState.volumes) {
+        if (!volume || !Array.isArray(volume.chapters)) continue;
+        for (const chapter of volume.chapters) {
+          if (chapter && typeof chapter === 'object') {
+            list.push({ ...chapter, volumeId: volume.id, volumeTitle: volume.title });
+          }
+        }
+      }
+    }
+    if (list.length === 0 && Array.isArray(novelState.chapters)) {
+      for (const chapter of novelState.chapters) {
+        if (chapter && typeof chapter === 'object') list.push(chapter);
+      }
+    }
+    return list;
   }
-  
+
+  function generationChapterNo(request, contract, book, novelState) {
+    const targetChapterId = String(request && request.chapterId || contract && contract.chapterId || '').trim();
+    const rawClientChapterNo = Number((request && request.chapterNo) ?? (contract && contract.chapterNo));
+    const clientChapterNo = Number.isFinite(rawClientChapterNo) && rawClientChapterNo > 0 ? Math.floor(rawClientChapterNo) : null;
+
+    const authoritativeChapters = extractAuthoritativeChapters(novelState);
+
+    // 1. 若在权威章节树中找到了目标章节 ID
+    if (authoritativeChapters.length > 0 && targetChapterId) {
+      const chapterIndex = authoritativeChapters.findIndex(c => String(c && (c.id || c.chapterId) || '').trim() === targetChapterId);
+      if (chapterIndex >= 0) {
+        const authoritativeChapterNo = chapterIndex + 1;
+        // 若客户端显式传递了编号，且与服务端权威树物理序号产生冲突，立刻阻断报错
+        if (clientChapterNo !== null && clientChapterNo !== authoritativeChapterNo) {
+          throw new GenerationError('CHAPTER_POSITION_CONFLICT',
+            `客户端章节编号 (${clientChapterNo}) 与服务端权威章节位置 (${authoritativeChapterNo}) 不一致，已阻断生成以防大纲错位`,
+            { status: 409, details: { clientChapterNo, authoritativeChapterNo, chapterId: targetChapterId } }
+          );
+        }
+        return authoritativeChapterNo;
+      }
+    }
+
+    // 2. 若目标章节尚未落库（如新章起草中）或作品处于初始阶段：
+    // 优先采纳显式传入的合法客户端章节号（由前端 creationChapterNo 算出的真实逻辑序号）
+    if (clientChapterNo !== null) {
+      return Math.max(1, clientChapterNo);
+    }
+
+    // 3. 次选：若权威章节列表非空但未落库当前新章，且未传编号，推断为续写下一章
+    if (authoritativeChapters.length > 0) {
+      return authoritativeChapters.length + 1;
+    }
+
+    // 4. 三选：从书本权威进度推断
+    const currentNo = Number(book && (book.currentChapterNo ?? book.current_chapter_no));
+    if (Number.isFinite(currentNo) && currentNo >= 0) {
+      return Math.max(1, Math.floor(currentNo) + 1);
+    }
+
+    // 5. 兜底为第 1 章（杜绝使用任何从 chapterId 正则提取随机数字的投机逻辑）
+    return 1;
+  }
+
   function generationPreviousEnding(state, chapterNo) {
-    const chapters = (Array.isArray(state && state.volumes) ? state.volumes : []).flatMap(volume =>
-      (Array.isArray(volume && volume.chapters) ? volume.chapters : []).map(chapter => ({ ...chapter, volumeTitle: chapter.volumeTitle || volume.title || '' }))
-    );
-    const chapterNumber = chapter => Number(chapter && (chapter.number || chapter.chapterNo || chapter.chapterIndex))
-      || Number(String(chapter && (chapter.id || chapter.chapterId || chapter.title) || '').match(/(\d+)/)?.[1]) || 0;
-    const previous = chapters.find(chapter => chapterNumber(chapter) === chapterNo - 1)
-      || chapters.filter(chapter => chapterNumber(chapter) > 0 && chapterNumber(chapter) < chapterNo).sort((a, b) => chapterNumber(b) - chapterNumber(a))[0];
+    const chapters = extractAuthoritativeChapters(state);
+    const chapterNumber = (chapter, index) => Number(chapter && (chapter.number || chapter.chapterNo || chapter.chapterIndex)) || (index + 1);
+    const previous = chapters.find((chapter, index) => chapterNumber(chapter, index) === chapterNo - 1)
+      || chapters.filter((chapter, index) => chapterNumber(chapter, index) > 0 && chapterNumber(chapter, index) < chapterNo).sort((a, b) => chapterNumber(b, 0) - chapterNumber(a, 0))[0];
     if (!previous) return '';
     const content = Array.isArray(previous.scenes)
       ? previous.scenes.map(scene => typeof scene === 'string' ? scene : String(scene && (scene.content || scene.text) || '')).join('\n')
@@ -937,7 +994,7 @@ function createGenerationService({
     }
   
     const stateVersion = Math.max(0, Number(book.currentStateVersion ?? book.current_state_version) || 0);
-    const chapterNo = generationChapterNo(request, input.contract, book);
+    const chapterNo = generationChapterNo(request, input.contract, book, novelState);
     const previous = snapshots.filter(snapshot => Number(snapshot && snapshot.stateVersion) <= stateVersion)
       .sort((a, b) => Number(b && b.stateVersion) - Number(a && a.stateVersion))[0] || {};
     const biblePayload = bible && bible.payload && typeof bible.payload === 'object' ? bible.payload : {};
@@ -976,6 +1033,7 @@ function createGenerationService({
       baseHash,
       contentHash: String(previous.contentHash || ''),
       previousEnding: generationPreviousEnding(novelState, chapterNo),
+      chapterOutline: chapterContext,
       chapterContext,
       chapterPlan: chapterContext,
       characters,
@@ -987,8 +1045,7 @@ function createGenerationService({
       },
       hardState: { factLedger, characterStates, relationshipStates: previous.relationshipStates || {}, worldStates: previous.worldStates || {} },
       foreshadows: stateSummary.openForeshadows,
-      activeCausalDebts: factLedger.promises,
-      planText: JSON.stringify(chapterContext).slice(0, 12000)
+      activeCausalDebts: factLedger.promises
     };
     const storedStyleDNA = biblePayload.styleDNA || biblePayload.styleDna || novelState.styleDNA || novelState.styleDna || null;
     const storedStyleProfile = biblePayload.styleProfile || novelState.styleProfile || null;
@@ -996,31 +1053,26 @@ function createGenerationService({
     const storedAuthorDna = biblePayload.authorDna || biblePayload.authorDNA || novelState.authorDna || null;
 
     const proseSamples = [];
-    const extractProseFromChapters = (chapterList) => {
-      if (!Array.isArray(chapterList)) return;
-      for (const chapterItem of chapterList) {
-        if (typeof chapterItem.content === 'string' && chapterItem.content.trim().length >= 15) {
-          proseSamples.push(chapterItem.content.trim());
-        }
-        if (Array.isArray(chapterItem.scenes)) {
-          for (const sceneItem of chapterItem.scenes) {
-            if (typeof sceneItem.content === 'string' && sceneItem.content.trim().length >= 15) {
-              proseSamples.push(sceneItem.content.trim());
-            }
-          }
-        }
+    const allChapters = extractAuthoritativeChapters(novelState);
+    const targetIdx = allChapters.findIndex(c => String(c && (c.id || c.chapterId)) === String(request.chapterId));
+    const candidateChapters = targetIdx > 0
+      ? allChapters.slice(Math.max(0, targetIdx - 3), targetIdx).reverse()
+      : (allChapters.length > 0 ? allChapters.slice(-3).reverse() : []);
+
+    for (const chapterItem of candidateChapters) {
+      if (proseSamples.length >= 3) break;
+      let textSample = '';
+      if (Array.isArray(chapterItem.scenes) && chapterItem.scenes.length > 0) {
+        textSample = chapterItem.scenes.map(s => typeof s === 'string' ? s : String(s && (s.content || s.text) || '')).join('\n').trim();
+      } else if (typeof chapterItem.content === 'string') {
+        textSample = chapterItem.content.trim();
       }
-    };
-    if (Array.isArray(novelState.chapters)) {
-      extractProseFromChapters(novelState.chapters);
-    }
-    if (Array.isArray(novelState.volumes)) {
-      for (const volumeItem of novelState.volumes) {
-        extractProseFromChapters(volumeItem.chapters);
+      if (textSample.length >= 20) {
+        proseSamples.push(textSample.slice(0, 600));
       }
     }
     if (proseSamples.length === 0 && previous && typeof previous.content === 'string' && previous.content.trim().length >= 15) {
-      proseSamples.push(previous.content.trim());
+      proseSamples.push(previous.content.trim().slice(0, 600));
     }
 
     const styleInfo = {
@@ -1526,7 +1578,7 @@ function createGenerationService({
   }
   
   
-  return { generationRunOrchestrator, generationRequestAuth, generationRunError, generationSseEvent, streamGenerationEvents, generationProjectAccess, generationChatChunk, streamLegacyGenerationChat, handleLegacyGenerationChat, generationChapterNo, generationPreviousEnding, generationFactLedger, loadAuthoritativeGenerationContext, scenePatchError, validateScenePatchBody, handleNovelScenePatch, handleGenerationRuns, handleBenchmark };
+  return { generationRunOrchestrator, generationRequestAuth, generationRunError, generationSseEvent, streamGenerationEvents, generationProjectAccess, generationChatChunk, streamLegacyGenerationChat, handleLegacyGenerationChat, extractAuthoritativeChapters, generationChapterNo, generationPreviousEnding, generationFactLedger, loadAuthoritativeGenerationContext, scenePatchError, validateScenePatchBody, handleNovelScenePatch, handleGenerationRuns, handleBenchmark };
 }
 
 module.exports = { createGenerationService };

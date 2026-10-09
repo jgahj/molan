@@ -68,6 +68,7 @@ molan-home/
     ├── routes-phase3-admin-debt.test.js          # Phase 3 管理纠错与因果债务路由契约测试
     ├── routes-phase4-generation.test.js          # Phase 4 生成、计量与健康检查路由契约测试
     ├── corpus-prompt-experiments.test.js        # 1279本全库抽样、双模提示词提取与四象限实验测试
+    ├── chapter-outline-context-audit.test.js    # 大纲一等公民、章节位置冲突阻断、上下文深度合并与去重专项测试
     ├── e2e-phase2-engine.test.js       # Phase 2 引擎 4 梯队 60 项 E2E 验收用例
     ├── adversarial-attention-tiering.test.js # 注意力裁剪对抗性极限压力测试 (35 项)
     └── phase2-engine-enhancements.test.js    # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
@@ -1186,6 +1187,60 @@ molan-home/
   & "..\tools\node22_runtime\node.exe" --test (39 个测试文件)
   # 488 tests, 487 passed, 0 failed, 1 skipped (100% 真实通过)
   ```
+
+---
+
+## 阶段记录：小说大纲与生成上下文专项治理闭环 (2026-10-09)
+
+> **背景与专项审查落实**：依据《Molan 小说大纲与生成上下文专项审查》指出的 4 项关键断点（P0 随机 ID 提取章节编号、P0 前端草稿上下文被服务端浅合并覆盖、P1 上下文编译器大纲非一等公民、P1 三重大纲重复注入与全书风格抽样膨胀），系统性重构端到端大纲编排管线。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/services/generation-service.js` | 核心重构 (P0-1) | 1. 彻底废除 `match(/(\d+)/)` 从随机 ID 正则提取数字的投机推断逻辑；<br>2. 新增 `extractAuthoritativeChapters`，在服务端权威作品树（`novelState.volumes`）中递归定位目标 `chapterId` 的物理顺序；<br>3. 实现**章节位置冲突强阻断**：当客户端传入编号与服务端物理序号不一致时抛出 `CHAPTER_POSITION_CONFLICT` (HTTP 409)；<br>4. 重构 `generationPreviousEnding`，杜绝前情根据随机数字截取错位；<br>5. 限制 `proseSamples` 风格抽样上限：倒序就近抽样前 1~3 章高质量片段，样本数 $\le 3$，单篇 $\le 600$ 字符，杜绝全书成百章节遍历内存膨胀。 |
+| `molan-home/completion-editor.js` | 契约对齐 (P0-1) | 在 `runGenerationV2` 的 `requestPayload` 中显式传递 `chapterNo: creationChapterNo(state, chapter.id)`，确保前端根据当前章节树计算出的真实顺序稳定入模。 |
+| `molan-home/lib/generation/orchestrator.js` | 深度保护 (P0-2) | 1. 废除浅合并覆盖：实现 `continuity` 深度合并，服务端权威事实（`characters`, `characterStates`, `worldRules`, `openForeshadows`）具有不可篡改最终权威，同时**完整保留客户端现场正文草稿（`currentBody`）、细纲（`outline`）、下章规划（`nextChapter`）、案卷（`dossier`）和编辑历史**；<br>2. 将现场细纲与草稿提升至 `storyContext.currentChapterOutline` 与 `storyContext.currentBody` 根属性，供下游编译器一等公民消费。 |
+| `molan-home/lib/generation/context.js` | 编译器映射 (P1-3 & P1-4) | 1. **大纲体系一等公民分层**：在 `BLOCK_TO_LAYER` 中将 `currentChapterOutline` / `chapterOutline` / `chapterContext` 显式映射至 `L2_chapter`（章节层），将 `currentScenePlan` / `sceneDirectives` 映射至 `L1_scene`（场景层），将 `volumeOutline` / `currentVolumeOutline` 映射至 `L4_volume`（卷层）；<br>2. **强约束优先级保底**：设置 `currentChapterOutline`, `chapterOutline`, `currentScenePlan`, `sceneDirectives` 为 `Priority 0`（强约束必保），超预算拒绝静默省略；<br>3. **防三倍重复注入智能去重**：在 `assembleContext` 预处理中对 `chapterContext`、`chapterPlan`（同义别名）和 `planText`（JSON 字符串序列化）进行自动去重，只保留 1 份结构化大纲，杜绝 Token 发生 3 倍重复膨胀。 |
+| `molan-home/lib/generation/contract.js` | 契约保留 (P0-1) | 在 `normalizeChapterContract` 中保留合法正整数 `chapterNo`，避免格式化时遗漏编号。 |
+| `molan-home/lib/stability/error-catalog.js` | 错误中心 | 正式登记 `CHAPTER_POSITION_CONFLICT` 错误码（HTTP 409），分类为 `state`，提供用户友好提示及恢复指引。 |
+| `molan-home/test/chapter-outline-context-audit.test.js` | 专项测试 | 新增 6 项专项自动化测试用例，覆盖随机哈希防误判、位置冲突阻断、上下文深度保护、编译器一等公民分层、防重复注入去重及风格抽样受控。 |
+
+---
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **权威结构树物理位置作为第一真值 (P0-1)**：
+   - *驳回方案*：信任客户端传递的任意 `chapterNo` 或保留正则数字回退。
+   - *采纳方案*：服务端权威作品树拥有不可动摇的真值地位。若前端传来的编号与服务端计算不一致，坚决报 `CHAPTER_POSITION_CONFLICT`（409），禁止服务端静默改写或盲猜，从根源切断因状态不一致导致的大纲串章事故。针对尚未落库的新草稿章节，优先采纳前端显式计算的逻辑序号，兜底为追加下一章，彻底拔除正则提取随机 ID 数字的隐患代码。
+2. **深度合并实现事实权威与现场辅助分离 (P0-2)**：
+   - *考量*：前端编辑现场拥有最即时、未经落库的局部草稿（`currentBody`）与灵感大纲（`outline`）。服务端的权威快照则拥有全书公理法则与人物状态。采用深度合并，既捍卫了服务端的不可篡改性，又杜绝了浅合并直接冲垮客户端未落库现场的严重缺陷。
+3. **上下文编译器去重与必保约束分级 (P1-3 & P1-4)**：
+   - *考量*：大纲和场景计划是保证故事主线不跑偏的最高指南。将其升格为 `Priority 0` 确保在 Token 紧缩时不会被误当成二级普通事实丢弃；同时在编译器入口对别名与序列化重复做确定性清洗，以最小的工程侵入换取了数千 Token 的 Prompt 净空间。
+
+---
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **执行命令与结果**：
+  1. 大纲与生成上下文专项审计测试套件：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test molan-home/test/chapter-outline-context-audit.test.js
+     # 6 tests, 6 passed, 0 failed (100% PASS)
+     ```
+  2. 核心关联模块套件（大纲、上下文编译、Orchestrator、WAL 与实验）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/chapter-outline-context-audit.test.js test/generation-context.test.js test/generation-context-compiler-p2.test.js test/orchestrator-brain-consolidation.test.js test/context-plan-replay-p4.test.js test/generation-v2-e2e.test.js test/routes-phase4-generation.test.js test/native-generation-service.test.js test/content-engine.test.js test/local-wal.test.js test/corpus-prompt-experiments.test.js
+     # 62 tests, 62 passed, 0 failed (100% PASS, duration: ~1.4s)
+     ```
+  3. 全量官方核心自动化回归测试集（41 个测试文件全部真实执行）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test (41 个核心测试文件)
+     # 494 tests, 493 passed, 0 failed, 1 skipped (100% 真实通过，0 失败)
+     ```
+- **测试结论**：全站 41 个核心测试文件共 494 项测试全部绿灯通过，无任何破坏性回归，大纲与生成上下文治理 100% 达成验收标准。
+
 
 
 

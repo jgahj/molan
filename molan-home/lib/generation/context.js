@@ -15,10 +15,13 @@ const CONTEXT_LAYERS = Object.freeze([
 const BLOCK_TO_LAYER = Object.freeze({
   sceneContract: 'L0_current', immediateTimeline: 'L0_current', instruction: 'L0_current',
   currentTask: 'L0_current', requiredPayoff: 'L0_current', requiredCausalPayoff: 'L0_current',
-  scenes: 'L1_scene', scenePlan: 'L1_scene', location: 'L1_scene',
-  chapterContract: 'L2_chapter', chapterGoal: 'L2_chapter',
-  recentChapters: 'L3_recent', previousEnding: 'L3_recent',
-  volumeState: 'L4_volume', arcGoals: 'L4_volume', distantPlot: 'L4_volume',
+  scenes: 'L1_scene', scenePlan: 'L1_scene', currentScenePlan: 'L1_scene', sceneDirectives: 'L1_scene', location: 'L1_scene',
+  chapterContract: 'L2_chapter', chapterGoal: 'L2_chapter', currentChapterOutline: 'L2_chapter',
+  chapterOutline: 'L2_chapter', outline: 'L2_chapter', chapterContext: 'L2_chapter',
+  chapterPlan: 'L2_chapter', outlineDependencies: 'L2_chapter', planText: 'L2_chapter',
+  recentChapters: 'L3_recent', previousEnding: 'L3_recent', nextChapterOutline: 'L3_recent', adjacentChapterSummaries: 'L3_recent',
+  volumeState: 'L4_volume', arcGoals: 'L4_volume', volumeOutline: 'L4_volume', currentVolumeOutline: 'L4_volume',
+  bookOutlineSummary: 'L4_volume', distantPlot: 'L4_volume',
   characters: 'L5_facts', relationships: 'L5_facts', hardState: 'L5_facts',
   factLedger: 'L5_facts', historicalFacts: 'L5_facts',
   worldRules: 'L6_world_axioms', worldProhibitions: 'L6_world_axioms',
@@ -32,17 +35,24 @@ const PRIORITY = Object.freeze({
   sceneContract: 0, currentTask: 0, instruction: 0, chapterGoal: 0, requiredPayoff: 0, requiredCausalPayoff: 0,
   hardState: 0, povKnowledge: 0, forbiddenKnowledge: 0, worldProhibitions: 0,
   worldRules: 0, axioms: 0, immediateTimeline: 0, chapterContract: 0,
+  currentChapterOutline: 0, chapterOutline: 0, currentScenePlan: 0, sceneDirectives: 0,
   characters: 1, location: 1, relationships: 1, volumeState: 1, scenes: 1, scenePlan: 1,
+  chapterContext: 1, chapterPlan: 1, outline: 1, outlineDependencies: 1, volumeOutline: 1, currentVolumeOutline: 1, arcGoals: 1,
   activeCausalDebt: 1, causalDebt: 1,
-  recentChapters: 2, previousEnding: 2, foreshadows: 2, styleSamples: 2, genreMechanisms: 2,
+  recentChapters: 2, previousEnding: 2, nextChapterOutline: 2, adjacentChapterSummaries: 2, bookOutlineSummary: 2,
+  planText: 2, foreshadows: 2, styleSamples: 2, genreMechanisms: 2,
   distantPlot: 3, distantCausalDebtSummary: 3, historicalFacts: 3
 });
 const BLOCK_ORDER = Object.freeze([
-  'sceneContract', 'currentTask', 'instruction', 'chapterGoal', 'requiredPayoff', 'requiredCausalPayoff',
+  'sceneContract', 'currentTask', 'instruction', 'chapterContract', 'chapterGoal',
+  'currentChapterOutline', 'chapterOutline', 'outline', 'requiredPayoff', 'requiredCausalPayoff',
   'hardState', 'povKnowledge', 'forbiddenKnowledge', 'worldProhibitions', 'worldRules', 'axioms',
-  'immediateTimeline', 'chapterContract', 'characters', 'location', 'relationships', 'volumeState',
-  'scenes', 'scenePlan', 'activeCausalDebt', 'causalDebt', 'recentChapters', 'previousEnding',
-  'foreshadows', 'styleSamples', 'genreMechanisms', 'distantPlot', 'distantCausalDebtSummary', 'historicalFacts'
+  'immediateTimeline', 'currentScenePlan', 'sceneDirectives', 'scenes', 'scenePlan', 'location',
+  'chapterContext', 'chapterPlan', 'outlineDependencies', 'characters', 'relationships',
+  'volumeOutline', 'currentVolumeOutline', 'volumeState', 'arcGoals', 'activeCausalDebt', 'causalDebt',
+  'recentChapters', 'previousEnding', 'nextChapterOutline', 'adjacentChapterSummaries',
+  'bookOutlineSummary', 'planText', 'foreshadows', 'styleSamples', 'genreMechanisms',
+  'distantPlot', 'distantCausalDebtSummary', 'historicalFacts'
 ]);
 
 function asText(content) {
@@ -303,6 +313,27 @@ function assembleContext(input = {}, options = {}) {
     : selectGenreMechanisms(mechanismSource, sceneTags);
   if (mechanismSource != null) prepared.genreMechanisms = mechanismSelection.value;
   const debtSelection = splitCausalDebt(prepared, options);
+
+  // 规范化与去重章节大纲字段：杜绝 chapterContext / chapterPlan / planText 重复膨胀
+  if (prepared.chapterContext && prepared.chapterPlan) {
+    if (prepared.chapterPlan === prepared.chapterContext || JSON.stringify(prepared.chapterPlan) === JSON.stringify(prepared.chapterContext)) {
+      delete prepared.chapterPlan;
+    }
+  }
+  if (prepared.chapterContext && prepared.planText) {
+    const contextStr = typeof prepared.chapterContext === 'string' ? prepared.chapterContext : JSON.stringify(prepared.chapterContext);
+    if (contextStr.startsWith(prepared.planText) || prepared.planText.startsWith(contextStr) || prepared.planText === contextStr) {
+      delete prepared.planText;
+    }
+  } else if (prepared.chapterPlan && prepared.planText) {
+    const planStr = typeof prepared.chapterPlan === 'string' ? prepared.chapterPlan : JSON.stringify(prepared.chapterPlan);
+    if (planStr.startsWith(prepared.planText) || prepared.planText.startsWith(planStr) || prepared.planText === planStr) {
+      delete prepared.planText;
+    }
+  }
+  if (prepared.currentChapterOutline && prepared.chapterOutline && prepared.currentChapterOutline === prepared.chapterOutline) {
+    delete prepared.chapterOutline;
+  }
 
   const rawBlocks = [];
   for (const [key, content] of Object.entries(prepared)) {
