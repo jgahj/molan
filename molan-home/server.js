@@ -76,6 +76,7 @@ const { createAuthRoutes } = require('./routes/auth');
 const { createAdminRoutes } = require('./routes/admin');
 const { createSkillRoutes } = require('./routes/skills');
 const { createGenerationRoutes } = require('./routes/generation');
+const { createGenerationHandlers } = require('./routes/generation-handlers');
 const { createKnowledgeRoutes } = require('./routes/knowledge');
 const { createDissectionRoutes } = require('./routes/dissections');
 const { createDissectionHandlers } = require('./routes/dissection-handlers');
@@ -671,7 +672,7 @@ const { characterMaterialReviewContext, parseCharacterMaterialSampleReview, revi
 
 
 let chatServiceHandler = null;
-function handleChat(req, res, legacyGenerationHandoff = null) {
+function getChatServiceHandler() {
   if (!chatServiceHandler) {
     chatServiceHandler = require('./services/chat-service').createChatService({
       getDatabase: () => db,
@@ -703,9 +704,19 @@ function handleChat(req, res, legacyGenerationHandoff = null) {
       recordDispatchAttempt
     }).handleChat;
   }
-  return chatServiceHandler(req, res, legacyGenerationHandoff);
+  return chatServiceHandler;
+}
+
+function handleChat(req, res, legacyGenerationHandoff = null) {
+  if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleChat) {
+    return generationHandlers.handleChat(req, res, legacyGenerationHandoff);
+  }
+  return getChatServiceHandler()(req, res, legacyGenerationHandoff);
 }
 function handleModels(req, res) {
+  if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleModels) {
+    return generationHandlers.handleModels(req, res);
+  }
   const auth = getAuthUser(req);
   const role = auth ? normalizeUserRole(auth.user) : 'guest';
   const defaultModel = currentDefaultModel();
@@ -727,6 +738,9 @@ function handleModels(req, res) {
 // User-facing estimate endpoint. It deliberately omits the underlying rate
 // and multiplier; users only need to know the expected charge for this task.
 function handleBillingEstimate(req, res) {
+  if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleBillingEstimate) {
+    return generationHandlers.handleBillingEstimate(req, res);
+  }
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录后查看积分预估' });
   readBody(req, 64 * 1024).then(body => {
@@ -737,6 +751,9 @@ function handleBillingEstimate(req, res) {
 
 const LOCAL_TOPUP_CREDITS = new Set([1000, 8000, 30000]);
 function handleBillingTopup(req, res) {
+  if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleBillingTopup) {
+    return generationHandlers.handleBillingTopup(req, res);
+  }
   // 生产环境没有接入支付订单/回调时，必须关闭本地测试充值，避免任意账户伪造余额。
   // 本地开发模式保留旧接口，方便离线回归测试。
   if (PUBLIC_MODE) return json(res, 410, { error: '充值功能暂未开放，请使用已验证的支付订单' });
@@ -4813,6 +4830,7 @@ let characterHandlers = null;
 let projectAssetHandlers = null;
 let adminHandlers = null;
 let debtKnowledgeHandlers = null;
+let generationHandlers = null;
 
 function handleDissectionExtract(req, res) {
   if (typeof dissectionHandlers !== 'undefined' && dissectionHandlers && dissectionHandlers.handleDissectionExtract) {
@@ -6438,6 +6456,9 @@ let healthCache = null;
 let healthCacheAt = 0;
 /** GET /api/health —— 增加 db 字段；附带 uptime/pid/activeChatStreams，供看护脚本区分“挂了”与“忙”。 */
 async function handleHealth(req, res) {
+  if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleHealth) {
+    return generationHandlers.handleHealth(req, res);
+  }
   const auth = getAuthUser(req);
   const runtime = { uptime: Math.round(process.uptime()), pid: process.pid, activeChatStreams: chatAdmission.activeCount() };
   if (!auth && healthCache && Date.now() - healthCacheAt < 5000) return json(res, 200, { ...healthCache, ...runtime });
@@ -6462,10 +6483,16 @@ async function handleHealth(req, res) {
 
 /* ---------- 旧版网页 AI 兼容接口：统一关闭，避免绕过平台计费 ---------- */
 function handleWebChat(req, res) {
+  if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleWebChat) {
+    return generationHandlers.handleWebChat(req, res);
+  }
   json(res, 410, { error: '网页版 AI 已关闭，所有 AI 请求统一使用平台模型并按 Token 计费' });
 }
 
 function handleWebChatStatus(req, res) {
+  if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleWebChatStatus) {
+    return generationHandlers.handleWebChatStatus(req, res);
+  }
   json(res, 200, { available: false, busy: false });
 }
 
@@ -7461,6 +7488,22 @@ async function dispatchRequest(req, res) {
       detectNovelStyle, evaluateChapterHealth
     });
   }
+  if (!generationHandlers) {
+    generationHandlers = createGenerationHandlers({
+      json, readBody, respondError, respondPostgresError, requestError,
+      getAuthUser, isAdminUser, normalizeUserRole, canChooseModel, currentDefaultModel,
+      PLATFORM_MODELS, loadPlatformModels, reasoningEffortsForModel, contextWindowTokensForModel,
+      estimateBillingForUser, PUBLIC_MODE, POSTGRES_MODE, postgresRepository, projectScope,
+      postgresRuntimeUserFromRow, appRepository, dbReady,
+      getDatabase: () => db, getUserByEmail, publicUser, nativePublicUser, saveUser,
+      chatAdmission, postgresHealth, DEEPSEEK_KEY,
+      chatHandler: (req, res, legacy) => getChatServiceHandler()(req, res, legacy),
+      benchmarkHandler: handleBenchmark,
+      generationRunsHandler: handleGenerationRuns,
+      generationRunErrorHandler: generationRunError,
+      legacyGenerationChatHandler: handleLegacyGenerationChat
+    });
+  }
   const domainRoutes = {
     auth: createAuthRoutes({
       register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
@@ -7491,6 +7534,7 @@ async function dispatchRequest(req, res) {
       , ...(!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? nativeSkillService() : {})
     }),
     generation: createGenerationRoutes({
+      ...generationHandlers,
       benchmark: handleBenchmark, generationRuns: handleGenerationRuns, generationRunError,
       chat: handleChat, legacyGenerationChat: handleLegacyGenerationChat, models: handleModels,
       billingEstimate: handleBillingEstimate, billingTopup: handleBillingTopup, health: handleHealth,
