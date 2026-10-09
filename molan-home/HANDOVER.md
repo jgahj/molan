@@ -1075,10 +1075,59 @@ molan-home/
 
 1. **已达成状态**：
    - 第一阶段（抽取阶段）：全库 1279 本图书 100% 抽取与双模提炼完成，分类分桶归档完备，`manifest.json` 与抽检报告已产出；
-   - 第二阶段（调度工具）：四象限调度器真实并发、断点续传、Dry-run 预检与 5 维客观质量比对评估器已完成开发并通过自动化验证。
-2. **后续执行待办**：
-   - **等待用户人工审阅与确认**：用户查阅 `data/corpus-prompt-experiments/sampling_inspection_report.md` 及抽样结果；
-   - **启动真实模型正文生成**：在用户人工确认提示词满意后，传入 `--confirm-phase1-approved` 参数并配置模型服务发起真实批处理生成。
+   - 第二阶段（调度工具）：四象限调度器真实并发、断点续传、Dry-run 预检与 5 维客观质量比对评估器已完成开发并通过自动化验证；
+   - 第三阶段（真实对比评测）：完成玄幻、都市、悬疑脑洞核心题材真实双轨生成与 5 维客观度量评测，产出详尽分类对比报告与全文存盘。
+
+---
+
+## 阶段记录：真实双轨对比评测与 5 维质感度量验证 (2026-10-09)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/scripts/run-live-comparison-suite.mjs` | 新增工具 | 构建 `DualTrackComparisonSuite` 双轨评测对比度量套件，封装 `evaluatePair`（计算两组 5 维指标差值 Δ）与 `generateMarkdownReport`（生成结构化分类对比报告）。 |
+| `molan-home/scripts/generate-and-evaluate-dual-track.mjs` | 新增脚本 | 真实对比运行器，加载玄幻（《一世之尊》）、都市（《1984：从破产川菜馆开始》）、悬疑脑洞（《不要在无限流里招惹精神病！》）样本，统一采用 `gemini-3.8-flash-high` 开展实验组（墨阑全链）与对照组（原生直出）生成并执行真实度量。 |
+| `molan-home/data/corpus-prompt-experiments/REAL_DUAL_TRACK_COMPARISON_REPORT.md` | 新增报告 | 沉淀详尽分类评测报告：含 3 大题材客观指标总览表、文本片段显微比对（受力描写、临敌机变、因果转折、章末钩子）与深层质感剖析。 |
+| `molan-home/data/corpus-prompt-experiments/real_dual_track_comparison_data.json` | 新增数据 | 导出双轨评测 5 维客观量化原始指标 JSON 数据（含欧氏距离、篇幅比、动词密度、AI味惩罚等）。 |
+| `molan-home/data/corpus-prompt-experiments/{玄幻,都市,悬疑脑洞}/*_真实双轨对比生成.md` | 新增归档 | 将各题材下实验组与对照组生成的完整正文分门别类归档存盘，便于人工对照审阅。 |
+| `molan-home/test/corpus-prompt-experiments.test.js` | 测试扩充 | 新增 `DualTrackComparisonSuite` 专项测试，验证双轨指标计算与 Markdown 报告生成能力（测试数扩充至 16 项）。 |
+
+---
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **严格单一控制变量实验设计**：
+   - 实验组与对照组模型完全锁定为 `gemini-3.8-flash-high`，输入提示词严格取自同一抽样章节，杜绝任何外部变量干扰；
+   - 唯一自变量为“是否经过墨阑系统的全链路策略编译与注意力分级编排（5 维 Profile 绑定、Tier 1~4 注意力分级、场景规划卡、StoryDebtLedger 约束）”。
+2. **客观度量与文学质感双重审计**：
+   - 客观量化：采用 `QuadrantQualityEvaluator` 测量字数、11 维文风欧氏距离、动作动词密度、AI 机械套词风险度、实体留存率与综合得分；
+   - 深度质感剖析：针对“概念化武斗 vs 物理受力传导”、“现代网文空话 vs 时代微观颗粒度”、“普通龙傲天男主 vs 精神病专属认知逻辑”等维度进行对比显微剖析。
+
+---
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **执行命令与客观度量结果**：
+  1. 真实双轨评测运行与度量结果：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" molan-home/scripts/generate-and-evaluate-dual-track.mjs
+     # 玄幻《一世之尊》：实验组 2444字 / 距离 0.1319 / 套词 0.409 / 得分 67.4 vs 对照组 1073字 / 距离 0.3590 / 套词 0.932 / 得分 33.2 (Δ +34.2分)
+     # 都市《1984》：实验组 1477字 / 动作 40.6% / 套词 0.677 / 得分 45.3 vs 对照组 853字 / 动作 20.0% / 套词 2.000 / 得分 14.3 (Δ +31.0分)
+     # 悬疑《不要在无限流里招惹精神病》：实验组 1318字 / 距离 0.3438 / 得分 51.2 vs 对照组 814字 / 距离 0.3921 / 得分 41.5 (Δ +9.7分)
+     ```
+  2. 专项自动化测试套件：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test molan-home/test/corpus-prompt-experiments.test.js
+     # 16 tests, 16 passed, 0 failed (100% PASS)
+     ```
+  3. 全量核心自动化回归测试集：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test (39 个测试文件)
+     # 483 tests, 482 passed, 0 failed, 1 skipped (100% 真实通过)
+     ```
+
 
 
 
