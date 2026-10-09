@@ -15,7 +15,7 @@
   "targetMetrics": {},
   "baselineRef": "../genre-baselines/青春甜宠.json",
   "evidenceRef": "../genre-evidence/青春甜宠.json",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "writingDirectives": [
     {
       "key": "wish_action_obstacle",
@@ -26,7 +26,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "青春甜宠:cab200af621a742e",
+          "bookId": "青春甜宠:850afe52f362ce17",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p34",
@@ -46,7 +46,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "青春甜宠:be2c6eafb2fe1f26",
+          "bookId": "青春甜宠:7a978b0137874b75",
           "chapterId": "ch2",
           "paragraphIds": [
             "ch2:p81",
@@ -65,7 +65,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "青春甜宠:be2c6eafb2fe1f26",
+          "bookId": "青春甜宠:7a978b0137874b75",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p65",
@@ -84,8 +84,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "醒来想竖耳却动不了，把身体失常放在感知入口；末尾门外脚步和门把手被握住，停在来人身份揭晓前。 开头先揭晓来人身份及F4关系，末尾把威慑不足落到头发、继而立即出门；人物愿望转成一个可执行的小行动。 账户只有一百二十三块，与家人昂贵消费并置，紧接理发店剪不起；金钱差距具体改变上一章的外形行动计划。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "青春甜宠:cab200af621a742e",
-      "sourceSha256": "cab200af621a742ee7f401d668416306b81e4392a8266868d51de7a512ac812e",
+      "evidenceBookId": "青春甜宠:850afe52f362ce17",
+      "sourceSha256": "850afe52f362ce17c4d0e15f3a844f527cbe08b30617e45ac4de0f187f7edf78",
       "evidenceRefs": [
         {
           "chapterId": "ch1",
@@ -122,8 +122,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "暴雨、救援车受阻与隘口泥石流使救人困难具象化；导演以少爷身份和赔偿责问施压，环境困难与身份差距同时进入场景。 末段弹幕替黄鼠狼加油，叙述点出镜头使鸡血也显得无害，随后也蔓动手驱赶；观看偏好与现场处置形成冲突。 末尾先写易衍嫌麻烦，再让护士当众报告听力正常；医疗信息经公开场合进入人际关系，可提出旧判断将被重新审视的假设。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "青春甜宠:be2c6eafb2fe1f26",
-      "sourceSha256": "be2c6eafb2fe1f26161a1b823470d7be8da9f74bd5014cbdbf48f77c3c3d36bb",
+      "evidenceBookId": "青春甜宠:7a978b0137874b75",
+      "sourceSha256": "7a978b0137874b757f404ecdd9ac1123c939354ef0422ab68dd0815e004b6b56",
       "evidenceRefs": [
         {
           "chapterId": "ch1",

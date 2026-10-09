@@ -15,7 +15,7 @@
   "targetMetrics": {},
   "baselineRef": "../genre-baselines/玄幻.json",
   "evidenceRef": "../genre-evidence/玄幻.json",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "writingDirectives": [
     {
       "key": "external_consequence",
@@ -26,7 +26,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "玄幻:365c4c2dbd4845f0",
+          "bookId": "玄幻:c191101a34299281",
           "chapterId": "ch1",
           "paragraphIds": [
             "ch1:p77",
@@ -45,7 +45,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "玄幻:8d795a4200c88311",
+          "bookId": "玄幻:ce9a9d9cc45532e3",
           "chapterId": "ch1",
           "paragraphIds": [
             "ch1:p107",
@@ -65,7 +65,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "玄幻:365c4c2dbd4845f0",
+          "bookId": "玄幻:c191101a34299281",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p1",
@@ -85,8 +85,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "孟奇自认回答机智，玄苦随即以机心太重将他分入杂役院；自我评价与制度裁决相反，把内心机巧转成实际身份后果。 开头接续被裁决后的羞恼，末尾以追赶小师弟和没有小师妹的自嘲转换情绪；人物并非始终冷静无波。 陈旧斋堂、僧众人数提供具体处境，末段借月亮与思乡诗转向孟奇发痴；结尾可通过情绪余留而非新危险延续阅读。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "玄幻:365c4c2dbd4845f0",
-      "sourceSha256": "365c4c2dbd4845f0e04ebff144fe86093081afe32819717d3a1058f79e002c6a",
+      "evidenceBookId": "玄幻:c191101a34299281",
+      "sourceSha256": "c191101a34299281541ec9f737894bbedd76815bb017e388c4aa00e738c08f24",
       "evidenceRefs": [
         {
           "chapterId": "ch1",
@@ -121,8 +121,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "老杨把入伙分钱和求医联系起来，随后掌中铜钱在老妪断气时出现；生计催逼与异常获利在相邻段落相撞，产生伦理疑问。 开头夜风、酒意将视线放在林舒身上，章末刘三爷询问朋友好看吗；可提出观察者可能被反向发现的阅读假设。 开头树梢显出墙头白影，中段以瘦弱者撞开习武者的反问标记预期落差，末尾四名活人的寂静保留震动；能力反差不只由战力数字表达。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "玄幻:8d795a4200c88311",
-      "sourceSha256": "8d795a4200c8831198c1a2e69103661acbff982b321bb22e01ac6dd2b9915241",
+      "evidenceBookId": "玄幻:ce9a9d9cc45532e3",
+      "sourceSha256": "ce9a9d9cc45532e38825b6d4740320f2ff444ba011b265b42398442e07f03064",
       "evidenceRefs": [
         {
           "chapterId": "ch1",

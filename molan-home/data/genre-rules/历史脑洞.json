@@ -15,7 +15,7 @@
   "targetMetrics": {},
   "baselineRef": "../genre-baselines/历史脑洞.json",
   "evidenceRef": "../genre-evidence/历史脑洞.json",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "writingDirectives": [
     {
       "key": "goal_and_local_gap",
@@ -26,7 +26,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "历史脑洞:bad233bea5f77ab8",
+          "bookId": "历史脑洞:89ae20de779fc9de",
           "chapterId": "ch1",
           "paragraphIds": [
             "ch1:p6",
@@ -45,7 +45,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "历史脑洞:bad233bea5f77ab8",
+          "bookId": "历史脑洞:89ae20de779fc9de",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p1",
@@ -64,7 +64,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "历史脑洞:68f302be8aaee65e",
+          "bookId": "历史脑洞:7b1a23cded1b1814",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p1",
@@ -86,8 +86,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "开头从赶论文后醒于树林交代错位，末尾已问到时代却忘问地点和路线；宏大历史目的被眼前导航缺口打断，形成行动级障碍。 张飞从虚弱外貌质疑武人判断，末尾刘备安排吃食且龙渊确实饥饿；能力身份与身体需求可并置，饭食也能推进接待关系。 刘备致歉设席承接接待，末尾追问地点和妙计后得到入主平原的具体目标；议论在章尾转成下一步去处，而非只说成大业。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "历史脑洞:bad233bea5f77ab8",
-      "sourceSha256": "bad233bea5f77ab8860bc39048c6508044c1b7aa987bf312dd31648a2e4c11b0",
+      "evidenceBookId": "历史脑洞:89ae20de779fc9de",
+      "sourceSha256": "89ae20de779fc9dec5a8c5fea34e5ce3037ea43a88c3bc381ab6b485ae1fda82",
       "evidenceRefs": [
         {
           "chapterId": "ch1",
@@ -122,8 +122,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "开头直接给纪年，末尾从许诺留山有饭吃转到是否一辈子当山贼的追问；眼前容身与未来身份形成两个尺度的目标。 开头回答当山贼是为躲围剿求生，末尾列举宝箱可能产物并下令开启；生存困局与系统奖励期待同时存在，不能只按严肃历史写实规范衡量。 宝箱开出锦盒、中段服丹改变身体，末尾以屯田、沤肥、巡查和练兵概述山寨变化；超凡捷径与发展蒙太奇并置。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "历史脑洞:68f302be8aaee65e",
-      "sourceSha256": "68f302be8aaee65e9366028dbb315c9ba35a3bca030fb6032a90fd12c4713bef",
+      "evidenceBookId": "历史脑洞:7b1a23cded1b1814",
+      "sourceSha256": "7b1a23cded1b18147dbac4d815763f4bcbdac75fe9105835f573d0516e8ee321",
       "evidenceRefs": [
         {
           "chapterId": "ch1",

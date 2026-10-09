@@ -4,7 +4,7 @@
   "genre": "科幻末世",
   "status": "excerpt-evidence-ready",
   "method": "固定选择原基线各题材文件名排序中的前两本；完整读取前三章建立哈希和段落索引；本轮代理只对列明段落做定点摘段解释及相邻段复核，不调用网络推理服务。",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "reviewStatus": {
     "deterministicIndex": "complete",
     "excerptReview": "complete-for-cited-paragraphs-only",
@@ -21,13 +21,13 @@
   ],
   "books": [
     {
-      "id": "科幻末世:00f45a0381daae3b",
+      "id": "科幻末世:0e8d8bd821080688",
       "title": "全民抽卡求生，每天一张传说卡",
       "source": {
         "path": "资源库/小说原本/科幻末世/全民抽卡求生，每天一张传说卡.txt",
-        "sha256": "00f45a0381daae3bf725c2af0de5a6d0d185bab599df8bad98334bb30daca921",
-        "decodedSha256": "00f45a0381daae3bf725c2af0de5a6d0d185bab599df8bad98334bb30daca921",
-        "byteLength": 438894,
+        "sha256": "0e8d8bd82108068871b9c595535850ed1be35e4be757a444ee492cdd815100b8",
+        "decodedSha256": "0e8d8bd82108068871b9c595535850ed1be35e4be757a444ee492cdd815100b8",
+        "byteLength": 120218,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",
@@ -3022,13 +3022,13 @@
       ]
     },
     {
-      "id": "科幻末世:702bb83d770690ee",
+      "id": "科幻末世:fd2066cf8bdba89b",
       "title": "公路求生：开局觉醒修罗序列",
       "source": {
         "path": "资源库/小说原本/科幻末世/公路求生：开局觉醒修罗序列.txt",
-        "sha256": "702bb83d770690eebdb1774afed9ef4a19fb23bebeefbbc00ddb3c0aef65b5ef",
-        "decodedSha256": "702bb83d770690eebdb1774afed9ef4a19fb23bebeefbbc00ddb3c0aef65b5ef",
-        "byteLength": 203192,
+        "sha256": "fd2066cf8bdba89b0cb5f75b45fa3bb3911f265b050cdbb79132c3d743a17b96",
+        "decodedSha256": "fd2066cf8bdba89b0cb5f75b45fa3bb3911f265b050cdbb79132c3d743a17b96",
+        "byteLength": 102406,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",

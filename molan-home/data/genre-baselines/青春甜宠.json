@@ -3,7 +3,7 @@
   "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
   "genre": "青春甜宠",
   "status": "ready",
-  "generatedAt": "2026-09-15T14:29:29.698Z",
+  "generatedAt": "2026-10-09T08:15:37.119Z",
   "method": "完整文件严格解码；仅连续第1至N章且有下一章边界；原文不去作者注；UTF-16非空白字符计量。统计不是文学质量评分。",
   "sampling": {
     "method": "sorted-file-window-without-refill",
@@ -96,9 +96,9 @@
       "title": "F4里最病弱的那个，被团宠了",
       "filePath": "资源库\\小说原本\\青春甜宠\\F4里最病弱的那个，被团宠了.txt",
       "source": {
-        "sha256": "cab200af621a742ee7f401d668416306b81e4392a8266868d51de7a512ac812e",
-        "decodedSha256": "cab200af621a742ee7f401d668416306b81e4392a8266868d51de7a512ac812e",
-        "byteLength": 201925,
+        "sha256": "850afe52f362ce17c4d0e15f3a844f527cbe08b30617e45ac4de0f187f7edf78",
+        "decodedSha256": "850afe52f362ce17c4d0e15f3a844f527cbe08b30617e45ac4de0f187f7edf78",
+        "byteLength": 111950,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -1988,9 +1988,9 @@
       "title": "亲一下就软！",
       "filePath": "资源库\\小说原本\\青春甜宠\\亲一下就软！.txt",
       "source": {
-        "sha256": "442f016cf1c79f701666cd795bbd693f836c42d5b3ff89c796f42f79abc1136b",
-        "decodedSha256": "442f016cf1c79f701666cd795bbd693f836c42d5b3ff89c796f42f79abc1136b",
-        "byteLength": 185139,
+        "sha256": "c7e55ca830fbd9a35effbb4d07e16aa3fdc179ffd688bbd3f8067ff6e938ca7a",
+        "decodedSha256": "c7e55ca830fbd9a35effbb4d07e16aa3fdc179ffd688bbd3f8067ff6e938ca7a",
+        "byteLength": 91259,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -3236,9 +3236,9 @@
       "title": "厌世农村妹也要被少爷强制爱吗？",
       "filePath": "资源库\\小说原本\\青春甜宠\\厌世农村妹也要被少爷强制爱吗？.txt",
       "source": {
-        "sha256": "be2c6eafb2fe1f26161a1b823470d7be8da9f74bd5014cbdbf48f77c3c3d36bb",
-        "decodedSha256": "be2c6eafb2fe1f26161a1b823470d7be8da9f74bd5014cbdbf48f77c3c3d36bb",
-        "byteLength": 136961,
+        "sha256": "7a978b0137874b757f404ecdd9ac1123c939354ef0422ab68dd0815e004b6b56",
+        "decodedSha256": "7a978b0137874b757f404ecdd9ac1123c939354ef0422ab68dd0815e004b6b56",
+        "byteLength": 95564,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -4764,9 +4764,9 @@
       "title": "坏兄妹",
       "filePath": "资源库\\小说原本\\青春甜宠\\坏兄妹.txt",
       "source": {
-        "sha256": "ebec587d8256222f58370f983af7091101db4bf8fe6fb7d0f720e777f3ec032f",
-        "decodedSha256": "ebec587d8256222f58370f983af7091101db4bf8fe6fb7d0f720e777f3ec032f",
-        "byteLength": 173835,
+        "sha256": "c5df3d7cac356696b3976844ae3c97218fc2764f5a55eccf426ac881e3b2ebb2",
+        "decodedSha256": "c5df3d7cac356696b3976844ae3c97218fc2764f5a55eccf426ac881e3b2ebb2",
+        "byteLength": 99581,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -6789,9 +6789,9 @@
       "title": "夏夜有染",
       "filePath": "资源库\\小说原本\\青春甜宠\\夏夜有染.txt",
       "source": {
-        "sha256": "c943e998dc967f15fb070e5fef4a82ba625689848488866ebc83d68355f8c692",
-        "decodedSha256": "c943e998dc967f15fb070e5fef4a82ba625689848488866ebc83d68355f8c692",
-        "byteLength": 156607,
+        "sha256": "4a141b09b651b3b99c8bc6089e99e4c0d6fe601233254baf09730721365702d3",
+        "decodedSha256": "4a141b09b651b3b99c8bc6089e99e4c0d6fe601233254baf09730721365702d3",
+        "byteLength": 97423,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -8898,9 +8898,9 @@
       "title": "大反派的作精女友觉醒后，更作了",
       "filePath": "资源库\\小说原本\\青春甜宠\\大反派的作精女友觉醒后，更作了.txt",
       "source": {
-        "sha256": "942f816e8eb56fd421c5b96711ecb7b60189482d8010757459b00bd3d8594ef8",
-        "decodedSha256": "942f816e8eb56fd421c5b96711ecb7b60189482d8010757459b00bd3d8594ef8",
-        "byteLength": 120473,
+        "sha256": "80bc436b9a9179df4d17dae25e544db7950ced6287db2c471a0b9098ebc48ae4",
+        "decodedSha256": "80bc436b9a9179df4d17dae25e544db7950ced6287db2c471a0b9098ebc48ae4",
+        "byteLength": 96685,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -11133,9 +11133,9 @@
       "title": "大小姐雇我替她和太子爷网恋",
       "filePath": "资源库\\小说原本\\青春甜宠\\大小姐雇我替她和太子爷网恋.txt",
       "source": {
-        "sha256": "8bfcaa8bf9fa9827c28a20457e5dcf129df7583a714b1ee44570deda4dd65a48",
-        "decodedSha256": "8bfcaa8bf9fa9827c28a20457e5dcf129df7583a714b1ee44570deda4dd65a48",
-        "byteLength": 157423,
+        "sha256": "d72dac6f3e5bd00f7781489612fa536700e27f14827135ea1da8e8728443994c",
+        "decodedSha256": "d72dac6f3e5bd00f7781489612fa536700e27f14827135ea1da8e8728443994c",
+        "byteLength": 99222,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -13977,9 +13977,9 @@
       "title": "宝宝乖，再亲一口好不好",
       "filePath": "资源库\\小说原本\\青春甜宠\\宝宝乖，再亲一口好不好.txt",
       "source": {
-        "sha256": "0ad04948b09eb7f21abac7477be32760734c8b5fed3b429c54a2c8a14bbb3005",
-        "decodedSha256": "0ad04948b09eb7f21abac7477be32760734c8b5fed3b429c54a2c8a14bbb3005",
-        "byteLength": 260632,
+        "sha256": "38609609e1c6328108ff7ae9699a9c0e468b9153bdf5f9b62e450485910fca45",
+        "decodedSha256": "38609609e1c6328108ff7ae9699a9c0e468b9153bdf5f9b62e450485910fca45",
+        "byteLength": 98651,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -16492,9 +16492,9 @@
       "title": "宝宝，选我好不好",
       "filePath": "资源库\\小说原本\\青春甜宠\\宝宝，选我好不好.txt",
       "source": {
-        "sha256": "73c3e7e22b239b6317cfa211ed8bb463318b0a99c051650d739045cfc644afb6",
-        "decodedSha256": "73c3e7e22b239b6317cfa211ed8bb463318b0a99c051650d739045cfc644afb6",
-        "byteLength": 172262,
+        "sha256": "78991ce68055726bf825a005cfa47a52dfa480c60e19a356a56cd81a9aa2632e",
+        "decodedSha256": "78991ce68055726bf825a005cfa47a52dfa480c60e19a356a56cd81a9aa2632e",
+        "byteLength": 101735,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -18370,9 +18370,9 @@
       "title": "宝贝，别对我心软",
       "filePath": "资源库\\小说原本\\青春甜宠\\宝贝，别对我心软.txt",
       "source": {
-        "sha256": "3c3c9e89f4330a318b8abc9207ec83b2bdf68d8e30f3cd6936af72ec0ddad323",
-        "decodedSha256": "3c3c9e89f4330a318b8abc9207ec83b2bdf68d8e30f3cd6936af72ec0ddad323",
-        "byteLength": 111185,
+        "sha256": "3c953af0f29ba098241204ebded7cd8d795a7d8526cbe7c0a1b98e594203d839",
+        "decodedSha256": "3c953af0f29ba098241204ebded7cd8d795a7d8526cbe7c0a1b98e594203d839",
+        "byteLength": 93795,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -20360,9 +20360,9 @@
       "title": "强扭的校草太酸涩，重生她不要了",
       "filePath": "资源库\\小说原本\\青春甜宠\\强扭的校草太酸涩，重生她不要了.txt",
       "source": {
-        "sha256": "3ee63fc8282d19a0bb6831ddb0aec85101bc295b8cb5f1825c3f928866a3461c",
-        "decodedSha256": "3ee63fc8282d19a0bb6831ddb0aec85101bc295b8cb5f1825c3f928866a3461c",
-        "byteLength": 101163,
+        "sha256": "44404725c3f663a26b2eaba68401e269c70310f236b1d2fa6f5092cdef84cf56",
+        "decodedSha256": "44404725c3f663a26b2eaba68401e269c70310f236b1d2fa6f5092cdef84cf56",
+        "byteLength": 95468,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -22189,9 +22189,9 @@
       "title": "怎敌她动人",
       "filePath": "资源库\\小说原本\\青春甜宠\\怎敌她动人.txt",
       "source": {
-        "sha256": "9ffb7acf155a7c6a9558bfc9e61b5781ccb7af23bb0aff94a568d67baa250933",
-        "decodedSha256": "9ffb7acf155a7c6a9558bfc9e61b5781ccb7af23bb0aff94a568d67baa250933",
-        "byteLength": 203520,
+        "sha256": "f2875bc3fd04f9e5aeda95edb07de128ff85b120760ea4af354ef2a254ac11e7",
+        "decodedSha256": "f2875bc3fd04f9e5aeda95edb07de128ff85b120760ea4af354ef2a254ac11e7",
+        "byteLength": 100139,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -22200,9 +22200,9 @@
           "id": "ch1",
           "number": 1,
           "title": "第一章 丈夫的遗产",
-          "start": 534,
-          "bodyStart": 544,
-          "end": 3992,
+          "start": 536,
+          "bodyStart": 546,
+          "end": 3994,
           "complete": true,
           "boundary": "next-consecutive-numbered-heading",
           "nextHeading": "第二章 重回十七岁",
@@ -22212,757 +22212,757 @@
             {
               "id": "ch1:p1",
               "number": 1,
-              "start": 545,
-              "end": 560,
+              "start": 547,
+              "end": 562,
               "sha256": "b66021fa91dae51373b55330513abb129a7f8992c86b03b2a6112b087bad8807"
             },
             {
               "id": "ch1:p2",
               "number": 2,
-              "start": 564,
-              "end": 605,
+              "start": 566,
+              "end": 607,
               "sha256": "7d6f90d56ec9a286d551598a591b177aa33a3f4cda68eb63486c71920917e0ab"
             },
             {
               "id": "ch1:p3",
               "number": 3,
-              "start": 609,
-              "end": 649,
+              "start": 611,
+              "end": 651,
               "sha256": "bd8910323859a9eecdad186c966d8cd857d2a120758fd188a0a3014523b82dd2"
             },
             {
               "id": "ch1:p4",
               "number": 4,
-              "start": 653,
-              "end": 707,
+              "start": 655,
+              "end": 709,
               "sha256": "950f9a889251ce8e9f7133d58e7eb966aa66a9f9c3d8a23017237fcc978ac72e"
             },
             {
               "id": "ch1:p5",
               "number": 5,
-              "start": 711,
-              "end": 741,
+              "start": 713,
+              "end": 743,
               "sha256": "1fa2e49eacb45f72e2e99a30a00f3be661d2579f884ae8aee57119ef5da59841"
             },
             {
               "id": "ch1:p6",
               "number": 6,
-              "start": 745,
-              "end": 754,
+              "start": 747,
+              "end": 756,
               "sha256": "37fcc1d0e93ec09547bced4fb76b90143d6af05889414f60e05a76c4f3bd4aaf"
             },
             {
               "id": "ch1:p7",
               "number": 7,
-              "start": 758,
-              "end": 774,
+              "start": 760,
+              "end": 776,
               "sha256": "9b5ac98d9faf448bb037e506a59d9e3a30592cbfea9608cd883cc9d8b3901b0d"
             },
             {
               "id": "ch1:p8",
               "number": 8,
-              "start": 778,
-              "end": 830,
+              "start": 780,
+              "end": 832,
               "sha256": "4b1040e3c85c6310d7351567620083b53673538c36b3ba87e213d574d0977046"
             },
             {
               "id": "ch1:p9",
               "number": 9,
-              "start": 834,
-              "end": 887,
+              "start": 836,
+              "end": 889,
               "sha256": "d4c26236fc7807085b9efc979e3e7fdb689eddfad4affa2ea363cfd66884beec"
             },
             {
               "id": "ch1:p10",
               "number": 10,
-              "start": 891,
-              "end": 902,
+              "start": 893,
+              "end": 904,
               "sha256": "29ce625153f14e606376192ec9cbed6feac58e99d6879cad44668feebcc89917"
             },
             {
               "id": "ch1:p11",
               "number": 11,
-              "start": 906,
-              "end": 970,
+              "start": 908,
+              "end": 972,
               "sha256": "b8ee81368c6033508f4c9a075f410f3efe0ba8a96b1d112f56fdf172888d8fd8"
             },
             {
               "id": "ch1:p12",
               "number": 12,
-              "start": 974,
-              "end": 987,
+              "start": 976,
+              "end": 989,
               "sha256": "f5d619d2af2354a259eb2c648c097fa080f84c187c477e7832d46449c95fb1a6"
             },
             {
               "id": "ch1:p13",
               "number": 13,
-              "start": 991,
-              "end": 1000,
+              "start": 993,
+              "end": 1002,
               "sha256": "9879c1fd8969d520e86938bb88f1c21c42d4608b4ac535bb52c9804edc510598"
             },
             {
               "id": "ch1:p14",
               "number": 14,
-              "start": 1004,
-              "end": 1024,
+              "start": 1006,
+              "end": 1026,
               "sha256": "b95c65004ebbb89df6393652e87e04fac5ff6923f07e37c04d6cbbbf595d6334"
             },
             {
               "id": "ch1:p15",
               "number": 15,
-              "start": 1028,
-              "end": 1063,
+              "start": 1030,
+              "end": 1065,
               "sha256": "505dc31df6fe841cf678014732da5cd2fb41d60423c2169306d0ed32fd81f2d5"
             },
             {
               "id": "ch1:p16",
               "number": 16,
-              "start": 1067,
-              "end": 1134,
+              "start": 1069,
+              "end": 1136,
               "sha256": "0cd7244cd81c587366533390261997361cb98843ecc57ce1b8fc682dce0d16d1"
             },
             {
               "id": "ch1:p17",
               "number": 17,
-              "start": 1138,
-              "end": 1149,
+              "start": 1140,
+              "end": 1151,
               "sha256": "da6d9fe5c565b90e0833c63011dc234a34e6941b3d089f123617c42abc347264"
             },
             {
               "id": "ch1:p18",
               "number": 18,
-              "start": 1153,
-              "end": 1205,
+              "start": 1155,
+              "end": 1207,
               "sha256": "599a1cea7fd939a8e2409737eb75d540e548ffc6bef84abd2e45f42109034f50"
             },
             {
               "id": "ch1:p19",
               "number": 19,
-              "start": 1209,
-              "end": 1272,
+              "start": 1211,
+              "end": 1274,
               "sha256": "ce1d25fd47923f0ae8ecf2953b9132866a065d0125e83f481104e7b19d80b716"
             },
             {
               "id": "ch1:p20",
               "number": 20,
-              "start": 1276,
-              "end": 1282,
+              "start": 1278,
+              "end": 1284,
               "sha256": "f3d8b34955c8f25d6cd5f641f68c6b9bf6401b7a3a3aa8b9b12331bbe740255e"
             },
             {
               "id": "ch1:p21",
               "number": 21,
-              "start": 1286,
-              "end": 1300,
+              "start": 1288,
+              "end": 1302,
               "sha256": "981758c991acaa49681f357df7eb5830536036a8c489154c10bbdf79a34fbf2e"
             },
             {
               "id": "ch1:p22",
               "number": 22,
-              "start": 1304,
-              "end": 1354,
+              "start": 1306,
+              "end": 1356,
               "sha256": "1342ba35b7060455c2920859731a11798c43f958ec3f6bba3b85b13a5b726211"
             },
             {
               "id": "ch1:p23",
               "number": 23,
-              "start": 1358,
-              "end": 1384,
+              "start": 1360,
+              "end": 1386,
               "sha256": "0ae316ad31ac5e355a3c914846b5dddc2f92e5f20e60d9ed77262d35f89e3cd0"
             },
             {
               "id": "ch1:p24",
               "number": 24,
-              "start": 1388,
-              "end": 1465,
+              "start": 1390,
+              "end": 1467,
               "sha256": "bb89af6e4dc6621fce3d4f3af9a26920a3b792aca7d645bb8abb35d9cb3ffda3"
             },
             {
               "id": "ch1:p25",
               "number": 25,
-              "start": 1469,
-              "end": 1482,
+              "start": 1471,
+              "end": 1484,
               "sha256": "91179130801b59940ddd3d80c22686c9b7ffcde9463f1f37d8c592e55df53817"
             },
             {
               "id": "ch1:p26",
               "number": 26,
-              "start": 1486,
-              "end": 1519,
+              "start": 1488,
+              "end": 1521,
               "sha256": "8746de463562593a1f37cc80fcbb3be5b4de468d79e2da6b69d1cc552f1395df"
             },
             {
               "id": "ch1:p27",
               "number": 27,
-              "start": 1523,
-              "end": 1569,
+              "start": 1525,
+              "end": 1571,
               "sha256": "436b33ee88c157ea8c587fbaf2b38f344747219f8e1671fa0a26304f510a3d09"
             },
             {
               "id": "ch1:p28",
               "number": 28,
-              "start": 1573,
-              "end": 1600,
+              "start": 1575,
+              "end": 1602,
               "sha256": "8d5dc41590f20740d1aacb253bd8b5d5308617dda5cf72fd23904f9d36f465c6"
             },
             {
               "id": "ch1:p29",
               "number": 29,
-              "start": 1604,
-              "end": 1633,
+              "start": 1606,
+              "end": 1635,
               "sha256": "5ca6ecc43da89f947ccfef6a132d2b0dc238cbd6ecd54e80557a76e672bc5d96"
             },
             {
               "id": "ch1:p30",
               "number": 30,
-              "start": 1637,
-              "end": 1641,
+              "start": 1639,
+              "end": 1643,
               "sha256": "063012efad319c3cd344b51d3d72a1749ecb4167ee5c2a456395dc51c0243412"
             },
             {
               "id": "ch1:p31",
               "number": 31,
-              "start": 1645,
-              "end": 1659,
+              "start": 1647,
+              "end": 1661,
               "sha256": "868bc610522c7d0064aa3ba3fcea10b2a36471882a386f5826100b1a51140de8"
             },
             {
               "id": "ch1:p32",
               "number": 32,
-              "start": 1663,
-              "end": 1718,
+              "start": 1665,
+              "end": 1720,
               "sha256": "08a371517d81bd8a57b709b346571af146149ec6174cf712fcbeb22b083b1c9e"
             },
             {
               "id": "ch1:p33",
               "number": 33,
-              "start": 1722,
-              "end": 1741,
+              "start": 1724,
+              "end": 1743,
               "sha256": "2eeb949040a1f5671900706b68d44fe9da260174e334d628d975a51a55656afe"
             },
             {
               "id": "ch1:p34",
               "number": 34,
-              "start": 1745,
-              "end": 1805,
+              "start": 1747,
+              "end": 1807,
               "sha256": "f4e52294b9d59e1a909e10601a1bfc4e85fabb066f9169f0d9d9cf2fc7a447a6"
             },
             {
               "id": "ch1:p35",
               "number": 35,
-              "start": 1809,
-              "end": 1844,
+              "start": 1811,
+              "end": 1846,
               "sha256": "fda063f39ac051260880012887a3d7d933b7009b88c9c94cef42e41698ba0892"
             },
             {
               "id": "ch1:p36",
               "number": 36,
-              "start": 1848,
-              "end": 1867,
+              "start": 1850,
+              "end": 1869,
               "sha256": "55e2b41b8e6a534b8ace9f0032f7d56c0dad8cbd3119e5a661e8a0ec5721038b"
             },
             {
               "id": "ch1:p37",
               "number": 37,
-              "start": 1871,
-              "end": 1894,
+              "start": 1873,
+              "end": 1896,
               "sha256": "49879fe2b915a0bb855844fdaf187318f5d089ec42e76f77082b02edf947c1d7"
             },
             {
               "id": "ch1:p38",
               "number": 38,
-              "start": 1898,
-              "end": 1902,
+              "start": 1900,
+              "end": 1904,
               "sha256": "b9da647ce4f744a034f3ffbb0862fa601010794836f19a7017ccce8b20bad5a8"
             },
             {
               "id": "ch1:p39",
               "number": 39,
-              "start": 1906,
-              "end": 1913,
+              "start": 1908,
+              "end": 1915,
               "sha256": "19557acff72a2ffc842da816cc27e4aa16feab2454abe938518b15ab6e132ac3"
             },
             {
               "id": "ch1:p40",
               "number": 40,
-              "start": 1917,
-              "end": 1942,
+              "start": 1919,
+              "end": 1944,
               "sha256": "712de82a79e5c7e3594560379ecdfc05eae57f4dacffec0ec7785644433a308e"
             },
             {
               "id": "ch1:p41",
               "number": 41,
-              "start": 1946,
-              "end": 1977,
+              "start": 1948,
+              "end": 1979,
               "sha256": "183c36349dbb50899952dfd84495a40b65c7dd508b2ebb9b071b1cfd5797e615"
             },
             {
               "id": "ch1:p42",
               "number": 42,
-              "start": 1981,
-              "end": 1991,
+              "start": 1983,
+              "end": 1993,
               "sha256": "c64bd27830c2dba1d2f9af617994220dbe5419db93448c733c0334a7d8608fe3"
             },
             {
               "id": "ch1:p43",
               "number": 43,
-              "start": 1995,
-              "end": 2000,
+              "start": 1997,
+              "end": 2002,
               "sha256": "9935eaa28425f2ccfbcd171231d39c01e3a40eef181a24c8d206695e20ec09f2"
             },
             {
               "id": "ch1:p44",
               "number": 44,
-              "start": 2004,
-              "end": 2052,
+              "start": 2006,
+              "end": 2054,
               "sha256": "de5d8a509cdedba9d931a43818e16f27196b11436eb307d980e144619eaac405"
             },
             {
               "id": "ch1:p45",
               "number": 45,
-              "start": 2056,
-              "end": 2088,
+              "start": 2058,
+              "end": 2090,
               "sha256": "ff8c58a6fa5abf96211cb5f7fc0c06ba7a93eec7a678e56f4f0b78f37af0bb7f"
             },
             {
               "id": "ch1:p46",
               "number": 46,
-              "start": 2092,
-              "end": 2115,
+              "start": 2094,
+              "end": 2117,
               "sha256": "950fbdc57d8724a5dbe8198e729b57ff79427d493299d7339d9d3847c5e6af14"
             },
             {
               "id": "ch1:p47",
               "number": 47,
-              "start": 2119,
-              "end": 2130,
+              "start": 2121,
+              "end": 2132,
               "sha256": "b563a860c76473c22e11b952431b8794857840231e0301766ef564cad97707ed"
             },
             {
               "id": "ch1:p48",
               "number": 48,
-              "start": 2134,
-              "end": 2183,
+              "start": 2136,
+              "end": 2185,
               "sha256": "5aa523ed81928b6f7ecec52ac5bd68d5b8ceb7ec657c4635a774a0548ec5f5a4"
             },
             {
               "id": "ch1:p49",
               "number": 49,
-              "start": 2187,
-              "end": 2209,
+              "start": 2189,
+              "end": 2211,
               "sha256": "26e781bd7dbbca2d820c439cceb47c1fb980509c3ca9fe0107b4d4f8827c6a35"
             },
             {
               "id": "ch1:p50",
               "number": 50,
-              "start": 2213,
-              "end": 2229,
+              "start": 2215,
+              "end": 2231,
               "sha256": "063a873135579ff9f3b3b5adcff64c35fd1f34d7e0e59ec386a69ebf28d282eb"
             },
             {
               "id": "ch1:p51",
               "number": 51,
-              "start": 2233,
-              "end": 2269,
+              "start": 2235,
+              "end": 2271,
               "sha256": "2f5b9bd7edbd81ba0837ce1db45c00fb7140baeb37a225cbe479c44c5b590142"
             },
             {
               "id": "ch1:p52",
               "number": 52,
-              "start": 2273,
-              "end": 2296,
+              "start": 2275,
+              "end": 2298,
               "sha256": "6b69fc00b0f8681f5c9de64d89b9f17ce676cd50e5a903985743156818a8b1e8"
             },
             {
               "id": "ch1:p53",
               "number": 53,
-              "start": 2300,
-              "end": 2316,
+              "start": 2302,
+              "end": 2318,
               "sha256": "ce1d270be5570eff068bab32fbbdd56f8e3f061b27f0ab62ca80d762abaff2e8"
             },
             {
               "id": "ch1:p54",
               "number": 54,
-              "start": 2320,
-              "end": 2336,
+              "start": 2322,
+              "end": 2338,
               "sha256": "5878fb634734287b0ac88d4cdb3146d66eec66e500c8621a1fc77253fc65f17f"
             },
             {
               "id": "ch1:p55",
               "number": 55,
-              "start": 2340,
-              "end": 2352,
+              "start": 2342,
+              "end": 2354,
               "sha256": "5f435382ad6ee48bf2f439a827b2b5ad08cb0de78ba63dece1548273bb470296"
             },
             {
               "id": "ch1:p56",
               "number": 56,
-              "start": 2356,
-              "end": 2366,
+              "start": 2358,
+              "end": 2368,
               "sha256": "fe1ffde9232659f458a2d592dce227c18c592a1757664dfd250d5b90c9a07d90"
             },
             {
               "id": "ch1:p57",
               "number": 57,
-              "start": 2370,
-              "end": 2382,
+              "start": 2372,
+              "end": 2384,
               "sha256": "15dc4238404c5c7e14b5d0a6926b379c11a4a8861c6c9e1c6778bb45bf8291c2"
             },
             {
               "id": "ch1:p58",
               "number": 58,
-              "start": 2386,
-              "end": 2438,
+              "start": 2388,
+              "end": 2440,
               "sha256": "de95fadc52af5e962bcc851cde258ef4df10b18771f1a3293f9e1d59d8741ca1"
             },
             {
               "id": "ch1:p59",
               "number": 59,
-              "start": 2442,
-              "end": 2456,
+              "start": 2444,
+              "end": 2458,
               "sha256": "9908cfa4b4c86df8ab92e4027d1a1dd2d82afd8cc75e070c2a1bd702c8872166"
             },
             {
               "id": "ch1:p60",
               "number": 60,
-              "start": 2460,
-              "end": 2515,
+              "start": 2462,
+              "end": 2517,
               "sha256": "ed0f804c51148f737cf07e7841b8886f877cdd25fe02a4e45d546cc065435e77"
             },
             {
               "id": "ch1:p61",
               "number": 61,
-              "start": 2519,
-              "end": 2547,
+              "start": 2521,
+              "end": 2549,
               "sha256": "38a2ea89def9ff2f4939af7c2c4da7e69409a6415c98ee04daa16681929cfa73"
             },
             {
               "id": "ch1:p62",
               "number": 62,
-              "start": 2551,
-              "end": 2583,
+              "start": 2553,
+              "end": 2585,
               "sha256": "a11366be8ff8ba5a6739957744a1873c13c022faa3253a30f56fd909486b2124"
             },
             {
               "id": "ch1:p63",
               "number": 63,
-              "start": 2587,
-              "end": 2601,
+              "start": 2589,
+              "end": 2603,
               "sha256": "36dddcac8cb8a257499893f7c96874b96772e2130cb1775905c1ef8873eb89e8"
             },
             {
               "id": "ch1:p64",
               "number": 64,
-              "start": 2605,
-              "end": 2620,
+              "start": 2607,
+              "end": 2622,
               "sha256": "980a79dd96ae2a8b61e35f1f4cf25d6e1ffb5061a79c8652de1194756a99fa76"
             },
             {
               "id": "ch1:p65",
               "number": 65,
-              "start": 2624,
-              "end": 2691,
+              "start": 2626,
+              "end": 2693,
               "sha256": "f8e98543630233d3125b58dff4d69536ae835dbbf7de381296478f6bc18657ac"
             },
             {
               "id": "ch1:p66",
               "number": 66,
-              "start": 2695,
-              "end": 2753,
+              "start": 2697,
+              "end": 2755,
               "sha256": "3fd9e52e994c6648199112c456d4c5dc4243041824713b6fd40c9a206c4687c3"
             },
             {
               "id": "ch1:p67",
               "number": 67,
-              "start": 2757,
-              "end": 2773,
+              "start": 2759,
+              "end": 2775,
               "sha256": "90f62ae096df820a42387b8c6cfa430da87f1ca41975ed9a7daf3dda20b77d0f"
             },
             {
               "id": "ch1:p68",
               "number": 68,
-              "start": 2777,
-              "end": 2816,
+              "start": 2779,
+              "end": 2818,
               "sha256": "f1206764c8739e74ce381697d43c07361465dd9fd673fe5d2545a340189a21fc"
             },
             {
               "id": "ch1:p69",
               "number": 69,
-              "start": 2820,
-              "end": 2828,
+              "start": 2822,
+              "end": 2830,
               "sha256": "a58a6e7fc87e86c18db5a69c1c8f5152c51a39b159c284ebc7795598d2e78b1f"
             },
             {
               "id": "ch1:p70",
               "number": 70,
-              "start": 2832,
-              "end": 2848,
+              "start": 2834,
+              "end": 2850,
               "sha256": "903591886d6273e693d39bd20b890f40141174f9f3a2ed5bbe1e375143ebcae6"
             },
             {
               "id": "ch1:p71",
               "number": 71,
-              "start": 2852,
-              "end": 2884,
+              "start": 2854,
+              "end": 2886,
               "sha256": "1c4efe26df26306878e05e0eefe66f45096698f8ec000662af0cf148ddab545a"
             },
             {
               "id": "ch1:p72",
               "number": 72,
-              "start": 2888,
-              "end": 2894,
+              "start": 2890,
+              "end": 2896,
               "sha256": "9a3534acea93bd4b39c9f78ad80bcaf9f415ec1e72c5fb63952b0139cf823eb2"
             },
             {
               "id": "ch1:p73",
               "number": 73,
-              "start": 2898,
-              "end": 2906,
+              "start": 2900,
+              "end": 2908,
               "sha256": "b62718eb3509eee635d1e08c0abdda583b122a21f0c6108646e14ac1eaf46972"
             },
             {
               "id": "ch1:p74",
               "number": 74,
-              "start": 2910,
-              "end": 2927,
+              "start": 2912,
+              "end": 2929,
               "sha256": "cc2431310139ff777b8f018226b7b09aaa23100c22276951df8dabfa668993ca"
             },
             {
               "id": "ch1:p75",
               "number": 75,
-              "start": 2931,
-              "end": 2981,
+              "start": 2933,
+              "end": 2983,
               "sha256": "48d3e725b390342e4e33691cb4d76dc50cd3760e5ea376346f07d7d0108f10f4"
             },
             {
               "id": "ch1:p76",
               "number": 76,
-              "start": 2985,
-              "end": 2990,
+              "start": 2987,
+              "end": 2992,
               "sha256": "c78dd8d44d23ff345764b103b6e0841d208d54fb5f4ecd9d71a79b961f787523"
             },
             {
               "id": "ch1:p77",
               "number": 77,
-              "start": 2994,
-              "end": 3016,
+              "start": 2996,
+              "end": 3018,
               "sha256": "aa8f790ef7ae4edecdd3e58e460f74acae2cbfeaa325e06e401e9b86081b1920"
             },
             {
               "id": "ch1:p78",
               "number": 78,
-              "start": 3020,
-              "end": 3030,
+              "start": 3022,
+              "end": 3032,
               "sha256": "9d781f7a692f5cdc129740ca1e279bfc9d153acb338d7a0a550e1da91f367f7f"
             },
             {
               "id": "ch1:p79",
               "number": 79,
-              "start": 3034,
-              "end": 3072,
+              "start": 3036,
+              "end": 3074,
               "sha256": "e9a1282fc5e5c195864f988bc7d4175b761131c4b31ae44849d5f39841e6bd67"
             },
             {
               "id": "ch1:p80",
               "number": 80,
-              "start": 3076,
-              "end": 3118,
+              "start": 3078,
+              "end": 3120,
               "sha256": "4c47fbc03d456cd34f3ba0ca7b060d74b35dbe4ca3a4d02c4e1a47ed99d5ff55"
             },
             {
               "id": "ch1:p81",
               "number": 81,
-              "start": 3122,
-              "end": 3130,
+              "start": 3124,
+              "end": 3132,
               "sha256": "c85d1a812e9c4d07e21c7f1794d311e2ff499295146b15f78347c56bdfd79575"
             },
             {
               "id": "ch1:p82",
               "number": 82,
-              "start": 3134,
-              "end": 3161,
+              "start": 3136,
+              "end": 3163,
               "sha256": "5008aaecebd128e30ef60be23d91d6c32ece506e7c0ee0f6912de81dc9e9e459"
             },
             {
               "id": "ch1:p83",
               "number": 83,
-              "start": 3165,
-              "end": 3219,
+              "start": 3167,
+              "end": 3221,
               "sha256": "c47c872b2bd4d685427bfc9aaecc179e52b151407dada478ab263069036fe2ff"
             },
             {
               "id": "ch1:p84",
               "number": 84,
-              "start": 3223,
-              "end": 3245,
+              "start": 3225,
+              "end": 3247,
               "sha256": "7ae07ed952e8baaf94b5ed18ebbe9c05d0d37b84f18c8a2f3c30465c42e54c8e"
             },
             {
               "id": "ch1:p85",
               "number": 85,
-              "start": 3249,
-              "end": 3267,
+              "start": 3251,
+              "end": 3269,
               "sha256": "5f3400b8598d2b01bac7ce713499dd2d302040ac419a4e648e46179eb87b0fd7"
             },
             {
               "id": "ch1:p86",
               "number": 86,
-              "start": 3271,
-              "end": 3303,
+              "start": 3273,
+              "end": 3305,
               "sha256": "31b1c4dafceec907bcaf8d06b4bce0c18e473307230fe08df4139c68bf31d3ad"
             },
             {
               "id": "ch1:p87",
               "number": 87,
-              "start": 3307,
-              "end": 3322,
+              "start": 3309,
+              "end": 3324,
               "sha256": "edd45768a006adfbf56d136990a9f42427e34bea83c25e9054c1d8e038ae67fc"
             },
             {
               "id": "ch1:p88",
               "number": 88,
-              "start": 3326,
-              "end": 3344,
+              "start": 3328,
+              "end": 3346,
               "sha256": "586bab67fd32675b76000dbdbccc15051384620775d02adac4b87b2706a4244f"
             },
             {
               "id": "ch1:p89",
               "number": 89,
-              "start": 3348,
-              "end": 3382,
+              "start": 3350,
+              "end": 3384,
               "sha256": "1d37bafcb25986eb93dfc52da38424a1c547e17e99b461604492170153b557c4"
             },
             {
               "id": "ch1:p90",
               "number": 90,
-              "start": 3386,
-              "end": 3428,
+              "start": 3388,
+              "end": 3430,
               "sha256": "ba2543c7b04a835e1da3b0a06052de6888b685a0899f7feca0c3bc7aabdfe4f7"
             },
             {
               "id": "ch1:p91",
               "number": 91,
-              "start": 3432,
-              "end": 3473,
+              "start": 3434,
+              "end": 3475,
               "sha256": "610e8765d745bb099086b442a023879dd4da99ff67da2e429d1ea6ec05c0a052"
             },
             {
               "id": "ch1:p92",
               "number": 92,
-              "start": 3477,
-              "end": 3490,
+              "start": 3479,
+              "end": 3492,
               "sha256": "a05f7e59c9efcbf2cfe105988bfdcf6b090b7194ae3ba62d7280746b0cb713aa"
             },
             {
               "id": "ch1:p93",
               "number": 93,
-              "start": 3494,
-              "end": 3512,
+              "start": 3496,
+              "end": 3514,
               "sha256": "d82bb89c9e5b5cfbb7bce383888a900ea3010b721d331978f05c8d47223b1730"
             },
             {
               "id": "ch1:p94",
               "number": 94,
-              "start": 3516,
-              "end": 3554,
+              "start": 3518,
+              "end": 3556,
               "sha256": "6c9030fab9ffd0830d04f326056974b687b260f026a928d12d0b1565fec6986f"
             },
             {
               "id": "ch1:p95",
               "number": 95,
-              "start": 3558,
-              "end": 3573,
+              "start": 3560,
+              "end": 3575,
               "sha256": "7063e83d73eb946873e9a1231d5e9aea7192ab3790d929e7d7988c781f885ec7"
             },
             {
               "id": "ch1:p96",
               "number": 96,
-              "start": 3577,
-              "end": 3643,
+              "start": 3579,
+              "end": 3645,
               "sha256": "128bd2c747b695c6472956ffa7abeb71d4d8ca71b84b833b8aaf56200698aa36"
             },
             {
               "id": "ch1:p97",
               "number": 97,
-              "start": 3647,
-              "end": 3670,
+              "start": 3649,
+              "end": 3672,
               "sha256": "a1157613b75c991cdbcc4dfdbd3c594f1df2584072735fb68764b6fde15b1525"
             },
             {
               "id": "ch1:p98",
               "number": 98,
-              "start": 3674,
-              "end": 3713,
+              "start": 3676,
+              "end": 3715,
               "sha256": "47184170b699f4bdfae4b30d0eaa57aed8322dff1ecde36d35574b3d351032ee"
             },
             {
               "id": "ch1:p99",
               "number": 99,
-              "start": 3717,
-              "end": 3750,
+              "start": 3719,
+              "end": 3752,
               "sha256": "e7d60c7610634e02a46201134e6e79698bd2d2c94521508b38e5908ac04da26a"
             },
             {
               "id": "ch1:p100",
               "number": 100,
-              "start": 3754,
-              "end": 3760,
+              "start": 3756,
+              "end": 3762,
               "sha256": "2089a7812d1d1e22f079408b07a5e17497ec3e383807f533d03fec31a4f49a3f"
             },
             {
               "id": "ch1:p101",
               "number": 101,
-              "start": 3764,
-              "end": 3785,
+              "start": 3766,
+              "end": 3787,
               "sha256": "93ff50585cea6d5ff9402b61b7f16e7699cb5b125c5a9e3317309cf95f5e2789"
             },
             {
               "id": "ch1:p102",
               "number": 102,
-              "start": 3789,
-              "end": 3799,
+              "start": 3791,
+              "end": 3801,
               "sha256": "e3461cbd818a883c7c1486bc2fabe32a3ffe02853672b6cf0d8a1135e5333c7e"
             },
             {
               "id": "ch1:p103",
               "number": 103,
-              "start": 3803,
-              "end": 3823,
+              "start": 3805,
+              "end": 3825,
               "sha256": "d585c847525364e4f54effc1e876004b8c86d73694056d57d84f90e2d30d5352"
             },
             {
               "id": "ch1:p104",
               "number": 104,
-              "start": 3827,
-              "end": 3874,
+              "start": 3829,
+              "end": 3876,
               "sha256": "6848ab07ab0d7e0a16444c4b5e9cb4f7ee527099213c0066e2e20711780152f4"
             },
             {
               "id": "ch1:p105",
               "number": 105,
-              "start": 3878,
-              "end": 3895,
+              "start": 3880,
+              "end": 3897,
               "sha256": "1b980413f09fb8a3e7485c6f62e6b1c00fc305fd5cf51509bb6369d8ceae4e71"
             },
             {
               "id": "ch1:p106",
               "number": 106,
-              "start": 3899,
-              "end": 3958,
+              "start": 3901,
+              "end": 3960,
               "sha256": "3e9101a07ece39402cb380601e1c4e89206a5c14075e8ed83958ceeead516615"
             },
             {
               "id": "ch1:p107",
               "number": 107,
-              "start": 3962,
-              "end": 3977,
+              "start": 3964,
+              "end": 3979,
               "sha256": "9d835a0f0d80e3ff1e88daa41e5be9dc546baf686a7c9d2ffb61b87479cceb4a"
             },
             {
               "id": "ch1:p108",
               "number": 108,
-              "start": 3981,
-              "end": 3988,
+              "start": 3983,
+              "end": 3990,
               "sha256": "5a979737ffedeb5a79503f8f60aba48eab4620478be8eb4eab2361691a4753de"
             }
           ]
@@ -22971,9 +22971,9 @@
           "id": "ch2",
           "number": 2,
           "title": "第二章 重回十七岁",
-          "start": 3992,
-          "bodyStart": 4002,
-          "end": 6367,
+          "start": 3994,
+          "bodyStart": 4004,
+          "end": 6369,
           "complete": true,
           "boundary": "next-consecutive-numbered-heading",
           "nextHeading": "第三章 娇气成这样",
@@ -22983,533 +22983,533 @@
             {
               "id": "ch2:p1",
               "number": 1,
-              "start": 4003,
-              "end": 4011,
+              "start": 4005,
+              "end": 4013,
               "sha256": "d2c0cde45db986c5087cbcadd4fe66c30129a3740012e9f4d10617d4409c3650"
             },
             {
               "id": "ch2:p2",
               "number": 2,
-              "start": 4015,
-              "end": 4030,
+              "start": 4017,
+              "end": 4032,
               "sha256": "610030863f3874da53dda1ca055b42714b22d4bdf556df40427b724308cc8a91"
             },
             {
               "id": "ch2:p3",
               "number": 3,
-              "start": 4034,
-              "end": 4078,
+              "start": 4036,
+              "end": 4080,
               "sha256": "398ba5cf09295f7c2ce91d6dc2b349c8f893fce935717f944cfc4c40a921d165"
             },
             {
               "id": "ch2:p4",
               "number": 4,
-              "start": 4082,
-              "end": 4092,
+              "start": 4084,
+              "end": 4094,
               "sha256": "a52c53ade0d3d2664b7b1f09306b23dfa01fbf78f63451725e06639aed7b93df"
             },
             {
               "id": "ch2:p5",
               "number": 5,
-              "start": 4096,
-              "end": 4115,
+              "start": 4098,
+              "end": 4117,
               "sha256": "486dacd74152247d34ae3caae5e826119535a168c52086fb3970e1d92f5d2aa5"
             },
             {
               "id": "ch2:p6",
               "number": 6,
-              "start": 4119,
-              "end": 4158,
+              "start": 4121,
+              "end": 4160,
               "sha256": "c51af383288e4cb34d8158cb43060be93185941c8d0ae82da9d6cf974ca61926"
             },
             {
               "id": "ch2:p7",
               "number": 7,
-              "start": 4162,
-              "end": 4174,
+              "start": 4164,
+              "end": 4176,
               "sha256": "b0b3485e5649fd56945ed8c7883a94b49030c567447d8d7010c0f11eebcd7de3"
             },
             {
               "id": "ch2:p8",
               "number": 8,
-              "start": 4178,
-              "end": 4219,
+              "start": 4180,
+              "end": 4221,
               "sha256": "f9c213474fef082afe7070ba23a0181442faf8c22f86a08194ca3fcb44c42d84"
             },
             {
               "id": "ch2:p9",
               "number": 9,
-              "start": 4223,
-              "end": 4250,
+              "start": 4225,
+              "end": 4252,
               "sha256": "ad9c40e2d36d21a1be00c6936148f7f682cda5d2ba731ca356c9cc0a068779ab"
             },
             {
               "id": "ch2:p10",
               "number": 10,
-              "start": 4254,
-              "end": 4262,
+              "start": 4256,
+              "end": 4264,
               "sha256": "49e9526f454f015ff822d88fac4553909f5eb5c2d96529ddb568a7ae4a88766c"
             },
             {
               "id": "ch2:p11",
               "number": 11,
-              "start": 4266,
-              "end": 4310,
+              "start": 4268,
+              "end": 4312,
               "sha256": "4ce87168e2edfae25bc53c90387f1d3ba5ff1de0cbd8bae90478e1d440114c0b"
             },
             {
               "id": "ch2:p12",
               "number": 12,
-              "start": 4314,
-              "end": 4333,
+              "start": 4316,
+              "end": 4335,
               "sha256": "d684f64c073545508aa6c90b4bf3eab204538caa805d042f38f89ac10a63e45d"
             },
             {
               "id": "ch2:p13",
               "number": 13,
-              "start": 4337,
-              "end": 4356,
+              "start": 4339,
+              "end": 4358,
               "sha256": "b1ffcc95f5a0885afce96edecfa4259f9873a07f3af631e59bb8e7c597cf5abb"
             },
             {
               "id": "ch2:p14",
               "number": 14,
-              "start": 4360,
-              "end": 4421,
+              "start": 4362,
+              "end": 4423,
               "sha256": "df328365c76df46cd244de4b0299b7d482653f199f07100b95b25f0bd52978d5"
             },
             {
               "id": "ch2:p15",
               "number": 15,
-              "start": 4425,
-              "end": 4457,
+              "start": 4427,
+              "end": 4459,
               "sha256": "534d6f115b2e608ae824b3e4c9597ca97e8a9d5e3e5ae42dba6f376c2302cb46"
             },
             {
               "id": "ch2:p16",
               "number": 16,
-              "start": 4461,
-              "end": 4481,
+              "start": 4463,
+              "end": 4483,
               "sha256": "b25d9a6b7fa845c976a2e5a3b58454ca545c26500ae6713d8d4aa9c57ca337f2"
             },
             {
               "id": "ch2:p17",
               "number": 17,
-              "start": 4485,
-              "end": 4547,
+              "start": 4487,
+              "end": 4549,
               "sha256": "a7a9c3697f8505fa67256e746d238958095484cce1764f9c9e43e8c2ba6cc8e5"
             },
             {
               "id": "ch2:p18",
               "number": 18,
-              "start": 4551,
-              "end": 4583,
+              "start": 4553,
+              "end": 4585,
               "sha256": "1f22b49566e6ddbd5d20e1bb29fc2fd0a92b9ef85a8c8513075f5339d0b76f89"
             },
             {
               "id": "ch2:p19",
               "number": 19,
-              "start": 4587,
-              "end": 4605,
+              "start": 4589,
+              "end": 4607,
               "sha256": "164aa774b5d3265b1f183d0babbf03c125453b936714b75c4805870147fba6cf"
             },
             {
               "id": "ch2:p20",
               "number": 20,
-              "start": 4609,
-              "end": 4632,
+              "start": 4611,
+              "end": 4634,
               "sha256": "1b961bca3e8703071ba3c28d9a1f529ed9692c8d8011bd9a2a1b1f29b1985b20"
             },
             {
               "id": "ch2:p21",
               "number": 21,
-              "start": 4636,
-              "end": 4674,
+              "start": 4638,
+              "end": 4676,
               "sha256": "d021f5bfdaa79f0a8649289a0cc6bc693fdc8de85ccf2ef7a4098d79e8e24ad7"
             },
             {
               "id": "ch2:p22",
               "number": 22,
-              "start": 4678,
-              "end": 4689,
+              "start": 4680,
+              "end": 4691,
               "sha256": "73ccdce915ee009fec40b88ed32bb11ba760ac35f91e77d765c80a0b57c53a67"
             },
             {
               "id": "ch2:p23",
               "number": 23,
-              "start": 4693,
-              "end": 4710,
+              "start": 4695,
+              "end": 4712,
               "sha256": "b718d1b6dd6213fbd4cecafb759b5f5aa4ca52a27dc06e4ba4d6a7436b13e4c0"
             },
             {
               "id": "ch2:p24",
               "number": 24,
-              "start": 4714,
-              "end": 4725,
+              "start": 4716,
+              "end": 4727,
               "sha256": "fa1a8ba2b061794c5d796809e0e45549261fa787441ed8d378c0f292f868453a"
             },
             {
               "id": "ch2:p25",
               "number": 25,
-              "start": 4729,
-              "end": 4737,
+              "start": 4731,
+              "end": 4739,
               "sha256": "ade854e692c5be21f08febdb894fce55067cefbff9204b6e25901f6e028edc8a"
             },
             {
               "id": "ch2:p26",
               "number": 26,
-              "start": 4741,
-              "end": 4770,
+              "start": 4743,
+              "end": 4772,
               "sha256": "438991689bd59f7773c25409ba9f7b03cffab177f82088135d07c36bd6b161a1"
             },
             {
               "id": "ch2:p27",
               "number": 27,
-              "start": 4774,
-              "end": 4799,
+              "start": 4776,
+              "end": 4801,
               "sha256": "d103538674d85830dcb1534d9bcf9852b0c432388be67c397eb3b509ea33708f"
             },
             {
               "id": "ch2:p28",
               "number": 28,
-              "start": 4803,
-              "end": 4827,
+              "start": 4805,
+              "end": 4829,
               "sha256": "c23c10aac6070f79814e284e29dfe30a1f2b18902ead3b34b0e56e4ff074717b"
             },
             {
               "id": "ch2:p29",
               "number": 29,
-              "start": 4831,
-              "end": 4858,
+              "start": 4833,
+              "end": 4860,
               "sha256": "0fedd5d2db305d758865ed661fb3e25e42c2e8c509fcc2f143b3c646fe77cc1d"
             },
             {
               "id": "ch2:p30",
               "number": 30,
-              "start": 4862,
-              "end": 4912,
+              "start": 4864,
+              "end": 4914,
               "sha256": "850e059966bde794d93b88c06a73f18f827de1481b78e9bf6c73826219770e95"
             },
             {
               "id": "ch2:p31",
               "number": 31,
-              "start": 4916,
-              "end": 4933,
+              "start": 4918,
+              "end": 4935,
               "sha256": "9622b0ecc4b61b20e6e2ea8dfa977c354671192c5d8104d11085b4a5ce451078"
             },
             {
               "id": "ch2:p32",
               "number": 32,
-              "start": 4937,
-              "end": 5005,
+              "start": 4939,
+              "end": 5007,
               "sha256": "9484bb82a73f0252fbad48709efd6e3d92a0d7c7baf8291e2ff184d0b07ae0a4"
             },
             {
               "id": "ch2:p33",
               "number": 33,
-              "start": 5009,
-              "end": 5033,
+              "start": 5011,
+              "end": 5035,
               "sha256": "cfaca5f6cc61c9057cacf67f775b3604cf3b3389c4394c24312cec1b8ff2b7e0"
             },
             {
               "id": "ch2:p34",
               "number": 34,
-              "start": 5037,
-              "end": 5063,
+              "start": 5039,
+              "end": 5065,
               "sha256": "db858416f816b6c55f171a5767f4820d1ca1a40169daa58a9179c786dc451692"
             },
             {
               "id": "ch2:p35",
               "number": 35,
-              "start": 5067,
-              "end": 5104,
+              "start": 5069,
+              "end": 5106,
               "sha256": "b12e9b8c0381bc330e039a4b841adb999a01661e2bcc874444e6ae4661e66b0b"
             },
             {
               "id": "ch2:p36",
               "number": 36,
-              "start": 5108,
-              "end": 5141,
+              "start": 5110,
+              "end": 5143,
               "sha256": "f2e3df3c385f2db6f28d7f4c8aa82d094c46192eb7fb66f9190476a0aedbbf80"
             },
             {
               "id": "ch2:p37",
               "number": 37,
-              "start": 5145,
-              "end": 5156,
+              "start": 5147,
+              "end": 5158,
               "sha256": "afacce7331f9d2ee845e9d9bb4913e6f3698c3af882d1ff4cf0137cc73dbeba5"
             },
             {
               "id": "ch2:p38",
               "number": 38,
-              "start": 5160,
-              "end": 5171,
+              "start": 5162,
+              "end": 5173,
               "sha256": "441ec73ef8921e7ce302fffacdd8de07e29c17df0fcda77fed00f973e7545528"
             },
             {
               "id": "ch2:p39",
               "number": 39,
-              "start": 5175,
-              "end": 5197,
+              "start": 5177,
+              "end": 5199,
               "sha256": "01644c566df6c611a26d00a80da2c624cf24d4fff3a8c95cee90dd07d1395a6d"
             },
             {
               "id": "ch2:p40",
               "number": 40,
-              "start": 5201,
-              "end": 5273,
+              "start": 5203,
+              "end": 5275,
               "sha256": "7b8b195db0c3fd8e971eff7902f6ae15c0fb2a3509af41ef0672dfa3295426e2"
             },
             {
               "id": "ch2:p41",
               "number": 41,
-              "start": 5277,
-              "end": 5293,
+              "start": 5279,
+              "end": 5295,
               "sha256": "4fb10c97f2b80ded5de4de3113b5439cf49cc929f634073c54cc0002f75eb254"
             },
             {
               "id": "ch2:p42",
               "number": 42,
-              "start": 5297,
-              "end": 5347,
+              "start": 5299,
+              "end": 5349,
               "sha256": "5613c8273eedef86038eeae8a91d2001fb9f9d3f9753b9a472ac0712d48442e2"
             },
             {
               "id": "ch2:p43",
               "number": 43,
-              "start": 5351,
-              "end": 5383,
+              "start": 5353,
+              "end": 5385,
               "sha256": "baf67b092393294af2c3ed7430f964a41985c3ae6f8342e5eaede920c787bf72"
             },
             {
               "id": "ch2:p44",
               "number": 44,
-              "start": 5387,
-              "end": 5437,
+              "start": 5389,
+              "end": 5439,
               "sha256": "4ba9dc72be71de9375e76182c972e05d988f63545dc2b591ba028ca5918d2258"
             },
             {
               "id": "ch2:p45",
               "number": 45,
-              "start": 5441,
-              "end": 5455,
+              "start": 5443,
+              "end": 5457,
               "sha256": "33fd2304fe6ab24b2aaecfaca067555ee4795bb7d6f415ce34762ab5eebbae73"
             },
             {
               "id": "ch2:p46",
               "number": 46,
-              "start": 5459,
-              "end": 5468,
+              "start": 5461,
+              "end": 5470,
               "sha256": "18cd5b9fdfeff45b03d8916bc1140ba7952b7f18859e6b9735a913959509d068"
             },
             {
               "id": "ch2:p47",
               "number": 47,
-              "start": 5472,
-              "end": 5479,
+              "start": 5474,
+              "end": 5481,
               "sha256": "c1ec399354f84e5aab875df81152fa403c321484b62484a9a957be51b2cdfbed"
             },
             {
               "id": "ch2:p48",
               "number": 48,
-              "start": 5483,
-              "end": 5523,
+              "start": 5485,
+              "end": 5525,
               "sha256": "5eaa67af4c7e39cba4a4c6c781fca9303744db3a084cf104f5ec2db1da93566d"
             },
             {
               "id": "ch2:p49",
               "number": 49,
-              "start": 5527,
-              "end": 5568,
+              "start": 5529,
+              "end": 5570,
               "sha256": "9c8a6b962c1de7e1d26a98464fef7e16277f86cb6791670cec9e6ae2ae87d67d"
             },
             {
               "id": "ch2:p50",
               "number": 50,
-              "start": 5572,
-              "end": 5585,
+              "start": 5574,
+              "end": 5587,
               "sha256": "655b5c82ce58132d7bf058478f9cacfa0b131538621a3018f4cd2521657013aa"
             },
             {
               "id": "ch2:p51",
               "number": 51,
-              "start": 5589,
-              "end": 5646,
+              "start": 5591,
+              "end": 5648,
               "sha256": "82ac734a8de0e96c204b42e3f1a06c37260b0de950223793bcaecd4cdaadddd0"
             },
             {
               "id": "ch2:p52",
               "number": 52,
-              "start": 5650,
-              "end": 5694,
+              "start": 5652,
+              "end": 5696,
               "sha256": "888f417edae04b3614ca8d061d64e60d9a5a2d181ab72250656270079da38342"
             },
             {
               "id": "ch2:p53",
               "number": 53,
-              "start": 5698,
-              "end": 5764,
+              "start": 5700,
+              "end": 5766,
               "sha256": "43e326b8ce1a165c858178300c6a785b24642a5e427ab7a74a9763daac6fc2f0"
             },
             {
               "id": "ch2:p54",
               "number": 54,
-              "start": 5768,
-              "end": 5779,
+              "start": 5770,
+              "end": 5781,
               "sha256": "1f70c998cd3f51ff6788c7f4d01aae55cf98b3f93df3af00d1924b07d84e1b1b"
             },
             {
               "id": "ch2:p55",
               "number": 55,
-              "start": 5783,
-              "end": 5835,
+              "start": 5785,
+              "end": 5837,
               "sha256": "20472cdb6da6759c7e5ba56419190dc0ef0637b20c0fc9a30be60be9e051afe7"
             },
             {
               "id": "ch2:p56",
               "number": 56,
-              "start": 5839,
-              "end": 5891,
+              "start": 5841,
+              "end": 5893,
               "sha256": "9345b7c808f5284df0337d734bd603c570a20e9eb25d775b43a938f97706b1f5"
             },
             {
               "id": "ch2:p57",
               "number": 57,
-              "start": 5895,
-              "end": 5902,
+              "start": 5897,
+              "end": 5904,
               "sha256": "3ef058ff15aa3b52d14ec347887244da919bc89d724061aef20e7cc8f2a1f960"
             },
             {
               "id": "ch2:p58",
               "number": 58,
-              "start": 5906,
-              "end": 5929,
+              "start": 5908,
+              "end": 5931,
               "sha256": "a5732972c5cc5c6bc31891d73662bdb3c5d81b5cf53e453c4e72a9b9428791d3"
             },
             {
               "id": "ch2:p59",
               "number": 59,
-              "start": 5933,
-              "end": 5954,
+              "start": 5935,
+              "end": 5956,
               "sha256": "d3216333f3f86f003b664e1d66b913f99f3313019767c336d3a71cc7edc3007c"
             },
             {
               "id": "ch2:p60",
               "number": 60,
-              "start": 5958,
-              "end": 5973,
+              "start": 5960,
+              "end": 5975,
               "sha256": "3fe3fa919eb0e2cd0e38f9a67c8c4da20d7909601a38ae31fece9e4a13ec6e93"
             },
             {
               "id": "ch2:p61",
               "number": 61,
-              "start": 5977,
-              "end": 5985,
+              "start": 5979,
+              "end": 5987,
               "sha256": "bce77db15e1b8a5a19530fadec6ff7840520be039079084732817cb32a98611c"
             },
             {
               "id": "ch2:p62",
               "number": 62,
-              "start": 5989,
-              "end": 6008,
+              "start": 5991,
+              "end": 6010,
               "sha256": "a98b665b95bc10bba7c827c79611f1780946f67789025505a2451d339ad7a142"
             },
             {
               "id": "ch2:p63",
               "number": 63,
-              "start": 6012,
-              "end": 6030,
+              "start": 6014,
+              "end": 6032,
               "sha256": "461acdbe670fc8b93813010722d3b7904f246fe9cd2587af32d82c34210e4159"
             },
             {
               "id": "ch2:p64",
               "number": 64,
-              "start": 6034,
-              "end": 6043,
+              "start": 6036,
+              "end": 6045,
               "sha256": "d47ec7fd90eabb4f38bdfcb28aaf59bc1a66962fc62732bb4b8f17c816b35b40"
             },
             {
               "id": "ch2:p65",
               "number": 65,
-              "start": 6047,
-              "end": 6078,
+              "start": 6049,
+              "end": 6080,
               "sha256": "12102a3a31260fbda9fc50b3ddaa66f5eb31a3c6700fa8efcb512a953812d0a4"
             },
             {
               "id": "ch2:p66",
               "number": 66,
-              "start": 6082,
-              "end": 6137,
+              "start": 6084,
+              "end": 6139,
               "sha256": "2c0af4e01dcfbc9d3100421080f3efa188dbcfc983993b03e9aa350631ee3fac"
             },
             {
               "id": "ch2:p67",
               "number": 67,
-              "start": 6141,
-              "end": 6192,
+              "start": 6143,
+              "end": 6194,
               "sha256": "bed3fed1622a4f7aa3ff376470148e6270daed56491cfc125f3f47c9efc1edec"
             },
             {
               "id": "ch2:p68",
               "number": 68,
-              "start": 6196,
-              "end": 6214,
+              "start": 6198,
+              "end": 6216,
               "sha256": "cff1ba542b20c8ef5eff9cf311b9d89dc04a794ade481613beeabc4a49347f1a"
             },
             {
               "id": "ch2:p69",
               "number": 69,
-              "start": 6218,
-              "end": 6222,
+              "start": 6220,
+              "end": 6224,
               "sha256": "7776e9f5239ae307d1defba1c273b973f75820f8b8f794393226c18e348f9a6b"
             },
             {
               "id": "ch2:p70",
               "number": 70,
-              "start": 6226,
-              "end": 6230,
+              "start": 6228,
+              "end": 6232,
               "sha256": "b7131da25539473ae0836cf36a583f6b2ddf2eb2771f826eacf10c2cdcf0c875"
             },
             {
               "id": "ch2:p71",
               "number": 71,
-              "start": 6234,
-              "end": 6242,
+              "start": 6236,
+              "end": 6244,
               "sha256": "6bbb673ca18c8462d1065470771e2baef9fdd8434a760a5faaba9da792c49d2b"
             },
             {
               "id": "ch2:p72",
               "number": 72,
-              "start": 6246,
-              "end": 6284,
+              "start": 6248,
+              "end": 6286,
               "sha256": "22b85da0ea4aec2dd79bf83536a8bf2452c1cf1a06d7955debffde31e529c63b"
             },
             {
               "id": "ch2:p73",
               "number": 73,
-              "start": 6288,
-              "end": 6309,
+              "start": 6290,
+              "end": 6311,
               "sha256": "93cf9c5091eedffbd8da4db776d8590d9083b507803c0adfb97d3b7eea25d910"
             },
             {
               "id": "ch2:p74",
               "number": 74,
-              "start": 6313,
-              "end": 6331,
+              "start": 6315,
+              "end": 6333,
               "sha256": "cf18f15e8f93c805e561d1a334da92f10222165f82436930b0ab680d2da22afa"
             },
             {
               "id": "ch2:p75",
               "number": 75,
-              "start": 6335,
-              "end": 6344,
+              "start": 6337,
+              "end": 6346,
               "sha256": "24ff6d7d0c1e1ada64014952e0cefab58cc2514c4b4edd0f8cdb8b4128825969"
             },
             {
               "id": "ch2:p76",
               "number": 76,
-              "start": 6348,
-              "end": 6363,
+              "start": 6350,
+              "end": 6365,
               "sha256": "2ce1fdd3408b6dc033db717b2da3c202cc352c501c5a13d826b50320cab61b52"
             }
           ]
@@ -23518,9 +23518,9 @@
           "id": "ch3",
           "number": 3,
           "title": "第三章 娇气成这样",
-          "start": 6367,
-          "bodyStart": 6377,
-          "end": 8856,
+          "start": 6369,
+          "bodyStart": 6379,
+          "end": 8858,
           "complete": true,
           "boundary": "next-consecutive-numbered-heading",
           "nextHeading": "第四章 怎么没见过",
@@ -23530,575 +23530,575 @@
             {
               "id": "ch3:p1",
               "number": 1,
-              "start": 6378,
-              "end": 6390,
+              "start": 6380,
+              "end": 6392,
               "sha256": "1fe93b29d7c1941aa48ba904a741736b11e887cbd8a1de0a6e53259e4f7ce8e3"
             },
             {
               "id": "ch3:p2",
               "number": 2,
-              "start": 6394,
-              "end": 6432,
+              "start": 6396,
+              "end": 6434,
               "sha256": "6217eb19fde086b8b2ff07b0410134ce883765e65d987262a158d7d619ef87bf"
             },
             {
               "id": "ch3:p3",
               "number": 3,
-              "start": 6436,
-              "end": 6459,
+              "start": 6438,
+              "end": 6461,
               "sha256": "5b578501a09a5562a87b18eed44451eba05cdb3fa739f99f11f8aa6e0f40e647"
             },
             {
               "id": "ch3:p4",
               "number": 4,
-              "start": 6463,
-              "end": 6495,
+              "start": 6465,
+              "end": 6497,
               "sha256": "4af271fed19ff1826e34aa346ff98914175cb0fead4f61c57fcf6a3032cd43e2"
             },
             {
               "id": "ch3:p5",
               "number": 5,
-              "start": 6499,
-              "end": 6553,
+              "start": 6501,
+              "end": 6555,
               "sha256": "7fe214faab30f5b359c94a7097901f3c2b763ba23bf1f4fb4b9c22c5cc001aa9"
             },
             {
               "id": "ch3:p6",
               "number": 6,
-              "start": 6557,
-              "end": 6589,
+              "start": 6559,
+              "end": 6591,
               "sha256": "c69f010702c3194e64a323e3ee5d9330c631d2007201181c2a05562763d104cc"
             },
             {
               "id": "ch3:p7",
               "number": 7,
-              "start": 6593,
-              "end": 6618,
+              "start": 6595,
+              "end": 6620,
               "sha256": "13cad1b759d5e0140335498fd15854c27479c56f77970045f9d88daec577623b"
             },
             {
               "id": "ch3:p8",
               "number": 8,
-              "start": 6622,
-              "end": 6659,
+              "start": 6624,
+              "end": 6661,
               "sha256": "caa49fcc99bcc8a23dfd06aed1ddda17e586c1ab73873d2f3070af8eca5419c4"
             },
             {
               "id": "ch3:p9",
               "number": 9,
-              "start": 6663,
-              "end": 6723,
+              "start": 6665,
+              "end": 6725,
               "sha256": "8e12710fdcb8e1ef082149578b4352a49d876f66dbe9453e482c36cc8ed3936d"
             },
             {
               "id": "ch3:p10",
               "number": 10,
-              "start": 6727,
-              "end": 6782,
+              "start": 6729,
+              "end": 6784,
               "sha256": "3fb16e0e5fecad9321f73f67ccf64c2e89bce9900a65169d567e1620b3c0ad17"
             },
             {
               "id": "ch3:p11",
               "number": 11,
-              "start": 6786,
-              "end": 6811,
+              "start": 6788,
+              "end": 6813,
               "sha256": "8ac340816c74e3bc74a142a703dc8323c3e08dd9e08fc440ab247e37ce47b671"
             },
             {
               "id": "ch3:p12",
               "number": 12,
-              "start": 6815,
-              "end": 6820,
+              "start": 6817,
+              "end": 6822,
               "sha256": "d4b91b363593728a57da0872e0a1f61d80fe9697fb1d7ec26f91ab44f3369dd4"
             },
             {
               "id": "ch3:p13",
               "number": 13,
-              "start": 6824,
-              "end": 6856,
+              "start": 6826,
+              "end": 6858,
               "sha256": "17e13d2a8e30f8132d8316ba2520a8d3577150ed0613e5b7284828aa5eee9ee7"
             },
             {
               "id": "ch3:p14",
               "number": 14,
-              "start": 6860,
-              "end": 6875,
+              "start": 6862,
+              "end": 6877,
               "sha256": "b3222c7fdf1125b2fe94f780c0881f610edd0b2dac61f4c6c8576e7ceebea311"
             },
             {
               "id": "ch3:p15",
               "number": 15,
-              "start": 6879,
-              "end": 6894,
+              "start": 6881,
+              "end": 6896,
               "sha256": "4cc5c549fd6f9ad7eff0d039f8796445c22576e59cd6afbe4fe8a74953230720"
             },
             {
               "id": "ch3:p16",
               "number": 16,
-              "start": 6898,
-              "end": 6906,
+              "start": 6900,
+              "end": 6908,
               "sha256": "dbf576b9541b725e8954ea379c4a0090beaf6037c72e2fce419f217cc215707d"
             },
             {
               "id": "ch3:p17",
               "number": 17,
-              "start": 6910,
-              "end": 6918,
+              "start": 6912,
+              "end": 6920,
               "sha256": "d2835bd7d96ae3ca039faeb856013900170393674c452aa828a6c00224390f66"
             },
             {
               "id": "ch3:p18",
               "number": 18,
-              "start": 6922,
-              "end": 6945,
+              "start": 6924,
+              "end": 6947,
               "sha256": "121a32b9cea3c025c5f945a1bd907a11386c49a452f1fbfd07db5aaeecca4c9c"
             },
             {
               "id": "ch3:p19",
               "number": 19,
-              "start": 6949,
-              "end": 7018,
+              "start": 6951,
+              "end": 7020,
               "sha256": "9657848fbce731014cb094d6c633a5f7d015f9db2acfc7648619459ac34300a7"
             },
             {
               "id": "ch3:p20",
               "number": 20,
-              "start": 7022,
-              "end": 7032,
+              "start": 7024,
+              "end": 7034,
               "sha256": "b4f36a77b5e2a2acc0588acf78e58388cf07a85ee2c4fcf7e9574d3f75a83e23"
             },
             {
               "id": "ch3:p21",
               "number": 21,
-              "start": 7036,
-              "end": 7057,
+              "start": 7038,
+              "end": 7059,
               "sha256": "7bdc985db206b97d0d8f28e0b127219cc33613cd3f671a3a4d95f28029137d9a"
             },
             {
               "id": "ch3:p22",
               "number": 22,
-              "start": 7061,
-              "end": 7113,
+              "start": 7063,
+              "end": 7115,
               "sha256": "ee7a0724b8abbb4a48ee72cd55f0df0d78c8468f8d774a13bc363dbf031b4e40"
             },
             {
               "id": "ch3:p23",
               "number": 23,
-              "start": 7117,
-              "end": 7151,
+              "start": 7119,
+              "end": 7153,
               "sha256": "7ea4314e6c8cd4325ce56b957e850a1e8f0c99dc82014a123590fb745695c99d"
             },
             {
               "id": "ch3:p24",
               "number": 24,
-              "start": 7155,
-              "end": 7187,
+              "start": 7157,
+              "end": 7189,
               "sha256": "a7e34e797122b5b569c5607380f4bab4a5d4394d00aac5d3a2f77d45833b7e6a"
             },
             {
               "id": "ch3:p25",
               "number": 25,
-              "start": 7191,
-              "end": 7217,
+              "start": 7193,
+              "end": 7219,
               "sha256": "8804d75a0617e874568e6f5d180d459348d45b713042a8474197fab56cd9f398"
             },
             {
               "id": "ch3:p26",
               "number": 26,
-              "start": 7221,
-              "end": 7290,
+              "start": 7223,
+              "end": 7292,
               "sha256": "09213ea240f5311bb6aaffccfac46e7688e8ef2ed28dac50e65f50be1a03c911"
             },
             {
               "id": "ch3:p27",
               "number": 27,
-              "start": 7294,
-              "end": 7324,
+              "start": 7296,
+              "end": 7326,
               "sha256": "9ca4aa91e9d4b091e84b8fb156b7d6634f9341c833af47a7a866360b5927893f"
             },
             {
               "id": "ch3:p28",
               "number": 28,
-              "start": 7328,
-              "end": 7362,
+              "start": 7330,
+              "end": 7364,
               "sha256": "bce63ba6fbda6ed621f57e8a5e723537e485828d20944de62cb8e2c38c662d17"
             },
             {
               "id": "ch3:p29",
               "number": 29,
-              "start": 7366,
-              "end": 7379,
+              "start": 7368,
+              "end": 7381,
               "sha256": "3072c01d1f3fdb9e60193d0fadf2465c7a4117e42adec508f587ac81e6c12ac3"
             },
             {
               "id": "ch3:p30",
               "number": 30,
-              "start": 7383,
-              "end": 7395,
+              "start": 7385,
+              "end": 7397,
               "sha256": "ee3c15b297005923572141b7bcd8a09c407339372a786781ab29f9df0e587a4f"
             },
             {
               "id": "ch3:p31",
               "number": 31,
-              "start": 7399,
-              "end": 7409,
+              "start": 7401,
+              "end": 7411,
               "sha256": "ab758197b2945e0182408eff781279abf77465d747a95f31435962821bb4f74c"
             },
             {
               "id": "ch3:p32",
               "number": 32,
-              "start": 7413,
-              "end": 7428,
+              "start": 7415,
+              "end": 7430,
               "sha256": "3b8e7b2a93560ff5b2a80e2bb654cd707a7be3baf006b5a65b1e5b8ba91742d7"
             },
             {
               "id": "ch3:p33",
               "number": 33,
-              "start": 7432,
-              "end": 7461,
+              "start": 7434,
+              "end": 7463,
               "sha256": "1b7546454074e51677fcbeedb19c83aee1a436ab64a4026645f46c8f06d64d66"
             },
             {
               "id": "ch3:p34",
               "number": 34,
-              "start": 7465,
-              "end": 7480,
+              "start": 7467,
+              "end": 7482,
               "sha256": "e3d5ae91d7746ef8ce83884ad077acbca9605862a5fe93135bc83b59cc667f11"
             },
             {
               "id": "ch3:p35",
               "number": 35,
-              "start": 7484,
-              "end": 7492,
+              "start": 7486,
+              "end": 7494,
               "sha256": "bd8473c388a066ae02e32b24ba308dca7f50efb279fb184d368263cd450ab110"
             },
             {
               "id": "ch3:p36",
               "number": 36,
-              "start": 7496,
-              "end": 7554,
+              "start": 7498,
+              "end": 7556,
               "sha256": "0abe69ac3dd9eb6099fb13f0006d72fa10fa8ed0a5c4015b2f879761707e54df"
             },
             {
               "id": "ch3:p37",
               "number": 37,
-              "start": 7558,
-              "end": 7592,
+              "start": 7560,
+              "end": 7594,
               "sha256": "34f342d468c4ecf3f4ecbcb495cafbd148dd63846091d58c0c53b9c51d92dbb1"
             },
             {
               "id": "ch3:p38",
               "number": 38,
-              "start": 7596,
-              "end": 7604,
+              "start": 7598,
+              "end": 7606,
               "sha256": "6900e9c9f75e0accbaa7b10b7c0e01cf5933407533bb9268a0706fe794fa915e"
             },
             {
               "id": "ch3:p39",
               "number": 39,
-              "start": 7608,
-              "end": 7658,
+              "start": 7610,
+              "end": 7660,
               "sha256": "9b16c28466130340e52f6aa41147b2c0f3dd5d0d2f63a3228c4d71b92fe32a09"
             },
             {
               "id": "ch3:p40",
               "number": 40,
-              "start": 7662,
-              "end": 7693,
+              "start": 7664,
+              "end": 7695,
               "sha256": "97938cce440bc7d1d63dc0bb21f53b0d756cb15611eaaedda1ec833e6ad1296f"
             },
             {
               "id": "ch3:p41",
               "number": 41,
-              "start": 7697,
-              "end": 7705,
+              "start": 7699,
+              "end": 7707,
               "sha256": "84bdb2d8b803c96bde0040da1d482723761d9d781571ba933fc0951e3963048c"
             },
             {
               "id": "ch3:p42",
               "number": 42,
-              "start": 7709,
-              "end": 7719,
+              "start": 7711,
+              "end": 7721,
               "sha256": "a00bc2dc76c9ea715aa9528c02857e0603c7a902702f9010466ac5c554465f99"
             },
             {
               "id": "ch3:p43",
               "number": 43,
-              "start": 7723,
-              "end": 7736,
+              "start": 7725,
+              "end": 7738,
               "sha256": "83c09c4a86971a41889f4679189f827077c02820aad6278e58ad64e9bdf49a34"
             },
             {
               "id": "ch3:p44",
               "number": 44,
-              "start": 7740,
-              "end": 7773,
+              "start": 7742,
+              "end": 7775,
               "sha256": "a3d9b885b6311922dbdf921c94cda4c58d5508847fba76f00a06544774e0efa8"
             },
             {
               "id": "ch3:p45",
               "number": 45,
-              "start": 7777,
-              "end": 7795,
+              "start": 7779,
+              "end": 7797,
               "sha256": "251e761fb6e96f5ab8a606a15858e86f53d9e802a19d106f3ef828a08d97a04d"
             },
             {
               "id": "ch3:p46",
               "number": 46,
-              "start": 7799,
-              "end": 7812,
+              "start": 7801,
+              "end": 7814,
               "sha256": "7d11e06d836d6dd3c6f3370393ef7bd0b64d0511451580d24b9f827da10dd714"
             },
             {
               "id": "ch3:p47",
               "number": 47,
-              "start": 7816,
-              "end": 7844,
+              "start": 7818,
+              "end": 7846,
               "sha256": "d90313bc9f8d22891f64f8b65118e1587aae2994e2945aab4988f3381f3eb87f"
             },
             {
               "id": "ch3:p48",
               "number": 48,
-              "start": 7848,
-              "end": 7894,
+              "start": 7850,
+              "end": 7896,
               "sha256": "ada75bab00c240154bbed3d47858793e244b41754edcddac7fbf03b1c8c1215e"
             },
             {
               "id": "ch3:p49",
               "number": 49,
-              "start": 7898,
-              "end": 7939,
+              "start": 7900,
+              "end": 7941,
               "sha256": "4c8fa7af81c62e5ac27e615479720eadf820eee9623c14081950fe517f914e6f"
             },
             {
               "id": "ch3:p50",
               "number": 50,
-              "start": 7943,
-              "end": 7964,
+              "start": 7945,
+              "end": 7966,
               "sha256": "467cb6992667601348e76432cfc4810bcdf8191acd72c378d4e5d29e2f702aaa"
             },
             {
               "id": "ch3:p51",
               "number": 51,
-              "start": 7968,
-              "end": 8016,
+              "start": 7970,
+              "end": 8018,
               "sha256": "4cf504b3ac4d1969bac411000f15af19b274b39309b93626454d604ce5fb3787"
             },
             {
               "id": "ch3:p52",
               "number": 52,
-              "start": 8020,
-              "end": 8072,
+              "start": 8022,
+              "end": 8074,
               "sha256": "53fc54fb09a3652012772924c70b6ff65aff0da9b7debfd8bec87a567c3e9ada"
             },
             {
               "id": "ch3:p53",
               "number": 53,
-              "start": 8076,
-              "end": 8150,
+              "start": 8078,
+              "end": 8152,
               "sha256": "41e1635047372c9e309505b088b6406fd1817179532d010e360170d6e2d81251"
             },
             {
               "id": "ch3:p54",
               "number": 54,
-              "start": 8154,
-              "end": 8162,
+              "start": 8156,
+              "end": 8164,
               "sha256": "224744bdb74c878c7788cddd22f1dfd2ed0f85cf2e59a2b54fe3a1a5bae080c7"
             },
             {
               "id": "ch3:p55",
               "number": 55,
-              "start": 8166,
-              "end": 8173,
+              "start": 8168,
+              "end": 8175,
               "sha256": "e8426e8030cab8500bc743a8735f437739c2ec38023e83d302de097c8319be16"
             },
             {
               "id": "ch3:p56",
               "number": 56,
-              "start": 8177,
-              "end": 8186,
+              "start": 8179,
+              "end": 8188,
               "sha256": "2590a893223cb13bad61730ca8db6cdafa46f8a129fdb747d9decf4251541f22"
             },
             {
               "id": "ch3:p57",
               "number": 57,
-              "start": 8190,
-              "end": 8202,
+              "start": 8192,
+              "end": 8204,
               "sha256": "728553aa7e2e56cee691a5fada2813796bddc551094075193a46a7540616c831"
             },
             {
               "id": "ch3:p58",
               "number": 58,
-              "start": 8206,
-              "end": 8231,
+              "start": 8208,
+              "end": 8233,
               "sha256": "779ed8baa9fd0d4945c0d3ab32ea00ab9d8104dac5ea693159dbe7374a7c96d0"
             },
             {
               "id": "ch3:p59",
               "number": 59,
-              "start": 8235,
-              "end": 8279,
+              "start": 8237,
+              "end": 8281,
               "sha256": "5f09e2cd4fda8e6c180af156403d4cf8d3917ad9a518b9604f16c05d3bcaac25"
             },
             {
               "id": "ch3:p60",
               "number": 60,
-              "start": 8283,
-              "end": 8303,
+              "start": 8285,
+              "end": 8305,
               "sha256": "ef9e2d4af0cd570a788f85e3e9dd780c68fffe67de30b14164a4f961e71899d0"
             },
             {
               "id": "ch3:p61",
               "number": 61,
-              "start": 8307,
-              "end": 8349,
+              "start": 8309,
+              "end": 8351,
               "sha256": "05772a7c81b8dba39c52200357520d6746c4e35fc46a1a395a9d50c1112e1c82"
             },
             {
               "id": "ch3:p62",
               "number": 62,
-              "start": 8353,
-              "end": 8369,
+              "start": 8355,
+              "end": 8371,
               "sha256": "87fcab9803c9dcd84e41ddf2f381415dd4db77a93b6d79643f6377bffcdcbe35"
             },
             {
               "id": "ch3:p63",
               "number": 63,
-              "start": 8373,
-              "end": 8428,
+              "start": 8375,
+              "end": 8430,
               "sha256": "eae6e81575067dad501dc58ac6eb24dc62697a9fa01117a65d0f343a725fa568"
             },
             {
               "id": "ch3:p64",
               "number": 64,
-              "start": 8432,
-              "end": 8439,
+              "start": 8434,
+              "end": 8441,
               "sha256": "cfdad35cda062ca9f7d8e8a3f5cdbac6a8ce89a78a0687720f8ecddfa4f2404c"
             },
             {
               "id": "ch3:p65",
               "number": 65,
-              "start": 8443,
-              "end": 8458,
+              "start": 8445,
+              "end": 8460,
               "sha256": "af1c7d2ada34947d453279c6e8c862ba426819c51049df849bcab3292c1ed2bc"
             },
             {
               "id": "ch3:p66",
               "number": 66,
-              "start": 8462,
-              "end": 8482,
+              "start": 8464,
+              "end": 8484,
               "sha256": "3f7786fa9818711ba321f576e2c5145a397435819f22050d099ab7f9fa4573d7"
             },
             {
               "id": "ch3:p67",
               "number": 67,
-              "start": 8486,
-              "end": 8499,
+              "start": 8488,
+              "end": 8501,
               "sha256": "ea69dd1a2eade2a6cadd7f037ae0100e98dbf2f45fad42b6b59f09a0d0e8ebe3"
             },
             {
               "id": "ch3:p68",
               "number": 68,
-              "start": 8503,
-              "end": 8509,
+              "start": 8505,
+              "end": 8511,
               "sha256": "15e9f1cfdcd616cd3365dc2330183a1aacb7f8732b9acea2e18ef29cf09aa4ab"
             },
             {
               "id": "ch3:p69",
               "number": 69,
-              "start": 8513,
-              "end": 8538,
+              "start": 8515,
+              "end": 8540,
               "sha256": "a0b5b6757d43066c1e4bdda1b3b8f57b6517a86a79dec008d7da09001ecaf3d5"
             },
             {
               "id": "ch3:p70",
               "number": 70,
-              "start": 8542,
-              "end": 8549,
+              "start": 8544,
+              "end": 8551,
               "sha256": "52c4a8fd754434a0cd83fb473a427dc828b907c5eaaafda96d2a23e5d59fa1c8"
             },
             {
               "id": "ch3:p71",
               "number": 71,
-              "start": 8553,
-              "end": 8594,
+              "start": 8555,
+              "end": 8596,
               "sha256": "7bcc44b79f66104b8f9b6587edcd0ff6bc93b62eb98eef2dd58265ba8828f390"
             },
             {
               "id": "ch3:p72",
               "number": 72,
-              "start": 8598,
-              "end": 8617,
+              "start": 8600,
+              "end": 8619,
               "sha256": "64fe58314d54e832aec3fad76508ba58e9e4dc6d6971cba3d1bcf961983f0c17"
             },
             {
               "id": "ch3:p73",
               "number": 73,
-              "start": 8621,
-              "end": 8628,
+              "start": 8623,
+              "end": 8630,
               "sha256": "48ee8aa0e4690933ee4cb39c2cfaae18b2caaf36cb1974c510c20f4bf0deb3ee"
             },
             {
               "id": "ch3:p74",
               "number": 74,
-              "start": 8632,
-              "end": 8651,
+              "start": 8634,
+              "end": 8653,
               "sha256": "76692f9f023bf5bffda77a559e85ca62ffa5fa8429d53862b95e266ae3f65467"
             },
             {
               "id": "ch3:p75",
               "number": 75,
-              "start": 8655,
-              "end": 8687,
+              "start": 8657,
+              "end": 8689,
               "sha256": "44a8b63924efdf98f1ffd78c1de03cae75d6fd900a84d111e9b5e73b636e7162"
             },
             {
               "id": "ch3:p76",
               "number": 76,
-              "start": 8691,
-              "end": 8715,
+              "start": 8693,
+              "end": 8717,
               "sha256": "73932d5879dc1ceed95a9a001d660c7269c4db159769bc00626ee5875e9f229d"
             },
             {
               "id": "ch3:p77",
               "number": 77,
-              "start": 8719,
-              "end": 8762,
+              "start": 8721,
+              "end": 8764,
               "sha256": "62a604b396f1f7cec87bb32dc17f9a90734e2f5f6def944bff48c0ee73f17b86"
             },
             {
               "id": "ch3:p78",
               "number": 78,
-              "start": 8766,
-              "end": 8774,
+              "start": 8768,
+              "end": 8776,
               "sha256": "1c4f7d25c775dc524e85312622d5f79ec8ab7a5083381cfaff2012460221fc41"
             },
             {
               "id": "ch3:p79",
               "number": 79,
-              "start": 8778,
-              "end": 8810,
+              "start": 8780,
+              "end": 8812,
               "sha256": "5f7525a22c407b82278cc5ab95f4aee3f0cbea1ba67ba1247dfec707c7e1a75e"
             },
             {
               "id": "ch3:p80",
               "number": 80,
-              "start": 8814,
-              "end": 8829,
+              "start": 8816,
+              "end": 8831,
               "sha256": "76a5dbf7333d287cbd21432be43d9e17800f77cffbb6b215326b6c364f6be9be"
             },
             {
               "id": "ch3:p81",
               "number": 81,
-              "start": 8833,
-              "end": 8838,
+              "start": 8835,
+              "end": 8840,
               "sha256": "7c1b56cfe08905250dbc25651b58cdae90c4088e00bdbc6768b705738da50ba2"
             },
             {
               "id": "ch3:p82",
               "number": 82,
-              "start": 8842,
-              "end": 8852,
+              "start": 8844,
+              "end": 8854,
               "sha256": "dab36f10ec7c3c68a0f83806528846baec80305a2eaa0acc1ce06a21c896a6da"
             }
           ]
@@ -24137,9 +24137,9 @@
       "title": "拜金小绿茶乖又软，大佬们偏心宠",
       "filePath": "资源库\\小说原本\\青春甜宠\\拜金小绿茶乖又软，大佬们偏心宠.txt",
       "source": {
-        "sha256": "6a3537fe045ad47ea0262aadebd0f7ee3c0e81d798e9227b5bfde2bc7eed169a",
-        "decodedSha256": "6a3537fe045ad47ea0262aadebd0f7ee3c0e81d798e9227b5bfde2bc7eed169a",
-        "byteLength": 100398,
+        "sha256": "b25969575f9be13af60c4ff6730616690ef138881ffa1098dcae4a502cf0ad26",
+        "decodedSha256": "b25969575f9be13af60c4ff6730616690ef138881ffa1098dcae4a502cf0ad26",
+        "byteLength": 92051,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -25791,9 +25791,9 @@
       "title": "春夜禧雨",
       "filePath": "资源库\\小说原本\\青春甜宠\\春夜禧雨.txt",
       "source": {
-        "sha256": "4fb966ca84a843f5b83ef7f1232464d3d4159df122807e842104d1f8f3c92a3f",
-        "decodedSha256": "4fb966ca84a843f5b83ef7f1232464d3d4159df122807e842104d1f8f3c92a3f",
-        "byteLength": 159325,
+        "sha256": "9f066bf2048c411180f04a5b8fc138f7af7afefba1017cd5e497c6bc0ec46160",
+        "decodedSha256": "9f066bf2048c411180f04a5b8fc138f7af7afefba1017cd5e497c6bc0ec46160",
+        "byteLength": 115385,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -27704,9 +27704,9 @@
       "title": "春心难捱",
       "filePath": "资源库\\小说原本\\青春甜宠\\春心难捱.txt",
       "source": {
-        "sha256": "7ef6f22193fed0d6b0cb05bc77258e67e0b91b34570708d0814cbce9e39d74bc",
-        "decodedSha256": "7ef6f22193fed0d6b0cb05bc77258e67e0b91b34570708d0814cbce9e39d74bc",
-        "byteLength": 170699,
+        "sha256": "ce203313894c0e5f544267734578de71d5c8afc17b5338553d63a16a2a890941",
+        "decodedSha256": "ce203313894c0e5f544267734578de71d5c8afc17b5338553d63a16a2a890941",
+        "byteLength": 111316,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -30002,9 +30002,9 @@
       "title": "暗恋对象又坏又撩，她招架不住",
       "filePath": "资源库\\小说原本\\青春甜宠\\暗恋对象又坏又撩，她招架不住.txt",
       "source": {
-        "sha256": "67b4ae2ab449375337ce1e5e08dae2532ef151f3b37a905241cd547a24bd2e84",
-        "decodedSha256": "67b4ae2ab449375337ce1e5e08dae2532ef151f3b37a905241cd547a24bd2e84",
-        "byteLength": 137922,
+        "sha256": "f9106b6d57e67f826df6d9039cf7d1b04ba9bf445e78d104a7d224658f8f432e",
+        "decodedSha256": "f9106b6d57e67f826df6d9039cf7d1b04ba9bf445e78d104a7d224658f8f432e",
+        "byteLength": 88842,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -31873,9 +31873,9 @@
       "title": "替大小姐网恋的恶毒小跟班重生了",
       "filePath": "资源库\\小说原本\\青春甜宠\\替大小姐网恋的恶毒小跟班重生了.txt",
       "source": {
-        "sha256": "df8eecb52698e8ade4a866fb6f60bfcea820a6e92248269728e6cddea0ef3f5b",
-        "decodedSha256": "df8eecb52698e8ade4a866fb6f60bfcea820a6e92248269728e6cddea0ef3f5b",
-        "byteLength": 106834,
+        "sha256": "e7dd52939aff19118278bf598c04f0f9be3580e7d38bbef4ef5839e969e97bce",
+        "decodedSha256": "e7dd52939aff19118278bf598c04f0f9be3580e7d38bbef4ef5839e969e97bce",
+        "byteLength": 93012,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -34318,9 +34318,9 @@
       "title": "杀死那个春夜",
       "filePath": "资源库\\小说原本\\青春甜宠\\杀死那个春夜.txt",
       "source": {
-        "sha256": "9e7ac235993bc8c5ad42de021b9a3e03d60000723efd902139d68bdc23e4ee05",
-        "decodedSha256": "9e7ac235993bc8c5ad42de021b9a3e03d60000723efd902139d68bdc23e4ee05",
-        "byteLength": 136376,
+        "sha256": "16250fefd15c1e296e6600e9420eb030817edf53cee0cb51a4547a0d662c9bbe",
+        "decodedSha256": "16250fefd15c1e296e6600e9420eb030817edf53cee0cb51a4547a0d662c9bbe",
+        "byteLength": 95940,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -36056,9 +36056,9 @@
       "title": "溯雨信笺",
       "filePath": "资源库\\小说原本\\青春甜宠\\溯雨信笺.txt",
       "source": {
-        "sha256": "29e0f2a9ad8c36f51b2ad7243942cdb999daaa3ba403bcae1b02c56136f61c5e",
-        "decodedSha256": "29e0f2a9ad8c36f51b2ad7243942cdb999daaa3ba403bcae1b02c56136f61c5e",
-        "byteLength": 149454,
+        "sha256": "baac3696534bf4fb40a88c21e5a6a2b87704e65b731831beb092515d94a77694",
+        "decodedSha256": "baac3696534bf4fb40a88c21e5a6a2b87704e65b731831beb092515d94a77694",
+        "byteLength": 92371,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -37794,9 +37794,9 @@
       "title": "玩腻分手？宝宝，轻点咬",
       "filePath": "资源库\\小说原本\\青春甜宠\\玩腻分手？宝宝，轻点咬.txt",
       "source": {
-        "sha256": "253ecb27cf14f4a7d4cb7f8938c05874ee0fbb6953715efd9139bcd9f81050b9",
-        "decodedSha256": "253ecb27cf14f4a7d4cb7f8938c05874ee0fbb6953715efd9139bcd9f81050b9",
-        "byteLength": 113458,
+        "sha256": "5be68244327fd59e1058de06829b5fa1eeb0df90ac5775ff32a60824558aa5a0",
+        "decodedSha256": "5be68244327fd59e1058de06829b5fa1eeb0df90ac5775ff32a60824558aa5a0",
+        "byteLength": 92486,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
