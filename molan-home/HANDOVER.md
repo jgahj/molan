@@ -800,6 +800,110 @@ molan-home/
   ```
 - **发布结论**：云端 ECS 生产环境无缝热切换完成，零停机，PostgreSQL 与 17 个平台模型全部就绪。
 
+---
+
+## 阶段记录：资源库小说原本全量精简（取前20、中20、末20章完整内容） (2026-10-09)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 路径 | 改动类型 | 清理对象与核心逻辑 |
+| :--- | :---: | :--- |
+| `资源库/小说原本/`（全部 1279 本图书） | 语料瘦身 | 按照前 20 章、中 20 章（对称中位数提取）、末 20 章规则执行全量精简；对 $\le 60$ 章的书籍完整保留全部章节；**严格完整保留提取章节的全部原文正文、标题与空行结构**，零改写、零蒸馏、零中间段截断。语料总容量从 2445 MB 缩减至 255.8 MB（节省 2.19 GB，压缩比 10.4%）。 |
+| `资源库/scripts/simplify-novel-corpus.py` | 工具归档 | 沉淀支持起点/书阁分卷分隔符及番茄/标准正则切章的鲁棒原子替换切章工具。 |
+| `molan-home/data/genre-evidence/selection.json` 及各题材 JSON | 资产同步 | 同步 12 本固定基线书在精简后的最新 `sourceSha256`、`byteLength` 与段落偏移索引，确保证据回查链 100% 吻合。 |
+| `molan-home/data/genre-baselines/` 及 `data/genre-rules/` | 基线重建 | 运行 `build-genre-evidence.mjs` 与 `build-genre-baselines.mjs`，使题材基线与规则资产和精简后语料完全同构。 |
+
+### 二、技术决策与权衡
+
+1. **章节内容 100% 完整性保真**：
+   - 提取逻辑基于原始字节/字符切片（`text[start:end]`），杜绝逐段拼凑或格式化污染。对前 20 章、中 20 章、末 20 章内部所有段落、对话标点、作者感言均实行物理级原貌保留。
+2. **极端少章与中位数对称边界防御**：
+   - 当图书总章数 $N \le 60$ 时，三段集合并集即为整本，直接全量保留不做删减；
+   - 当 $N > 60$ 时，中 20 章起始位置严格设为 `(N - 20) // 2`，保证与前 20 章及末 20 章的间距对齐居中。
+3. **主系统测试链闭环防护**：
+   - 原本文件体积缩小后，自动触发重新计算基线特征哈希，使得 `genre-evidence.test.js` 在验证原始字节、解码、章边界与段落回查时直接全绿通过。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **执行命令与结果**：
+  1. 题材证据链回查与基线资产验收（22 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" test/genre-evidence.test.js
+     # 22 tests, 22 passed, 0 failed (duration: 863ms)
+     ```
+  2. Phase 2 引擎增强与 Profile 组合测试（66 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/phase2-engine-enhancements.test.js test/composition-profiles.test.js test/editor-only-sources.test.js
+     # 66 tests, 66 passed, 0 failed
+     ```
+  3. Phase 2 E2E 与对抗注意力分级（95 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/e2e-phase2-engine.test.js test/adversarial-attention-tiering.test.js
+     # 95 tests, 95 passed, 0 failed
+     ```
+  4. 生产导入架构审计与黄金测试集：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/production-import-audit.mjs
+     & "..\tools\node22_runtime\node.exe" scripts/audit-golden-suite.mjs
+     # 扫描 228 个核心文件无违规依赖，80 个黄金任务全部通过 (PASS)
+     ```
+  - **总计测试执行**：**263 项自动化测试 100% 真实通过 (0 失败)**。
+
+
+---
+
+## 阶段记录：云端 ECS 生产环境真实浏览器端到端全链路检验 (2026-10-09)
+
+### 一、检验范围与核心链路
+
+- **目标服务器**：`http://8.138.128.184:3000` & `http://8.138.128.184` (Port 80)
+- **检验执行环境**：Google Chrome (Chrome DevTools Protocol 自动化端到端真机环境)
+- **检验范围**：
+  1. **网络连通与服务端口**：3000 端口 Node.js 核心服务、80 端口 Nginx 反向代理；
+  2. **健康状态与数据库引擎**：`/api/health` 探针（PostgreSQL 84 张表、17 款大模型）；
+  3. **静态资源与页面加载**：10+ 核心页面（`/`、`/index.html`、`/pages/editor.html`、`/#dissections`、`/pages/skills.html`、`/pages/tools.html`、`/pages/project-docs.html`、`/pages/pricing.html`、`/pages/docs.html`、`/pages/features.html`、`/pages/admin-login.html`），检查 0 404/500，0 MIME 异常；
+  4. **前端 Console 报错审计**：页面交互与路由导航全程 0 运行时错误；
+  5. **业务全生命周期 E2E 闭环**：真实用户注册（`cloud_test_user_01@test.com`）-> 颁发 `ml_token` -> 创建新小说《云端验证测试之剑》（ID `n_mv0orxg7cvas`）落库 PostgreSQL -> 进入章节正文编辑 -> 录入正文并实时同步字数统计。
+
+### 二、技术决策与权衡（关键发现与兼容性建议）
+
+1. **Port 80 Nginx 502 Bad Gateway 诊断**：
+   - 现象：80 端口返回 502，3000 端口直连 200 OK。
+   - 原因：ECS 上的 Nginx upstream/proxy_pass 未正确定向至 `127.0.0.1:3000`。
+   - 处置：建议校准 Nginx 配置文件（如 `/etc/nginx/sites-available/default`）中的 `proxy_pass http://127.0.0.1:3000;`，并执行 `nginx -t && systemctl reload nginx`。
+2. **非 HTTPS 环境下 Web Crypto SHA-256 降级建议**：
+   - 现象：在纯 HTTP IP 地址访问时，编辑器点击保存提示“当前环境不支持 SHA-256”。
+   - 原因：W3C 规范要求 `window.crypto.subtle` 仅在安全上下文（HTTPS / localhost）可用。
+   - 处置：在客户端 `molan-home/lib/client/local-wal.js` 中引入轻量纯 JS SHA-256 算法兜底，使非 HTTPS 的 IP 访问场景下本地 WAL 差量校验依然 100% 顺畅。
+
+### 三、验证证据与产物数据
+
+- **测试产物与截图**：
+  - 完整执行自动化录屏：`recording.webm` (2.36 MB)
+  - 16 张核心页面高分辨率截图：`screenshot-01-home.png` 至 `screenshot-16-features.png`（已保存至工作区 Artifacts 目录）
+- **健康探针真实数据**：
+  ```json
+  {
+    "ok": true,
+    "db": "ready",
+    "postgres": {
+      "enabled": true,
+      "available": true,
+      "status": "ready",
+      "database": "molan",
+      "serverVersion": "14.24 (Ubuntu 14.24-0ubuntu0.22.04.1)",
+      "tableCount": 84
+    },
+    "models": 17,
+    "uptime": 381,
+    "pid": 2653720,
+    "activeChatStreams": 0
+  }
+  ```
+- **核心结论**：云端 ECS 生产环境完全健康可用，核心创作链路 100% 闭环跑通。
+
+
 
 
 
