@@ -1,8 +1,9 @@
 {
-  "totalTasks": 40,
-  "completedTasks": 0,
-  "skippedTasks": 40,
-  "mode": "mock",
+  "totalTasks": 5116,
+  "completedTasks": 5116,
+  "skippedTasks": 0,
+  "concurrency": 2,
+  "mode": "dry_run",
   "quadrants": [
     "A",
     "B",
@@ -10,5 +11,5 @@
     "D"
   ],
   "evaluationSummary": null,
-  "resultsCount": 40
+  "resultsCount": 5116
 }

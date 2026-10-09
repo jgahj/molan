@@ -108,6 +108,23 @@ describe('Corpus Prompt Experiments - Chapter Extraction & Sampling', () => {
     assert.strictEqual(sampled1.chapterNo, sampled2.chapterNo);
     assert.strictEqual(sampled1.title, sampled2.title);
   });
+
+  it('extractChapters correctly parses volume-prefixed chapter headings', () => {
+    const rawText = [
+      '正文卷 第一章 宿命轮回',
+      '少年从昏睡中猛然惊醒，掌心紧握半枚残缺玉佩。'.repeat(30),
+      '卷二 第二章 剑斩妖魔',
+      '黑雾漫天，剑光破空而过，瞬息斩断九条骨链。'.repeat(30),
+      'VIP卷 第三章 登临绝顶',
+      '万丈悬崖之下，雷霆咆哮，众生俯首称臣。'.repeat(30)
+    ].join('\n\n');
+
+    const chaps = extractChapters(rawText);
+    assert.strictEqual(chaps.length, 3);
+    assert.strictEqual(chaps[0].title, '正文卷 第一章 宿命轮回');
+    assert.strictEqual(chaps[1].title, '卷二 第二章 剑斩妖魔');
+    assert.strictEqual(chaps[2].title, 'VIP卷 第三章 登临绝顶');
+  });
 });
 
 describe('Corpus Prompt Experiments - Dual Prompt Extractor', () => {
@@ -374,6 +391,97 @@ describe('Corpus Prompt Experiments - Quality Evaluation & Batch Runner', () => 
     assert.strictEqual(resumeSummary.skippedTasks, 4);
 
     // 清理临时目录
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('QuadrantBatchRunner differentiates mock evaluation scores across Quadrants A, B, C, D', async () => {
+    const tmpDir = path.join(os.tmpdir(), `molan_test_quad_diff_${Date.now()}`);
+    fs.mkdirSync(path.join(tmpDir, '仙侠'), { recursive: true });
+
+    const mockSample = {
+      bookId: 'diff_sample',
+      title: '仙逆长生',
+      category: '仙侠',
+      sampledChapter: { chapterNo: 1, chapterTitle: '第1章', charCount: 3000 },
+      originalChapterText: '正文文本'.repeat(300),
+      dualPrompts: {
+        minimal: { markdown: '极简' },
+        comprehensive: { markdown: '完整', beats: { beatQi: '宗门大变' }, entities: { protagonist: '王林', antagonist: '掌门' } },
+        factors: { stylometry: { shortSentenceRatio: 0.5, dialogueRatio: 0.3 } }
+      }
+    };
+    mockSample.quadrants = buildQuadrantConfigs(mockSample);
+    fs.writeFileSync(path.join(tmpDir, '仙侠', 'diff_sample.json'), JSON.stringify(mockSample), 'utf8');
+
+    const manifest = {
+      version: '1.0.0',
+      stats: { totalBooks: 1, processedBooks: 1 },
+      samples: [{ bookId: 'diff_sample', category: '仙侠', relativeJsonPath: '仙侠/diff_sample.json' }]
+    };
+    fs.writeFileSync(path.join(tmpDir, 'manifest.json'), JSON.stringify(manifest), 'utf8');
+
+    const runner = new QuadrantBatchRunner({ experimentDir: tmpDir, concurrency: 4 });
+    const summary = await runner.runBatch({ mock: true, concurrency: 4 });
+
+    const evalA = summary.evaluationSummary.A;
+    const evalB = summary.evaluationSummary.B;
+    const evalC = summary.evaluationSummary.C;
+    const evalD = summary.evaluationSummary.D;
+
+    assert.ok(evalB.avgCompositeScore > evalA.avgCompositeScore, 'Quadrant B score should exceed Quadrant A');
+    assert.ok(evalA.avgCompositeScore > evalC.avgCompositeScore, 'Quadrant A score should exceed Quadrant C');
+    assert.ok(evalC.avgAiFlavorRisk > 0, 'Quadrant C should exhibit AI cliché risk');
+    assert.strictEqual(evalB.avgAiFlavorRisk, 0, 'Quadrant B should exhibit 0 AI cliché risk');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('QuadrantBatchRunner blocks unconfirmed live generation but runs custom generator when approved', async () => {
+    const tmpDir = path.join(os.tmpdir(), `molan_test_gate_${Date.now()}`);
+    fs.mkdirSync(path.join(tmpDir, '科幻'), { recursive: true });
+
+    const mockSample = {
+      bookId: 'gate_sample',
+      title: '星际远航',
+      category: '科幻',
+      sampledChapter: { chapterNo: 1, chapterTitle: '第1章', charCount: 2500 },
+      originalChapterText: '宇宙星河'.repeat(250),
+      dualPrompts: {
+        minimal: { markdown: '极简' },
+        comprehensive: { markdown: '完整', beats: {}, entities: { protagonist: '舰长' } }
+      }
+    };
+    mockSample.quadrants = buildQuadrantConfigs(mockSample);
+    fs.writeFileSync(path.join(tmpDir, '科幻', 'gate_sample.json'), JSON.stringify(mockSample), 'utf8');
+
+    const manifest = {
+      version: '1.0.0',
+      stats: { totalBooks: 1, processedBooks: 1 },
+      samples: [{ bookId: 'gate_sample', category: '科幻', relativeJsonPath: '科幻/gate_sample.json' }]
+    };
+    fs.writeFileSync(path.join(tmpDir, 'manifest.json'), JSON.stringify(manifest), 'utf8');
+
+    const runner = new QuadrantBatchRunner({ experimentDir: tmpDir });
+
+    // 1. 未传入 confirmPhase1Approved 时必须被门禁拦截
+    await assert.rejects(
+      async () => { await runner.runBatch({ quadrant: 'A' }); },
+      /第一阶段门禁阻断/
+    );
+
+    // 2. 传入 confirmPhase1Approved 且注入 custom generator 时正常执行
+    const liveSummary = await runner.runBatch({
+      quadrant: 'A',
+      confirmPhase1Approved: true,
+      generator: async ({ sampleRecord, quadrant }) => {
+        return `舰长下达指令，主炮充能完毕。轰鸣声响彻星际，敌舰在火光中化为尘埃。`;
+      }
+    });
+
+    assert.strictEqual(liveSummary.mode, 'live');
+    assert.strictEqual(liveSummary.completedTasks, 1);
+    assert.ok(liveSummary.resultsCount === 1);
+
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 });
