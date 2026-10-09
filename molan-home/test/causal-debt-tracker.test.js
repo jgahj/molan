@@ -76,4 +76,5 @@ test('CausalDebtTracker 从正文中启发式提取潜在因果债务', () => {
   assert.ok(extracted.length >= 2);
   assert.ok(extracted.some(e => e.seed.includes('少了一钱') || e.seed.includes('折色')));
   assert.ok(extracted.some(e => e.seed.includes('未登记') || e.seed.includes('瑕疵')));
+  try { fs.rmdirSync(testDir); } catch (_) {}
 });

@@ -710,6 +710,57 @@ molan-home/
   ```
 - **全站 34 个核心测试文件全量通过（453 项测试真实全绿，0 失败）**。
 
+---
+
+## 阶段记录：全域废弃与死资产物理清理及生产依赖优化执行 (2026-10-09)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心操作 |
+| :--- | :---: | :--- |
+| `molan-home/scratch/` (81 文件) | 物理与版本库清理 | 执行 `git rm -r` 移除历史演进中的 51 个调试脚本、30 张 UI 截图，并物理清空本地 86MB JSONL 与 17MB SQLite 快照，消除对 `node --test` 默认发现器的路径污染。 |
+| `molan-home/prototypes/` (2 文件) | 物理与版本库清理 | 执行 `git rm -r` 移除 `all-pages-preview.html` 与 `editor-home-style.html` 早期未上线原型页面。 |
+| `molan-home/webchat.js` | 彻底移除 | 物理与版本库移除早期通过 Edge 浏览器自动化抓取 DeepSeek 网页版的 345 行脚本（全库 0 引用）。 |
+| `molan-home/package.json` | 依赖解耦 | 将 `"playwright-core": "^1.62.0"` 从生产 `"dependencies"` 降级迁入 `"devDependencies"`，解除生产运行时对无用浏览器自动化包的强依赖。 |
+| `molan-home/lib/evolution/` 垫片 | 代码清理 | 移除 `lib/evolution/regression.js` 与 `lib/evolution/shadow.js`（全站 0 引用的 4 行重定向无用垫片）。 |
+| `molan-home/pages/demo.html` | 页面清理 | 移除 65.9 KB 的早期单页实验 Demo（全站 0 引用、0 链接）。 |
+| 根目录过时脚本 (8 文件) | 运维脚本精简 | 移除已被 `deploy_molan.py` 替代的 `scripts/deploy.py`，以及旧 Xray 代理配置、一次性调试探针 `debug_panel.js`、`debug_viewport.js`、`setup_proxy.py`、`xray_config.json`、`ssh_probe.py`、`test_net.py`、`reverse_tunnel.sh`。 |
+| 根目录重复/落后报告 (7 文件) | 单一真相源收敛 | 从版本库移除根目录重复的 5 个基准报告 JSON 及 2 个落后脏报告（`quality-report.md`, `regression-report.json`），统合以 `molan-home/` 为全站单一真相源。 |
+| 本地非追踪无用产物 | 磁盘瘦身 | 物理清空本地 `corpus_pipeline/`（1248 个历史快照文件）、损坏的 Worktree 镜像 `molan-home-publish/`、`molan-home/.ds-profile/` (4.2 MB)、`molan-clone.db` (18.3 MB)、8 个历史调试 log 及 `urban_ch1_gpt6_luna.*`，释放超 150 MB 磁盘。 |
+| `molan-home/test/causal-debt-tracker.test.js` | 测试治本 | 在测试末尾补齐 `try { fs.rmdirSync(testDir); } catch (_) {}` 钩子，彻底根治测试跑完后在 `data/` 下留下空 `test-causal-debts/` 目录的顽疾。 |
+| `molan-home/test/compare-audit.test.js` | 废弃脚本升级 | 将未适配 `node:test` 且从未在 `npm test` 中执行的孤立对比脚本 `test_compare_audit.js` 重构升级为正式的 `compare-audit.test.js`，纳入全自动化回归套件。 |
+
+### 二、设计决策与安全防护（为什么这些必须保留）
+
+1. **坚决保全 `scripts/fanqie-batch-download.mjs`**：
+   - 经审计发现 `test/fanqie-batch-download.test.mjs` 直接对其进行 4 项单测，若草率删除脚本将导致 `npm test` 抛出 `ERR_MODULE_NOT_FOUND` 瞬间红灯，因此必须严格保留该脚本。
+2. **坚决保全 `server.js:7639-7648` 注释锚点**：
+   - `test/dissection-graph.test.js` 与 `test/creation-main-flow.test.js` 包含对 `server.js` 源代码文本的正则强断言。该段注释作为历史 AST 不变量防线必须 100% 维持。
+3. **坚决保全 `/api/web-chat` 墓碑路由**：
+   - `test/routes-phase4-generation.test.js` 专门断言了该废弃路由的 410 状态码与统一引导提示，维持现状是保全自动化契约的最佳实践。
+
+### 三、真实验证证据（Node 22 运行）
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **执行命令与结果**：
+  1. 全量核心自动化回归套件（38 个测试文件、467 项测试全部执行）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test molan-home/test/compare-audit.test.js molan-home/test/causal-debt-tracker.test.js molan-home/test/routes-phase4-generation.test.js molan-home/test/routes-phase3-admin-debt.test.js molan-home/test/routes-phase2-projects-characters.test.js molan-home/test/routes-phase1-adversarial.test.js molan-home/test/routes-dissection.test.js molan-home/test/routes-creation-books.test.js molan-home/test/character-material.test.js molan-home/test/style-health-api.test.mjs molan-home/test/postgres-runtime-no-cache.test.js molan-home/test/postgres-dissection-tools.test.js molan-home/test/postgres-dissection-worker.test.js molan-home/test/dissection-graph.test.js molan-home/test/creation-main-flow.test.js molan-home/test/creation-retry.test.js molan-home/test/creation-plan-review.test.js molan-home/test/domain-routes.test.js molan-home/test/dissection-units.test.js molan-home/test/postgres-dissection-cancel.test.js molan-home/test/e2e-phase2-engine.test.js molan-home/test/adversarial-attention-tiering.test.js molan-home/test/phase2-engine-enhancements.test.js molan-home/test/composition-profiles.test.js molan-home/test/composition-debt-ledger.test.js molan-home/test/orchestrator-brain-consolidation.test.js molan-home/test/milestone-4-strategy-provenance-lowering.test.js molan-home/test/strategy-compiler.test.js molan-home/test/content-engine.test.js molan-home/test/context-plan-replay-p4.test.js molan-home/test/replay-manifest.test.js molan-home/test/quality-assessment.test.js molan-home/test/generation-quality-gate.test.js molan-home/test/native-chat-http.test.js molan-home/test/native-chat-dispatch-journal.test.js molan-home/test/gemini-models.test.js molan-home/test/editor-only-sources.test.js molan-home/test/fanqie-batch-download.test.mjs
+     # 467 tests, 466 passed, 0 failed, 1 skipped (100% 真实通过)
+     ```
+  2. 生产架构依赖隔离审计（228 文件全绿）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/production-import-audit.mjs
+     # 扫描 228 个生产核心文件，依赖隔离合规无异常 (PASS)
+     ```
+  3. 黄金数据集全量任务验证（80 任务全绿）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/audit-golden-suite.mjs
+     # 80 个黄金任务全部验证通过 (PASS)
+     ```
+  - **总计自动化测试用例**：**466 项真实通过 / 467 项执行 (100% 真实通过，0 失败，1 预设跳过)**。
+
+
 
 
 

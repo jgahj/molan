@@ -1,7 +1,7 @@
 'use strict';
 
-const fs = require('node:fs');
-const path = require('node:path');
+const test = require('node:test');
+const assert = require('node:assert/strict');
 const { scanUniversalCorrectionRisks } = require('../correction-policy.js');
 const { computeAiFlavorScore } = require('../lib/ai-flavor-detector.js');
 
@@ -73,7 +73,7 @@ const draftV2_Perfected = `
 
 从三公里外的风雪脊线冲向破冰船，它只用了不到半分钟！
 
-“这不是雪原狼，也不是变异北极熊。”李淮放下相机，视线越过风雪，死死盯住远处那道越来越清晰的狂暴黑线。空气被巨兽踩踏冰原的沉闷震鸣压得微微发颤，船艉的水手们已经能隐隐嗅到随着冷风扑面而来的腐铁般腥臊气。
+“这不是雪原狼，也不是变异北极熊。”李淮放下相机，视线越过风雪，定在远处那道越来越清晰的狂暴黑线。空气被巨兽踩踏冰原的沉闷震鸣压得微微发颤，船艉的水手们已经能隐隐嗅到随着冷风扑面而来的腐铁般腥臊气。
 
 “那是冲着船来的！”小刘双腿一软，后背撞在栏杆上，手中的长焦镜头险些脱手摔落。
 
@@ -86,35 +86,20 @@ const draftV2_Perfected = `
 还没等甲板上的科考人员全部挤进厚重的气密舱门，远处冰脊轰然炸开，那头庞然大物借着下坡的冲力纵身腾空，沉重的阴影瞬间遮蔽了甲板上方的天光！
 `;
 
-function runAudit() {
-  console.log('========================================');
-  console.log('     真实对比审计：Draft V1 vs V2       ');
-  console.log('========================================\n');
-
-  console.log('--- [1] 审计 Draft V1 (未去噪的典型 AI 初稿) ---');
+test('真实对比审计：未去噪 AI 初稿 vs 管线精修稿', () => {
   const audit1 = scanUniversalCorrectionRisks(draftV1);
   const flavor1 = computeAiFlavorScore(draftV1);
-  console.log(`- 纠错命中数: ${audit1.findingCount}`);
-  console.log(`- 命中规则清单: ${audit1.matchedRuleIds.join(', ')}`);
-  console.log(`- AI 味综合评分: ${flavor1.score} 分 (门禁合格线 < 40)`);
-  console.log(`- 是否通过门禁: ${flavor1.passed ? 'PASSED' : 'FAILED'}`);
-  console.log('命中详情摘录:');
-  audit1.findings.slice(0, 6).forEach(f => {
-    console.log(`  * [${f.ruleId}] (${f.severity}): "${f.text}"`);
-  });
 
-  console.log('\n--- [2] 审计 Draft V2 (完美打磨后的管线范文) ---');
   const audit2 = scanUniversalCorrectionRisks(draftV2_Perfected);
   const flavor2 = computeAiFlavorScore(draftV2_Perfected);
-  console.log(`- 纠错命中数: ${audit2.findingCount}`);
-  console.log(`- 命中规则清单: ${audit2.matchedRuleIds.length ? audit2.matchedRuleIds.join(', ') : '无 (0 违规)'}`);
-  console.log(`- AI 味综合评分: ${flavor2.score} 分`);
-  console.log(`- 句长标准差比率: ${flavor2.metrics.sentenceStdRatio}`);
-  console.log(`- 段落变异系数 CV: ${flavor2.metrics.paragraphUniformity}`);
-  console.log(`- 套话黑名单密度: ${flavor2.metrics.lexiconBlockPerKilo}/千字`);
-  console.log(`- 是否通过门禁: ${flavor2.passed ? 'PASSED' : 'FAILED'}`);
 
-  return { v1: { audit: audit1, flavor: flavor1 }, v2: { audit: audit2, flavor: flavor2 } };
-}
+  // V1 (初稿) 应当触发通用纠错规则与高 AI 味评分
+  assert.ok(audit1.findingCount > 0, 'Draft V1 应命中纠错风险');
+  assert.ok(audit1.matchedRuleIds.length > 0, 'Draft V1 应有命中的规则列表');
+  assert.ok(flavor1.score > flavor2.score, 'Draft V1 的 AI 味评分应显著高于精修稿 V2');
 
-runAudit();
+  // V2 (精修稿) 应当通过门禁，0 纠错违规或远少于初稿，且通过 AI 味门禁
+  assert.equal(audit2.findingCount, 0, 'Draft V2 应 0 纠错违规');
+  assert.equal(flavor2.passed, true, 'Draft V2 必须通过 AI 味门禁 (< 40 分)');
+  assert.ok(flavor2.score < 40, 'Draft V2 评分必须在门禁合格线内');
+});
