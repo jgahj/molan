@@ -1,5 +1,354 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
+function extractAuthoritativeChapters(novelState) {
+  if (!novelState || typeof novelState !== 'object') return [];
+  const list = [];
+  if (Array.isArray(novelState.volumes)) {
+    for (const volume of novelState.volumes) {
+      if (!volume || !Array.isArray(volume.chapters)) continue;
+      for (const chapter of volume.chapters) {
+        if (chapter && typeof chapter === 'object') {
+          list.push({ ...chapter, volumeId: volume.id, volumeTitle: volume.title });
+        }
+      }
+    }
+  }
+  if (list.length === 0 && Array.isArray(novelState.chapters)) {
+    for (const chapter of novelState.chapters) {
+      if (chapter && typeof chapter === 'object') list.push(chapter);
+    }
+  }
+  return list;
+}
+
+function hasMeaningfulContent(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+  return Object.values(obj).some(v => {
+    if (v == null) return false;
+    if (typeof v === 'string') {
+      const t = v.trim();
+      return t.length > 0 && t !== 'null' && t !== 'undefined' && t !== '{}';
+    }
+    if (typeof v === 'number' || typeof v === 'boolean') return true;
+    if (typeof v === 'object') return hasMeaningfulContent(v);
+    return false;
+  });
+}
+
+function sanitizeStringItem(item) {
+  if (item == null) return null;
+  if (typeof item === 'string') {
+    const trimmed = item.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === '{}') return null;
+    return trimmed;
+  }
+  if (typeof item === 'object') {
+    if (Array.isArray(item) || !hasMeaningfulContent(item)) return null;
+    const candidates = [item.goal, item.title, item.name, item.description, item.event, item.summary, item.beat];
+    for (const c of candidates) {
+      if (typeof c === 'string') {
+        const trimmed = c.trim();
+        if (trimmed && trimmed !== 'null' && trimmed !== 'undefined' && trimmed !== '{}') return trimmed;
+      }
+    }
+    const str = JSON.stringify(item);
+    if (!str || str === '{}' || str === 'null' || str === 'undefined') return null;
+    return str;
+  }
+  if (typeof item === 'number' || typeof item === 'boolean') return String(item);
+  return null;
+}
+
+function sanitizeObjectItem(item, defaultKey = 'description') {
+  if (item == null) return null;
+  if (typeof item === 'string') {
+    const trimmed = item.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === '{}') return null;
+    return { [defaultKey]: trimmed };
+  }
+  if (typeof item === 'object') {
+    if (Array.isArray(item) || !hasMeaningfulContent(item)) return null;
+    return item;
+  }
+  return null;
+}
+
+function sanitizeBeatItem(item) {
+  if (item == null) return null;
+  if (typeof item === 'string') {
+    const trimmed = item.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === '{}') return null;
+    return trimmed;
+  }
+  if (typeof item === 'object') {
+    if (Array.isArray(item) || !hasMeaningfulContent(item)) return null;
+    return item;
+  }
+  return null;
+}
+
+function buildCanonicalOutlineContext(input = {}) {
+  const safeInput = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const chapterInput = safeInput.chapter && typeof safeInput.chapter === 'object' && !Array.isArray(safeInput.chapter) ? safeInput.chapter : {};
+  const volumeInput = safeInput.volume && typeof safeInput.volume === 'object' && !Array.isArray(safeInput.volume) ? safeInput.volume : {};
+  const depsInput = safeInput.dependencies && typeof safeInput.dependencies === 'object' && !Array.isArray(safeInput.dependencies) ? safeInput.dependencies : {};
+  const metaInput = safeInput.meta && typeof safeInput.meta === 'object' && !Array.isArray(safeInput.meta) ? safeInput.meta : {};
+
+  const novelState = safeInput.novelState && typeof safeInput.novelState === 'object' && !Array.isArray(safeInput.novelState) ? safeInput.novelState : {};
+  const biblePayload = safeInput.biblePayload && typeof safeInput.biblePayload === 'object' && !Array.isArray(safeInput.biblePayload) ? safeInput.biblePayload : {};
+  const request = safeInput.request && typeof safeInput.request === 'object' && !Array.isArray(safeInput.request) ? safeInput.request : {};
+  const contract = safeInput.contract && typeof safeInput.contract === 'object' && !Array.isArray(safeInput.contract) ? safeInput.contract : {};
+  const previous = safeInput.previous && typeof safeInput.previous === 'object' && !Array.isArray(safeInput.previous) ? safeInput.previous : {};
+  const factLedger = safeInput.factLedger && typeof safeInput.factLedger === 'object' && !Array.isArray(safeInput.factLedger) ? safeInput.factLedger : {};
+  const chapterContext = safeInput.chapterContext && typeof safeInput.chapterContext === 'object' && !Array.isArray(safeInput.chapterContext) ? safeInput.chapterContext : {};
+
+  const rawRevision = safeInput.projectRevision ?? metaInput.revision;
+  const projectRevision = Number.isFinite(Number(rawRevision)) && Number(rawRevision) > 0 ? Math.floor(Number(rawRevision)) : 1;
+
+  // 1. Chapter
+  const rawChapterNo = chapterInput.chapterNo ?? safeInput.chapterNo ?? request.chapterNo ?? contract.chapterNo ?? chapterContext.chapterNo;
+  const chapterNo = Number.isFinite(Number(rawChapterNo)) && Number(rawChapterNo) > 0 ? Math.floor(Number(rawChapterNo)) : 1;
+
+  let chapterId = String(chapterInput.chapterId ?? safeInput.chapterId ?? request.chapterId ?? contract.chapterId ?? '').trim();
+
+  const authoritativeChapters = extractAuthoritativeChapters(novelState);
+  let authoritativeChapter = null;
+  if (authoritativeChapters.length > 0) {
+    if (chapterId) {
+      authoritativeChapter = authoritativeChapters.find(c => String(c && (c.id || c.chapterId) || '').trim() === chapterId);
+    }
+    if (!authoritativeChapter && chapterNo > 0 && chapterNo <= authoritativeChapters.length) {
+      authoritativeChapter = authoritativeChapters[chapterNo - 1];
+    }
+  }
+  if (!chapterId && authoritativeChapter) {
+    chapterId = String(authoritativeChapter.id || authoritativeChapter.chapterId || '').trim();
+  }
+
+  const chapterPlanList = Array.isArray(biblePayload.chapterPlan)
+    ? biblePayload.chapterPlan
+    : (Array.isArray(biblePayload.creationPlan?.chapterPlan) ? biblePayload.creationPlan.chapterPlan : []);
+  const planChapter = chapterPlanList[chapterNo - 1] || {};
+
+  const title = String(chapterInput.title || contract.chapterTitle || contract.title || planChapter.title || planChapter.name || authoritativeChapter?.title || authoritativeChapter?.name || chapterContext.title || `第${chapterNo}章`).trim();
+  const goal = String(chapterInput.goal || contract.chapterGoal || contract.goal || planChapter.goal || planChapter.synopsis || planChapter.beat || chapterContext.goal || '').trim();
+
+  let rawBeats = [];
+  if (Array.isArray(chapterInput.beats) && chapterInput.beats.length > 0) {
+    rawBeats = chapterInput.beats;
+  } else if (Array.isArray(contract.beats) && contract.beats.length > 0) {
+    rawBeats = contract.beats;
+  } else if (Array.isArray(contract.keyBeats) && contract.keyBeats.length > 0) {
+    rawBeats = contract.keyBeats;
+  } else if (Array.isArray(planChapter.beats) && planChapter.beats.length > 0) {
+    rawBeats = planChapter.beats;
+  } else if (Array.isArray(planChapter.keyBeats) && planChapter.keyBeats.length > 0) {
+    rawBeats = planChapter.keyBeats;
+  } else if (Array.isArray(chapterContext.beats) && chapterContext.beats.length > 0) {
+    rawBeats = chapterContext.beats;
+  } else if (Array.isArray(chapterContext.keyBeats) && chapterContext.keyBeats.length > 0) {
+    rawBeats = chapterContext.keyBeats;
+  } else if (planChapter.beat) {
+    rawBeats = [planChapter.beat];
+  }
+  const beats = rawBeats.map(sanitizeBeatItem).filter(Boolean);
+
+  let rawScenes = [];
+  if (Array.isArray(chapterInput.scenes) && chapterInput.scenes.length > 0) {
+    rawScenes = chapterInput.scenes;
+  } else if (Array.isArray(contract.scenes) && contract.scenes.length > 0) {
+    rawScenes = contract.scenes;
+  } else if (Array.isArray(chapterContext.scenePlan) && chapterContext.scenePlan.length > 0) {
+    rawScenes = chapterContext.scenePlan;
+  } else if (Array.isArray(planChapter.scenes) && planChapter.scenes.length > 0) {
+    rawScenes = planChapter.scenes;
+  } else if (Array.isArray(authoritativeChapter?.scenes) && authoritativeChapter.scenes.length > 0) {
+    rawScenes = authoritativeChapter.scenes;
+  }
+  const scenes = rawScenes.map(s => sanitizeObjectItem(s, 'goal')).filter(Boolean);
+
+  const summary = String(chapterInput.summary || contract.summary || planChapter.summary || planChapter.synopsis || chapterContext.summary || goal || '').trim();
+
+  let rawDirectives = [];
+  if (Array.isArray(chapterInput.sceneDirectives) && chapterInput.sceneDirectives.length > 0) {
+    rawDirectives = chapterInput.sceneDirectives;
+  } else if (Array.isArray(contract.sceneDirectives) && contract.sceneDirectives.length > 0) {
+    rawDirectives = contract.sceneDirectives;
+  } else if (Array.isArray(planChapter.sceneDirectives) && planChapter.sceneDirectives.length > 0) {
+    rawDirectives = planChapter.sceneDirectives;
+  } else if (Array.isArray(chapterContext.sceneDirectives) && chapterContext.sceneDirectives.length > 0) {
+    rawDirectives = chapterContext.sceneDirectives;
+  }
+  const sceneDirectives = rawDirectives.map(d => sanitizeObjectItem(d, 'directive')).filter(Boolean);
+
+  const clientOutline = String(chapterInput.clientOutline || chapterInput.outline || request.storyContext?.continuity?.outline || request.continuity?.outline || request.currentChapterOutline || '').trim();
+
+  const canonicalChapter = {
+    chapterId,
+    chapterNo,
+    title,
+    goal,
+    beats,
+    scenes,
+    summary,
+    sceneDirectives
+  };
+  if (clientOutline) canonicalChapter.clientOutline = clientOutline;
+
+  // 2. Volume
+  let matchedVolume = null;
+  if (Array.isArray(novelState.volumes)) {
+    for (const [vIdx, vol] of novelState.volumes.entries()) {
+      if (!vol || typeof vol !== 'object') continue;
+      if (chapterId && Array.isArray(vol.chapters)) {
+        if (vol.chapters.some(c => String(c && (c.id || c.chapterId) || '').trim() === chapterId)) {
+          matchedVolume = { ...vol, volumeIndex: vIdx + 1 };
+          break;
+        }
+      }
+    }
+    if (!matchedVolume && authoritativeChapter?.volumeId) {
+      matchedVolume = novelState.volumes.find(v => String(v?.id || v?.volumeId) === String(authoritativeChapter.volumeId));
+    }
+    if (!matchedVolume && novelState.volumes.length > 0) {
+      matchedVolume = { ...novelState.volumes[0], volumeIndex: 1 };
+    }
+  }
+
+  const volumePlanList = Array.isArray(biblePayload.volumePlan)
+    ? biblePayload.volumePlan
+    : (Array.isArray(biblePayload.creationPlan?.volumePlan)
+      ? biblePayload.creationPlan.volumePlan
+      : (Array.isArray(chapterContext.volumePlan) ? chapterContext.volumePlan : []));
+
+  const rawVolNo = volumeInput.volumeNo ?? matchedVolume?.volumeNo ?? matchedVolume?.number ?? matchedVolume?.volumeIndex ?? planChapter.volumeNo ?? 1;
+  const volumeNo = Number.isFinite(Number(rawVolNo)) && Number(rawVolNo) > 0 ? Math.floor(Number(rawVolNo)) : 1;
+
+  const planVolume = volumePlanList.find(v => Number(v?.volumeNo || v?.number) === volumeNo) || volumePlanList[0] || {};
+
+  const volumeId = String(volumeInput.volumeId || matchedVolume?.id || matchedVolume?.volumeId || planVolume.id || planVolume.volumeId || `vol_${volumeNo}`).trim();
+  const volumeTitle = String(volumeInput.title || volumeInput.volumeTitle || matchedVolume?.title || matchedVolume?.name || planVolume.title || planVolume.name || `第${volumeNo}卷`).trim();
+  const volumeGoal = String(volumeInput.goal || volumeInput.volumeGoal || matchedVolume?.goal || matchedVolume?.volumeGoal || matchedVolume?.summary || planVolume.goal || planVolume.summary || '').trim();
+
+  let rawArcList = [];
+  if (Array.isArray(volumeInput.arcGoals) && volumeInput.arcGoals.length > 0) {
+    rawArcList = volumeInput.arcGoals;
+  } else {
+    const arcPlanList = Array.isArray(biblePayload.arcPlan)
+      ? biblePayload.arcPlan
+      : (Array.isArray(biblePayload.creationPlan?.arcPlan)
+        ? biblePayload.creationPlan.arcPlan
+        : (Array.isArray(chapterContext.arcPlan) ? chapterContext.arcPlan : []));
+    if (Array.isArray(arcPlanList) && arcPlanList.length > 0) {
+      rawArcList = arcPlanList;
+    } else if (Array.isArray(matchedVolume?.arcGoals) && matchedVolume.arcGoals.length > 0) {
+      rawArcList = matchedVolume.arcGoals;
+    }
+  }
+  const arcGoals = rawArcList.map(sanitizeStringItem).filter(Boolean);
+
+  const volumePlan = String(volumeInput.volumePlan || planVolume.plan || planVolume.volumePlan || planVolume.goal || matchedVolume?.volumePlan || matchedVolume?.goal || volumeGoal || '').trim();
+
+  const canonicalVolume = {
+    volumeId,
+    volumeNo,
+    title: volumeTitle,
+    goal: volumeGoal,
+    arcGoals,
+    volumePlan
+  };
+
+  // 3. Dependencies
+  let rawPrereqList = [];
+  if (Array.isArray(depsInput.prerequisiteEvents) && depsInput.prerequisiteEvents.length > 0) {
+    rawPrereqList = depsInput.prerequisiteEvents;
+  } else if (Array.isArray(previous.timeline) && previous.timeline.length > 0) {
+    rawPrereqList = previous.timeline.slice(-3);
+  } else if (Array.isArray(chapterContext.openForeshadows) && chapterContext.openForeshadows.length > 0) {
+    rawPrereqList = chapterContext.openForeshadows.slice(0, 3);
+  }
+  const prerequisiteEvents = rawPrereqList.map(sanitizeStringItem).filter(Boolean);
+
+  let rawForeshadowList = [];
+  if (Array.isArray(depsInput.foreshadows) && depsInput.foreshadows.length > 0) {
+    rawForeshadowList = depsInput.foreshadows;
+  } else {
+    const rawPrevForeshadows = Array.isArray(previous.openForeshadows)
+      ? previous.openForeshadows
+      : (Array.isArray(chapterContext.openForeshadows) ? chapterContext.openForeshadows : []);
+    rawForeshadowList = rawPrevForeshadows;
+  }
+  const foreshadows = rawForeshadowList.map(f => sanitizeObjectItem(f, 'description')).filter(Boolean);
+
+  let rawDebtList = [];
+  if (Array.isArray(depsInput.causalDebts) && depsInput.causalDebts.length > 0) {
+    rawDebtList = depsInput.causalDebts;
+  } else {
+    const rawDebts = Array.isArray(factLedger.promises)
+      ? factLedger.promises
+      : (Array.isArray(factLedger.rules) ? factLedger.rules : (Array.isArray(chapterContext.rules) ? chapterContext.rules : []));
+    rawDebtList = rawDebts;
+  }
+  const causalDebts = rawDebtList.map(d => sanitizeObjectItem(d, 'description')).filter(Boolean);
+
+  const nextPlan = chapterPlanList[chapterNo] || {};
+  const nextIface = (depsInput.nextChapterInterface && typeof depsInput.nextChapterInterface === 'object' && !Array.isArray(depsInput.nextChapterInterface))
+    ? depsInput.nextChapterInterface
+    : ((depsInput.nextChapter && typeof depsInput.nextChapter === 'object' && !Array.isArray(depsInput.nextChapter)) ? depsInput.nextChapter : {});
+
+  let hookGoal = String(nextIface.hookGoal || contract.nextChapterInterface?.hookGoal || nextPlan.goal || nextPlan.synopsis || nextPlan.hook || '').trim();
+  if (hookGoal === 'null' || hookGoal === 'undefined') hookGoal = '';
+
+  let unresolvedTension = String(nextIface.unresolvedTension || contract.nextChapterInterface?.unresolvedTension || nextPlan.tension || nextPlan.conflict || nextPlan.unresolvedTension || '').trim();
+  if (unresolvedTension === 'null' || unresolvedTension === 'undefined') unresolvedTension = '';
+
+  const canonicalDependencies = {
+    prerequisiteEvents,
+    foreshadows,
+    causalDebts,
+    nextChapterInterface: {
+      hookGoal,
+      unresolvedTension
+    }
+  };
+
+  // 4. Meta
+  let completenessTier = 'goal_only';
+  if (Array.isArray(canonicalChapter.scenes) && canonicalChapter.scenes.length > 0) {
+    completenessTier = 'full_scenes';
+  } else if (Array.isArray(canonicalChapter.beats) && canonicalChapter.beats.length > 0) {
+    completenessTier = 'event_chain';
+  }
+  if (metaInput.completenessTier && ['full_scenes', 'event_chain', 'goal_only'].includes(metaInput.completenessTier)) {
+    completenessTier = metaInput.completenessTier;
+  }
+
+  const cryptoInstance = safeInput.crypto || crypto;
+  const hashPayload = {
+    chapter: canonicalChapter,
+    volume: canonicalVolume,
+    dependencies: canonicalDependencies,
+    completenessTier,
+    revision: projectRevision
+  };
+  const outlineHash = metaInput.outlineHash || cryptoInstance.createHash('sha256').update(JSON.stringify(hashPayload), 'utf8').digest('hex');
+
+  const canonicalMeta = {
+    revision: projectRevision,
+    outlineHash,
+    completenessTier
+  };
+
+  return {
+    chapter: canonicalChapter,
+    volume: canonicalVolume,
+    dependencies: canonicalDependencies,
+    meta: canonicalMeta
+  };
+}
+
 function createGenerationService({
   CLOUD_API_BASE,
   DATA_DIR,
@@ -127,13 +476,17 @@ function createGenerationService({
               blockers: unknown.map(name => ({ issueId: 'unknown_contract_character', problem: `章节合同中的人物「${name}」不在服务端创作圣经中` }))
             };
           },
-          planScenes: async ({ request: runRequest, contract }) => {
+          planScenes: async ({ request: runRequest, contract, outlineTierInfo }) => {
             const chapter = runRequest.storyContext && runRequest.storyContext.chapterContext || {};
-            const outlineNodes = Array.isArray(chapter.scenePlan) && chapter.scenePlan.length
-              ? chapter.scenePlan
-              : [chapter.goal || contract.chapterGoal];
-            return require('../lib/scene-planner').planScenes(outlineNodes, {
-              targetWordCount: Number(runRequest.targetWords || contract.wordBudget.targetChars) || 2400
+            const outlineContext = runRequest.storyContext && runRequest.storyContext.outlineContext || {};
+            const targetWordCount = Number(runRequest.targetWords || contract.wordBudget?.targetChars) || 2400;
+            const scenePlanner = require('../lib/scene-planner');
+            return scenePlanner.planScenesTiered({
+              contract,
+              chapterContext: chapter,
+              outlineContext,
+              storyContext: runRequest.storyContext,
+              targetWordCount
             });
           },
           writer: async ({ request: runRequest, contract: passedContract, scenePlan, scenes, signal, onProgress, context: passedContext, contextPlan: passedContextPlan, genre: passedGenre, style: passedStyle }) => {
@@ -837,27 +1190,6 @@ function createGenerationService({
       return generationRunError(res, error);
     }
   }
-  
-  function extractAuthoritativeChapters(novelState) {
-    if (!novelState || typeof novelState !== 'object') return [];
-    const list = [];
-    if (Array.isArray(novelState.volumes)) {
-      for (const volume of novelState.volumes) {
-        if (!volume || !Array.isArray(volume.chapters)) continue;
-        for (const chapter of volume.chapters) {
-          if (chapter && typeof chapter === 'object') {
-            list.push({ ...chapter, volumeId: volume.id, volumeTitle: volume.title });
-          }
-        }
-      }
-    }
-    if (list.length === 0 && Array.isArray(novelState.chapters)) {
-      for (const chapter of novelState.chapters) {
-        if (chapter && typeof chapter === 'object') list.push(chapter);
-      }
-    }
-    return list;
-  }
 
   function generationChapterNo(request, contract, book, novelState) {
     const targetChapterId = String(request && request.chapterId || contract && contract.chapterId || '').trim();
@@ -1025,6 +1357,19 @@ function createGenerationService({
       bibleVersion: Number(bible && bible.version) || 0, planHash, previous: previous.id || previous.stateVersion || 0,
       stateSummary
     });
+    const outlineContext = buildCanonicalOutlineContext({
+      novelState,
+      biblePayload,
+      chapterNo,
+      chapterId: request.chapterId || (input.contract && input.contract.chapterId),
+      request,
+      contract: input.contract,
+      previous,
+      factLedger,
+      projectRevision,
+      chapterContext,
+      crypto
+    });
     const storyContext = {
       ...stateSummary,
       bibleVersion: Number(bible && bible.version) || 0,
@@ -1033,6 +1378,7 @@ function createGenerationService({
       baseHash,
       contentHash: String(previous.contentHash || ''),
       previousEnding: generationPreviousEnding(novelState, chapterNo),
+      outlineContext,
       chapterOutline: chapterContext,
       chapterContext,
       chapterPlan: chapterContext,
@@ -1578,7 +1924,7 @@ function createGenerationService({
   }
   
   
-  return { generationRunOrchestrator, generationRequestAuth, generationRunError, generationSseEvent, streamGenerationEvents, generationProjectAccess, generationChatChunk, streamLegacyGenerationChat, handleLegacyGenerationChat, extractAuthoritativeChapters, generationChapterNo, generationPreviousEnding, generationFactLedger, loadAuthoritativeGenerationContext, scenePatchError, validateScenePatchBody, handleNovelScenePatch, handleGenerationRuns, handleBenchmark };
+  return { generationRunOrchestrator, generationRequestAuth, generationRunError, generationSseEvent, streamGenerationEvents, generationProjectAccess, generationChatChunk, streamLegacyGenerationChat, handleLegacyGenerationChat, extractAuthoritativeChapters, generationChapterNo, generationPreviousEnding, generationFactLedger, loadAuthoritativeGenerationContext, buildCanonicalOutlineContext, scenePatchError, validateScenePatchBody, handleNovelScenePatch, handleGenerationRuns, handleBenchmark };
 }
 
-module.exports = { createGenerationService };
+module.exports = { createGenerationService, buildCanonicalOutlineContext, extractAuthoritativeChapters };

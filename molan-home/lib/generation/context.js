@@ -16,6 +16,7 @@ const BLOCK_TO_LAYER = Object.freeze({
   sceneContract: 'L0_current', immediateTimeline: 'L0_current', instruction: 'L0_current',
   currentTask: 'L0_current', requiredPayoff: 'L0_current', requiredCausalPayoff: 'L0_current',
   scenes: 'L1_scene', scenePlan: 'L1_scene', currentScenePlan: 'L1_scene', sceneDirectives: 'L1_scene', location: 'L1_scene',
+  outlineContext: 'L2_chapter',
   chapterContract: 'L2_chapter', chapterGoal: 'L2_chapter', currentChapterOutline: 'L2_chapter',
   chapterOutline: 'L2_chapter', outline: 'L2_chapter', chapterContext: 'L2_chapter',
   chapterPlan: 'L2_chapter', outlineDependencies: 'L2_chapter', planText: 'L2_chapter',
@@ -35,6 +36,7 @@ const PRIORITY = Object.freeze({
   sceneContract: 0, currentTask: 0, instruction: 0, chapterGoal: 0, requiredPayoff: 0, requiredCausalPayoff: 0,
   hardState: 0, povKnowledge: 0, forbiddenKnowledge: 0, worldProhibitions: 0,
   worldRules: 0, axioms: 0, immediateTimeline: 0, chapterContract: 0,
+  outlineContext: 0,
   currentChapterOutline: 0, chapterOutline: 0, currentScenePlan: 0, sceneDirectives: 0,
   characters: 1, location: 1, relationships: 1, volumeState: 1, scenes: 1, scenePlan: 1,
   chapterContext: 1, chapterPlan: 1, outline: 1, outlineDependencies: 1, volumeOutline: 1, currentVolumeOutline: 1, arcGoals: 1,
@@ -45,6 +47,7 @@ const PRIORITY = Object.freeze({
 });
 const BLOCK_ORDER = Object.freeze([
   'sceneContract', 'currentTask', 'instruction', 'chapterContract', 'chapterGoal',
+  'outlineContext',
   'currentChapterOutline', 'chapterOutline', 'outline', 'requiredPayoff', 'requiredCausalPayoff',
   'hardState', 'povKnowledge', 'forbiddenKnowledge', 'worldProhibitions', 'worldRules', 'axioms',
   'immediateTimeline', 'currentScenePlan', 'sceneDirectives', 'scenes', 'scenePlan', 'location',
@@ -302,6 +305,143 @@ function fitPlainText({ block, includedBlocks, maxChars, maxContextTokens, model
   return best.length >= 200 ? best : '';
 }
 
+function formatOutlineContextMarkdown(data) {
+  if (typeof data === 'string') return data.trim();
+  if (!data || typeof data !== 'object') return String(data || '');
+
+  const ch = data.chapter && typeof data.chapter === 'object' ? data.chapter : {};
+  const vol = data.volume && typeof data.volume === 'object' ? data.volume : {};
+  const dep = data.dependencies && typeof data.dependencies === 'object' ? data.dependencies : {};
+
+  const lines = [];
+
+  // Helper for filtering sparse / nullish list items and rendering with 1-based indexing
+  const formatList = (arr, extractFn) => {
+    if (!Array.isArray(arr) || arr.length === 0) return '';
+    const validItems = [];
+    for (const item of arr) {
+      if (item == null || item === '') continue;
+      if (typeof item === 'string') {
+        const trimmed = item.trim();
+        if (trimmed && trimmed !== 'null' && trimmed !== 'undefined' && trimmed !== '{}') {
+          validItems.push(trimmed);
+        }
+      } else if (typeof item === 'object') {
+        if (Object.keys(item).length === 0) continue;
+        const extracted = extractFn ? extractFn(item) : '';
+        const str = typeof extracted === 'string'
+          ? extracted.trim()
+          : (extracted && typeof extracted === 'object' && Object.keys(extracted).length > 0 ? JSON.stringify(extracted) : String(extracted || ''));
+        if (str && str !== 'null' && str !== 'undefined' && str !== '{}') {
+          validItems.push(str);
+        }
+      } else {
+        const str = String(item).trim();
+        if (str && str !== 'null' && str !== 'undefined') {
+          validItems.push(str);
+        }
+      }
+    }
+    if (validItems.length === 0) return '';
+    return validItems.map((val, i) => `${i + 1}. ${val}`).join('；');
+  };
+
+  // Section 1: 当前章节目标与核心节拍
+  lines.push('【当前章节目标与核心节拍】');
+  const chapterNo = ch.chapterNo != null ? ch.chapterNo : 1;
+  const chapterTitle = ch.title ? `《${ch.title}》` : '';
+  lines.push(`- 章节定位：第 ${chapterNo} 章${chapterTitle}`);
+
+  if (ch.goal) lines.push(`- 核心目标：${ch.goal}`);
+
+  const clientOutline = ch.clientOutline || ch.outline;
+  if (ch.summary && ch.summary !== ch.goal && ch.summary !== clientOutline) {
+    lines.push(`- 章节概要：${ch.summary}`);
+  }
+
+  const beatsStr = formatList(ch.beats, b => b.title || b.name || b.beat || JSON.stringify(b));
+  if (beatsStr) lines.push(`- 关键节拍：${beatsStr}`);
+
+  const scenesStr = formatList(ch.scenes, s => s.goal || s.title || s.name || JSON.stringify(s));
+  if (scenesStr) lines.push(`- 场景规划：${scenesStr}`);
+
+  const dirStr = formatList(ch.sceneDirectives, d => d.directive || d.instruction || d.desc || JSON.stringify(d));
+  if (dirStr) lines.push(`- 镜头与动作指令：${dirStr}`);
+
+  if (clientOutline) {
+    const clientStr = typeof clientOutline === 'string'
+      ? clientOutline.trim()
+      : (typeof clientOutline === 'object' && Object.keys(clientOutline).length > 0 ? JSON.stringify(clientOutline) : '');
+    if (clientStr) {
+      lines.push(`- 现场细纲约束：${clientStr}`);
+    }
+  }
+
+  // Section 2: 所属卷与剧情主线弧线
+  lines.push('');
+  lines.push('【所属卷与剧情主线弧线】');
+  const volParts = [];
+  if (vol.volumeNo != null || vol.title) {
+    const volNoStr = vol.volumeNo != null ? `第 ${vol.volumeNo} 卷` : '';
+    const volTitleStr = vol.title ? `·${vol.title}` : '';
+    const combined = `${volNoStr}${volTitleStr}`.trim();
+    if (combined) volParts.push(combined);
+  }
+  if (vol.goal && String(vol.goal).trim()) volParts.push(`(卷目标：${vol.goal})`);
+  if (volParts.length > 0) {
+    lines.push(`- 所属卷：${volParts.join(' ')}`);
+  } else {
+    lines.push('- 所属卷：全书主线');
+  }
+
+  const arcStr = Array.isArray(vol.arcGoals)
+    ? formatList(vol.arcGoals, a => a.goal || a.title || a.name || JSON.stringify(a))
+    : (typeof vol.arcGoals === 'string' && vol.arcGoals.trim() ? vol.arcGoals.trim() : '');
+  if (arcStr) {
+    lines.push(`- 剧情弧线：${arcStr}`);
+  }
+
+  if (vol.volumePlan && vol.volumePlan !== vol.goal) {
+    const planStr = typeof vol.volumePlan === 'string'
+      ? vol.volumePlan.trim()
+      : (typeof vol.volumePlan === 'object' && Object.keys(vol.volumePlan).length > 0 ? JSON.stringify(vol.volumePlan) : '');
+    if (planStr) {
+      lines.push(`- 卷推进规划：${planStr}`);
+    }
+  }
+
+  // Section 3: 前置因果依赖与下章承接接口 (Hardened: avoid dangling empty headers)
+  const depLines = [];
+
+  const prereqStr = formatList(dep.prerequisiteEvents, p => p.description || p.event || p.title || JSON.stringify(p));
+  if (prereqStr) depLines.push(`- 前置依赖：${prereqStr}`);
+
+  const fStr = formatList(dep.foreshadows, f => f.name || f.description || f.title || JSON.stringify(f));
+  if (fStr) depLines.push(`- 关键伏笔：${fStr}`);
+
+  const dStr = formatList(dep.causalDebts, d => d.description || d.promise || d.debt || JSON.stringify(d));
+  if (dStr) depLines.push(`- 因果债务：${dStr}`);
+
+  const nextIface = dep.nextChapterInterface || dep.nextChapter || {};
+  const nextParts = [];
+  if (nextIface.chapterNo != null && String(nextIface.chapterNo).trim() !== '') nextParts.push(`第 ${nextIface.chapterNo} 章`);
+  if (nextIface.title && String(nextIface.title).trim() !== '') nextParts.push(`《${nextIface.title}》`);
+  if (nextIface.hookGoal && String(nextIface.hookGoal).trim() !== '') nextParts.push(`核心钩子：${nextIface.hookGoal}`);
+  if (nextIface.unresolvedTension && String(nextIface.unresolvedTension).trim() !== '') nextParts.push(`未解悬念：${nextIface.unresolvedTension}`);
+  if (nextIface.goal && !nextIface.hookGoal && String(nextIface.goal).trim() !== '') nextParts.push(`承接目标：${nextIface.goal}`);
+  if (nextParts.length > 0) {
+    depLines.push(`- 下章承接：${nextParts.join('，')}`);
+  }
+
+  if (depLines.length > 0) {
+    lines.push('');
+    lines.push('【前置因果依赖与下章承接接口】');
+    lines.push(...depLines);
+  }
+
+  return lines.join('\n').trim();
+}
+
 /** 按模型 Token 预算与八层优先级编译上下文，并记录可重放决策。 */
 function assembleContext(input = {}, options = {}) {
   const originalInput = input && typeof input === 'object' ? input : {};
@@ -314,7 +454,56 @@ function assembleContext(input = {}, options = {}) {
   if (mechanismSource != null) prepared.genreMechanisms = mechanismSelection.value;
   const debtSelection = splitCausalDebt(prepared, options);
 
-  // 规范化与去重章节大纲字段：杜绝 chapterContext / chapterPlan / planText 重复膨胀
+  // 规范化与去重章节大纲字段：
+  if (prepared.outlineContext) {
+    // 1. 安全同步现场大纲至 outlineContext（防止就地修改冻结对象引发 TypeError 崩溃）
+    if (prepared.currentChapterOutline && typeof prepared.outlineContext === 'object') {
+      const oc = prepared.outlineContext;
+      const ocChapter = oc.chapter && typeof oc.chapter === 'object' ? oc.chapter : null;
+      const ocClient = ocChapter?.clientOutline;
+      if (!ocClient) {
+        const safeChapter = ocChapter ? { ...ocChapter } : {};
+        if (typeof prepared.currentChapterOutline === 'string') {
+          safeChapter.clientOutline = prepared.currentChapterOutline;
+        } else if (typeof prepared.currentChapterOutline === 'object') {
+          safeChapter.clientOutline = prepared.currentChapterOutline.outline ||
+            prepared.currentChapterOutline.summary ||
+            prepared.currentChapterOutline;
+        }
+        prepared.outlineContext = {
+          ...oc,
+          chapter: safeChapter
+        };
+      }
+    }
+
+    // 2. 无条件强力清除所有旧的大纲别名字段，杜绝任何形态下的重复序列化与 double-JSON 入模
+    delete prepared.chapterOutline;
+    delete prepared.chapterContext;
+    delete prepared.chapterPlan;
+    delete prepared.planText;
+    delete prepared.currentChapterOutline;
+    delete prepared.outline;
+    delete prepared.outlineDependencies;
+    delete prepared.nextChapterOutline;
+
+    // 3. 现场 continuity 净化：剥离已编译入模的 outline 与 nextChapter，杜绝 raw JSON 泄露
+    if (prepared.continuity && typeof prepared.continuity === 'object') {
+      const sanitizedContinuity = { ...prepared.continuity };
+      delete sanitizedContinuity.outline;
+      delete sanitizedContinuity.currentChapterOutline;
+      delete sanitizedContinuity.chapterOutline;
+      delete sanitizedContinuity.chapterPlan;
+      delete sanitizedContinuity.nextChapter;
+      delete sanitizedContinuity.nextChapterOutline;
+      if (Object.keys(sanitizedContinuity).length === 0) {
+        delete prepared.continuity;
+      } else {
+        prepared.continuity = sanitizedContinuity;
+      }
+    }
+  }
+
   if (prepared.chapterContext && prepared.chapterPlan) {
     if (prepared.chapterPlan === prepared.chapterContext || JSON.stringify(prepared.chapterPlan) === JSON.stringify(prepared.chapterContext)) {
       delete prepared.chapterPlan;
@@ -341,13 +530,15 @@ function assembleContext(input = {}, options = {}) {
       (typeof content === 'object' && !Array.isArray(content) && Object.keys(content).length === 0)) continue;
     if (['activeCausalDebts', 'causalDebt', 'causalDebts', 'mechanisms'].includes(key)) continue;
     const priority = PRIORITY[key] !== undefined ? PRIORITY[key] : 2;
+    const isOutlineContext = key === 'outlineContext';
+    const contentText = isOutlineContext ? formatOutlineContextMarkdown(content) : asText(content);
     rawBlocks.push({
       id: key,
       layer: BLOCK_TO_LAYER[key] || 'L5_facts',
       priority,
       required: priority === 0,
-      content: asText(content),
-      plainText: typeof content === 'string'
+      content: contentText,
+      plainText: isOutlineContext || typeof content === 'string'
     });
   }
   const orderIndex = new Map(BLOCK_ORDER.map((id, index) => [id, index]));
@@ -477,6 +668,59 @@ function assembleContext(input = {}, options = {}) {
     strategyVersion: CONTEXT_STRATEGY_VERSION
   });
   const contextHash = hashValue(contextText);
+  const outlineBlockKeys = ['outlineContext', 'currentChapterOutline', 'chapterOutline', 'chapterContext'];
+  const outlineBlockIncluded = includedBlocks.some(block => outlineBlockKeys.includes(block.id));
+  const outlineBlockTokens = includedBlocks
+    .filter(block => outlineBlockKeys.includes(block.id))
+    .reduce((sum, block) => sum + estimateTokens(renderBlock(block), model), 0);
+
+  const rawOutline = prepared.outlineContext ||
+    (typeof prepared.currentChapterOutline === 'object' ? prepared.currentChapterOutline : null) ||
+    prepared.chapterContext || {};
+
+  const resolvedChapterId = options.chapterId || rawOutline.chapterId || rawOutline.id || (rawOutline.chapter && rawOutline.chapter.id) || null;
+  const resolvedChapterNo = options.chapterNo != null ? Number(options.chapterNo)
+    : (rawOutline.chapterNo != null ? Number(rawOutline.chapterNo)
+    : (rawOutline.chapter && rawOutline.chapter.chapterNo != null ? Number(rawOutline.chapter.chapterNo)
+    : (debtSelection.currentChapterNo != null ? Number(debtSelection.currentChapterNo) : null)));
+  const outlineRevision = options.outlineRevision ?? rawOutline.planRevision ?? rawOutline.revision ?? (rawOutline.provenance && rawOutline.provenance.revision) ?? null;
+  const outlineHash = options.outlineHash || rawOutline.outlineHash || rawOutline.hash || (rawOutline.provenance && rawOutline.provenance.outlineHash) || null;
+
+  const rawDependencies = rawOutline.dependencies || (rawOutline.chapter && rawOutline.chapter.dependencies) || [];
+  const outlineDependenciesIncluded = Array.isArray(rawDependencies) ? rawDependencies : (rawDependencies ? [rawDependencies] : []);
+
+  const outlineImpact = options.outlineImpact || rawOutline.outlineImpact || rawOutline.impact || {
+    completed: [], deferred: [], changed: [], omitted: []
+  };
+
+  const contextTruncationReasons = blockDecisions
+    .filter(decision => decision.decision !== 'included')
+    .map(decision => ({
+      blockId: decision.id,
+      layer: decision.layer,
+      decision: decision.decision,
+      reason: decision.reason
+    }));
+
+  const stateDeltaCommitted = Boolean(
+    options.stateDeltaCommitted ||
+    options.stateDelta ||
+    (prepared.stateDelta && Object.keys(prepared.stateDelta).length > 0)
+  );
+
+  const outlineAudit = {
+    resolvedChapterId,
+    resolvedChapterNo,
+    outlineRevision,
+    outlineHash,
+    requiredOutlineIncluded: outlineBlockIncluded,
+    outlineBlockTokens,
+    outlineDependenciesIncluded,
+    outlineImpact,
+    contextTruncationReasons,
+    stateDeltaCommitted
+  };
+
   const contextPlan = {
     contextPlanVersion: CONTEXT_VERSION,
     contextStrategyVersion: CONTEXT_STRATEGY_VERSION,
@@ -507,6 +751,17 @@ function assembleContext(input = {}, options = {}) {
     fits: margin >= 0,
     margin,
     contextHash,
+    outlineAudit,
+    resolvedChapterId,
+    resolvedChapterNo,
+    outlineRevision,
+    outlineHash,
+    requiredOutlineIncluded: outlineBlockIncluded,
+    outlineBlockTokens,
+    outlineDependenciesIncluded,
+    outlineImpact,
+    contextTruncationReasons,
+    stateDeltaCommitted,
     replayManifest: {
       manifestVersion: 1,
       strategyVersion: CONTEXT_STRATEGY_VERSION,
@@ -525,7 +780,18 @@ function assembleContext(input = {}, options = {}) {
         externalContractTokens, renderedWrapperTokens, reservedInputTokens,
         renderedContextTokens, totalRequired, margin,
         estimator: 'model-capability-cjk-ratio-v1'
-      }
+      },
+      outlineAudit,
+      resolvedChapterId,
+      resolvedChapterNo,
+      outlineRevision,
+      outlineHash,
+      requiredOutlineIncluded: outlineBlockIncluded,
+      outlineBlockTokens,
+      outlineDependenciesIncluded,
+      outlineImpact,
+      contextTruncationReasons,
+      stateDeltaCommitted
     }
   };
 
@@ -546,5 +812,6 @@ module.exports = {
   PRIORITY,
   assembleContext,
   selectGenreMechanisms,
-  splitCausalDebt
+  splitCausalDebt,
+  formatOutlineContextMarkdown
 };
