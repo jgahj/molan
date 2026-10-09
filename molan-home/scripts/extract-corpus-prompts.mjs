@@ -224,8 +224,30 @@ async function main() {
       fs.writeFileSync(catMdPath, catMd, 'utf8');
     }
 
-    // 2. 生成流式轻量索引 index.jsonl
-    const jsonlLines = manifestSamples.map(s => JSON.stringify(s));
+    // 2. 在部分抽取模式下，合并已有 Manifest，杜绝全库索引被覆盖删除
+    let finalSamples = manifestSamples;
+    let finalCategoryStats = { ...categoryStats };
+    const manifestPath = path.join(options.outputDir, 'manifest.json');
+
+    if ((options.category || options.limit) && fs.existsSync(manifestPath)) {
+      try {
+        const oldManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const sampleMap = new Map();
+        for (const s of (oldManifest.samples || [])) {
+          sampleMap.set(s.bookId, s);
+        }
+        for (const s of manifestSamples) {
+          sampleMap.set(s.bookId, s);
+        }
+        finalSamples = Array.from(sampleMap.values());
+        if (oldManifest.stats?.categoryBreakdown) {
+          finalCategoryStats = { ...oldManifest.stats.categoryBreakdown, ...categoryStats };
+        }
+      } catch (_) {}
+    }
+
+    // 生成流式轻量索引 index.jsonl
+    const jsonlLines = finalSamples.map(s => JSON.stringify(s));
     fs.writeFileSync(path.join(options.outputDir, 'index.jsonl'), jsonlLines.join('\n') + '\n', 'utf8');
 
     // 3. 生成全局 manifest.json (含 AWAITING_HUMAN_CONFIRMATION 门禁)
@@ -241,11 +263,11 @@ async function main() {
       generatedAt: new Date().toISOString(),
       stats: {
         totalBooks: allBooks.length,
-        processedBooks: processedCount,
-        categoryCount: Object.keys(categoryStats).length,
+        processedBooks: finalSamples.length,
+        categoryCount: Object.keys(finalCategoryStats).length,
         errorsCount: errors.length,
-        averageChapterChars: Math.round(Object.values(categoryStats).reduce((a, b) => a + b.totalChars, 0) / processedCount),
-        categoryBreakdown: categoryStats
+        averageChapterChars: Math.round(Object.values(finalCategoryStats).reduce((a, b) => a + (b.totalChars || 0), 0) / Math.max(1, finalSamples.length)),
+        categoryBreakdown: finalCategoryStats
       },
       quadrants: {
         A: { name: '墨阑完整生成链 + 极简提示词', role: 'experiment_a' },
@@ -253,10 +275,9 @@ async function main() {
         C: { name: '大模型单轮直接生成 + 极简提示词', role: 'control_c' },
         D: { name: '大模型单轮直接生成 + 完整提示词', role: 'control_d' }
       },
-      samples: manifestSamples
+      samples: finalSamples
     };
 
-    const manifestPath = path.join(options.outputDir, 'manifest.json');
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
     console.log(`Manifest 清单与 index.jsonl 已生成: ${manifestPath}`);
 

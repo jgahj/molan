@@ -33,7 +33,8 @@ function parseArgs() {
     resume: true,
     concurrency: 2,
     evaluate: false,
-    confirmPhase1Approved: false
+    confirmPhase1Approved: false,
+    experimentDir: null
   };
 
   for (const arg of args) {
@@ -45,6 +46,8 @@ function parseArgs() {
       options.limit = parseInt(arg.split('=')[1], 10);
     } else if (arg.startsWith('--concurrency=')) {
       options.concurrency = parseInt(arg.split('=')[1], 10);
+    } else if (arg.startsWith('--experiment-dir=')) {
+      options.experimentDir = path.resolve(arg.split('=')[1]);
     } else if (arg === '--dry-run') {
       options.dryRun = true;
     } else if (arg === '--mock') {
@@ -69,12 +72,13 @@ async function main() {
   console.log(`目标象限: ${options.quadrant}`);
   if (options.category) console.log(`指定题材: ${options.category}`);
   if (options.limit) console.log(`样本限制: ${options.limit}`);
+  console.log(`并发线程: ${options.concurrency}`);
   console.log(`执行模式: ${options.dryRun ? 'DRY-RUN (试跑预检)' : (options.mock ? 'MOCK (模拟生成与评测)' : 'LIVE (真实大模型)')}`);
   console.log(`断点续传: ${options.resume ? '开启' : '关闭'}`);
   console.log('----------------------------------------------------------------');
 
   const runner = new QuadrantBatchRunner({
-    experimentDir: path.resolve(__dirname, '../data/corpus-prompt-experiments'),
+    experimentDir: options.experimentDir || path.resolve(__dirname, '../data/corpus-prompt-experiments'),
     concurrency: options.concurrency
   });
 

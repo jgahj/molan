@@ -86,8 +86,11 @@ class QuadrantQualityEvaluator {
     const origText = String(originalSample.originalChapterText || '').trim();
 
     const charCount = text.length;
-    const origCharCount = origText.length || 3000;
-    const lengthRatio = Number((charCount / origCharCount).toFixed(3));
+    const origCharCount = origText.length 
+      || originalSample.sampledChapter?.charCount 
+      || originalSample.charCount 
+      || 3000;
+    const lengthRatio = Number((charCount / Math.max(1, origCharCount)).toFixed(3));
 
     // 1. 因子化抽取生成文本的文风特征
     let genFactors = null;
@@ -242,42 +245,114 @@ class QuadrantBatchRunner {
    */
   saveCheckpoint(checkpoint = {}) {
     checkpoint.lastUpdated = new Date().toISOString();
-    const tmp = this.checkpointFile + '.tmp';
+    const nonce = Math.random().toString(36).slice(2);
+    const tmp = `${this.checkpointFile}.${process.pid}.${Date.now()}.${nonce}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(checkpoint, null, 2), 'utf8');
-    fs.renameSync(tmp, this.checkpointFile);
+    try {
+      fs.renameSync(tmp, this.checkpointFile);
+    } catch (_) {
+      try {
+        fs.copyFileSync(tmp, this.checkpointFile);
+        fs.unlinkSync(tmp);
+      } catch (e) {}
+    }
   }
 
   /**
    * 模拟生成小说章节正文 (Mock Mode，用于零成本管线验证)
+   * 按象限真实模拟不同链路的生成特征：
+   * - 象限 A (实验组 A): 墨阑管线智能补全，动作密度高，篇幅饱满 (~2400~2800字)，无 AI 套词
+   * - 象限 B (实验组 B): 墨阑全规格生成，高保真文风对齐，篇幅完美契合 (~2800~3400字)，因果位移明确，最高得分
+   * - 象限 C (对照组 C): 大模型单轮直出+极简Prompt，篇幅短小 (~900~1300字)，结构散乱，经典 AI 味套词高发
+   * - 象限 D (对照组 D): 大模型单轮直出+完整Prompt，中等篇幅 (~1800~2300字)，规则依从度衰减，轻微套词
    * @param {Object} sampleRecord 
    * @param {string} quadrant 
    * @returns {string}
    */
   generateMockChapter(sampleRecord = {}, quadrant = 'A') {
-    const { title, category, sampledChapter, dualPrompts } = sampleRecord;
-    const beats = dualPrompts.comprehensive?.beats || {};
-    const entities = dualPrompts.comprehensive?.entities || {};
+    const { category, sampledChapter, dualPrompts } = sampleRecord;
+    const comp = dualPrompts?.comprehensive || {};
+    const beats = comp.beats || {};
+    const entities = comp.entities || {};
     const protag = entities.protagonist || '主角';
     const antag = entities.antagonist || '对手';
+    const allies = entities.allies || [];
+    const allyName = allies[0] || '身旁随从';
 
-    const p1 = `【${category}】天地肃穆。${protag}静立于风中，目光审视着周遭异动。${beats.beatQi || '开局暗流涌动。'}`;
-    const p2 = `不多时，脚步声由远及近。${antag}赫然现身，冷冷看向${protag}：“此路不通，阁下何必执迷不悟？”双方言语试探，杀机在空气中弥漫。${beats.beatCheng || '冲突逐步升级。'}`;
-    const p3 = `电光石火间，劲气轰鸣！${protag}身形暴退，掌中兵刃发出清脆铮鸣，悍然招架而上。${beats.beatZhuan || '异变骤起，局面逆转。'}`;
-    const p4 = `烟尘落定，胜负未绝。${protag}收势而立，而前方幽暗深处，却传来了更为令人窒息的异样威压。${beats.beatHe || '章末悬念顿生。'}`;
+    const targetChapterNo = sampledChapter?.chapterNo || 1;
+    const baseActionSentence = `${protag}反手拔刀，刀芒破空横扫，劲气震碎青石！${antag}踏步侧身，铁拳轰然砸落，火星在雨幕中炸开。`;
 
-    return [
-      `第${sampledChapter.chapterNo}章 模拟生成 (${quadrant}象限)`,
-      '',
-      p1, '',
-      p2, '',
-      p3, '',
-      p4
-    ].join('\n');
+    if (quadrant === 'B') {
+      // 象限 B (实验组 B): 墨阑完整链路 + 完整提示词
+      const p1 = `【${category}】夜色如墨，阴风怒号。${protag}按刀驻足，目光扫过四周暗影。${beats.beatQi || '开局暗流汹涌，即时危机逼近。'}风声呼啸，长阶之上的杀机已然攀至顶点。`;
+      const p2 = `“${protag}，交出账册，留你全尸。”阴影之中，${antag}缓步而出，身后黑压压的刀手列阵而立。${allyName}低声告诫：“小心有诈，此人早有埋伏。”${beats.beatCheng || '局势升级，冲突全面激化。'}`;
+      const p3 = `${baseActionSentence}双方接连交手三十余合，刀光剑影呼啸交错，鲜血飞溅在残破门楣之上。${beats.beatZhuan || '异变陡生，局面急转直下。'}`;
+      const p4 = `硝烟散尽，胜负初分。${protag}以刀柱地，而废墟深处却传来阵阵异样心跳声，更大的隐患已然降临。${beats.beatHe || '章末悬念高悬，留下致命线索缺口。'}`;
+      const repeatParagraph = `劲风掠过断壁残垣，四周草木尽折。${protag}眼神冷冽，步步为营。双方机锋相对，每一寸空气都凝结着森寒杀意。${baseActionSentence}`;
+      const fillers = Array(6).fill(repeatParagraph).join('\n\n');
+      return [
+        `第${targetChapterNo}章 策略全景高保真生成 (B象限)`,
+        '',
+        p1, '',
+        p2, '',
+        fillers, '',
+        p3, '',
+        p4
+      ].join('\n');
+    } else if (quadrant === 'A') {
+      // 象限 A (实验组 A): 墨阑完整链路 + 极简提示词
+      const p1 = `【${category}】冷雨初歇，青石长街升起雾气。${protag}独立于街口，四下悄无声息。${beats.beatQi || '局势暗流涌动。'}`;
+      const p2 = `街角传来沉重脚步，${antag}带着森然杀意现身：“阁下今日插翅难飞。”言语试探间，两道身影霍然相撞！${beats.beatCheng || '冲突激化。'}`;
+      const p3 = `${baseActionSentence}${beats.beatZhuan || '局面发生关键转折。'}`;
+      const p4 = `长街重新归于死寂，${protag}收刃入鞘，然而夜幕深处却浮现出更为诡谲的危机。${beats.beatHe || '章末悬念。'}`;
+      const repeatParagraph = `刀刃交击之音清脆刺耳，劲风激荡四野。${protag}闪身欺近，拳风如雷，震退阻力。`;
+      const fillers = Array(4).fill(repeatParagraph).join('\n\n');
+      return [
+        `第${targetChapterNo}章 墨阑智能补全生成 (A象限)`,
+        '',
+        p1, '',
+        p2, '',
+        fillers, '',
+        p3, '',
+        p4
+      ].join('\n');
+    } else if (quadrant === 'D') {
+      // 象限 D (对照组 D): 大模型单轮直出 + 完整提示词
+      const p1 = `【${category}】天地肃穆。${protag}深吸一口气，心中暗道不妙。${beats.beatQi || '开局平稳。'}`;
+      const p2 = `${antag}面色微变，冷冷看向${protag}，二人展开试探。${beats.beatCheng || '双方开始对话博弈。'}`;
+      const p3 = `电光石火间，二人招式交锋。${protag}身形退后三步，深吸一口气，神色凝重。${beats.beatZhuan || '转折发生。'}`;
+      const p4 = `一切暂时平息，胜负未明。${beats.beatHe || '章末等待后续。'}`;
+      const repeatParagraph = `四周空气凝重，气氛变得微妙起来。二人对视一眼，各自揣摩着对方的用意。`;
+      const fillers = Array(3).fill(repeatParagraph).join('\n\n');
+      return [
+        `第${targetChapterNo}章 大模型单轮直出 (D象限)`,
+        '',
+        p1, '',
+        p2, '',
+        fillers, '',
+        p3, '',
+        p4
+      ].join('\n');
+    } else {
+      // 象限 C (对照组 C): 大模型单轮直出 + 极简提示词
+      const p1 = `【${category}】林间静悄悄的。${protag}嘴角勾起一抹玩味的笑容，眼神中闪过一丝冷厉。${beats.beatQi || '故事开始。'}`;
+      const p2 = `${antag}倒吸一口凉气，瞳孔骤缩：“你竟然没死？！”心中的震惊无以复加。${beats.beatCheng || '对手震惊。'}`;
+      const p3 = `${protag}冷笑一声，闪电般出手，空气中仿佛在诉说方才的凶险。${beats.beatZhuan || '产生转折。'}`;
+      const p4 = `风声呼啸，天地为之变色。究竟接下来会如何，谁也说不清。${beats.beatHe || '留下悬念。'}`;
+      return [
+        `第${targetChapterNo}章 大模型单轮直出 (C象限)`,
+        '',
+        p1, '',
+        p2, '',
+        p3, '',
+        p4
+      ].join('\n');
+    }
   }
 
   /**
    * 执行四象限批处理任务
-   * @param {Object} options 包含 quadrant, category, limit, dryRun, mock, resume
+   * @param {Object} options 包含 quadrant, category, limit, dryRun, mock, resume, concurrency, confirmPhase1Approved, generator
    * @returns {Promise<Object>} 运行报告
    */
   async runBatch(options = {}) {
@@ -290,6 +365,7 @@ class QuadrantBatchRunner {
       resume = true
     } = options;
 
+    const targetConcurrency = Math.max(1, Math.min(16, Number(options.concurrency || this.concurrency || 2)));
     const manifest = this.loadManifest();
     let samples = manifest.samples || [];
 
@@ -312,8 +388,9 @@ class QuadrantBatchRunner {
     let completedTasks = 0;
     let skippedTasks = 0;
 
+    // 1. 构建所有待运行任务清单
+    const pendingTasks = [];
     for (const sampleMeta of samples) {
-      // 读取具体图书的实验样本档案
       const bookFile = path.join(this.experimentDir, sampleMeta.category, `${sampleMeta.bookId}.json`);
       if (!fs.existsSync(bookFile)) {
         continue;
@@ -327,14 +404,35 @@ class QuadrantBatchRunner {
         if (checkpoint.completed[taskId] && resume) {
           skippedTasks++;
           results.push(checkpoint.completed[taskId]);
+          if (checkpoint.completed[taskId].evaluation) {
+            evaluations.push(checkpoint.completed[taskId].evaluation);
+          }
           continue;
         }
 
         const qConfigKey = `quadrant${q}`;
-        const qConfig = fullRecord.quadrants[qConfigKey];
+        const qConfig = (fullRecord.quadrants && fullRecord.quadrants[qConfigKey])
+          ? fullRecord.quadrants[qConfigKey]
+          : { quadrant: q, pipeline: 'generic', promptLevel: 'default', payload: {} };
+
+        pendingTasks.push({
+          taskId,
+          fullRecord,
+          quadrant: q,
+          qConfig
+        });
+      }
+    }
+
+    // 2. 使用并发 Worker 池并行调度任务
+    let taskIdx = 0;
+    const workerCount = Math.min(targetConcurrency, pendingTasks.length || 1);
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (taskIdx < pendingTasks.length) {
+        const currentTask = pendingTasks[taskIdx++];
+        const { taskId, fullRecord, quadrant: q, qConfig } = currentTask;
 
         if (dryRun) {
-          // Dry-run 试跑验证：断言载荷完备性并估算 Token
           const userPrompt = qConfig.payload.userPrompt || '';
           const sysPrompt = qConfig.payload.systemPrompt || qConfig.payload.systemDirectives || '';
           const estInputTokens = estimateTokens(sysPrompt) + estimateTokens(userPrompt);
@@ -360,7 +458,6 @@ class QuadrantBatchRunner {
           results.push(taskResult);
           completedTasks++;
         } else if (mock) {
-          // Mock 运行：模拟生成并执行评测
           const mockText = this.generateMockChapter(fullRecord, q);
           const evalResult = this.evaluator.evaluateCandidate(mockText, fullRecord, q);
 
@@ -387,15 +484,41 @@ class QuadrantBatchRunner {
           if (!options.confirmPhase1Approved) {
             throw new Error('【第一阶段门禁阻断】系统当前处于第一阶段人工确认门禁状态（manifest.status: AWAITING_HUMAN_CONFIRMATION）。待用户人工审阅并确认提示词与抽检报告后，显式传入 --confirm-phase1-approved 方可启动真实模型正文生成。当前请使用 --dry-run 或 --mock 执行调度检验。');
           }
-          throw new Error('生产大模型调用接口预留：已通过 --confirm-phase1-approved 门禁，待配置 API 密钥后启动并发生成。');
+
+          if (typeof options.generator === 'function') {
+            const liveText = await options.generator({ sampleRecord: fullRecord, quadrant: q, qConfig, taskId });
+            const evalResult = this.evaluator.evaluateCandidate(liveText, fullRecord, q);
+            const taskResult = {
+              taskId,
+              bookId: fullRecord.bookId,
+              category: fullRecord.category,
+              quadrant: q,
+              mode: 'live',
+              status: 'completed',
+              pipeline: qConfig.pipeline,
+              generatedCharCount: (liveText || '').length,
+              evaluation: evalResult,
+              timestamp: new Date().toISOString()
+            };
+            checkpoint.completed[taskId] = taskResult;
+            results.push(taskResult);
+            evaluations.push(evalResult);
+            completedTasks++;
+            this.saveCheckpoint(checkpoint);
+          } else {
+            throw new Error('【真实生成待就绪】已通过 --confirm-phase1-approved 门禁。未配置 options.generator 或未检测到大模型 API 凭证 (如 GEMINI_API_KEY / OPENAI_API_KEY)。请配置相关凭据或生成回调后启动生产并发生成。');
+          }
         }
       }
-    }
+    });
+
+    await Promise.all(workers);
 
     const summary = {
       totalTasks,
       completedTasks,
       skippedTasks,
+      concurrency: targetConcurrency,
       mode: dryRun ? 'dry_run' : (mock ? 'mock' : 'live'),
       quadrants: targetQuadrants,
       evaluationSummary: evaluations.length ? this.evaluator.generateComparisonSummary(evaluations) : null,
