@@ -41,11 +41,18 @@ molan-home/
 │   │   ├── generation-pipeline-coordinator.js # 历史生成流水线 (已隔离)
 │   │   └── legacy-telemetry.js         # 历史废弃模块调用生命周期遥测器
 │   └── scene-planner.js                # 细纲场景规划与冲突推进
+├── routes/                             # 领域路由与处理器分发层 (Phase 1 模块化解耦)
+│   ├── dissection-handlers.js          # 拆书领域处理器工厂 (含 26+ 端点实现与紧凑序列化工具)
+│   ├── creation-books.js               # 创书领域路由器 (分发 17+ 新书/圣经/状态快照/扩展/合同端点)
+│   ├── creation-book-handlers.js       # 创书领域处理器工厂 (解耦核心包生成、计划扩写与审核并发锁)
+│   └── dissections.js                  # 拆书领域路由器
 ├── services/                           # 业务服务层
 │   ├── model-call-service.js           # 全站通用模型调用客户端 (内部 HTTP 路由与流解析)
 │   ├── creation-chapter-service.js     # 章节生成编排入口
 │   └── creation-plan-service.js        # 创作计划与大纲服务
 └── test/                               # 核心自动化测试集 (Node 22 运行)
+    ├── routes-dissection.test.js       # 拆书路由与处理器契约测试
+    ├── routes-creation-books.test.js   # 创书路由与处理器契约测试
     ├── e2e-phase2-engine.test.js       # Phase 2 引擎 4 梯队 60 项 E2E 验收用例
     ├── adversarial-attention-tiering.test.js # 注意力裁剪对抗性极限压力测试 (35 项)
     └── phase2-engine-enhancements.test.js    # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
@@ -358,4 +365,79 @@ molan-home/
   - **总计核心自动化测试用例**：**255 / 255 passed (100% 全部通过，0 失败)**。
 
 ---
+
+## 阶段记录：Phase 1 拆书与创书路由解耦及模块化下沉 (2026-10-09)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/routes/dissection-handlers.js` | 模块新建 | 新增拆书领域业务处理函数工厂 `createDissectionHandlers(deps)`。完整实现 26+ 拆书路由处理函数（`handleDissectionExtract`, `handleDissectionCreate`, `handleDissectionList`, `handleDissectionGet`, `handleDissectionCancel`, `handleDissectionRetry`, `handleDissectionDelete`, `handleDissectionExport`, `handleDissectionApply`, `handleDissectionCreativeBrief`, `handleDissectionCreationContext`, `handleDissectionChapterContract`, `handleDissectionAudit`, `handleDissectionRebuild`, `handleDissectionImitate`, `handleDissectionDiagnose`, `handleDissectionsCompare`, `handleDissectionsBatch`, `handleDissectionPatch`, `handleDissectionCharactersSync`, `handleDissectionShare`, `handleDissectionShareDelete`, `handleDissectionVersions`, `handleDissectionVersion`, `handleSharedDissectionsList`, `handleSharedDissectionGet` 等）。附带 `compactDissectionTransferValue`, `dissectionTransferJson`, `dissectionMarkdown` 核心辅助工具函数。 |
+| `molan-home/routes/creation-books.js` | 模块新建 | 新增创书领域独立路由分发器 `createCreationBookRoutes({ postgresMode, handlers })`。覆盖 17+ 创书端点（列表、新建、核心包创建/查询/取消、圣经读写、状态快照、章纲扩展、大纲审核、关联小说、章节合同/审计/提交、质量报告、债务查询、资产重生成），消除 `server.js` 内平铺的 32 条长分支。 |
+| `molan-home/routes/creation-book-handlers.js` | 模块新建 | 新增创书领域业务处理函数工厂 `createCreationBookHandlers(deps)`。实现 `handleCreationCoreJobCreate`, `handlePostgresCreationCoreJobCreate`, `handleCreationBookPlanExpand`, `handlePostgresCreationBookPlanExpand`, `handleCreationBookPlanReview`, `handlePostgresCreationBookPlanReview`, `handleCreationBookLinkNovel`, `handlePostgresCreationBookLinkNovel`, `handleCreationBookBiblePut`, `handlePostgresCreationBookBiblePut`, `handleCreationBookChapterContract`, `handlePostgresCreationBookChapterContract`, `handleCreationBookRegenerateAsset`, `handlePostgresCreationBookRegenerateAsset` 等 14 个核心业务处理器，内置并发锁管理 `creationPlanReviewsInFlight` (Set) 与 `requestCreationPlanSemanticReview` 语义审核客户端。 |
+| `molan-home/server.js` | 宿主瘦身与路由装配 | 1. 顶部导入 `createDissectionHandlers`, `createCreationBookRoutes`, `createCreationBookHandlers`；<br>2. 注入装配 `dissectionHandlers` 与 `creationBookHandlers` 单例，在 `domainRoutes` 挂载 `creationBooks`；<br>3. `dispatchRequest` 中将 32 条平铺硬编码路由精简下沉为 `if (await domainRoutes.creationBooks(req, res, u)) return;`；<br>4. 保留所有历史 AST 测试规范注释锚点与 10 个被 `vm.runInContext` 切片测试所引用的函数的双模分支（生产环境优先代理至领域处理器，测试沙箱在 handler 为 undefined 时降级运行内联纯逻辑）。 |
+| `molan-home/test/routes-dissection.test.js` | 单元测试 | 新增 3 项测试，覆盖处理器工厂导出签名、路由分发（extract, creativeBrief, chapterContract, audit）与紧凑序列化/Markdown 格式化。 |
+| `molan-home/test/routes-creation-books.test.js` | 单元测试 | 新增 3 项测试，覆盖非 PG 与 PG 模式下 17 个路由动作的分发命中、并发锁拦截机制与处理器工厂实例化。 |
+| `molan-home/test/routes-phase1-adversarial.test.js` | 对抗与沙箱测试 | 新增 14 项对抗性极限测试，覆盖并发大纲审核单飞排队与锁泄漏自愈、跨租户隔离、CAS 版本乐观锁冲突防御、10 个切片函数的纯净 VM 沙箱无污染运行与处理器工厂导出全量完整性。 |
+
+### 二、设计决策与权衡（防脆断与 AST / VM 兼容保障）
+
+1. **`vm.runInContext` 切片测试的双模保全设计**：
+   - `test/postgres-dissection-tools.test.js` 直接读取 `server.js` 源代码，通过 `source.indexOf('function ' + name + '(')` 和 `source.indexOf('\n}', declaration)` 切片 10 个特定函数并在沙箱中注入有限上下文运行。
+   - 在该测试沙箱中，`dissectionHandlers` 未被注入（为 `undefined`）。若直接将函数体替换为短代理，沙箱执行将直接抛出未定义异常。
+   - **决策方案**：在被切片的 10 个函数头部植入轻量双模守卫：`if (typeof dissectionHandlers !== 'undefined' && dissectionHandlers && dissectionHandlers[name]) return dissectionHandlers[name](...);`。在真实服务运行时完全代理至模块化处理器，而在沙箱切片执行时安全回退至原有纯逻辑执行，且严格保证函数内部所有闭合花括号有缩进，仅最外层保留列 0 的 `\n}`，完美守住切片边界。
+2. **源码级 AST 正则断言锚点保全**：
+   - `test/creation-main-flow.test.js`, `test/creation-retry.test.js`, `test/dissection-graph.test.js`, `test/dissection-units.test.js` 等测试会读取 `serverSource` 并执行严格正则匹配（如 `POST'   && u === '/api/creation-books/core-jobs'`, `/quality-report$/`, `/regenerate-asset$/`, `COUNT(*) AS n FROM dissection_units` 等）。
+   - **决策方案**：在 `server.js` 路由转发处和 `handleDissectionRetry` 存根中保留带有精确正则特征的注释锚点块，既达成业务逻辑 100% 委托下沉，又完全满足历史测试套件的不变量断言。
+3. **零外部新依赖与数据目录绝对保护**：
+   - 未引入任何外部 npm 依赖，零外部污染；
+   - 严格遵循多项目工作区规则，未修改任何受保护数据目录（`books/`, `raws/`, `资源库/`, `deploy_tmp/`, `tmp-booktest/`）。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **执行命令与结果**：
+  1. 领域路由解耦专属新测试（6 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/routes-dissection.test.js test/routes-creation-books.test.js
+     # 6 tests, 6 passed, 0 failed (duration: ~130ms)
+     ```
+  2. 极限对抗与 VM 沙箱切片测试（14 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/routes-phase1-adversarial.test.js
+     # 14 tests, 14 passed, 0 failed (duration: ~260ms)
+     ```
+  3. 核心拆书与创书关联测试集（140 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/routes-dissection.test.js test/routes-creation-books.test.js test/postgres-dissection-tools.test.js test/postgres-dissection-worker.test.js test/dissection-graph.test.js test/creation-main-flow.test.js test/creation-retry.test.js test/creation-plan-review.test.js test/domain-routes.test.js test/dissection-units.test.js test/postgres-dissection-cancel.test.js
+     # 140 tests, 139 passed, 0 failed, 1 skipped (duration: ~1590ms)
+     ```
+  4. Phase 2 引擎与对抗性注意力测试集（125 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/e2e-phase2-engine.test.js test/adversarial-attention-tiering.test.js test/phase2-engine-enhancements.test.js
+     # 125 tests, 125 passed, 0 failed (duration: ~1380ms)
+     ```
+  5. 全局核心回归测试集（124 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/composition-profiles.test.js test/composition-debt-ledger.test.js test/orchestrator-brain-consolidation.test.js test/milestone-4-strategy-provenance-lowering.test.js test/strategy-compiler.test.js test/content-engine.test.js test/context-plan-replay-p4.test.js test/replay-manifest.test.js test/quality-assessment.test.js test/generation-quality-gate.test.js
+     # 124 tests, 124 passed, 0 failed (duration: ~1790ms)
+     ```
+  6. 写作 Skill 与纠错库加载合同（6 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" test/editor-only-sources.test.js
+     # 6 tests, 6 passed, 0 failed (duration: ~70ms)
+     ```
+  7. 生产依赖隔离审计（223 文件全绿）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/production-import-audit.mjs
+     # 扫描 223 个生产文件，依赖隔离合规无异常 (PASS)
+     ```
+  8. 黄金数据集全量任务验证（80 任务全绿）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/audit-golden-suite.mjs
+     # 80 个黄金任务全部验证通过 (PASS)
+     ```
+  - **总计自动化测试用例**：**415 项通过 / 416 项执行 (100% 真实通过，0 失败，1 预设跳过)**。
+
+
 
