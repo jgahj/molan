@@ -1,0 +1,14 @@
+{
+  "totalTasks": 40,
+  "completedTasks": 0,
+  "skippedTasks": 40,
+  "mode": "mock",
+  "quadrants": [
+    "A",
+    "B",
+    "C",
+    "D"
+  ],
+  "evaluationSummary": null,
+  "resultsCount": 40
+}

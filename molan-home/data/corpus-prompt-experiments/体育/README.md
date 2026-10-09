@@ -1,0 +1,27 @@
+# 题材实验抽样汇总：体育
+
+> 本分类包含图书总计: **21** 本 | 平均章节字数: **2962** 字
+
+| 序号 | 书名 | 抽中章节 | 章节字数 | 极简提示词字数 | 完整提示词字数 | 目标 Profile | 钩子 Profile |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| 1 | [什么叫进攻型后腰啊 - 懒惰的咕噜大王](./%E4%BB%80%E4%B9%88%E5%8F%AB%E8%BF%9B%E6%94%BB%E5%9E%8B%E5%90%8E%E8%85%B0%E5%95%8A%20-%20%E6%87%92%E6%83%B0%E7%9A%84%E5%92%95%E5%99%9C%E5%A4%A7%E7%8E%8B.json) | 第17章 3亿欧身价的亚洲之王 | 1381 | 331 | 1275 | `conflict_push` | `suspense_clue` |
+| 2 | [从大学球探开始 - 肉末大茄子](./%E4%BB%8E%E5%A4%A7%E5%AD%A6%E7%90%83%E6%8E%A2%E5%BC%80%E5%A7%8B%20-%20%E8%82%89%E6%9C%AB%E5%A4%A7%E8%8C%84%E5%AD%90.json) | 第16章 下定决心 | 1317 | 341 | 1268 | `conflict_push` | `anticipation_turn` |
+| 3 | [从米兰开始的体坛神医 - 醉登太白楼](./%E4%BB%8E%E7%B1%B3%E5%85%B0%E5%BC%80%E5%A7%8B%E7%9A%84%E4%BD%93%E5%9D%9B%E7%A5%9E%E5%8C%BB%20-%20%E9%86%89%E7%99%BB%E5%A4%AA%E7%99%BD%E6%A5%BC.json) | 19 两边 | 3670 | 302 | 1230 | `conflict_push` | `suspense_clue` |
+| 4 | [伯乐教练：从让守门员踢中锋开始 - 大力士爱吃土豆](./%E4%BC%AF%E4%B9%90%E6%95%99%E7%BB%83%EF%BC%9A%E4%BB%8E%E8%AE%A9%E5%AE%88%E9%97%A8%E5%91%98%E8%B8%A2%E4%B8%AD%E9%94%8B%E5%BC%80%E5%A7%8B%20-%20%E5%A4%A7%E5%8A%9B%E5%A3%AB%E7%88%B1%E5%90%83%E5%9C%9F%E8%B1%86.json) | 第五百三十七章    去抽他们 | 5550 | 363 | 1315 | `conflict_push` | `suspense_clue` |
+| 5 | [全世界都知道他要内切 - 子夜橙](./%E5%85%A8%E4%B8%96%E7%95%8C%E9%83%BD%E7%9F%A5%E9%81%93%E4%BB%96%E8%A6%81%E5%86%85%E5%88%87%20-%20%E5%AD%90%E5%A4%9C%E6%A9%99.json) | 第11章 | 1628 | 314 | 1266 | `conflict_push` | `suspense_clue` |
+| 6 | [喧嚣未及之处 - 沉默的爱](./%E5%96%A7%E5%9A%A3%E6%9C%AA%E5%8F%8A%E4%B9%8B%E5%A4%84%20-%20%E6%B2%89%E9%BB%98%E7%9A%84%E7%88%B1.json) | 第三百二十一章 他从不改造任何人 | 7976 | 315 | 1250 | `conflict_push` | `suspense_clue` |
+| 7 | [大师补习班 - 金印](./%E5%A4%A7%E5%B8%88%E8%A1%A5%E4%B9%A0%E7%8F%AD%20-%20%E9%87%91%E5%8D%B0.json) | 第三章 改变未来 | 3070 | 314 | 1224 | `conflict_push` | `anticipation_turn` |
+| 8 | [成为主教练后，我开摆了 - 葬爱叶良辰](./%E6%88%90%E4%B8%BA%E4%B8%BB%E6%95%99%E7%BB%83%E5%90%8E%EF%BC%8C%E6%88%91%E5%BC%80%E6%91%86%E4%BA%86%20-%20%E8%91%AC%E7%88%B1%E5%8F%B6%E8%89%AF%E8%BE%B0.json) | 0163 最后的自由人（求订阅） | 2353 | 348 | 1285 | `conflict_push` | `anticipation_turn` |
+| 9 | [我打篮球的，你给我足球系统？ - 长夜火不眠](./%E6%88%91%E6%89%93%E7%AF%AE%E7%90%83%E7%9A%84%EF%BC%8C%E4%BD%A0%E7%BB%99%E6%88%91%E8%B6%B3%E7%90%83%E7%B3%BB%E7%BB%9F%EF%BC%9F%20-%20%E9%95%BF%E5%A4%9C%E7%81%AB%E4%B8%8D%E7%9C%A0.json) | 第78章 这回他们真的要签你 | 2310 | 376 | 1326 | `conflict_push` | `anticipation_turn` |
+| 10 | [我都打了三年NBA，系统才来？ - 海绵派小星](./%E6%88%91%E9%83%BD%E6%89%93%E4%BA%86%E4%B8%89%E5%B9%B4NBA%EF%BC%8C%E7%B3%BB%E7%BB%9F%E6%89%8D%E6%9D%A5%EF%BC%9F%20-%20%E6%B5%B7%E7%BB%B5%E6%B4%BE%E5%B0%8F%E6%98%9F.json) | 第1章 我NBA都打了3年，系统你才来？ | 2634 | 351 | 1293 | `conflict_push` | `anticipation_turn` |
+| 11 | [拳无敌 - 东王一](./%E6%8B%B3%E6%97%A0%E6%95%8C%20-%20%E4%B8%9C%E7%8E%8B%E4%B8%80.json) | 第360章 雷神时代 因无敌而退役 | 1404 | 342 | 1268 | `conflict_push` | `suspense_clue` |
+| 12 | [永不独行！ - 成丽来啦](./%E6%B0%B8%E4%B8%8D%E7%8B%AC%E8%A1%8C%EF%BC%81%20-%20%E6%88%90%E4%B8%BD%E6%9D%A5%E5%95%A6.json) | 第6章 试训 | 2898 | 294 | 1217 | `conflict_push` | `anticipation_turn` |
+| 13 | [求你了，快退役吧！ - 葛洛夫街兄弟](./%E6%B1%82%E4%BD%A0%E4%BA%86%EF%BC%8C%E5%BF%AB%E9%80%80%E5%BD%B9%E5%90%A7%EF%BC%81%20-%20%E8%91%9B%E6%B4%9B%E5%A4%AB%E8%A1%97%E5%85%84%E5%BC%9F.json) | 205：第一个可发泄的窗口 | 2070 | 329 | 1250 | `conflict_push` | `anticipation_turn` |
+| 14 | [盛夏篮途 - 诚觅](./%E7%9B%9B%E5%A4%8F%E7%AF%AE%E9%80%94%20-%20%E8%AF%9A%E8%A7%85.json) | 17 新年的烟花（二） | 4073 | 299 | 1233 | `info_reveal` | `suspense_clue` |
+| 15 | [篮球终点站 - 年羹羊](./%E7%AF%AE%E7%90%83%E7%BB%88%E7%82%B9%E7%AB%99%20-%20%E5%B9%B4%E7%BE%B9%E7%BE%8A.json) | 第七十一章 采摘 | 1350 | 323 | 1263 | `conflict_push` | `anticipation_turn` |
+| 16 | [蓝军红帅 - 考拉的围脖](./%E8%93%9D%E5%86%9B%E7%BA%A2%E5%B8%85%20-%20%E8%80%83%E6%8B%89%E7%9A%84%E5%9B%B4%E8%84%96.json) | 【07】你要脸吗 | 1552 | 324 | 1244 | `conflict_push` | `suspense_clue` |
+| 17 | [费城涅槃：第四冠之后 - 断章尺](./%E8%B4%B9%E5%9F%8E%E6%B6%85%E6%A7%83%EF%BC%9A%E7%AC%AC%E5%9B%9B%E5%86%A0%E4%B9%8B%E5%90%8E%20-%20%E6%96%AD%E7%AB%A0%E5%B0%BA.json) | 第六十八章  诡异的水 | 3673 | 351 | 1303 | `conflict_push` | `suspense_clue` |
+| 18 | [足球小将：中场之王 - 北辰初晓](./%E8%B6%B3%E7%90%83%E5%B0%8F%E5%B0%86%EF%BC%9A%E4%B8%AD%E5%9C%BA%E4%B9%8B%E7%8E%8B%20-%20%E5%8C%97%E8%BE%B0%E5%88%9D%E6%99%93.json) | 662 穷命 | 6268 | 332 | 1269 | `info_reveal` | `anticipation_turn` |
+| 19 | [足球：19岁融合39岁大罗模板 - 木木一二三](./%E8%B6%B3%E7%90%83%EF%BC%9A19%E5%B2%81%E8%9E%8D%E5%90%8839%E5%B2%81%E5%A4%A7%E7%BD%97%E6%A8%A1%E6%9D%BF%20-%20%E6%9C%A8%E6%9C%A8%E4%B8%80%E4%BA%8C%E4%B8%89.json) | 第六章、我要这天.... | 3417 | 342 | 1248 | `info_reveal` | `anticipation_turn` |
+| 20 | [足球：从逐出拉玛西亚开始登神 - 鲨鱼藤椒](./%E8%B6%B3%E7%90%83%EF%BC%9A%E4%BB%8E%E9%80%90%E5%87%BA%E6%8B%89%E7%8E%9B%E8%A5%BF%E4%BA%9A%E5%BC%80%E5%A7%8B%E7%99%BB%E7%A5%9E%20-%20%E9%B2%A8%E9%B1%BC%E8%97%A4%E6%A4%92.json) | 第157章 穆里尼奥的战术遗产，巴萨的欧洲仇家？换血改造的试金石！ | 2243 | 378 | 1309 | `conflict_push` | `crisis_imminent` |
+| 21 | [足球：神级中场，C罗梅西破防了 - 马上减到两百斤](./%E8%B6%B3%E7%90%83%EF%BC%9A%E7%A5%9E%E7%BA%A7%E4%B8%AD%E5%9C%BA%EF%BC%8CC%E7%BD%97%E6%A2%85%E8%A5%BF%E7%A0%B4%E9%98%B2%E4%BA%86%20-%20%E9%A9%AC%E4%B8%8A%E5%87%8F%E5%88%B0%E4%B8%A4%E7%99%BE%E6%96%A4.json) | 第875章 充满争议的换人！顽强战斗到底的切尔西！ | 1375 | 345 | 1269 | `conflict_push` | `crisis_imminent` |

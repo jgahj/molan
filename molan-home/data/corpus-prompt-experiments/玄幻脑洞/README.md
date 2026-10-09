@@ -1,0 +1,28 @@
+# 题材实验抽样汇总：玄幻脑洞
+
+> 本分类包含图书总计: **22** 本 | 平均章节字数: **2507** 字
+
+| 序号 | 书名 | 抽中章节 | 章节字数 | 极简提示词字数 | 完整提示词字数 | 目标 Profile | 钩子 Profile |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| 1 | [不对劲，我穿越的都是里世界](./%E4%B8%8D%E5%AF%B9%E5%8A%B2%EF%BC%8C%E6%88%91%E7%A9%BF%E8%B6%8A%E7%9A%84%E9%83%BD%E6%98%AF%E9%87%8C%E4%B8%96%E7%95%8C.json) | 第10章 交战搜索，搞定就撤 | 4548 | 343 | 1287 | `conflict_push` | `anticipation_turn` |
+| 2 | [不是，我电子女友咋修成剑仙了](./%E4%B8%8D%E6%98%AF%EF%BC%8C%E6%88%91%E7%94%B5%E5%AD%90%E5%A5%B3%E5%8F%8B%E5%92%8B%E4%BF%AE%E6%88%90%E5%89%91%E4%BB%99%E4%BA%86.json) | 第4章 全都给你炸完 | 2646 | 351 | 1279 | `conflict_push` | `suspense_clue` |
+| 3 | [代管截教，瞎编功法的我万倍返还](./%E4%BB%A3%E7%AE%A1%E6%88%AA%E6%95%99%EF%BC%8C%E7%9E%8E%E7%BC%96%E5%8A%9F%E6%B3%95%E7%9A%84%E6%88%91%E4%B8%87%E5%80%8D%E8%BF%94%E8%BF%98.json) | 第3章 广成子落败，截教扬眉吐气！ | 2426 | 316 | 1232 | `conflict_push` | `suspense_clue` |
+| 4 | [修仙界搞回收，破产仙子请自重](./%E4%BF%AE%E4%BB%99%E7%95%8C%E6%90%9E%E5%9B%9E%E6%94%B6%EF%BC%8C%E7%A0%B4%E4%BA%A7%E4%BB%99%E5%AD%90%E8%AF%B7%E8%87%AA%E9%87%8D.json) | 第4章 仙子你这就卖了？ | 2264 | 307 | 1245 | `conflict_push` | `suspense_clue` |
+| 5 | [同学们都选阐教，我选截教杀疯了](./%E5%90%8C%E5%AD%A6%E4%BB%AC%E9%83%BD%E9%80%89%E9%98%90%E6%95%99%EF%BC%8C%E6%88%91%E9%80%89%E6%88%AA%E6%95%99%E6%9D%80%E7%96%AF%E4%BA%86.json) | 第5章 见三霄 | 2300 | 310 | 1234 | `conflict_push` | `suspense_clue` |
+| 6 | [天下无敌了，你告诉我这是西游？](./%E5%A4%A9%E4%B8%8B%E6%97%A0%E6%95%8C%E4%BA%86%EF%BC%8C%E4%BD%A0%E5%91%8A%E8%AF%89%E6%88%91%E8%BF%99%E6%98%AF%E8%A5%BF%E6%B8%B8%EF%BC%9F.json) | 第10章 三年清修，猴王证金仙 | 2769 | 326 | 1280 | `conflict_push` | `anticipation_turn` |
+| 7 | [师尊嫌我肮脏？反手退师帖送上](./%E5%B8%88%E5%B0%8A%E5%AB%8C%E6%88%91%E8%82%AE%E8%84%8F%EF%BC%9F%E5%8F%8D%E6%89%8B%E9%80%80%E5%B8%88%E5%B8%96%E9%80%81%E4%B8%8A.json) | 第3章 平静/急了！ | 2284 | 333 | 1270 | `conflict_push` | `anticipation_turn` |
+| 8 | [开局上交修仙界，国家让我先成仙](./%E5%BC%80%E5%B1%80%E4%B8%8A%E4%BA%A4%E4%BF%AE%E4%BB%99%E7%95%8C%EF%BC%8C%E5%9B%BD%E5%AE%B6%E8%AE%A9%E6%88%91%E5%85%88%E6%88%90%E4%BB%99.json) | 第1章 警察叔叔，我穿越了！ | 2161 | 348 | 1253 | `conflict_push` | `suspense_clue` |
+| 9 | [开局寿尽准帝，竟被蝼蚁打上门](./%E5%BC%80%E5%B1%80%E5%AF%BF%E5%B0%BD%E5%87%86%E5%B8%9D%EF%BC%8C%E7%AB%9F%E8%A2%AB%E8%9D%BC%E8%9A%81%E6%89%93%E4%B8%8A%E9%97%A8.json) | 第1章 我这一生，如履薄冰 | 2570 | 333 | 1255 | `conflict_push` | `anticipation_turn` |
+| 10 | [开局模拟被打爆，金丹爆星什么鬼](./%E5%BC%80%E5%B1%80%E6%A8%A1%E6%8B%9F%E8%A2%AB%E6%89%93%E7%88%86%EF%BC%8C%E9%87%91%E4%B8%B9%E7%88%86%E6%98%9F%E4%BB%80%E4%B9%88%E9%AC%BC.json) | 第5章 陆地神仙 | 2370 | 329 | 1264 | `conflict_push` | `anticipation_turn` |
+| 11 | [开局流落皇子，可我已经人间无敌](./%E5%BC%80%E5%B1%80%E6%B5%81%E8%90%BD%E7%9A%87%E5%AD%90%EF%BC%8C%E5%8F%AF%E6%88%91%E5%B7%B2%E7%BB%8F%E4%BA%BA%E9%97%B4%E6%97%A0%E6%95%8C.json) | 第9章 真假皇子 | 2326 | 335 | 1284 | `conflict_push` | `suspense_clue` |
+| 12 | [我根骨平庸，但分身都是绝世天才](./%E6%88%91%E6%A0%B9%E9%AA%A8%E5%B9%B3%E5%BA%B8%EF%BC%8C%E4%BD%86%E5%88%86%E8%BA%AB%E9%83%BD%E6%98%AF%E7%BB%9D%E4%B8%96%E5%A4%A9%E6%89%8D.json) | 第4章 第一次宿舍会议 | 2139 | 376 | 1313 | `conflict_push` | `suspense_clue` |
+| 13 | [我都成烛龙了，人类怎么才诞生？](./%E6%88%91%E9%83%BD%E6%88%90%E7%83%9B%E9%BE%99%E4%BA%86%EF%BC%8C%E4%BA%BA%E7%B1%BB%E6%80%8E%E4%B9%88%E6%89%8D%E8%AF%9E%E7%94%9F%EF%BC%9F.json) | 第4章 记仇的恐龙 | 2547 | 297 | 1234 | `conflict_push` | `anticipation_turn` |
+| 14 | [文字武侠：开局破庙夜会帮主夫人](./%E6%96%87%E5%AD%97%E6%AD%A6%E4%BE%A0%EF%BC%9A%E5%BC%80%E5%B1%80%E7%A0%B4%E5%BA%99%E5%A4%9C%E4%BC%9A%E5%B8%AE%E4%B8%BB%E5%A4%AB%E4%BA%BA.json) | 第10章 逆天心法！超凡种子！ | 2488 | 338 | 1259 | `conflict_push` | `crisis_imminent` |
+| 15 | [洪荒：我先证混元，鸿钧傻眼了](./%E6%B4%AA%E8%8D%92%EF%BC%9A%E6%88%91%E5%85%88%E8%AF%81%E6%B7%B7%E5%85%83%EF%BC%8C%E9%B8%BF%E9%92%A7%E5%82%BB%E7%9C%BC%E4%BA%86.json) | 第3章 外出寻宝,赤虎拦路 | 2105 | 309 | 1234 | `conflict_push` | `anticipation_turn` |
+| 16 | [洪荒：我盘古第四清，帮场通天！](./%E6%B4%AA%E8%8D%92%EF%BC%9A%E6%88%91%E7%9B%98%E5%8F%A4%E7%AC%AC%E5%9B%9B%E6%B8%85%EF%BC%8C%E5%B8%AE%E5%9C%BA%E9%80%9A%E5%A4%A9%EF%BC%81.json) | 第10章 顿悟三千年，强化版九转元功 | 2428 | 345 | 1272 | `conflict_push` | `suspense_clue` |
+| 17 | [满门都是天骄，我真不想当魅魔啊](./%E6%BB%A1%E9%97%A8%E9%83%BD%E6%98%AF%E5%A4%A9%E9%AA%84%EF%BC%8C%E6%88%91%E7%9C%9F%E4%B8%8D%E6%83%B3%E5%BD%93%E9%AD%85%E9%AD%94%E5%95%8A.json) | 第十章 我去当落霞仙宗掌教？ | 2613 | 349 | 1275 | `conflict_push` | `anticipation_turn` |
+| 18 | [穿越坐化大帝老祖，无敌秒杀世间](./%E7%A9%BF%E8%B6%8A%E5%9D%90%E5%8C%96%E5%A4%A7%E5%B8%9D%E8%80%81%E7%A5%96%EF%BC%8C%E6%97%A0%E6%95%8C%E7%A7%92%E6%9D%80%E4%B8%96%E9%97%B4.json) | 第6章 孺子可教也！ | 2560 | 339 | 1272 | `conflict_push` | `anticipation_turn` |
+| 19 | [站中间抽两边，什么叫霸之意志呀](./%E7%AB%99%E4%B8%AD%E9%97%B4%E6%8A%BD%E4%B8%A4%E8%BE%B9%EF%BC%8C%E4%BB%80%E4%B9%88%E5%8F%AB%E9%9C%B8%E4%B9%8B%E6%84%8F%E5%BF%97%E5%91%80.json) | 第10章 凝皮！ | 2255 | 332 | 1285 | `conflict_push` | `anticipation_turn` |
+| 20 | [说好扶贫，你怎么一直给仙子放贷](./%E8%AF%B4%E5%A5%BD%E6%89%B6%E8%B4%AB%EF%BC%8C%E4%BD%A0%E6%80%8E%E4%B9%88%E4%B8%80%E7%9B%B4%E7%BB%99%E4%BB%99%E5%AD%90%E6%94%BE%E8%B4%B7.json) | 第3章 大白腿仙子，优质客户啊！ | 2535 | 345 | 1265 | `conflict_push` | `suspense_clue` |
+| 21 | [谁把我仙侠游戏退出键扣了？](./%E8%B0%81%E6%8A%8A%E6%88%91%E4%BB%99%E4%BE%A0%E6%B8%B8%E6%88%8F%E9%80%80%E5%87%BA%E9%94%AE%E6%89%A3%E4%BA%86%EF%BC%9F.json) | 第6章 想想往后 | 2296 | 334 | 1257 | `conflict_push` | `suspense_clue` |
+| 22 | [长生家族，从十七岁成为家主开始](./%E9%95%BF%E7%94%9F%E5%AE%B6%E6%97%8F%EF%BC%8C%E4%BB%8E%E5%8D%81%E4%B8%83%E5%B2%81%E6%88%90%E4%B8%BA%E5%AE%B6%E4%B8%BB%E5%BC%80%E5%A7%8B.json) | 第5章 斩苏云 | 2516 | 341 | 1271 | `conflict_push` | `suspense_clue` |

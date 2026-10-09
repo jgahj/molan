@@ -1,0 +1,28 @@
+# 题材实验抽样汇总：军事
+
+> 本分类包含图书总计: **22** 本 | 平均章节字数: **2771** 字
+
+| 序号 | 书名 | 抽中章节 | 章节字数 | 极简提示词字数 | 完整提示词字数 | 目标 Profile | 钩子 Profile |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| 1 | [东方既白 - 猪头七](./%E4%B8%9C%E6%96%B9%E6%97%A2%E7%99%BD%20-%20%E7%8C%AA%E5%A4%B4%E4%B8%83.json) | 第321章 狙击手（求订阅，求月票） | 2327 | 347 | 1278 | `conflict_push` | `anticipation_turn` |
+| 2 | [亮剑：从兵工厂打造一个工业帝国 - 不散烟火](./%E4%BA%AE%E5%89%91%EF%BC%9A%E4%BB%8E%E5%85%B5%E5%B7%A5%E5%8E%82%E6%89%93%E9%80%A0%E4%B8%80%E4%B8%AA%E5%B7%A5%E4%B8%9A%E5%B8%9D%E5%9B%BD%20-%20%E4%B8%8D%E6%95%A3%E7%83%9F%E7%81%AB.json) | 第十七章 配方 | 2228 | 334 | 1282 | `info_reveal` | `anticipation_turn` |
+| 3 | [亮剑：从晋西北到长津湖百战百胜 - 别让我更新啊](./%E4%BA%AE%E5%89%91%EF%BC%9A%E4%BB%8E%E6%99%8B%E8%A5%BF%E5%8C%97%E5%88%B0%E9%95%BF%E6%B4%A5%E6%B9%96%E7%99%BE%E6%88%98%E7%99%BE%E8%83%9C%20-%20%E5%88%AB%E8%AE%A9%E6%88%91%E6%9B%B4%E6%96%B0%E5%95%8A.json) | 第7章 别说了，快别说了（求追读） | 2543 | 336 | 1300 | `info_reveal` | `anticipation_turn` |
+| 4 | [人在俄乌当佣兵，杀敌就能爆属性 - KID大魔王](./%E4%BA%BA%E5%9C%A8%E4%BF%84%E4%B9%8C%E5%BD%93%E4%BD%A3%E5%85%B5%EF%BC%8C%E6%9D%80%E6%95%8C%E5%B0%B1%E8%83%BD%E7%88%86%E5%B1%9E%E6%80%A7%20-%20KID%E5%A4%A7%E9%AD%94%E7%8E%8B.json) | 114，杀人怎么够，沈飞还要诛倭国的诛心！ | 1360 | 353 | 1268 | `conflict_push` | `anticipation_turn` |
+| 5 | [军工镇乱世，从罪子到开国帝君 - 梦揽山河](./%E5%86%9B%E5%B7%A5%E9%95%87%E4%B9%B1%E4%B8%96%EF%BC%8C%E4%BB%8E%E7%BD%AA%E5%AD%90%E5%88%B0%E5%BC%80%E5%9B%BD%E5%B8%9D%E5%90%9B%20-%20%E6%A2%A6%E6%8F%BD%E5%B1%B1%E6%B2%B3.json) | 第六章 夜上北望山 | 2818 | 345 | 1289 | `conflict_push` | `anticipation_turn` |
+| 6 | [怕死抗什么日 - 老左老左](./%E6%80%95%E6%AD%BB%E6%8A%97%E4%BB%80%E4%B9%88%E6%97%A5%20-%20%E8%80%81%E5%B7%A6%E8%80%81%E5%B7%A6.json) | 第229章 H-Day（中） | 1381 | 364 | 1299 | `conflict_push` | `suspense_clue` |
+| 7 | [我的兄弟叫顺溜之逆命 - 发呆的骆驼](./%E6%88%91%E7%9A%84%E5%85%84%E5%BC%9F%E5%8F%AB%E9%A1%BA%E6%BA%9C%E4%B9%8B%E9%80%86%E5%91%BD%20-%20%E5%8F%91%E5%91%86%E7%9A%84%E9%AA%86%E9%A9%BC.json) | 第一百二十七章  怪虫 | 1329 | 368 | 1319 | `balanced_narrative` | `anticipation_turn` |
+| 8 | [我的谍战岁月 - 猪头七](./%E6%88%91%E7%9A%84%E8%B0%8D%E6%88%98%E5%B2%81%E6%9C%88%20-%20%E7%8C%AA%E5%A4%B4%E4%B8%83.json) | 第598章 惧内的小程总（求月票） | 5501 | 316 | 1251 | `conflict_push` | `suspense_clue` |
+| 9 | [战锤40K：我替死人继续战斗 - 王孙桃](./%E6%88%98%E9%94%A440K%EF%BC%9A%E6%88%91%E6%9B%BF%E6%AD%BB%E4%BA%BA%E7%BB%A7%E7%BB%AD%E6%88%98%E6%96%97%20-%20%E7%8E%8B%E5%AD%99%E6%A1%83.json) | 第12章 发育 | 2708 | 345 | 1261 | `conflict_push` | `anticipation_turn` |
+| 10 | [抗战之我是一个工业人 - 松果体](./%E6%8A%97%E6%88%98%E4%B9%8B%E6%88%91%E6%98%AF%E4%B8%80%E4%B8%AA%E5%B7%A5%E4%B8%9A%E4%BA%BA%20-%20%E6%9D%BE%E6%9E%9C%E4%BD%93.json) | 第四百二十一章 古老的红外线 | 5184 | 318 | 1258 | `balanced_narrative` | `anticipation_turn` |
+| 11 | [抗战：带着军火库横扫日寇 - 技术一哥wx](./%E6%8A%97%E6%88%98%EF%BC%9A%E5%B8%A6%E7%9D%80%E5%86%9B%E7%81%AB%E5%BA%93%E6%A8%AA%E6%89%AB%E6%97%A5%E5%AF%87%20-%20%E6%8A%80%E6%9C%AF%E4%B8%80%E5%93%A5wx.json) | 第八十章 力量的觉醒 下 | 2451 | 324 | 1236 | `conflict_push` | `suspense_clue` |
+| 12 | [抗战：来自钢铁雄心的工程师 - 猫猫小缺德](./%E6%8A%97%E6%88%98%EF%BC%9A%E6%9D%A5%E8%87%AA%E9%92%A2%E9%93%81%E9%9B%84%E5%BF%83%E7%9A%84%E5%B7%A5%E7%A8%8B%E5%B8%88%20-%20%E7%8C%AB%E7%8C%AB%E5%B0%8F%E7%BC%BA%E5%BE%B7.json) | 第十章 冲突升级　第五节 | 5308 | 331 | 1285 | `conflict_push` | `anticipation_turn` |
+| 13 | [最后一位穿越者：1937 - 作家2w36SK](./%E6%9C%80%E5%90%8E%E4%B8%80%E4%BD%8D%E7%A9%BF%E8%B6%8A%E8%80%85%EF%BC%9A1937%20-%20%E4%BD%9C%E5%AE%B62w36SK.json) | 第八十八章 改变历史还是改变命运 | 4234 | 342 | 1278 | `conflict_push` | `suspense_clue` |
+| 14 | [民国：烽火1937 - 唯物小丰子](./%E6%B0%91%E5%9B%BD%EF%BC%9A%E7%83%BD%E7%81%AB1937%20-%20%E5%94%AF%E7%89%A9%E5%B0%8F%E4%B8%B0%E5%AD%90.json) | 第454章 为鲁南写下一个壮阔的故事【二合一 8k】 | 1392 | 337 | 1252 | `info_reveal` | `suspense_clue` |
+| 15 | [炮火弧线 - 康斯坦丁伯爵](./%E7%82%AE%E7%81%AB%E5%BC%A7%E7%BA%BF%20-%20%E5%BA%B7%E6%96%AF%E5%9D%A6%E4%B8%81%E4%BC%AF%E7%88%B5.json) | 第74章 摧枯拉朽 | 2973 | 361 | 1243 | `info_reveal` | `suspense_clue` |
+| 16 | [烽烟下的军需官 - 云山万里梦](./%E7%83%BD%E7%83%9F%E4%B8%8B%E7%9A%84%E5%86%9B%E9%9C%80%E5%AE%98%20-%20%E4%BA%91%E5%B1%B1%E4%B8%87%E9%87%8C%E6%A2%A6.json) | 第四百五十一章 铁蹄踏河山 下 | 2270 | 344 | 1309 | `conflict_push` | `anticipation_turn` |
+| 17 | [融合狼蛛基因，在俄乌战场杀疯了 - 人可何呀](./%E8%9E%8D%E5%90%88%E7%8B%BC%E8%9B%9B%E5%9F%BA%E5%9B%A0%EF%BC%8C%E5%9C%A8%E4%BF%84%E4%B9%8C%E6%88%98%E5%9C%BA%E6%9D%80%E7%96%AF%E4%BA%86%20-%20%E4%BA%BA%E5%8F%AF%E4%BD%95%E5%91%80.json) | 第一百一十九章 外籍女志愿兵？ | 1372 | 364 | 1290 | `conflict_push` | `anticipation_turn` |
+| 18 | [让你守四行仓库，你带出个德械师 - 乌云的暮年](./%E8%AE%A9%E4%BD%A0%E5%AE%88%E5%9B%9B%E8%A1%8C%E4%BB%93%E5%BA%93%EF%BC%8C%E4%BD%A0%E5%B8%A6%E5%87%BA%E4%B8%AA%E5%BE%B7%E6%A2%B0%E5%B8%88%20-%20%E4%B9%8C%E4%BA%91%E7%9A%84%E6%9A%AE%E5%B9%B4.json) | 第207章 胜利不可复制？暂编第8军的番号该变了（礼物加更） | 2929 | 331 | 1239 | `info_reveal` | `suspense_clue` |
+| 19 | [谍影风云 - 寻青藤](./%E8%B0%8D%E5%BD%B1%E9%A3%8E%E4%BA%91%20-%20%E5%AF%BB%E9%9D%92%E8%97%A4.json) | 第十八章 发现（求推荐，求收藏） | 2665 | 286 | 1239 | `conflict_push` | `suspense_clue` |
+| 20 | [谍战代号：申公豹 - 谈谈钱](./%E8%B0%8D%E6%88%98%E4%BB%A3%E5%8F%B7%EF%BC%9A%E7%94%B3%E5%85%AC%E8%B1%B9%20-%20%E8%B0%88%E8%B0%88%E9%92%B1.json) | 第十四章 杜掌柜（求月票，求收藏） | 3983 | 337 | 1234 | `info_reveal` | `suspense_clue` |
+| 21 | [长津湖：满仓有身装备栏 - 中条山的狼](./%E9%95%BF%E6%B4%A5%E6%B9%96%EF%BC%9A%E6%BB%A1%E4%BB%93%E6%9C%89%E8%BA%AB%E8%A3%85%E5%A4%87%E6%A0%8F%20-%20%E4%B8%AD%E6%9D%A1%E5%B1%B1%E7%9A%84%E7%8B%BC.json) | 第161章 有点东西啊 | 1382 | 353 | 1298 | `conflict_push` | `suspense_clue` |
+| 22 | [间谍的战争 - 如水意](./%E9%97%B4%E8%B0%8D%E7%9A%84%E6%88%98%E4%BA%89%20-%20%E5%A6%82%E6%B0%B4%E6%84%8F.json) | 第一千四百六十九章 牺牲 | 2622 | 342 | 1261 | `info_reveal` | `suspense_clue` |

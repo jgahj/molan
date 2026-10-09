@@ -1,0 +1,46 @@
+# 题材实验抽样汇总：游戏体育
+
+> 本分类包含图书总计: **40** 本 | 平均章节字数: **3135** 字
+
+| 序号 | 书名 | 抽中章节 | 章节字数 | 极简提示词字数 | 完整提示词字数 | 目标 Profile | 钩子 Profile |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| 1 | [moba：联盟是个运气游戏！](./moba%EF%BC%9A%E8%81%94%E7%9B%9F%E6%98%AF%E4%B8%AA%E8%BF%90%E6%B0%94%E6%B8%B8%E6%88%8F%EF%BC%81.json) | 第4章 总有一天，我会拿回属于我的一切！ | 2290 | 336 | 1254 | `conflict_push` | `suspense_clue` |
+| 2 | [NBA：交易系统助我游牧成神](./NBA%EF%BC%9A%E4%BA%A4%E6%98%93%E7%B3%BB%E7%BB%9F%E5%8A%A9%E6%88%91%E6%B8%B8%E7%89%A7%E6%88%90%E7%A5%9E.json) | 第7章 坚持自己 | 2318 | 318 | 1231 | `info_reveal` | `anticipation_turn` |
+| 3 | [NBA：我的高中同桌是科比](./NBA%EF%BC%9A%E6%88%91%E7%9A%84%E9%AB%98%E4%B8%AD%E5%90%8C%E6%A1%8C%E6%98%AF%E7%A7%91%E6%AF%94.json) | 第48章 最后一程 | 182 | 343 | 1297 | `balanced_narrative` | `anticipation_turn` |
+| 4 | [万人嫌反派炮灰成了早逝白月光](./%E4%B8%87%E4%BA%BA%E5%AB%8C%E5%8F%8D%E6%B4%BE%E7%82%AE%E7%81%B0%E6%88%90%E4%BA%86%E6%97%A9%E9%80%9D%E7%99%BD%E6%9C%88%E5%85%89.json) | 第7章 讨厌痛苦，接受痛苦 | 2410 | 337 | 1277 | `conflict_push` | `suspense_clue` |
+| 5 | [三角洲：FPS暴君降临](./%E4%B8%89%E8%A7%92%E6%B4%B2%EF%BC%9AFPS%E6%9A%B4%E5%90%9B%E9%99%8D%E4%B8%B4.json) | 第6章 令人咂舌的顶护价格！ | 2866 | 360 | 1264 | `info_reveal` | `anticipation_turn` |
+| 6 | [入主湖人助科比，开局先抢圣保罗](./%E5%85%A5%E4%B8%BB%E6%B9%96%E4%BA%BA%E5%8A%A9%E7%A7%91%E6%AF%94%EF%BC%8C%E5%BC%80%E5%B1%80%E5%85%88%E6%8A%A2%E5%9C%A3%E4%BF%9D%E7%BD%97.json) | 第30章 巴克利之吻！ | 197 | 365 | 1348 | `balanced_narrative` | `anticipation_turn` |
+| 7 | [全息游戏当神偷，偷完他的偷你的](./%E5%85%A8%E6%81%AF%E6%B8%B8%E6%88%8F%E5%BD%93%E7%A5%9E%E5%81%B7%EF%BC%8C%E5%81%B7%E5%AE%8C%E4%BB%96%E7%9A%84%E5%81%B7%E4%BD%A0%E7%9A%84.json) | 第5章 隐藏任务 | 2184 | 317 | 1227 | `conflict_push` | `suspense_clue` |
+| 8 | [全民大航海，我开局一条幽灵船](./%E5%85%A8%E6%B0%91%E5%A4%A7%E8%88%AA%E6%B5%B7%EF%BC%8C%E6%88%91%E5%BC%80%E5%B1%80%E4%B8%80%E6%9D%A1%E5%B9%BD%E7%81%B5%E8%88%B9.json) | < | 33703 | 297 | 1218 | `conflict_push` | `suspense_clue` |
+| 9 | [全民求生：开局一间茅草棚](./%E5%85%A8%E6%B0%91%E6%B1%82%E7%94%9F%EF%BC%9A%E5%BC%80%E5%B1%80%E4%B8%80%E9%97%B4%E8%8C%85%E8%8D%89%E6%A3%9A.json) | 第6章 结束 | 2960 | 300 | 1212 | `conflict_push` | `suspense_clue` |
+| 10 | [全民海洋求生：我的命中百分百](./%E5%85%A8%E6%B0%91%E6%B5%B7%E6%B4%8B%E6%B1%82%E7%94%9F%EF%BC%9A%E6%88%91%E7%9A%84%E5%91%BD%E4%B8%AD%E7%99%BE%E5%88%86%E7%99%BE.json) | 第1章 神话天赋，绝对命中！ | 2269 | 358 | 1293 | `conflict_push` | `suspense_clue` |
+| 11 | [全民网游：我看广告解锁无限奖励](./%E5%85%A8%E6%B0%91%E7%BD%91%E6%B8%B8%EF%BC%9A%E6%88%91%E7%9C%8B%E5%B9%BF%E5%91%8A%E8%A7%A3%E9%94%81%E6%97%A0%E9%99%90%E5%A5%96%E5%8A%B1.json) | 第5章 战斗力飙升！宝箱还需要钥匙才能打开？看广告一键开启！ | 2412 | 363 | 1274 | `conflict_push` | `suspense_clue` |
+| 12 | [全球公路求生，幸运龙崽躺赢啦](./%E5%85%A8%E7%90%83%E5%85%AC%E8%B7%AF%E6%B1%82%E7%94%9F%EF%BC%8C%E5%B9%B8%E8%BF%90%E9%BE%99%E5%B4%BD%E8%BA%BA%E8%B5%A2%E5%95%A6.json) | 第8章 新增功能 | 2301 | 325 | 1259 | `conflict_push` | `anticipation_turn` |
+| 13 | [公路求生，我的恋爱脑男友重生了](./%E5%85%AC%E8%B7%AF%E6%B1%82%E7%94%9F%EF%BC%8C%E6%88%91%E7%9A%84%E6%81%8B%E7%88%B1%E8%84%91%E7%94%B7%E5%8F%8B%E9%87%8D%E7%94%9F%E4%BA%86.json) | 第4章 全服首杀通报 | 2150 | 337 | 1284 | `conflict_push` | `suspense_clue` |
+| 14 | [公路求生：开局抽中旅游餐车](./%E5%85%AC%E8%B7%AF%E6%B1%82%E7%94%9F%EF%BC%9A%E5%BC%80%E5%B1%80%E6%8A%BD%E4%B8%AD%E6%97%85%E6%B8%B8%E9%A4%90%E8%BD%A6.json) | 第8章 这一拳会很帅 | 2161 | 327 | 1248 | `conflict_push` | `suspense_clue` |
+| 15 | [公路求生：我被拉进了管理群](./%E5%85%AC%E8%B7%AF%E6%B1%82%E7%94%9F%EF%BC%9A%E6%88%91%E8%A2%AB%E6%8B%89%E8%BF%9B%E4%BA%86%E7%AE%A1%E7%90%86%E7%BE%A4.json) | 第4章 箱子里的危险 | 2269 | 325 | 1252 | `conflict_push` | `suspense_clue` |
+| 16 | [地下城求生：白毛萝莉的暴力美学](./%E5%9C%B0%E4%B8%8B%E5%9F%8E%E6%B1%82%E7%94%9F%EF%BC%9A%E7%99%BD%E6%AF%9B%E8%90%9D%E8%8E%89%E7%9A%84%E6%9A%B4%E5%8A%9B%E7%BE%8E%E5%AD%A6.json) | 第8章 怪物尸体供货商 | 2665 | 332 | 1234 | `info_reveal` | `anticipation_turn` |
+| 17 | [平原求生：我每天刷新一个小情报](./%E5%B9%B3%E5%8E%9F%E6%B1%82%E7%94%9F%EF%BC%9A%E6%88%91%E6%AF%8F%E5%A4%A9%E5%88%B7%E6%96%B0%E4%B8%80%E4%B8%AA%E5%B0%8F%E6%83%85%E6%8A%A5.json) | 第2章 丧尸围攻 | 2505 | 312 | 1243 | `conflict_push` | `anticipation_turn` |
+| 18 | [无尽海求生：我觉醒双生龙王武魂](./%E6%97%A0%E5%B0%BD%E6%B5%B7%E6%B1%82%E7%94%9F%EF%BC%9A%E6%88%91%E8%A7%89%E9%86%92%E5%8F%8C%E7%94%9F%E9%BE%99%E7%8E%8B%E6%AD%A6%E9%AD%82.json) | 第5章 2级木筏 | 2553 | 331 | 1250 | `conflict_push` | `suspense_clue` |
+| 19 | [无限末世：恶毒美人杀疯了](./%E6%97%A0%E9%99%90%E6%9C%AB%E4%B8%96%EF%BC%9A%E6%81%B6%E6%AF%92%E7%BE%8E%E4%BA%BA%E6%9D%80%E7%96%AF%E4%BA%86.json) | 第9章 丘丘人腌什锦菜 | 2181 | 318 | 1260 | `conflict_push` | `suspense_clue` |
+| 20 | [木屋求生：我出生在刷怪笼旁](./%E6%9C%A8%E5%B1%8B%E6%B1%82%E7%94%9F%EF%BC%9A%E6%88%91%E5%87%BA%E7%94%9F%E5%9C%A8%E5%88%B7%E6%80%AA%E7%AC%BC%E6%97%81.json) | 3.庇护所作用范围扩张到木屋外，范围为方圆20米。】 | 1971 | 333 | 1276 | `conflict_push` | `anticipation_turn` |
+| 21 | [末路求生游戏，开局一辆大巴车](./%E6%9C%AB%E8%B7%AF%E6%B1%82%E7%94%9F%E6%B8%B8%E6%88%8F%EF%BC%8C%E5%BC%80%E5%B1%80%E4%B8%80%E8%BE%86%E5%A4%A7%E5%B7%B4%E8%BD%A6.json) | 第5章 游戏规则 | 2592 | 340 | 1270 | `conflict_push` | `anticipation_turn` |
+| 22 | [武侠游戏，开局九阳神功震惊全球](./%E6%AD%A6%E4%BE%A0%E6%B8%B8%E6%88%8F%EF%BC%8C%E5%BC%80%E5%B1%80%E4%B9%9D%E9%98%B3%E7%A5%9E%E5%8A%9F%E9%9C%87%E6%83%8A%E5%85%A8%E7%90%83.json) | 第10章 单刷毫无压力 | 2275 | 325 | 1249 | `conflict_push` | `anticipation_turn` |
+| 23 | [永久一滴血，我照样无敌于世！](./%E6%B0%B8%E4%B9%85%E4%B8%80%E6%BB%B4%E8%A1%80%EF%BC%8C%E6%88%91%E7%85%A7%E6%A0%B7%E6%97%A0%E6%95%8C%E4%BA%8E%E4%B8%96%EF%BC%81.json) | 第 8 章 恐怖的提升幅度 | 3258 | 319 | 1252 | `conflict_push` | `anticipation_turn` |
+| 24 | [求生游戏：请叫我诚信商人](./%E6%B1%82%E7%94%9F%E6%B8%B8%E6%88%8F%EF%BC%9A%E8%AF%B7%E5%8F%AB%E6%88%91%E8%AF%9A%E4%BF%A1%E5%95%86%E4%BA%BA.json) | 第8章 你不只投机，还很奸诈 | 2338 | 312 | 1232 | `conflict_push` | `anticipation_turn` |
+| 25 | [海上求生：我提前氪金](./%E6%B5%B7%E4%B8%8A%E6%B1%82%E7%94%9F%EF%BC%9A%E6%88%91%E6%8F%90%E5%89%8D%E6%B0%AA%E9%87%91.json) | 第9章 木筏升级 | 2345 | 330 | 1266 | `conflict_push` | `suspense_clue` |
+| 26 | [海上求生：我的木筏通桃源](./%E6%B5%B7%E4%B8%8A%E6%B1%82%E7%94%9F%EF%BC%9A%E6%88%91%E7%9A%84%E6%9C%A8%E7%AD%8F%E9%80%9A%E6%A1%83%E6%BA%90.json) | 第3章 交换物资，扩展木筏 | 2231 | 317 | 1275 | `conflict_push` | `anticipation_turn` |
+| 27 | [游戏穿越：但无限刷新模组](./%E6%B8%B8%E6%88%8F%E7%A9%BF%E8%B6%8A%EF%BC%9A%E4%BD%86%E6%97%A0%E9%99%90%E5%88%B7%E6%96%B0%E6%A8%A1%E7%BB%84.json) | 第1章 全员穿越 | 2909 | 349 | 1268 | `conflict_push` | `anticipation_turn` |
+| 28 | [爱我恨我，玩家榜前十全是我](./%E7%88%B1%E6%88%91%E6%81%A8%E6%88%91%EF%BC%8C%E7%8E%A9%E5%AE%B6%E6%A6%9C%E5%89%8D%E5%8D%81%E5%85%A8%E6%98%AF%E6%88%91.json) | 4. 本阶段为不删档测试，全球首个副本正式降临之日，游戏正式公测。】 | 2254 | 343 | 1255 | `conflict_push` | `suspense_clue` |
+| 29 | [率土：一元就能充值648？](./%E7%8E%87%E5%9C%9F%EF%BC%9A%E4%B8%80%E5%85%83%E5%B0%B1%E8%83%BD%E5%85%85%E5%80%BC648%EF%BC%9F.json) | 第1章 一元秒杀系统 | 2824 | 358 | 1279 | `conflict_push` | `anticipation_turn` |
+| 30 | [王者：你的天赋很好现在我也有了](./%E7%8E%8B%E8%80%85%EF%BC%9A%E4%BD%A0%E7%9A%84%E5%A4%A9%E8%B5%8B%E5%BE%88%E5%A5%BD%E7%8E%B0%E5%9C%A8%E6%88%91%E4%B9%9F%E6%9C%89%E4%BA%86.json) | 第10章 老了就退网，好吗？刘伟！ | 2712 | 337 | 1252 | `conflict_push` | `suspense_clue` |
+| 31 | [生存游戏，我有百花大军](./%E7%94%9F%E5%AD%98%E6%B8%B8%E6%88%8F%EF%BC%8C%E6%88%91%E6%9C%89%E7%99%BE%E8%8A%B1%E5%A4%A7%E5%86%9B.json) | 第8章 收集石块 | 2326 | 335 | 1274 | `conflict_push` | `suspense_clue` |
+| 32 | [综武游戏入侵：我全都要！](./%E7%BB%BC%E6%AD%A6%E6%B8%B8%E6%88%8F%E5%85%A5%E4%BE%B5%EF%BC%9A%E6%88%91%E5%85%A8%E9%83%BD%E8%A6%81%EF%BC%81.json) | 第4章 ：小推山掌，面板出现！ | 2305 | 295 | 1216 | `conflict_push` | `anticipation_turn` |
+| 33 | [网游之死亡武侠](./%E7%BD%91%E6%B8%B8%E4%B9%8B%E6%AD%BB%E4%BA%A1%E6%AD%A6%E4%BE%A0.json) | 第5章 矿工装备 | 2378 | 340 | 1260 | `conflict_push` | `suspense_clue` |
+| 34 | [网游之绝世毒尊](./%E7%BD%91%E6%B8%B8%E4%B9%8B%E7%BB%9D%E4%B8%96%E6%AF%92%E5%B0%8A.json) | 第6章 野猪王 | 2742 | 364 | 1333 | `conflict_push` | `suspense_clue` |
+| 35 | [网游：我有超神级天赋](./%E7%BD%91%E6%B8%B8%EF%BC%9A%E6%88%91%E6%9C%89%E8%B6%85%E7%A5%9E%E7%BA%A7%E5%A4%A9%E8%B5%8B.json) | 第7章 首杀boss，雷电跳跃！ | 2373 | 343 | 1259 | `conflict_push` | `suspense_clue` |
+| 36 | [网球没落？飞燕还巢了解一下！](./%E7%BD%91%E7%90%83%E6%B2%A1%E8%90%BD%EF%BC%9F%E9%A3%9E%E7%87%95%E8%BF%98%E5%B7%A2%E4%BA%86%E8%A7%A3%E4%B8%80%E4%B8%8B%EF%BC%81.json) | 第3章 这才只是开始 | 3240 | 355 | 1322 | `conflict_push` | `anticipation_turn` |
+| 37 | [航海求生船员数值怪开局熊大熊二](./%E8%88%AA%E6%B5%B7%E6%B1%82%E7%94%9F%E8%88%B9%E5%91%98%E6%95%B0%E5%80%BC%E6%80%AA%E5%BC%80%E5%B1%80%E7%86%8A%E5%A4%A7%E7%86%8A%E4%BA%8C.json) | 第10 章 加速胶囊 | 2435 | 332 | 1227 | `info_reveal` | `anticipation_turn` |
+| 38 | [这难道不是乙女游戏？](./%E8%BF%99%E9%9A%BE%E9%81%93%E4%B8%8D%E6%98%AF%E4%B9%99%E5%A5%B3%E6%B8%B8%E6%88%8F%EF%BC%9F.json) | 第1章 仙缘 | 2244 | 306 | 1247 | `conflict_push` | `anticipation_turn` |
+| 39 | [退游六年，剑仙老婆现实找上门了](./%E9%80%80%E6%B8%B8%E5%85%AD%E5%B9%B4%EF%BC%8C%E5%89%91%E4%BB%99%E8%80%81%E5%A9%86%E7%8E%B0%E5%AE%9E%E6%89%BE%E4%B8%8A%E9%97%A8%E4%BA%86.json) | 第8章 游戏里的情人也是情人啊！ | 2834 | 328 | 1256 | `conflict_push` | `suspense_clue` |
+| 40 | [领主：神话入侵，开局招募炽天使](./%E9%A2%86%E4%B8%BB%EF%BC%9A%E7%A5%9E%E8%AF%9D%E5%85%A5%E4%BE%B5%EF%BC%8C%E5%BC%80%E5%B1%80%E6%8B%9B%E5%8B%9F%E7%82%BD%E5%A4%A9%E4%BD%BF.json) | 第9章 扫荡副本，伊卡洛斯是传说级？ | 2239 | 326 | 1256 | `conflict_push` | `suspense_clue` |

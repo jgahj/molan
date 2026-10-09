@@ -1,0 +1,37 @@
+# 题材实验抽样汇总：动漫衍生
+
+> 本分类包含图书总计: **31** 本 | 平均章节字数: **2659** 字
+
+| 序号 | 书名 | 抽中章节 | 章节字数 | 极简提示词字数 | 完整提示词字数 | 目标 Profile | 钩子 Profile |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| 1 | [Re0：开局扮演龙神吓哭夏乌拉](./Re0%EF%BC%9A%E5%BC%80%E5%B1%80%E6%89%AE%E6%BC%94%E9%BE%99%E7%A5%9E%E5%90%93%E5%93%AD%E5%A4%8F%E4%B9%8C%E6%8B%89.json) | 第4章 底裤看穿！阎王点卯所有人的过往 | 2433 | 341 | 1248 | `conflict_push` | `suspense_clue` |
+| 2 | [一人：我，无敌了，你随意！！](./%E4%B8%80%E4%BA%BA%EF%BC%9A%E6%88%91%EF%BC%8C%E6%97%A0%E6%95%8C%E4%BA%86%EF%BC%8C%E4%BD%A0%E9%9A%8F%E6%84%8F%EF%BC%81%EF%BC%81.json) | 第5章 五雷符，我教你呀 | 2597 | 323 | 1257 | `conflict_push` | `suspense_clue` |
+| 3 | [一人：继承不良帅，拥兵三百万！](./%E4%B8%80%E4%BA%BA%EF%BC%9A%E7%BB%A7%E6%89%BF%E4%B8%8D%E8%89%AF%E5%B8%85%EF%BC%8C%E6%8B%A5%E5%85%B5%E4%B8%89%E7%99%BE%E4%B8%87%EF%BC%81.json) | 第8章 让我抓捕张之维？公司疯了，还是我疯了！ | 2656 | 336 | 1256 | `conflict_push` | `anticipation_turn` |
+| 4 | [一人：蜀山掌教，一剑开天门！](./%E4%B8%80%E4%BA%BA%EF%BC%9A%E8%9C%80%E5%B1%B1%E6%8E%8C%E6%95%99%EF%BC%8C%E4%B8%80%E5%89%91%E5%BC%80%E5%A4%A9%E9%97%A8%EF%BC%81.json) | 第7章 蜀山与天师府的交手！ | 3535 | 337 | 1257 | `conflict_push` | `anticipation_turn` |
+| 5 | [东京：被迫拯救怪谈少女！](./%E4%B8%9C%E4%BA%AC%EF%BC%9A%E8%A2%AB%E8%BF%AB%E6%8B%AF%E6%95%91%E6%80%AA%E8%B0%88%E5%B0%91%E5%A5%B3%EF%BC%81.json) | 第6章 川又伽椰子 | 3133 | 334 | 1263 | `conflict_push` | `anticipation_turn` |
+| 6 | [动物城：开局被大先生捡到](./%E5%8A%A8%E7%89%A9%E5%9F%8E%EF%BC%9A%E5%BC%80%E5%B1%80%E8%A2%AB%E5%A4%A7%E5%85%88%E7%94%9F%E6%8D%A1%E5%88%B0.json) | 第8章 熊孩子 | 3073 | 310 | 1228 | `conflict_push` | `crisis_imminent` |
+| 7 | [原神：破产之后只能加入愚人众了](./%E5%8E%9F%E7%A5%9E%EF%BC%9A%E7%A0%B4%E4%BA%A7%E4%B9%8B%E5%90%8E%E5%8F%AA%E8%83%BD%E5%8A%A0%E5%85%A5%E6%84%9A%E4%BA%BA%E4%BC%97%E4%BA%86.json) | 第10章 愿望？ | 2187 | 293 | 1233 | `conflict_push` | `suspense_clue` |
+| 8 | [叫你拍特摄，你真去当奥特曼了？](./%E5%8F%AB%E4%BD%A0%E6%8B%8D%E7%89%B9%E6%91%84%EF%BC%8C%E4%BD%A0%E7%9C%9F%E5%8E%BB%E5%BD%93%E5%A5%A5%E7%89%B9%E6%9B%BC%E4%BA%86%EF%BC%9F.json) | 第二章 西琉斯星盘 | 1903 | 314 | 1241 | `conflict_push` | `anticipation_turn` |
+| 9 | [名柯：我有三角洲召唤系统](./%E5%90%8D%E6%9F%AF%EF%BC%9A%E6%88%91%E6%9C%89%E4%B8%89%E8%A7%92%E6%B4%B2%E5%8F%AC%E5%94%A4%E7%B3%BB%E7%BB%9F.json) | 第5章 偶像密室杀人事件（中） | 2868 | 346 | 1290 | `conflict_push` | `suspense_clue` |
+| 10 | [咒回：特级的我去死灭打宿傩了！](./%E5%92%92%E5%9B%9E%EF%BC%9A%E7%89%B9%E7%BA%A7%E7%9A%84%E6%88%91%E5%8E%BB%E6%AD%BB%E7%81%AD%E6%89%93%E5%AE%BF%E5%82%A9%E4%BA%86%EF%BC%81.json) | 第9章 出发仙台结界！ | 2221 | 349 | 1290 | `conflict_push` | `suspense_clue` |
+| 11 | [型月中的假奥托](./%E5%9E%8B%E6%9C%88%E4%B8%AD%E7%9A%84%E5%81%87%E5%A5%A5%E6%89%98.json) | 第1章 我什么都做不到 | 2747 | 323 | 1239 | `conflict_push` | `suspense_clue` |
+| 12 | [奥特：天蝎座第一道光](./%E5%A5%A5%E7%89%B9%EF%BC%9A%E5%A4%A9%E8%9D%8E%E5%BA%A7%E7%AC%AC%E4%B8%80%E9%81%93%E5%85%89.json) | 第10章 被封印的三人组 | 2511 | 302 | 1233 | `conflict_push` | `anticipation_turn` |
+| 13 | [奥特：最强债主！借债十倍返还！](./%E5%A5%A5%E7%89%B9%EF%BC%9A%E6%9C%80%E5%BC%BA%E5%80%BA%E4%B8%BB%EF%BC%81%E5%80%9F%E5%80%BA%E5%8D%81%E5%80%8D%E8%BF%94%E8%BF%98%EF%BC%81.json) | 第5章 被数据碾压了？不同的气质！ | 2397 | 352 | 1268 | `conflict_push` | `anticipation_turn` |
+| 14 | [崩铁：什么叫一句话拓宽四命途？](./%E5%B4%A9%E9%93%81%EF%BC%9A%E4%BB%80%E4%B9%88%E5%8F%AB%E4%B8%80%E5%8F%A5%E8%AF%9D%E6%8B%93%E5%AE%BD%E5%9B%9B%E5%91%BD%E9%80%94%EF%BC%9F.json) | 第6章 智斗这一块 | 2114 | 357 | 1268 | `conflict_push` | `suspense_clue` |
+| 15 | [崩铁：我死后，成就她们的疯魔](./%E5%B4%A9%E9%93%81%EF%BC%9A%E6%88%91%E6%AD%BB%E5%90%8E%EF%BC%8C%E6%88%90%E5%B0%B1%E5%A5%B9%E4%BB%AC%E7%9A%84%E7%96%AF%E9%AD%94.json) | 第6章 生命是一座迂回的迷宫 | 2207 | 324 | 1266 | `conflict_push` | `anticipation_turn` |
+| 16 | [崩铁：黑塔女士这么看我怎么办？](./%E5%B4%A9%E9%93%81%EF%BC%9A%E9%BB%91%E5%A1%94%E5%A5%B3%E5%A3%AB%E8%BF%99%E4%B9%88%E7%9C%8B%E6%88%91%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F.json) | 第1章 我还不想死…… | 1935 | 345 | 1296 | `conflict_push` | `suspense_clue` |
+| 17 | [我在战锤抽词条，帝皇站起来了？](./%E6%88%91%E5%9C%A8%E6%88%98%E9%94%A4%E6%8A%BD%E8%AF%8D%E6%9D%A1%EF%BC%8C%E5%B8%9D%E7%9A%87%E7%AB%99%E8%B5%B7%E6%9D%A5%E4%BA%86%EF%BC%9F.json) | 第4章 Who踏马cares——！！！ | 3319 | 321 | 1234 | `conflict_push` | `suspense_clue` |
+| 18 | [我，恶霸蜘蛛侠，打爆漫威！](./%E6%88%91%EF%BC%8C%E6%81%B6%E9%9C%B8%E8%9C%98%E8%9B%9B%E4%BE%A0%EF%BC%8C%E6%89%93%E7%88%86%E6%BC%AB%E5%A8%81%EF%BC%81.json) | 第1章 我，托比·帕克，恶霸蜘蛛侠！ | 2371 | 340 | 1262 | `conflict_push` | `suspense_clue` |
+| 19 | [星铁，破绷就变强？开局带坏小鸟](./%E6%98%9F%E9%93%81%EF%BC%8C%E7%A0%B4%E7%BB%B7%E5%B0%B1%E5%8F%98%E5%BC%BA%EF%BC%9F%E5%BC%80%E5%B1%80%E5%B8%A6%E5%9D%8F%E5%B0%8F%E9%B8%9F.json) | 第5章 神父和小男孩？云涣，你会后悔的！ | 2388 | 388 | 1307 | `info_reveal` | `suspense_clue` |
+| 20 | [柯南：蜘蛛感应？我真的是普通人](./%E6%9F%AF%E5%8D%97%EF%BC%9A%E8%9C%98%E8%9B%9B%E6%84%9F%E5%BA%94%EF%BC%9F%E6%88%91%E7%9C%9F%E7%9A%84%E6%98%AF%E6%99%AE%E9%80%9A%E4%BA%BA.json) | 第3章 抢劫计程车？！ | 2178 | 337 | 1296 | `conflict_push` | `suspense_clue` |
+| 21 | [欢迎都显怀了，你还没释怀](./%E6%AC%A2%E8%BF%8E%E9%83%BD%E6%98%BE%E6%80%80%E4%BA%86%EF%BC%8C%E4%BD%A0%E8%BF%98%E6%B2%A1%E9%87%8A%E6%80%80.json) | 第3章 幽冥魔来了，又一颗星球要完蛋了 | 2080 | 322 | 1259 | `conflict_push` | `suspense_clue` |
+| 22 | [火影：人在木叶村，开局觉醒木遁](./%E7%81%AB%E5%BD%B1%EF%BC%9A%E4%BA%BA%E5%9C%A8%E6%9C%A8%E5%8F%B6%E6%9D%91%EF%BC%8C%E5%BC%80%E5%B1%80%E8%A7%89%E9%86%92%E6%9C%A8%E9%81%81.json) | 第8章 根部的监视！ | 2807 | 298 | 1218 | `conflict_push` | `suspense_clue` |
+| 23 | [火影：这忍界真是阴的没边了](./%E7%81%AB%E5%BD%B1%EF%BC%9A%E8%BF%99%E5%BF%8D%E7%95%8C%E7%9C%9F%E6%98%AF%E9%98%B4%E7%9A%84%E6%B2%A1%E8%BE%B9%E4%BA%86.json) | 第 2章 宇智波带土 | 2181 | 327 | 1275 | `conflict_push` | `anticipation_turn` |
+| 24 | [猪猪侠：什么叫主攻手空手接大？](./%E7%8C%AA%E7%8C%AA%E4%BE%A0%EF%BC%9A%E4%BB%80%E4%B9%88%E5%8F%AB%E4%B8%BB%E6%94%BB%E6%89%8B%E7%A9%BA%E6%89%8B%E6%8E%A5%E5%A4%A7%EF%BC%9F.json) | 第9章 对战荆棘队 | 2171 | 311 | 1216 | `conflict_push` | `suspense_clue` |
+| 25 | [穿越刘备，死后和我说这是型月？](./%E7%A9%BF%E8%B6%8A%E5%88%98%E5%A4%87%EF%BC%8C%E6%AD%BB%E5%90%8E%E5%92%8C%E6%88%91%E8%AF%B4%E8%BF%99%E6%98%AF%E5%9E%8B%E6%9C%88%EF%BC%9F.json) | 第8章 初战!Saber的危机（5200字大章） | 5622 | 337 | 1268 | `conflict_push` | `anticipation_turn` |
+| 26 | [穿越提瓦特，挡刀就能变强！](./%E7%A9%BF%E8%B6%8A%E6%8F%90%E7%93%A6%E7%89%B9%EF%BC%8C%E6%8C%A1%E5%88%80%E5%B0%B1%E8%83%BD%E5%8F%98%E5%BC%BA%EF%BC%81.json) | 第1章 陆离亦未寝 | 4797 | 352 | 1318 | `conflict_push` | `suspense_clue` |
+| 27 | [签到超人：我在超神宇宙镇诸天](./%E7%AD%BE%E5%88%B0%E8%B6%85%E4%BA%BA%EF%BC%9A%E6%88%91%E5%9C%A8%E8%B6%85%E7%A5%9E%E5%AE%87%E5%AE%99%E9%95%87%E8%AF%B8%E5%A4%A9.json) | 第3章 你们本来就是超人 | 1787 | 315 | 1252 | `conflict_push` | `suspense_clue` |
+| 28 | [综漫：异种族评鉴指南](./%E7%BB%BC%E6%BC%AB%EF%BC%9A%E5%BC%82%E7%A7%8D%E6%97%8F%E8%AF%84%E9%89%B4%E6%8C%87%E5%8D%97.json) | 第9章 传说中的精灵 | 2245 | 307 | 1243 | `conflict_push` | `anticipation_turn` |
+| 29 | [综漫：留学千叶的我兼职光之巨人](./%E7%BB%BC%E6%BC%AB%EF%BC%9A%E7%95%99%E5%AD%A6%E5%8D%83%E5%8F%B6%E7%9A%84%E6%88%91%E5%85%BC%E8%81%8C%E5%85%89%E4%B9%8B%E5%B7%A8%E4%BA%BA.json) | 第9章 公园里的馈赠 | 3724 | 364 | 1271 | `conflict_push` | `suspense_clue` |
+| 30 | [转生火影，卡普模版](./%E8%BD%AC%E7%94%9F%E7%81%AB%E5%BD%B1%EF%BC%8C%E5%8D%A1%E6%99%AE%E6%A8%A1%E7%89%88.json) | 第5章 旗木卡卡西 | 2103 | 341 | 1301 | `conflict_push` | `suspense_clue` |
+| 31 | [顶级智斗：开局给小天寄石墩子](./%E9%A1%B6%E7%BA%A7%E6%99%BA%E6%96%97%EF%BC%9A%E5%BC%80%E5%B1%80%E7%BB%99%E5%B0%8F%E5%A4%A9%E5%AF%84%E7%9F%B3%E5%A2%A9%E5%AD%90.json) | 第6章 报警说清自在蓄意伤人 | 2146 | 338 | 1274 | `conflict_push` | `suspense_clue` |

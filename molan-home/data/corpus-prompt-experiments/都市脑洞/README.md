@@ -1,0 +1,35 @@
+# 题材实验抽样汇总：都市脑洞
+
+> 本分类包含图书总计: **29** 本 | 平均章节字数: **2414** 字
+
+| 序号 | 书名 | 抽中章节 | 章节字数 | 极简提示词字数 | 完整提示词字数 | 目标 Profile | 钩子 Profile |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| 1 | [下载APP，才发现青梅好感爆了](./%E4%B8%8B%E8%BD%BDAPP%EF%BC%8C%E6%89%8D%E5%8F%91%E7%8E%B0%E9%9D%92%E6%A2%85%E5%A5%BD%E6%84%9F%E7%88%86%E4%BA%86.json) | 第5章 叶知鱼 | 2201 | 333 | 1259 | `conflict_push` | `suspense_clue` |
+| 2 | [人在向往：何老师是我老舅](./%E4%BA%BA%E5%9C%A8%E5%90%91%E5%BE%80%EF%BC%9A%E4%BD%95%E8%80%81%E5%B8%88%E6%98%AF%E6%88%91%E8%80%81%E8%88%85.json) | 第2章 新歌发布热度上涨 | 2324 | 290 | 1234 | `conflict_push` | `anticipation_turn` |
+| 3 | [人在潮汕，开局连抛十八圣杯](./%E4%BA%BA%E5%9C%A8%E6%BD%AE%E6%B1%95%EF%BC%8C%E5%BC%80%E5%B1%80%E8%BF%9E%E6%8A%9B%E5%8D%81%E5%85%AB%E5%9C%A3%E6%9D%AF.json) | 第1章 叮！圣杯系统激活 | 2817 | 317 | 1236 | `conflict_push` | `suspense_clue` |
+| 4 | [变身顶美，有颜真能为所欲为](./%E5%8F%98%E8%BA%AB%E9%A1%B6%E7%BE%8E%EF%BC%8C%E6%9C%89%E9%A2%9C%E7%9C%9F%E8%83%BD%E4%B8%BA%E6%89%80%E6%AC%B2%E4%B8%BA.json) | 第10章 商场、甜品与空白记忆 | 2411 | 321 | 1247 | `conflict_push` | `anticipation_turn` |
+| 5 | [只想躺平开民宿，咋就活成顶流了](./%E5%8F%AA%E6%83%B3%E8%BA%BA%E5%B9%B3%E5%BC%80%E6%B0%91%E5%AE%BF%EF%BC%8C%E5%92%8B%E5%B0%B1%E6%B4%BB%E6%88%90%E9%A1%B6%E6%B5%81%E4%BA%86.json) | 第4章 人生若只如初见 | 2728 | 325 | 1271 | `conflict_push` | `anticipation_turn` |
+| 6 | [同归于尽后，宿敌跟我回到现实！](./%E5%90%8C%E5%BD%92%E4%BA%8E%E5%B0%BD%E5%90%8E%EF%BC%8C%E5%AE%BF%E6%95%8C%E8%B7%9F%E6%88%91%E5%9B%9E%E5%88%B0%E7%8E%B0%E5%AE%9E%EF%BC%81.json) | 第5章 千年宿敌头一次吃饭（精修版） | 2233 | 320 | 1242 | `conflict_push` | `anticipation_turn` |
+| 7 | [女多男少，开局分配辅导员老婆](./%E5%A5%B3%E5%A4%9A%E7%94%B7%E5%B0%91%EF%BC%8C%E5%BC%80%E5%B1%80%E5%88%86%E9%85%8D%E8%BE%85%E5%AF%BC%E5%91%98%E8%80%81%E5%A9%86.json) | 第7章 送老公什么礼物好？ps5吗？ | 2644 | 324 | 1249 | `conflict_push` | `suspense_clue` |
+| 8 | [女装：听劝扮演知更鸟，美哭全网](./%E5%A5%B3%E8%A3%85%EF%BC%9A%E5%90%AC%E5%8A%9D%E6%89%AE%E6%BC%94%E7%9F%A5%E6%9B%B4%E9%B8%9F%EF%BC%8C%E7%BE%8E%E5%93%AD%E5%85%A8%E7%BD%91.json) | 第7章 就算不穿c服，看着也是个女生啊 | 2261 | 313 | 1229 | `conflict_push` | `suspense_clue` |
+| 9 | [学习一秒一块钱，室友你女神怎么](./%E5%AD%A6%E4%B9%A0%E4%B8%80%E7%A7%92%E4%B8%80%E5%9D%97%E9%92%B1%EF%BC%8C%E5%AE%A4%E5%8F%8B%E4%BD%A0%E5%A5%B3%E7%A5%9E%E6%80%8E%E4%B9%88.json) | 第4章 小赚室友5000块 | 2770 | 353 | 1284 | `conflict_push` | `suspense_clue` |
+| 10 | [实习教出金牌班，家长要换班主任](./%E5%AE%9E%E4%B9%A0%E6%95%99%E5%87%BA%E9%87%91%E7%89%8C%E7%8F%AD%EF%BC%8C%E5%AE%B6%E9%95%BF%E8%A6%81%E6%8D%A2%E7%8F%AD%E4%B8%BB%E4%BB%BB.json) | 第7章 露头就秒 | 2427 | 341 | 1267 | `conflict_push` | `anticipation_turn` |
+| 11 | [屠城就能回蓝星？兄弟你早说啊！](./%E5%B1%A0%E5%9F%8E%E5%B0%B1%E8%83%BD%E5%9B%9E%E8%93%9D%E6%98%9F%EF%BC%9F%E5%85%84%E5%BC%9F%E4%BD%A0%E6%97%A9%E8%AF%B4%E5%95%8A%EF%BC%81.json) | 第3章 亦仙亦魔 | 1747 | 325 | 1244 | `conflict_push` | `suspense_clue` |
+| 12 | [归国留洋水货？叫我芯片之父！](./%E5%BD%92%E5%9B%BD%E7%95%99%E6%B4%8B%E6%B0%B4%E8%B4%A7%EF%BC%9F%E5%8F%AB%E6%88%91%E8%8A%AF%E7%89%87%E4%B9%8B%E7%88%B6%EF%BC%81.json) | 第10章 认可与融入 | 2400 | 318 | 1259 | `conflict_push` | `suspense_clue` |
+| 13 | [我一个校长，听学生建议怎么了？](./%E6%88%91%E4%B8%80%E4%B8%AA%E6%A0%A1%E9%95%BF%EF%BC%8C%E5%90%AC%E5%AD%A6%E7%94%9F%E5%BB%BA%E8%AE%AE%E6%80%8E%E4%B9%88%E4%BA%86%EF%BC%9F.json) | 第2章 两百万的厨师做大锅饭？你是真敢想啊 | 2993 | 362 | 1267 | `conflict_push` | `suspense_clue` |
+| 14 | [我一写龙族的，你让我上恋综？](./%E6%88%91%E4%B8%80%E5%86%99%E9%BE%99%E6%97%8F%E7%9A%84%EF%BC%8C%E4%BD%A0%E8%AE%A9%E6%88%91%E4%B8%8A%E6%81%8B%E7%BB%BC%EF%BC%9F.json) | 第4章 入住心动小屋（1） | 2381 | 357 | 1275 | `conflict_push` | `suspense_clue` |
+| 15 | [我老婆有白月光？她怎么不知道](./%E6%88%91%E8%80%81%E5%A9%86%E6%9C%89%E7%99%BD%E6%9C%88%E5%85%89%EF%BC%9F%E5%A5%B9%E6%80%8E%E4%B9%88%E4%B8%8D%E7%9F%A5%E9%81%93.json) | 第10章 真的吗？我不信 | 2322 | 304 | 1226 | `conflict_push` | `suspense_clue` |
+| 16 | [我，死灵法师，遵纪守法](./%E6%88%91%EF%BC%8C%E6%AD%BB%E7%81%B5%E6%B3%95%E5%B8%88%EF%BC%8C%E9%81%B5%E7%BA%AA%E5%AE%88%E6%B3%95.json) | 第1章 美丽的尸体 | 2398 | 311 | 1238 | `conflict_push` | `suspense_clue` |
+| 17 | [抑郁少女总想自杀？那就恶堕吧！](./%E6%8A%91%E9%83%81%E5%B0%91%E5%A5%B3%E6%80%BB%E6%83%B3%E8%87%AA%E6%9D%80%EF%BC%9F%E9%82%A3%E5%B0%B1%E6%81%B6%E5%A0%95%E5%90%A7%EF%BC%81.json) | 第10章 不听话的小挽行，就是要好好调教 | 2231 | 313 | 1246 | `conflict_push` | `suspense_clue` |
+| 18 | [暑假当雇佣兵，开学扑倒校花](./%E6%9A%91%E5%81%87%E5%BD%93%E9%9B%87%E4%BD%A3%E5%85%B5%EF%BC%8C%E5%BC%80%E5%AD%A6%E6%89%91%E5%80%92%E6%A0%A1%E8%8A%B1.json) | 第10章 追女神吃瘪？必须拿这小子撒气！ | 2888 | 353 | 1285 | `conflict_push` | `suspense_clue` |
+| 19 | [游戏制作：从我的世界风靡全球](./%E6%B8%B8%E6%88%8F%E5%88%B6%E4%BD%9C%EF%BC%9A%E4%BB%8E%E6%88%91%E7%9A%84%E4%B8%96%E7%95%8C%E9%A3%8E%E9%9D%A1%E5%85%A8%E7%90%83.json) | 第10章 企盛的眼红；绝地求生项目 | 2183 | 314 | 1233 | `conflict_push` | `suspense_clue` |
+| 20 | [直播我和徐妙云，老朱全家破防了](./%E7%9B%B4%E6%92%AD%E6%88%91%E5%92%8C%E5%BE%90%E5%A6%99%E4%BA%91%EF%BC%8C%E8%80%81%E6%9C%B1%E5%85%A8%E5%AE%B6%E7%A0%B4%E9%98%B2%E4%BA%86.json) | 第10章 淳安银矿，储备金 | 2243 | 344 | 1245 | `conflict_push` | `suspense_clue` |
+| 21 | [看见情绪颜色后，她们都变粉色了](./%E7%9C%8B%E8%A7%81%E6%83%85%E7%BB%AA%E9%A2%9C%E8%89%B2%E5%90%8E%EF%BC%8C%E5%A5%B9%E4%BB%AC%E9%83%BD%E5%8F%98%E7%B2%89%E8%89%B2%E4%BA%86.json) | 第10章 四中现代最强 | 2144 | 319 | 1268 | `conflict_push` | `anticipation_turn` |
+| 22 | [离婚后，我成了刀枪炮！](./%E7%A6%BB%E5%A9%9A%E5%90%8E%EF%BC%8C%E6%88%91%E6%88%90%E4%BA%86%E5%88%80%E6%9E%AA%E7%82%AE%EF%BC%81.json) | 第5章 必须98的！ | 2282 | 322 | 1229 | `conflict_push` | `suspense_clue` |
+| 23 | [系统延迟一坤年，我成了全球股东](./%E7%B3%BB%E7%BB%9F%E5%BB%B6%E8%BF%9F%E4%B8%80%E5%9D%A4%E5%B9%B4%EF%BC%8C%E6%88%91%E6%88%90%E4%BA%86%E5%85%A8%E7%90%83%E8%82%A1%E4%B8%9C.json) | 第3章 延迟一坤年的大礼包 | 2260 | 334 | 1262 | `conflict_push` | `suspense_clue` |
+| 24 | [系统想害我，我选择上交国家](./%E7%B3%BB%E7%BB%9F%E6%83%B3%E5%AE%B3%E6%88%91%EF%BC%8C%E6%88%91%E9%80%89%E6%8B%A9%E4%B8%8A%E4%BA%A4%E5%9B%BD%E5%AE%B6.json) | 第3章 任务完成！ | 2865 | 348 | 1278 | `conflict_push` | `anticipation_turn` |
+| 25 | [被辞退当天，我兑换了董事长一职](./%E8%A2%AB%E8%BE%9E%E9%80%80%E5%BD%93%E5%A4%A9%EF%BC%8C%E6%88%91%E5%85%91%E6%8D%A2%E4%BA%86%E8%91%A3%E4%BA%8B%E9%95%BF%E4%B8%80%E8%81%8C.json) | 第2章 每个月上亿零花钱 | 1937 | 325 | 1276 | `conflict_push` | `suspense_clue` |
+| 26 | [让你当众写检讨，你作洛神赋？](./%E8%AE%A9%E4%BD%A0%E5%BD%93%E4%BC%97%E5%86%99%E6%A3%80%E8%AE%A8%EF%BC%8C%E4%BD%A0%E4%BD%9C%E6%B4%9B%E7%A5%9E%E8%B5%8B%EF%BC%9F.json) | 第10章 看到什么了，竟然癫痫犯了？ | 2309 | 310 | 1232 | `conflict_push` | `suspense_clue` |
+| 27 | [让你拍反腐片，你拍人民的名义！](./%E8%AE%A9%E4%BD%A0%E6%8B%8D%E5%8F%8D%E8%85%90%E7%89%87%EF%BC%8C%E4%BD%A0%E6%8B%8D%E4%BA%BA%E6%B0%91%E7%9A%84%E5%90%8D%E4%B9%89%EF%BC%81.json) | 第4章 放手去干，资金、演员、场地，随便开口！ | 2995 | 328 | 1261 | `conflict_push` | `anticipation_turn` |
+| 28 | [高考出分前一晚，兑换北大录取书](./%E9%AB%98%E8%80%83%E5%87%BA%E5%88%86%E5%89%8D%E4%B8%80%E6%99%9A%EF%BC%8C%E5%85%91%E6%8D%A2%E5%8C%97%E5%A4%A7%E5%BD%95%E5%8F%96%E4%B9%A6.json) | 第9章 季白应战！ | 1992 | 324 | 1255 | `conflict_push` | `anticipation_turn` |
+| 29 | [高考后，我每天一亿美金零花钱](./%E9%AB%98%E8%80%83%E5%90%8E%EF%BC%8C%E6%88%91%E6%AF%8F%E5%A4%A9%E4%B8%80%E4%BA%BF%E7%BE%8E%E9%87%91%E9%9B%B6%E8%8A%B1%E9%92%B1.json) | 第7章 共处一床，忘本的感觉 | 2619 | 331 | 1251 | `conflict_push` | `anticipation_turn` |

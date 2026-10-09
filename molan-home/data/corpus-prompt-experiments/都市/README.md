@@ -1,0 +1,30 @@
+# 题材实验抽样汇总：都市
+
+> 本分类包含图书总计: **24** 本 | 平均章节字数: **4074** 字
+
+| 序号 | 书名 | 抽中章节 | 章节字数 | 极简提示词字数 | 完整提示词字数 | 目标 Profile | 钩子 Profile |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| 1 | [1984：从破产川菜馆开始 - 轻语江湖](./1984%EF%BC%9A%E4%BB%8E%E7%A0%B4%E4%BA%A7%E5%B7%9D%E8%8F%9C%E9%A6%86%E5%BC%80%E5%A7%8B%20-%20%E8%BD%BB%E8%AF%AD%E6%B1%9F%E6%B9%96.json) | 第八章 代工 | 2535 | 372 | 1279 | `info_reveal` | `anticipation_turn` |
+| 2 | [人在美利坚：我的叔叔堂吉诃德 - 喜欢吃圣代](./%E4%BA%BA%E5%9C%A8%E7%BE%8E%E5%88%A9%E5%9D%9A%EF%BC%9A%E6%88%91%E7%9A%84%E5%8F%94%E5%8F%94%E5%A0%82%E5%90%89%E8%AF%83%E5%BE%B7%20-%20%E5%96%9C%E6%AC%A2%E5%90%83%E5%9C%A3%E4%BB%A3.json) | 第254章 你有不满吗？（8k更新求月票） | 5324 | 365 | 1303 | `conflict_push` | `suspense_clue` |
+| 3 | [以神通之名 - 猪心虾仁](./%E4%BB%A5%E7%A5%9E%E9%80%9A%E4%B9%8B%E5%90%8D%20-%20%E7%8C%AA%E5%BF%83%E8%99%BE%E4%BB%81.json) | 第19章 任务 | 2632 | 313 | 1259 | `conflict_push` | `anticipation_turn` |
+| 4 | [半岛余生：Tara给别人可惜了 - 辣白粥](./%E5%8D%8A%E5%B2%9B%E4%BD%99%E7%94%9F%EF%BC%9ATara%E7%BB%99%E5%88%AB%E4%BA%BA%E5%8F%AF%E6%83%9C%E4%BA%86%20-%20%E8%BE%A3%E7%99%BD%E7%B2%A5.json) | 34 狼狈（上） | 4605 | 365 | 1328 | `conflict_push` | `suspense_clue` |
+| 5 | [华娱情报王 - 胖一点](./%E5%8D%8E%E5%A8%B1%E6%83%85%E6%8A%A5%E7%8E%8B%20-%20%E8%83%96%E4%B8%80%E7%82%B9.json) | 327 新易安，颜礼28岁的生日礼物是一家娱乐帝国 | 8743 | 349 | 1276 | `conflict_push` | `anticipation_turn` |
+| 6 | [华娱：从08考北电开始 - 彭蠡的鱼](./%E5%8D%8E%E5%A8%B1%EF%BC%9A%E4%BB%8E08%E8%80%83%E5%8C%97%E7%94%B5%E5%BC%80%E5%A7%8B%20-%20%E5%BD%AD%E8%A0%A1%E7%9A%84%E9%B1%BC.json) | 第四百九十七章 首映礼 | 2744 | 342 | 1276 | `conflict_push` | `anticipation_turn` |
+| 7 | [华娱：天仙护你一生 - 零下75](./%E5%8D%8E%E5%A8%B1%EF%BC%9A%E5%A4%A9%E4%BB%99%E6%8A%A4%E4%BD%A0%E4%B8%80%E7%94%9F%20-%20%E9%9B%B6%E4%B8%8B75.json) | 第一千零二十四章 不纯粹的李胜 | 2518 | 311 | 1229 | `info_reveal` | `suspense_clue` |
+| 8 | [华娱：重生了，还逼我做渣男啊 - 跳水蛙蛙](./%E5%8D%8E%E5%A8%B1%EF%BC%9A%E9%87%8D%E7%94%9F%E4%BA%86%EF%BC%8C%E8%BF%98%E9%80%BC%E6%88%91%E5%81%9A%E6%B8%A3%E7%94%B7%E5%95%8A%20-%20%E8%B7%B3%E6%B0%B4%E8%9B%99%E8%9B%99.json) | 第八百九十一章 两天之后 登上舞台 | 1370 | 328 | 1233 | `info_reveal` | `anticipation_turn` |
+| 9 | [天才只是我的门槛！ - 碳烤竹笋](./%E5%A4%A9%E6%89%8D%E5%8F%AA%E6%98%AF%E6%88%91%E7%9A%84%E9%97%A8%E6%A7%9B%EF%BC%81%20-%20%E7%A2%B3%E7%83%A4%E7%AB%B9%E7%AC%8B.json) | 第168章 六代战机的构想 | 4513 | 360 | 1261 | `info_reveal` | `suspense_clue` |
+| 10 | [完美人生，从改变时间线开始 - 不是老狗](./%E5%AE%8C%E7%BE%8E%E4%BA%BA%E7%94%9F%EF%BC%8C%E4%BB%8E%E6%94%B9%E5%8F%98%E6%97%B6%E9%97%B4%E7%BA%BF%E5%BC%80%E5%A7%8B%20-%20%E4%B8%8D%E6%98%AF%E8%80%81%E7%8B%97.json) | 第729章 四月的狂欢 | 1376 | 326 | 1263 | `conflict_push` | `anticipation_turn` |
+| 11 | [律师：从合法报复出轨开始！ - 青衫仗剑行天涯](./%E5%BE%8B%E5%B8%88%EF%BC%9A%E4%BB%8E%E5%90%88%E6%B3%95%E6%8A%A5%E5%A4%8D%E5%87%BA%E8%BD%A8%E5%BC%80%E5%A7%8B%EF%BC%81%20-%20%E9%9D%92%E8%A1%AB%E4%BB%97%E5%89%91%E8%A1%8C%E5%A4%A9%E6%B6%AF.json) | 第19章 嚣张！ | 4361 | 325 | 1249 | `conflict_push` | `anticipation_turn` |
+| 12 | [我的学习群里全是真大佬 - 胖胖的小橘](./%E6%88%91%E7%9A%84%E5%AD%A6%E4%B9%A0%E7%BE%A4%E9%87%8C%E5%85%A8%E6%98%AF%E7%9C%9F%E5%A4%A7%E4%BD%AC%20-%20%E8%83%96%E8%83%96%E7%9A%84%E5%B0%8F%E6%A9%98.json) | 有几个事想征求一下大家的意见。 | 2064 | 358 | 1295 | `conflict_push` | `suspense_clue` |
+| 13 | [我真没想重生啊 - 柳岸花又明](./%E6%88%91%E7%9C%9F%E6%B2%A1%E6%83%B3%E9%87%8D%E7%94%9F%E5%95%8A%20-%20%E6%9F%B3%E5%B2%B8%E8%8A%B1%E5%8F%88%E6%98%8E.json) | 18、宝藏女孩（kasimking盟主的加更） | 2678 | 316 | 1234 | `info_reveal` | `anticipation_turn` |
+| 14 | [我，影帝！ - 江公子阿宝](./%E6%88%91%EF%BC%8C%E5%BD%B1%E5%B8%9D%EF%BC%81%20-%20%E6%B1%9F%E5%85%AC%E5%AD%90%E9%98%BF%E5%AE%9D.json) | 第5章 不愧是许仙！ | 3771 | 323 | 1249 | `conflict_push` | `suspense_clue` |
+| 15 | [我，枪神！ - 如水意](./%E6%88%91%EF%BC%8C%E6%9E%AA%E7%A5%9E%EF%BC%81%20-%20%E5%A6%82%E6%B0%B4%E6%84%8F.json) | 第2章 雇佣兵 | 5628 | 326 | 1271 | `conflict_push` | `suspense_clue` |
+| 16 | [我，死灵法师，超爱美利坚 - 最爱铁板烧](./%E6%88%91%EF%BC%8C%E6%AD%BB%E7%81%B5%E6%B3%95%E5%B8%88%EF%BC%8C%E8%B6%85%E7%88%B1%E7%BE%8E%E5%88%A9%E5%9D%9A%20-%20%E6%9C%80%E7%88%B1%E9%93%81%E6%9D%BF%E7%83%A7.json) | 第19章 要相信科学 | 3762 | 341 | 1265 | `conflict_push` | `suspense_clue` |
+| 17 | [捞尸人 - 纯洁滴小龙](./%E6%8D%9E%E5%B0%B8%E4%BA%BA%20-%20%E7%BA%AF%E6%B4%81%E6%BB%B4%E5%B0%8F%E9%BE%99.json) | 第三百八十二章 | 19507 | 351 | 1291 | `conflict_push` | `suspense_clue` |
+| 18 | [灾变：我能无限吞噬进化 - 善歌跳舞](./%E7%81%BE%E5%8F%98%EF%BC%9A%E6%88%91%E8%83%BD%E6%97%A0%E9%99%90%E5%90%9E%E5%99%AC%E8%BF%9B%E5%8C%96%20-%20%E5%96%84%E6%AD%8C%E8%B7%B3%E8%88%9E.json) | 第1368章  收服邪剑，斩灭异族！ | 2913 | 315 | 1250 | `conflict_push` | `anticipation_turn` |
+| 19 | [系统，我真不是苏联学霸 - 无机糖](./%E7%B3%BB%E7%BB%9F%EF%BC%8C%E6%88%91%E7%9C%9F%E4%B8%8D%E6%98%AF%E8%8B%8F%E8%81%94%E5%AD%A6%E9%9C%B8%20-%20%E6%97%A0%E6%9C%BA%E7%B3%96.json) | 第247章 红星！ | 1392 | 349 | 1255 | `info_reveal` | `suspense_clue` |
+| 20 | [都重生了谁谈恋爱啊 - 错哪儿了](./%E9%83%BD%E9%87%8D%E7%94%9F%E4%BA%86%E8%B0%81%E8%B0%88%E6%81%8B%E7%88%B1%E5%95%8A%20-%20%E9%94%99%E5%93%AA%E5%84%BF%E4%BA%86.json) | 第400章 什么网站这么邪门儿？ | 3684 | 340 | 1264 | `conflict_push` | `anticipation_turn` |
+| 21 | [重回1982小渔村 - 米饭的米](./%E9%87%8D%E5%9B%9E1982%E5%B0%8F%E6%B8%94%E6%9D%91%20-%20%E7%B1%B3%E9%A5%AD%E7%9A%84%E7%B1%B3.json) | 最后一次抽奖结果 | 1581 | 326 | 1289 | `balanced_narrative` | `anticipation_turn` |
+| 22 | [重生08，我被确诊为医学泰斗 - 忧伤的饭饭](./%E9%87%8D%E7%94%9F08%EF%BC%8C%E6%88%91%E8%A2%AB%E7%A1%AE%E8%AF%8A%E4%B8%BA%E5%8C%BB%E5%AD%A6%E6%B3%B0%E6%96%97%20-%20%E5%BF%A7%E4%BC%A4%E7%9A%84%E9%A5%AD%E9%A5%AD.json) | 第391章 座谈会 | 1384 | 336 | 1274 | `conflict_push` | `anticipation_turn` |
+| 23 | [重生高一，我只偏爱萧容鱼 - 仙界的鸭梨](./%E9%87%8D%E7%94%9F%E9%AB%98%E4%B8%80%EF%BC%8C%E6%88%91%E5%8F%AA%E5%81%8F%E7%88%B1%E8%90%A7%E5%AE%B9%E9%B1%BC%20-%20%E4%BB%99%E7%95%8C%E7%9A%84%E9%B8%AD%E6%A2%A8.json) | 135章  打在你身，疼在我心 | 4470 | 317 | 1248 | `conflict_push` | `suspense_clue` |
+| 24 | [重返1982 - 猪猪的理想](./%E9%87%8D%E8%BF%941982%20-%20%E7%8C%AA%E7%8C%AA%E7%9A%84%E7%90%86%E6%83%B3.json) | 第14章 盟友的青蛙 | 4212 | 363 | 1277 | `info_reveal` | `suspense_clue` |

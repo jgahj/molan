@@ -1,0 +1,36 @@
+# 题材实验抽样汇总：历史脑洞
+
+> 本分类包含图书总计: **30** 本 | 平均章节字数: **2617** 字
+
+| 序号 | 书名 | 抽中章节 | 章节字数 | 极简提示词字数 | 完整提示词字数 | 目标 Profile | 钩子 Profile |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| 1 | [一心求死，反倒成为千古一帝？](./%E4%B8%80%E5%BF%83%E6%B1%82%E6%AD%BB%EF%BC%8C%E5%8F%8D%E5%80%92%E6%88%90%E4%B8%BA%E5%8D%83%E5%8F%A4%E4%B8%80%E5%B8%9D%EF%BC%9F.json) | 第7章：来来来，不来你是狗，我一辈子看不起你 | 2173 | 332 | 1247 | `conflict_push` | `anticipation_turn` |
+| 2 | [三国：开局项羽模板，你当谋士？](./%E4%B8%89%E5%9B%BD%EF%BC%9A%E5%BC%80%E5%B1%80%E9%A1%B9%E7%BE%BD%E6%A8%A1%E6%9D%BF%EF%BC%8C%E4%BD%A0%E5%BD%93%E8%B0%8B%E5%A3%AB%EF%BC%9F.json) | 第4章 三计定前程 | 2474 | 346 | 1268 | `info_reveal` | `anticipation_turn` |
+| 3 | [三国：我用边角料，吊打刘关张](./%E4%B8%89%E5%9B%BD%EF%BC%9A%E6%88%91%E7%94%A8%E8%BE%B9%E8%A7%92%E6%96%99%EF%BC%8C%E5%90%8A%E6%89%93%E5%88%98%E5%85%B3%E5%BC%A0.json) | 第5章 河内来犯情况危 | 2641 | 315 | 1236 | `conflict_push` | `suspense_clue` |
+| 4 | [兽娘：从被高冷蛇女捡回部落开始](./%E5%85%BD%E5%A8%98%EF%BC%9A%E4%BB%8E%E8%A2%AB%E9%AB%98%E5%86%B7%E8%9B%87%E5%A5%B3%E6%8D%A1%E5%9B%9E%E9%83%A8%E8%90%BD%E5%BC%80%E5%A7%8B.json) | 第5章：做我的女人 | 2609 | 324 | 1247 | `conflict_push` | `anticipation_turn` |
+| 5 | [别人夺嫡偷偷来，我家皇帝下圣旨](./%E5%88%AB%E4%BA%BA%E5%A4%BA%E5%AB%A1%E5%81%B7%E5%81%B7%E6%9D%A5%EF%BC%8C%E6%88%91%E5%AE%B6%E7%9A%87%E5%B8%9D%E4%B8%8B%E5%9C%A3%E6%97%A8.json) | 第1章 九子夺嫡，凡哥慌得要命 | 2318 | 316 | 1229 | `info_reveal` | `suspense_clue` |
+| 6 | [在大唐当丞相？豆包：我来助你！](./%E5%9C%A8%E5%A4%A7%E5%94%90%E5%BD%93%E4%B8%9E%E7%9B%B8%EF%BC%9F%E8%B1%86%E5%8C%85%EF%BC%9A%E6%88%91%E6%9D%A5%E5%8A%A9%E4%BD%A0%EF%BC%81.json) | 第7章 造反是个细致活，里面学问多着呢！ | 2286 | 354 | 1285 | `conflict_push` | `suspense_clue` |
+| 7 | [大唐：开局七岁闺女讨嫁妆](./%E5%A4%A7%E5%94%90%EF%BC%9A%E5%BC%80%E5%B1%80%E4%B8%83%E5%B2%81%E9%97%BA%E5%A5%B3%E8%AE%A8%E5%AB%81%E5%A6%86.json) | 第8章 李世民疯了：何方妖孽犯我大唐 | 2999 | 311 | 1241 | `conflict_push` | `crisis_imminent` |
+| 8 | [大唐：开局魔丸闺女炮轰长安城](./%E5%A4%A7%E5%94%90%EF%BC%9A%E5%BC%80%E5%B1%80%E9%AD%94%E4%B8%B8%E9%97%BA%E5%A5%B3%E7%82%AE%E8%BD%B0%E9%95%BF%E5%AE%89%E5%9F%8E.json) | 第 6 章 好孩子，朕是你外祖父啊！ | 2492 | 318 | 1238 | `conflict_push` | `suspense_clue` |
+| 9 | [大唐：我穿越后每天获得一项能力](./%E5%A4%A7%E5%94%90%EF%BC%9A%E6%88%91%E7%A9%BF%E8%B6%8A%E5%90%8E%E6%AF%8F%E5%A4%A9%E8%8E%B7%E5%BE%97%E4%B8%80%E9%A1%B9%E8%83%BD%E5%8A%9B.json) | 第10章 新技能--大唐太子令！ | 3548 | 343 | 1280 | `conflict_push` | `suspense_clue` |
+| 10 | [大唐：李世民求我造反](./%E5%A4%A7%E5%94%90%EF%BC%9A%E6%9D%8E%E4%B8%96%E6%B0%91%E6%B1%82%E6%88%91%E9%80%A0%E5%8F%8D.json) | 第9章 这最少是个长安首富吧 | 2300 | 351 | 1301 | `conflict_push` | `anticipation_turn` |
+| 11 | [大唐：李承乾扮猪吃老虎](./%E5%A4%A7%E5%94%90%EF%BC%9A%E6%9D%8E%E6%89%BF%E4%B9%BE%E6%89%AE%E7%8C%AA%E5%90%83%E8%80%81%E8%99%8E.json) | 第8章 太子，你怎么看？ | 2194 | 332 | 1256 | `conflict_push` | `suspense_clue` |
+| 12 | [大明异姓王，开局治好朱雄英！](./%E5%A4%A7%E6%98%8E%E5%BC%82%E5%A7%93%E7%8E%8B%EF%BC%8C%E5%BC%80%E5%B1%80%E6%B2%BB%E5%A5%BD%E6%9C%B1%E9%9B%84%E8%8B%B1%EF%BC%81.json) | 第10章 这日子，给个神仙都不换啊 | 2341 | 331 | 1305 | `conflict_push` | `suspense_clue` |
+| 13 | [大明异姓王：开局复活马皇后！](./%E5%A4%A7%E6%98%8E%E5%BC%82%E5%A7%93%E7%8E%8B%EF%BC%9A%E5%BC%80%E5%B1%80%E5%A4%8D%E6%B4%BB%E9%A9%AC%E7%9A%87%E5%90%8E%EF%BC%81.json) | 第1章 穿越大明卖丹药盲盒 | 2232 | 340 | 1278 | `info_reveal` | `suspense_clue` |
+| 14 | [大秦我带秦始皇长生不老](./%E5%A4%A7%E7%A7%A6%E6%88%91%E5%B8%A6%E7%A7%A6%E5%A7%8B%E7%9A%87%E9%95%BF%E7%94%9F%E4%B8%8D%E8%80%81.json) | 第1章 仙人凌空而来 | 3515 | 324 | 1261 | `conflict_push` | `anticipation_turn` |
+| 15 | [大秦：上交洞天，始皇带我狂飙！](./%E5%A4%A7%E7%A7%A6%EF%BC%9A%E4%B8%8A%E4%BA%A4%E6%B4%9E%E5%A4%A9%EF%BC%8C%E5%A7%8B%E7%9A%87%E5%B8%A6%E6%88%91%E7%8B%82%E9%A3%99%EF%BC%81.json) | 第3章 篡位？政哥教你做人！ | 2591 | 368 | 1300 | `conflict_push` | `anticipation_turn` |
+| 16 | [天呐！我家来了个萌娃朱雄英](./%E5%A4%A9%E5%91%90%EF%BC%81%E6%88%91%E5%AE%B6%E6%9D%A5%E4%BA%86%E4%B8%AA%E8%90%8C%E5%A8%83%E6%9C%B1%E9%9B%84%E8%8B%B1.json) | 第9章 马宁未雨绸缪 | 2406 | 337 | 1282 | `conflict_push` | `suspense_clue` |
+| 17 | [天幕洛神赋，曹家父子社死](./%E5%A4%A9%E5%B9%95%E6%B4%9B%E7%A5%9E%E8%B5%8B%EF%BC%8C%E6%9B%B9%E5%AE%B6%E7%88%B6%E5%AD%90%E7%A4%BE%E6%AD%BB.json) | 第5章 甄宓第一次见现代卫生间 | 2429 | 321 | 1236 | `conflict_push` | `suspense_clue` |
+| 18 | [天幕盘点开国，红色华夏震撼千古](./%E5%A4%A9%E5%B9%95%E7%9B%98%E7%82%B9%E5%BC%80%E5%9B%BD%EF%BC%8C%E7%BA%A2%E8%89%B2%E5%8D%8E%E5%A4%8F%E9%9C%87%E6%92%BC%E5%8D%83%E5%8F%A4.json) | 第8章 天幕奖惩，大清皇帝的绝望！ | 2702 | 322 | 1237 | `conflict_push` | `suspense_clue` |
+| 19 | [天幕：刷短视频，嬴政得了MVP](./%E5%A4%A9%E5%B9%95%EF%BC%9A%E5%88%B7%E7%9F%AD%E8%A7%86%E9%A2%91%EF%BC%8C%E5%AC%B4%E6%94%BF%E5%BE%97%E4%BA%86MVP.json) | 第5章 怎样解相思之苦？ | 3112 | 353 | 1303 | `conflict_push` | `suspense_clue` |
+| 20 | [开局签到常务副皇帝，权倾朝野！](./%E5%BC%80%E5%B1%80%E7%AD%BE%E5%88%B0%E5%B8%B8%E5%8A%A1%E5%89%AF%E7%9A%87%E5%B8%9D%EF%BC%8C%E6%9D%83%E5%80%BE%E6%9C%9D%E9%87%8E%EF%BC%81.json) | 第1章 实权加身的和大人！ | 2413 | 352 | 1267 | `conflict_push` | `suspense_clue` |
+| 21 | [我一个贪官绑定勤政爱民系统？](./%E6%88%91%E4%B8%80%E4%B8%AA%E8%B4%AA%E5%AE%98%E7%BB%91%E5%AE%9A%E5%8B%A4%E6%94%BF%E7%88%B1%E6%B0%91%E7%B3%BB%E7%BB%9F%EF%BC%9F.json) | 第3章 遣散 | 2297 | 314 | 1240 | `info_reveal` | `anticipation_turn` |
+| 22 | [我只是个开青楼的，真没想造反](./%E6%88%91%E5%8F%AA%E6%98%AF%E4%B8%AA%E5%BC%80%E9%9D%92%E6%A5%BC%E7%9A%84%EF%BC%8C%E7%9C%9F%E6%B2%A1%E6%83%B3%E9%80%A0%E5%8F%8D.json) | 第5章 解锁商店！发现史诗级人才！ | 2847 | 312 | 1242 | `conflict_push` | `anticipation_turn` |
+| 23 | [我在红楼醉红颜，诸位金钗侍君前](./%E6%88%91%E5%9C%A8%E7%BA%A2%E6%A5%BC%E9%86%89%E7%BA%A2%E9%A2%9C%EF%BC%8C%E8%AF%B8%E4%BD%8D%E9%87%91%E9%92%97%E4%BE%8D%E5%90%9B%E5%89%8D.json) | 第6章 【浩然如玉】 | 2299 | 311 | 1240 | `conflict_push` | `anticipation_turn` |
+| 24 | [洪武苟神：我只想活到永乐拿十亿](./%E6%B4%AA%E6%AD%A6%E8%8B%9F%E7%A5%9E%EF%BC%9A%E6%88%91%E5%8F%AA%E6%83%B3%E6%B4%BB%E5%88%B0%E6%B0%B8%E4%B9%90%E6%8B%BF%E5%8D%81%E4%BA%BF.json) | 第3章 洪武苟命铁律 | 3124 | 356 | 1298 | `conflict_push` | `suspense_clue` |
+| 25 | [皇帝也不容易，别对词条挑三拣四](./%E7%9A%87%E5%B8%9D%E4%B9%9F%E4%B8%8D%E5%AE%B9%E6%98%93%EF%BC%8C%E5%88%AB%E5%AF%B9%E8%AF%8D%E6%9D%A1%E6%8C%91%E4%B8%89%E6%8B%A3%E5%9B%9B.json) | 第 10章 攻略太后 | 2318 | 325 | 1233 | `conflict_push` | `suspense_clue` |
+| 26 | [穿越乱世：每天一份拼好饭](./%E7%A9%BF%E8%B6%8A%E4%B9%B1%E4%B8%96%EF%BC%9A%E6%AF%8F%E5%A4%A9%E4%B8%80%E4%BB%BD%E6%8B%BC%E5%A5%BD%E9%A5%AD.json) | 第8章 要搞个身份 | 2575 | 304 | 1232 | `conflict_push` | `anticipation_turn` |
+| 27 | [肝肝肝肝肝！往死里肝！](./%E8%82%9D%E8%82%9D%E8%82%9D%E8%82%9D%E8%82%9D%EF%BC%81%E5%BE%80%E6%AD%BB%E9%87%8C%E8%82%9D%EF%BC%81.json) | 第2章 投掷技能圆满 | 2650 | 335 | 1257 | `conflict_push` | `anticipation_turn` |
+| 28 | [让你荒淫无道，千古一帝什么鬼？](./%E8%AE%A9%E4%BD%A0%E8%8D%92%E6%B7%AB%E6%97%A0%E9%81%93%EF%BC%8C%E5%8D%83%E5%8F%A4%E4%B8%80%E5%B8%9D%E4%BB%80%E4%B9%88%E9%AC%BC%EF%BC%9F.json) | 第5章 你们跳舞怎么还穿衣服？ | 2383 | 327 | 1251 | `conflict_push` | `suspense_clue` |
+| 29 | [这个皇子有点颠！要把全家送上天](./%E8%BF%99%E4%B8%AA%E7%9A%87%E5%AD%90%E6%9C%89%E7%82%B9%E9%A2%A0%EF%BC%81%E8%A6%81%E6%8A%8A%E5%85%A8%E5%AE%B6%E9%80%81%E4%B8%8A%E5%A4%A9.json) | 第6章 我招谁惹谁了啊！ | 2350 | 358 | 1256 | `conflict_push` | `suspense_clue` |
+| 30 | [霸业：从抢个太子妃回山寨开始](./%E9%9C%B8%E4%B8%9A%EF%BC%9A%E4%BB%8E%E6%8A%A2%E4%B8%AA%E5%A4%AA%E5%AD%90%E5%A6%83%E5%9B%9E%E5%B1%B1%E5%AF%A8%E5%BC%80%E5%A7%8B.json) | 第3章 太子妃 | 3905 | 317 | 1250 | `conflict_push` | `suspense_clue` |
