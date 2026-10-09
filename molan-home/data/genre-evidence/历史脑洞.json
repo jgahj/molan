@@ -4,7 +4,7 @@
   "genre": "历史脑洞",
   "status": "excerpt-evidence-ready",
   "method": "固定选择原基线各题材文件名排序中的前两本；完整读取前三章建立哈希和段落索引；本轮代理只对列明段落做定点摘段解释及相邻段复核，不调用网络推理服务。",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "reviewStatus": {
     "deterministicIndex": "complete",
     "excerptReview": "complete-for-cited-paragraphs-only",
@@ -21,13 +21,13 @@
   ],
   "books": [
     {
-      "id": "历史脑洞:bad233bea5f77ab8",
+      "id": "历史脑洞:89ae20de779fc9de",
       "title": "三国：开局项羽模板，你当谋士？",
       "source": {
         "path": "资源库/小说原本/历史脑洞/三国：开局项羽模板，你当谋士？.txt",
-        "sha256": "bad233bea5f77ab8860bc39048c6508044c1b7aa987bf312dd31648a2e4c11b0",
-        "decodedSha256": "bad233bea5f77ab8860bc39048c6508044c1b7aa987bf312dd31648a2e4c11b0",
-        "byteLength": 129000,
+        "sha256": "89ae20de779fc9dec5a8c5fea34e5ce3037ea43a88c3bc381ab6b485ae1fda82",
+        "decodedSha256": "89ae20de779fc9dec5a8c5fea34e5ce3037ea43a88c3bc381ab6b485ae1fda82",
+        "byteLength": 98756,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",
@@ -1693,13 +1693,13 @@
       ]
     },
     {
-      "id": "历史脑洞:68f302be8aaee65e",
+      "id": "历史脑洞:7b1a23cded1b1814",
       "title": "三国：我用边角料，吊打刘关张",
       "source": {
         "path": "资源库/小说原本/历史脑洞/三国：我用边角料，吊打刘关张.txt",
-        "sha256": "68f302be8aaee65e9366028dbb315c9ba35a3bca030fb6032a90fd12c4713bef",
-        "decodedSha256": "68f302be8aaee65e9366028dbb315c9ba35a3bca030fb6032a90fd12c4713bef",
-        "byteLength": 106124,
+        "sha256": "7b1a23cded1b18147dbac4d815763f4bcbdac75fe9105835f573d0516e8ee321",
+        "decodedSha256": "7b1a23cded1b18147dbac4d815763f4bcbdac75fe9105835f573d0516e8ee321",
+        "byteLength": 95597,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",

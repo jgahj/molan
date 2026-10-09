@@ -15,7 +15,7 @@
   "targetMetrics": {},
   "baselineRef": "../genre-baselines/都市高武.json",
   "evidenceRef": "../genre-evidence/都市高武.json",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "writingDirectives": [
     {
       "key": "situated_task",
@@ -26,7 +26,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "都市高武:fd6ee3e7131ce99f",
+          "bookId": "都市高武:e10557eafcb996bb",
           "chapterId": "ch1",
           "paragraphIds": [
             "ch1:p1",
@@ -45,7 +45,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "都市高武:35360561a5f413da",
+          "bookId": "都市高武:9579ef9095f5e9f0",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p1",
@@ -65,7 +65,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "都市高武:fd6ee3e7131ce99f",
+          "bookId": "都市高武:e10557eafcb996bb",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p98",
@@ -84,8 +84,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "开头以要不要霸凌权贵后代的对白及同伴制止引出危险社会关系；末尾败者反问力气为何这么大，把能力差距交给遭遇者反应。 黄色测评光芒与未来成就被人物明确关联，末尾更显眼的金光引发惊呼；先建比较尺度再给异常结果，形成即时比较。 开头围观者强调金色稀有，末尾能力条目却用劲大及直白解释命名；华丽期待与朴素命名的语体反差提供喜剧空间。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "都市高武:35360561a5f413da",
-      "sourceSha256": "35360561a5f413da6d6c5a5a36cccb6f1b0c291d72f20246050891332ec39f1b",
+      "evidenceBookId": "都市高武:9579ef9095f5e9f0",
+      "sourceSha256": "9579ef9095f5e9f06757902c835bb6476b04894a5650a75b878f4b50f0cd3869",
       "evidenceRefs": [
         {
           "chapterId": "ch1",
@@ -121,8 +121,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "点名辟地成功、催楚桓准备和不让全班等待构成课堂流程压力；异常设定借角色眼前要做的事进入，而非先要求宏观世界史。 同契以名称和能力词条呈现，后段稚嫩声音称妈妈、楚桓纠正姓名，使抽象能力环境插入具体误认互动。 章末面板明确提供自己可见和他人可见两种模式，楚桓选择不公开；能力获得后立刻出现信息披露选择，而非只列属性。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "都市高武:fd6ee3e7131ce99f",
-      "sourceSha256": "fd6ee3e7131ce99faa83de89c4f483edae038624f10d2e5d0738254a2f4f5ac0",
+      "evidenceBookId": "都市高武:e10557eafcb996bb",
+      "sourceSha256": "e10557eafcb996bbebac62226e16a5f6fea09b02f89d398a3481c8e6f71a9831",
       "evidenceRefs": [
         {
           "chapterId": "ch1",

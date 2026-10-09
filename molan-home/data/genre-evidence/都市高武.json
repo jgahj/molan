@@ -4,7 +4,7 @@
   "genre": "都市高武",
   "status": "excerpt-evidence-ready",
   "method": "固定选择原基线各题材文件名排序中的前两本；完整读取前三章建立哈希和段落索引；本轮代理只对列明段落做定点摘段解释及相邻段复核，不调用网络推理服务。",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "reviewStatus": {
     "deterministicIndex": "complete",
     "excerptReview": "complete-for-cited-paragraphs-only",
@@ -21,13 +21,13 @@
   ],
   "books": [
     {
-      "id": "都市高武:35360561a5f413da",
+      "id": "都市高武:9579ef9095f5e9f0",
       "title": "一堆华丽的技能里出现了一个劲大",
       "source": {
         "path": "资源库/小说原本/都市高武/一堆华丽的技能里出现了一个劲大.txt",
-        "sha256": "35360561a5f413da6d6c5a5a36cccb6f1b0c291d72f20246050891332ec39f1b",
-        "decodedSha256": "35360561a5f413da6d6c5a5a36cccb6f1b0c291d72f20246050891332ec39f1b",
-        "byteLength": 127972,
+        "sha256": "9579ef9095f5e9f06757902c835bb6476b04894a5650a75b878f4b50f0cd3869",
+        "decodedSha256": "9579ef9095f5e9f06757902c835bb6476b04894a5650a75b878f4b50f0cd3869",
+        "byteLength": 94578,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",
@@ -2066,13 +2066,13 @@
       ]
     },
     {
-      "id": "都市高武:fd6ee3e7131ce99f",
+      "id": "都市高武:e10557eafcb996bb",
       "title": "全民地仙：开局紫金葫芦辟福地",
       "source": {
         "path": "资源库/小说原本/都市高武/全民地仙：开局紫金葫芦辟福地.txt",
-        "sha256": "fd6ee3e7131ce99faa83de89c4f483edae038624f10d2e5d0738254a2f4f5ac0",
-        "decodedSha256": "fd6ee3e7131ce99faa83de89c4f483edae038624f10d2e5d0738254a2f4f5ac0",
-        "byteLength": 133292,
+        "sha256": "e10557eafcb996bbebac62226e16a5f6fea09b02f89d398a3481c8e6f71a9831",
+        "decodedSha256": "e10557eafcb996bbebac62226e16a5f6fea09b02f89d398a3481c8e6f71a9831",
+        "byteLength": 94446,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",

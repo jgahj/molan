@@ -3,7 +3,7 @@
   "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
   "genre": "都市高武",
   "status": "ready",
-  "generatedAt": "2026-09-15T14:29:29.515Z",
+  "generatedAt": "2026-10-09T08:15:36.729Z",
   "method": "完整文件严格解码；仅连续第1至N章且有下一章边界；原文不去作者注；UTF-16非空白字符计量。统计不是文学质量评分。",
   "sampling": {
     "method": "sorted-file-window-without-refill",
@@ -110,9 +110,9 @@
       "title": "一堆华丽的技能里出现了一个劲大",
       "filePath": "资源库\\小说原本\\都市高武\\一堆华丽的技能里出现了一个劲大.txt",
       "source": {
-        "sha256": "35360561a5f413da6d6c5a5a36cccb6f1b0c291d72f20246050891332ec39f1b",
-        "decodedSha256": "35360561a5f413da6d6c5a5a36cccb6f1b0c291d72f20246050891332ec39f1b",
-        "byteLength": 127972,
+        "sha256": "9579ef9095f5e9f06757902c835bb6476b04894a5650a75b878f4b50f0cd3869",
+        "decodedSha256": "9579ef9095f5e9f06757902c835bb6476b04894a5650a75b878f4b50f0cd3869",
+        "byteLength": 94578,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -1918,9 +1918,9 @@
       "title": "全民地仙：开局紫金葫芦辟福地",
       "filePath": "资源库\\小说原本\\都市高武\\全民地仙：开局紫金葫芦辟福地.txt",
       "source": {
-        "sha256": "fd6ee3e7131ce99faa83de89c4f483edae038624f10d2e5d0738254a2f4f5ac0",
-        "decodedSha256": "fd6ee3e7131ce99faa83de89c4f483edae038624f10d2e5d0738254a2f4f5ac0",
-        "byteLength": 133292,
+        "sha256": "e10557eafcb996bbebac62226e16a5f6fea09b02f89d398a3481c8e6f71a9831",
+        "decodedSha256": "e10557eafcb996bbebac62226e16a5f6fea09b02f89d398a3481c8e6f71a9831",
+        "byteLength": 94446,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -3915,9 +3915,9 @@
       "title": "全民神祇：别人修仙道，我立魔道",
       "filePath": "资源库\\小说原本\\都市高武\\全民神祇：别人修仙道，我立魔道.txt",
       "source": {
-        "sha256": "edd70c17ec51b6150fb9431fac01378405c3adabcc514073ec71ce738511bf75",
-        "decodedSha256": "edd70c17ec51b6150fb9431fac01378405c3adabcc514073ec71ce738511bf75",
-        "byteLength": 116854,
+        "sha256": "60e57d85fd6ca8b6c4d872b5ddda702b7c218797573d0cd660e7ae35df38cfe4",
+        "decodedSha256": "60e57d85fd6ca8b6c4d872b5ddda702b7c218797573d0cd660e7ae35df38cfe4",
+        "byteLength": 99151,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -8511,9 +8511,9 @@
       "title": "全民领主：每日一个阿斯塔特",
       "filePath": "资源库\\小说原本\\都市高武\\全民领主：每日一个阿斯塔特.txt",
       "source": {
-        "sha256": "067bf6474409d943f11b0934253016b125a7a5905efa50ea113bce4a71765643",
-        "decodedSha256": "067bf6474409d943f11b0934253016b125a7a5905efa50ea113bce4a71765643",
-        "byteLength": 129969,
+        "sha256": "4a05ffaa0d3460019d6fb7d1d2c5047a6dcc5b7f5b839c9966599144f5b37153",
+        "decodedSha256": "4a05ffaa0d3460019d6fb7d1d2c5047a6dcc5b7f5b839c9966599144f5b37153",
+        "byteLength": 106568,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -11152,9 +11152,9 @@
       "title": "全民：转职炎法，解锁肉鸽系统",
       "filePath": "资源库\\小说原本\\都市高武\\全民：转职炎法，解锁肉鸽系统.txt",
       "source": {
-        "sha256": "42341ef963558a6263358107a4c38626b0ff89f6f15987e1c07246943d6ba304",
-        "decodedSha256": "42341ef963558a6263358107a4c38626b0ff89f6f15987e1c07246943d6ba304",
-        "byteLength": 134179,
+        "sha256": "4ce1f11086c6bafd20a6a48b7fac2e6c2166bb96503d85d4eb8a20c12436e61b",
+        "decodedSha256": "4ce1f11086c6bafd20a6a48b7fac2e6c2166bb96503d85d4eb8a20c12436e61b",
+        "byteLength": 103356,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -13240,9 +13240,9 @@
       "title": "努力就变强的我，被重生者曝光了",
       "filePath": "资源库\\小说原本\\都市高武\\努力就变强的我，被重生者曝光了.txt",
       "source": {
-        "sha256": "b06d3b9be630b32923b4578f79231c85ef5fbfd9c76dbbda070bfccffc9cd3cf",
-        "decodedSha256": "b06d3b9be630b32923b4578f79231c85ef5fbfd9c76dbbda070bfccffc9cd3cf",
-        "byteLength": 120472,
+        "sha256": "1333c1a5066dc8512fb68bbf341323457df1b3c28de2619d30b55837a42697b7",
+        "decodedSha256": "1333c1a5066dc8512fb68bbf341323457df1b3c28de2619d30b55837a42697b7",
+        "byteLength": 102603,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -16707,9 +16707,9 @@
       "title": "国运求生，我靠情报系统养活国家",
       "filePath": "资源库\\小说原本\\都市高武\\国运求生，我靠情报系统养活国家.txt",
       "source": {
-        "sha256": "2db83a83143baa6e9f33980a3952b8827449951369accddda89f28862ef63733",
-        "decodedSha256": "2db83a83143baa6e9f33980a3952b8827449951369accddda89f28862ef63733",
-        "byteLength": 461843,
+        "sha256": "3a07277f37244ae1f1a4dbdec31f8466a2b740064fcb884c5b5a7727eb4048a9",
+        "decodedSha256": "3a07277f37244ae1f1a4dbdec31f8466a2b740064fcb884c5b5a7727eb4048a9",
+        "byteLength": 104643,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -19257,9 +19257,9 @@
       "title": "天物觉醒：我能刻印一切",
       "filePath": "资源库\\小说原本\\都市高武\\天物觉醒：我能刻印一切.txt",
       "source": {
-        "sha256": "714d1c0bc7b45f61144d748bc80beae6cf4d6de663921efc25dab352b5ad2a3d",
-        "decodedSha256": "714d1c0bc7b45f61144d748bc80beae6cf4d6de663921efc25dab352b5ad2a3d",
-        "byteLength": 958809,
+        "sha256": "39b7acf5f7b0ee3ee7f8a6d34f08affbe5e61150164d0d23a711a8fdb09014cc",
+        "decodedSha256": "39b7acf5f7b0ee3ee7f8a6d34f08affbe5e61150164d0d23a711a8fdb09014cc",
+        "byteLength": 99194,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -20820,9 +20820,9 @@
       "title": "娘胎觉醒转职，出生绑定四神兽！",
       "filePath": "资源库\\小说原本\\都市高武\\娘胎觉醒转职，出生绑定四神兽！.txt",
       "source": {
-        "sha256": "455d27fc3221dea921b8e73729b92e983f4947e640cd1afca2051060dc60f695",
-        "decodedSha256": "455d27fc3221dea921b8e73729b92e983f4947e640cd1afca2051060dc60f695",
-        "byteLength": 107276,
+        "sha256": "458adb02c655e4967d18c3ccb2b1b0280f526316c98a221092e803c9d12cab4f",
+        "decodedSha256": "458adb02c655e4967d18c3ccb2b1b0280f526316c98a221092e803c9d12cab4f",
+        "byteLength": 98093,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -23601,9 +23601,9 @@
       "title": "我为至尊，饲养八王猎诸神",
       "filePath": "资源库\\小说原本\\都市高武\\我为至尊，饲养八王猎诸神.txt",
       "source": {
-        "sha256": "90d33b7ff2c17c165d592b79e44c2815e73be64e5cbb17227fb9ef0cbf2c5485",
-        "decodedSha256": "90d33b7ff2c17c165d592b79e44c2815e73be64e5cbb17227fb9ef0cbf2c5485",
-        "byteLength": 792963,
+        "sha256": "46eb40028c010a9e28ca1adeecee15348f3e66df63fe1c4e3776f0f31ba0746d",
+        "decodedSha256": "46eb40028c010a9e28ca1adeecee15348f3e66df63fe1c4e3776f0f31ba0746d",
+        "byteLength": 99503,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -25087,9 +25087,9 @@
       "title": "我从吃神开始反向晋升",
       "filePath": "资源库\\小说原本\\都市高武\\我从吃神开始反向晋升.txt",
       "source": {
-        "sha256": "374dfb7fb84c3bd3a6771f65d680f6d12dd01c790dc63d0e1c330143c07df34b",
-        "decodedSha256": "374dfb7fb84c3bd3a6771f65d680f6d12dd01c790dc63d0e1c330143c07df34b",
-        "byteLength": 443101,
+        "sha256": "1704005c9e6357533e1247a6f8a6c53dcf6e5cc7ff4098fc5288bd85258a211b",
+        "decodedSha256": "1704005c9e6357533e1247a6f8a6c53dcf6e5cc7ff4098fc5288bd85258a211b",
+        "byteLength": 108127,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -28470,9 +28470,9 @@
       "title": "我武道至尊！转生御兽世家？",
       "filePath": "资源库\\小说原本\\都市高武\\我武道至尊！转生御兽世家？.txt",
       "source": {
-        "sha256": "68d8df348f21221706f9daad0f08d35297b333ed4e3add1d8c051e3b528014d4",
-        "decodedSha256": "68d8df348f21221706f9daad0f08d35297b333ed4e3add1d8c051e3b528014d4",
-        "byteLength": 117558,
+        "sha256": "65e877a25f868411944230f75d5452a00a17d76ca2a09fc18c1987d3adf35a84",
+        "decodedSha256": "65e877a25f868411944230f75d5452a00a17d76ca2a09fc18c1987d3adf35a84",
+        "byteLength": 93259,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -31048,9 +31048,9 @@
       "title": "我，亿万天赋，天才不过见我门槛",
       "filePath": "资源库\\小说原本\\都市高武\\我，亿万天赋，天才不过见我门槛.txt",
       "source": {
-        "sha256": "07bb8f0c680fd761464afb3379a5e927f24460667b8127e5547f57f8649128ba",
-        "decodedSha256": "07bb8f0c680fd761464afb3379a5e927f24460667b8127e5547f57f8649128ba",
-        "byteLength": 189438,
+        "sha256": "bf4f50c0bfd1963d94897829aeed45eca1a8b1d52ea56f280b932929cd7151c8",
+        "decodedSha256": "bf4f50c0bfd1963d94897829aeed45eca1a8b1d52ea56f280b932929cd7151c8",
+        "byteLength": 82432,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -33066,9 +33066,9 @@
       "title": "每天属性翻一倍，我黑化爆杀一切",
       "filePath": "资源库\\小说原本\\都市高武\\每天属性翻一倍，我黑化爆杀一切.txt",
       "source": {
-        "sha256": "9a6ff58332c946e6f5dc740280c669f1b41b98c81a27c5173f52a7eb8c362f61",
-        "decodedSha256": "9a6ff58332c946e6f5dc740280c669f1b41b98c81a27c5173f52a7eb8c362f61",
-        "byteLength": 136404,
+        "sha256": "0bffad369b98f6cd15ac3765a39b8fe9211e5bd4a402479448e75692d172e64f",
+        "decodedSha256": "0bffad369b98f6cd15ac3765a39b8fe9211e5bd4a402479448e75692d172e64f",
+        "byteLength": 93143,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -35679,9 +35679,9 @@
       "title": "系统敢逼我当狗？开局炼化系统！",
       "filePath": "资源库\\小说原本\\都市高武\\系统敢逼我当狗？开局炼化系统！.txt",
       "source": {
-        "sha256": "3bf0633b03369dffddcfbc32e72b77858c3deafa6dd94eca2528eb90da9b060a",
-        "decodedSha256": "3bf0633b03369dffddcfbc32e72b77858c3deafa6dd94eca2528eb90da9b060a",
-        "byteLength": 114369,
+        "sha256": "22b53999caae9b9e7d87457400916a04e5abd961787f7f901f94058eb5a6a265",
+        "decodedSha256": "22b53999caae9b9e7d87457400916a04e5abd961787f7f901f94058eb5a6a265",
+        "byteLength": 98183,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -38292,9 +38292,9 @@
       "title": "觉醒伪神，神明弃我，我自为神",
       "filePath": "资源库\\小说原本\\都市高武\\觉醒伪神，神明弃我，我自为神.txt",
       "source": {
-        "sha256": "72ff056e681b8a2d0230093428d3904f8eb41b676c2ee9db9d4ce22508242140",
-        "decodedSha256": "72ff056e681b8a2d0230093428d3904f8eb41b676c2ee9db9d4ce22508242140",
-        "byteLength": 253724,
+        "sha256": "e5f6520902bb354589cda8c6c8243856c90e5ddac0e6f5f8750ea6ef46c986f3",
+        "decodedSha256": "e5f6520902bb354589cda8c6c8243856c90e5ddac0e6f5f8750ea6ef46c986f3",
+        "byteLength": 96264,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },

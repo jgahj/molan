@@ -3,7 +3,7 @@
   "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
   "genre": "悬疑脑洞",
   "status": "ready",
-  "generatedAt": "2026-09-15T14:29:29.608Z",
+  "generatedAt": "2026-10-09T08:15:36.920Z",
   "method": "完整文件严格解码；仅连续第1至N章且有下一章边界；原文不去作者注；UTF-16非空白字符计量。统计不是文学质量评分。",
   "sampling": {
     "method": "sorted-file-window-without-refill",
@@ -97,9 +97,9 @@
       "title": "不要在无限流里招惹精神病！",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\不要在无限流里招惹精神病！.txt",
       "source": {
-        "sha256": "8972a87a24a786901e3a9d63cee0118479e7a29a5485ba3f3defd000aa7bc0b7",
-        "decodedSha256": "8972a87a24a786901e3a9d63cee0118479e7a29a5485ba3f3defd000aa7bc0b7",
-        "byteLength": 267314,
+        "sha256": "0e7e4fb5682947fc4d0699b759fd149a37fe21d277ff0419d33dc94c32638e97",
+        "decodedSha256": "0e7e4fb5682947fc4d0699b759fd149a37fe21d277ff0419d33dc94c32638e97",
+        "byteLength": 99536,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -2178,9 +2178,9 @@
       "title": "乙女游戏哪来的面板和血条啊喂？",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\乙女游戏哪来的面板和血条啊喂？.txt",
       "source": {
-        "sha256": "d6b2a4c1594dba35adc94fdb45d7690ab7b656a870befe4e45f1aba4de97b404",
-        "decodedSha256": "d6b2a4c1594dba35adc94fdb45d7690ab7b656a870befe4e45f1aba4de97b404",
-        "byteLength": 155578,
+        "sha256": "cab470d798f3520e18c4b863d78b306e63bd97f5fe93217e3af386afbfa91532",
+        "decodedSha256": "cab470d798f3520e18c4b863d78b306e63bd97f5fe93217e3af386afbfa91532",
+        "byteLength": 91377,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -4728,9 +4728,9 @@
       "title": "九叔的绝代师弟",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\九叔的绝代师弟.txt",
       "source": {
-        "sha256": "531bafdaeb68d392f1826c8704911cf198835e8d04ed7cde2c7531a25abbf9fc",
-        "decodedSha256": "531bafdaeb68d392f1826c8704911cf198835e8d04ed7cde2c7531a25abbf9fc",
-        "byteLength": 150362,
+        "sha256": "badef18c0ef5f6322ac420c3bfcbd8aadc02fa992e8178d0339f037ef174c92e",
+        "decodedSha256": "badef18c0ef5f6322ac420c3bfcbd8aadc02fa992e8178d0339f037ef174c92e",
+        "byteLength": 115921,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -6424,9 +6424,9 @@
       "title": "九叔：我三岁，怎么会是道门魁首",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\九叔：我三岁，怎么会是道门魁首.txt",
       "source": {
-        "sha256": "6ad5afe87defd60e63bb3c35ff2b549a660cc1427b5b833bbd1988ca9a8e0ac1",
-        "decodedSha256": "6ad5afe87defd60e63bb3c35ff2b549a660cc1427b5b833bbd1988ca9a8e0ac1",
-        "byteLength": 113281,
+        "sha256": "d3e28cbe3ad57f8c6114e61cdf8db291c31b1a48cde7f590086d032a621a6f60",
+        "decodedSha256": "d3e28cbe3ad57f8c6114e61cdf8db291c31b1a48cde7f590086d032a621a6f60",
+        "byteLength": 92967,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -8687,9 +8687,9 @@
       "title": "九叔：我有一个蓝星直播间",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\九叔：我有一个蓝星直播间.txt",
       "source": {
-        "sha256": "ce0e85b3e4cedd38193399659009ab684697a5ba1180848fe53e8390074df06a",
-        "decodedSha256": "ce0e85b3e4cedd38193399659009ab684697a5ba1180848fe53e8390074df06a",
-        "byteLength": 103613,
+        "sha256": "129ddbe31d65d03d0cd1ceabde7b79ea6bae6b852f193d713fd38c5070e2afca",
+        "decodedSha256": "129ddbe31d65d03d0cd1ceabde7b79ea6bae6b852f193d713fd38c5070e2afca",
+        "byteLength": 92418,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -10488,9 +10488,9 @@
       "title": "九叔：末法时代？我直接挂机修仙",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\九叔：末法时代？我直接挂机修仙.txt",
       "source": {
-        "sha256": "d6ffd2d79d06ba26635b013951369173a9cef09184e9bda271e4c2148b2a8db5",
-        "decodedSha256": "d6ffd2d79d06ba26635b013951369173a9cef09184e9bda271e4c2148b2a8db5",
-        "byteLength": 112496,
+        "sha256": "d55f7665ab70defb6dbf031a90fe1beb6f84095bdff4e6891ee0600a1860bc3f",
+        "decodedSha256": "d55f7665ab70defb6dbf031a90fe1beb6f84095bdff4e6891ee0600a1860bc3f",
+        "byteLength": 100371,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -12604,9 +12604,9 @@
       "title": "你好诡异Boss，我是来打工的",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\你好诡异Boss，我是来打工的.txt",
       "source": {
-        "sha256": "87f17746f372c490190a13d525255faeaa97d2a380cd0be9ac4d0ca497516896",
-        "decodedSha256": "87f17746f372c490190a13d525255faeaa97d2a380cd0be9ac4d0ca497516896",
-        "byteLength": 397442,
+        "sha256": "d0bc593d5cf57dfdad9b92325db706e1598e1f57aaed4c9ac1acb1293773136b",
+        "decodedSha256": "d0bc593d5cf57dfdad9b92325db706e1598e1f57aaed4c9ac1acb1293773136b",
+        "byteLength": 112936,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -14650,9 +14650,9 @@
       "title": "全民恐怖求生：我觉醒加点序列！",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\全民恐怖求生：我觉醒加点序列！.txt",
       "source": {
-        "sha256": "6fc80670457b041adbf297189cc1dab783d15ff8aa2e621c4a86d593beb92c30",
-        "decodedSha256": "6fc80670457b041adbf297189cc1dab783d15ff8aa2e621c4a86d593beb92c30",
-        "byteLength": 211842,
+        "sha256": "816460c01fb20f0a024040b8a3a0c9868eb66bc6ab3013aec2401633ec8cdfb6",
+        "decodedSha256": "816460c01fb20f0a024040b8a3a0c9868eb66bc6ab3013aec2401633ec8cdfb6",
+        "byteLength": 97250,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -16899,9 +16899,9 @@
       "title": "全民躲猫猫：疯批美人她满级天眼",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\全民躲猫猫：疯批美人她满级天眼.txt",
       "source": {
-        "sha256": "211211a491d1dd33fba75bd5c1a426cc53577caddfa66b3ef3223e942c29f8d4",
-        "decodedSha256": "211211a491d1dd33fba75bd5c1a426cc53577caddfa66b3ef3223e942c29f8d4",
-        "byteLength": 263918,
+        "sha256": "b6a13c825dedf7bde2833801adf1e4b9f5657d42ddd40ae42269eb61548c874a",
+        "decodedSha256": "b6a13c825dedf7bde2833801adf1e4b9f5657d42ddd40ae42269eb61548c874a",
+        "byteLength": 99725,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -18658,9 +18658,9 @@
       "title": "全球死考：刚下刑场你让我去考试",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\全球死考：刚下刑场你让我去考试.txt",
       "source": {
-        "sha256": "0c93cff182f3c0eeaa4c900232b57e367d0c28c3897b1e67eaeb7bcaa85a5806",
-        "decodedSha256": "0c93cff182f3c0eeaa4c900232b57e367d0c28c3897b1e67eaeb7bcaa85a5806",
-        "byteLength": 235484,
+        "sha256": "efd92b9561eacc50752794deaa2f9bef738487323f7e69e54a19c892b073e372",
+        "decodedSha256": "efd92b9561eacc50752794deaa2f9bef738487323f7e69e54a19c892b073e372",
+        "byteLength": 100871,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -22771,9 +22771,9 @@
       "title": "后室重生：我是顶级探索者",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\后室重生：我是顶级探索者.txt",
       "source": {
-        "sha256": "b844d17a6ee918579988e28138e23a0cc5e9c807dd6c3d4723da2d652b5183d1",
-        "decodedSha256": "b844d17a6ee918579988e28138e23a0cc5e9c807dd6c3d4723da2d652b5183d1",
-        "byteLength": 124225,
+        "sha256": "bf64fc4b3bceec2a570e587a67e8308fbe080a492464ad0a59e6c14515026e83",
+        "decodedSha256": "bf64fc4b3bceec2a570e587a67e8308fbe080a492464ad0a59e6c14515026e83",
+        "byteLength": 95526,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -24243,9 +24243,9 @@
       "title": "开局盗大墓，系统让我去自首",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\开局盗大墓，系统让我去自首.txt",
       "source": {
-        "sha256": "2983e9838648c884f3fbece44dab2c4913f9d61afd445a19e31a784564c47efd",
-        "decodedSha256": "2983e9838648c884f3fbece44dab2c4913f9d61afd445a19e31a784564c47efd",
-        "byteLength": 135683,
+        "sha256": "8feddd34b54776fd57be44586324843c7cf2b940c037291948a540df93cc7fe1",
+        "decodedSha256": "8feddd34b54776fd57be44586324843c7cf2b940c037291948a540df93cc7fe1",
+        "byteLength": 101214,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -26555,9 +26555,9 @@
       "title": "我创立的组织，被重生者曝光了！",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\我创立的组织，被重生者曝光了！.txt",
       "source": {
-        "sha256": "46bec36b9b6f3546dd5fd3574af50820e91650838c436799aa298880b8f1004e",
-        "decodedSha256": "46bec36b9b6f3546dd5fd3574af50820e91650838c436799aa298880b8f1004e",
-        "byteLength": 148456,
+        "sha256": "de95471ec195017d0269abba1de5520cb926b10c42fa869fa5a4476fa60a6982",
+        "decodedSha256": "de95471ec195017d0269abba1de5520cb926b10c42fa869fa5a4476fa60a6982",
+        "byteLength": 111532,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -28629,9 +28629,9 @@
       "title": "我在诡异副本女装直播后爆火了",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\我在诡异副本女装直播后爆火了.txt",
       "source": {
-        "sha256": "8633290049e153733ede733f6559b4344d8d5e1c2ac034665c35437f9f5f241c",
-        "decodedSha256": "8633290049e153733ede733f6559b4344d8d5e1c2ac034665c35437f9f5f241c",
-        "byteLength": 143792,
+        "sha256": "7b2199da8eaf34e3e25bb32acdf13f6c98ebaae6d38af83e77cfcf4f66285852",
+        "decodedSha256": "7b2199da8eaf34e3e25bb32acdf13f6c98ebaae6d38af83e77cfcf4f66285852",
+        "byteLength": 116210,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -30815,9 +30815,9 @@
       "title": "我有一个女鬼催眠APP",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\我有一个女鬼催眠APP.txt",
       "source": {
-        "sha256": "01ac89621a6e96d4fecb9d27c28554383570bfbcc3eaeb3603961916faf3dcd5",
-        "decodedSha256": "01ac89621a6e96d4fecb9d27c28554383570bfbcc3eaeb3603961916faf3dcd5",
-        "byteLength": 112471,
+        "sha256": "4c60bf719c9099a825bcc0f41b3fb3b317ae156c0a8592ea4d4e4b30144da195",
+        "decodedSha256": "4c60bf719c9099a825bcc0f41b3fb3b317ae156c0a8592ea4d4e4b30144da195",
+        "byteLength": 99978,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -33337,9 +33337,9 @@
       "title": "我的人格超会演【卡牌扮演】",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\我的人格超会演【卡牌扮演】.txt",
       "source": {
-        "sha256": "29a50636963f7ab8e6b3065a75520becafd619e8943e9202b093efbf3f526414",
-        "decodedSha256": "29a50636963f7ab8e6b3065a75520becafd619e8943e9202b093efbf3f526414",
-        "byteLength": 175817,
+        "sha256": "d552c493c2d5472a9a96b4175bfe69ca2e30cca79eef1154a73b3121e49f5821",
+        "decodedSha256": "d552c493c2d5472a9a96b4175bfe69ca2e30cca79eef1154a73b3121e49f5821",
+        "byteLength": 95764,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -34858,9 +34858,9 @@
       "title": "我，编剧，灵气复苏",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\我，编剧，灵气复苏.txt",
       "source": {
-        "sha256": "223cdeeb99584b48ebaf96a41f5583eba24c527f952c4f17d811691b121ce536",
-        "decodedSha256": "223cdeeb99584b48ebaf96a41f5583eba24c527f952c4f17d811691b121ce536",
-        "byteLength": 219116,
+        "sha256": "48f5436cb597f13ff3bbe14e22f9f2ad152485446294090a6ef0d786e0dcbe07",
+        "decodedSha256": "48f5436cb597f13ff3bbe14e22f9f2ad152485446294090a6ef0d786e0dcbe07",
+        "byteLength": 142572,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -39342,9 +39342,9 @@
       "title": "捡到隔壁鳏夫的玩偶后，他共感了",
       "filePath": "资源库\\小说原本\\悬疑脑洞\\捡到隔壁鳏夫的玩偶后，他共感了.txt",
       "source": {
-        "sha256": "a5027037a2a73f656e2f29b51641712040cbba5780ca49ddc261524dd86525ba",
-        "decodedSha256": "a5027037a2a73f656e2f29b51641712040cbba5780ca49ddc261524dd86525ba",
-        "byteLength": 127557,
+        "sha256": "a1a999198497109a2c0375756aec6d0f4535418186188538602d67a15a617b95",
+        "decodedSha256": "a1a999198497109a2c0375756aec6d0f4535418186188538602d67a15a617b95",
+        "byteLength": 95045,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },

@@ -4,7 +4,7 @@
   "genre": "青春甜宠",
   "status": "excerpt-evidence-ready",
   "method": "固定选择原基线各题材文件名排序中的前两本；完整读取前三章建立哈希和段落索引；本轮代理只对列明段落做定点摘段解释及相邻段复核，不调用网络推理服务。",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "reviewStatus": {
     "deterministicIndex": "complete",
     "excerptReview": "complete-for-cited-paragraphs-only",
@@ -21,13 +21,13 @@
   ],
   "books": [
     {
-      "id": "青春甜宠:cab200af621a742e",
+      "id": "青春甜宠:850afe52f362ce17",
       "title": "F4里最病弱的那个，被团宠了",
       "source": {
         "path": "资源库/小说原本/青春甜宠/F4里最病弱的那个，被团宠了.txt",
-        "sha256": "cab200af621a742ee7f401d668416306b81e4392a8266868d51de7a512ac812e",
-        "decodedSha256": "cab200af621a742ee7f401d668416306b81e4392a8266868d51de7a512ac812e",
-        "byteLength": 201925,
+        "sha256": "850afe52f362ce17c4d0e15f3a844f527cbe08b30617e45ac4de0f187f7edf78",
+        "decodedSha256": "850afe52f362ce17c4d0e15f3a844f527cbe08b30617e45ac4de0f187f7edf78",
+        "byteLength": 111950,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",
@@ -2159,13 +2159,13 @@
       ]
     },
     {
-      "id": "青春甜宠:be2c6eafb2fe1f26",
+      "id": "青春甜宠:7a978b0137874b75",
       "title": "厌世农村妹也要被少爷强制爱吗？",
       "source": {
         "path": "资源库/小说原本/青春甜宠/厌世农村妹也要被少爷强制爱吗？.txt",
-        "sha256": "be2c6eafb2fe1f26161a1b823470d7be8da9f74bd5014cbdbf48f77c3c3d36bb",
-        "decodedSha256": "be2c6eafb2fe1f26161a1b823470d7be8da9f74bd5014cbdbf48f77c3c3d36bb",
-        "byteLength": 136961,
+        "sha256": "7a978b0137874b757f404ecdd9ac1123c939354ef0422ab68dd0815e004b6b56",
+        "decodedSha256": "7a978b0137874b757f404ecdd9ac1123c939354ef0422ab68dd0815e004b6b56",
+        "byteLength": 95564,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",

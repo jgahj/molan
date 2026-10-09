@@ -4,7 +4,7 @@
   "genre": "悬疑脑洞",
   "status": "excerpt-evidence-ready",
   "method": "固定选择原基线各题材文件名排序中的前两本；完整读取前三章建立哈希和段落索引；本轮代理只对列明段落做定点摘段解释及相邻段复核，不调用网络推理服务。",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "reviewStatus": {
     "deterministicIndex": "complete",
     "excerptReview": "complete-for-cited-paragraphs-only",
@@ -21,13 +21,13 @@
   ],
   "books": [
     {
-      "id": "悬疑脑洞:8972a87a24a78690",
+      "id": "悬疑脑洞:0e7e4fb5682947fc",
       "title": "不要在无限流里招惹精神病！",
       "source": {
         "path": "资源库/小说原本/悬疑脑洞/不要在无限流里招惹精神病！.txt",
-        "sha256": "8972a87a24a786901e3a9d63cee0118479e7a29a5485ba3f3defd000aa7bc0b7",
-        "decodedSha256": "8972a87a24a786901e3a9d63cee0118479e7a29a5485ba3f3defd000aa7bc0b7",
-        "byteLength": 267314,
+        "sha256": "0e7e4fb5682947fc4d0699b759fd149a37fe21d277ff0419d33dc94c32638e97",
+        "decodedSha256": "0e7e4fb5682947fc4d0699b759fd149a37fe21d277ff0419d33dc94c32638e97",
+        "byteLength": 99536,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",
@@ -2348,13 +2348,13 @@
       ]
     },
     {
-      "id": "悬疑脑洞:531bafdaeb68d392",
+      "id": "悬疑脑洞:badef18c0ef5f632",
       "title": "九叔的绝代师弟",
       "source": {
         "path": "资源库/小说原本/悬疑脑洞/九叔的绝代师弟.txt",
-        "sha256": "531bafdaeb68d392f1826c8704911cf198835e8d04ed7cde2c7531a25abbf9fc",
-        "decodedSha256": "531bafdaeb68d392f1826c8704911cf198835e8d04ed7cde2c7531a25abbf9fc",
-        "byteLength": 150362,
+        "sha256": "badef18c0ef5f6322ac420c3bfcbd8aadc02fa992e8178d0339f037ef174c92e",
+        "decodedSha256": "badef18c0ef5f6322ac420c3bfcbd8aadc02fa992e8178d0339f037ef174c92e",
+        "byteLength": 115921,
         "encoding": "utf-8",
         "encodingMethod": "strict-utf8",
         "offsetUnit": "utf16-code-unit",

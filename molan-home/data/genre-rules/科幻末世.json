@@ -15,7 +15,7 @@
   "targetMetrics": {},
   "baselineRef": "../genre-baselines/科幻末世.json",
   "evidenceRef": "../genre-evidence/科幻末世.json",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "writingDirectives": [
     {
       "key": "warning_becomes_event",
@@ -26,7 +26,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "科幻末世:00f45a0381daae3b",
+          "bookId": "科幻末世:0e8d8bd821080688",
           "chapterId": "ch1",
           "paragraphIds": [
             "ch1:p2",
@@ -46,7 +46,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "科幻末世:702bb83d770690ee",
+          "bookId": "科幻末世:fd2066cf8bdba89b",
           "chapterId": "ch1",
           "paragraphIds": [
             "ch1:p5",
@@ -67,7 +67,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "科幻末世:00f45a0381daae3b",
+          "bookId": "科幻末世:0e8d8bd821080688",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p1",
@@ -88,8 +88,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "开头把手机异常当作游戏广告，中段列出抽卡类别，末尾重新想起怪物遍地的提示并确认怪物到来；界面信息转成眼前威胁。 街边怪物冲出把上一章警报具象化，中段以内气攻击处理丧尸，末尾红色界面再给未知内容；物理敌人与界面事件交替推进。 开头界面给出进阶挑战选项，末尾落实为关注特定用户并接收发言提醒；章节推进也可以落在信息关系动作，而不只升级或打斗。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "科幻末世:00f45a0381daae3b",
-      "sourceSha256": "00f45a0381daae3bf725c2af0de5a6d0d185bab599df8bad98334bb30daca921",
+      "evidenceBookId": "科幻末世:0e8d8bd821080688",
+      "sourceSha256": "0e8d8bd82108068871b9c595535850ed1be35e4be757a444ee492cdd815100b8",
       "evidenceRefs": [
         {
           "chapterId": "ch1",
@@ -127,8 +127,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "骑车疲劳将逃生落到身体负荷，末尾检查背包并因食量增加修正还能撑一周的估计；物资清单与持续时间判断相连。 开头角色正在分配食物即遭遇孩子要泡面的哭闹，末段又以获得序列首件物品为发展目标；资源安排会与他人需求和能力计划相遇。 开头明确强化身体仍不能免疫骑行后的困意，末尾取出带异样圆珠的铜盘；既保留能力限制，也引入待解释的新物件。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "科幻末世:702bb83d770690ee",
-      "sourceSha256": "702bb83d770690eebdb1774afed9ef4a19fb23bebeefbbc00ddb3c0aef65b5ef",
+      "evidenceBookId": "科幻末世:fd2066cf8bdba89b",
+      "sourceSha256": "fd2066cf8bdba89b0cb5f75b45fa3bb3911f265b050cdbb79132c3d743a17b96",
       "evidenceRefs": [
         {
           "chapterId": "ch1",

@@ -3,7 +3,7 @@
   "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
   "genre": "科幻末世",
   "status": "ready",
-  "generatedAt": "2026-09-15T14:29:29.995Z",
+  "generatedAt": "2026-10-09T08:15:37.497Z",
   "method": "完整文件严格解码；仅连续第1至N章且有下一章边界；原文不去作者注；UTF-16非空白字符计量。统计不是文学质量评分。",
   "sampling": {
     "method": "sorted-file-window-without-refill",
@@ -105,9 +105,9 @@
       "title": "全星际都知道我们小队很有钱",
       "filePath": "资源库\\小说原本\\科幻末世\\全星际都知道我们小队很有钱.txt",
       "source": {
-        "sha256": "d5721492b0b2a6ecf47c4249506bf8de8a7ab795ff69694545549f6d012be998",
-        "decodedSha256": "d5721492b0b2a6ecf47c4249506bf8de8a7ab795ff69694545549f6d012be998",
-        "byteLength": 106997,
+        "sha256": "576914e30d8160ae12314f5e44ec51117f263b85f6b36733ce8faef47ff5390b",
+        "decodedSha256": "576914e30d8160ae12314f5e44ec51117f263b85f6b36733ce8faef47ff5390b",
+        "byteLength": 89465,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -4475,9 +4475,9 @@
       "title": "全民抽卡求生，每天一张传说卡",
       "filePath": "资源库\\小说原本\\科幻末世\\全民抽卡求生，每天一张传说卡.txt",
       "source": {
-        "sha256": "00f45a0381daae3bf725c2af0de5a6d0d185bab599df8bad98334bb30daca921",
-        "decodedSha256": "00f45a0381daae3bf725c2af0de5a6d0d185bab599df8bad98334bb30daca921",
-        "byteLength": 438894,
+        "sha256": "0e8d8bd82108068871b9c595535850ed1be35e4be757a444ee492cdd815100b8",
+        "decodedSha256": "0e8d8bd82108068871b9c595535850ed1be35e4be757a444ee492cdd815100b8",
+        "byteLength": 120218,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -7221,9 +7221,9 @@
       "title": "公路求生：开局觉醒修罗序列",
       "filePath": "资源库\\小说原本\\科幻末世\\公路求生：开局觉醒修罗序列.txt",
       "source": {
-        "sha256": "702bb83d770690eebdb1774afed9ef4a19fb23bebeefbbc00ddb3c0aef65b5ef",
-        "decodedSha256": "702bb83d770690eebdb1774afed9ef4a19fb23bebeefbbc00ddb3c0aef65b5ef",
-        "byteLength": 203192,
+        "sha256": "fd2066cf8bdba89b0cb5f75b45fa3bb3911f265b050cdbb79132c3d743a17b96",
+        "decodedSha256": "fd2066cf8bdba89b0cb5f75b45fa3bb3911f265b050cdbb79132c3d743a17b96",
+        "byteLength": 102406,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -9218,9 +9218,9 @@
       "title": "公路求生：重生觉醒空间序列",
       "filePath": "资源库\\小说原本\\科幻末世\\公路求生：重生觉醒空间序列.txt",
       "source": {
-        "sha256": "026730f7a122d3e22e554a5600d4c76dbc1e095a5607613cb943b38507b9f0cb",
-        "decodedSha256": "026730f7a122d3e22e554a5600d4c76dbc1e095a5607613cb943b38507b9f0cb",
-        "byteLength": 119697,
+        "sha256": "a463a36774a70e54c09b5d820a555b7618698696b69bf6a786b478d6d908b667",
+        "decodedSha256": "a463a36774a70e54c09b5d820a555b7618698696b69bf6a786b478d6d908b667",
+        "byteLength": 89917,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -11530,9 +11530,9 @@
       "title": "列车求生，我每天获得永久增益",
       "filePath": "资源库\\小说原本\\科幻末世\\列车求生，我每天获得永久增益.txt",
       "source": {
-        "sha256": "3da847b379aa8d9246bdcfb0c33ba8099cbfc2f278caa7a7a4d4e9880f19c713",
-        "decodedSha256": "3da847b379aa8d9246bdcfb0c33ba8099cbfc2f278caa7a7a4d4e9880f19c713",
-        "byteLength": 102428,
+        "sha256": "f0ff1973efa6c31eb36dd73ff65f2a397bdaed67514ff442c4740f072b010329",
+        "decodedSha256": "f0ff1973efa6c31eb36dd73ff65f2a397bdaed67514ff442c4740f072b010329",
+        "byteLength": 95644,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -14262,9 +14262,9 @@
       "title": "十日末世降临，我能推演人类未来",
       "filePath": "资源库\\小说原本\\科幻末世\\十日末世降临，我能推演人类未来.txt",
       "source": {
-        "sha256": "21ff1852893bfff00a5d5a89685dd29cf271dfd68e04f6a160b58537d866eb38",
-        "decodedSha256": "21ff1852893bfff00a5d5a89685dd29cf271dfd68e04f6a160b58537d866eb38",
-        "byteLength": 106138,
+        "sha256": "68f93dc3d5a44ea32f97254f2ff321ecffb16bb695bfee82044f33ddb1fc940b",
+        "decodedSha256": "68f93dc3d5a44ea32f97254f2ff321ecffb16bb695bfee82044f33ddb1fc940b",
+        "byteLength": 98817,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -16007,9 +16007,9 @@
       "title": "吞噬进化：从破旧机器人开始",
       "filePath": "资源库\\小说原本\\科幻末世\\吞噬进化：从破旧机器人开始.txt",
       "source": {
-        "sha256": "a0d55c3d53e561ff9be27321ec43e86780dd98c77292ba4bbc6c3293b47ddf9f",
-        "decodedSha256": "a0d55c3d53e561ff9be27321ec43e86780dd98c77292ba4bbc6c3293b47ddf9f",
-        "byteLength": 226932,
+        "sha256": "fccb0c588c530938182037c2d9777f794e5f7cf1a241f174fa581e5e91a7e962",
+        "decodedSha256": "fccb0c588c530938182037c2d9777f794e5f7cf1a241f174fa581e5e91a7e962",
+        "byteLength": 95356,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -17759,9 +17759,9 @@
       "title": "小丧尸被读心，怎么就成团宠了？",
       "filePath": "资源库\\小说原本\\科幻末世\\小丧尸被读心，怎么就成团宠了？.txt",
       "source": {
-        "sha256": "f2328ec3686f2197212f45ab5772dfd283b01077bdef15c6d1440675737e8462",
-        "decodedSha256": "f2328ec3686f2197212f45ab5772dfd283b01077bdef15c6d1440675737e8462",
-        "byteLength": 127782,
+        "sha256": "a084d803cd889871b9a176ebc7add2fe24e212ec9b6e1bf758ce3391c6b2177f",
+        "decodedSha256": "a084d803cd889871b9a176ebc7add2fe24e212ec9b6e1bf758ce3391c6b2177f",
+        "byteLength": 96874,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -19700,9 +19700,9 @@
       "title": "小队全员兽化，菟丝花夹缝难逃",
       "filePath": "资源库\\小说原本\\科幻末世\\小队全员兽化，菟丝花夹缝难逃.txt",
       "source": {
-        "sha256": "2aa98a8b98da7c09bf342f208a128009d48ccffd9cfc6dbf4a7d8363aca6d480",
-        "decodedSha256": "2aa98a8b98da7c09bf342f208a128009d48ccffd9cfc6dbf4a7d8363aca6d480",
-        "byteLength": 215495,
+        "sha256": "51f7ff3d116c8d7bcb70589dc7311f849e2b75d4d1278c008d65b49ad7f48314",
+        "decodedSha256": "51f7ff3d116c8d7bcb70589dc7311f849e2b75d4d1278c008d65b49ad7f48314",
+        "byteLength": 101868,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -22390,9 +22390,9 @@
       "title": "尸潮求生：我的手枪能发射核弹",
       "filePath": "资源库\\小说原本\\科幻末世\\尸潮求生：我的手枪能发射核弹.txt",
       "source": {
-        "sha256": "0fcb31773468e98cb904925e6b015d60442d4c45e74b816812bf3b398adc63b4",
-        "decodedSha256": "0fcb31773468e98cb904925e6b015d60442d4c45e74b816812bf3b398adc63b4",
-        "byteLength": 144074,
+        "sha256": "268c3499fac73cca7913bc1460e77e5595c16a7a98132c9909bc2b5b0e97c06e",
+        "decodedSha256": "268c3499fac73cca7913bc1460e77e5595c16a7a98132c9909bc2b5b0e97c06e",
+        "byteLength": 108830,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -24758,9 +24758,9 @@
       "title": "庇护所进化论",
       "filePath": "资源库\\小说原本\\科幻末世\\庇护所进化论.txt",
       "source": {
-        "sha256": "88312bbf06ec3d9b10d9849584b1d6d0dc28c6ecf61cd3b3ce7ce818917734cc",
-        "decodedSha256": "88312bbf06ec3d9b10d9849584b1d6d0dc28c6ecf61cd3b3ce7ce818917734cc",
-        "byteLength": 771348,
+        "sha256": "16f9d6df72233f2f086fe82fabbf907ee09de7e7d4d2d23a151cd1d13fcafd05",
+        "decodedSha256": "16f9d6df72233f2f086fe82fabbf907ee09de7e7d4d2d23a151cd1d13fcafd05",
+        "byteLength": 119257,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -27182,9 +27182,9 @@
       "title": "序列车队我有药剂师机械师双序列",
       "filePath": "资源库\\小说原本\\科幻末世\\序列车队我有药剂师机械师双序列.txt",
       "source": {
-        "sha256": "2e7abe653f513d22d11ae90da5c144985c20a11f2e57d2b378aaef249e0a8824",
-        "decodedSha256": "2e7abe653f513d22d11ae90da5c144985c20a11f2e57d2b378aaef249e0a8824",
-        "byteLength": 248705,
+        "sha256": "79d4fd1fc71c5168d10f600cdcd9c9c70ddd313b2171ebd7593ea3426f32957b",
+        "decodedSha256": "79d4fd1fc71c5168d10f600cdcd9c9c70ddd313b2171ebd7593ea3426f32957b",
+        "byteLength": 173759,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -30607,9 +30607,9 @@
       "title": "废土植灵：我的精神体是土豆！",
       "filePath": "资源库\\小说原本\\科幻末世\\废土植灵：我的精神体是土豆！.txt",
       "source": {
-        "sha256": "1415eda27f9ec1920c785cb627883b89b304b9822b1db99fd7f7d6333f904a06",
-        "decodedSha256": "1415eda27f9ec1920c785cb627883b89b304b9822b1db99fd7f7d6333f904a06",
-        "byteLength": 101163,
+        "sha256": "34d27c851876478e352b0d5c3ea7f321c3b974094ac78a66577d15587ec9cb9c",
+        "decodedSha256": "34d27c851876478e352b0d5c3ea7f321c3b974094ac78a66577d15587ec9cb9c",
+        "byteLength": 93435,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -32009,9 +32009,9 @@
       "title": "废土？兽世？不给金手指不活了",
       "filePath": "资源库\\小说原本\\科幻末世\\废土？兽世？不给金手指不活了.txt",
       "source": {
-        "sha256": "67f1d4c175375ccbef0d5036cec994146508b0285824ee51d68a9ddc17c4f4ff",
-        "decodedSha256": "67f1d4c175375ccbef0d5036cec994146508b0285824ee51d68a9ddc17c4f4ff",
-        "byteLength": 112682,
+        "sha256": "83bb632178cdbf6dda317df2ddbe4cd50b4a86f62d744a1639599f13cdded407",
+        "decodedSha256": "83bb632178cdbf6dda317df2ddbe4cd50b4a86f62d744a1639599f13cdded407",
+        "byteLength": 86296,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -33285,9 +33285,9 @@
       "title": "弱智就弱智吧，我照样星际最强！",
       "filePath": "资源库\\小说原本\\科幻末世\\弱智就弱智吧，我照样星际最强！.txt",
       "source": {
-        "sha256": "d4418507b93599ac9e38c0338cd9ed031264c9b431d4081e3c462a862dad5c57",
-        "decodedSha256": "d4418507b93599ac9e38c0338cd9ed031264c9b431d4081e3c462a862dad5c57",
-        "byteLength": 309275,
+        "sha256": "340b91115b97b7e6386fbd605c3f7888892d13aa09c79e796cd5e1b82047f11b",
+        "decodedSha256": "340b91115b97b7e6386fbd605c3f7888892d13aa09c79e796cd5e1b82047f11b",
+        "byteLength": 96762,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -34890,9 +34890,9 @@
       "title": "我在公路求生游戏开了家花店",
       "filePath": "资源库\\小说原本\\科幻末世\\我在公路求生游戏开了家花店.txt",
       "source": {
-        "sha256": "cbc8b30ec8e1f0c7aa80eafdcb60c634cf9d8a6e24b8503ad4aee23a1d13eefd",
-        "decodedSha256": "cbc8b30ec8e1f0c7aa80eafdcb60c634cf9d8a6e24b8503ad4aee23a1d13eefd",
-        "byteLength": 116099,
+        "sha256": "2dd8ba7f9039d9606cf850a1787582a3121d19a8362aa91c02418433f4067ce7",
+        "decodedSha256": "2dd8ba7f9039d9606cf850a1787582a3121d19a8362aa91c02418433f4067ce7",
+        "byteLength": 100569,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -36187,9 +36187,9 @@
       "title": "我在末世经营中餐厅爆火",
       "filePath": "资源库\\小说原本\\科幻末世\\我在末世经营中餐厅爆火.txt",
       "source": {
-        "sha256": "ab6b96e3ab4a66ee4bec8055bb707a72d21b06a15c33c67452f03dc606986a3d",
-        "decodedSha256": "ab6b96e3ab4a66ee4bec8055bb707a72d21b06a15c33c67452f03dc606986a3d",
-        "byteLength": 445016,
+        "sha256": "b06b1d3a41a218d9b7fc8f4b6d8997288798141826ed2b3869ce7f0ac532a7a4",
+        "decodedSha256": "b06b1d3a41a218d9b7fc8f4b6d8997288798141826ed2b3869ce7f0ac532a7a4",
+        "byteLength": 99141,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -38142,9 +38142,9 @@
       "title": "战争系统在末世",
       "filePath": "资源库\\小说原本\\科幻末世\\战争系统在末世.txt",
       "source": {
-        "sha256": "fb75f0e4d9b5c6cdf4ad59147eec7a3bd139d6459fc3783b945e94579142a19d",
-        "decodedSha256": "fb75f0e4d9b5c6cdf4ad59147eec7a3bd139d6459fc3783b945e94579142a19d",
-        "byteLength": 1044650,
+        "sha256": "60f630375ba178b684939a0ed478d51409042888bcaf066769cba70f3e7a1ad2",
+        "decodedSha256": "60f630375ba178b684939a0ed478d51409042888bcaf066769cba70f3e7a1ad2",
+        "byteLength": 94514,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },

@@ -15,7 +15,7 @@
   "targetMetrics": {},
   "baselineRef": "../genre-baselines/悬疑脑洞.json",
   "evidenceRef": "../genre-evidence/悬疑脑洞.json",
-  "selectionManifestSha256": "6d91df0ed8cb9529abde8a2ceec13cca1eddcf92a63fbf1569b420ad7fbee8dd",
+  "selectionManifestSha256": "796642a3b22011ebbdc82ea4ca322b46179116c0ce8de7d5933afe415735f175",
   "writingDirectives": [
     {
       "key": "knowledge_gap",
@@ -26,7 +26,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "悬疑脑洞:8972a87a24a78690",
+          "bookId": "悬疑脑洞:0e7e4fb5682947fc",
           "chapterId": "ch2",
           "paragraphIds": [
             "ch2:p1",
@@ -47,7 +47,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "悬疑脑洞:8972a87a24a78690",
+          "bookId": "悬疑脑洞:0e7e4fb5682947fc",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p1",
@@ -66,7 +66,7 @@
       "enforcement": "advisory",
       "evidenceRefs": [
         {
-          "bookId": "悬疑脑洞:531bafdaeb68d392",
+          "bookId": "悬疑脑洞:badef18c0ef5f632",
           "chapterId": "ch3",
           "paragraphIds": [
             "ch3:p32",
@@ -86,8 +86,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "病号服与机械表将陌生处境落到身上物件，末尾观众下注死法把外部观看转成对人物的敌意压力；悬念还来自谁在看她。 开头并列局外赌死法和局内喝完汤，形成知情与情绪差；结尾灯暗、天花板黑影、视线下移逐步缩小未知位置。 开头明确木偶从客厅移到床上方，回答上一章黑影的对象；末尾转到浓雾街道并停步前望，局部回答后又保留新对象。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "悬疑脑洞:8972a87a24a78690",
-      "sourceSha256": "8972a87a24a786901e3a9d63cee0118479e7a29a5485ba3f3defd000aa7bc0b7",
+      "evidenceBookId": "悬疑脑洞:0e7e4fb5682947fc",
+      "sourceSha256": "0e7e4fb5682947fc4d0699b759fd149a37fe21d277ff0419d33dc94c32638e97",
       "evidenceRefs": [
         {
           "chapterId": "ch1",
@@ -124,8 +124,8 @@
       "topic": "前三章局部信息与行动变化",
       "application": "民国山林暴雨提供处境，末段明确将被带上茅山、剑纹变亮，人物随后入睡；安置结果与物件余异可以同时存在。 开头直接跨过十八年并铺陈山崖修炼景象，末尾师父让惹祸时报师兄名号引出孙猴子自嘲；时间概述和师徒玩笑并不互斥。 中段已让读者看到老翁皮相下的妖气，末尾再问像不像人；问题从识别异常转成如何应答，危险焦点是交互选择。",
       "limits": "仅所列摘段，不是整章或全书质量认证；关系边界、完整因果、后文兑现和人工复核待完成。",
-      "evidenceBookId": "悬疑脑洞:531bafdaeb68d392",
-      "sourceSha256": "531bafdaeb68d392f1826c8704911cf198835e8d04ed7cde2c7531a25abbf9fc",
+      "evidenceBookId": "悬疑脑洞:badef18c0ef5f632",
+      "sourceSha256": "badef18c0ef5f6322ac420c3bfcbd8aadc02fa992e8178d0339f037ef174c92e",
       "evidenceRefs": [
         {
           "chapterId": "ch1",

@@ -3,7 +3,7 @@
   "measurementVersion": "2-utf16-nonwhitespace-line-sentences",
   "genre": "历史脑洞",
   "status": "ready",
-  "generatedAt": "2026-09-15T14:29:29.798Z",
+  "generatedAt": "2026-10-09T08:15:37.303Z",
   "method": "完整文件严格解码；仅连续第1至N章且有下一章边界；原文不去作者注；UTF-16非空白字符计量。统计不是文学质量评分。",
   "sampling": {
     "method": "sorted-file-window-without-refill",
@@ -101,9 +101,9 @@
       "title": "一心求死，反倒成为千古一帝？",
       "filePath": "资源库\\小说原本\\历史脑洞\\一心求死，反倒成为千古一帝？.txt",
       "source": {
-        "sha256": "adecbb82eaf7ab95376c140c7b8c0e27f6dc4c1d6335a291944880b3e5cf0b8c",
-        "decodedSha256": "adecbb82eaf7ab95376c140c7b8c0e27f6dc4c1d6335a291944880b3e5cf0b8c",
-        "byteLength": 335068,
+        "sha256": "30bbd04c645e9a869523c0377344374c8ed8e5df6af711c95688015feca2996d",
+        "decodedSha256": "30bbd04c645e9a869523c0377344374c8ed8e5df6af711c95688015feca2996d",
+        "byteLength": 96013,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -1916,9 +1916,9 @@
       "title": "三国：开局项羽模板，你当谋士？",
       "filePath": "资源库\\小说原本\\历史脑洞\\三国：开局项羽模板，你当谋士？.txt",
       "source": {
-        "sha256": "bad233bea5f77ab8860bc39048c6508044c1b7aa987bf312dd31648a2e4c11b0",
-        "decodedSha256": "bad233bea5f77ab8860bc39048c6508044c1b7aa987bf312dd31648a2e4c11b0",
-        "byteLength": 129000,
+        "sha256": "89ae20de779fc9dec5a8c5fea34e5ce3037ea43a88c3bc381ab6b485ae1fda82",
+        "decodedSha256": "89ae20de779fc9dec5a8c5fea34e5ce3037ea43a88c3bc381ab6b485ae1fda82",
+        "byteLength": 98756,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -3360,9 +3360,9 @@
       "title": "三国：我用边角料，吊打刘关张",
       "filePath": "资源库\\小说原本\\历史脑洞\\三国：我用边角料，吊打刘关张.txt",
       "source": {
-        "sha256": "68f302be8aaee65e9366028dbb315c9ba35a3bca030fb6032a90fd12c4713bef",
-        "decodedSha256": "68f302be8aaee65e9366028dbb315c9ba35a3bca030fb6032a90fd12c4713bef",
-        "byteLength": 106124,
+        "sha256": "7b1a23cded1b18147dbac4d815763f4bcbdac75fe9105835f573d0516e8ee321",
+        "decodedSha256": "7b1a23cded1b18147dbac4d815763f4bcbdac75fe9105835f573d0516e8ee321",
+        "byteLength": 95597,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -5350,9 +5350,9 @@
       "title": "兽娘：从被高冷蛇女捡回部落开始",
       "filePath": "资源库\\小说原本\\历史脑洞\\兽娘：从被高冷蛇女捡回部落开始.txt",
       "source": {
-        "sha256": "d7648fa317c453cbee3a6162911ff02a5a80319b77e46706c1d8210bb3a75f0e",
-        "decodedSha256": "d7648fa317c453cbee3a6162911ff02a5a80319b77e46706c1d8210bb3a75f0e",
-        "byteLength": 135195,
+        "sha256": "a9c868124aa2841df1aedd7e99e0b912c67261b5e6af9564bf52566c32b4e590",
+        "decodedSha256": "a9c868124aa2841df1aedd7e99e0b912c67261b5e6af9564bf52566c32b4e590",
+        "byteLength": 108235,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -7998,9 +7998,9 @@
       "title": "别人夺嫡偷偷来，我家皇帝下圣旨",
       "filePath": "资源库\\小说原本\\历史脑洞\\别人夺嫡偷偷来，我家皇帝下圣旨.txt",
       "source": {
-        "sha256": "b338eb48bd3ce7ffb81848f1456b2d884cbe95056c77b2f2522f880e5c3b7960",
-        "decodedSha256": "b338eb48bd3ce7ffb81848f1456b2d884cbe95056c77b2f2522f880e5c3b7960",
-        "byteLength": 199959,
+        "sha256": "7ca2aad7e5dec6743f48db8e427a46269de9edb3f8fe5483506c0c0bc44cd31d",
+        "decodedSha256": "7ca2aad7e5dec6743f48db8e427a46269de9edb3f8fe5483506c0c0bc44cd31d",
+        "byteLength": 92905,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -10065,9 +10065,9 @@
       "title": "在大唐当丞相？豆包：我来助你！",
       "filePath": "资源库\\小说原本\\历史脑洞\\在大唐当丞相？豆包：我来助你！.txt",
       "source": {
-        "sha256": "ba717cdf51221dbe77d3e5523a58914ff7756eed0e91a2acb92375bb93cac33f",
-        "decodedSha256": "ba717cdf51221dbe77d3e5523a58914ff7756eed0e91a2acb92375bb93cac33f",
-        "byteLength": 119958,
+        "sha256": "eb3a1b917e612f722fa01fac7a74ad205a8ae6a29d2925b5a7abb7a76ce0df26",
+        "decodedSha256": "eb3a1b917e612f722fa01fac7a74ad205a8ae6a29d2925b5a7abb7a76ce0df26",
+        "byteLength": 97831,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -11754,9 +11754,9 @@
       "title": "大唐：开局七岁闺女讨嫁妆",
       "filePath": "资源库\\小说原本\\历史脑洞\\大唐：开局七岁闺女讨嫁妆.txt",
       "source": {
-        "sha256": "804017fa85d1e405ae379ffbcefebdcc655ac2e7fa4b849be5ea7e14cc2edd6d",
-        "decodedSha256": "804017fa85d1e405ae379ffbcefebdcc655ac2e7fa4b849be5ea7e14cc2edd6d",
-        "byteLength": 119972,
+        "sha256": "c497b7a97e6aa4ec834a10306adf9858f861c8ec3e5a959a2c59a0c61ff91f4d",
+        "decodedSha256": "c497b7a97e6aa4ec834a10306adf9858f861c8ec3e5a959a2c59a0c61ff91f4d",
+        "byteLength": 113475,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -14206,9 +14206,9 @@
       "title": "大唐：我穿越后每天获得一项能力",
       "filePath": "资源库\\小说原本\\历史脑洞\\大唐：我穿越后每天获得一项能力.txt",
       "source": {
-        "sha256": "33586739fa686fee6ddaa4e24fa991055cd16cf5716475f17bceb9b42954beb8",
-        "decodedSha256": "33586739fa686fee6ddaa4e24fa991055cd16cf5716475f17bceb9b42954beb8",
-        "byteLength": 302560,
+        "sha256": "c443ac8e2c762b64b26581575e88ce52a10d7337fdb427c30b77a735dde14224",
+        "decodedSha256": "c443ac8e2c762b64b26581575e88ce52a10d7337fdb427c30b77a735dde14224",
+        "byteLength": 110471,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -16945,9 +16945,9 @@
       "title": "大唐：李世民求我造反",
       "filePath": "资源库\\小说原本\\历史脑洞\\大唐：李世民求我造反.txt",
       "source": {
-        "sha256": "d3c502e8c84958fad4d70e1dbdfaf55dcb25f01ac01ace018fc7c79a6712282b",
-        "decodedSha256": "d3c502e8c84958fad4d70e1dbdfaf55dcb25f01ac01ace018fc7c79a6712282b",
-        "byteLength": 878579,
+        "sha256": "1def15670fb12227f70102d86da5de7796b3170645dce06c0ae8c1bef29955c2",
+        "decodedSha256": "1def15670fb12227f70102d86da5de7796b3170645dce06c0ae8c1bef29955c2",
+        "byteLength": 99621,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -17969,9 +17969,9 @@
       "title": "大唐：李承乾扮猪吃老虎",
       "filePath": "资源库\\小说原本\\历史脑洞\\大唐：李承乾扮猪吃老虎.txt",
       "source": {
-        "sha256": "32a3a85580f59c130c4dfcbe9bddd214e223f8e836257b243deff327db10296c",
-        "decodedSha256": "32a3a85580f59c130c4dfcbe9bddd214e223f8e836257b243deff327db10296c",
-        "byteLength": 121324,
+        "sha256": "4dc9d51bd51df109b01153071ec569bab03b983f8707fb83a0fe605ea8572a64",
+        "decodedSha256": "4dc9d51bd51df109b01153071ec569bab03b983f8707fb83a0fe605ea8572a64",
+        "byteLength": 93568,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -19525,9 +19525,9 @@
       "title": "大明异姓王，开局治好朱雄英！",
       "filePath": "资源库\\小说原本\\历史脑洞\\大明异姓王，开局治好朱雄英！.txt",
       "source": {
-        "sha256": "43cc3c6e2c11f6820ec349bd11949306edd4fe0809691e191b2f0896c54a93d1",
-        "decodedSha256": "43cc3c6e2c11f6820ec349bd11949306edd4fe0809691e191b2f0896c54a93d1",
-        "byteLength": 422341,
+        "sha256": "8d7ac7f64f550d564deb75f6c3d554f23973a7ecc1cb604ae7a5c9420e20be0d",
+        "decodedSha256": "8d7ac7f64f550d564deb75f6c3d554f23973a7ecc1cb604ae7a5c9420e20be0d",
+        "byteLength": 98799,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -21312,9 +21312,9 @@
       "title": "大明异姓王：开局复活马皇后！",
       "filePath": "资源库\\小说原本\\历史脑洞\\大明异姓王：开局复活马皇后！.txt",
       "source": {
-        "sha256": "6e329bc3c512cdeda490b5f0fa287ec52120fc9aecc4955890c074feea4fe1a5",
-        "decodedSha256": "6e329bc3c512cdeda490b5f0fa287ec52120fc9aecc4955890c074feea4fe1a5",
-        "byteLength": 156667,
+        "sha256": "00c528ee24efb46fc9e433a8f61282c6f6361b5b63c58ee0d960c3351b183cc9",
+        "decodedSha256": "00c528ee24efb46fc9e433a8f61282c6f6361b5b63c58ee0d960c3351b183cc9",
+        "byteLength": 114950,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -23295,9 +23295,9 @@
       "title": "大秦我带秦始皇长生不老",
       "filePath": "资源库\\小说原本\\历史脑洞\\大秦我带秦始皇长生不老.txt",
       "source": {
-        "sha256": "2f4174e6774701a001b0f60fb2176089a261d66adc21bffda20ca5adffbcfc54",
-        "decodedSha256": "2f4174e6774701a001b0f60fb2176089a261d66adc21bffda20ca5adffbcfc54",
-        "byteLength": 205133,
+        "sha256": "7dca4bf6e74181524c17652d4d3973243b62fc61328d79852a4d7543cab861b3",
+        "decodedSha256": "7dca4bf6e74181524c17652d4d3973243b62fc61328d79852a4d7543cab861b3",
+        "byteLength": 100634,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -25530,9 +25530,9 @@
       "title": "大秦：上交洞天，始皇带我狂飙！",
       "filePath": "资源库\\小说原本\\历史脑洞\\大秦：上交洞天，始皇带我狂飙！.txt",
       "source": {
-        "sha256": "e30332605716f67c4df7a79dd5f3d0e0b421beae3b71e1db1c835da4b721eb0f",
-        "decodedSha256": "e30332605716f67c4df7a79dd5f3d0e0b421beae3b71e1db1c835da4b721eb0f",
-        "byteLength": 116984,
+        "sha256": "e87a381bec0707c63780d4a9283f6bb650c3df7ac35b2f6fea11b91245df3c3e",
+        "decodedSha256": "e87a381bec0707c63780d4a9283f6bb650c3df7ac35b2f6fea11b91245df3c3e",
+        "byteLength": 105905,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -27975,9 +27975,9 @@
       "title": "天呐！我家来了个萌娃朱雄英",
       "filePath": "资源库\\小说原本\\历史脑洞\\天呐！我家来了个萌娃朱雄英.txt",
       "source": {
-        "sha256": "2f7f6d21244665810c7ed1e0635b97b7979ff82bc0a872d393f8c036d2e1981b",
-        "decodedSha256": "2f7f6d21244665810c7ed1e0635b97b7979ff82bc0a872d393f8c036d2e1981b",
-        "byteLength": 131186,
+        "sha256": "90513dea87b6fc7486691e5898548ecebbec8d743d66b74ec6778ae2076003d9",
+        "decodedSha256": "90513dea87b6fc7486691e5898548ecebbec8d743d66b74ec6778ae2076003d9",
+        "byteLength": 123847,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -30308,9 +30308,9 @@
       "title": "天幕洛神赋，曹家父子社死",
       "filePath": "资源库\\小说原本\\历史脑洞\\天幕洛神赋，曹家父子社死.txt",
       "source": {
-        "sha256": "1a10b87d92fab8d59374aeb47391252f050a5f856042837b0f526dee1a3df206",
-        "decodedSha256": "1a10b87d92fab8d59374aeb47391252f050a5f856042837b0f526dee1a3df206",
-        "byteLength": 132470,
+        "sha256": "a95de2e8b0e48d957f184d31c59b0f2fd50ce28ff8c5465b830bc2420d3b367e",
+        "decodedSha256": "a95de2e8b0e48d957f184d31c59b0f2fd50ce28ff8c5465b830bc2420d3b367e",
+        "byteLength": 97291,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -32641,9 +32641,9 @@
       "title": "天幕盘点开国，红色华夏震撼千古",
       "filePath": "资源库\\小说原本\\历史脑洞\\天幕盘点开国，红色华夏震撼千古.txt",
       "source": {
-        "sha256": "4227261ae3d50a0a4b893cdba03eddddc3f8f2c307125c4143ea9688fbfe3574",
-        "decodedSha256": "4227261ae3d50a0a4b893cdba03eddddc3f8f2c307125c4143ea9688fbfe3574",
-        "byteLength": 134224,
+        "sha256": "28efbb98a2a1e943b8cffcd2263de68f0afda43fc81827e87c7cfca90b5fb3de",
+        "decodedSha256": "28efbb98a2a1e943b8cffcd2263de68f0afda43fc81827e87c7cfca90b5fb3de",
+        "byteLength": 127758,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
@@ -38264,9 +38264,9 @@
       "title": "天幕：刷短视频，嬴政得了MVP",
       "filePath": "资源库\\小说原本\\历史脑洞\\天幕：刷短视频，嬴政得了MVP.txt",
       "source": {
-        "sha256": "353b423919301aa574d7fd6962e7463a3196afb5e8eaf0bf8cf7560d1060328c",
-        "decodedSha256": "353b423919301aa574d7fd6962e7463a3196afb5e8eaf0bf8cf7560d1060328c",
-        "byteLength": 556535,
+        "sha256": "29b9fe4feb9180bc8aff45b126eb8e4709791db3768ebbd498e83f1948938e21",
+        "decodedSha256": "29b9fe4feb9180bc8aff45b126eb8e4709791db3768ebbd498e83f1948938e21",
+        "byteLength": 104242,
         "encoding": "utf-8",
         "offsetUnit": "utf16-code-unit"
       },
