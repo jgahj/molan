@@ -803,7 +803,13 @@
 
   /** 加载浏览器端 IndexedDB WAL 模块并建立通知通道。 */
   function loadEditorWalModule() {
-    if (window.MolanLocalWal) return Promise.resolve(window.MolanLocalWal);
+    if (window.MolanLocalWal) {
+      if (!runtime.editorWal) {
+        runtime.editorWal = window.MolanLocalWal.create();
+        installEditorWalNotifications();
+      }
+      return Promise.resolve(window.MolanLocalWal);
+    }
     if (runtime.editorWalLoadPromise) return runtime.editorWalLoadPromise;
     if (!document.createElement || !document.head) return Promise.reject(new Error('IndexedDB WAL 模块不可用'));
     const sourceUrl = EDITOR_SCRIPT_URL || window.location && window.location.href || '';
@@ -822,6 +828,7 @@
     });
     return runtime.editorWalLoadPromise;
   }
+
 
   /** 按稳定章节和场景 ID 定位待恢复的正文节点。 */
   function locateEditorWalScene(state, chapterId, sceneId) {
@@ -878,6 +885,7 @@
     const recovery = (async () => {
       const api = await loadEditorWalModule();
       const wal = runtime.editorWal;
+      if (!wal) return;
       const records = await wal.readProject(projectId);
       const groups = new Map();
       records.forEach(record => {
@@ -1078,6 +1086,7 @@
     await ensureEditorWalRecovery(state);
     const api = await loadEditorWalModule();
     const projectId = editorWalProjectId(state);
+    if (!runtime.editorWal) return false;
     const records = await runtime.editorWal.readProject(projectId);
     for (const record of records) {
       if (record.conflicted) {

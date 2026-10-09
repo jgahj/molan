@@ -1149,6 +1149,45 @@ molan-home/
 - **浏览器交互录屏存盘**：`recording.webm` 已生成归档。
 - **排查结论**：**云端生产环境完全可用，UI 视觉无破损，全业务流程 100% 真实通畅。**
 
+---
+
+## 阶段记录：/boost 深度检查捕获 WAL 模块初始化缺陷与热修复 (2026-10-09)
+
+### 一、缺陷发现与根本原因剖析
+
+- **问题现象**：在编辑器中手动点击“保存作品”或自动保存触发时，Toast 报错 `Cannot read properties of null (reading 'readProject')`。
+- **调用栈跟踪**：
+  ```text
+  at (completion-editor.js:881:33)
+  at ensureEditorWalRecovery (completion-editor.js:933:7)
+  at editorWalHasUnrepresentedDraft (completion-editor.js:1078:11)
+  at persistNovel (completion-editor.js:2135:7)
+  at scheduleSave (completion-editor.js:1917:38)
+  ```
+- **根本原因 (Root Cause)**：
+  在 `completion-editor.js` 中，`loadEditorWalModule()` 原先仅在动态注入 `<script>` 的 `.then()` 回调中初始化 `runtime.editorWal = api.create()`。当页面已预先静态加载了 `/lib/client/local-wal.js` 时，第 806 行直接命中 `if (window.MolanLocalWal) return Promise.resolve(window.MolanLocalWal);` 返回，**导致 `runtime.editorWal` 漏初始化为 null**！后续在 `ensureEditorWalRecovery` 与 `editorWalHasUnrepresentedDraft` 中调用 `wal.readProject(projectId)` 即刻抛出空指针异常。
+
+### 二、改动范围与修复方案
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/completion-editor.js` | 核心修复 | 1. `loadEditorWalModule` 检测到 `window.MolanLocalWal` 存在时，同步补充检查并立即实例化 `runtime.editorWal = window.MolanLocalWal.create()` 及注册监听；<br>2. 在 `ensureEditorWalRecovery`（行 887）与 `editorWalHasUnrepresentedDraft`（行 1088）加入对 `runtime.editorWal` 的防御性空值校验，杜绝任何未初始化场景下的致命未捕获异常。 |
+
+### 三、验证证据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **执行命令与结果**：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" --test molan-home/test/local-wal.test.js molan-home/test/corpus-prompt-experiments.test.js
+  # 21 tests, 21 passed, 0 failed (100% PASS)
+  ```
+- **全量自动化回归测试集**：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" --test (39 个测试文件)
+  # 488 tests, 487 passed, 0 failed, 1 skipped (100% 真实通过)
+  ```
+
+
 
 
 
