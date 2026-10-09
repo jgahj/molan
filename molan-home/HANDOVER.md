@@ -20,6 +20,8 @@ molan-home/
 │   │   │   ├── archetype-discoverer.js # 原型发现与频次/模式挖掘
 │   │   │   ├── evidence-catalog.js     # 策略卡证据目录 (带热重载检测)
 │   │   │   ├── package-publisher.js    # 知识包发布器 (校验和保护与相对路径解析)
+│   │   │   ├── prompt-experiment-extractor.js # 全库1279本章节抽样与双模提示词提取器
+│   │   │   ├── prompt-experiment-runner.js    # 四象限对照实验批处理调度器与质量评估引擎
 │   │   │   └── strategy-miner.js       # 离线批量语料特征提取
 │   │   ├── debt/                       # 因果债务状态机与不可变账本
 │   │   │   ├── story-debt-ledger.js    # 纯追加事件账本 (Append-only JSONL)
@@ -65,6 +67,7 @@ molan-home/
     ├── routes-phase2-projects-characters.test.js # Phase 2 角色与项目资产路由契约测试
     ├── routes-phase3-admin-debt.test.js          # Phase 3 管理纠错与因果债务路由契约测试
     ├── routes-phase4-generation.test.js          # Phase 4 生成、计量与健康检查路由契约测试
+    ├── corpus-prompt-experiments.test.js        # 1279本全库抽样、双模提示词提取与四象限实验测试
     ├── e2e-phase2-engine.test.js       # Phase 2 引擎 4 梯队 60 项 E2E 验收用例
     ├── adversarial-attention-tiering.test.js # 注意力裁剪对抗性极限压力测试 (35 项)
     └── phase2-engine-enhancements.test.js    # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
@@ -969,6 +972,94 @@ molan-home/
      }
      ```
 - **结论**：80 端口反代完全打通（无需手动拼接 `:3000` 端口），非 HTTPS 访问下客户端正文 WAL 校验 100% 顺畅。
+
+---
+
+## 阶段记录：资源库全库 1279 本书章节抽样、双模提示词提取与四象限实验系统闭环 (2026-10-09)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/lib/composition/corpus/prompt-experiment-extractor.js` | 核心模块新建 | 1. 鲁棒章节解析（`extractChapters`）：覆盖分卷分割符（`------`）、标准汉字/数字/卷回标题正则及非标准后缀标题，实现纯段落流水文本平滑分章与保底；<br>2. 噪声过滤与确定性随机抽样（`sampleChapter`）：过滤感言/请假/通告等元数据噪声，门禁 `>=1000` 字符，结合 SHA-256 哈希种子实现每本书 100% 确定性单章抽样；<br>3. 双模提示词提炼（`extractDualPrompts`）：<br>   - **极简提示词 (Minimal)**：150~300 字核心故事情节概要 + 物理文风基调标签（短句比、对白比、动作动词密度、信息负载）；<br>   - **完整提示词 (Comprehensive)**：人物人设与行动动机、起承转合 4 节拍推进分镜、因果债务状态位移 (State Delta) 与末尾悬念钩子、墨阑 5 维参数 (Genre/Style/Goal/Focus/Hook) 以及 Tier 1~4 注意力分级规划；<br>4. 四象限任务装配（`buildQuadrantConfigs`）：组装 Q1/Q2/Q3/Q4 规范任务定义；<br>5. 单书完整处理（`processBookFile`）。 |
+| `molan-home/lib/composition/corpus/prompt-experiment-runner.js` | 核心模块新建 | 1. 四象限批处理执行调度器（`QuadrantBatchRunner`）：支持并发控制、断点续传（`.checkpoint.json`）、Token 消耗预算估算（`estimateTokens`）与自动限流退避；<br>2. 第一阶段门禁防御：严密拦截未授权真实大模型调用，显式支持 `--dry-run`（预算预检）与 `--mock`（离线模拟生成）；<br>3. 五维质量比对度量评估器（`QuadrantQualityEvaluator`）：篇幅遵从度（`lengthRatio`）、11 维文风空间欧氏距离（`calculateStylometryDistance`）、动作冲突密度（`actionDensity`）、AI 味套词惩罚（`aiFlavorRisk`）、实体留存率与综合得分。 |
+| `molan-home/scripts/extract-corpus-prompts.mjs` | 批处理工具新建 | 全库 1279 本图书双模提取批处理 CLI 工具。支持 `--dry-run`、`--limit`、`--category`；产出全分类目录分桶存储、单书 JSON + Markdown 双格式审阅档案、全局轻量流式索引 `index.jsonl`、全局清单 `manifest.json`、全景速查目录 `REVIEW_CATALOG.md` 以及抽检质量报告 `sampling_inspection_report.md` / `QUALITY_SPOTCHECK_REPORT.md`。 |
+| `molan-home/scripts/quadrant-batch-runner.mjs` | 批处理工具新建 | 四象限实验组与对照组调度执行 CLI 工具。支持 `--quadrant=A\|B\|C\|D\|all`、`--category`、`--limit`、`--concurrency`、`--dry-run`、`--mock`、`--evaluate` 与 `--confirm-phase1-approved`。 |
+| `molan-home/data/corpus-prompt-experiments/` | 数据集归档新建 | 1. 覆盖 49 个题材分类子目录，全量产出 1279 个 `.json` 结构化数据与 1279 个 `.md` 人工审阅文件；<br>2. 全局 `manifest.json`（状态标记为 `AWAITING_HUMAN_CONFIRMATION`）；<br>3. 全局 `index.jsonl`（1279 行轻量索引）；<br>4. 全局 `REVIEW_CATALOG.md` 与 `QUALITY_SPOTCHECK_REPORT.md`。 |
+| `molan-home/test/corpus-prompt-experiments.test.js` | 自动化测试新建 | 新增 12 项专属单元与集成测试，全面覆盖分章解析、确定性抽样、双模提示词提取规范、四象限载荷构建、文风空间距离算法、质量评测综合打分、Dry-run 预检与 Mock 调度断点续传。 |
+
+---
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **分步确认硬门禁设计 (Two-Phase Gate Policy)**：
+   - *背景*：对全库 1279 本书各执行 4 象限大模型生成共需消耗 $1279 \times 4 = 5116$ 次正文生成调用（预估需消耗超 1800 万 Tokens），不仅耗资巨大，且一旦提示词设计未获人工认可将造成灾难性算力浪费。
+   - *决策*：严格遵守用户指令与两阶段门禁策略：
+     - **第一阶段（已 100% 达成）**：全库单章抽样与双模提示词智能提炼，分类归档并产出抽检报告与全景速查清单；`manifest.json` 显式置位 `status: "AWAITING_HUMAN_CONFIRMATION"`；
+     - **第二阶段（工具就绪，等待确认）**：批处理调度器支持 `--dry-run`（5116 任务 0.4s 秒级预检，0 Token 消耗）与 `--mock`；调度器代码内植入强校验，若未显式传入 `--confirm-phase1-approved` 标志，严禁触发真实线上模型生成，实现生产级防误触保护。
+2. **非破坏性与只读语料安全防线**：
+   - 严格遵循 `AGENTS.md` 多项目工作区约定，将 `资源库/小说原本/` 作为只读事实来源，全过程零修改、零移动、零临时文件写入，所有实验产物与索引完全收拢于 `molan-home/data/corpus-prompt-experiments/`。
+3. **确定性随机与可复现性保证**：
+   - 抽样算法采用基于 `(filePath + filename + masterSeed)` 的 SHA-256 确定性哈希取模算法，确保跨机器、多次重跑时抽中的章节严格一致，杜绝随机漂移导致前后对照实验失真。
+4. **双模提示词粒度对齐**：
+   - 极简提示词严格限制在 150~300 字，聚焦“主角行动 + 阻力交锋 + 关键转折 + 未结钩子”，配套文风基调标签；
+   - 完整提示词全面对齐墨阑系统规格，输出规范人设动机、起承转合 4 节拍、因果债务状态位移、5 维 Profile (Genre/Style/Goal/Focus/Hook) 以及 4 级注意力分级 (Tier 1~4)。
+
+---
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **执行命令与结果**：
+  1. 提示词实验套件专项测试（12 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test molan-home/test/corpus-prompt-experiments.test.js
+     # 12 tests, 12 passed, 0 failed (duration: ~135ms)
+     ```
+  2. 全库 1279 本书全量抽取与归档执行验证：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" molan-home/scripts/extract-corpus-prompts.mjs
+     # 全库图书总数: 1279 本，已处理完成: 1279 本，异常: 0，耗时: 6.2s
+     # 产出 manifest.json (49 个题材分类)、index.jsonl (1279行)、1279个 .json 与 1279个 .md
+     ```
+  3. 四象限批处理 Dry-run 试跑验证（5116 项任务全量预检通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" molan-home/scripts/quadrant-batch-runner.mjs --dry-run
+     # 调度完成！模式: dry_run，任务总数: 5116，已完成: 5116，跳过: 0，耗时: 0.4s
+     ```
+  4. 四象限 Mock 模拟生成、质量评测与断点续传验证：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" molan-home/scripts/quadrant-batch-runner.mjs --mock --limit=10
+     # 完成 40 项任务模拟生成，产出 5 维客观比对评估表；二次执行时正确识别并跳过 40 项已完成任务。
+     ```
+  5. 全量核心自动化回归测试集（39 个测试文件、479 项测试全部执行）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test molan-home/test/corpus-prompt-experiments.test.js molan-home/test/compare-audit.test.js molan-home/test/causal-debt-tracker.test.js molan-home/test/routes-phase4-generation.test.js molan-home/test/routes-phase3-admin-debt.test.js molan-home/test/routes-phase2-projects-characters.test.js molan-home/test/routes-phase1-adversarial.test.js molan-home/test/routes-dissection.test.js molan-home/test/routes-creation-books.test.js molan-home/test/character-material.test.js molan-home/test/style-health-api.test.mjs molan-home/test/postgres-runtime-no-cache.test.js molan-home/test/postgres-dissection-tools.test.js molan-home/test/postgres-dissection-worker.test.js molan-home/test/dissection-graph.test.js molan-home/test/creation-main-flow.test.js molan-home/test/creation-retry.test.js molan-home/test/creation-plan-review.test.js molan-home/test/domain-routes.test.js molan-home/test/dissection-units.test.js molan-home/test/postgres-dissection-cancel.test.js molan-home/test/e2e-phase2-engine.test.js molan-home/test/adversarial-attention-tiering.test.js molan-home/test/phase2-engine-enhancements.test.js molan-home/test/composition-profiles.test.js molan-home/test/composition-debt-ledger.test.js molan-home/test/orchestrator-brain-consolidation.test.js molan-home/test/milestone-4-strategy-provenance-lowering.test.js molan-home/test/strategy-compiler.test.js molan-home/test/content-engine.test.js molan-home/test/context-plan-replay-p4.test.js molan-home/test/replay-manifest.test.js molan-home/test/quality-assessment.test.js molan-home/test/generation-quality-gate.test.js molan-home/test/native-chat-http.test.js molan-home/test/native-chat-dispatch-journal.test.js molan-home/test/gemini-models.test.js molan-home/test/editor-only-sources.test.js molan-home/test/fanqie-batch-download.test.mjs
+     # 479 tests, 478 passed, 0 failed, 1 skipped (100% 真实通过)
+     ```
+  6. 生产依赖隔离审计：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" molan-home/scripts/production-import-audit.mjs
+     # 扫描 228 个生产核心文件，依赖隔离合规无异常 (PASS)
+     ```
+  7. 黄金数据集全量任务验证：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" molan-home/scripts/audit-golden-suite.mjs
+     # 80 个黄金任务全部验证通过 (PASS)
+     ```
+  - **总计核心自动化测试用例**：**478 项真实通过 / 479 项执行 (100% 真实通过，0 失败，1 预设跳过)**。
+
+---
+
+### 四、已知限制与后续待办 (Known Limits & Backlog)
+
+1. **已达成状态**：
+   - 第一阶段（抽取阶段）：全库 1279 本图书 100% 抽取与双模提炼完成，分类分桶归档完备，`manifest.json` 与抽检报告已产出；
+   - 第二阶段（调度工具）：四象限调度器、断点续传、Dry-run 预检与 5 维客观质量比对评估器已完成开发并通过自动化验证。
+2. **后续执行待办**：
+   - **等待用户人工审阅与确认**：用户查阅 `data/corpus-prompt-experiments/sampling_inspection_report.md` 及抽样结果；
+   - **启动真实模型正文生成**：在用户人工确认提示词满意后，传入 `--confirm-phase1-approved` 参数并配置模型服务发起真实批处理生成。
+
 
 
 
