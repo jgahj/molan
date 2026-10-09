@@ -485,3 +485,45 @@ describe('Corpus Prompt Experiments - Quality Evaluation & Batch Runner', () => 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 });
+
+describe('DualTrackComparisonSuite - Live Evaluation & Reporting', () => {
+  it('correctly evaluates paired samples and produces delta comparisons', async () => {
+    const { DualTrackComparisonSuite } = await import('../scripts/run-live-comparison-suite.mjs');
+    const suite = new DualTrackComparisonSuite();
+
+    const sampleData = {
+      bookId: 'test_hero',
+      category: '玄幻',
+      sampledChapter: { chapterTitle: '第一战', charCount: 3000 },
+      dualPrompts: {
+        comprehensive: {
+          entities: { identifiedEntities: ['孟奇', '程永', '江芷微'] }
+        }
+      },
+      factors: {
+        stylometry: {
+          averageSentenceLength: 35,
+          dialogueRatio: 0.15,
+          actionDensity: 0.4
+        }
+      }
+    };
+
+    const expText = '孟奇拔刀横斩，刀风呼啸破空。程永按地后撤，右拳狠命砸出，劲气炸裂青石。江芷微长剑出鞘，直指要害。';
+    const ctrlText = '孟奇嘴角勾起一抹冷笑，倒吸了一口凉气，眼神中闪过一丝玩味。他身形一闪，将敌人击退。';
+
+    const result = suite.evaluatePair(sampleData, expText, ctrlText);
+    assert.strictEqual(result.bookId, 'test_hero');
+    assert.strictEqual(result.category, '玄幻');
+    assert.ok(result.experiment.compositeScore >= 0);
+    assert.ok(result.control.compositeScore >= 0);
+    assert.ok(typeof result.diff.compositeScoreDelta === 'number');
+
+    // 验证 Markdown 报告输出格式
+    const md = suite.generateMarkdownReport([result]);
+    assert.ok(md.includes('墨阑项目真实双轨对比评测报告'));
+    assert.ok(md.includes('《test_hero》'));
+    assert.ok(md.includes('实验组(墨阑全链)'));
+  });
+});
+
