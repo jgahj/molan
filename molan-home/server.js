@@ -82,6 +82,8 @@ const { createDissectionHandlers } = require('./routes/dissection-handlers');
 const { createCreationBookRoutes } = require('./routes/creation-books');
 const { createCreationBookHandlers } = require('./routes/creation-book-handlers');
 const { createProjectRoutes } = require('./routes/projects');
+const { createCharacterHandlers } = require('./routes/character-handlers');
+const { createProjectAssetHandlers } = require('./routes/project-asset-handlers');
 const { createNovelReadHandlers } = require('./routes/novel-read-handlers');
 const { createNovelWriteHandlers } = require('./routes/novel-write-handlers');
 const { createAuthAttemptLimiter } = require('./services/auth-attempt-limiter');
@@ -4797,6 +4799,8 @@ function recoverDissectionJobs() {
 
 let dissectionHandlers = null;
 let creationBookHandlers = null;
+let characterHandlers = null;
+let projectAssetHandlers = null;
 
 function handleDissectionExtract(req, res) {
   if (typeof dissectionHandlers !== 'undefined' && dissectionHandlers && dissectionHandlers.handleDissectionExtract) {
@@ -6211,6 +6215,7 @@ function handleDissectionsBatch(req, res) {
 
 // F203：角色库列表
 function postgresCharacterView(row) {
+  if (characterHandlers) return characterHandlers.postgresCharacterView(row);
   const document = typeof row.document === 'string' ? JSON.parse(row.document) : row.document;
   if (!document || typeof document !== 'object' || Array.isArray(document)) throw requestError(500, '人物库文档损坏');
   return { id: document.id || row.row_key, name: document.name, function: document.function,
@@ -6221,116 +6226,22 @@ function postgresCharacterView(row) {
 }
 
 async function handleCharactersList(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  if (POSTGRES_MODE) {
-    const rows = await postgresRepository.runtimeListCharacterLibrary(auth.user.userId);
-    return json(res, 200, { ok: true, characters: rows.map(postgresCharacterView) });
-  }
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  const rows = db.prepare('SELECT * FROM character_library WHERE user_email = ? ORDER BY created_at DESC').all(auth.user.email);
-  json(res, 200, { ok: true, characters: rows.map(r => ({
-    id: r.id, name: r.name, function: r.function, goal: r.goal, conflict: r.conflict,
-    arc: r.arc, firstAppearance: r.first_appearance, notes: r.notes || '',
-    dissectionId: r.dissection_id, createdAt: r.created_at
-  })) });
+  if (characterHandlers) return characterHandlers.handleCharactersList(req, res);
 }
 
 // F203：编辑角色卡（含改名/备注）
 async function handleCharactersPatch(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  if (POSTGRES_MODE) {
-    const body = await readBody(req);
-    const row = await postgresRepository.runtimePatchCharacter(auth.user.userId, id, body);
-    return json(res, 200, { ok: true, character: postgresCharacterView(row) });
-  }
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  const row = db.prepare('SELECT * FROM character_library WHERE id = ? AND user_email = ?').get(id, auth.user.email);
-  if (!row) return json(res, 404, { error: '角色不存在或无权访问' });
-  readBody(req).then(p => {
-    const next = {};
-    ['function', 'goal', 'conflict', 'arc', 'first_appearance', 'notes'].forEach(k => {
-      if (p[k] !== undefined) next[k] = String(p[k]).slice(0, 2000);
-    });
-    if (p.name !== undefined) next.name = String(p.name).trim().slice(0, 60);
-    if (next.name) {
-      const conflict = db.prepare('SELECT id FROM character_library WHERE user_email = ? AND name = ? AND id <> ?').get(auth.user.email, next.name, id);
-      if (conflict) return json(res, 409, { error: '已存在同名角色「' + next.name + '」' });
-    }
-    const fields = ['name', 'function', 'goal', 'conflict', 'arc', 'first_appearance', 'notes'].filter(k => next[k] !== undefined);
-    if (!fields.length) return json(res, 400, { error: '没有可更新的字段' });
-    const setSql = fields.map(k => k + ' = ?').join(', ');
-    const values = fields.map(k => next[k]);
-    db.prepare('UPDATE character_library SET ' + setSql + ' WHERE id = ? AND user_email = ?').run(...values, id, auth.user.email);
-    const updated = db.prepare('SELECT * FROM character_library WHERE id = ?').get(id);
-    json(res, 200, { ok: true, character: { id: updated.id, name: updated.name, function: updated.function, goal: updated.goal, conflict: updated.conflict, arc: updated.arc, firstAppearance: updated.first_appearance, notes: updated.notes || '', dissectionId: updated.dissection_id } });
-  }).catch(e => respondError(res, e));
+  if (characterHandlers) return characterHandlers.handleCharactersPatch(req, res, id);
 }
 
 // F203：合并角色卡（把 fromNames 合并进 intoName，防止 OOC 库膨胀）
 async function handleCharactersMerge(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  if (POSTGRES_MODE) {
-    const body = await readBody(req);
-    const merged = await postgresRepository.runtimeMergeCharacters(auth.user.userId, body.fromNames, body.intoName);
-    return json(res, 200, { ok: true, merged });
-  }
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  readBody(req).then(p => {
-    const fromNames = Array.isArray(p.fromNames) ? p.fromNames.map(String).map(s => s.trim()).filter(Boolean) : [];
-    const intoName = String(p.intoName || '').trim();
-    if (!fromNames.length || !intoName) return json(res, 400, { error: '请提供要合并的角色与目标角色' });
-    let merged = 0;
-    const intoRow = db.prepare('SELECT * FROM character_library WHERE user_email = ? AND name = ?').get(auth.user.email, intoName);
-    fromNames.forEach(name => {
-      if (name === intoName) return;
-      const from = db.prepare('SELECT * FROM character_library WHERE user_email = ? AND name = ?').get(auth.user.email, name);
-      if (!from) return;
-      if (intoRow) {
-        // 目标存在：把来源卡的有效字段并入目标，再删除来源
-        const fields = ['function', 'goal', 'conflict', 'arc', 'first_appearance', 'notes'];
-        const values = fields.map(f => (intoRow[f] || '') || (from[f] || ''));
-        db.prepare('UPDATE character_library SET function=?, goal=?, conflict=?, arc=?, first_appearance=?, notes=? WHERE id=?').run(...values, intoRow.id);
-        db.prepare('DELETE FROM character_library WHERE id = ?').run(from.id);
-      } else {
-        // 目标不存在：直接改名
-        db.prepare('UPDATE character_library SET name = ? WHERE id = ?').run(intoName, from.id);
-      }
-      merged += 1;
-    });
-    json(res, 200, { ok: true, merged });
-  }).catch(e => respondError(res, e));
+  if (characterHandlers) return characterHandlers.handleCharactersMerge(req, res);
 }
 
 // F203：角色库导出（CSV / JSON），供导入写作工具
 async function handleCharactersExport(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
-  if (!POSTGRES_MODE && !dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  const format = new URL(req.url, 'http://localhost').searchParams.get('format') || 'json';
-  const rows = POSTGRES_MODE ? await postgresRepository.runtimeListCharacterLibrary(auth.user.userId)
-    : db.prepare('SELECT * FROM character_library WHERE user_email = ? ORDER BY created_at DESC').all(auth.user.email);
-  const chars = rows.map(row => {
-    const character = POSTGRES_MODE ? postgresCharacterView(row) : row;
-    return { name: character.name, function: character.function, goal: character.goal, conflict: character.conflict,
-      arc: character.arc, firstAppearance: character.firstAppearance ?? character.first_appearance, notes: character.notes || '' };
-  });
-  if (format === 'csv') {
-    const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const head = ['name', 'function', 'goal', 'conflict', 'arc', 'firstAppearance', 'notes'];
-    const body = [head.join(',')].concat(chars.map(c => head.map(k => esc(c[k])).join(','))).join('\n');
-    res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="character-library.csv"', 'Content-Length': Buffer.byteLength('\uFEFF' + body), ...responseCors(res) });
-    return res.end('\uFEFF' + body);
-  }
-  const body = JSON.stringify(chars, null, 2);
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="character-library.json"', 'Content-Length': Buffer.byteLength(body), ...responseCors(res) });
-  res.end(body);
+  if (characterHandlers) return characterHandlers.handleCharactersExport(req, res);
 }
 
 function handleDissectionPatch(req, res, id) {
@@ -6343,48 +6254,7 @@ function handleDissectionCharactersSync(req, res, id) {
 
 // F203：把角色推入某本小说的编辑器设定集（knowledge.entities）
 function handleNovelImportCharacters(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  if (!id || !/^n_[A-Za-z0-9]{1,30}$/.test(id)) return json(res, 400, { error: '小说 id 非法' });
-  readBody(req).then(p => {
-    const chars = Array.isArray(p.characters) ? p.characters : [];
-    if (!chars.length) return json(res, 400, { error: '请提供角色' });
-    const row = db.prepare('SELECT id,user_email,owner_user_id,workspace_id,project_id,state_json,revision FROM novels WHERE id = ?').get(id);
-    if (!row) return json(res, 404, { error: '小说不存在' });
-    const access = projectScope.getNovelAccess(db, id, auth.user.userId);
-    if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) return json(res, 404, { error: '小说不存在或无权访问' });
-    let state;
-    try { state = sanitizeNovelStateForStorage(JSON.parse(row.state_json)); } catch (_) { return json(res, 500, { error: 'state 解析失败' }); }
-    if (!state.knowledge || typeof state.knowledge !== 'object') state.knowledge = {};
-    let entities = state.knowledge.entities;
-    if (!entities || Array.isArray(entities)) entities = {};
-    let added = 0;
-    chars.forEach(ch => {
-      const name = String((ch && ch.name) || '').trim();
-      if (!name) return;
-      const eid = 'ent_' + crypto.createHash('sha1').update(id + '|' + name).digest('hex').slice(0, 14);
-      if (entities[eid]) return;
-      entities[eid] = {
-        id: eid, name, type: 'character',
-        description: [String(ch.function || ''), String(ch.goal || ''), String(ch.conflict || ''), String(ch.arc || '')].filter(Boolean).join('；'),
-        source: 'dissection', createdAt: Date.now()
-      };
-      added += 1;
-    });
-    state.knowledge.entities = entities;
-    const stateJson = JSON.stringify(state);
-    const expectedRevision = p.revision == null ? Number(row.revision || 0) : Number(p.revision);
-    if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return json(res, 400, { error: 'revision 非法' });
-    const nextRevision = expectedRevision + 1;
-    const result = db.prepare(`UPDATE novels
-      SET state_json = ?, updated_at = ?, revision = ?, owner_user_id = ?
-      WHERE id = ? AND workspace_id = ? AND project_id = ? AND revision = ?`)
-      .run(stateJson, Date.now(), nextRevision, auth.user.userId, id, access.workspace_id, access.project_id, expectedRevision);
-    if (Number(result.changes || 0) !== 1) return json(res, 409, { error: '小说已在其他设备更新，请重新读取后导入', code: 'revision_conflict' });
-    json(res, 200, { ok: true, added, total: Object.keys(entities).length, revision: nextRevision });
-  }).catch(e => respondError(res, e));
+  if (characterHandlers) return characterHandlers.handleNovelImportCharacters(req, res, id);
 }
 
 function handleDissectionShare(req, res, id) {
@@ -6397,61 +6267,12 @@ function handleDissectionShareDelete(req, res, id, token) {
 
 // F204：列出「分享给我的」拆书（协作只读空间）
 async function handleSharedDissectionsList(req, res) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '请先登录' });
-  if (POSTGRES_MODE) {
-    const rows = await postgresRepository.runtimeListMemberDissectionShares(auth.user.userId);
-    return json(res, 200, { ok: true, shared: rows.map(row => ({
-      token: row.share.token, role: row.share.role || 'view', sharedAt: row.share.created_at,
-      expiresAt: row.share.expires_at, task: row.task
-    })) });
-  }
-  if (!requireSqliteForPublic(req, res)) return;
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  const rows = db.prepare("SELECT token,dissection_id,user_email,role,created_at,expires_at FROM dissection_shares WHERE grantee_email = ? AND (expires_at = 0 OR expires_at > ?) ORDER BY created_at DESC LIMIT 100").all(auth.user.email.toLowerCase(), Date.now());
-  const items = [];
-  rows.forEach(r => {
-    const record = loadDissectionRecord(r.dissection_id, r.user_email);
-    if (!record || record.status !== 'completed') return;
-    items.push({
-      token: r.token, role: r.role || 'view', sharedAt: r.created_at, expiresAt: r.expires_at,
-      task: { id: record.id, title: record.title, depth: record.depth, wordCount: record.meta && record.meta.wordCount || 0, chapterCount: record.meta && record.meta.chapterCount || 0, updatedAt: record.updatedAt }
-    });
-  });
-  json(res, 200, { ok: true, shared: items });
+  if (dissectionHandlers) return dissectionHandlers.handleSharedDissectionsList(req, res);
 }
 
 // F204：免登录读取分享结果（不含原文）
 async function handleSharedDissectionGet(req, res, token) {
-  if (POSTGRES_MODE) {
-    const auth = getAuthUser(req) || getAuthUser(req, 'admin');
-    const row = await postgresRepository.runtimeReadDissectionShare(auth?.user.userId || '', token);
-    if (!row) return json(res, 404, { error: '分享链接无效或已失效' });
-    if (row.access === 'expired') return json(res, 410, { error: '分享链接已过期' });
-    if (row.access === 'auth_required') return json(res, 401, { error: '请登录后访问该成员分享' });
-    if (row.access !== 'allowed') return json(res, 403, { error: '该分享链接未授权给当前账户' });
-    return json(res, 200, { ok: true, shared: { ...row.task, result: dissectionResultView(row.task.result) } });
-  }
-  if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-  const row = db.prepare('SELECT * FROM dissection_shares WHERE token = ?').get(token);
-  if (!row) return json(res, 404, { error: '分享链接无效或已失效' });
-  if (row.expires_at && row.expires_at < Date.now()) return json(res, 410, { error: '分享链接已过期' });
-  // 指定成员分享必须登录并匹配收件人；只有明确的公开分享才允许匿名访问。
-  if (row.grantee_email) {
-    const auth = getAuthUser(req) || getAuthUser(req, 'admin');
-    const email = auth && auth.user && String(auth.user.email || '').trim().toLowerCase();
-    if (!email || email !== String(row.grantee_email || '').trim().toLowerCase()) {
-      return json(res, auth ? 403 : 401, { error: auth ? '该分享链接未授权给当前账户' : '请登录后访问该成员分享' });
-    }
-  }
-  const record = loadDissectionRecord(row.dissection_id, row.user_email);
-  if (!record) return json(res, 404, { error: '原拆书任务不存在' });
-  const r = dissectionResultView(record.result);
-  json(res, 200, { ok: true, shared: {
-    id: record.id, title: record.title, depth: record.depth,
-    meta: { wordCount: record.meta && record.meta.wordCount, chapterCount: record.meta && record.meta.chapterCount, sampleCount: record.meta && record.meta.sampleCount },
-    result: r, createdAt: record.createdAt
-  } });
+  if (dissectionHandlers) return dissectionHandlers.handleSharedDissectionGet(req, res, token);
 }
 
 function handleDissectionVersions(req, res, id) {
@@ -6532,112 +6353,22 @@ const { parseNovelExportRange, sendNovelExport } = require('./services/novel-exp
 
 /** PG 模式下按导出 capability 读取项目状态和已提交正文。 */
 async function handlePostgresNovelExport(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  const profile = await postgresRepository.getProfile(userId, id);
-  if (!profile || !projectScope.canAccess(profile.access, projectScope.PROJECT_ROLES, 'export')) {
-    return json(res, 404, { error: '小说不存在或无权导出' });
-  }
-  const parsedRange = parseNovelExportRange(req);
-  if (!parsedRange.ok) return json(res, 400, { error: '章节范围必须是有效的正整数区间', code: 'export_range_invalid' });
-  let committedChapters;
-  try {
-    committedChapters = await postgresRepository.listExportableChapters(userId, id, profile.access.workspace_id);
-  } catch (error) {
-    if (error && error.code === 'export_forbidden') return json(res, 404, { error: '小说不存在或无权导出' });
-    return json(res, 409, { error: '无法读取已提交章节正文，已阻止导出', code: 'export_content_blocked', blocked: true });
-  }
-  const state = sanitizeNovelStateForStorage(profile.state || {});
-  const format = new URL(req.url, 'http://localhost').searchParams.get('format');
-  return sendNovelExport(res, id, { ...state, title: profile.title || state.title }, committedChapters, format, parsedRange.range);
+  if (projectAssetHandlers) return projectAssetHandlers.handlePostgresNovelExport(req, res, id);
 }
 
 /** PG 模式下导出项目 state、结构化资料和历史，所有内容先按当前权限读取。 */
 async function handlePostgresPackageExport(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  const profile = await postgresRepository.getProfile(userId, id);
-  if (!profile || !projectScope.canAccess(profile.access, new Set(['owner', 'admin', 'editor']), 'export')) {
-    return json(res, 404, { error: '小说不存在或无权导出' });
-  }
-  const resources = await postgresRepository.listAllResources(userId, id, profile.access.workspace_id, true);
-  const creation = await postgresRepository.getCreationPackageData(userId, id, profile.access.workspace_id);
-  const state = sanitizeNovelStateForStorage(profile.state || {});
-  const packageValue = projectPackage.exportProjectPackage({
-    projectId: id,
-    workspaceId: profile.access.workspace_id,
-    ownerUserId: profile.access.owner_user_id,
-    state,
-    assets: { creationAssets: state.creationAssets || {}, projectResources: resources || [], creationData: creation || {} },
-    versions: Array.isArray(state.history) ? state.history : []
-  });
-  json(res, 200, { ok: true, package: packageValue });
+  if (projectAssetHandlers) return projectAssetHandlers.handlePostgresPackageExport(req, res, id);
 }
 
 /** PG 模式下只做资料包预检，不在预检阶段覆盖已有项目。 */
 async function handlePostgresPackageImport(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  const profile = await postgresRepository.getProfile(userId, id);
-  if (!profile || !projectScope.canAccess(profile.access, projectScope.WRITE_ROLES)) {
-    return json(res, 404, { error: '小说不存在或无权导入' });
-  }
-  const body = await readBody(req).catch(() => ({}));
-  const packageInput = body && body.package ? body.package : body;
-  const result = projectPackage.importProjectPackage(packageInput, {
-    mode: 'preflight',
-    targetProjectId: id,
-    targetWorkspaceId: profile.access.workspace_id,
-    existingIds: { projectIds: [id] }
-  });
-  json(res, result.ok ? 200 : 409, { ok: result.ok, preflight: result });
+  if (projectAssetHandlers) return projectAssetHandlers.handlePostgresPackageImport(req, res, id);
 }
 
 /** PG 模式下以一个数据库事务恢复作品 state 和结构化资料，避免半恢复。 */
 async function handlePostgresPackageRestore(req, res, id) {
-  const auth = getAuthUser(req);
-  if (!auth) return json(res, 401, { error: '未登录' });
-  const userId = postgresActor(auth);
-  const profile = await postgresRepository.getProfile(userId, id);
-  if (!profile || !projectScope.canAccess(profile.access, new Set(['owner', 'admin']))) {
-    return json(res, 403, { error: '只有项目管理员可以恢复整包资料' });
-  }
-  const body = await readBody(req).catch(() => ({}));
-  const expectedRevision = Number(body && body.revision);
-  const packageInput = body && body.package ? body.package : body;
-  const imported = projectPackage.importProjectPackage(packageInput, {
-    mode: 'apply',
-    targetProjectId: id,
-    targetWorkspaceId: profile.access.workspace_id,
-    existingIds: { projectIds: [] }
-  });
-  if (!imported.ok || !imported.state || typeof imported.state !== 'object' || !Array.isArray(imported.state.volumes)) {
-    return json(res, 422, { error: '资料包预检未通过，未修改当前作品', code: 'package_restore_preflight_failed', details: imported.errors || imported.conflicts || [] });
-  }
-  const state = sanitizeNovelStateForStorage(imported.state);
-  const stateJson = JSON.stringify(state);
-  if (Buffer.byteLength(stateJson, 'utf8') > MAX_NOVEL_STATE_BYTES) return json(res, 413, { error: '恢复后的作品数据过大' });
-  const resources = imported.assets && typeof imported.assets === 'object' && Array.isArray(imported.assets.projectResources)
-    ? imported.assets.projectResources
-    : [];
-  const creation = imported.assets && typeof imported.assets === 'object' && imported.assets.creationData &&
-    typeof imported.assets.creationData === 'object' && !Array.isArray(imported.assets.creationData)
-    ? imported.assets.creationData
-    : null;
-  const restored = await postgresRepository.restorePackage({
-    userId,
-    workspaceId: profile.access.workspace_id,
-    projectId: id,
-    expectedRevision,
-    title: String(state.title || state.outline && state.outline.book && state.outline.book.title || '未命名小说'),
-    state,
-    resources,
-    creation
-  });
-  json(res, 200, restored);
+  if (projectAssetHandlers) return projectAssetHandlers.handlePostgresPackageRestore(req, res, id);
 }
 
 const { handlePostgresResources, handlePostgresResourceHistory, handlePostgresWorkspaceList, handlePostgresWorkspaceCreate, handlePostgresWorkspaceMembers, handlePostgresWorkspaceProjectList, handlePostgresNovelMembers } = require('./services/postgres-project-service').createPostgresProjectService({
@@ -6825,32 +6556,7 @@ function handleChapterHealthCheck(req, res) {
 }
 
 async function handleNovelPromptCompilation(req, res) {
-  try {
-    const { compileFullWritingSpecification, getAtomicPromptBlocks } = require('./lib/generation/corpus-archetypes');
-    if (req.method === 'GET') {
-      return json(res, 200, { ok: true, blocks: getAtomicPromptBlocks() });
-    }
-    const body = await readBody(req);
-    const input = body && typeof body === 'object' ? body : {};
-    const compiled = compileFullWritingSpecification({
-      genre: input.genre || input.novelGenre,
-      writingStyle: input.writingStyle || input.styleArchetype,
-      chapterFunction: input.chapterFunction,
-      chapterFocus: input.chapterFocus,
-      endingHook: input.endingHook,
-      characters: input.characters,
-      userPrompt: input.userPrompt || input.prompt || '',
-      wordBudget: input.wordBudget
-    });
-    return json(res, 200, {
-      ok: true,
-      success: true,
-      finalPrompt: compiled.directive,
-      wordBudget: compiled.wordBudget
-    });
-  } catch (err) {
-    return json(res, 500, { error: err.message || '编译提示词异常' });
-  }
+  if (projectAssetHandlers) return projectAssetHandlers.handleNovelPromptCompilation(req, res);
 }
 
 function handleCausalDebtsGet(req, res, bookId) {
@@ -7697,6 +7403,22 @@ async function dispatchRequest(req, res) {
       creationForbiddenTerms, creationPlanProjection, resolveCreationModelId
     });
   }
+  if (!characterHandlers) {
+    characterHandlers = createCharacterHandlers({
+      json, readBody, respondError, requestError, getAuthUser,
+      requireSqliteForPublic, dbReady, POSTGRES_MODE, postgresRepository,
+      projectScope, sanitizeNovelStateForStorage, responseCors, crypto,
+      getDatabase: () => db
+    });
+  }
+  if (!projectAssetHandlers) {
+    projectAssetHandlers = createProjectAssetHandlers({
+      json, readBody, respondError, respondPostgresError, getAuthUser,
+      postgresActor, postgresRepository, projectScope, projectPackage,
+      parseNovelExportRange, sendNovelExport, sanitizeNovelStateForStorage,
+      MAX_NOVEL_STATE_BYTES
+    });
+  }
   const domainRoutes = {
     auth: createAuthRoutes({
       register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
@@ -7756,6 +7478,8 @@ async function dispatchRequest(req, res) {
       compare: handleDissectionsCompare, batch: handleDissectionsBatch, sharedList: handleSharedDissectionsList
     }),
     projects: createProjectRoutes({ postgresMode: POSTGRES_MODE, handlers: {
+      ...characterHandlers,
+      ...projectAssetHandlers,
       charactersList: handleCharactersList, charactersExport: handleCharactersExport,
       charactersMerge: handleCharactersMerge, charactersPatch: handleCharactersPatch,
       postgresNovelImportCharacters: handlePostgresNovelImportCharacters, respondPostgresError,

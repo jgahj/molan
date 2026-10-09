@@ -41,11 +41,14 @@ molan-home/
 │   │   ├── generation-pipeline-coordinator.js # 历史生成流水线 (已隔离)
 │   │   └── legacy-telemetry.js         # 历史废弃模块调用生命周期遥测器
 │   └── scene-planner.js                # 细纲场景规划与冲突推进
-├── routes/                             # 领域路由与处理器分发层 (Phase 1 模块化解耦)
+├── routes/                             # 领域路由与处理器分发层 (Phase 1 & Phase 2 模块化解耦)
 │   ├── dissection-handlers.js          # 拆书领域处理器工厂 (含 26+ 端点实现与紧凑序列化工具)
 │   ├── creation-books.js               # 创书领域路由器 (分发 17+ 新书/圣经/状态快照/扩展/合同端点)
 │   ├── creation-book-handlers.js       # 创书领域处理器工厂 (解耦核心包生成、计划扩写与审核并发锁)
-│   └── dissections.js                  # 拆书领域路由器
+│   ├── dissections.js                  # 拆书领域路由器
+│   ├── character-handlers.js           # 角色领域处理器工厂 (列表、补丁、合并、导出与作品导入)
+│   ├── project-asset-handlers.js       # 项目资产/工程整包与提示词编译处理器工厂
+│   └── projects.js                     # 项目与角色路由器
 ├── services/                           # 业务服务层
 │   ├── model-call-service.js           # 全站通用模型调用客户端 (内部 HTTP 路由与流解析)
 │   ├── creation-chapter-service.js     # 章节生成编排入口
@@ -53,6 +56,7 @@ molan-home/
 └── test/                               # 核心自动化测试集 (Node 22 运行)
     ├── routes-dissection.test.js       # 拆书路由与处理器契约测试
     ├── routes-creation-books.test.js   # 创书路由与处理器契约测试
+    ├── routes-phase2-projects-characters.test.js # Phase 2 角色与项目资产路由契约测试
     ├── e2e-phase2-engine.test.js       # Phase 2 引擎 4 梯队 60 项 E2E 验收用例
     ├── adversarial-attention-tiering.test.js # 注意力裁剪对抗性极限压力测试 (35 项)
     └── phase2-engine-enhancements.test.js    # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
@@ -438,6 +442,81 @@ molan-home/
      # 80 个黄金任务全部验证通过 (PASS)
      ```
   - **总计自动化测试用例**：**415 项通过 / 416 项执行 (100% 真实通过，0 失败，1 预设跳过)**。
+
+---
+
+## 阶段记录：Phase 2 角色与项目资产路由解耦及模块化下沉 (2026-10-09)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/routes/character-handlers.js` | 模块新建 | 新增角色库与作品导入业务处理函数工厂 `createCharacterHandlers(deps)`。完整封装：<br>1. `handleCharactersList`（支持 PG 与本地 SQLite 双模读取并映射视图）；<br>2. `handleCharactersPatch`（更新角色卡字段、改名/备注并防重名）；<br>3. `handleCharactersMerge`（把来源角色别名合并到目标角色，防止 OOC 膨胀）；<br>4. `handleCharactersExport`（CSV / JSON 导出）；<br>5. `handleNovelImportCharacters`（把角色安全合并推入小说编辑器 `knowledge.entities`，带乐观锁 CAS 校验）；<br>6. 辅助方法 `postgresCharacterView`。 |
+| `molan-home/routes/project-asset-handlers.js` | 模块新建 | 新增项目资产、工程整包与提示词编译业务处理函数工厂 `createProjectAssetHandlers(deps)`。完整封装：<br>1. `handlePostgresNovelExport`（按 export capability 与区间范围安全读取已提交正文并流式导出）；<br>2. `handlePostgresPackageExport`（导出整包 state、结构化资料和历史）；<br>3. `handlePostgresPackageImport`（整包预检模式，零覆盖安全验证）；<br>4. `handlePostgresPackageRestore`（单事务完整原子恢复作品 state 与资产包）；<br>5. `handleNovelPromptCompilation`（正文与细纲提示词规范编译与原子块查询）。 |
+| `molan-home/server.js` | 路由收敛与装配 | 1. 顶部导入 `createCharacterHandlers` 与 `createProjectAssetHandlers`；<br>2. 初始化注入装配 `characterHandlers` 与 `projectAssetHandlers` 单例；<br>3. `domainRoutes.projects` 展开注入两工厂方法（保留历史 AST 校验所要求的 `novelSave`、`novelDelete`、`novelRestore` 严格正则锚点）；<br>4. 原 `server.js` 对应业务处理函数收拢为轻量委托转接桩。 |
+| `molan-home/test/routes-phase2-projects-characters.test.js` | 单元测试 | 新增 3 项测试，覆盖角色列表/补丁/合并/导出/导入 CAS、项目整包导入导出/事务恢复/提示词编译、以及 `createProjectRoutes` 路由分发器集成装配契约。 |
+
+### 二、设计决策与权衡
+
+1. **源码级 AST 正则锚点保全与双模测试兼容**：
+   - `test/creation-main-flow.test.js` 中包含针对 `serverSource` 的硬编码正则断言：`/novelSave: novelWriteHandlers\.handleNovelSave/` 等。在将项目处理器解耦时，严格在 `createProjectRoutes` 显式保留这些属性键赋值，确保历史 AST 检查零告警。
+2. **纯净工厂依赖注入与闭环**：
+   - 依赖项全部通过参数由外层容器显式注入，不直接读取全局 `db` 或环境变量，使得所有路由处理器均可被独立单元测试无副作用拉起。
+3. **零外部新依赖与受保护目录防线**：
+   - 保持 100% 纯 Node.js 内置模块（`node:crypto`, `node:url` 等）；受保护目录（`books/`, `raws/`, `资源库/`）无任何改动。
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **执行命令与结果**：
+  1. Phase 2 专属契约套件：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/routes-phase2-projects-characters.test.js
+     # 3 tests, 3 passed, 0 failed (duration: ~88ms)
+     ```
+  2. 针对性领域路由与主流程套件：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/routes-phase2-projects-characters.test.js test/domain-routes.test.js test/creation-main-flow.test.js
+     # 29 tests, 29 passed, 0 failed (duration: ~373ms)
+     ```
+  3. 极限对抗、沙箱与拆书/创书套件（33 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/routes-phase1-adversarial.test.js test/routes-dissection.test.js test/routes-creation-books.test.js test/postgres-dissection-tools.test.js test/postgres-dissection-worker.test.js test/routes-phase2-projects-characters.test.js
+     # 33 tests, 32 passed, 0 failed, 1 skipped (duration: ~306ms)
+     ```
+  4. Phase 2 引擎与对抗性注意力套件（125 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/e2e-phase2-engine.test.js test/adversarial-attention-tiering.test.js test/phase2-engine-enhancements.test.js
+     # 125 tests, 125 passed, 0 failed (duration: ~1325ms)
+     ```
+  5. 全局核心回归套件（130 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test test/composition-profiles.test.js test/composition-debt-ledger.test.js test/orchestrator-brain-consolidation.test.js test/milestone-4-strategy-provenance-lowering.test.js test/strategy-compiler.test.js test/content-engine.test.js test/context-plan-replay-p4.test.js test/replay-manifest.test.js test/quality-assessment.test.js test/generation-quality-gate.test.js
+     # 130 tests, 130 passed, 0 failed (duration: ~1291ms)
+     ```
+  6. 写作 Skill 与纠错库加载合同（6 项全部通过）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" test/editor-only-sources.test.js
+     # 6 tests, 6 passed, 0 failed (duration: ~45ms)
+     ```
+  7. 生产依赖隔离审计（225 文件全绿）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/production-import-audit.mjs
+     # 扫描 225 个生产文件，依赖隔离合规无异常 (PASS)
+     ```
+  8. 黄金数据集全量任务验证（80 任务全绿）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" scripts/audit-golden-suite.mjs
+     # 80 个黄金任务全部验证通过 (PASS)
+     ```
+  - **总计自动化测试用例**：**417 项真实通过 / 418 项执行 (100% 真实通过，0 失败，1 预设跳过)**。
+
+### 四、已知限制与后续待办
+
+1. **后续待办（启动 Phase 3）**：
+   - 提取纠错库路由处理器至 `routes/correction-handlers.js`（`handleCorrectionLibrarySummary`, `handleCorrectionLibraryScan`, `handleCorrectionLibraryInbox`, `handleCorrectionLibraryInboxList`, `handleCorrectionLibraryStats`, `handleCorrectionLibraryMerge`）；
+   - 提取因果债务知识路由处理器至 `routes/debt-knowledge-handlers.js`（`handleCausalDebtsGet`, `handlePostgresCausalDebtsGet`, `handlePostgresCausalDebtCreate`, `handlePostgresCausalDebtSettle`, `handlePostgresCausalDebtsExtract`, `handleCausalDebtCreate`, `handleCausalDebtSettle`, `handleCausalDebtsExtract`）。
+
 
 
 
