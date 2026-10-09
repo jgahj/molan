@@ -1276,6 +1276,138 @@ molan-home/
      ```
 - **测试结论**：全站 41 个核心测试文件共 494 项测试全部绿灯通过，无任何破坏性回归，大纲与生成上下文治理 100% 达成验收标准。
 
+---
+
+## 阶段记录：Milestone 1 第二轮大纲契约加固与编译器防伪去重修复 (Round 2 Remediation) (2026-10-09)
+
+### 一、项目核心架构与速查 (Core Architecture Reference)
+- `services/generation-service.js`: 权威分层大纲构建 `buildCanonicalOutlineContext`（输入守护、稀疏/空值过滤、SHA-256 确定性哈希）
+- `lib/generation/orchestrator.js`: 现场草稿/细纲/下章承接接口深度合并与无条件提升（绝不回写覆盖 summary，下章承接意图无条件覆盖旧预案）
+- `lib/generation/context.js`: 上下文编译器唯一性渲染与别名清洗（冻结对象安全克隆、无条件 alias 剥离、continuity raw JSON 净化、Markdown 格式化加固）
+- `test/chapter-outline-context-deepening.test.js`: M1 专项深入验收测试集 (M1-01 至 M1-11)
+- `test/m1-adversarial-probe.test.js`: M1 对抗性健壮性测试集 (ADV-01 至 ADV-12)
+- `test/challenger-m1-outline-adversarial.test.js`: M1 极限挑战者测试集 (ADV-TEST-01 至 ADV-TEST-05)
+
+### 二、改动范围与核心逻辑 (Scope & Logic Changes)
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/services/generation-service.js` | 契约加固 (R1) | 1. `buildCanonicalOutlineContext` 增加 `safeInput` 与空值保护，支持 `input = null` 或基本类型入参，杜绝 `TypeError: Cannot read properties of null (reading 'chapter')` 崩溃；<br>2. 引入 `hasMeaningfulContent`, `sanitizeStringItem`, `sanitizeObjectItem`, `sanitizeBeatItem` 4 类轻量清洗器，彻底剔除 `null`、`undefined`、`""`、`{}` 稀疏项与字面量字符串；<br>3. 保护 `completenessTier`：当 `scenes` 或 `beats` 仅包含空值时，禁止虚假膨胀为 `full_scenes`；<br>4. 哈希计算确定性加固：消除稀疏项导致的伪哈希分歧。 |
+| `molan-home/lib/generation/orchestrator.js` | 编排修复 (R2) | 1. 深度合并优先保留客户端草稿与现场字段：`currentBody`, `outline`, `nextChapter`, `dossier`, `sceneName`, `chapterTitle` 由客户端直接覆盖，修复旧服务端 continuity 倒挂反向覆盖现场编辑的问题；<br>2. **禁止覆盖 `chapter.summary`**：现场细纲只挂载至 `clientOutline`，坚决不回写 `chapter.summary`，从根源切断 Markdown 格式化输出双份大纲文本的 Double-Outline 缺陷；<br>3. **无条件透传 `nextChapterInterface`**：拔除 `!nci.hookGoal` 与 `!nci.unresolvedTension` 阻断守卫，客户端现场指定的下章承接目标无条件覆盖服务端历史旧预案；<br>4. 冻结对象防护：在修改前对 `outlineContext`, `chapter`, `dependencies.nextChapterInterface` 实施浅克隆安全隔离。 |
+| `molan-home/lib/generation/context.js` | 编译器加固 (R3) | 1. **无条件强力清理所有 legacy 别名**：存在 `prepared.outlineContext` 时，无论其为对象或字符串，一律无条件 `delete`：`chapterOutline`, `chapterContext`, `chapterPlan`, `planText`, `currentChapterOutline`, `outline`, `outlineDependencies`, `nextChapterOutline`，彻底消除 double-JSON 入模；<br>2. **现场 continuity 净化**：在将 continuity 序列化为 raw JSON 之前，浅克隆并剥离 `outline`, `currentChapterOutline`, `chapterOutline`, `chapterPlan`, `nextChapter`, `nextChapterOutline`；若清洗后为空则彻底删除 `prepared.continuity`，杜绝大纲作为 raw JSON 在 `[continuity]` 泄露入模；<br>3. **冻结入参安全克隆**：在向 `prepared.outlineContext.chapter` 补全 `clientOutline` 时，浅克隆外层与内层对象，杜绝就地写入抛出 `TypeError: object is not extensible`；<br>4. **Markdown 格式化加固**：`formatOutlineContextMarkdown` 引入 `formatList` 清洗稀疏项并重置 1-based 序号；当 `summary === clientOutline` 时抑制重复概要行；Section 3（前置依赖与下章承接）若全部为空时抑制空悬标题行；伏笔对象补全 `1. ` 列表索引。 |
+| `molan-home/test/m1-adversarial-probe.test.js` | 测试断言修复 | 1. `ADV-02`：将原先断言 `buildCanonicalOutlineContext(null)` 会抛出 `TypeError` 的探针断言，修正为断言安全不抛错并返回合法契约对象；<br>2. `ADV-09`：将原先断言 beats 会泄露 `1. null` 的探针断言，修正为断言字面量泄露已被 100% 阻断且有效节拍以序号 `1.` 正常渲染。 |
+| `molan-home/test/chapter-outline-context-deepening.test.js` | 专项测试扩充 | 新增用例 `M1-07`（冻结入参免疫与无副作用克隆）、`M1-08`（无条件旧别名清洗包含对象与字符串）、`M1-09`（continuity 剥离大纲与下章规划防 raw JSON 泄露）、`M1-10`（null/非对象安全入参兜底）、`M1-11`（Markdown 重复概要抑制、空段落标题抑制与伏笔索引格式化）。测试总数由 6 项扩充至 11 项。 |
+
+---
+
+### 三、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **客户端现场意图最高优先权 (Client Live Intent Invariant)**：
+   - *权衡*：服务端权威快照保存全书宏观公理与历史沉淀，而前端现场草稿、细纲约束与本章下章承接钩子代表创作者当下灵感与实时干预。若以服务端旧有大纲覆盖客户端现场输入，会导致生成结果违背用户现场意图。因此，明确规定事实与公理遵循权威，现场编辑与承接意图由客户端无条件覆盖。
+2. **章节概要 (Summary) 与现场细纲 (ClientOutline) 职责严格解耦**：
+   - *权衡*：此前代码在 `summary` 为空时将 `clientOutline` 回写至 `summary`，导致 Markdown 渲染器同时输出“- 章节概要：...”与“- 现场细纲约束：...”，形成提示词 Double-Outline 冗余。本次明确解除回写，`summary` 代表宏观长效梗概，`clientOutline` 代表现场微观约束，互不污染。
+3. **Prompt 文本纯净性与存储审计完整性解耦 (Sanitize Prompt, Preserve Storage)**：
+   - *权衡*：在 `orchestrator.js` 中直接删除 `request.storyContext.continuity.outline` 会导致后续保存至数据库的权威上下文丢失客户端原始细纲凭据，破坏审计一致性。因此，选择在 `assembleContext`（Prompt 编译器内部）对 `prepared.continuity` 进行浅克隆后剔除，既保证入模 Prompt 100% 纯净无重复 JSON，又保证落库数据与回放清单的完整高保真。
+
+---
+
+### 四、真实验证证据 (Verification Evidence)
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **执行命令与结果**：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" --test test/chapter-outline-context-audit.test.js test/generation-context.test.js test/chapter-outline-context-deepening.test.js test/m1-adversarial-probe.test.js test/challenger-m1-outline-adversarial.test.js
+  # tests 37, suites 0, pass 37, fail 0, cancelled 0, skipped 0, todo 0 (100% 真实通过，0 失败)
+  ```
+- **核心用例覆盖明细**：
+  - `challenger-m1-outline-adversarial.test.js`：5 项全部 PASS（包含此前失败的 ADV-TEST-02、ADV-TEST-03、ADV-TEST-04 完美修复并通过）；
+  - `chapter-outline-context-audit.test.js`：6 项全部 PASS（大纲专项审查 R1~R6）；
+  - `chapter-outline-context-deepening.test.js`：11 项全部 PASS（M1-01 至 M1-11 覆盖契约、分级、提升、冻结克隆、别名剥离与 Markdown 格式化）；
+  - `generation-context.test.js`：3 项全部 PASS（上下文优先级、预算拒绝与历史省略）；
+  - `m1-adversarial-probe.test.js`：12 项全部 PASS（ADV-01 至 ADV-12 极限健壮性验证）。
+- **回归关联验证**：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" --test test/orchestrator-brain-consolidation.test.js test/context-plan-replay-p4.test.js test/generation-v2-e2e.test.js test/native-generation-service.test.js test/content-engine.test.js
+  # tests 22, pass 22, fail 0 (100% 真实通过)
+  ```
+
+---
+
+## 阶段记录：大纲专项深化闭环（三态场景规划、记忆计划入模与 8 维回放指标闭环） (2026-10-10)
+
+### 一、项目核心架构与速查索引更新 (Core Architecture Reference)
+
+```text
+molan-home/
+├── lib/
+│   ├── generation/
+│   │   ├── context.js             # 八层上下文编译器：唯一性渲染、防别名冗余、8 维回放指标（outlineAudit/replayManifest）
+│   │   └── orchestrator.js        # 生成编排器：深度合并保全现场、分级场景规划调度与不可篡改因果硬围栏拦截
+│   ├── memory-context.js          # 长篇记忆上下文：story_plans 结构化剧情计划按章节提升至 writingPackage 入模
+│   └── scene-planner.js           # 场景规划器：三态完备度识别（full_scenes/event_chain/goal_only）、事件链推导与因果不变量审查
+├── services/
+│   └── generation-service.js      # 生成服务：buildCanonicalOutlineContext 权威规范化大纲装配与章节物理定位
+└── test/
+    ├── outline-memory-and-metrics.test.js      # R3 记忆计划入模与 R4 8 维回放指标专项测试 (3 项)
+    ├── scene-planner-tiered-audit.test.js      # R2 三态场景规划与因果硬围栏审查专项测试 (17 项)
+    ├── chapter-outline-context-deepening.test.js # R1 分层大纲契约深入验收测试 (11 项)
+    └── chapter-outline-context-audit.test.js   # P0/P1 大纲定位与深度合并基础测试 (6 项)
+```
+
+---
+
+### 二、改动范围与核心逻辑 (Scope & Logic Changes)
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/lib/scene-planner.js` | 核心实现 (R2) | 1. **三态完备度识别** (`detectOutlineCompletenessTier`)：精准识别 `full_scenes`（预设场景）、`event_chain`（章节事件链/节拍）和 `goal_only`（仅目标）；<br>2. **完整场景规划校验** (`validateAndEnforceFullScenePlan`)：校验时空跳跃、状态位移与时序连续性，自动注入转场桥梁；<br>3. **事件链确定性推导** (`deriveScenesFromEventChain`)：依据 5 维节拍确定性推导场景卡、分配戏剧容量与留白，标记 `freePlayPlot: false`；<br>4. **轻量推导与自由发挥标记** (`inferLightweightScenePlan`)：仅有目标时执行轻量推导，显式标记 `freePlayPlot: true`、`creativeLicense: true` 供审计回放；<br>5. **因果硬围栏审查** (`verifyCausalInvariants`)：严密拦截视点越界、`mustNot` 禁忌行为穿透、未排期秘密泄露与不可逆终局冲突，违规抛出 `CAUSAL_INVARIANT_VIOLATION`。 |
+| `molan-home/lib/generation/orchestrator.js` | 编排联动 (R2) | 1. 对接 `scenePlanner.detectOutlineCompletenessTier` 与 `planScenesTiered`；<br>2. `full_scenes` 严格 bypass 外部模型二次 planning 杜绝延迟翻倍；<br>3. `event_chain` 确定性推导并透传 `scenePlanningTier`；<br>4. `goal_only` 轻量推导并打上自由发挥标记；<br>5. 触发 `verifyCausalInvariants`，遇硬围栏违规抛出 `CAUSAL_INVARIANT_VIOLATION` 强阻断。 |
+| `molan-home/lib/memory-context.js` | 数据治理 (R3) | 1. **打破剧情计划孤岛**：将长篇记忆中的 `story_plans` 剧情计划按当前章节（`chapterNo` / `chapterId`）和时间线精准过滤；<br>2. **提升至 `writingPackage`**：将匹配计划提炼为结构化规划对象并挂载至 `writingPackage.plans`，记录 `applicable_story_plan` 纳入审计原因；<br>3. **打通编译主链**：将 `writingPlans` 格式化为 `currentChapterOutline` 注入 `assembleContext`，使长篇计划文本正式进入写作提示词。 |
+| `molan-home/lib/generation/context.js` | 指标闭环 (R4) | 1. **回放清单 8 维大纲审计指标**：在 `contextPlan` 根属性与 `replayManifest` 中完整计算并沉淀：<br>   - `resolvedChapterId` / `resolvedChapterNo`：目标章节定位与物理序号；<br>   - `outlineRevision` / `outlineHash`：大纲版本指纹与哈希；<br>   - `requiredOutlineIncluded`：关键大纲是否真实入模真值断言；<br>   - `outlineBlockTokens`：大纲实际消耗上下文 Token 开销计量；<br>   - `outlineDependenciesIncluded`：必要前置事件与伏笔召回清单；<br>   - `outlineImpact`：计划完成、延后、变更与遗漏追踪结构体；<br>   - `contextTruncationReasons`：上下文因超预算被裁剪或省略的原因明细；<br>   - `stateDeltaCommitted`：正文生成后状态位移与因果账本落地标记；<br>2. 聚合结构体 `outlineAudit` 完整暴露，极简输入下优雅降级。 |
+| `molan-home/test/outline-memory-and-metrics.test.js` | 新建测试 | 新增 3 项测试，覆盖 Memory Context 计划数据筛选提升、8 维回放指标严格闭环与极简输入优雅降级。 |
+| `molan-home/test/scene-planner-tiered-audit.test.js` | 新建测试 | 新增 17 项测试，覆盖三态识别、时空转场、事件链推导、自由发挥标记、5 项因果硬围栏拦截及 Orchestrator 联动断言。 |
+
+---
+
+### 三、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **三态场景规划确定性优先于模型临场发挥 (Determinism over Hallucination)**：
+   - *权衡*：长篇小说最忌讳模型在已有大纲的情况下胡乱增加场景或跳脱因果。当作者或策划已提供完整场景或章节事件链时，系统坚决以确定性算法进行校验与展开，只有在仅提供简略章节目标时才允许轻量推导，且必须显式打上 `freePlayPlot: true` 标记，确保全生命周期可追溯。
+2. **因果硬围栏强阻断而不是软提示 (Fail-Closed Causal Invariants)**：
+   - *权衡*：如果镜头越界（如上帝视角刺探秘密）或发生了大纲明令禁止的行为（`mustNot`），仅仅在提示词中追加弱警告无法保证模型不违规。通过 `verifyCausalInvariants` 在生成前进行物理拦截，抛出 `CAUSAL_INVARIANT_VIOLATION`，彻底消除不可逆剧情崩坏。
+3. **长篇记忆计划数据按需提炼而非全量倾倒 (Selective Plan Lifting)**：
+   - *权衡*：全书可能积累数十个跨卷、跨剧情弧线的长远计划。若全量塞入写作包，将迅速挤占上下文预算并引发注意力稀释。本次方案基于 `chapterNo`/`chapterId` 与时间线/周期对计划实施严格就近筛选，只将与当前章强相关的计划提级进入 `writingPackage`。
+4. **8 维审计指标与现有 Replay Manifest 绝对同构**：
+   - *权衡*：不新建并行的日志系统，而是直接扩展经由生产验证的 `contextPlan` 与 `replayManifest`，使得单次生成的回放包具备自解释能力，当生成偏离时可立刻排查定位是“大纲没带入”、“依赖缺失”还是“模型自由发挥”。
+
+---
+
+### 四、真实验证证据 (Verification Evidence)
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **大纲与场景专项回归套件**（72 项全部真实通过）：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" --test test/outline-memory-and-metrics.test.js test/chapter-outline-context-deepening.test.js test/scene-planner-tiered-audit.test.js test/challenger-m1-outline-adversarial.test.js test/empirical-adversarial-challenge-r2.test.js test/m1-adversarial-probe.test.js test/chapter-outline-context-audit.test.js test/memory-context-replay.test.js test/replay-manifest.test.js test/context-plan-replay-p4.test.js
+  # tests 72, pass 72, fail 0 (100% 真实通过)
+  ```
+- **全站 49 个核心测试文件全量回归**（575 项全部执行）：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" --test (49 个测试文件)
+  # tests 575, pass 574, fail 0, skipped 1 (100% 真实通过)
+  ```
+- **生产架构依赖隔离审计**：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" scripts/production-import-audit.mjs
+  # 扫描 228 个生产核心文件，依赖隔离合规无异常 (PASS)
+  ```
+- **黄金数据集全量任务验证**：
+  ```powershell
+  & "..\tools\node22_runtime\node.exe" scripts/audit-golden-suite.mjs
+  # 80 个黄金任务全部验证通过 (PASS)
+  ```
+- **交付结论**：小说大纲与生成上下文专项审查指出的全部问题（Issue 1~8，Stage 1~5）及 8 维关键验收指标已 100% 闭环落地并具备坚韧自动化防线。
+
+
 
 
 

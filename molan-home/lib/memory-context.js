@@ -106,7 +106,37 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
   }
   const styles = require('./style-system');
   const styleBundle = styles.compileStyleBundle(profiles, query);
-  const writingPackage = { facts: writingFacts, cognitions: writingCognitions, style: styleBundle };
+  const writingPlans = [];
+  for (const plan of plans) {
+    if (!plan || typeof plan !== 'object') continue;
+    if (query.chapterNo != null && (plan.chapterNo != null || plan.chapter_no != null)) {
+      const planCh = Number(plan.chapterNo ?? plan.chapter_no);
+      if (Number(query.chapterNo) !== planCh) {
+        excludedReasons.push({ id: plan.id, reason: 'chapter_no_mismatch' });
+        continue;
+      }
+    }
+    if (query.chapterId && (plan.chapterId || plan.chapter_id)) {
+      const planChId = String(plan.chapterId || plan.chapter_id);
+      if (String(query.chapterId) !== planChId) {
+        excludedReasons.push({ id: plan.id, reason: 'chapter_id_mismatch' });
+        continue;
+      }
+    }
+    if (plan.timelineId && plan.timelineId !== timelineId) continue;
+    if (plan.cycleId && plan.cycleId !== cycleId) continue;
+
+    writingPlans.push({
+      id: plan.id,
+      revision: plan.revision,
+      chapterNo: plan.chapterNo ?? plan.chapter_no,
+      title: plan.title,
+      summary: plan.summary || plan.content || plan.planText || plan.plan_text,
+      planType: plan.planType || plan.plan_type || 'story_plan'
+    });
+    includedReasons.push({ id: plan.id, revision: plan.revision, reason: 'applicable_story_plan' });
+  }
+  const writingPackage = { facts: writingFacts, cognitions: writingCognitions, style: styleBundle, plans: writingPlans };
   const budget = query.budgetTokens == null ? 4000 : Number(query.budgetTokens);
   const reserve = query.outputReserve == null ? 0 : Number(query.outputReserve);
   if (!Number.isInteger(budget) || budget <= 0 || !Number.isInteger(reserve) || reserve < 0 || reserve >= budget) workflow.fail('INVALID_CONTEXT_BUDGET', 422);
@@ -114,13 +144,24 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
   if (estimate(writingPackage) > budget - reserve) workflow.fail('CONTEXT_BUDGET_EXCEEDED', 422);
   let compiled;
   try {
-    compiled = require('./generation/context').assembleContext({
+    const assembleInput = {
       currentTask: query.currentTask || query.prompt || '',
       hardState: writingFacts,
       povKnowledge: writingCognitions,
       styleSamples: styleBundle
-    }, { model: query.modelId || 'default', provider: query.provider || 'default', hardLimit: budget,
-      outputReserve: reserve, reservedInputTokens: 0 });
+    };
+    if (writingPlans.length > 0) {
+      assembleInput.currentChapterOutline = writingPlans
+        .map(p => `${p.title ? p.title + ': ' : ''}${p.summary || ''}`.trim())
+        .filter(Boolean)
+        .join('\n') || writingPlans;
+    }
+    compiled = require('./generation/context').assembleContext(assembleInput, {
+      model: query.modelId || 'default', provider: query.provider || 'default', hardLimit: budget,
+      outputReserve: reserve, reservedInputTokens: 0,
+      chapterNo: query.chapterNo,
+      chapterId: query.chapterId
+    });
   } catch (error) {
     if (error.code === 'CONTEXT_OVERFLOW') workflow.fail('CONTEXT_BUDGET_EXCEEDED', 422);
     throw error;
