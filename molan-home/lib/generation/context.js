@@ -71,12 +71,17 @@ function asText(content) {
 
 function getFirstFiniteNum(...vals) {
   for (const v of vals) {
-    if (v == null || typeof v === 'boolean' || Array.isArray(v)) continue;
+    if (v == null || typeof v === 'boolean' || typeof v === 'symbol' || Array.isArray(v)) continue;
     if (typeof v === 'string' && v.trim() === '') continue;
+    if (typeof v === 'bigint') {
+      const num = Number(v);
+      if (Number.isFinite(num)) return num;
+      continue;
+    }
     if (typeof v === 'object') {
-      if (v.chapterNo != null && Number.isFinite(Number(v.chapterNo))) return Number(v.chapterNo);
-      if (v.chapterNumber != null && Number.isFinite(Number(v.chapterNumber))) return Number(v.chapterNumber);
-      if (v.revision != null && Number.isFinite(Number(v.revision))) return Number(v.revision);
+      if (v.chapterNo != null && typeof v.chapterNo !== 'symbol' && Number.isFinite(Number(v.chapterNo))) return Number(v.chapterNo);
+      if (v.chapterNumber != null && typeof v.chapterNumber !== 'symbol' && Number.isFinite(Number(v.chapterNumber))) return Number(v.chapterNumber);
+      if (v.revision != null && typeof v.revision !== 'symbol' && Number.isFinite(Number(v.revision))) return Number(v.revision);
       continue;
     }
     const num = Number(v);
@@ -86,11 +91,12 @@ function getFirstFiniteNum(...vals) {
 }
 
 function toCleanId(val) {
-  if (val == null || typeof val === 'boolean') return null;
+  if (val == null || typeof val === 'boolean' || typeof val === 'symbol') return null;
+  if (typeof val === 'bigint') return String(val);
   if (typeof val === 'object') {
-    if (val.id != null && typeof val.id !== 'object') return String(val.id).trim();
-    if (val.chapterId != null && typeof val.chapterId !== 'object') return String(val.chapterId).trim();
-    if (val.name != null && typeof val.name !== 'object') return String(val.name).trim();
+    if (val.id != null && typeof val.id !== 'object' && typeof val.id !== 'symbol') return String(val.id).trim();
+    if (val.chapterId != null && typeof val.chapterId !== 'object' && typeof val.chapterId !== 'symbol') return String(val.chapterId).trim();
+    if (val.name != null && typeof val.name !== 'object' && typeof val.name !== 'symbol') return String(val.name).trim();
     return null;
   }
   const s = String(val).trim();
@@ -98,7 +104,7 @@ function toCleanId(val) {
 }
 
 function toCleanHash(val) {
-  if (val == null || typeof val === 'boolean' || typeof val === 'number') return null;
+  if (val == null || typeof val === 'boolean' || typeof val === 'number' || typeof val === 'symbol' || typeof val === 'bigint') return null;
   if (typeof val === 'object') {
     if (val.sha256 && typeof val.sha256 === 'string') return val.sha256.trim();
     if (val.hash && typeof val.hash === 'string') return val.hash.trim();
@@ -110,14 +116,15 @@ function toCleanHash(val) {
 }
 
 function safeItemString(item) {
-  if (item == null) return '';
+  if (item == null || typeof item === 'symbol') return '';
+  if (typeof item === 'bigint') return String(item);
   if (typeof item !== 'object') return String(item).trim();
-  if (item.id != null && typeof item.id !== 'object' && String(item.id).trim() !== '') return String(item.id).trim();
-  if (item.name != null && typeof item.name !== 'object' && String(item.name).trim() !== '') return String(item.name).trim();
-  if (item.title != null && typeof item.title !== 'object' && String(item.title).trim() !== '') return String(item.title).trim();
-  if (item.key != null && typeof item.key !== 'object' && String(item.key).trim() !== '') return String(item.key).trim();
-  if (item.event != null && typeof item.event !== 'object' && String(item.event).trim() !== '') return String(item.event).trim();
-  if (item.description != null && typeof item.description !== 'object' && String(item.description).trim() !== '') return String(item.description).trim();
+  if (item.id != null && typeof item.id !== 'object' && typeof item.id !== 'symbol' && String(item.id).trim() !== '') return String(item.id).trim();
+  if (item.name != null && typeof item.name !== 'object' && typeof item.name !== 'symbol' && String(item.name).trim() !== '') return String(item.name).trim();
+  if (item.title != null && typeof item.title !== 'object' && typeof item.title !== 'symbol' && String(item.title).trim() !== '') return String(item.title).trim();
+  if (item.key != null && typeof item.key !== 'object' && typeof item.key !== 'symbol' && String(item.key).trim() !== '') return String(item.key).trim();
+  if (item.event != null && typeof item.event !== 'object' && typeof item.event !== 'symbol' && String(item.event).trim() !== '') return String(item.event).trim();
+  if (item.description != null && typeof item.description !== 'object' && typeof item.description !== 'symbol' && String(item.description).trim() !== '') return String(item.description).trim();
   try {
     return JSON.stringify(item);
   } catch (_) {
@@ -287,7 +294,7 @@ function summarizeDebt(debt, id) {
 function splitCausalDebt(input, options) {
   if (!Object.hasOwn(input, 'activeCausalDebt')) {
     const aliases = ['activeCausalDebts', 'causalDebt', 'causalDebts'];
-    const alias = aliases.find(key => input[key] != null);
+    const alias = aliases.find(key => input[key] != null && getDebtItems(input[key]) !== null);
     if (alias) input.activeCausalDebt = input[alias];
   }
   const raw = input.activeCausalDebt;
@@ -547,12 +554,12 @@ function formatStoryPlansMarkdown(data) {
     const explicitRange = plan.targetChapterRange ?? plan.target_chapter_range;
     const explicitChNo = plan.chapterNo ?? plan.chapter_no;
     const range = String(explicitRange != null ? explicitRange : (explicitChNo != null ? explicitChNo : '')).trim();
-    let participants = plan.participantIds ?? plan.participant_ids ?? plan.participant_ids_json ?? [];
+    let participants = plan.participants ?? plan.participantIds ?? plan.participant_ids ?? plan.participant_ids_json ?? [];
     if (typeof participants === 'string') {
       try { participants = JSON.parse(participants); } catch (_) { participants = []; }
     }
     const participantList = (Array.isArray(participants) ? participants : [])
-      .map(p => String(p && typeof p === 'object' ? (p.id != null ? p.id : (p.characterId != null ? p.characterId : (p.name || ''))) : (p != null ? p : '')).trim())
+      .map(p => String(p && typeof p === 'object' ? (p.name || p.id || p.characterId || '') : (p != null ? p : '')).trim())
       .filter(Boolean);
 
     const metaParts = [];
@@ -578,11 +585,13 @@ function assembleContext(input = {}, options = {}) {
   const safeOptions = options && typeof options === 'object' ? options : {};
   const prepared = { ...originalInput };
   const sceneTags = sceneTagsFor(prepared, safeOptions);
-  const mechanismSource = safeOptions.genreMechanisms ?? prepared.genreMechanisms ?? prepared.mechanisms;
+  const mechanismSource = safeOptions.genreMechanisms ?? prepared.genreMechanisms ??
+    (mechanismList(prepared.mechanisms) ? prepared.mechanisms : null);
+  delete prepared.mechanisms;
   const mechanismSelection = mechanismSource == null
     ? { value: null, decisions: [], filtered: false }
     : selectGenreMechanisms(mechanismSource, sceneTags);
-  if (mechanismSource != null) prepared.genreMechanisms = mechanismSelection.value;
+  if (mechanismSelection.value != null) prepared.genreMechanisms = mechanismSelection.value;
   const debtSelection = splitCausalDebt(prepared, safeOptions);
 
   // 规范化与去重章节大纲字段：

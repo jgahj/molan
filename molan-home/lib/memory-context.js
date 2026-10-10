@@ -59,12 +59,17 @@ function assembleContext(db, bookId, query = {}, styleProfilesOverride) {
 
 function getFirstFiniteNum(...vals) {
   for (const v of vals) {
-    if (v == null || typeof v === 'boolean' || Array.isArray(v)) continue;
+    if (v == null || typeof v === 'boolean' || typeof v === 'symbol' || Array.isArray(v)) continue;
     if (typeof v === 'string' && v.trim() === '') continue;
+    if (typeof v === 'bigint') {
+      const num = Number(v);
+      if (Number.isFinite(num)) return num;
+      continue;
+    }
     if (typeof v === 'object') {
-      if (v.chapterNo != null && Number.isFinite(Number(v.chapterNo))) return Number(v.chapterNo);
-      if (v.chapterNumber != null && Number.isFinite(Number(v.chapterNumber))) return Number(v.chapterNumber);
-      if (v.revision != null && Number.isFinite(Number(v.revision))) return Number(v.revision);
+      if (v.chapterNo != null && typeof v.chapterNo !== 'symbol' && Number.isFinite(Number(v.chapterNo))) return Number(v.chapterNo);
+      if (v.chapterNumber != null && typeof v.chapterNumber !== 'symbol' && Number.isFinite(Number(v.chapterNumber))) return Number(v.chapterNumber);
+      if (v.revision != null && typeof v.revision !== 'symbol' && Number.isFinite(Number(v.revision))) return Number(v.revision);
       continue;
     }
     const num = Number(v);
@@ -80,7 +85,7 @@ function selectRelevantPlans(plans = [], query = {}) {
   const currentChapter = getFirstFiniteNum(
     safeQuery.chapterNumber, safeQuery.chapterNo, safeQuery.currentChapterNo
   );
-  const currentChapterId = (safeQuery.chapterId != null && typeof safeQuery.chapterId !== 'object' && String(safeQuery.chapterId).trim() !== '')
+  const currentChapterId = (safeQuery.chapterId != null && typeof safeQuery.chapterId !== 'object' && typeof safeQuery.chapterId !== 'symbol' && String(safeQuery.chapterId).trim() !== '')
     ? String(safeQuery.chapterId).trim()
     : null;
   const currentVolume = getFirstFiniteNum(
@@ -146,7 +151,7 @@ function selectRelevantPlans(plans = [], query = {}) {
 
     // Specific chapterId mismatch check
     const planChIdRaw = raw.chapterId ?? raw.chapter_id;
-    const planChIdVal = (planChIdRaw != null && typeof planChIdRaw !== 'object' && String(planChIdRaw).trim() !== '')
+    const planChIdVal = (planChIdRaw != null && typeof planChIdRaw !== 'object' && typeof planChIdRaw !== 'symbol' && String(planChIdRaw).trim() !== '')
       ? String(planChIdRaw).trim()
       : null;
     if (currentChapterId != null && planChIdVal != null) {
