@@ -31,6 +31,23 @@ const {
 // 兼容别名
 const CAPACITY_LIMITS = CAPACITY_RULES;
 
+/**
+ * 因果硬围栏违规错误类 (Causal Invariant Violation Error)
+ */
+class CausalInvariantViolationError extends Error {
+  constructor(message, violations = []) {
+    const violationList = Array.isArray(violations) ? violations : [];
+    const summary = violationList.length
+      ? violationList.map(v => v.message || v.type).join('; ')
+      : (message || '因果硬围栏校验未通过');
+    super(message || `场景规划违反因果硬约束: ${summary}`);
+    this.name = 'CausalInvariantViolationError';
+    this.code = 'CAUSAL_INVARIANT_VIOLATION';
+    this.status = 422;
+    this.violations = violationList;
+  }
+}
+
 
 /**
  * 将大纲节点切片并构建具备时空过渡桥梁的场景规格清单 (Scene Specifications)
@@ -187,32 +204,59 @@ function compileSceneDirectives(planResult = {}) {
 
 /**
  * 探测大纲信息完备度梯队
- * @param {Object} contract 章节合同
- * @param {Object} outlineContext 权威分层大纲对象
- * @returns {'full_scenes' | 'event_chain' | 'goal_only'}
+ * @param {Object} contractOrPayload 章节合同或封装参数 { contract, storyContext, request }
+ * @param {Object} [outlineContext] 权威分层大纲对象
+ * @param {Object} [options] 配置选项
+ * @returns {'full_scenes' | 'event_chain' | 'goal_only' | Object}
  */
-function detectOutlineCompletenessTier(contract = {}, outlineContext = {}) {
-  const c = (contract && typeof contract === 'object' && ('contract' in contract || 'chapterContext' in contract))
-    ? (contract.contract || {})
-    : (contract || {});
-  const oc = (contract && typeof contract === 'object' && ('outlineContext' in contract || 'storyContext' in contract))
-    ? (contract.outlineContext || contract.storyContext?.outlineContext || outlineContext || {})
+function detectOutlineCompletenessTier(contractOrPayload = {}, outlineContext = {}, options = {}) {
+  const isWrapper = Boolean(
+    contractOrPayload &&
+    typeof contractOrPayload === 'object' &&
+    ('contract' in contractOrPayload || 'storyContext' in contractOrPayload || 'request' in contractOrPayload || 'chapterContract' in contractOrPayload)
+  );
+
+  const c = isWrapper
+    ? (contractOrPayload.contract || contractOrPayload.chapterContract || {})
+    : (contractOrPayload || {});
+  const oc = isWrapper
+    ? (contractOrPayload.outlineContext || contractOrPayload.storyContext?.outlineContext || outlineContext || {})
     : (outlineContext || {});
-  const chapterCtx = (contract && contract.chapterContext) || (contract && contract.storyContext?.chapterContext) || {};
+  const chapterCtx = isWrapper
+    ? (contractOrPayload.chapterContext || contractOrPayload.storyContext?.chapterContext || c.chapterContext || {})
+    : ((c && c.chapterContext) || (oc && oc.chapterContext) || {});
+  const req = isWrapper
+    ? (contractOrPayload.request || {})
+    : {};
 
   // 1. Tier 1: 拥有完整预置场景列表
-  const scenesList = (Array.isArray(c.scenes) && c.scenes.length > 0)
+  const candidateScenes = (Array.isArray(c.scenes) && c.scenes.length > 0)
     ? c.scenes
     : (Array.isArray(oc.chapter?.scenes) && oc.chapter.scenes.length > 0
       ? oc.chapter.scenes
       : (Array.isArray(chapterCtx.scenePlan) && chapterCtx.scenePlan.length > 0 ? chapterCtx.scenePlan : []));
 
-  if (scenesList.length > 0 || oc.meta?.completenessTier === 'full_scenes') {
-    return 'full_scenes';
-  }
+  const validScenes = candidateScenes.filter(s => s && (
+    typeof s === 'string'
+      ? s.trim().length > 0
+      : (s.goal || s.purpose || s.summary || s.text || s.title || s.rawNodeText || s.id || s.sceneId)
+  ));
 
-  // 2. Tier 2: 拥有多步事件链或 5 维节拍
-  const explicitBeats = (Array.isArray(c.beats) && c.beats.length > 0)
+  let tier = 'goal_only';
+  let mode = 'lightweight_inferred';
+  let source = 'chapter_goal';
+
+  // 检查 5 维结构化节拍字段
+  const structuredFields = [
+    c.protagonistAction || oc.chapter?.protagonistAction || chapterCtx.protagonistAction,
+    c.opposition || oc.chapter?.opposition || chapterCtx.opposition,
+    c.informationChange || oc.chapter?.informationChange || chapterCtx.informationChange,
+    c.result || c.irreversibleResult || oc.chapter?.result || chapterCtx.result,
+    c.hook || oc.chapter?.hook || chapterCtx.hook
+  ].filter(f => typeof f === 'string' && f.trim().length > 0);
+
+  // 检查显式事件链
+  const rawBeats = (Array.isArray(c.beats) && c.beats.length > 0)
     ? c.beats
     : ((Array.isArray(c.keyBeats) && c.keyBeats.length > 0)
       ? c.keyBeats
@@ -224,25 +268,44 @@ function detectOutlineCompletenessTier(contract = {}, outlineContext = {}) {
             ? chapterCtx.eventChain
             : ((Array.isArray(chapterCtx.beats) && chapterCtx.beats.length > 0) ? chapterCtx.beats : [])))));
 
-  if (explicitBeats.length > 0 || oc.meta?.completenessTier === 'event_chain') {
-    return 'event_chain';
+  const explicitBeats = rawBeats.filter(b => b && (
+    typeof b === 'string'
+      ? b.trim().length > 0
+      : (typeof b === 'object' && Boolean(b.text || b.goal || b.description || b.name || b.action))
+  ));
+
+  if (validScenes.length > 0 || oc.meta?.completenessTier === 'full_scenes' || oc.meta?.completenessTier === 'full_plan') {
+    tier = 'full_scenes';
+    mode = 'authoritative_verified';
+    source = 'scenes';
+  } else if (explicitBeats.length > 0 || structuredFields.length >= 2 || oc.meta?.completenessTier === 'event_chain') {
+    tier = 'event_chain';
+    mode = 'deterministic_derived';
+    source = structuredFields.length >= 2 ? 'structured_beats' : 'explicit_event_chain';
+  } else {
+    tier = 'goal_only';
+    mode = 'lightweight_inferred';
+    source = 'chapter_goal';
   }
 
-  // 检查 5 维结构化节拍字段
-  const structuredFields = [
-    c.protagonistAction || oc.chapter?.protagonistAction || chapterCtx.protagonistAction,
-    c.opposition || oc.chapter?.opposition || chapterCtx.opposition,
-    c.informationChange || oc.chapter?.informationChange || chapterCtx.informationChange,
-    c.result || c.irreversibleResult || oc.chapter?.result || chapterCtx.result,
-    c.hook || oc.chapter?.hook || chapterCtx.hook
-  ].filter(f => typeof f === 'string' && f.trim().length > 0);
-
-  if (structuredFields.length >= 2) {
-    return 'event_chain';
+  const shouldReturnObject = Boolean(isWrapper || options.asObject || options.returnDetails);
+  if (shouldReturnObject) {
+    return {
+      tier,
+      tierAlias: tier === 'full_scenes' ? 'full_plan' : tier,
+      full_scenes: tier === 'full_scenes',
+      full_plan: tier === 'full_scenes',
+      mode,
+      source,
+      rawScenes: tier === 'full_scenes' ? validScenes : undefined,
+      events: tier === 'event_chain' ? (explicitBeats.length ? explicitBeats : structuredFields) : undefined,
+      goalText: tier === 'goal_only'
+        ? String(c.chapterGoal || c.goal || oc.chapter?.goal || chapterCtx.goal || req.userInstruction || req.prompt || '推进当前章节核心目标').trim()
+        : undefined
+    };
   }
 
-  // 3. Tier 3: 仅有章节目标
-  return 'goal_only';
+  return tier;
 }
 
 /**
@@ -343,8 +406,16 @@ function validateAndEnforceFullScenePlan(rawScenes = [], options = {}) {
     });
   }
 
+  const causalAudit = options.contract
+    ? verifyCausalInvariants(enrichedScenes, options.contract, options)
+    : null;
+
+  if (causalAudit && !causalAudit.valid && options.throwOnViolation) {
+    throw new CausalInvariantViolationError(null, causalAudit.violations);
+  }
+
   return {
-    valid: true,
+    valid: causalAudit ? causalAudit.valid : true,
     scenes: enrichedScenes,
     transitionsAdded,
     totalScenes: enrichedScenes.length,
@@ -352,13 +423,19 @@ function validateAndEnforceFullScenePlan(rawScenes = [], options = {}) {
     scenesWithDowntimeBudget: enrichedScenes.filter(s => s.allocateDowntime).length,
     capacity,
     tier: 'full_scenes',
+    tierAlias: 'full_plan',
+    full_scenes: true,
+    full_plan: true,
     freePlayPlot: false,
     creativeLicense: false,
+    causalInvariants: causalAudit,
+    causalInvariantsPassed: causalAudit ? causalAudit.valid : true,
     validation: {
-      valid: true,
+      valid: causalAudit ? causalAudit.valid : true,
       temporal: 'verified',
       spatial: 'verified',
-      transitionsAdded
+      transitionsAdded,
+      causalInvariants: causalAudit
     }
   };
 }
@@ -436,7 +513,11 @@ function deriveScenesFromEventChain(beats = [], options = {}) {
   } else if (Array.isArray(beats) && beats.length > 0) {
     for (let i = 0; i < beats.length; i++) {
       const b = beats[i];
-      const text = typeof b === 'string' ? b : (b.text || b.goal || b.description || b.name || '');
+      if (!b) continue;
+      const text = typeof b === 'string'
+        ? b.trim()
+        : (typeof b === 'object' ? String(b.text || b.goal || b.description || b.name || b.action || '').trim() : String(b || '').trim());
+      if (!text) continue;
       rawNodes.push({
         ...(typeof b === 'object' ? b : {}),
         goal: text,
@@ -536,21 +617,29 @@ function inferLightweightScenePlan(goal = '', options = {}) {
  * 场景入模前因果硬围栏校验器 (Causal Invariant Verification)
  * @param {Array<Object>} scenes 细化场景卡列表
  * @param {Object} contract 章节合同与公理级因果锚点
- * @returns {{ valid: boolean, passed: boolean, violations: Array<Object> }}
+ * @param {Object} [options] 配置选项 (支持 throwOnViolation, autoPrune)
+ * @returns {{ valid: boolean, passed: boolean, violations: Array<Object>, scenes?: Array<Object>, autoPruned?: boolean }}
  */
-function verifyCausalInvariants(scenes = [], contract = {}) {
+function verifyCausalInvariants(scenes = [], contract = {}, options = {}) {
   const violations = [];
   const list = Array.isArray(scenes) ? scenes : (scenes?.scenes || []);
 
   const viewpointCharacter = String(contract.viewpointCharacter || contract.povCharacter || contract.pov || '').trim();
-  const mustNotList = Array.isArray(contract.mustNot) ? contract.mustNot.map(String).filter(Boolean) : [];
-  const forbiddenKnowledge = Array.isArray(contract.forbiddenKnowledge) ? contract.forbiddenKnowledge.map(String).filter(Boolean) : [];
+  const rawMustNot = Array.isArray(contract.mustNot)
+    ? contract.mustNot
+    : (typeof contract.mustNot === 'string' ? [contract.mustNot] : []);
+  const mustNotList = rawMustNot.map(s => String(s || '').trim()).filter(Boolean);
+
+  const rawForbidden = Array.isArray(contract.forbiddenKnowledge)
+    ? contract.forbiddenKnowledge
+    : (typeof contract.forbiddenKnowledge === 'string' ? [contract.forbiddenKnowledge] : []);
+  const forbiddenKnowledge = rawForbidden.map(s => String(s || '').trim()).filter(Boolean);
   const expectedResult = String(contract.irreversibleResult || contract.result || '').trim();
   const allowedDebts = new Set([
     ...(Array.isArray(contract.requiredPayoff) ? contract.requiredPayoff : [contract.requiredPayoff]),
     ...(Array.isArray(contract.declaredResolutions) ? contract.declaredResolutions : []),
     ...(Array.isArray(contract.allowedDebts) ? contract.allowedDebts : [])
-  ].map(d => String(d && (d.id || d.debtId || d) || '')).filter(Boolean));
+  ].map(d => String(d && (d.id || d.debtId || d) || '').trim()).filter(Boolean));
 
   for (let i = 0; i < list.length; i++) {
     const s = list[i];
@@ -561,14 +650,18 @@ function verifyCausalInvariants(scenes = [], contract = {}) {
     // 1. 视点人物越界校验
     if (viewpointCharacter) {
       const scenePov = String(s.viewpointCharacter || s.povCharacter || s.pov || '').trim();
-      if (scenePov && scenePov !== viewpointCharacter && !scenePov.includes(viewpointCharacter)) {
-        violations.push({
-          sceneIndex,
-          type: 'POV_VIOLATION',
-          message: `场景 ${sceneIndex} 视点人物「${scenePov}」与合同视点人物「${viewpointCharacter}」冲突`,
-          declaredPov: scenePov,
-          expectedPov: viewpointCharacter
-        });
+      if (scenePov) {
+        const normScenePov = scenePov.replace(/(视角|视点)$/, '').trim();
+        const normViewpoint = viewpointCharacter.replace(/(视角|视点)$/, '').trim();
+        if (normScenePov && normScenePov !== normViewpoint) {
+          violations.push({
+            sceneIndex,
+            type: 'POV_VIOLATION',
+            message: `场景 ${sceneIndex} 视点人物「${scenePov}」与合同视点人物「${viewpointCharacter}」冲突`,
+            declaredPov: scenePov,
+            expectedPov: viewpointCharacter
+          });
+        }
       }
     }
 
@@ -586,7 +679,7 @@ function verifyCausalInvariants(scenes = [], contract = {}) {
 
     // 3. 秘密泄露校验 (提前获知未授权秘密)
     for (const secret of forbiddenKnowledge) {
-      if (sceneText.includes(secret) && /(知晓|发现|识破|揭秘|得知|勘破|晓得|察觉|泄露)/.test(sceneText)) {
+      if (sceneText.includes(secret) && /(知晓|发现|识破|揭秘|得知|勘破|晓得|察觉|泄露|透露|曝光|公布|公开|偷听|窥见|目睹|告知)/.test(sceneText)) {
         violations.push({
           sceneIndex,
           type: 'FORBIDDEN_KNOWLEDGE_LEAK',
@@ -653,28 +746,118 @@ function verifyCausalInvariants(scenes = [], contract = {}) {
     }
   }
 
+  let prunedScenes = list;
+  const autoPruned = Boolean(options.autoPrune && violations.length > 0);
+  if (autoPruned) {
+    const fieldsToPrune = ['rawNodeText', 'goal', 'purpose', 'action', 'description', 'summary', 'title'];
+    prunedScenes = list.map((s, idx) => {
+      const cloned = { ...s };
+      if (viewpointCharacter) {
+        const scenePov = String(cloned.viewpointCharacter || cloned.povCharacter || cloned.pov || '').trim();
+        if (scenePov) {
+          const normScenePov = scenePov.replace(/(视角|视点)$/, '').trim();
+          const normViewpoint = viewpointCharacter.replace(/(视角|视点)$/, '').trim();
+          if (normScenePov && normScenePov !== normViewpoint) {
+            if (cloned.viewpointCharacter) cloned.viewpointCharacter = viewpointCharacter;
+            if (cloned.povCharacter) cloned.povCharacter = viewpointCharacter;
+            if (cloned.pov) cloned.pov = viewpointCharacter;
+          }
+        }
+      }
+      for (const forbidden of mustNotList) {
+        for (const field of fieldsToPrune) {
+          if (typeof cloned[field] === 'string' && cloned[field].includes(forbidden)) {
+            cloned[field] = cloned[field].replaceAll(forbidden, '[已剪枝禁忌动作]');
+          }
+        }
+      }
+      for (const secret of forbiddenKnowledge) {
+        for (const field of fieldsToPrune) {
+          if (typeof cloned[field] === 'string' && cloned[field].includes(secret)) {
+            cloned[field] = cloned[field].replaceAll(secret, '[保密信息]');
+          }
+        }
+      }
+      // Scrub unauthorized debts
+      if (cloned.resolvesDebt !== undefined) {
+        if (Array.isArray(cloned.resolvesDebt)) {
+          cloned.resolvesDebt = cloned.resolvesDebt.filter(d => allowedDebts.has(String(d && (d.id || d.debtId || d) || '')));
+          if (cloned.resolvesDebt.length === 0) delete cloned.resolvesDebt;
+        } else {
+          const debtId = String(cloned.resolvesDebt && (cloned.resolvesDebt.id || cloned.resolvesDebt.debtId || cloned.resolvesDebt) || '');
+          if (!allowedDebts.has(debtId)) {
+            delete cloned.resolvesDebt;
+          }
+        }
+      }
+      if (cloned.paidDebts !== undefined) {
+        if (Array.isArray(cloned.paidDebts)) {
+          cloned.paidDebts = cloned.paidDebts.filter(d => allowedDebts.has(String(d && (d.id || d.debtId || d) || '')));
+          if (cloned.paidDebts.length === 0) delete cloned.paidDebts;
+        } else {
+          const debtId = String(cloned.paidDebts && (cloned.paidDebts.id || cloned.paidDebts.debtId || cloned.paidDebts) || '');
+          if (!allowedDebts.has(debtId)) {
+            delete cloned.paidDebts;
+          }
+        }
+      }
+      if (cloned.debtPayoffs !== undefined) {
+        if (Array.isArray(cloned.debtPayoffs)) {
+          cloned.debtPayoffs = cloned.debtPayoffs.filter(d => allowedDebts.has(String(d && (d.id || d.debtId || d) || '')));
+          if (cloned.debtPayoffs.length === 0) delete cloned.debtPayoffs;
+        } else {
+          const debtId = String(cloned.debtPayoffs && (cloned.debtPayoffs.id || cloned.debtPayoffs.debtId || cloned.debtPayoffs) || '');
+          if (!allowedDebts.has(debtId)) {
+            delete cloned.debtPayoffs;
+          }
+        }
+      }
+      if (idx === list.length - 1 && expectedResult) {
+        for (const v of violations) {
+          if (v.type === 'OUTCOME_MISALIGNMENT') {
+            cloned.goal = `达成终局预期: ${expectedResult}`;
+            cloned.rawNodeText = cloned.goal;
+          }
+        }
+      }
+      return cloned;
+    });
+  }
+
+  if (violations.length > 0 && options.throwOnViolation) {
+    throw new CausalInvariantViolationError(null, violations);
+  }
+
   return {
     valid: violations.length === 0,
     passed: violations.length === 0,
-    violations
+    violations,
+    scenes: autoPruned ? prunedScenes : list,
+    prunedScenes: autoPruned ? prunedScenes : undefined,
+    autoPruned
   };
 }
 
 /**
  * 统一分级场景规划总入口
- * @param {Object} options 配置选项
+ * @param {Object} paramsOrOptions 配置选项或分级参数
+ * @param {Object} [secondaryOptions] 次级选项（支持 params, options 传参）
  * @returns {Object} 场景规划与因果校验结果
  */
-function planScenesTiered(options = {}) {
-  const contract = options.contract || {};
-  const outlineContext = options.outlineContext || {};
-  const chapterContext = options.chapterContext || {};
+function planScenesTiered(paramsOrOptions = {}, secondaryOptions = {}) {
+  const options = { ...paramsOrOptions, ...secondaryOptions };
+  const contract = options.contract || paramsOrOptions.contract || {};
+  const outlineContext = options.outlineContext || paramsOrOptions.outlineContext || {};
+  const chapterContext = options.chapterContext || paramsOrOptions.chapterContext || {};
   const targetWordCount = Number(options.targetWordCount || contract.wordBudget?.targetChars) || 2400;
 
-  const tier = detectOutlineCompletenessTier(contract, outlineContext || chapterContext);
+  const tierInfo = (options.tierInfo && options.tierInfo.tier)
+    ? options.tierInfo
+    : (options.tier ? { tier: options.tier } : detectOutlineCompletenessTier({ contract, outlineContext, chapterContext }));
+  const tier = typeof tierInfo === 'string' ? tierInfo : (tierInfo.tier || 'goal_only');
   let planResult = null;
 
-  if (tier === 'full_scenes') {
+  if (tier === 'full_scenes' || tier === 'full_plan') {
     const rawScenes = (Array.isArray(contract.scenes) && contract.scenes.length)
       ? contract.scenes
       : (Array.isArray(outlineContext.chapter?.scenes) && outlineContext.chapter.scenes.length
@@ -697,9 +880,13 @@ function planScenesTiered(options = {}) {
     planResult = inferLightweightScenePlan(goal, { ...options, targetWordCount });
   }
 
-  const causalAudit = verifyCausalInvariants(planResult.scenes, contract);
+  const causalAudit = verifyCausalInvariants(planResult.scenes, contract, options);
   planResult.causalInvariants = causalAudit;
   planResult.causalInvariantsPassed = causalAudit.valid;
+
+  if (options.throwOnViolation && !causalAudit.valid) {
+    throw new CausalInvariantViolationError(null, causalAudit.violations);
+  }
 
   return planResult;
 }
@@ -712,6 +899,7 @@ module.exports = {
   compileSceneDirectives,
 
   // Milestone 2 exports
+  CausalInvariantViolationError,
   detectOutlineCompletenessTier,
   validateAndEnforceFullScenePlan,
   deriveScenesFromEventChain,
@@ -719,4 +907,5 @@ module.exports = {
   verifyCausalInvariants,
   planScenesTiered
 };
+
 

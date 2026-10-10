@@ -20,6 +20,7 @@ const BLOCK_TO_LAYER = Object.freeze({
   chapterContract: 'L2_chapter', chapterGoal: 'L2_chapter', currentChapterOutline: 'L2_chapter',
   chapterOutline: 'L2_chapter', outline: 'L2_chapter', chapterContext: 'L2_chapter',
   chapterPlan: 'L2_chapter', outlineDependencies: 'L2_chapter', planText: 'L2_chapter',
+  storyPlans: 'L2_chapter',
   recentChapters: 'L3_recent', previousEnding: 'L3_recent', nextChapterOutline: 'L3_recent', adjacentChapterSummaries: 'L3_recent',
   volumeState: 'L4_volume', arcGoals: 'L4_volume', volumeOutline: 'L4_volume', currentVolumeOutline: 'L4_volume',
   bookOutlineSummary: 'L4_volume', distantPlot: 'L4_volume',
@@ -40,6 +41,7 @@ const PRIORITY = Object.freeze({
   currentChapterOutline: 0, chapterOutline: 0, currentScenePlan: 0, sceneDirectives: 0,
   characters: 1, location: 1, relationships: 1, volumeState: 1, scenes: 1, scenePlan: 1,
   chapterContext: 1, chapterPlan: 1, outline: 1, outlineDependencies: 1, volumeOutline: 1, currentVolumeOutline: 1, arcGoals: 1,
+  storyPlans: 1,
   activeCausalDebt: 1, causalDebt: 1,
   recentChapters: 2, previousEnding: 2, nextChapterOutline: 2, adjacentChapterSummaries: 2, bookOutlineSummary: 2,
   planText: 2, foreshadows: 2, styleSamples: 2, genreMechanisms: 2,
@@ -51,7 +53,7 @@ const BLOCK_ORDER = Object.freeze([
   'currentChapterOutline', 'chapterOutline', 'outline', 'requiredPayoff', 'requiredCausalPayoff',
   'hardState', 'povKnowledge', 'forbiddenKnowledge', 'worldProhibitions', 'worldRules', 'axioms',
   'immediateTimeline', 'currentScenePlan', 'sceneDirectives', 'scenes', 'scenePlan', 'location',
-  'chapterContext', 'chapterPlan', 'outlineDependencies', 'characters', 'relationships',
+  'chapterContext', 'chapterPlan', 'storyPlans', 'outlineDependencies', 'characters', 'relationships',
   'volumeOutline', 'currentVolumeOutline', 'volumeState', 'arcGoals', 'activeCausalDebt', 'causalDebt',
   'recentChapters', 'previousEnding', 'nextChapterOutline', 'adjacentChapterSummaries',
   'bookOutlineSummary', 'planText', 'foreshadows', 'styleSamples', 'genreMechanisms',
@@ -272,6 +274,9 @@ function outputReserveFor(options, modelId) {
 }
 
 function renderBlock(block) {
+  if (block && block.id === 'storyPlans' && typeof block.content !== 'string') {
+    return `[storyPlans]\n${formatStoryPlansMarkdown(block.content)}`;
+  }
   return `[${block.id}]\n${block.content}`;
 }
 
@@ -442,6 +447,53 @@ function formatOutlineContextMarkdown(data) {
   return lines.join('\n').trim();
 }
 
+function formatStoryPlansMarkdown(data) {
+  if (typeof data === 'string') return data.trim();
+  let items = [];
+  if (Array.isArray(data)) {
+    items = data;
+  } else if (data && typeof data === 'object') {
+    if (Array.isArray(data.plans)) items = data.plans;
+    else if (Array.isArray(data.items)) items = data.items;
+    else items = [data];
+  }
+  if (items.length === 0) return '';
+  const lines = [];
+  for (let i = 0; i < items.length; i++) {
+    const plan = items[i];
+    if (!plan) continue;
+    if (typeof plan === 'string') {
+      lines.push(`- 计划 ${i + 1}: ${plan.trim()}`);
+      continue;
+    }
+    const title = String(plan.title || `计划 ${i + 1}`).trim();
+    const range = String(plan.targetChapterRange || plan.target_chapter_range ||
+      (plan.chapterNo != null ? String(plan.chapterNo) : (plan.chapter_no != null ? String(plan.chapter_no) : ''))).trim();
+    let participants = plan.participantIds || plan.participant_ids || plan.participant_ids_json || [];
+    if (typeof participants === 'string') {
+      try { participants = JSON.parse(participants); } catch (_) { participants = []; }
+    }
+    const participantList = (Array.isArray(participants) ? participants : [])
+      .map(p => String(p && typeof p === 'object' ? (p.id != null ? p.id : p.name || '') : (p != null ? p : '')).trim())
+      .filter(Boolean);
+
+    const metaParts = [];
+    if (range) {
+      metaParts.push(`目标章节: ${range}`);
+    }
+    if (participantList.length > 0) {
+      metaParts.push(`涉及人物: ${participantList.join(', ')}`);
+    }
+    const metaStr = metaParts.length > 0 ? `(${metaParts.join(', ')})` : '';
+    lines.push(`- 计划 ${i + 1}: 【${title}】${metaStr}`.trimEnd());
+    const content = String(plan.content || plan.summary || plan.planText || plan.plan_text || '').trim();
+    if (content) {
+      lines.push(`  规划要求: ${content}`);
+    }
+  }
+  return lines.join('\n').trim();
+}
+
 /** 按模型 Token 预算与八层优先级编译上下文，并记录可重放决策。 */
 function assembleContext(input = {}, options = {}) {
   const originalInput = input && typeof input === 'object' ? input : {};
@@ -531,14 +583,17 @@ function assembleContext(input = {}, options = {}) {
     if (['activeCausalDebts', 'causalDebt', 'causalDebts', 'mechanisms'].includes(key)) continue;
     const priority = PRIORITY[key] !== undefined ? PRIORITY[key] : 2;
     const isOutlineContext = key === 'outlineContext';
-    const contentText = isOutlineContext ? formatOutlineContextMarkdown(content) : asText(content);
+    const isStoryPlans = key === 'storyPlans';
+    const contentText = isOutlineContext ? formatOutlineContextMarkdown(content)
+      : isStoryPlans ? formatStoryPlansMarkdown(content)
+      : asText(content);
     rawBlocks.push({
       id: key,
       layer: BLOCK_TO_LAYER[key] || 'L5_facts',
       priority,
       required: priority === 0,
       content: contentText,
-      plainText: isOutlineContext || typeof content === 'string'
+      plainText: isOutlineContext || isStoryPlans || typeof content === 'string'
     });
   }
   const orderIndex = new Map(BLOCK_ORDER.map((id, index) => [id, index]));
@@ -810,8 +865,10 @@ module.exports = {
   CONTEXT_LAYERS,
   BLOCK_TO_LAYER,
   PRIORITY,
+  BLOCK_ORDER,
   assembleContext,
   selectGenreMechanisms,
   splitCausalDebt,
-  formatOutlineContextMarkdown
+  formatOutlineContextMarkdown,
+  formatStoryPlansMarkdown
 };

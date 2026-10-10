@@ -383,7 +383,12 @@ function createGenerationOrchestrator(options = {}) {
           ...declaredScenes.flatMap(scene => [scene && scene.sceneTags, scene && scene.tags, scene && scene.sceneType]),
           ...scenes.flatMap(scene => [scene && scene.sceneTags, scene && scene.tags, scene && scene.sceneType])
         ];
-        return assembleContext(sourceContext, {
+        const enrichedSourceContext = {
+          ...sourceContext,
+          scenes,
+          scenePlan
+        };
+        return assembleContext(enrichedSourceContext, {
           maxChars: request.modelParams && request.modelParams.contextChars,
           model: request.modelId,
           provider: request.provider,
@@ -429,15 +434,20 @@ function createGenerationOrchestrator(options = {}) {
         });
       }
 
-      const outlineTier = scenePlanner.detectOutlineCompletenessTier(
+      const outlineTierInfo = scenePlanner.detectOutlineCompletenessTier({
         contract,
-        request.storyContext && request.storyContext.outlineContext
-      );
+        storyContext: request.storyContext || {},
+        request
+      });
+      const outlineTier = typeof outlineTierInfo === 'string'
+        ? outlineTierInfo
+        : (outlineTierInfo?.tier || 'goal_only');
+      const isFullScenes = outlineTier === 'full_scenes' || outlineTier === 'full_plan';
 
       let scenes = Array.isArray(contract.scenes) ? contract.scenes : [];
       let scenePlan = null;
 
-      if (outlineTier === 'full_scenes') {
+      if (isFullScenes) {
         const rawScenes = scenes.length ? scenes : (
           request.storyContext?.outlineContext?.chapter?.scenes ||
           request.storyContext?.chapterContext?.scenePlan ||
@@ -448,10 +458,26 @@ function createGenerationOrchestrator(options = {}) {
           targetWordCount: targetChars
         });
         scenes = scenePlan.scenes;
+
+        const causalCheck = scenePlanner.verifyCausalInvariants(scenes, contract);
+        scenePlan.causalInvariants = causalCheck;
+        scenePlan.causalInvariantsPassed = causalCheck.valid;
+        if (!causalCheck.valid) {
+          const causalViolationErr = new GenerationError(
+            'CAUSAL_INVARIANT_VIOLATION',
+            `场景规划违反因果硬约束: ${causalCheck.violations.map(v => v.message).join('; ')}`,
+            { status: 422, details: { violations: causalCheck.violations } }
+          );
+          causalViolationErr.code = 'CAUSAL_INVARIANT_VIOLATION';
+          causalViolationErr.violations = causalCheck.violations;
+          throw causalViolationErr;
+        }
+
         await stage(scope, id, 'scene_planning', 'completed', contract, scenes, {
           scenePlanningTier: 'full_scenes',
           freePlayPlot: false,
           creativeLicense: false,
+          causalInvariants: causalCheck,
           validation: scenePlan.validation || { valid: true }
         });
       } else {
@@ -529,29 +555,30 @@ function createGenerationOrchestrator(options = {}) {
           throw new GenerationError('MODEL_CONTENT_BLOCKED', 'Scene Planner 未能生成有效场景计划');
         }
 
+        // 执行因果硬围栏校验 (Causal Invariant Verification)
+        const causalCheck = scenePlanner.verifyCausalInvariants(scenes, contract);
+        if (scenePlan) {
+          scenePlan.causalInvariants = causalCheck;
+          scenePlan.causalInvariantsPassed = causalCheck.valid;
+        }
+        if (!causalCheck.valid) {
+          const causalViolationErr = new GenerationError(
+            'CAUSAL_INVARIANT_VIOLATION',
+            `场景规划违反因果硬约束: ${causalCheck.violations.map(v => v.message).join('; ')}`,
+            { status: 422, details: { violations: causalCheck.violations } }
+          );
+          causalViolationErr.code = 'CAUSAL_INVARIANT_VIOLATION';
+          causalViolationErr.violations = causalCheck.violations;
+          throw causalViolationErr;
+        }
+
         await stage(scope, id, 'scene_planning', 'completed', contract, scenes, {
           scenePlanningTier: outlineTier,
           freePlayPlot: Boolean(scenePlan?.freePlayPlot),
           creativeLicense: Boolean(scenePlan?.creativeLicense),
-          creativeLicenseScope: scenePlan?.creativeLicenseScope
+          creativeLicenseScope: scenePlan?.creativeLicenseScope,
+          causalInvariants: causalCheck
         });
-      }
-
-      // 执行因果硬围栏校验 (Causal Invariant Verification)
-      const causalCheck = scenePlanner.verifyCausalInvariants(scenes, contract);
-      if (scenePlan) {
-        scenePlan.causalInvariants = causalCheck;
-        scenePlan.causalInvariantsPassed = causalCheck.valid;
-      }
-      if (!causalCheck.valid) {
-        const causalViolationErr = new GenerationError(
-          'CAUSAL_INVARIANT_VIOLATION',
-          `场景规划违反因果硬约束: ${causalCheck.violations.map(v => v.message).join('; ')}`,
-          { status: 422, details: { violations: causalCheck.violations } }
-        );
-        causalViolationErr.code = 'CAUSAL_INVARIANT_VIOLATION';
-        causalViolationErr.violations = causalCheck.violations;
-        throw causalViolationErr;
       }
 
       context = compileContext(scenes, scenePlan);
@@ -560,7 +587,7 @@ function createGenerationOrchestrator(options = {}) {
         context.contextPlan.scenePlanningTier = outlineTier;
         context.contextPlan.freePlayPlot = Boolean(scenePlan?.freePlayPlot);
         context.contextPlan.creativeLicense = Boolean(scenePlan?.creativeLicense);
-        context.contextPlan.causalInvariantsPassed = Boolean(causalCheck.valid);
+        context.contextPlan.causalInvariantsPassed = Boolean(scenePlan?.causalInvariantsPassed !== false);
       }
 
       const promptInput = { request, contract, context: context.text, contextPlan: context.contextPlan, genre, style, scenes, scenePlan };
@@ -1190,6 +1217,7 @@ function createGenerationOrchestrator(options = {}) {
       replayable: hasAll,
       contract,
       contextPlan,
+      outlineAudit: contextPlan ? (contextPlan.outlineAudit || contextPlan.replayManifest?.outlineAudit || null) : null,
       stateSnapshot,
       styleBundle,
       genreProfile,
