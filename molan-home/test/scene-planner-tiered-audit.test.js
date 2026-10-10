@@ -14,7 +14,8 @@ const {
   verifyCausalInvariants,
   planScenesTiered,
   compileSceneDirectives,
-  planScenes
+  planScenes,
+  CausalInvariantViolationError
 } = require('../lib/scene-planner');
 
 const { createGenerationOrchestrator } = require('../lib/generation/orchestrator');
@@ -87,6 +88,40 @@ test('SP-Tier-03: detectOutlineCompletenessTier 准确识别 goal_only', () => {
   // 仅有空大纲
   assert.equal(detectOutlineCompletenessTier({}, {}), 'goal_only');
 });
+
+test('SP-Tier-03B: detectOutlineCompletenessTier 支持封装参数返回完备度对象与 full_plan 别名', () => {
+  // 1. 封装参数 full_scenes
+  const r1 = detectOutlineCompletenessTier({
+    contract: { scenes: [{ id: 'sc-1', goal: '萧家测验' }] },
+    storyContext: {},
+    request: {}
+  });
+  assert.equal(typeof r1, 'object');
+  assert.equal(r1.tier, 'full_scenes');
+  assert.equal(r1.tierAlias, 'full_plan');
+  assert.equal(r1.full_scenes, true);
+  assert.equal(r1.full_plan, true);
+  assert.equal(r1.mode, 'authoritative_verified');
+  assert.equal(r1.rawScenes.length, 1);
+
+  // 2. 封装参数 event_chain
+  const r2 = detectOutlineCompletenessTier({
+    contract: { beats: ['前置行动', '交锋对决'] },
+    storyContext: { chapterContext: {} }
+  });
+  assert.equal(r2.tier, 'event_chain');
+  assert.equal(r2.mode, 'deterministic_derived');
+
+  // 3. 封装参数 goal_only
+  const r3 = detectOutlineCompletenessTier({
+    contract: { chapterGoal: '通过考核' },
+    request: { prompt: '通过考核' }
+  });
+  assert.equal(r3.tier, 'goal_only');
+  assert.equal(r3.mode, 'lightweight_inferred');
+  assert.equal(r3.goalText, '通过考核');
+});
+
 
 // ============================================================================
 // Group 2: Tier 1 (full_scenes) 本地时空因果校验与转场增强
@@ -305,6 +340,48 @@ test('SP-Tier-12: verifyCausalInvariants 合规场景通过验证', () => {
   assert.equal(check.violations.length, 0);
 });
 
+test('SP-Tier-12B: verifyCausalInvariants 支持 throwOnViolation 抛错与 autoPrune 自动因果剪枝自愈', () => {
+  const contract = {
+    viewpointCharacter: '萧炎',
+    mustNot: ['施展骨灵冷火'],
+    forbiddenKnowledge: ['药老灵魂体'],
+    irreversibleResult: '失败受挫隐忍退避'
+  };
+
+  const offendingScenes = [
+    { sceneIndex: 1, viewpointCharacter: '纳兰嫣然', goal: '纳兰嫣然冷眼相看' },
+    { sceneIndex: 2, viewpointCharacter: '萧炎', goal: '萧炎施展骨灵冷火反击，雅妃提前识破药老灵魂体的秘密' },
+    { sceneIndex: 3, viewpointCharacter: '萧炎', goal: '当场大获全胜彻底击溃全场秒杀所有人' }
+  ];
+
+  // 1. throwOnViolation 抛出 CausalInvariantViolationError
+  assert.throws(() => {
+    verifyCausalInvariants(offendingScenes, contract, { throwOnViolation: true });
+  }, err => {
+    assert.ok(err instanceof CausalInvariantViolationError);
+    assert.equal(err.name, 'CausalInvariantViolationError');
+    assert.equal(err.code, 'CAUSAL_INVARIANT_VIOLATION');
+    assert.equal(err.status, 422);
+    assert.ok(err.violations.length >= 3);
+    return true;
+  });
+
+  // 2. autoPrune 自动因果剪枝自愈
+  const pruneRes = verifyCausalInvariants(offendingScenes, contract, { autoPrune: true });
+  assert.equal(pruneRes.autoPruned, true);
+  assert.equal(pruneRes.prunedScenes.length, 3);
+  // POV 矫正
+  assert.equal(pruneRes.prunedScenes[0].viewpointCharacter, '萧炎');
+  // mustNot 词汇剪枝
+  assert.ok(!pruneRes.prunedScenes[1].goal.includes('施展骨灵冷火'));
+  assert.ok(pruneRes.prunedScenes[1].goal.includes('[已剪枝禁忌动作]'));
+  // 秘密泄露词汇保密
+  assert.ok(!pruneRes.prunedScenes[1].goal.includes('药老灵魂体'));
+  assert.ok(pruneRes.prunedScenes[1].goal.includes('[保密信息]'));
+  // 终局对齐矫正
+  assert.ok(pruneRes.prunedScenes[2].goal.includes('达成终局预期: 失败受挫隐忍退避'));
+});
+
 // ============================================================================
 // Group 6: planScenesTiered 统一分级总入口
 // ============================================================================
@@ -331,6 +408,30 @@ test('SP-Tier-13: planScenesTiered 统一入口分发三态并完成因果审计
   assert.equal(t3.tier, 'goal_only');
   assert.equal(t3.freePlayPlot, true);
   assert.equal(t3.causalInvariantsPassed, true);
+});
+
+test('SP-Tier-13B: planScenesTiered 支持双参数传参并支持 throwOnViolation', () => {
+  // 1. 双参数调用 (params, secondaryOptions)
+  const result = planScenesTiered(
+    { contract: { beats: ['踏入云岚宗', '大展神威'] } },
+    { targetWordCount: 3600 }
+  );
+  assert.equal(result.tier, 'event_chain');
+  assert.equal(result.scenes.length, 2);
+  assert.equal(result.causalInvariantsPassed, true);
+
+  // 2. throwOnViolation 违规直接抛出
+  assert.throws(() => {
+    planScenesTiered({
+      contract: {
+        mustNot: ['破坏丹炉'],
+        scenes: [{ goal: '失手破坏丹炉导致炼丹失败' }]
+      }
+    }, { throwOnViolation: true });
+  }, err => {
+    assert.ok(err instanceof CausalInvariantViolationError);
+    return true;
+  });
 });
 
 // ============================================================================
@@ -616,3 +717,264 @@ test('SP-Tier-17: Orchestrator 因果硬围栏违规拦截并抛出 CAUSAL_INVAR
   assert.equal(finalRun.errorCode, 'CAUSAL_INVARIANT_VIOLATION', '错误码必须指示因果硬约束违背');
   assert.ok(finalRun.errorDetail.includes('因果硬约束') || finalRun.errorDetail.includes('施展骨灵冷火'));
 });
+
+test('SP-Tier-18: Orchestrator 预声明场景 (full_scenes) 触犯 mustNot 禁忌因果硬围栏时立即强阻断', async testContext => {
+  const { repository, store, cleanup } = setupTestEnvironment('molan-orch-full-causal-');
+  testContext.after(cleanup);
+
+  const scope = { workspaceId: 'ws-full-c', projectId: 'proj-full-c', actorUserId: 'author-full-c' };
+  const runId = 'run-full-causal-violation';
+  const chapterId = 'ch-full-causal';
+
+  const deps = {
+    resolveGenre: async () => ({ status: 'resolved', genre: '玄幻' }),
+    resolveStyle: async () => ({ status: 'resolved', style: '热血' }),
+    loadAuthoritativeContext: async () => ({ ok: true, snapshotHash: 'sfc1', storyContext: {} }),
+    preGenerationGuard: async () => ({ passed: true, snapshotHash: 'sfc1' }),
+    writer: async () => ({ text: '正文' })
+  };
+
+  const orchestrator = createGenerationOrchestrator({ store, db: repository, dependencies: deps });
+  const created = await orchestrator.create({
+    ...scope,
+    id: runId,
+    chapterId,
+    idempotencyKey: 'idem-full-causal',
+    requestHash: '7'.repeat(64),
+    request: {
+      chapterId,
+      chapterContract: {
+        chapterId,
+        chapterGoal: '魔药提炼',
+        mustNot: ['击碎药鼎'],
+        scenes: [
+          { id: 's1', goal: '点燃炉火' },
+          { id: 's2', goal: '失控暴怒之下击碎药鼎' }
+        ]
+      }
+    }
+  });
+
+  let finalRun = null;
+  for (let i = 0; i < 60; i++) {
+    finalRun = await store.getRun({}, { ...scope, id: created.run.id });
+    if (finalRun && (finalRun.state === 'failed' || isTerminal(finalRun.state))) break;
+    await new Promise(r => setTimeout(r, 20));
+  }
+
+  assert.ok(finalRun);
+  assert.equal(finalRun.state, 'failed', '预声明场景违规亦必须阻断生成并进入 failed 状态');
+  assert.equal(finalRun.errorCode, 'CAUSAL_INVARIANT_VIOLATION');
+  assert.ok(finalRun.errorDetail.includes('击碎药鼎'));
+});
+
+test('SP-Tier-19: Orchestrator stage 元数据显式记录 causalInvariants 并沉淀至 contextPlan', async testContext => {
+  const { repository, store, cleanup } = setupTestEnvironment('molan-orch-stage-meta-');
+  testContext.after(cleanup);
+
+  const scope = { workspaceId: 'ws-sm', projectId: 'proj-sm', actorUserId: 'author-sm' };
+  const runId = 'run-stage-meta-audit';
+  const chapterId = 'ch-sm';
+
+  const deps = {
+    resolveGenre: async () => ({ status: 'resolved', genre: '武侠' }),
+    resolveStyle: async () => ({ status: 'resolved', style: '飘逸' }),
+    loadAuthoritativeContext: async () => ({ ok: true, snapshotHash: 'ssm1', storyContext: { pov: 'third-limited' } }),
+    preGenerationGuard: async () => ({ passed: true, snapshotHash: 'ssm1' }),
+    writer: async ({ contract, contextPlan }) => ({
+      text: '清风徐来，水波不兴。',
+      manifest: buildGenerationManifest({
+        generationId: runId,
+        projectId: scope.projectId,
+        chapterId,
+        pipelineVersion: 'content-engine-v2',
+        contextHash: contextPlan.contextHash,
+        contractHash: contractHash(contract),
+        promptHash: 'psm',
+        outputHash: hashValue('清风徐来，水波不兴。')
+      })
+    }),
+    deterministicAudit: async () => ({ passed: true, issues: [] }),
+    semanticAudit: async () => ({ passed: true, status: 'MEASURED', issues: [] }),
+    qualityAudit: async ({ draft }) => createQualityAssessment({
+      genre: '武侠',
+      contentDigest: hashValue(draft),
+      compliance: { passed: true, checks: {} },
+      literary: {
+        passed: true,
+        score: 0.88,
+        confidence: 0.90,
+        evaluator: { mode: 'single' },
+        dimensions: {
+          language: { score: 0.88, confidence: 0.90, status: 'MEASURED', source: 'literary_evaluator', quote: draft.slice(0, 4) }
+        }
+      }
+    })
+  };
+
+  const orchestrator = createGenerationOrchestrator({ store, db: repository, dependencies: deps });
+  const created = await orchestrator.create({
+    ...scope,
+    id: runId,
+    chapterId,
+    idempotencyKey: 'idem-sm',
+    requestHash: '8'.repeat(64),
+    request: {
+      chapterId,
+      chapterContract: {
+        chapterId,
+        chapterGoal: '江畔悟道',
+        viewpointCharacter: '张三丰',
+        scenes: [{ id: 's1', goal: '静坐听潮', viewpointCharacter: '张三丰' }]
+      }
+    }
+  });
+
+  let finalRun = null;
+  for (let i = 0; i < 60; i++) {
+    finalRun = await store.getRun({}, { ...scope, id: created.run.id });
+    if (finalRun && (finalRun.state === 'waiting_author' || isTerminal(finalRun.state))) break;
+    await new Promise(r => setTimeout(r, 20));
+  }
+
+  assert.ok(finalRun);
+  assert.equal(finalRun.state, 'waiting_author');
+
+  // 验证 contextPlan 沉淀
+  const cp = finalRun.result.contextPlan;
+  assert.equal(cp.scenePlanningTier, 'full_scenes');
+  assert.equal(cp.freePlayPlot, false);
+  assert.equal(cp.creativeLicense, false);
+  assert.equal(cp.causalInvariantsPassed, true);
+
+  // 验证 store.listStages 中的 scene_planning 阶段记录
+  const stages = await store.listStages(repository, { ...scope, generationId: created.run.id });
+  const planningStage = stages.find(s => s.stage === 'scene_planning');
+  assert.ok(planningStage, '必须存在 scene_planning 阶段记录');
+  assert.equal(planningStage.status, 'completed', 'scene_planning 状态必须为 completed');
+  assert.ok(planningStage.outputHash, 'scene_planning 必须具备场景 outputHash 证据');
+});
+
+// ============================================================================
+// Group 6: M2 Hardening Remediation (BUG-SP-001 & BUG-SP-002 & Invariant Guards)
+// ============================================================================
+
+test('SP-Hardening-01: BUG-SP-001 空白/null/稀疏节拍优雅降级至 goal_only 且 deriveScenes 防御防崩', () => {
+  // 1. detectOutlineCompletenessTier 空节拍降级
+  assert.equal(detectOutlineCompletenessTier({ beats: [null] }), 'goal_only');
+  assert.equal(detectOutlineCompletenessTier({ beats: ['', '   '] }), 'goal_only');
+  assert.equal(detectOutlineCompletenessTier({ beats: [{ text: '' }] }), 'goal_only');
+
+  // 2. deriveScenesFromEventChain 防御性执行不抛出 TypeError
+  const derived = deriveScenesFromEventChain([null, undefined, { text: '有效节拍' }, '']);
+  assert.ok(derived);
+  assert.equal(derived.tier, 'event_chain');
+  assert.equal(derived.scenes.length, 1);
+  assert.equal(derived.scenes[0].goal, '有效节拍');
+
+  // 3. planScenesTiered 遇到 sparse beats 不崩盘
+  const plan = planScenesTiered({ contract: { beats: [null, '   '] } });
+  assert.ok(plan);
+  assert.equal(plan.tier, 'goal_only');
+  assert.equal(plan.freePlayPlot, true);
+});
+
+test('SP-Hardening-02: BUG-SP-002 autoPrune 全字段清洗盲区闭环且二次因果校验通过', () => {
+  const contract = {
+    viewpointCharacter: '韩立',
+    mustNot: ['使用掌天瓶催熟灵药'],
+    forbiddenKnowledge: ['掌天瓶可吸收月华'],
+    requiredPayoff: ['debt_herb_seed']
+  };
+
+  const dirtyScenes = [
+    {
+      sceneIndex: 1,
+      viewpointCharacter: '韩立',
+      goal: '韩立假意买药',
+      rawNodeText: '暗中计划使用掌天瓶催熟灵药，且意外被察觉掌天瓶可吸收月华的隐秘',
+      action: '私下使用掌天瓶催熟灵药',
+      description: '动作隐蔽，使用掌天瓶催熟灵药',
+      resolvesDebt: 'debt_unauthorized_fake'
+    }
+  ];
+
+  const pruneRes = verifyCausalInvariants(dirtyScenes, contract, { autoPrune: true });
+  assert.equal(pruneRes.autoPruned, true);
+  const s = pruneRes.scenes[0];
+
+  // 验证全字段清洗
+  assert.ok(!s.rawNodeText.includes('使用掌天瓶催熟灵药'));
+  assert.ok(!s.rawNodeText.includes('掌天瓶可吸收月华'));
+  assert.ok(!s.action.includes('使用掌天瓶催熟灵药'));
+  assert.ok(!s.description.includes('使用掌天瓶催熟灵药'));
+  assert.equal(s.resolvesDebt, undefined, '未排期因果债务必须被安全清除');
+
+  // 二次校验真值断言
+  const recheck = verifyCausalInvariants(pruneRes.scenes, contract);
+  assert.equal(recheck.valid, true, '清洗后二次校验必须 100% 通过');
+});
+
+test('SP-Hardening-03: POV 视点归一化校验与子串绕过拦截', () => {
+  const contract = { viewpointCharacter: '罗峰' };
+
+  // 1. 规范合法视点后缀（视角/视点）正常通过
+  const validScenes = [
+    { sceneIndex: 1, viewpointCharacter: '罗峰视角', goal: '罗峰潜入基地' },
+    { sceneIndex: 2, viewpointCharacter: '罗峰视点', goal: '领悟刀意' }
+  ];
+  const validCheck = verifyCausalInvariants(validScenes, contract);
+  assert.equal(validCheck.valid, true);
+
+  // 2. 敌对第三方视点即便包含主角名字也严格拦截
+  const hostileScenes = [
+    { sceneIndex: 1, viewpointCharacter: '击杀罗峰的李耀视点', goal: '狙击' },
+    { sceneIndex: 2, viewpointCharacter: '李耀（审视罗峰视角）', goal: '复仇' }
+  ];
+  const hostileCheck = verifyCausalInvariants(hostileScenes, contract);
+  assert.equal(hostileCheck.valid, false);
+  assert.equal(hostileCheck.violations.length, 2);
+  assert.equal(hostileCheck.violations[0].type, 'POV_VIOLATION');
+  assert.equal(hostileCheck.violations[1].type, 'POV_VIOLATION');
+});
+
+test('SP-Hardening-04: 泄密动词库全面扩充 (透露/曝光/公布/公开/偷听/窥见/目睹/告知)', () => {
+  const contract = { forbiddenKnowledge: ['金角巨兽幼崽'] };
+  const expandedVerbs = [
+    '徐欣当面透露了金角巨兽幼崽',
+    '极限武馆暗中曝光了金角巨兽幼崽',
+    '军方提前公布金角巨兽幼崽',
+    '洪当众公开金角巨兽幼崽',
+    '李耀偷听到了金角巨兽幼崽',
+    '雷神暗中窥见了金角巨兽幼崽',
+    '众人目睹金角巨兽幼崽',
+    '巴巴塔直接告知金角巨兽幼崽'
+  ];
+
+  for (const text of expandedVerbs) {
+    const res = verifyCausalInvariants([{ sceneIndex: 1, goal: text }], contract);
+    assert.equal(res.valid, false, `必须拦截动词泄露: ${text}`);
+    assert.equal(res.violations[0].type, 'FORBIDDEN_KNOWLEDGE_LEAK');
+  }
+});
+
+test('SP-Hardening-05: 契约输入防御性归一化 (字符串与带空格数组)', () => {
+  // 1. mustNot 为字符串且带空格
+  const res1 = verifyCausalInvariants(
+    [{ sceneIndex: 1, goal: '违规出手抢夺宝物' }],
+    { mustNot: ' 抢夺宝物 ' }
+  );
+  assert.equal(res1.valid, false);
+  assert.equal(res1.violations[0].type, 'MUST_NOT_VIOLATION');
+  assert.equal(res1.violations[0].forbidden, '抢夺宝物');
+
+  // 2. forbiddenKnowledge 为字符串且带空格
+  const res2 = verifyCausalInvariants(
+    [{ sceneIndex: 1, goal: '探子发现夺舍秘法' }],
+    { forbiddenKnowledge: ' 夺舍秘法 ' }
+  );
+  assert.equal(res2.valid, false);
+  assert.equal(res2.violations[0].type, 'FORBIDDEN_KNOWLEDGE_LEAK');
+  assert.equal(res2.violations[0].secret, '夺舍秘法');
+});
+

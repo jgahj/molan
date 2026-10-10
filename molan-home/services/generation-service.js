@@ -486,7 +486,8 @@ function createGenerationService({
               chapterContext: chapter,
               outlineContext,
               storyContext: runRequest.storyContext,
-              targetWordCount
+              targetWordCount,
+              tierInfo: outlineTierInfo
             });
           },
           writer: async ({ request: runRequest, contract: passedContract, scenePlan, scenes, signal, onProgress, context: passedContext, contextPlan: passedContextPlan, genre: passedGenre, style: passedStyle }) => {
