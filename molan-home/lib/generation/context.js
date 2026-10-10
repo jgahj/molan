@@ -62,7 +62,67 @@ const BLOCK_ORDER = Object.freeze([
 
 function asText(content) {
   if (typeof content === 'string') return content;
-  return JSON.stringify(content);
+  try {
+    return JSON.stringify(content);
+  } catch (_) {
+    return String(content);
+  }
+}
+
+function getFirstFiniteNum(...vals) {
+  for (const v of vals) {
+    if (v == null || typeof v === 'boolean' || Array.isArray(v)) continue;
+    if (typeof v === 'string' && v.trim() === '') continue;
+    if (typeof v === 'object') {
+      if (v.chapterNo != null && Number.isFinite(Number(v.chapterNo))) return Number(v.chapterNo);
+      if (v.chapterNumber != null && Number.isFinite(Number(v.chapterNumber))) return Number(v.chapterNumber);
+      if (v.revision != null && Number.isFinite(Number(v.revision))) return Number(v.revision);
+      continue;
+    }
+    const num = Number(v);
+    if (Number.isFinite(num)) return num;
+  }
+  return null;
+}
+
+function toCleanId(val) {
+  if (val == null || typeof val === 'boolean') return null;
+  if (typeof val === 'object') {
+    if (val.id != null && typeof val.id !== 'object') return String(val.id).trim();
+    if (val.chapterId != null && typeof val.chapterId !== 'object') return String(val.chapterId).trim();
+    if (val.name != null && typeof val.name !== 'object') return String(val.name).trim();
+    return null;
+  }
+  const s = String(val).trim();
+  return (s !== '' && s !== '[object Object]') ? s : null;
+}
+
+function toCleanHash(val) {
+  if (val == null || typeof val === 'boolean' || typeof val === 'number') return null;
+  if (typeof val === 'object') {
+    if (val.sha256 && typeof val.sha256 === 'string') return val.sha256.trim();
+    if (val.hash && typeof val.hash === 'string') return val.hash.trim();
+    if (val.digest && typeof val.digest === 'string') return val.digest.trim();
+    return null;
+  }
+  const s = String(val).trim();
+  return (s !== '' && s !== '[object Object]') ? s : null;
+}
+
+function safeItemString(item) {
+  if (item == null) return '';
+  if (typeof item !== 'object') return String(item).trim();
+  if (item.id != null && typeof item.id !== 'object' && String(item.id).trim() !== '') return String(item.id).trim();
+  if (item.name != null && typeof item.name !== 'object' && String(item.name).trim() !== '') return String(item.name).trim();
+  if (item.title != null && typeof item.title !== 'object' && String(item.title).trim() !== '') return String(item.title).trim();
+  if (item.key != null && typeof item.key !== 'object' && String(item.key).trim() !== '') return String(item.key).trim();
+  if (item.event != null && typeof item.event !== 'object' && String(item.event).trim() !== '') return String(item.event).trim();
+  if (item.description != null && typeof item.description !== 'object' && String(item.description).trim() !== '') return String(item.description).trim();
+  try {
+    return JSON.stringify(item);
+  } catch (_) {
+    return Object.keys(item).join(',');
+  }
 }
 
 function listValues(value) {
@@ -84,13 +144,15 @@ function tagsFrom(value) {
 }
 
 function sceneTagsFor(input, options) {
+  const safeOptions = options && typeof options === 'object' ? options : {};
+  const safeInput = input && typeof input === 'object' ? input : {};
   const tags = [
-    ...tagsFrom(options.sceneTags),
-    ...tagsFrom(input.sceneTags),
-    ...tagsFrom(input.sceneContract && (input.sceneContract.sceneTags || input.sceneContract.tags || input.sceneContract.sceneType)),
-    ...tagsFrom(input.sceneContract && input.sceneContract.scenes && input.sceneContract.scenes.flatMap(scene => [scene && scene.sceneTags, scene && scene.tags, scene && scene.sceneType])),
-    ...tagsFrom(input.scenePlan && input.scenePlan.scenes && input.scenePlan.scenes.flatMap(scene => [scene.sceneTags, scene.tags, scene.sceneType])),
-    ...tagsFrom(input.scenes && input.scenes.flatMap(scene => [scene && scene.sceneTags, scene && scene.tags, scene && scene.sceneType]))
+    ...tagsFrom(safeOptions.sceneTags),
+    ...tagsFrom(safeInput.sceneTags),
+    ...tagsFrom(safeInput.sceneContract && (safeInput.sceneContract.sceneTags || safeInput.sceneContract.tags || safeInput.sceneContract.sceneType)),
+    ...tagsFrom(safeInput.sceneContract && safeInput.sceneContract.scenes && safeInput.sceneContract.scenes.flatMap(scene => [scene && scene.sceneTags, scene && scene.tags, scene && scene.sceneType])),
+    ...tagsFrom(safeInput.scenePlan && safeInput.scenePlan.scenes && safeInput.scenePlan.scenes.flatMap(scene => [scene.sceneTags, scene.tags, scene.sceneType])),
+    ...tagsFrom(safeInput.scenes && safeInput.scenes.flatMap(scene => [scene && scene.sceneTags, scene && scene.tags, scene && scene.sceneType]))
   ];
   return [...new Set(tags)].sort();
 }
@@ -155,26 +217,35 @@ function getDebtItems(value) {
   return null;
 }
 
-function getCurrentChapter(input, options) {
-  const contract = input.sceneContract || {};
-  const volumeState = input.volumeState && typeof input.volumeState === 'object' ? input.volumeState : {};
-  const chapterContext = input.chapterContext && typeof input.chapterContext === 'object' ? input.chapterContext : {};
-  const value = options.currentChapterNo ?? input.currentChapterNo ?? input.chapterNo ??
-    contract.currentChapterNo ?? contract.chapterNo ?? volumeState.currentChapterNo ?? chapterContext.chapterNo ?? chapterContext.chapterNumber;
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
+function getCurrentChapter(input, options = {}) {
+  const safeOptions = options && typeof options === 'object' ? options : {};
+  const safeInput = input && typeof input === 'object' ? input : {};
+  const contract = safeInput.sceneContract || safeInput.chapterContract || {};
+  const volumeState = safeInput.volumeState && typeof safeInput.volumeState === 'object' ? safeInput.volumeState : {};
+  const chapterContext = safeInput.chapterContext && typeof safeInput.chapterContext === 'object' ? safeInput.chapterContext : {};
+  return getFirstFiniteNum(
+    safeOptions.currentChapterNo, safeOptions.chapterNo, safeOptions.chapterNumber,
+    safeInput.currentChapterNo, safeInput.chapterNo, safeInput.chapterNumber,
+    contract.currentChapterNo, contract.chapterNo, contract.chapterNumber,
+    volumeState.currentChapterNo, volumeState.chapterNo,
+    chapterContext.chapterNo, chapterContext.chapterNumber
+  );
 }
 
 function getCurrentVolumeId(input, options) {
-  const contract = input.sceneContract || {};
-  const volume = input.volumeState && typeof input.volumeState === 'object' ? input.volumeState : {};
-  return String(options.currentVolumeId || input.currentVolumeId || input.volumeId ||
+  const safeOptions = options && typeof options === 'object' ? options : {};
+  const safeInput = input && typeof input === 'object' ? input : {};
+  const contract = safeInput.sceneContract || {};
+  const volume = safeInput.volumeState && typeof safeInput.volumeState === 'object' ? safeInput.volumeState : {};
+  return String(safeOptions.currentVolumeId || safeInput.currentVolumeId || safeInput.volumeId ||
     contract.currentVolumeId || contract.volumeId || volume.currentVolumeId || volume.volumeId || volume.id || '');
 }
 
 function getCurrentCharacters(input, options) {
-  const contract = input.sceneContract || {};
-  const values = [options.currentCharacterIds, contract.currentCharacterIds, contract.characters,
+  const safeOptions = options && typeof options === 'object' ? options : {};
+  const safeInput = input && typeof input === 'object' ? input : {};
+  const contract = safeInput.sceneContract || {};
+  const values = [safeOptions.currentCharacterIds, contract.currentCharacterIds, contract.characters,
     contract.viewpointCharacter, contract.povCharacterId];
   const chars = new Set();
   for (const value of values) {
@@ -461,20 +532,27 @@ function formatStoryPlansMarkdown(data) {
   const lines = [];
   for (let i = 0; i < items.length; i++) {
     const plan = items[i];
-    if (!plan) continue;
+    if (plan == null) continue;
+    if (Array.isArray(plan)) continue;
     if (typeof plan === 'string') {
-      lines.push(`- 计划 ${i + 1}: ${plan.trim()}`);
+      const s = plan.trim();
+      if (s) lines.push(`- 计划 ${i + 1}: ${s}`);
+      continue;
+    }
+    if (typeof plan !== 'object') {
+      lines.push(`- 计划 ${i + 1}: ${plan}`);
       continue;
     }
     const title = String(plan.title || `计划 ${i + 1}`).trim();
-    const range = String(plan.targetChapterRange || plan.target_chapter_range ||
-      (plan.chapterNo != null ? String(plan.chapterNo) : (plan.chapter_no != null ? String(plan.chapter_no) : ''))).trim();
-    let participants = plan.participantIds || plan.participant_ids || plan.participant_ids_json || [];
+    const explicitRange = plan.targetChapterRange ?? plan.target_chapter_range;
+    const explicitChNo = plan.chapterNo ?? plan.chapter_no;
+    const range = String(explicitRange != null ? explicitRange : (explicitChNo != null ? explicitChNo : '')).trim();
+    let participants = plan.participantIds ?? plan.participant_ids ?? plan.participant_ids_json ?? [];
     if (typeof participants === 'string') {
       try { participants = JSON.parse(participants); } catch (_) { participants = []; }
     }
     const participantList = (Array.isArray(participants) ? participants : [])
-      .map(p => String(p && typeof p === 'object' ? (p.id != null ? p.id : p.name || '') : (p != null ? p : '')).trim())
+      .map(p => String(p && typeof p === 'object' ? (p.id != null ? p.id : (p.characterId != null ? p.characterId : (p.name || ''))) : (p != null ? p : '')).trim())
       .filter(Boolean);
 
     const metaParts = [];
@@ -497,14 +575,15 @@ function formatStoryPlansMarkdown(data) {
 /** 按模型 Token 预算与八层优先级编译上下文，并记录可重放决策。 */
 function assembleContext(input = {}, options = {}) {
   const originalInput = input && typeof input === 'object' ? input : {};
+  const safeOptions = options && typeof options === 'object' ? options : {};
   const prepared = { ...originalInput };
-  const sceneTags = sceneTagsFor(prepared, options);
-  const mechanismSource = options.genreMechanisms ?? prepared.genreMechanisms ?? prepared.mechanisms;
+  const sceneTags = sceneTagsFor(prepared, safeOptions);
+  const mechanismSource = safeOptions.genreMechanisms ?? prepared.genreMechanisms ?? prepared.mechanisms;
   const mechanismSelection = mechanismSource == null
     ? { value: null, decisions: [], filtered: false }
     : selectGenreMechanisms(mechanismSource, sceneTags);
   if (mechanismSource != null) prepared.genreMechanisms = mechanismSelection.value;
-  const debtSelection = splitCausalDebt(prepared, options);
+  const debtSelection = splitCausalDebt(prepared, safeOptions);
 
   // 规范化与去重章节大纲字段：
   if (prepared.outlineContext) {
@@ -580,7 +659,16 @@ function assembleContext(input = {}, options = {}) {
   for (const [key, content] of Object.entries(prepared)) {
     if (key === 'sceneTags' || content == null || content === '' || (Array.isArray(content) && content.length === 0) ||
       (typeof content === 'object' && !Array.isArray(content) && Object.keys(content).length === 0)) continue;
-    if (['activeCausalDebts', 'causalDebt', 'causalDebts', 'mechanisms'].includes(key)) continue;
+    if ([
+      'activeCausalDebts', 'causalDebt', 'causalDebts', 'mechanisms',
+      'outlineImpact', 'outlineRevision', 'outlineHash', 'stateDeltaCommitted', 'stateDelta',
+      'outlineAudit', 'contextPlan', 'replayManifest', 'contextTruncationReasons',
+      'outlineDependenciesIncluded', 'outlineDependencies', 'dependencies',
+      'impact', 'revision', 'planRevision',
+      'chapterId', 'chapterNo', 'chapterNumber', 'currentChapterNo', 'currentChapterId',
+      'currentVolumeId', 'volumeId', 'volumeNo',
+      'requiredOutlineIncluded', 'outlineBlockTokens'
+    ].includes(key)) continue;
     const priority = PRIORITY[key] !== undefined ? PRIORITY[key] : 2;
     const isOutlineContext = key === 'outlineContext';
     const isStoryPlans = key === 'storyPlans';
@@ -600,24 +688,24 @@ function assembleContext(input = {}, options = {}) {
   rawBlocks.sort((a, b) => a.priority - b.priority ||
     (orderIndex.get(a.id) ?? BLOCK_ORDER.length) - (orderIndex.get(b.id) ?? BLOCK_ORDER.length) || a.id.localeCompare(b.id));
 
-  const model = String(options.model || options.modelId || 'default');
-  const provider = String(options.provider || 'default');
+  const model = String(safeOptions.model || safeOptions.modelId || 'default');
+  const provider = String(safeOptions.provider || 'default');
   const modelCapability = getModelCapability(model);
-  const hardLimit = Number(options.hardLimit || options.providerContextLimit) ||
+  const hardLimit = Number(safeOptions.hardLimit || safeOptions.providerContextLimit) ||
     DEFAULT_PROVIDER_CONTEXT_LIMITS[model] || modelCapability.contextWindow;
-  const outputReserve = outputReserveFor(options, model);
-  const system = String(options.system || options.systemPrompt || '');
-  const prompt = String(options.prompt || '');
+  const outputReserve = outputReserveFor(safeOptions, model);
+  const system = String(safeOptions.system || safeOptions.systemPrompt || '');
+  const prompt = String(safeOptions.prompt || '');
   const systemTokens = estimateTokens(system, model);
   const inputPromptTokens = estimateTokens(prompt, model);
-  const externalContractTokens = options.contract == null ? 0 : estimateTokens(options.contract, model);
-  const wrapperPrefix = String(options.contextWrapperPrefix || '');
-  const wrapperSuffix = String(options.contextWrapperSuffix || '');
+  const externalContractTokens = safeOptions.contract == null ? 0 : estimateTokens(safeOptions.contract, model);
+  const wrapperPrefix = String(safeOptions.contextWrapperPrefix || '');
+  const wrapperSuffix = String(safeOptions.contextWrapperSuffix || '');
   const messageEnvelopeTokens = estimateTokens('<|system|>\n<|user|>\n<|assistant|>\n', model);
   const renderedWrapperTokens = estimateTokens(wrapperPrefix + wrapperSuffix, model) + messageEnvelopeTokens;
-  const reservedInputTokens = Math.max(0, Number(options.reservedInputTokens ?? options.promptReserveTokens ?? 1024) || 0);
+  const reservedInputTokens = Math.max(0, Number(safeOptions.reservedInputTokens ?? safeOptions.promptReserveTokens ?? 1024) || 0);
   const availableInputTokens = Math.max(0, hardLimit - outputReserve - systemTokens - inputPromptTokens - externalContractTokens - renderedWrapperTokens - reservedInputTokens);
-  const maxChars = Math.max(1000, Number(options.maxChars) || 48000);
+  const maxChars = Math.max(1000, Number(safeOptions.maxChars) || 48000);
   const includedBlocks = [];
   const truncatedBlocks = [];
   const omittedBlocks = [];
@@ -723,7 +811,7 @@ function assembleContext(input = {}, options = {}) {
     strategyVersion: CONTEXT_STRATEGY_VERSION
   });
   const contextHash = hashValue(contextText);
-  const outlineBlockKeys = ['outlineContext', 'currentChapterOutline', 'chapterOutline', 'chapterContext'];
+  const outlineBlockKeys = ['outlineContext', 'currentChapterOutline', 'chapterOutline', 'chapterContext', 'outline'];
   const outlineBlockIncluded = includedBlocks.some(block => outlineBlockKeys.includes(block.id));
   const outlineBlockTokens = includedBlocks
     .filter(block => outlineBlockKeys.includes(block.id))
@@ -733,19 +821,76 @@ function assembleContext(input = {}, options = {}) {
     (typeof prepared.currentChapterOutline === 'object' ? prepared.currentChapterOutline : null) ||
     prepared.chapterContext || {};
 
-  const resolvedChapterId = options.chapterId || rawOutline.chapterId || rawOutline.id || (rawOutline.chapter && rawOutline.chapter.id) || null;
-  const resolvedChapterNo = options.chapterNo != null ? Number(options.chapterNo)
-    : (rawOutline.chapterNo != null ? Number(rawOutline.chapterNo)
-    : (rawOutline.chapter && rawOutline.chapter.chapterNo != null ? Number(rawOutline.chapter.chapterNo)
-    : (debtSelection.currentChapterNo != null ? Number(debtSelection.currentChapterNo) : null)));
-  const outlineRevision = options.outlineRevision ?? rawOutline.planRevision ?? rawOutline.revision ?? (rawOutline.provenance && rawOutline.provenance.revision) ?? null;
-  const outlineHash = options.outlineHash || rawOutline.outlineHash || rawOutline.hash || (rawOutline.provenance && rawOutline.provenance.outlineHash) || null;
+  const resolvedChapterId = toCleanId(safeOptions.chapterId) ??
+    toCleanId(safeOptions.currentChapterId) ??
+    toCleanId(originalInput.chapterId) ??
+    toCleanId(originalInput.currentChapterId) ??
+    toCleanId(rawOutline.chapterId) ??
+    toCleanId(rawOutline.id) ??
+    toCleanId(rawOutline.chapter && rawOutline.chapter.id) ??
+    toCleanId(rawOutline.chapter && rawOutline.chapter.chapterId) ??
+    toCleanId(prepared.chapterContract && (prepared.chapterContract.chapterId ?? prepared.chapterContract.id)) ??
+    toCleanId(prepared.sceneContract && (prepared.sceneContract.chapterId ?? prepared.sceneContract.id)) ??
+    null;
 
-  const rawDependencies = rawOutline.dependencies || (rawOutline.chapter && rawOutline.chapter.dependencies) || [];
-  const outlineDependenciesIncluded = Array.isArray(rawDependencies) ? rawDependencies : (rawDependencies ? [rawDependencies] : []);
+  const resolvedChapterNo = getFirstFiniteNum(
+    safeOptions.chapterNo, safeOptions.currentChapterNo, safeOptions.chapterNumber,
+    originalInput.chapterNo, originalInput.currentChapterNo, originalInput.chapterNumber,
+    rawOutline.chapterNo, rawOutline.chapterNumber,
+    rawOutline.chapter && (rawOutline.chapter.chapterNo ?? rawOutline.chapter.chapterNumber),
+    prepared.chapterContract && (prepared.chapterContract.chapterNo ?? prepared.chapterContract.currentChapterNo),
+    prepared.sceneContract && (prepared.sceneContract.chapterNo ?? prepared.sceneContract.currentChapterNo),
+    debtSelection.currentChapterNo
+  );
 
-  const outlineImpact = options.outlineImpact || rawOutline.outlineImpact || rawOutline.impact || {
-    completed: [], deferred: [], changed: [], omitted: []
+  const outlineRevision = getFirstFiniteNum(
+    safeOptions.outlineRevision, safeOptions.planRevision, safeOptions.revision,
+    originalInput.outlineRevision, originalInput.planRevision, originalInput.revision,
+    rawOutline.planRevision, rawOutline.revision,
+    rawOutline.chapter && (rawOutline.chapter.planRevision ?? rawOutline.chapter.revision),
+    rawOutline.provenance && rawOutline.provenance.revision
+  );
+
+  const outlineHash = toCleanHash(safeOptions.outlineHash) ??
+    toCleanHash(originalInput.outlineHash) ??
+    toCleanHash(rawOutline.outlineHash) ??
+    toCleanHash(rawOutline.hash) ??
+    toCleanHash(rawOutline.chapter && rawOutline.chapter.outlineHash) ??
+    toCleanHash(rawOutline.provenance && rawOutline.provenance.outlineHash) ??
+    null;
+
+  const rawDependencies = safeOptions.outlineDependenciesIncluded ?? safeOptions.outlineDependencies ?? safeOptions.dependencies ??
+    rawOutline.dependencies ?? (rawOutline.chapter && rawOutline.chapter.dependencies) ??
+    originalInput.outlineDependenciesIncluded ?? originalInput.outlineDependencies ?? originalInput.dependencies ?? [];
+  const outlineDependenciesIncluded = (Array.isArray(rawDependencies) ? rawDependencies : (rawDependencies != null && rawDependencies !== '' ? [rawDependencies] : []))
+    .map(safeItemString)
+    .filter(Boolean);
+
+  const rawImpact = (safeOptions.outlineImpact && typeof safeOptions.outlineImpact === 'object' && !Array.isArray(safeOptions.outlineImpact))
+    ? safeOptions.outlineImpact
+    : ((rawOutline.outlineImpact && typeof rawOutline.outlineImpact === 'object' && !Array.isArray(rawOutline.outlineImpact))
+      ? rawOutline.outlineImpact
+      : ((rawOutline.impact && typeof rawOutline.impact === 'object' && !Array.isArray(rawOutline.impact))
+        ? rawOutline.impact
+        : ((originalInput.outlineImpact && typeof originalInput.outlineImpact === 'object' && !Array.isArray(originalInput.outlineImpact))
+          ? originalInput.outlineImpact
+          : ((originalInput.impact && typeof originalInput.impact === 'object' && !Array.isArray(originalInput.impact))
+            ? originalInput.impact
+            : {}))));
+  const toArr = val => {
+    if (Array.isArray(val)) return val.map(safeItemString).filter(Boolean);
+    if (val != null && val !== '') {
+      const s = safeItemString(val);
+      return s ? [s] : [];
+    }
+    return [];
+  };
+  const outlineImpact = {
+    ...rawImpact,
+    completed: toArr(rawImpact.completed),
+    deferred: toArr(rawImpact.deferred),
+    changed: toArr(rawImpact.changed),
+    omitted: toArr(rawImpact.omitted)
   };
 
   const contextTruncationReasons = blockDecisions
@@ -758,9 +903,11 @@ function assembleContext(input = {}, options = {}) {
     }));
 
   const stateDeltaCommitted = Boolean(
-    options.stateDeltaCommitted ||
-    options.stateDelta ||
-    (prepared.stateDelta && Object.keys(prepared.stateDelta).length > 0)
+    safeOptions.stateDeltaCommitted ||
+    originalInput.stateDeltaCommitted ||
+    safeOptions.stateDelta ||
+    originalInput.stateDelta ||
+    (prepared.stateDelta && typeof prepared.stateDelta === 'object' && Object.keys(prepared.stateDelta).length > 0)
   );
 
   const outlineAudit = {
@@ -856,7 +1003,7 @@ function assembleContext(input = {}, options = {}) {
       renderedContextTokens, omittedBlocks
     });
   }
-  return { text: contextText, blocks: includedBlocks, contextPlan };
+  return { text: contextText, blocks: includedBlocks, contextPlan, outlineAudit };
 }
 
 module.exports = {

@@ -57,28 +57,58 @@ function assembleContext(db, bookId, query = {}, styleProfilesOverride) {
   return manifest;
 }
 
+function getFirstFiniteNum(...vals) {
+  for (const v of vals) {
+    if (v == null || typeof v === 'boolean' || Array.isArray(v)) continue;
+    if (typeof v === 'string' && v.trim() === '') continue;
+    if (typeof v === 'object') {
+      if (v.chapterNo != null && Number.isFinite(Number(v.chapterNo))) return Number(v.chapterNo);
+      if (v.chapterNumber != null && Number.isFinite(Number(v.chapterNumber))) return Number(v.chapterNumber);
+      if (v.revision != null && Number.isFinite(Number(v.revision))) return Number(v.revision);
+      continue;
+    }
+    const num = Number(v);
+    if (Number.isFinite(num)) return num;
+  }
+  return null;
+}
+
 function selectRelevantPlans(plans = [], query = {}) {
   const safePlans = Array.isArray(plans) ? plans : [];
   const safeQuery = query && typeof query === 'object' ? query : {};
 
-  const currentChapterRaw = safeQuery.chapterNumber ?? safeQuery.chapterNo ?? safeQuery.currentChapterNo;
-  const currentChapter = currentChapterRaw != null && Number.isFinite(Number(currentChapterRaw))
-    ? Number(currentChapterRaw)
+  const currentChapter = getFirstFiniteNum(
+    safeQuery.chapterNumber, safeQuery.chapterNo, safeQuery.currentChapterNo
+  );
+  const currentChapterId = (safeQuery.chapterId != null && typeof safeQuery.chapterId !== 'object' && String(safeQuery.chapterId).trim() !== '')
+    ? String(safeQuery.chapterId).trim()
     : null;
-  const currentChapterId = safeQuery.chapterId != null ? String(safeQuery.chapterId) : null;
+  const currentVolume = getFirstFiniteNum(
+    safeQuery.volumeNo, safeQuery.volumeNumber, safeQuery.currentVolumeNo,
+    (safeQuery.volumeId != null && typeof safeQuery.volumeId !== 'object' ? String(safeQuery.volumeId).replace(/\D+/g, '') : null)
+  );
 
+  const toList = val => Array.isArray(val) ? val : (val != null && val !== '' ? [val] : []);
   const rawChars = [
     safeQuery.povId,
-    ...(Array.isArray(safeQuery.castIds) ? safeQuery.castIds : (safeQuery.castIds ? [safeQuery.castIds] : [])),
-    ...(Array.isArray(safeQuery.characters) ? safeQuery.characters : (safeQuery.characters ? [safeQuery.characters] : []))
-  ].filter(Boolean);
-  const currentCharSet = new Set(rawChars.map(c => String(c && typeof c === 'object' ? (c.id != null ? c.id : c.name || '') : (c != null ? c : '')).trim()).filter(Boolean));
+    ...toList(safeQuery.castIds),
+    ...toList(safeQuery.characters)
+  ];
+  const currentCharSet = new Set(
+    rawChars
+      .map(c => String(c && typeof c === 'object' ? (c.id != null ? c.id : (c.characterId != null ? c.characterId : (c.name || ''))) : (c != null ? c : '')).trim())
+      .filter(Boolean)
+  );
 
   const rawRequired = [
-    ...(Array.isArray(safeQuery.requiredPlanIds) ? safeQuery.requiredPlanIds : (safeQuery.requiredPlanIds ? [safeQuery.requiredPlanIds] : [])),
-    ...(Array.isArray(safeQuery.requiredIds) ? safeQuery.requiredIds : (safeQuery.requiredIds ? [safeQuery.requiredIds] : []))
-  ].filter(Boolean);
-  const requiredPlanSet = new Set(rawRequired.map(String));
+    ...toList(safeQuery.requiredPlanIds),
+    ...toList(safeQuery.requiredIds)
+  ];
+  const requiredPlanSet = new Set(
+    rawRequired
+      .map(x => String(x && typeof x === 'object' ? (x.id != null ? x.id : '') : (x != null ? x : '')).trim())
+      .filter(Boolean)
+  );
 
   const timelineId = safeQuery.timelineId || 't0';
   const cycleId = safeQuery.cycleId || 'c0';
@@ -90,8 +120,8 @@ function selectRelevantPlans(plans = [], query = {}) {
 
   for (const raw of safePlans) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
-    const id = String(raw.id || '');
-    const revision = Number(raw.revision) || 1;
+    const id = String(raw.id != null ? raw.id : '');
+    const revision = (raw.revision != null && Number.isFinite(Number(raw.revision))) ? Number(raw.revision) : 1;
     const status = String(raw.status || 'planned').trim().toLowerCase();
 
     // 1. Status Gate: filter out completed and abandoned
@@ -115,9 +145,12 @@ function selectRelevantPlans(plans = [], query = {}) {
     }
 
     // Specific chapterId mismatch check
-    if (currentChapterId && (raw.chapterId || raw.chapter_id)) {
-      const planChId = String(raw.chapterId || raw.chapter_id);
-      if (currentChapterId !== planChId && !requiredPlanSet.has(id)) {
+    const planChIdRaw = raw.chapterId ?? raw.chapter_id;
+    const planChIdVal = (planChIdRaw != null && typeof planChIdRaw !== 'object' && String(planChIdRaw).trim() !== '')
+      ? String(planChIdRaw).trim()
+      : null;
+    if (currentChapterId != null && planChIdVal != null) {
+      if (currentChapterId !== planChIdVal && !requiredPlanSet.has(id)) {
         decisions.push({ id, revision, reason: 'chapter_id_mismatch', included: false });
         excludedReasons.push({ id, reason: 'chapter_id_mismatch' });
         continue;
@@ -125,18 +158,19 @@ function selectRelevantPlans(plans = [], query = {}) {
     }
 
     // 2. Participant IDs
-    let participantIds = raw.participantIds || raw.participant_ids || raw.participant_ids_json || [];
+    let participantIds = raw.participantIds ?? raw.participant_ids ?? raw.participant_ids_json ?? [];
     if (typeof participantIds === 'string') {
       try { participantIds = JSON.parse(participantIds); } catch (_) { participantIds = []; }
     }
     const participants = (Array.isArray(participantIds) ? participantIds : [])
-      .map(p => String(p && typeof p === 'object' ? (p.id != null ? p.id : p.name || '') : (p != null ? p : '')).trim())
+      .map(p => String(p && typeof p === 'object' ? (p.id != null ? p.id : (p.characterId != null ? p.characterId : (p.name || ''))) : (p != null ? p : '')).trim())
       .filter(Boolean);
 
     // 3. Chapter range analysis & scoring
-    const hasExplicitRange = Boolean(raw.targetChapterRange || raw.target_chapter_range);
-    const targetRangeStr = String(raw.targetChapterRange || raw.target_chapter_range ||
-      (raw.chapterNo != null ? String(raw.chapterNo) : (raw.chapter_no != null ? String(raw.chapter_no) : ''))).trim();
+    const explicitRangeVal = raw.targetChapterRange ?? raw.target_chapter_range;
+    const explicitChapterNo = raw.chapterNo ?? raw.chapter_no;
+    const hasExplicitRange = explicitRangeVal != null && String(explicitRangeVal).trim() !== '';
+    const targetRangeStr = String(explicitRangeVal != null ? explicitRangeVal : (explicitChapterNo != null ? explicitChapterNo : '')).trim();
 
     let score = 0;
     let matchReason = '';
@@ -198,13 +232,14 @@ function selectRelevantPlans(plans = [], query = {}) {
     }
 
     if (score > 0) {
+      const rawText = String(raw.content || raw.summary || raw.planText || raw.plan_text || raw.description || raw.plan || raw.text || raw.goal || '');
       candidates.push({
         score,
         plan: {
           id,
           title: String(raw.title || ''),
-          content: String(raw.content || raw.summary || raw.planText || raw.plan_text || '').slice(0, 300),
-          summary: raw.summary ? String(raw.summary).trim().slice(0, 150) : String(raw.content || '').trim().slice(0, 80),
+          content: rawText.slice(0, 300),
+          summary: raw.summary ? String(raw.summary).trim().slice(0, 150) : rawText.trim().slice(0, 80),
           targetChapterRange: targetRangeStr,
           chapterNo: raw.chapterNo ?? raw.chapter_no,
           participantIds: participants,
@@ -229,7 +264,7 @@ function selectRelevantPlans(plans = [], query = {}) {
   // 5. Stable sorting by score desc, then plan.id asc
   candidates.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-    return a.plan.id.localeCompare(b.plan.id);
+    return String(a.plan.id).localeCompare(String(b.plan.id));
   });
 
   // 6. Top-N capping: default Top 3 items (max 5)
@@ -264,18 +299,19 @@ function selectRelevantPlans(plans = [], query = {}) {
 }
 
 function compileContext({ bookId, branchId, version, facts, cognitions, policies, profiles = [], plans = [], sourceCurrent }, query = {}) {
+  const safeQuery = (query && typeof query === 'object') ? query : {};
   const sourceInput = { facts, cognitions, policies, profiles, plans };
-  const timelineId = query.timelineId || 't0', cycleId = query.cycleId || 'c0';
-  policies = policies.filter(policy => policyApplies(policy, query));
-  facts = facts.filter(f => (f.timelineId || 't0') === timelineId && (f.cycleId || 'c0') === cycleId && applicableTime(f, query.storyTime));
-  cognitions = cognitions.filter(c => (c.timelineId || 't0') === timelineId && (c.cycleId || 'c0') === cycleId && applicableTime(c, query.storyTime) && (!c.acquiredTimeRef || query.storyTime && c.acquiredTimeRef <= query.storyTime));
-  if (query.stateVersion !== undefined && Number(query.stateVersion) !== version) workflow.fail('MEMORY_VERSION_CONFLICT');
+  const timelineId = safeQuery.timelineId || 't0', cycleId = safeQuery.cycleId || 'c0';
+  policies = policies.filter(policy => policyApplies(policy, safeQuery));
+  facts = facts.filter(f => (f.timelineId || 't0') === timelineId && (f.cycleId || 'c0') === cycleId && applicableTime(f, safeQuery.storyTime));
+  cognitions = cognitions.filter(c => (c.timelineId || 't0') === timelineId && (c.cycleId || 'c0') === cycleId && applicableTime(c, safeQuery.storyTime) && (!c.acquiredTimeRef || safeQuery.storyTime && c.acquiredTimeRef <= safeQuery.storyTime));
+  if (safeQuery.stateVersion !== undefined && Number(safeQuery.stateVersion) !== version) workflow.fail('MEMORY_VERSION_CONFLICT');
   const includedReasons = [];
   const excludedReasons = [];
   const writingFacts = [];
   const hidden = new Set();
   const implied = new Set();
-  const required = new Set(query.requiredIds || []);
+  const required = new Set(safeQuery.requiredIds || []);
   for (const fact of facts) {
     const rules = policies.filter(policy => policy.target_info_id === fact.propositionId || policy.target_info_id === fact.id);
     let reason = '';
@@ -293,7 +329,7 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
       includedReasons.push({ id: fact.id, revision: fact.revision, reason: 'disclosure_policy_imply' });
       continue;
     }
-    if (query.povId && !cognitions.some(record => record.holderEntityId === query.povId &&
+    if (safeQuery.povId && !cognitions.some(record => record.holderEntityId === safeQuery.povId &&
         record.targetExpressionId === fact.propositionId && record.attitude === 'knows' && record.awareness !== 'unaware')) {
       excludedReasons.push({ id: fact.id, reason: 'pov_knowledge_not_established' });
       continue;
@@ -301,7 +337,7 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
     writingFacts.push(fact);
     includedReasons.push({ id: fact.id, revision: fact.revision, reason: 'applicable_confirmed_fact' });
   }
-  const writingCognitions = query.povId ? cognitions.filter(record => record.holderEntityId === query.povId &&
+  const writingCognitions = safeQuery.povId ? cognitions.filter(record => record.holderEntityId === safeQuery.povId &&
     !hidden.has(record.targetExpressionId) && !implied.has(record.targetExpressionId)).map(record => {
       const { nestedCognition, ...visible } = record;
       return { ...visible, nestedCognition: {}, nestedExpansion: Object.keys(nestedCognition || {}).length
@@ -311,13 +347,13 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
     if (!writingFacts.some(record => record.id === id || record.propositionId === id)) workflow.fail('REQUIRED_CONTEXT_UNAVAILABLE', 422);
   }
   const styles = require('./style-system');
-  const styleBundle = styles.compileStyleBundle(profiles, query);
+  const styleBundle = styles.compileStyleBundle(profiles, safeQuery);
 
   const {
     selectedPlans: writingPlans,
     includedReasons: planIncludedReasons,
     excludedReasons: planExcludedReasons
-  } = selectRelevantPlans(plans, query);
+  } = selectRelevantPlans(plans, safeQuery);
 
   for (const inc of planIncludedReasons) {
     includedReasons.push(inc);
@@ -327,25 +363,25 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
   }
 
   const writingPackage = { facts: writingFacts, cognitions: writingCognitions, style: styleBundle, plans: writingPlans };
-  const budget = query.budgetTokens == null ? 4000 : Number(query.budgetTokens);
-  const reserve = query.outputReserve == null ? 0 : Number(query.outputReserve);
+  const budget = safeQuery.budgetTokens == null ? 4000 : Number(safeQuery.budgetTokens);
+  const reserve = safeQuery.outputReserve == null ? 0 : Number(safeQuery.outputReserve);
   if (!Number.isInteger(budget) || budget <= 0 || !Number.isInteger(reserve) || reserve < 0 || reserve >= budget) workflow.fail('INVALID_CONTEXT_BUDGET', 422);
   const estimate = value => Math.ceil(JSON.stringify(value).length * 2);
   if (estimate(writingPackage) > budget - reserve) workflow.fail('CONTEXT_BUDGET_EXCEEDED', 422);
   let compiled;
   try {
     const assembleInput = {
-      currentTask: query.currentTask || query.prompt || '',
+      currentTask: safeQuery.currentTask || safeQuery.prompt || '',
       hardState: writingFacts,
       povKnowledge: writingCognitions,
       styleSamples: styleBundle
     };
-    if (query.outlineContext) {
-      assembleInput.outlineContext = query.outlineContext;
+    if (safeQuery.outlineContext) {
+      assembleInput.outlineContext = safeQuery.outlineContext;
     }
     if (writingPlans.length > 0) {
       assembleInput.storyPlans = writingPlans;
-      if (!query.outlineContext && !query.currentChapterOutline) {
+      if (!safeQuery.outlineContext && !safeQuery.currentChapterOutline) {
         assembleInput.currentChapterOutline = writingPlans
           .map(p => `${p.title ? p.title + ': ' : ''}${p.summary || p.content || ''}`.trim())
           .filter(Boolean)
@@ -353,21 +389,21 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
       }
     }
     compiled = require('./generation/context').assembleContext(assembleInput, {
-      model: query.modelId || 'default', provider: query.provider || 'default', hardLimit: budget,
+      model: safeQuery.modelId || 'default', provider: safeQuery.provider || 'default', hardLimit: budget,
       outputReserve: reserve, reservedInputTokens: 0,
-      chapterNo: query.chapterNo,
-      chapterId: query.chapterId
+      chapterNo: getFirstFiniteNum(safeQuery.chapterNo, safeQuery.chapterNumber, safeQuery.currentChapterNo),
+      chapterId: safeQuery.chapterId ?? safeQuery.chapter_id ?? safeQuery.currentChapterId
     });
   } catch (error) {
     if (error.code === 'CONTEXT_OVERFLOW') workflow.fail('CONTEXT_BUDGET_EXCEEDED', 422);
     throw error;
   }
-  const selectionInput = Object.fromEntries(Object.entries(query).filter(([key]) => !['userId', 'projectId', 'workspaceId', 'bookId'].includes(key)));
+  const selectionInput = Object.fromEntries(Object.entries(safeQuery).filter(([key]) => !['userId', 'projectId', 'workspaceId', 'bookId'].includes(key)));
   const id = `manif_${crypto.randomUUID()}`;
   const manifest = {
     id, bookId, branchId, stateVersion: version, writingPackage, compiledContext: compiled.text, contextPlan: compiled.contextPlan,
     auditPackage: { facts, cognitions, plans,
-      inputMetadata: { timelineId, cycleId, storyTime: query.storyTime || '', povId: query.povId || '',
+      inputMetadata: { timelineId, cycleId, storyTime: safeQuery.storyTime || '', povId: safeQuery.povId || '',
         policyVersions: policies.map(policy => ({ id: policy.id, revision: policy.revision })),
         styleVersions: profiles.map(profile => ({ id: profile.id, revision: profile.revision })),
         templateVersion: 'memory-context-v2', outputReserve: reserve,
@@ -378,7 +414,7 @@ function compileContext({ bookId, branchId, version, facts, cognitions, policies
     inputHash: workflow.digest({ bookId, branchId, version, selectionInput, sourceInput, writingPackage,
       templateVersion: 'memory-context-v2', estimator: 'conservative-utf16-v1', compilerStrategy: compiled.contextPlan.contextStrategyVersion,
       compilerEstimator: compiled.contextPlan.replayManifest.budget.estimator }),
-    modelId: query.modelId || '', createdAt: Date.now()
+    modelId: safeQuery.modelId || '', createdAt: Date.now()
   };
   return manifest;
 }
