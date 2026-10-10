@@ -5,12 +5,17 @@ node_modules/
 data/config.json
 data/*.db
 data/*.db-*
+data/molan.db.backup*
 data/users.json
 data/sessions.json
 data/token_usage.json
 data/user_skills.json
 data/global_skills.json
 data/admin_audit.json
+data/legacy-archive/users.json
+data/legacy-archive/admin_audit.json
+data/legacy-archive/global_skills.json
+data/legacy-archive/*.db*
 data/xuanhuan-lab/*.db*
 data/character-material-*/
 data/genre-lab/extracted-triplets/

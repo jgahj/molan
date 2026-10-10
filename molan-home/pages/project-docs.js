@@ -269,7 +269,7 @@
         '<div class="resource-card__head"><strong>' + esc(resource.id) + '</strong><span>v' + esc(resource.revision) + '</span></div>' +
         '<div class="resource-card__meta">' + esc(resource.status || 'active') + ' · ' + esc(new Date(resource.updatedAt || Date.now()).toLocaleString('zh-CN')) + '</div>' +
         '<pre class="resource-card__preview">' + esc(resourcePreview(resource)) + '</pre>' +
-        '<div class="resource-card__actions"><button type="button" data-edit-id="' + esc(resource.id) + '">编辑</button><button type="button" data-history-id="' + esc(resource.id) + '">历史</button><button type="button" class="danger" data-delete-id="' + esc(resource.id) + '">归档</button></div>' +
+        '<div class="resource-card__actions"><button type="button" data-cite-id="' + esc(resource.id) + '" style="color:var(--amber,#b45309);font-weight:600">📌 引用至 AI</button><button type="button" data-edit-id="' + esc(resource.id) + '">编辑</button><button type="button" data-history-id="' + esc(resource.id) + '">历史</button><button type="button" class="danger" data-delete-id="' + esc(resource.id) + '">归档</button></div>' +
       '</article>';
     }).join('') : '<div class="docs-status">当前类型暂无资料，可新建一条。</div>';
     $('resourceStatus').textContent = filtered.length + ' 条';
@@ -288,6 +288,15 @@
     creationBookId = String(projectState.creationBookId || new URLSearchParams(location.search).get('bookId') || '').trim();
     $('projectTitle').textContent = novel.title || projectState.title || '作品资料中心';
     $('backEditor').href = '../index.html?nid=' + encodeURIComponent(projectId) + '#editor';
+    if (!$('backEditor').dataset.postHooked) {
+      $('backEditor').dataset.postHooked = 'true';
+      $('backEditor').addEventListener('click', function (event) {
+        if (window.parent && window.parent !== window) {
+          event.preventDefault();
+          window.parent.postMessage({ type: 'molan:navigate', page: 'editor', novelId: projectId }, '*');
+        }
+      });
+    }
     $('storyWorkbench').href = './story-workbench.html?nid=' + encodeURIComponent(projectId) +
       (creationBookId ? '&bookId=' + encodeURIComponent(creationBookId) : '');
     renderBase();
@@ -552,6 +561,41 @@
       loadResources().catch(function (error) { toast(error.message || '资料读取失败'); });
     });
     $('resourceSearch').addEventListener('input', renderResources);
+  $('resourceList').addEventListener('click', function (event) {
+    var citeBtn = event.target.closest('[data-cite-id]');
+    if (citeBtn) {
+      var resId = citeBtn.dataset.citeId;
+      var res = resources.find(function (r) { return r && r.id === resId; });
+      if (!res) return;
+      var content = JSON.stringify(res.payload || {}, null, 2);
+      var citeText = '【作品资料：' + resId + '】\n' + content;
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'molan:cite-to-prompt',
+          text: citeText,
+          title: '资料 ' + resId
+        }, '*');
+        toast('已引用至 AI 编辑器提示词！');
+      } else if (window.opener && window.opener !== window) {
+        window.opener.postMessage({
+          type: 'molan:cite-to-prompt',
+          text: citeText,
+          title: '资料 ' + resId
+        }, '*');
+        toast('已直传至 AI 编辑器提示词！');
+      } else {
+        localStorage.setItem('molan_external_cite', JSON.stringify({
+          text: citeText,
+          title: '资料 ' + resId,
+          time: Date.now()
+        }));
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(citeText).catch(function () {});
+        }
+        toast('已复制并暂存资料「' + resId + '」，切回编辑器即可载入！');
+      }
+    }
+  });
     $('newResourceBtn').addEventListener('click', function () { openResource(null); });
     $('resourceCloseBtn').addEventListener('click', closeResource);
     $('resourceDialog').addEventListener('click', function (event) { if (event.target === $('resourceDialog')) closeResource(); });

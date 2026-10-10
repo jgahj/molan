@@ -14,6 +14,11 @@
  * 3. 仅允许 A/B 级高质量策略卡注入编译流水线，防止作者个人癖好或坏味道污染生成。
  */
 
+const path = require('node:path');
+const fs = require('node:fs');
+
+const DEFAULT_KB_DIR = path.resolve(__dirname, '../../../data/strategy-knowledge-base');
+
 function calculateStatisticalStrength(stats = {}) {
   const conf = Math.max(0, Math.min(1, Number(stats.confidence ?? 0.85)));
   const lift = Number(stats.qualityLift ?? 0.15);
@@ -167,9 +172,7 @@ class EvidenceCatalog {
   }
 
   _checkHotReload(customBaseDir = null) {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const baseDir = customBaseDir || this._activeBaseDir || path.join(process.cwd(), 'data', 'strategy-knowledge-base');
+    const baseDir = customBaseDir || this._activeBaseDir || DEFAULT_KB_DIR;
     const pointerFile = path.join(baseDir, 'active_package.json');
     if (!fs.existsSync(pointerFile)) return;
 
@@ -227,9 +230,7 @@ class EvidenceCatalog {
    * @returns {number} 成功加载的规则卡数
    */
   loadActivePublishedPackage(customKnowledgeBaseDir = null) {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const baseDir = customKnowledgeBaseDir || this._activeBaseDir || path.join(process.cwd(), 'data', 'strategy-knowledge-base');
+    const baseDir = customKnowledgeBaseDir || this._activeBaseDir || DEFAULT_KB_DIR;
     this._activeBaseDir = baseDir;
     const pointerFile = path.join(baseDir, 'active_package.json');
     if (!fs.existsSync(pointerFile)) return 0;
@@ -254,9 +255,7 @@ class EvidenceCatalog {
   }
 
   loadFromPublishedPackage(packageDir, customBaseDir = null) {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const baseDir = customBaseDir || this._activeBaseDir || path.join(process.cwd(), 'data', 'strategy-knowledge-base');
+    const baseDir = customBaseDir || this._activeBaseDir || DEFAULT_KB_DIR;
     const resolvedPackageDir = path.isAbsolute(packageDir)
       ? packageDir
       : (fs.existsSync(packageDir) ? path.resolve(packageDir) : path.resolve(baseDir, packageDir));

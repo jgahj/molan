@@ -51,8 +51,12 @@ function loadDefectDetectionInputs(options = {}) {
   const baseDir = path.resolve(__dirname, '..');
 
   // 1. GeneratedNovelProfile
-  const genProfilePath = options.generatedProfilePath ||
-    path.join(baseDir, 'data/evaluation-input/generated-novel-profiles/月圆夜前的布局-profile.json');
+  let genProfilePath = options.generatedProfilePath;
+  if (!genProfilePath) {
+    const defaultPath = path.join(baseDir, 'data/evaluation-input/generated-novel-profiles/月圆夜前的布局-profile.json');
+    const archivePath = path.join(baseDir, 'data/legacy-archive/evaluation-input/generated-novel-profiles/月圆夜前的布局-profile.json');
+    genProfilePath = fs.existsSync(defaultPath) ? defaultPath : archivePath;
+  }
   const generatedProfile = fs.existsSync(genProfilePath)
     ? JSON.parse(fs.readFileSync(genProfilePath, 'utf8'))
     : null;

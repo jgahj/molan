@@ -1003,7 +1003,7 @@
         return shell('story-workbench', `<div class="panel empty" style="padding:48px;max-width:560px;margin:40px auto;text-align:center"><div class="empty-icon">—</div><h3>请先选择一本小说</h3><p style="color:var(--muted);margin:8px 0 20px">长篇记忆与文风工作台需要基于具体的小说档案与设定进行研判。</p><button class="button primary" data-page="novels">打开我的小说</button></div>`, 'workbench-page');
       }
       const url = `./pages/story-workbench.html?nid=${encodeURIComponent(activeNid)}`;
-      return shell('story-workbench', `<div class="embedded-workbench-wrap" style="height:calc(100vh - 160px);min-height:600px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--paper)"><iframe src="${url}" style="width:100%;height:100%;border:none" title="故事记忆与文风工作台"></iframe></div>`, 'workbench-page');
+      return shell('story-workbench', `<div class="workbench-fusion-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--paper-warm);border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;margin-bottom:0"><div style="display:flex;align-items:center;gap:10px"><button class="button" data-page="editor" style="font-size:12px;display:flex;align-items:center;gap:4px">${icon('arrow-left')}返回 AI 小说编辑器</button><span class="badge blue">已联动当前作品</span><span style="font-size:12px;color:var(--muted)">正文与记忆变更可一键双向流转</span></div><div style="display:flex;gap:8px"><a class="button" href="${url}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开 (/browser)</a></div></div><div class="embedded-workbench-wrap" style="height:calc(100vh - 210px);min-height:560px;border-radius:0 0 8px 8px;overflow:hidden;border:1px solid var(--line);background:var(--paper)"><iframe src="${url}" style="width:100%;height:100%;border:none" title="故事记忆与文风工作台"></iframe></div>`, 'workbench-page');
     }
 
     function projectDocsPage() {
@@ -1012,7 +1012,7 @@
         return shell('project-docs', `<div class="panel empty" style="padding:48px;max-width:560px;margin:40px auto;text-align:center"><div class="empty-icon">—</div><h3>请先选择一本小说</h3><p style="color:var(--muted);margin:8px 0 20px">全套创作资料需要基于具体的小说档案进行分板块维护。</p><button class="button primary" data-page="novels">打开我的小说</button></div>`, 'workbench-page');
       }
       const url = `./pages/project-docs.html?nid=${encodeURIComponent(activeNid)}`;
-      return shell('project-docs', `<div class="embedded-workbench-wrap" style="height:calc(100vh - 160px);min-height:600px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--paper)"><iframe src="${url}" style="width:100%;height:100%;border:none" title="全套创作资料"></iframe></div>`, 'workbench-page');
+      return shell('project-docs', `<div class="workbench-fusion-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--paper-warm);border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;margin-bottom:0"><div style="display:flex;align-items:center;gap:10px"><button class="button" data-page="editor" style="font-size:12px;display:flex;align-items:center;gap:4px">${icon('arrow-left')}返回 AI 小说编辑器</button><span class="badge blue">已联动当前作品</span><span style="font-size:12px;color:var(--muted)">七大资料板块与 AI 提示词已无缝打通</span></div><div style="display:flex;gap:8px"><a class="button" href="${url}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开 (/browser)</a></div></div><div class="embedded-workbench-wrap" style="height:calc(100vh - 210px);min-height:560px;border-radius:0 0 8px 8px;overflow:hidden;border:1px solid var(--line);background:var(--paper)"><iframe src="${url}" style="width:100%;height:100%;border:none" title="全套创作资料"></iframe></div>`, 'workbench-page');
     }
 
     const renderers = { overview: overviewPage, novels: novelsPage, editor: editorPage, resources: resourcesPage, outline: outlinePage, dissect: dissectPage, creation: () => typeof creationPage === 'function' ? creationPage() : '<div class="page-shell"><div class="empty"><p>创书任务正在加载…</p></div></div>', knowledge: knowledgePage, skills: skillsPage, tools: toolsPage, billing: billingPage, docs: docsPage, account: accountPage, login: loginPage, features: featuresPage, blog: blogPage, 'admin-login': adminLoginPage, admin: adminPage, 'story-workbench': storyWorkbenchPage, 'project-docs': projectDocsPage };
@@ -3941,6 +3941,52 @@
     });
     document.getElementById('modalBackdrop').addEventListener('click', (event) => { if (event.target.id === 'modalBackdrop') closeModal(); });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && document.getElementById('modalBackdrop').classList.contains('open')) closeModal(); });
+    window.addEventListener('message', (event) => {
+      if (!event || !event.data) return;
+      const data = event.data;
+      if (data.type === 'molan:navigate') {
+        if (data.novelId && window.previewState) {
+          window.previewState.novelId = data.novelId;
+        }
+        if (typeof renderPage === 'function') {
+          renderPage(data.page || 'editor');
+        }
+      } else if (data.type === 'molan:apply-draft-to-editor') {
+        if (typeof window.MolanEditorApplyExternalDraft === 'function') {
+          window.MolanEditorApplyExternalDraft(data.text);
+        } else if (window.previewState) {
+          window.previewState.editorBody = data.text;
+          const paper = document.querySelector('[data-completion-paper] .completion-editor-content') || document.querySelector('.editor-paper');
+          if (paper) paper.innerHTML = data.text.replace(/\n/g, '<br>');
+          showToast('已将正文从工作台同步至编辑器！');
+        }
+      } else if (data.type === 'molan:cite-to-prompt') {
+        if (typeof window.MolanEditorCiteToPrompt === 'function') {
+          window.MolanEditorCiteToPrompt(data.text, data.title);
+        }
+      }
+    });
+
+    window.addEventListener('storage', event => {
+      if (!event) return;
+      if (event.key === 'molan_external_cite' && event.newValue) {
+        try {
+          const item = JSON.parse(event.newValue);
+          if (item && item.text && typeof window.MolanEditorCiteToPrompt === 'function') {
+            window.MolanEditorCiteToPrompt(item.text, item.title || '外部资料');
+          }
+        } catch (_) {}
+      }
+      if (event.key === 'molan_external_draft' && event.newValue) {
+        try {
+          const item = JSON.parse(event.newValue);
+          if (item && item.text && typeof window.MolanEditorApplyExternalDraft === 'function') {
+            window.MolanEditorApplyExternalDraft(item.text);
+          }
+        } catch (_) {}
+      }
+    });
+
     let backendAuthSyncTimer = 0;
     window.addEventListener('storage', event => {
       if (!event || !['ml_token', 'ml_user', 'ml_remember_me'].includes(event.key)) return;
