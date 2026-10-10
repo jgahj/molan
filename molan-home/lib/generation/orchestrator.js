@@ -791,6 +791,7 @@ function createGenerationOrchestrator(options = {}) {
         contract,
         contractHash: contractHash(contract),
         contextPlan: context.contextPlan,
+        outlineAudit: (context && context.outlineAudit) || (context.contextPlan ? (context.contextPlan.outlineAudit || null) : null),
         contextHash: context.contextPlan.contextHash,
         genreResolution: genre,
         styleResolution: style,
@@ -816,7 +817,9 @@ function createGenerationOrchestrator(options = {}) {
         stateSnapshotHash: (current.manifest && current.manifest.stateSnapshotHash) || draftManifest.stateSnapshotHash || String(authoritative.snapshotHash || ''),
         contextHash: context.contextPlan.contextHash,
         contractHash: contractHash(contract),
-        outputHash: hashValue(draft)
+        outputHash: hashValue(draft),
+        outlineAudit: (context && context.outlineAudit) || (context.contextPlan ? (context.contextPlan.outlineAudit || null) : null),
+        contextPlan: context.contextPlan || null
       };
       if (String(finalManifest.outputHash || '') !== hashValue(draft)) throw new GenerationError('MODEL_CONTENT_BLOCKED', 'Writer Manifest 正文摘要发生变化');
       return await move(scope, id, 'waiting_author', { message: '审计通过，等待作者确认' }, result, undefined, finalManifest);
@@ -1196,7 +1199,7 @@ function createGenerationOrchestrator(options = {}) {
     const manifest = run.manifest || {};
 
     const contract = result.contract || (input && (input.chapterContract || input.contract) ? normalizeChapterContract(input.chapterContract || input.contract) : null);
-    const contextPlan = result.contextPlan || null;
+    const contextPlan = result.contextPlan || (manifest && manifest.contextPlan) || null;
     const stateSnapshot = result.stateSnapshot || (result.authoritativeStoryContext ? {
       snapshotHash: result.stateSnapshotHash || manifest.stateSnapshotHash || '',
       storyContext: result.authoritativeStoryContext
@@ -1212,12 +1215,17 @@ function createGenerationOrchestrator(options = {}) {
 
     const hasAll = Boolean(contract && contextPlan && stateSnapshot && styleBundle && genreProfile && promptHash);
 
+    const outlineAudit = (contextPlan && (contextPlan.outlineAudit || contextPlan.replayManifest?.outlineAudit)) ||
+      result.outlineAudit ||
+      (manifest && (manifest.outlineAudit || manifest.replayManifest?.outlineAudit)) ||
+      null;
+
     return {
       generationId: id,
       replayable: hasAll,
       contract,
       contextPlan,
-      outlineAudit: contextPlan ? (contextPlan.outlineAudit || contextPlan.replayManifest?.outlineAudit || null) : null,
+      outlineAudit,
       stateSnapshot,
       styleBundle,
       genreProfile,

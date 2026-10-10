@@ -2,12 +2,18 @@
 
 const crypto = require('node:crypto');
 
-/** 递归排序对象键，保持同一输入得到同一序列化结果。 */
-function stableValue(value) {
-  if (Array.isArray(value)) return value.map(stableValue);
+/** 递归排序对象键，保持同一输入得到同一序列化结果（具备循环引用免疫保护）。 */
+function stableValue(value, seen = new WeakSet()) {
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return '[Circular]';
+    seen.add(value);
+    return value.map(v => stableValue(v, seen));
+  }
   if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
   return Object.keys(value).sort().reduce((result, key) => {
-    if (value[key] !== undefined) result[key] = stableValue(value[key]);
+    if (value[key] !== undefined) result[key] = stableValue(value[key], seen);
     return result;
   }, {});
 }

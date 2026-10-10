@@ -1663,3 +1663,228 @@ molan-home/
   ```
 - **终局交付结论**：《Molan 小说大纲与生成上下文专项审查》（Milestone 1 至 Milestone 5）全量任务彻底闭环交付，代码零硬编码、零空桩、零回归，全链条防伪审计证据真实有效。
 
+---
+
+## 【2026-10-10 阶段交接】Milestone 3 & 4 (Reviewer Round 1) 对抗审查加固、假值防御与审计指标归一化
+
+### 一、项目核心架构与速查索引更新 (Core Architecture Reference)
+
+```text
+molan-home/
+├── lib/
+│   ├── generation/
+│   │   ├── context.js             # 八层上下文编译器：storyPlans 登记至 L2_chapter (Priority 1)，8 维大纲审计指标闭环，outlineImpact 归一化，NaN 防御
+│   │   └── orchestrator.js        # 生成编排器：深度合并保全现场、分级场景规划调度与 getReplay(scope, id) 跨层透传 outlineAudit
+│   ├── memory-context.js          # 长篇记忆上下文：selectRelevantPlans 多维剧情规划提炼，数值 0 防假值坍塌，writingPackage 提升入模
+│   └── scene-planner.js           # 场景规划器：三态完备度识别、事件链推导与因果硬围栏审查
+├── services/
+│   └── generation-service.js      # 生成服务：buildCanonicalOutlineContext 权威规范化大纲装配与章节物理定位
+└── test/
+    ├── reviewer-m3-m4-adversarial.test.js     # Reviewer R1 对抗审查专测 (8 项全部真实通过)
+    ├── memory-plan-elevation.test.js          # M3 记忆计划多维提炼与提升入模专项综合测试 (14 项全部通过)
+    ├── challenger-m3-adversarial.test.js      # M3 对抗探针测试套件 (14 项全部通过)
+    ├── replay-manifest-8dim-audit.test.js      # M4 8 维指标闭环与 getReplay 暴露专项测试 (3 项全部通过)
+    └── outline-memory-and-metrics.test.js      # M4 8 维指标与缺省降级专项测试 (3 项全部通过)
+```
+
+### 二、改动范围与核心逻辑 (Scope & Implementation Details)
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/lib/memory-context.js` | 缺陷修复与防御加固 | 1. **严防数值 0 假值坍塌 (ID 0 / castIds 0 / requiredPlanIds 0)**：拔除 `.filter(Boolean)` 与 `\|\| ''` 短路缺陷，改用 `raw.id != null ? String(raw.id) : ''` 以及 `val != null && val !== ''` 保全 SQLite 数值 0 主键与 0 号角色/必保计划；<br>2. **序章与跨卷范围判定防御**：`hasExplicitRange` 与 `targetRangeStr` 采用 `??` 空值合并，正确识别 `targetChapterRange: 0`；<br>3. **章节 ID 匹配安全判空**：`(raw.chapterId ?? raw.chapter_id) != null` 避免章节 ID 为 0 时被短路漏检。 |
+| `molan-home/lib/generation/context.js` | 规范化加固与防御 | 1. **`outlineImpact` 4 维数组强归一化**：针对外部非标准对象、缺省属性或非对象传入，自动补齐并确保 `completed`, `deferred`, `changed`, `omitted` 4 项标准数组；<br>2. **`resolvedChapterNo` 与 `outlineRevision` 防 NaN 污染**：引入 `toFiniteNum` 门禁，非法非数字符优雅降级为 `null`，严防内存中 `NaN` 引起类型与序列化不一致；<br>3. **支持 `options.outlineDependencies` 透传**：补全调用方显式声明的依赖透传至 `outlineDependenciesIncluded`；<br>4. **`formatStoryPlansMarkdown` 兼容数值 0**：避免 `targetChapterRange: 0` 范围丢失。 |
+| `molan-home/lib/generation/orchestrator.js` | 外部透传健壮性加固 | 在 `getReplay(scope, id)` 中，针对 `contextPlan` 仅持久化于 `manifest.contextPlan` 的场景实现跨层回退提取，确保 `outlineAudit` 100% 稳定导出且满足 `replayable: true`。 |
+| `molan-home/test/reviewer-m3-m4-adversarial.test.js` | 新建对抗测试 (R1) | 新增 8 项针对 ID 0 坍塌、序章 0 跨度、单项参与人、outlineImpact 归一化、NaN 防御、dependencies 透传、极小预算强阻断及 manifest 跨层提取的严密测试用例。 |
+
+### 三、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **数值 0 与空值边界的区分 (`??` vs `||`)**：
+   - *权衡*：在数据库和实际小说编排中，序章通常以 `0` 编号，SQLite 自增或外键 ID 也可能存在 `0`。原代码过度依赖 `||` 和 `.filter(Boolean)`，导致数值 `0` 在角色 ID、计划 ID、必保名单和章节范围中多次被错误过滤为 `""` 或直接丢弃。改用空值合并与显式 `!= null` 彻底解除了这一隐性风险，且不影响合法空字符串与 null 的正常过滤。
+2. **`outlineImpact` 结构体的弹性规范化**：
+   - *权衡*：外部调用方或不同插件可能仅提供部分字段（如仅记录 `{ completed: ['beat-1'] }`）。如果在入模阶段不进行结构归一化，下游审计器和回放器访问 `omitted`、`deferred` 时将发生未捕获异常。归一化保留全部扩展属性的同时，强制保证核心 4 维为合法数组。
+3. **getReplay 的防御性容错提取**：
+   - *权衡*：生成执行引擎可能由于持久化策略差异，将大体积编译上下文优先记录于 `manifest`。`getReplay` 双轨读取 `result.contextPlan` 与 `manifest.contextPlan`，使得重放接口对持久化层更宽容，不因存储位置微调而导致外部断流。
+
+### 四、真实验证证据 (Verification Evidence)
+
+- **Node 运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **M3/M4 核心及对抗测试套件全部通过 (42 / 42 pass, 100% 通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/memory-plan-elevation.test.js test/challenger-m3-adversarial.test.js test/replay-manifest-8dim-audit.test.js test/outline-memory-and-metrics.test.js test/reviewer-m3-m4-adversarial.test.js
+  # tests 42, pass 42, fail 0, duration_ms ~148ms
+  ```
+- **大纲与场景规划 9 大核心与对抗套件全量通过 (111 / 111 pass, 100% 通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/memory-plan-elevation.test.js test/challenger-m3-adversarial.test.js test/replay-manifest-8dim-audit.test.js test/outline-memory-and-metrics.test.js test/reviewer-m3-m4-adversarial.test.js test/challenger-outline2-m3-adversarial.test.js test/challenger-outline2-m3-2-adversarial.test.js test/scene-planner-tiered-audit.test.js test/chapter-outline-context-deepening.test.js
+  # tests 111, pass 111, fail 0, duration_ms ~1532ms
+  ```
+- **生成链路 17 个全量测试套件全部通过 (349 / 349 pass, 100% 通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/chapter-outline*.test.js test/m1*.test.js test/challenger-m1*.test.js test/empirical-adversarial*.test.js test/scene-planner*.test.js test/challenger-m2*.test.js test/challenger-outline2-m2*.test.js test/memory-plan*.test.js test/challenger-m3*.test.js test/challenger-outline2-m3*.test.js test/outline-memory*.test.js test/replay-manifest*.test.js test/reviewer-m3-m4-adversarial.test.js test/memory-context*.test.js test/generation*.test.js test/context*.test.js test/routes-phase4*.test.js
+  # tests 349, pass 349, fail 0, duration_ms ~5978ms
+  ```
+- **生产代码导入依赖隔离审计**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe scripts/production-import-audit.mjs
+  # 228 个核心文件扫描，依赖隔离合规，无异常
+  ```
+- **黄金数据集全门类任务验证**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe scripts/audit-golden-suite.mjs
+  # 80 个黄金任务全门类验证通过 (PASS)
+  ```
+- **静态语法检查**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --check lib/memory-context.js lib/generation/context.js lib/generation/orchestrator.js test/reviewer-m3-m4-adversarial.test.js
+  # exit code 0, 0 errors
+  ```
+
+---
+
+## 阶段记录：M3/M4 对抗审查与 8 维指标闭环加固（Round 2 Reviewer）
+
+### 一、项目核心架构与文件骨架索引 (Architectural Quick Reference)
+
+```
+molan-home/
+├── lib/
+│   ├── memory-context.js          # M3 记忆提炼核心：selectRelevantPlans 多维打分与 compileContext 数据链路提升
+│   └── generation/
+│       ├── context.js             # M3/M4 编译器核心：assembleContext 八层组装、formatStoryPlansMarkdown 与 8 维大纲审计指标同构闭环
+│       └── orchestrator.js        # M4 生成编排器：生命周期各阶段流转、getReplay 显式导出 outlineAudit 与双重持久化
+├── services/
+│   └── generation-service.js      # 生成服务：buildCanonicalOutlineContext 权威规范化大纲装配与章节物理定位
+└── test/
+    ├── reviewer-m3-m4-adversarial.test.js     # Reviewer R1 & R2 对抗审查专测 (13 项全部真实通过)
+    ├── memory-plan-elevation.test.js          # M3 记忆计划多维提炼与提升入模专项综合测试 (14 项全部通过)
+    ├── challenger-m3-adversarial.test.js      # M3 对抗探针测试套件 (14 项全部通过)
+    ├── replay-manifest-8dim-audit.test.js      # M4 8 维指标闭环与 getReplay 暴露专项测试 (3 项全部通过)
+    └── outline-memory-and-metrics.test.js      # M4 8 维指标与缺省降级专项测试 (3 项全部通过)
+```
+
+### 二、改动范围与核心逻辑 (Scope & Implementation Details)
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/lib/generation/context.js` | 关键缺陷修复与提示词防污染 | 1. **元数据提示词泄漏拦截**：在 `rawBlocks` 构建中严密过滤 `['activeCausalDebts', 'causalDebt', 'causalDebts', 'mechanisms', 'outlineImpact', 'outlineRevision', 'outlineHash', 'stateDeltaCommitted', 'chapterId', 'chapterNo', 'chapterNumber', 'currentChapterNo', 'currentChapterId', 'currentVolumeId', 'volumeId', 'volumeNo', 'planRevision']`，杜绝内部审计与范围元数据作为裸露文本注入 LLM 提示词；<br>2. **input 顶层元数据全链路捕获**：修复 `assembleContext` 仅读取 `options` 与 `rawOutline` 的缺陷，完整支持直接从 `originalInput` 捕获 `chapterId`、`chapterNo`、`outlineRevision`、`outlineHash`、`outlineDependencies`、`outlineImpact`、`stateDeltaCommitted`；<br>3. **`getCurrentChapter` 边界扩展**：增加读取 `options.chapterNo` 与 `options.chapterNumber`，并将判定条件由 `number > 0` 修正为 `Number.isFinite(number)`，全面兼容序章 (第 0 章) 与前传负数章节，确保 `splitCausalDebt` 正确识别到期债务；<br>4. **`formatStoryPlansMarkdown` 兼容 characterId**：涉及人物映射防御性识别 `(p.id != null ? p.id : (p.characterId != null ? p.characterId : (p.name || '')))`，杜绝角色对象丢失。 |
+| `molan-home/lib/memory-context.js` | 契约对齐与字段透传 | 1. **角色在场匹配兼容 characterId**：`currentCharSet` 与 `participants` 解析增加对 `characterId` 字段的识别，确保因果账本及复杂角色对象平稳加分；<br>2. **compileContext 章节透传加固**：向 `assembleContext` 透传 `chapterNo: query.chapterNo ?? query.chapterNumber ?? query.currentChapterNo`，杜绝调用方使用别名时导致章节序号在装配层丢失。 |
+| `molan-home/lib/generation/orchestrator.js` | 双重持久化加固 | 1. 在执行完成生成结果 `result` 中显式挂载 `outlineAudit`；<br>2. 在 `finalManifest` 中同时挂载 `outlineAudit` 与 `contextPlan`，确保即使历史任务 `result` 被裁剪，回放清单仍然 100% 同构可解析。 |
+| `molan-home/test/reviewer-m3-m4-adversarial.test.js` | 新增 Round 2 对抗测试 (REV2) | 新增 5 项对抗测试（REV2-01 至 REV2-05），覆盖 input 元数据捕获与提示词防污染、options.chapterNo 因果到期识别与第 0 章、characterId 角色解析、compileContext 别名透传、以及 finalManifest 双重持久化。 |
+
+### 三、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **元数据入模与提示词块隔离设计**：
+   - *权衡*：`assembleContext` 采用通用的 `for (const [key, content] of Object.entries(prepared))` 机制收集上下文块。若不对非内容元数据（如 `outlineImpact`、`outlineRevision`、`outlineHash`、`stateDeltaCommitted` 等）进行显式排除，它们会作为未知块回退至 `L5_facts` 并在 Prompt 中打印 `[outlineImpact] {"completed": [...]}`，不仅浪费 Token 还会严重误导模型。我们在进入块循环前建立严格的元数据黑名单，同时在下游审计聚合器中精准提取，实现了“语义入模审计、文本零提示词污染”。
+2. **`getCurrentChapter` 放宽为 `Number.isFinite`**：
+   - *权衡*：原实现中 `Number.isFinite(number) && number > 0` 导致第 0 章（序章）被强制降级为 `null`，使得因果债务调度器在处理序章事件时无法匹配到期因果。放宽为 `Number.isFinite` 后，序章及前传编号能无损参与到期计算与大纲审计。
+3. **`finalManifest` 与 `result` 的双重持久化**：
+   - *权衡*：根据生产架构演进规范，`result` 偏向业务交付物，`manifest` 偏向可重放的确定性证据。在两者中同步持久化 `outlineAudit`，最大程度保障了下游回放系统（`getReplay`）的容错性。
+
+### 四、真实验证证据 (Verification Evidence)
+
+- **Node 运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **M3/M4 核心及对抗全套件 (47 / 47 pass, 100% 通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/memory-plan-elevation.test.js test/challenger-m3-adversarial.test.js test/replay-manifest-8dim-audit.test.js test/outline-memory-and-metrics.test.js test/reviewer-m3-m4-adversarial.test.js
+  # tests 47, pass 47, fail 0, duration_ms ~163ms
+  ```
+- **大纲与场景规划 9 大核心与对抗套件全量通过 (116 / 116 pass, 100% 通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/memory-plan-elevation.test.js test/challenger-m3-adversarial.test.js test/replay-manifest-8dim-audit.test.js test/outline-memory-and-metrics.test.js test/reviewer-m3-m4-adversarial.test.js test/challenger-outline2-m3-adversarial.test.js test/challenger-outline2-m3-2-adversarial.test.js test/scene-planner-tiered-audit.test.js test/chapter-outline-context-deepening.test.js
+  # tests 116, pass 116, fail 0, duration_ms ~1528ms
+  ```
+- **生成链路 17 个全量测试套件全部通过 (354 / 354 pass, 100% 通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/chapter-outline*.test.js test/m1*.test.js test/challenger-m1*.test.js test/empirical-adversarial*.test.js test/scene-planner*.test.js test/challenger-m2*.test.js test/challenger-outline2-m2*.test.js test/memory-plan*.test.js test/challenger-m3*.test.js test/challenger-outline2-m3*.test.js test/outline-memory*.test.js test/replay-manifest*.test.js test/reviewer-m3-m4-adversarial.test.js test/memory-context*.test.js test/generation*.test.js test/context*.test.js test/routes-phase4*.test.js
+  # tests 354, pass 354, fail 0, duration_ms ~5895ms
+  ```
+- **生产代码导入依赖隔离审计**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe scripts/production-import-audit.mjs
+  # 228 个核心文件扫描，依赖隔离合规，无异常
+  ```
+- **黄金数据集全门类任务验证**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe scripts/audit-golden-suite.mjs
+  # 80 个黄金任务全门类验证通过 (PASS)
+  ```
+- **静态语法检查**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --check lib/memory-context.js lib/generation/context.js lib/generation/orchestrator.js test/reviewer-m3-m4-adversarial.test.js
+  # exit code 0, 0 errors
+  ```
+
+---
+
+## 阶段记录：M3/M4 终局闭环与深度对抗缺陷修复（Round 3 Reviewer）
+
+### 一、项目核心架构与文件骨架索引 (Architectural Quick Reference)
+
+```
+molan-home/
+├── lib/
+│   ├── memory-context.js          # M3 记忆提炼核心：selectRelevantPlans 多维打分与 compileContext 数据链路提升 (防空串假值坍塌与安全解构)
+│   └── generation/
+│       ├── context.js             # M3/M4 编译器核心：assembleContext 八层组装、formatStoryPlansMarkdown、8 维指标同构持久化与全字段防泄漏黑名单
+│       ├── manifest.js            # 确定性哈希与序列化：stableValue WeakSet 循环引用免疫保护
+│       └── orchestrator.js        # M4 生成编排器：生命周期各阶段流转、getReplay 显式导出 outlineAudit 与双重持久化
+├── services/
+│   └── generation-service.js      # 生成服务：buildCanonicalOutlineContext 权威规范化大纲装配与章节物理定位
+└── test/
+    ├── reviewer-m3-m4-adversarial.test.js     # Reviewer R1 & R2 & R3 对抗审查专测 (20 项全部真实通过)
+    ├── memory-plan-elevation.test.js          # M3 记忆计划多维提炼与提升入模专项综合测试 (14 项全部通过)
+    ├── challenger-m3-adversarial.test.js      # M3 对抗探针测试套件 (14 项全部通过)
+    ├── replay-manifest-8dim-audit.test.js      # M4 8 维指标闭环与 getReplay 暴露专项测试 (3 项全部通过)
+    └── outline-memory-and-metrics.test.js      # M4 8 维指标与缺省降级专项测试 (3 项全部通过)
+```
+
+### 二、改动范围与核心逻辑 (Scope & Implementation Details)
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 |
+| :--- | :---: | :--- |
+| `molan-home/lib/generation/context.js` | 关键缺陷修复与提示词防污染 | 1. **全量元数据提示词泄漏拦截**：在 `rawBlocks` 构建中扩展黑名单至 `stateDelta`, `outlineDependencies`, `outlineDependenciesIncluded`, `dependencies`, `impact`, `revision`, `outlineAudit`, `contextPlan`, `replayManifest`, `contextTruncationReasons`，彻底杜绝所有 8 维审计与契约元数据泄漏为提示词文本；<br>2. **空串/布尔/空数组假值坍塌防御**：实现 `getFirstFiniteNum`，彻底根除 JavaScript `Number('') === 0` 与 `Number(false) === 0` 导致的假值被误判为第 0 章（序章）或版本号 0；<br>3. **循环引用免疫提取**：实现 `safeItemString`，在 `outlineDependenciesIncluded` 与 `outlineImpact` 遇到循环引用或畸形嵌套对象时安全降级，避免 `JSON.stringify` 抛出 `TypeError` 崩溃；<br>4. **null 参数安全降级**：`safeOptions` 全面守护，杜绝 `assembleContext(input, null)` 抛出 `TypeError: Cannot read properties of null`；<br>5. **畸形对象拒绝 [object Object]**：实现 `toCleanId` 与 `toCleanHash`，遇到 `{}` 等非标准对象时优雅回退为 `null`；<br>6. **直接暴露 outlineAudit**：在 `assembleContext` 返回对象中增加 `outlineAudit`，支持外部直接解构获取。 |
+| `molan-home/lib/generation/manifest.js` | 架构抗压加固 | `stableValue` 引入 `WeakSet` 循环检测保护，防止包含复杂引用或自引用对象在计算 `inputHash` 时因无限递归抛出 `RangeError: Maximum call stack size exceeded`。 |
+| `molan-home/lib/memory-context.js` | 边界假值与空串加固 | 1. `selectRelevantPlans` 引入 `getFirstFiniteNum` 解析 `currentChapter` 与 `currentVolume`，避免空串 `chapterNo: ''` 被强制转为 0 章进而按 `chapter_out_of_range` 误杀有效章节规划；<br>2. `currentChapterId` 与 `planChIdVal` 增加非空串 `.trim() !== ''` 门禁，避免空字符串触发假阳性 `chapter_id_mismatch`；<br>3. `compileContext` 对 `query` 实施 `safeQuery` 防御，避免 `query === null` 时发生属性读取崩溃。 |
+| `molan-home/lib/generation/orchestrator.js` | 回放指标透传与持久化 | 在 `result`、`finalManifest` 中优先采纳 `context.outlineAudit`，与 `getReplay` 双向闭环联动。 |
+| `molan-home/test/reviewer-m3-m4-adversarial.test.js` | 新增 Round 3 对抗测试 (REV3) | 新增 7 项对抗测试（REV3-01 至 REV3-07），覆盖全字段提示词防污染、空串假值坍塌防御、循环引用免疫、null 传参降级、空串 chapterId 校验、解构 outlineAudit 与 formatStoryPlansMarkdown 数组防御。 |
+
+### 三、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **`getFirstFiniteNum` 替代 ad-hoc `Number()` 转换**：
+   - *权衡*：JavaScript 的类型转换陷阱极其隐蔽——`Number('')`、`Number('   ')`、`Number(false)`、`Number([])` 全部等于 `0`。Round 2 将门禁放宽为 `Number.isFinite` 虽支持了序章 0，但导致所有的非数字假值全部坍塌为序章 0，把表单空串提交当成序章处理。通过实现 `getFirstFiniteNum`，前置跳过布尔、数组、空串与空白字符串，既完美支持合法的第 0 章与负数前传，又彻底切断了假值坍塌漏洞。
+2. **`WeakSet` 环状依赖阻断**：
+   - *权衡*：输入对象在复杂生成链路中可能携带代理实例或环状引用，单纯的深度递归序列化会造成 `Maximum call stack size exceeded` 进程级崩溃。在 `manifest.js` 中使用轻量 `WeakSet` 记录已遍历对象，遇环返回 `'[Circular]'`，在不引入额外外部依赖的前提下实现了绝对健壮。
+3. **元数据全闭环黑名单与 `outlineAudit` 顶层解构**：
+   - *权衡*：之前仅过滤了部分键，导致 `stateDelta`、`outlineDependencies`、`contextPlan` 等字段依然作为未知块落入 Prompt。本次彻底将所有 8 维指标及其前置字段加入黑名单，同时在 `assembleContext` 返回值根部直接挂载 `outlineAudit`，实现“输入隔离、内部审计、根部直取”。
+
+### 四、真实验证证据 (Verification Evidence)
+
+- **Node 运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **M3/M4 核心及对抗全套件 (54 / 54 pass, 100% 通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/memory-plan-elevation.test.js test/challenger-m3-adversarial.test.js test/replay-manifest-8dim-audit.test.js test/outline-memory-and-metrics.test.js test/reviewer-m3-m4-adversarial.test.js
+  # tests 54, pass 54, fail 0, duration_ms ~165ms
+  ```
+- **生成链路 17 个全量测试套件全部通过 (361 / 361 pass, 100% 通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/chapter-outline*.test.js test/m1*.test.js test/challenger-m1*.test.js test/empirical-adversarial*.test.js test/scene-planner*.test.js test/challenger-m2*.test.js test/challenger-outline2-m2*.test.js test/memory-plan*.test.js test/challenger-m3*.test.js test/challenger-outline2-m3*.test.js test/outline-memory*.test.js test/replay-manifest*.test.js test/reviewer-m3-m4-adversarial.test.js test/memory-context*.test.js test/generation*.test.js test/context*.test.js test/routes-phase4*.test.js
+  # tests 361, pass 361, fail 0, duration_ms ~5979ms
+  ```
+- **生产代码导入依赖隔离审计**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe scripts/production-import-audit.mjs
+  # 228 个核心文件扫描，依赖隔离合规，无异常
+  ```
+- **黄金数据集全门类任务验证**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe scripts/audit-golden-suite.mjs
+  # 80 个黄金任务全门类验证通过 (PASS)
+  ```
+- **静态语法检查**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --check lib/memory-context.js lib/generation/context.js lib/generation/manifest.js lib/generation/orchestrator.js test/reviewer-m3-m4-adversarial.test.js
+  # exit code 0, 0 errors
+  ```
+
+
+
