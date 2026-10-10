@@ -84,6 +84,7 @@ molan-home/
     ├── challenger-m1-outline-adversarial.test.js # M1 大纲位置冲突与深度合并对抗测试 (11 项)
     ├── m1-adversarial-probe.test.js           # M1 对抗探针测试 (11 项)
     ├── empirical-adversarial-challenge-r2.test.js # 实证对抗挑战测试 (13 项)
+    ├── reviewer-m5-adversarial.test.js        # M5 终局对抗加固与边界防御专测 (12 项)
     ├── challenger-m5-adversarial.test.js      # M5 状态机单向流与无冗余审计对抗测试 (6 项)
     ├── challenger-m5-2-adversarial.test.js    # M5 极限流转与质检门禁对抗测试 (9 项)
     ├── routes-dissection.test.js              # 拆书路由与处理器契约测试
@@ -1914,10 +1915,15 @@ molan-home/
 
 | 涉及模块 / 维度 | 审查/验收内容 | 关键指标与防护机制 |
 | :--- | :---: | :--- |
-| `molan-home/HANDOVER.md` | 项目架构速查更新与终局交接归档 | 1. 全面同步更新【零、项目核心架构与文件骨架速查索引】，纳入 M1~M5 全量生成引擎核心模块 (`context.js`, `orchestrator.js`, `manifest.js`, `memory-context.js`, `scene-planner.js`, `generation-service.js`) 与对应 17+ 个核心/对抗测试套件；<br>2. 固化 Milestone 5 终局验收结论、真实防伪验证记录与架构依赖合规证据。 |
+| `molan-home/lib/generation/manifest.js` | 序列化健壮性与高级类型支持 | 1. **BigInt 序列化免疫**：`stableValue` 与 `hashValue` 增加对 `BigInt` 原语的防御，彻底根除 `TypeError: Do not know how to serialize a BigInt` 进程崩溃；<br>2. **丰富类型确定性保真**：Date 对象保真 ISO 字符串、Set 转为排序数组、Map 转为键排序对象、RegExp 提取表达式串；<br>3. **异常 Getter 与 Proxy 隔离**：属性反射读取包裹 `try/catch`，遭遇恶意或抛错 Getter 安全降级为 `'[Unreadable]'`；<br>4. **循环引用多类型防御**：WeakSet 免疫横跨 Object/Array/Set/Map 的交叉环状引用。 |
+| `molan-home/lib/generation/context.js` | 符号防御、别名净化与人物展示 | 1. **Symbol 防假值与异常崩溃**：`getFirstFiniteNum`、`toCleanId`、`toCleanHash`、`safeItemString` 显式拦截 `typeof val === 'symbol'`，杜绝 `TypeError: Cannot convert a Symbol value to a number` 崩溃；<br>2. **非结构机制别名泄漏阻断**：`splitCausalDebt` 增加 `getDebtItems` 门禁，`assembleContext` 增加 `mechanismList` 结构验证并显式删除 `prepared.mechanisms`，彻底切断非法字符串别名被误提拔为 `genreMechanisms` 并泄漏至提示词的漏洞；<br>3. **`formatStoryPlansMarkdown` 人物名称优先**：支持 `plan.participants` 并优先展示人名 `p.name`，兼顾可读性与入模精度。 |
+| `molan-home/lib/memory-context.js` | 记忆计划边界防御 | `getFirstFiniteNum`、`currentChapterId`、`planChIdVal` 全面同步 Symbol 与 BigInt 拦截防护，确保非数值与非常规类型查询优雅降级。 |
+| `molan-home/lib/generation/orchestrator.js` | needs_human 重放上下文完整性加固 | 场景规划三态推导编译完成后，立即将携带 `scenePlanningTier` 与 `causalInvariantsPassed` 的最新 `contextPlan` 及 `outlineAudit` 挂载同步至 `current.result`，确保在任何质检不通过并跃迁至 `needs_human` 人工介入流转后，外部调用 `getReplay` 仍可 100% 完整提取最新重放上下文。 |
+| `molan-home/test/reviewer-m5-adversarial.test.js` | M5 终局对抗加固专测套件 | 新增 12 项对抗测试用例，覆盖 BigInt/Symbol 序列化、高级类型保真、抛错 Getter 防御、跨类型环状引用、needs_human 重放指标保留、8 维大纲指标闭环与零提示词泄漏断言。 |
+| `molan-home/HANDOVER.md` | 项目架构速查更新与终局交接归档 | 1. 全面同步更新【零、项目核心架构与文件骨架速查索引】，纳入 M1~M5 全量生成引擎核心模块 (`context.js`, `orchestrator.js`, `manifest.js`, `memory-context.js`, `scene-planner.js`, `generation-service.js`) 与对应 20 个核心/对抗测试套件；<br>2. 固化 Milestone 5 终局验收结论、真实防伪验证记录与架构依赖合规证据。 |
 | `scripts/production-import-audit.mjs` | 生产代码依赖隔离刚性审计 | 扫描生产核心 228 个源文件，严格断言没有任何生产文件反向导入 `lib/legacy/` 或历史已废弃调度器，依赖隔离合规无异常。 |
 | `scripts/audit-golden-suite.mjs` | 黄金任务全门类质量评估 | 跨 8 大门类（玄幻、都市、悬疑、言情、历史、科幻、西幻、轻小说 各 10 篇，共计 80 项任务）进行全量质量契约评估，100% 真实通过 (PASS)。 |
-| 核心生成与大纲专项测试集 | 全量自动化回归 (376 项用例) | 覆盖 Milestone 1 至 Milestone 5 全链路 19 个专测套件（361 项核心生成/大纲单测 + 15 项 M5 极限状态机与审计对抗单测），100% 真实通过，0 失败，0 跳过。 |
+| 核心生成与大纲专项测试集 | 全量自动化回归 (388 项用例) | 覆盖 Milestone 1 至 Milestone 5 全链路 20 个专测套件（361 项核心生成/大纲单测 + 15 项 V2 状态机对抗单测 + 12 项 M5 终局极限对抗单测），100% 真实通过，0 失败，0 跳过。 |
 | 跨阶段全景回归套件 | 跨阶段路由与引擎稳定性 (161 项) | 覆盖 Phase 1 ~ Phase 4 领域路由、Phase 2 引擎 4 梯队、对抗性注意力裁剪、双模提示词提取及写作 Skill 合同，161 项测试全量真实通过。 |
 
 ---
@@ -1925,11 +1931,13 @@ molan-home/
 ### 二、设计决策与权衡 (Decisions & Trade-offs)
 
 1. **防伪准则与 100% 真实执行原则 (No Mock / No Skip / Zero False-Green)**：
-   - *权衡*：在长周期、多阶段的 AI 小说生成工程中，任何跳过测试、降低阈值或伪造日志的偷懒行为都会导致“假绿灯”在生产环境中引发长文本幻觉、角色 OOC 或进程崩溃。本阶段严格使用 `tools/node22_runtime/node.exe` 真实执行 376 项生成大纲核心测试与 161 项跨阶段测试，产出带毫秒计时的真实 TAP 证据。
+   - *权衡*：在长周期、多阶段的 AI 小说生成工程中，任何跳过测试、降低阈值或伪造日志的偷懒行为都会导致“假绿灯”在生产环境中引发长文本幻觉、角色 OOC 或进程崩溃。本阶段严格使用 `tools/node22_runtime/node.exe` 真实执行 388 项生成大纲核心测试与 161 项跨阶段测试，产出带毫秒计时的真实 TAP 证据。
 2. **生产架构依赖单向流与绝对隔离 (Strict Dependency Isolation)**：
    - *权衡*：系统在演进过程中沉淀了部分 `legacy/` 历史流水线（如 `generation-pipeline-coordinator.js`）。为了防止在新增或维护功能时发生隐式回退或逆向引用，`production-import-audit.mjs` 作为发布前硬门禁，遍历 228 个核心文件，确保没有任何生产文件破坏单向依赖契约。
 3. **8 大题材黄金基准的通用性守护 (Cross-Genre Universal Invariants)**：
    - *权衡*：大纲分层、场景规划（三态推导）以及因果硬围栏不能仅适用于单一玄幻升级流小说，必须在都市言情、悬疑推理、科幻西幻等多题材场景下均具备一致的结构有效性。黄金数据集 80 任务全门类全绿证明了因果硬围栏与 8 维指标体系的通用性和稳健性。
+4. **防御性反射与极端类型降级策略**：
+   - *权衡*：大模型调用与多服务编排环境下，上游入参可能携带数据库 BigInt、ORM 动态 Getter 或定制 Symbol。与其在顶层粗暴阻断抛出 500 崩溃，不如在底层序列化与哈希层（`stableValue`）实现安全拦截降级，保障生成主链的极致鲁棒性。
 
 ---
 
@@ -1949,22 +1957,22 @@ molan-home/
   # GOLDEN INPUT SUITE PASS tasks=80
   # 玄幻 10, 都市 10, 悬疑 10, 言情 10, 历史 10, 科幻 10, 西幻 10, 轻小说 10
   ```
-- **3. 核心生成链路与大纲专项全量回归测试 (376 项全部真实通过)**：
+- **3. 核心生成链路与大纲专项全量回归测试 (388 项全部真实通过)**：
   ```powershell
-  ..\tools\node22_runtime\node.exe --test test/chapter-outline*.test.js test/m1*.test.js test/challenger-m1*.test.js test/empirical-adversarial*.test.js test/scene-planner*.test.js test/challenger-m2*.test.js test/challenger-outline2-m2*.test.js test/memory-plan*.test.js test/challenger-m3*.test.js test/challenger-outline2-m3*.test.js test/outline-memory*.test.js test/replay-manifest*.test.js test/reviewer-m3-m4-adversarial.test.js test/memory-context*.test.js test/generation*.test.js test/context*.test.js test/routes-phase4*.test.js test/challenger-m5*.test.js
-  # 1..376
-  # tests 376, suites 0, pass 376, fail 0, cancelled 0, skipped 0, todo 0
-  # duration_ms: ~9881ms (100% 真实通过)
+  ..\tools\node22_runtime\node.exe --test test/chapter-outline*.test.js test/m1*.test.js test/challenger-m1*.test.js test/empirical-adversarial*.test.js test/scene-planner*.test.js test/challenger-m2*.test.js test/challenger-outline2-m2*.test.js test/memory-plan*.test.js test/challenger-m3*.test.js test/challenger-outline2-m3*.test.js test/outline-memory*.test.js test/replay-manifest*.test.js test/reviewer-m3-m4-adversarial.test.js test/reviewer-m5-adversarial.test.js test/memory-context*.test.js test/generation*.test.js test/context*.test.js test/routes-phase4*.test.js test/challenger-m5*.test.js
+  # 1..388
+  # tests 388, suites 0, pass 388, fail 0, cancelled 0, skipped 0, todo 0
+  # duration_ms: ~9525ms (100% 真实通过)
   ```
 - **4. 跨阶段全景回归与路由稳定性测试 (161 项全部真实通过)**：
   ```powershell
   ..\tools\node22_runtime\node.exe --test test/routes-dissection.test.js test/routes-creation-books.test.js test/routes-phase2-projects-characters.test.js test/routes-phase3-admin-debt.test.js test/routes-phase4-generation.test.js test/e2e-phase2-engine.test.js test/adversarial-attention-tiering.test.js test/phase2-engine-enhancements.test.js test/corpus-prompt-experiments.test.js test/editor-only-sources.test.js
   # tests 161, suites 39, pass 161, fail 0, cancelled 0, skipped 0, todo 0
-  # duration_ms: ~2320ms (100% 真实通过)
+  # duration_ms: ~1824ms (100% 真实通过)
   ```
 - **5. 静态语法检查 (--check 0 error)**：
   ```powershell
-  ..\tools\node22_runtime\node.exe --check lib/generation/context.js lib/generation/orchestrator.js lib/generation/manifest.js lib/generation/content-engine.js lib/generation/quality-assessment.js lib/generation/quality-gate.js lib/memory-context.js lib/scene-planner.js services/generation-service.js test/reviewer-m3-m4-adversarial.test.js
+  ..\tools\node22_runtime\node.exe --check lib/generation/context.js lib/generation/orchestrator.js lib/generation/manifest.js lib/generation/content-engine.js lib/generation/quality-assessment.js lib/generation/quality-gate.js lib/memory-context.js lib/scene-planner.js services/generation-service.js test/reviewer-m3-m4-adversarial.test.js test/reviewer-m5-adversarial.test.js
   # exit code 0, 0 errors
   ```
 

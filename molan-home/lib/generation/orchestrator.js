@@ -590,6 +590,12 @@ function createGenerationOrchestrator(options = {}) {
         context.contextPlan.causalInvariantsPassed = Boolean(scenePlan?.causalInvariantsPassed !== false);
       }
 
+      current.result = {
+        ...(current.result || {}),
+        contextPlan: context && context.contextPlan,
+        outlineAudit: (context && context.outlineAudit) || (context && context.contextPlan ? (context.contextPlan.outlineAudit || null) : null)
+      };
+
       const promptInput = { request, contract, context: context.text, contextPlan: context.contextPlan, genre, style, scenes, scenePlan };
       const startedAt = Date.now();
       if (typeof store.beginProvider === 'function') {
