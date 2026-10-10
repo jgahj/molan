@@ -20,12 +20,14 @@ function sha256File(filePath) {
   return crypto.createHash('sha256').update(content).digest('hex');
 }
 
+const DEFAULT_TARGET_BASE = path.resolve(__dirname, '../../../data/strategy-knowledge-base');
+
 class PackagePublisher {
   /**
    * @param {Object} options
    */
   constructor(options = {}) {
-    this.targetBase = path.resolve(options.targetBase || path.join(process.cwd(), 'data', 'strategy-knowledge-base'));
+    this.targetBase = path.resolve(options.targetBase || DEFAULT_TARGET_BASE);
     this.packagesDir = path.join(this.targetBase, 'packages');
     this.activePointerFile = path.join(this.targetBase, 'active_package.json');
   }
@@ -127,14 +129,94 @@ class PackagePublisher {
     const tmpPointer = `${this.activePointerFile}.tmp_${Date.now()}`;
     fs.writeFileSync(tmpPointer, JSON.stringify(activePointer, null, 2), 'utf8');
     fs.renameSync(tmpPointer, this.activePointerFile);
+    this._cleanTmpPointers();
+
+    // 6. 执行 LRU 滚动保留策略：保留当前激活版本及最近 3 个历史包，防止残包膨胀
+    const prunedPackages = this.pruneHistoryPackages(version, options.maxHistoryPackages ?? 3);
 
     return {
       status: 'published',
       version,
       packageDir: targetPackageDir,
       activePointerFile: this.activePointerFile,
-      manifest: packageManifest
+      manifest: packageManifest,
+      prunedPackages
     };
+  }
+
+  /**
+   * 清理 targetBase 下遗留的 active_package.json.tmp_* 碎片文件
+   */
+  _cleanTmpPointers() {
+    try {
+      if (!fs.existsSync(this.targetBase)) return;
+      const files = fs.readdirSync(this.targetBase);
+      for (const f of files) {
+        if (f.startsWith('active_package.json.tmp_')) {
+          try {
+            fs.rmSync(path.join(this.targetBase, f), { force: true });
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  /**
+   * LRU / 时间滚动淘汰历史知识包：保留当前激活版本，以及最近的 maxHistoryPackages (默认 3) 个历史包
+   * @param {string} activeVersion 当前激活版本
+   * @param {number} maxHistoryPackages 保留的历史包数量上限，默认 3
+   * @returns {string[]} 被清理的历史版本列表
+   */
+  pruneHistoryPackages(activeVersion, maxHistoryPackages = 3) {
+    if (!fs.existsSync(this.packagesDir)) return [];
+    try {
+      const entries = fs.readdirSync(this.packagesDir, { withFileTypes: true });
+      const pkgDirs = entries.filter(e => e.isDirectory()).map(e => e.name);
+      // 筛选出非激活版本的历史包
+      const historyPkgs = pkgDirs.filter(name => name !== activeVersion);
+      if (historyPkgs.length <= maxHistoryPackages) {
+        return [];
+      }
+
+      // 获取各包的时间戳（优先使用 package-manifest.json 中的 publishedAt，若无则使用目录 mtime）
+      const pkgInfos = historyPkgs.map(name => {
+        const fullDir = path.join(this.packagesDir, name);
+        let timestamp = 0;
+        const manifestPath = path.join(fullDir, 'package-manifest.json');
+        try {
+          if (fs.existsSync(manifestPath)) {
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+            if (manifest.publishedAt) {
+              timestamp = new Date(manifest.publishedAt).getTime();
+            }
+          }
+        } catch (_) {}
+        if (!timestamp) {
+          try {
+            timestamp = fs.statSync(fullDir).mtimeMs;
+          } catch (_) {
+            timestamp = 0;
+          }
+        }
+        return { name, fullDir, timestamp };
+      });
+
+      // 按时间戳降序排序（最新在最前）
+      pkgInfos.sort((a, b) => b.timestamp - a.timestamp);
+
+      // 保留前 maxHistoryPackages 个，超出的删除
+      const toRemove = pkgInfos.slice(maxHistoryPackages);
+      const removed = [];
+      for (const item of toRemove) {
+        try {
+          fs.rmSync(item.fullDir, { recursive: true, force: true });
+          removed.push(item.name);
+        } catch (_) {}
+      }
+      return removed;
+    } catch (_) {
+      return [];
+    }
   }
 
   /**

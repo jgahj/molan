@@ -60,11 +60,17 @@ function loadBlindReviewInputs(options = {}) {
   // 1. 读取 GeneratedNovelProfile
   let genProfilePath = options.generatedProfilePath;
   if (!genProfilePath) {
-    const genDir = path.join(baseDir, 'data/evaluation-input/generated-novel-profiles');
-    if (fs.existsSync(genDir)) {
-      const files = fs.readdirSync(genDir).filter(f => f.endsWith('-profile.json'));
-      if (files.length > 0) {
-        genProfilePath = path.join(genDir, files[0]);
+    const candidateDirs = [
+      path.join(baseDir, 'data/evaluation-input/generated-novel-profiles'),
+      path.join(baseDir, 'data/legacy-archive/evaluation-input/generated-novel-profiles')
+    ];
+    for (const genDir of candidateDirs) {
+      if (fs.existsSync(genDir)) {
+        const files = fs.readdirSync(genDir).filter(f => f.endsWith('-profile.json'));
+        if (files.length > 0) {
+          genProfilePath = path.join(genDir, files[0]);
+          break;
+        }
       }
     }
   }

@@ -466,7 +466,7 @@ function createAuthAccountService({
       const verified = req.molanPostgresAuth;
       if (!verified) return null;
       const verifiedScope = normalizeSessionScope(verified.scope);
-      if (targetScope === 'admin' && verifiedScope !== 'admin') return null;
+      if (targetScope !== verifiedScope) return null;
       return { token: verified.token, user: verified.user };
     }
     const auth = req.headers['authorization'] || '';
@@ -490,7 +490,7 @@ function createAuthAccountService({
     }
     if (!session) return null;
     const sessionScope = normalizeSessionScope(session.scope);
-    if (targetScope === 'admin' && sessionScope !== 'admin') return null;
+    if (targetScope !== sessionScope) return null;
     if (session.expiresAt <= Date.now()) {
       sessions.delete(tokenHash);
       markSessionRevoked(tokenHash);

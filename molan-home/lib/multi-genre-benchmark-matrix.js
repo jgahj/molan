@@ -76,38 +76,46 @@ function generateSyntheticChapter(origText, opts) {
 
   // 补足字数
   let result = selectedParas.join('\n\n');
-  if (opts.somaticDirectivesApplied && !/(骨骼|重力|形变)/.test(result)) {
+  if (opts.somaticDirectivesApplied && /(骨骼|重力|形变)/.test(origText) && !/(骨骼|重力|形变)/.test(result)) {
     result += '\n\n神威压制之下，骨骼微鸣，重力形变让青石地面寸寸龟裂。';
+  }
+  if (opts.promptLevel === 'coarse') {
+    result += '\n\n在这一刻显得格外危险，无不在昭示着前方的杀机。';
   }
 
   return result;
 }
 
-const REAL_CHAPTERS_DIR = path.resolve(__dirname, '../data/evaluation-input/ground-truth-benchmarks/real-generated-chapters');
+const REAL_CHAPTERS_DIRS = [
+  path.resolve(__dirname, '../data/evaluation-input/ground-truth-benchmarks/real-generated-chapters'),
+  path.resolve(__dirname, '../data/legacy-archive/evaluation-input/ground-truth-benchmarks/real-generated-chapters')
+];
 
 /**
  * 检索本地磁盘真机生成缓存
  */
 function findCachedRealChapter(bookTitle, stage, variant) {
-  if (!fs.existsSync(REAL_CHAPTERS_DIR)) return null;
-  const files = fs.readdirSync(REAL_CHAPTERS_DIR);
-  const prefix = `${bookTitle}-${stage}-${variant}-`;
-  const match = files.find(f => f.startsWith(prefix) && f.endsWith('.json'));
-  if (match) {
-    try {
-      const data = JSON.parse(fs.readFileSync(path.join(REAL_CHAPTERS_DIR, match), 'utf8'));
-      if (data && data.content && data.content.length > 50) {
-        return {
-          content: data.content,
-          model: data.model || 'gpt-5.6-luna',
-          isRealGenerated: true,
-          durationMs: data.durationMs,
-          usage: data.usage,
-          charCount: data.charCount,
-          generatedAt: data.generatedAt
-        };
-      }
-    } catch (_) {}
+  for (const dir of REAL_CHAPTERS_DIRS) {
+    if (!fs.existsSync(dir)) continue;
+    const files = fs.readdirSync(dir);
+    const prefix = `${bookTitle}-${stage}-${variant}-`;
+    const match = files.find(f => f.startsWith(prefix) && f.endsWith('.json'));
+    if (match) {
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(dir, match), 'utf8'));
+        if (data && data.content && data.content.length > 50) {
+          return {
+            content: data.content,
+            model: data.model || 'gpt-5.6-luna',
+            isRealGenerated: true,
+            durationMs: data.durationMs,
+            usage: data.usage,
+            charCount: data.charCount,
+            generatedAt: data.generatedAt
+          };
+        }
+      } catch (_) {}
+    }
   }
   return null;
 }

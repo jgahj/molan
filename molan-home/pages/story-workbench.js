@@ -416,6 +416,80 @@
   document.addEventListener('visibilitychange', clearAfterAccountChange);
   element('refresh').addEventListener('click', task(() => refresh()));
   element('editorLink').href = '../index.html?nid=' + encodeURIComponent(projectId || '') + '#editor';
+  element('editorLink').addEventListener('click', (event) => {
+    if (window.parent && window.parent !== window) {
+      event.preventDefault();
+      window.parent.postMessage({ type: 'molan:navigate', page: 'editor', novelId: projectId }, '*');
+    }
+  });
+  const syncBtn = element('syncToEditor');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', () => {
+      const textToSync = (element('draft')?.value || element('original')?.textContent || '').trim();
+      if (!textToSync) {
+        status('正文内容为空，无法同步', true);
+        return;
+      }
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'molan:apply-draft-to-editor',
+          text: textToSync,
+          novelId: projectId,
+          chapterId: element('chapter')?.value
+        }, '*');
+        status('已将正文成功同步至主 AI 编辑器！');
+      } else if (window.opener && window.opener !== window) {
+        window.opener.postMessage({
+          type: 'molan:apply-draft-to-editor',
+          text: textToSync,
+          novelId: projectId,
+          chapterId: element('chapter')?.value
+        }, '*');
+        status('已通过跨窗口直传同步至主 AI 编辑器！');
+      } else {
+        localStorage.setItem('molan_external_draft_' + projectId, textToSync);
+        localStorage.setItem('molan_external_draft', JSON.stringify({
+          text: textToSync,
+          novelId: projectId,
+          chapterId: element('chapter')?.value,
+          time: Date.now()
+        }));
+        status('正文已暂存，切回主编辑器即可载入！');
+      }
+    });
+  }
+  const pushDraftBtn = element('pushDraftToAiEditor');
+  if (pushDraftBtn) {
+    pushDraftBtn.addEventListener('click', () => {
+      const draftText = (element('draft')?.value || '').trim();
+      if (!draftText) { status('候选稿为空', true); return; }
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'molan:cite-to-prompt',
+          text: '【工作台候选正文】\n' + draftText,
+          title: '候选正文'
+        }, '*');
+        status('已将候选稿带入 AI 创作助手提示词！');
+      } else if (window.opener && window.opener !== window) {
+        window.opener.postMessage({
+          type: 'molan:cite-to-prompt',
+          text: '【工作台候选正文】\n' + draftText,
+          title: '候选正文'
+        }, '*');
+        status('已通过跨窗口直传将候选稿带入 AI 创作助手！');
+      } else {
+        localStorage.setItem('molan_external_cite', JSON.stringify({
+          text: '【工作台候选正文】\n' + draftText,
+          title: '候选正文',
+          time: Date.now()
+        }));
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('【工作台候选正文】\n' + draftText).catch(() => {});
+        }
+        status('已将候选稿暂存并复制，切回主编辑器即可载入提示词！');
+      }
+    });
+  }
   element('materialsLink').href = './project-docs.html?nid=' + encodeURIComponent(projectId || '') +
     (memoryBookId && memoryBookId !== projectId ? '&bookId=' + encodeURIComponent(memoryBookId) : '');
   if (!projectId || !token) status('请登录后从已保存的作品进入工作台。', true);

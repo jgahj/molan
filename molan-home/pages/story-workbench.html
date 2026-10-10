@@ -14,7 +14,7 @@
   <header class="docs-topbar">
     <a id="editorLink" href="../index.html#editor">返回编辑器</a>
     <div><span class="docs-eyebrow">STORY MEMORY</span><h1 id="title">故事记忆与文风工作台</h1></div>
-    <div class="docs-actions"><a id="materialsLink" href="./project-docs.html">七类创作资料</a><button id="refresh" type="button">刷新状态</button></div>
+    <div class="docs-actions"><button id="syncToEditor" type="button" class="primary" style="font-size:12px;font-weight:600" title="将当前正文与修改一键推送到主 AI 编辑器">推送到 AI 编辑器</button><a id="materialsLink" href="./project-docs.html">七类创作资料</a><button id="refresh" type="button">刷新状态</button></div>
   </header>
   <main class="workbench">
     <p id="status" role="status" aria-live="polite">正在读取作品…</p>
@@ -49,6 +49,7 @@
       <div class="docs-actions">
         <button id="saveDraft" class="primary" data-write>保存候选版本</button>
         <button id="copyDraft">复制候选稿</button>
+        <button id="pushDraftToAiEditor" type="button" style="color:var(--blue);border-color:var(--blue);font-weight:600" title="将此候选稿引用到 AI 创作助手提示词">带入 AI 创作助手</button>
         <button id="extract" data-write>从已保存候选提取</button>
         <button id="audit">检查候选文风</button>
       </div>

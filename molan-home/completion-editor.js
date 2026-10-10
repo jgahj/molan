@@ -2283,7 +2283,7 @@
     </div>`;
     const creationCost = state.creationBookId ? '<div data-completion-creation-cost class="section-note" style="padding:4px 12px 0;font-size:10px">创作书预算正在读取…</div>' : '';
     const paramsDrawer = `<details class="ai-params-drawer" data-completion-params-drawer><summary class="ai-params-summary"><span class="ai-params-summary-title">创作参数</span><span class="ai-params-summary-hint" data-completion-params-hint>题材·风格·功能·侧重点·钩子</span><span class="ai-params-toggle-text">展开 ▾</span></summary><div class="ai-params-body"><label class="ai-control-field" style="margin-top:2px"><span class="ai-control-field__label">写作预设</span>${skillSelect}</label><label class="ai-control-field"><span class="ai-control-field__label">历史会话</span>${history}</label>${thinkingControl}${genreFamilySelect}${styleDetectorControl}${chapterFunctionSelect}${chapterFocusSelect}${endingHookSelect}${creationCost}</div></details>`;
-    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div>${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip" data-completion-action="assemble-final-prompt" style="color:var(--accent,#4f46e5);font-weight:600;background:rgba(79,70,229,0.06);border-color:rgba(79,70,229,0.3)" title="组装当前选择的题材+文风+章节目标+侧重点+钩子及输入指令，生成结构化最终提示词">🔍 组装最终提示词</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述你想让 AI 完成的创作任务…（Enter 发送，Shift + Enter 换行）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
+    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div><div class="editor-ai-dock-tabs" style="display:flex;border-bottom:1px solid var(--line);background:var(--paper-warm);padding:2px 4px;gap:2px"><button class="editor-ai-dock-btn active" type="button" data-completion-action="switch-ai-dock" data-dock="chat" style="flex:1;padding:5px 2px;border:none;background:var(--paper);border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:3px">${ico('sparkles')}AI助手</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="memory" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('brain')}故事记忆</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="docs" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('folder-kanban')}全套资料</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="outline" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('milestone')}细纲伏笔</button></div><div data-ai-dock-view="chat" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div></div><div data-ai-dock-view="memory" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="docs" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="outline" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip" data-completion-action="boost-context" style="color:var(--amber,#b45309);font-weight:700;background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.4)" title="自动聚合当前章节关联的七大资料定位、世界观规则、人物认知与伏笔台账，深度联动生成强化提示词">🚀 全景联动增强 /boost</button><button type="button" class="chat-chip" data-completion-action="assemble-final-prompt" style="color:var(--accent,#4f46e5);font-weight:600;background:rgba(79,70,229,0.06);border-color:rgba(79,70,229,0.3)" title="组装当前选择的题材+文风+章节目标+侧重点+钩子及输入指令，生成结构化最终提示词">🔍 组装最终提示词</button><button type="button" class="chat-chip" data-completion-action="switch-ai-dock" data-dock="memory" title="快速查看并引用故事记忆与人物认知">${ico('brain')} 故事记忆</button><button type="button" class="chat-chip" data-completion-action="switch-ai-dock" data-dock="docs" title="快速查看并引用全套创作资料">${ico('folder-kanban')} 创作资料</button><button type="button" class="chat-chip" data-completion-action="open-full-workbench-browser" title="在全屏独立工作台进行深度研判与推演">${ico('external-link')} 全屏工作台 /browser</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述创作任务，或输入 /boost 全景增强、/browser 全屏工作台…（Enter 发送）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
     }
 
   function renderEditorNav() {
@@ -2655,7 +2655,7 @@
         }
         return `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-apply="${target}" data-result-index="${index}"${generationPending || reviewBlocked || (pendingCommit && target !== 'body') ? ' disabled' : ''}>${target === 'setting' ? '保存设定' : target === 'outline' ? '保存大纲' : '记录伏笔'}</button>`;
       }).join('');
-      const actionRow = hasResult ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px"><span class="badge ${badgeClass}">${badgeText}</span>${item.audit ? `<div style="margin-top:6px;color:var(--muted);font-size:9px">审计 ${esc(normalizeAudit(item.audit).status)}${item.audit.summary ? `：${esc(item.audit.summary)}` : ''}</div>` : ''}${auditIssuesHtml}${run ? `<div class="chat-usage-meta">${esc(generationUsageSummary(run))}</div>` : ''}<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${applyButtons}<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-copy data-result-index="${index}">复制</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--blue);border-color:var(--blue)" data-completion-ai-memory-extract="${index}" title="从本段提取候选事实与认知变化">${ico('scan')}提取记忆变更</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-style-audit="${index}" title="检测本段文风套话与节奏">${ico('activity')}文风质检</button>${adoptBtn}${reviseBtn}${retryBtn}</div></div>` : (retryBtn ? `<div style="margin-top:6px">${retryBtn}</div>` : '');
+      const actionRow = hasResult ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px"><span class="badge ${badgeClass}">${badgeText}</span>${item.audit ? `<div style="margin-top:6px;color:var(--muted);font-size:9px">审计 ${esc(normalizeAudit(item.audit).status)}${item.audit.summary ? `：${esc(item.audit.summary)}` : ''}</div>` : ''}${auditIssuesHtml}${run ? `<div class="chat-usage-meta">${esc(generationUsageSummary(run))}</div>` : ''}<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${applyButtons}<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-copy data-result-index="${index}">复制</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--green,#16a34a);border-color:var(--green,#16a34a)" data-completion-ai-save-dossier="${index}" title="将本段生成中的新设定沉淀到全套创作资料库">${ico('folder-plus')}沉淀资料</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--blue);border-color:var(--blue)" data-completion-ai-memory-extract="${index}" title="从本段提取候选事实与认知变化">${ico('scan')}提取记忆变更</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-style-audit="${index}" title="检测本段文风套话与节奏">${ico('activity')}文风质检</button>${adoptBtn}${reviseBtn}${retryBtn}</div></div>` : (retryBtn ? `<div style="margin-top:6px">${retryBtn}</div>` : '');
       return `<div class="chat-message ${item.kind === 'user' ? 'user' : ''}"><span class="chat-avatar">${item.kind === 'user' ? '你' : '墨'}</span><div class="chat-bubble">${stageLabel}${statusBadge}${notice}${esc(item.text).replace(/\n/g, '<br>')}${actionRow}</div></div>`;
     }).join('');
     chat.innerHTML = items || '<div class="empty"><div class="empty-icon">—</div><p>当前章节还没有 AI 对话记录。</p></div>';
@@ -2678,6 +2678,64 @@
         const draft = sessionStorage.getItem('molan_editor_prompt_draft');
         if (draft) promptInput.value = draft;
       } catch (_) {}
+    }
+    if (promptInput && !promptInput.dataset.slashHooked) {
+      promptInput.dataset.slashHooked = 'true';
+      promptInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.isComposing && e.keyCode !== 229) {
+          const val = promptInput.value.trim();
+          if (val === '/boost' || val.startsWith('/boost ') || val.startsWith('/boost\n')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const customTask = val.replace(/^\/boost\s*/i, '').trim();
+            boostContextToPrompt(customTask);
+            return;
+          }
+          if (val === '/browser' || val.startsWith('/browser ') || val.startsWith('/browser\n')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const target = val.replace(/^\/browser\s*/i, '').trim();
+            openFullWorkbenchBrowser(target);
+            promptInput.value = '';
+            return;
+          }
+          if (val === '/memory') {
+            e.preventDefault();
+            e.stopPropagation();
+            switchAiDock('memory');
+            promptInput.value = '';
+            return;
+          }
+          if (val === '/docs' || val === '/materials') {
+            e.preventDefault();
+            e.stopPropagation();
+            switchAiDock('docs');
+            promptInput.value = '';
+            return;
+          }
+          if (val === '/outline') {
+            e.preventDefault();
+            e.stopPropagation();
+            switchAiDock('outline');
+            promptInput.value = '';
+            return;
+          }
+          if (val === '/chat') {
+            e.preventDefault();
+            e.stopPropagation();
+            switchAiDock('chat');
+            promptInput.value = '';
+            return;
+          }
+          if (val === '/help' || val === '/?') {
+            e.preventDefault();
+            e.stopPropagation();
+            toast('💡 快捷指令：/boost [任务] 全景增强、/browser [target] 全景工作台、/memory 故事记忆、/docs 创作资料、/outline 细纲伏笔');
+            promptInput.value = '';
+            return;
+          }
+        }
+      });
     }
     renderCompletionThinkingSelector();
     const skill = stageNode.querySelector('[data-completion-skill]');
@@ -4913,6 +4971,9 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     const overridePrompt = arguments[0];
     const options = arguments[1];
     if (runtime.editorBusy || runtime.aiApplyBusy) return;
+    if (typeof switchAiDock === 'function' && runtime.activeAiDock !== 'chat') {
+      switchAiDock('chat');
+    }
     const stageNode = getStage();
     const input = stageNode && stageNode.querySelector('[data-completion-prompt]');
     const thinking = stageNode && stageNode.querySelector('[data-completion-thinking]');
@@ -6822,6 +6883,554 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
    * 墨阑长篇记忆与文风稳定系统 · 原生交互工作台
    * 覆盖人物认知矩阵、世界事实裁决、披露策略、四维时间、文风监控、改写审查、变更集确认与正式原子提交。
    */
+  
+  /** 聚合项目所有人物设定（综合实体知识库、设定数组与七大板块资料） */
+  function getProjectCharacters(state) {
+    if (!state) return [];
+    const map = new Map();
+    const kData = ensureKnowledge(state);
+    (kData.entities || []).filter(e => e && e.type === 'character').forEach(c => {
+      if (c && c.name) map.set(c.name, {
+        id: c.id,
+        name: c.name,
+        archetype: c.archetype || '主要人物',
+        personality: c.notes || c.intro || '',
+        voice: c.voice || '',
+        secret: c.secret || ''
+      });
+    });
+    (state.entities || []).filter(e => e && e.type === 'character').forEach(c => {
+      if (c && c.name) {
+        const existing = map.get(c.name) || {};
+        map.set(c.name, {
+          id: c.id || existing.id,
+          name: c.name,
+          archetype: c.archetype || c.role || existing.archetype || '主要人物',
+          personality: c.personality || c.intro || c.notes || existing.personality || '',
+          voice: c.voice || existing.voice || '',
+          secret: c.secret || c.privyState || existing.secret || ''
+        });
+      }
+    });
+    const dossierChars = (state.projectDossier && state.projectDossier.assets && state.projectDossier.assets.characters) || [];
+    dossierChars.forEach(c => {
+      if (c && c.name && !map.has(c.name)) {
+        map.set(c.name, {
+          id: c.id || uid('char'),
+          name: c.name,
+          archetype: c.archetype || c.role || '主要人物',
+          personality: c.description || c.notes || c.intro || '',
+          voice: c.voice || '',
+          secret: c.secret || ''
+        });
+      }
+    });
+    return Array.from(map.values());
+  }
+
+  /** 聚合项目世界观法则、地点、势力与核心设定 */
+  function getProjectWorldFacts(state) {
+    if (!state) return [];
+    const list = [];
+    const seen = new Set();
+    const kData = ensureKnowledge(state);
+    (kData.entities || []).filter(e => e && ['location', 'faction', 'item', 'itemCategory', 'rule'].includes(e.type)).forEach(e => {
+      if (e && e.name && !seen.has(e.name)) {
+        seen.add(e.name);
+        list.push({ id: e.id, name: e.name, type: e.type, desc: e.notes || e.intro || '' });
+      }
+    });
+    (state.projectDossier && state.projectDossier.assets && state.projectDossier.assets.world_rules || []).forEach(wr => {
+      if (wr && wr.name && !seen.has(wr.name)) {
+        seen.add(wr.name);
+        list.push({ id: wr.id, name: wr.name, type: 'rule', desc: wr.description || wr.rule || wr.text || '' });
+      }
+    });
+    (state.projectDossier && state.projectDossier.assets && state.projectDossier.assets.items || []).forEach(it => {
+      if (it && it.name && !seen.has(it.name)) {
+        seen.add(it.name);
+        list.push({ id: it.id, name: it.name, type: 'item', desc: it.description || it.effect || '' });
+      }
+    });
+    (state.entities || []).filter(e => e && (e.type === 'location' || e.type === 'faction' || e.type === 'item')).forEach(e => {
+      if (e && e.name && !seen.has(e.name)) {
+        seen.add(e.name);
+        list.push({ id: e.id, name: e.name, type: e.type, desc: e.intro || e.description || e.preview || '' });
+      }
+    });
+    return list;
+  }
+
+  /** 聚合项目未回收伏笔与钩子台账 */
+  function getProjectForeshadows(state) {
+    if (!state) return [];
+    const raw = state.foreshadows || (state.outline && state.outline.foreshadows) || (state.projectDossier && state.projectDossier.assets && state.projectDossier.assets.chapter_hooks) || [];
+    const list = Array.isArray(raw) ? raw : [];
+    return list.filter(f => f && !f.resolved && !f.done);
+  }
+
+  /** 将工作台设定或记忆一键引用至 AI 提示词输入框 */
+  function citeTextToPrompt(citeContent, sourceTitle = '') {
+    if (!citeContent) return;
+    const stageNode = getStage();
+    const input = stageNode?.querySelector('[data-completion-prompt]');
+    if (!input) return;
+    const preview = stageNode?.querySelector('#editorPreview');
+    if (preview && !runtime.aiOpen) {
+      runtime.aiOpen = true;
+      preview.classList.add('ai-open');
+    }
+    const tag = sourceTitle ? `【${sourceTitle}】` : '';
+    const formatted = `${tag}${citeContent.trim()}`;
+    const prev = input.value.trim();
+    input.value = prev ? `${prev}\n${formatted}` : `${formatted}\n`;
+    input.focus();
+    input.selectionStart = input.value.length;
+    input.selectionEnd = input.value.length;
+    toast(`已将「${sourceTitle || '设定'}」引用至 AI 创作提示词！`);
+  }
+
+  /** /boost 全景智能联动增强：聚合当前卷章场景的七大资料定位、世界观规则、人物认知与伏笔台账 */
+  function boostContextToPrompt() {
+    const userInstruction = (arguments[0] || '').trim();
+    const stageNode = getStage();
+    const state = editorState(false);
+    if (!state) { toast('请先打开一本作品'); return; }
+    const current = activeRefs(state);
+    const promptInput = stageNode?.querySelector('[data-completion-prompt]');
+    if (!promptInput) return;
+
+    const novelTitle = state.title || '未命名小说';
+    const genre = state.type || state.primaryGenre || (typeof resolveEditorGenre === 'function' ? resolveEditorGenre(state) : '玄幻');
+    const chapTitle = current.chapter?.title || '当前章节';
+    const sceneName = current.scene?.name || '当前场景';
+
+    // 聚合人物与认知约束 (知识库 + 设定 + dossier)
+    const characters = getProjectCharacters(state).slice(0, 4);
+    const charSummaries = characters.map(c => {
+      const parts = [
+        c.name,
+        `（${c.archetype || '主要人物'}`,
+        c.personality ? ` · 性格：${c.personality}` : '',
+        c.voice ? ` · 口癖风格：${c.voice}` : '',
+        c.secret ? ` · 私下认知：${c.secret}` : '',
+        '）'
+      ].filter(Boolean).join('');
+      return parts;
+    }).join('；');
+
+    // 聚合世界观法则与世界事实
+    const worldFacts = getProjectWorldFacts(state).slice(0, 4);
+    const worldSummaries = worldFacts.map(w => `${w.name}（${w.desc || '核心事实'}）`).join('；');
+
+    // 聚合未回收伏笔
+    const foreshadows = getProjectForeshadows(state).slice(0, 3);
+    const foreshadowSummaries = foreshadows.map(f => `${f.title || f.name || f.display_text}（预计回收：${f.target || f.chapter || '后续'}）`).join('；');
+
+    // 章节功能与镜头侧重点
+    const chapterFunc = (stageNode.querySelector('[data-completion-chapter-function]') || {}).value || '';
+    const chapterFocus = (stageNode.querySelector('[data-completion-chapter-focus]') || {}).value || '';
+    const endingHook = (stageNode.querySelector('[data-completion-ending-hook]') || {}).value || '';
+    const focusParts = [
+      chapterFunc ? `本章功能：${chapterFunc}` : '',
+      chapterFocus ? `镜头侧重点：${chapterFocus}` : '',
+      endingHook ? `结尾断章钩子：${endingHook}` : ''
+    ].filter(Boolean).join(' · ');
+
+    const userCurrentInput = userInstruction || promptInput.value.replace(/^\/boost\s*/i, '').trim();
+    const boostPrompt = `【项目创作工作台 · /boost 全景智能联动增强】
+- 当前作品与题材：《${novelTitle}》（${genre}）
+- 场景节点：${chapTitle} · ${sceneName}${focusParts ? `\n- 章节定位：${focusParts}` : ''}
+${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${worldSummaries ? `- 关联世界观法则：${worldSummaries}\n` : ''}${foreshadowSummaries ? `- 伏笔推进目标：${foreshadowSummaries}\n` : ''}- 防吃书合规：严格遵守作品已知事实与人物认知差，不擅自泄露未披露秘密，维持叙事张力。
+----------------------------------------
+【本次创作核心任务】：
+${userCurrentInput || '请基于上述工作台设定与人物认知，紧承上文推进当前场景，强化对话冲突与行动张力，展现人物鲜活性。'}`;
+
+    promptInput.value = boostPrompt;
+    promptInput.focus();
+    promptInput.selectionStart = promptInput.value.length;
+    promptInput.selectionEnd = promptInput.value.length;
+    toast('🚀 已一键完成 /boost 全景工作台智能联动增强！');
+  }
+
+  /** /browser 打开独立全景工作台 */
+  function openFullWorkbenchBrowser() {
+    const target = (arguments[0] || '').trim().toLowerCase();
+    const state = editorState(false);
+    const bookId = String(state && (state.id || state.nid) || getPreview().novelId || '');
+    if (!bookId) { toast('请先打开一本小说'); return; }
+
+    if (target === 'newtab' || target === 'tab') {
+      window.open(`./pages/story-workbench.html?nid=${encodeURIComponent(bookId)}`, '_blank');
+      toast('已在独立全景浏览器中打开故事记忆与文风工作台！');
+      return;
+    }
+    if (target === 'docs' || target === 'materials') {
+      void openMaterialsSevenWorkbenchModal();
+      return;
+    }
+    if (target === 'style') {
+      void openMemoryWorkbenchModal('style');
+      return;
+    }
+    // 默认弹窗研判，内含一键直达独立全屏页按钮
+    void openMemoryWorkbenchModal('cognition');
+    toast('已打开项目创作工作台全景浏览器！');
+  }
+
+  /** 切换 AI 侧边栏常驻联动面板 (chat | memory | docs | outline) */
+  function switchAiDock(dockName) {
+    const stageNode = getStage();
+    if (!stageNode) return;
+    runtime.activeAiDock = dockName || 'chat';
+    const preview = stageNode.querySelector('#editorPreview');
+    if (preview && !runtime.aiOpen) {
+      runtime.aiOpen = true;
+      preview.classList.add('ai-open');
+    }
+    const dockBtns = stageNode.querySelectorAll('[data-completion-action="switch-ai-dock"]');
+    dockBtns.forEach(btn => {
+      const isActive = btn.dataset.dock === dockName;
+      btn.classList.toggle('active', isActive);
+      btn.style.background = isActive ? 'var(--paper)' : 'transparent';
+      btn.style.fontWeight = isActive ? '600' : 'normal';
+      btn.style.color = isActive ? 'var(--ink)' : 'var(--muted)';
+      btn.style.boxShadow = isActive ? '0 1px 2px rgba(0,0,0,0.05)' : 'none';
+    });
+
+    const views = stageNode.querySelectorAll('[data-ai-dock-view]');
+    views.forEach(v => {
+      const isTarget = v.dataset.aiDockView === dockName;
+      v.style.display = isTarget ? 'flex' : 'none';
+    });
+
+    if (dockName === 'memory') {
+      renderMemoryDockView();
+    } else if (dockName === 'docs') {
+      renderDocsDockView();
+    } else if (dockName === 'outline') {
+      renderOutlineDockView();
+    } else if (dockName === 'chat') {
+      renderEditorChat();
+    }
+  }
+
+  /** 渲染侧栏：故事记忆与认知联动视图 */
+  function renderMemoryDockView() {
+    const stageNode = getStage();
+    const container = stageNode?.querySelector('[data-ai-dock-view="memory"]');
+    if (!container) return;
+    const state = editorState(false);
+    if (!state) { container.innerHTML = '<div class="empty"><p>请先打开作品</p></div>'; return; }
+
+    const chars = getProjectCharacters(state);
+    const rawForeshadows = getProjectForeshadows(state);
+    const foreshadows = Array.isArray(rawForeshadows) ? rawForeshadows : [];
+    const worldFacts = getProjectWorldFacts(state);
+
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px">
+        <span class="badge blue" style="font-size:10px">故事记忆与认知 · 实时联动</span>
+        <div style="display:flex;gap:4px">
+          <button class="button" data-completion-action="boost-context" style="padding:2px 6px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600" title="一键将本章记忆与设定全景增强入模">${ico('sparkles')}增强(/boost)</button>
+          <button class="button" data-completion-action="open-memory-workbench" style="padding:2px 6px;font-size:10px" title="打开全屏记忆工作台">${ico('maximize-2')}全屏</button>
+        </div>
+      </div>
+      
+      <div style="font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:4px;margin-top:6px">
+        ${ico('users')} 人物私下认知 vs 表现 (${chars.length})
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${chars.length ? chars.map(c => `
+          <div class="dock-card" style="background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:600;font-size:12px;color:var(--ink)">${esc(c.name)} · <small style="color:var(--muted)">${esc(c.archetype || c.role || '主要人物')}</small></span>
+              <span class="badge gray" style="font-size:9px">认知已同步</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.4">${esc(c.personality || c.intro || '暂无私下态度描述')}</div>
+            ${c.voice ? `<div style="font-size:10px;color:var(--blue)">口癖：${esc(c.voice)}</div>` : ''}
+            ${c.secret ? `<div style="font-size:10px;color:var(--amber,#b45309)">私密认知：${esc(c.secret)}</div>` : ''}
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px dashed var(--line);padding-top:4px">
+              <button class="button" data-completion-cite-to-prompt="【人物认知约束】#${esc(c.name)}：性格特点：${esc(c.personality || c.intro || '')}；对外表现与口吻：${esc(c.voice || '自然')}，必须恪守其已知/未知秘密。" data-cite-title="人物认知 · ${esc(c.name)}" style="padding:2px 7px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600">${ico('pin')}引用至AI</button>
+              <button class="button" data-completion-insert-to-prose="【${esc(c.name)}】" style="padding:2px 7px;font-size:10px">${ico('corner-down-left')}插正文</button>
+            </div>
+          </div>
+        `).join('') : '<p class="section-note">暂无角色认知，可点击全屏工作台新增。</p>'}
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:4px;margin-top:8px">
+        ${ico('shield-check')} 正式世界事实裁决 (${worldFacts.length})
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${worldFacts.length ? worldFacts.slice(0, 8).map(wf => `
+          <div class="dock-card" style="background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:600;font-size:12px;color:var(--ink)">${esc(wf.name)}</span>
+              <span class="badge green" style="font-size:9px">${esc(wf.type === 'location' ? '地点' : wf.type === 'faction' ? '势力' : wf.type === 'rule' ? '法则' : '道具')}</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.4">${esc(wf.desc || '世界核心事实')}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px dashed var(--line);padding-top:4px">
+              <button class="button" data-completion-cite-to-prompt="【世界事实约束】#${esc(wf.name)}：${esc(wf.desc || '')}，正文推进不得违背此事实。" data-cite-title="事实 · ${esc(wf.name)}" style="padding:2px 7px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600">${ico('pin')}引用至AI</button>
+              <button class="button" data-completion-insert-to-prose="${esc(wf.name)}" style="padding:2px 7px;font-size:10px">${ico('corner-down-left')}插正文</button>
+            </div>
+          </div>
+        `).join('') : '<p class="section-note">暂无世界事实记录。</p>'}
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:4px;margin-top:8px">
+        ${ico('bookmark')} 伏笔台账 (${foreshadows.length})
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${foreshadows.length ? foreshadows.slice(0, 5).map((f, idx) => `
+          <div class="dock-card" style="background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:600;font-size:12px;color:var(--ink)">${esc(f.title || f.name || f.display_text || '伏笔 ' + (idx + 1))}</span>
+              <span class="badge amber" style="font-size:9px">待推进</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.4">${esc(f.notes || f.desc || f.target || '待在当前章节或后续回收')}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px dashed var(--line);padding-top:4px">
+              <button class="button" data-completion-cite-to-prompt="【伏笔推进目标】#${esc(f.title || f.name || '伏笔')}：${esc(f.notes || f.desc || '在当前场景中留下线索或暗线推进')}。" data-cite-title="伏笔 · ${esc(f.title || f.name)}" style="padding:2px 7px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600">${ico('pin')}引用至AI</button>
+            </div>
+          </div>
+        `).join('') : '<p class="section-note">暂无待回收伏笔。</p>'}
+      </div>
+    `;
+  }
+
+  /** 渲染侧栏：七大创作资料板块联动视图 */
+  function renderDocsDockView() {
+    const stageNode = getStage();
+    const container = stageNode?.querySelector('[data-ai-dock-view="docs"]');
+    if (!container) return;
+    const state = editorState(false);
+    if (!state) { container.innerHTML = '<div class="empty"><p>请先打开作品</p></div>'; return; }
+
+    const dossier = state.projectDossier || { assets: {}, profile: {} };
+    const p = dossier.profile || {};
+    const titleVal = p.title || state.title || '';
+    const genreVal = p.primaryGenre || state.type || '';
+    const descVal = p.shortSynopsis || state.description || '';
+    const themeVal = p.theme || '';
+
+    const details = (dossier.assets && dossier.assets.items) || [];
+    const worldRules = (dossier.assets && dossier.assets.world_rules) || [];
+
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px">
+        <span class="badge blue" style="font-size:10px">全套创作资料 (七大板块)</span>
+        <button class="button" data-completion-action="open-materials-seven" style="padding:2px 7px;font-size:10px" title="打开全屏全套资料库">${ico('folder-kanban')}全景资料库</button>
+      </div>
+
+      <div class="dock-card" style="background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:600;font-size:12px;color:var(--ink)">一、作品基础定位</span>
+          <span class="badge blue" style="font-size:9px">${esc(genreVal || '全题材')}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5">
+          <strong>书名：</strong>《${esc(titleVal)}》<br>
+          ${descVal ? `<strong>简介：</strong>${esc(descVal)}<br>` : ''}
+          ${themeVal ? `<strong>主题：</strong>${esc(themeVal)}` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px dashed var(--line);padding-top:4px">
+          <button class="button" data-completion-cite-to-prompt="【作品基础定位】书名：《${esc(titleVal)}》，题材：${esc(genreVal)}，主题立意：${esc(themeVal || '追求至高')}，核心钩子：${esc(descVal)}" data-cite-title="作品基础定位" style="padding:2px 7px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600">${ico('pin')}引用至AI</button>
+          <button class="button" data-completion-insert-to-prose="${esc(descVal || titleVal)}" style="padding:2px 7px;font-size:10px">${ico('corner-down-left')}插正文</button>
+        </div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:4px;margin-top:6px">
+        ${ico('globe')} 二、世界观设定 (${worldRules.length})
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${worldRules.length ? worldRules.map(wr => `
+          <div class="dock-card" style="background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-weight:600;font-size:12px;color:var(--ink)">${esc(wr.name || '世界规则')}</span></div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.4">${esc(wr.description || wr.rule || wr.text || '')}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px dashed var(--line);padding-top:4px">
+              <button class="button" data-completion-cite-to-prompt="【世界观法则】#${esc(wr.name)}：${esc(wr.description || wr.rule || wr.text || '')}" data-cite-title="世界观 · ${esc(wr.name)}" style="padding:2px 7px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600">${ico('pin')}引用至AI</button>
+              <button class="button" data-completion-insert-to-prose="${esc(wr.name)}" style="padding:2px 7px;font-size:10px">${ico('corner-down-left')}插正文</button>
+            </div>
+          </div>
+        `).join('') : `
+          <div class="dock-card" style="background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:11px;color:var(--muted)">暂无独立法则条目，可点击全景资料库快速添加。</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px dashed var(--line);padding-top:4px">
+              <button class="button" data-completion-action="open-materials-seven" style="padding:2px 7px;font-size:10px">${ico('plus')}前往资料库新增</button>
+            </div>
+          </div>
+        `}
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:4px;margin-top:6px">
+        ${ico('sparkles')} 五、专项细节设定 (${details.length})
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${details.length ? details.map(dt => `
+          <div class="dock-card" style="background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-weight:600;font-size:12px;color:var(--ink)">${esc(dt.name || '法宝/招式')}</span></div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.4">${esc(dt.description || dt.effect || dt.text || '')}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px dashed var(--line);padding-top:4px">
+              <button class="button" data-completion-cite-to-prompt="【专项细节设定】#${esc(dt.name)}：${esc(dt.description || dt.effect || '')}" data-cite-title="细节 · ${esc(dt.name)}" style="padding:2px 7px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600">${ico('pin')}引用至AI</button>
+              <button class="button" data-completion-insert-to-prose="${esc(dt.name)}" style="padding:2px 7px;font-size:10px">${ico('corner-down-left')}插正文</button>
+            </div>
+          </div>
+        `).join('') : '<p class="section-note">当前暂无专项细节设定，生成时点击“沉淀资料”可快速创建。</p>'}
+      </div>
+    `;
+  }
+
+  /** 渲染侧栏：细纲与伏笔联动视图 */
+  function renderOutlineDockView() {
+    const stageNode = getStage();
+    const container = stageNode?.querySelector('[data-ai-dock-view="outline"]');
+    if (!container) return;
+    const state = editorState(false);
+    if (!state) { container.innerHTML = '<div class="empty"><p>请先打开作品</p></div>'; return; }
+
+    const current = activeRefs(state);
+    const vol = current.volume;
+    const chap = current.chapter;
+    const scn = current.scene;
+
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px">
+        <span class="badge blue" style="font-size:10px">细纲与伏笔 · 实时联动</span>
+        <button class="button" data-completion-action="open-outline" style="padding:2px 7px;font-size:10px" title="前往大纲全景页">${ico('milestone')}大纲时间线</button>
+      </div>
+
+      <div class="dock-card" style="background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:600;font-size:12px;color:var(--ink)">当前卷：${esc(vol ? vol.title : '未分卷')}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5">
+          <strong>当前章节：</strong>${esc(chap ? chap.title : '未选')}<br>
+          <strong>当前场景：</strong>${esc(scn ? scn.name : '未选')}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px dashed var(--line);padding-top:4px">
+          <button class="button" data-completion-cite-to-prompt="【章节细纲目标】当前卷：《${esc(vol ? vol.title : '')}》，章节：《${esc(chap ? chap.title : '')}》，场景：《${esc(scn ? scn.name : '')}》，推进该场景的核心戏剧冲突。" data-cite-title="章节场景大纲" style="padding:2px 7px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600">${ico('pin')}引用至AI</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** 快速沉淀生成内容为资料卡 */
+  function openQuickSaveDossierModal(resultIndex) {
+    const records = chatRecords();
+    const item = records[resultIndex];
+    const textVal = item && (item.text || item.resultText) || '';
+    if (!textVal.trim()) { toast('该生成内容为空，无法沉淀'); return; }
+
+    const selection = (typeof window.getSelection === 'function' && window.getSelection().toString().trim()) || '';
+    const initialContent = selection || textVal.slice(0, 300);
+
+    const modalHtml = `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="notice"><span><strong>沉淀为创作资料卡：</strong>将当前 AI 生成的精彩设定直接登记到作品全套资料库中，后续章节与模型生成将自动持续引用。</span></div>
+      <div class="field">
+        <label>资料板块</label>
+        <select id="quickDossierSec" class="ai-select">
+          <option value="world">二、世界观设定（底层法则/势力/宗门/地理）</option>
+          <option value="chars">三、人物设定（主角/重要配角/反派卡）</option>
+          <option value="details" selected>五、专项细节设定（道具法宝/招式/环境名场面）</option>
+          <option value="outline">四、剧情大纲（伏笔钩子/冲突节点）</option>
+          <option value="execution">六、写作执行（时间线/设定备忘）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>条目名称 / 标识</label>
+        <input id="quickDossierName" placeholder="例如：轮回古镜 / 玄天宗戒律" value="新设定_${Date.now().toString(36)}">
+      </div>
+      <div class="field">
+        <label>设定详情内容</label>
+        <textarea id="quickDossierContent" rows="6">${esc(initialContent)}</textarea>
+      </div>
+    </div>`;
+
+    openEditorForm('沉淀为全套创作资料卡', modalHtml, '保存到资料库', async () => {
+      const sec = document.getElementById('quickDossierSec').value;
+      const name = document.getElementById('quickDossierName').value.trim();
+      const content = document.getElementById('quickDossierContent').value.trim();
+      if (!name || !content) { toast('请填写名称和内容'); return; }
+
+      const state = editorState(false);
+      if (!state) return;
+      state.projectDossier = state.projectDossier || { assets: {} };
+      state.projectDossier.assets = state.projectDossier.assets || {};
+
+      const kindMap = { world: 'world_rules', chars: 'characters', details: 'items', outline: 'chapter_hooks', execution: 'timeline_records' };
+      const kind = kindMap[sec] || 'items';
+
+      if (sec === 'chars') {
+        const charId = uid('char');
+        state.entities = state.entities || [];
+        state.entities.push({
+          id: charId,
+          type: 'character',
+          name: name,
+          intro: content,
+          archetype: '主要人物',
+          updatedAt: Date.now()
+        });
+        const kData = ensureKnowledge(state);
+        state.knowledge.entities[charId] = {
+          id: charId,
+          type: 'character',
+          name: name,
+          notes: content,
+          archetype: '主要人物',
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+      } else {
+        const matId = uid('mat');
+        state.projectDossier.assets[kind] = state.projectDossier.assets[kind] || [];
+        state.projectDossier.assets[kind].push({
+          id: matId,
+          name: name,
+          description: content,
+          createdAt: Date.now()
+        });
+        if (sec === 'world') {
+          const kData = ensureKnowledge(state);
+          state.knowledge.entities[matId] = {
+            id: matId,
+            type: 'location',
+            name: name,
+            notes: content,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          };
+        }
+      }
+
+      markEditorDirty(true);
+      closeExistingModal();
+      toast(`已成功将「${name}」沉淀到作品资料库！`);
+      if (runtime.activeAiDock === 'docs') {
+        renderDocsDockView();
+      } else if (runtime.activeAiDock === 'memory') {
+        renderMemoryDockView();
+      }
+    });
+  }
+
+  // 暴露跨窗口 / 宿主通信 API
+  window.MolanEditorApplyExternalDraft = function (draftText) {
+    if (!draftText) return;
+    const state = editorState(false);
+    const current = activeRefs(state);
+    if (current && current.scene) {
+      current.scene.content = draftText.indexOf('<p>') >= 0 ? draftText : draftText.split(/\n+/).map(p => `<p>${esc(p)}</p>`).join('');
+      markEditorDirty(true);
+      renderEditorPaper();
+      toast('已成功接收并应用来自工作台的最新正文稿！');
+    } else {
+      toast('正文已接收，请打开对应场景应用');
+    }
+  };
+
+  window.MolanEditorCiteToPrompt = function (text, title) {
+    citeTextToPrompt(text, title);
+  };
+
   async function openMemoryWorkbenchModal(initialTab = 'cognition', initialText = '') {
     const preview = getPreview();
     const state = editorState(false);
@@ -6919,6 +7528,7 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
                 <div class="task-title">${esc(c.targetExpression || c.proposition || '关于某事件的认知')}</div>
                 <div class="task-meta">私下态度：<strong>${esc(c.attitude || 'believes')}</strong> (${esc(c.subjective_certainty || '确信')}) · 对外表现：<strong>${esc(c.public_stance || 'concealed')}</strong> · 渠道：${esc(c.acquisition_channel || '告知')}</div>
               </div>
+              <button class="button" data-completion-cite-to-prompt="【人物认知约束】#${esc(c.holderName || c.holder_entity_id || '角色')}：私下态度【${esc(c.attitude || 'believes')}】关于「${esc(c.targetExpression || c.proposition || '')}」，对外表现为【${esc(c.public_stance || 'concealed')}】，正文描写不得违反此认知差。" data-cite-title="认知 · ${esc(c.holderName || c.holder_entity_id || '角色')}" style="padding:3px 8px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600" title="引用至 AI 提示词">${ico('pin')}引用至AI</button>
               ${isMisbelief ? '<span class="badge danger">误信对比</span>' : '<span class="badge blue">私下认知</span>'}
             </div>`;
           }).join('')}</div>
@@ -6934,6 +7544,7 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
               <div class="task-title">${esc(m.display_text || m.predicate || m.id)}</div>
               <div class="task-meta">时间线：${esc(m.timeline_id || 't0')} · 裁决状态：${esc(m.status || 'confirmed')} · 版本：${esc(m.revision || 1)}</div>
             </div>
+            <button class="button" data-completion-cite-to-prompt="【世界事实约束】#${esc(m.display_text || m.predicate || m.id)}，已生效事实，正文描写不得冲突。" data-cite-title="事实 · ${esc(m.id || '世界事实')}" style="padding:3px 8px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600" title="引用至 AI 提示词">${ico('pin')}引用至AI</button>
             <span class="badge green">已生效</span>
           </div>`).join('') : '<p class="section-note">暂无正式世界事实记录。</p>'}</div>
           <div style="font-size:12px;font-weight:600;margin-top:8px">章节披露策略 (Disclosure Policies)</div>
@@ -7199,8 +7810,9 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
           <div class="field" style="grid-column:span 2"><label>短简介（一句话钩子）</label><textarea id="posShortSynopsis">${esc(p.shortSynopsis || state.description || '')}</textarea></div>
           <div class="field" style="grid-column:span 2"><label>长简介（平台主页与宣传文案）</label><textarea id="posLongSynopsis">${esc(p.longSynopsis || '')}</textarea></div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:14px">
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
           <button class="button primary" id="savePosBtn">${ico('save')}保存基础定位</button>
+          <button class="button" id="citePosHookBtn" style="color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600" title="将书名、题材与简介引用至 AI 提示词">${ico('pin')}引用至AI提示词</button>
           <button class="button" id="insertPosHookBtn" title="将书名与简介插入正文">${ico('corner-down-left')}将简介插入正文</button>
         </div>`;
       } else if (sec.id === 'chars') {
@@ -7216,6 +7828,7 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
             <div class="task-meta">${esc(c.personality || c.intro || c.notes || '暂无详细描述')}</div>
             ${c.voice ? `<div style="font-size:11px;color:var(--blue);margin-top:2px"><strong>口头禅/语言风格：</strong>${esc(c.voice)}</div>` : ''}
           </div>
+          <button class="button" data-completion-cite-to-prompt="【人物卡设定】#${esc(c.name)}（${esc(c.archetype || c.role || '主要人物')}）：性格：${esc(c.personality || c.intro || '')}；口癖语言：${esc(c.voice || '自然')}。" data-cite-title="人物卡 · ${esc(c.name)}" style="padding:3px 8px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600" title="将该角色设定引用到 AI 提示词">${ico('pin')}引用至AI</button>
           <button class="button" data-insert-char="${esc(c.id)}" style="padding:3px 8px;font-size:10px" title="将该角色姓名与介绍插入正文">${ico('corner-down-left')}插正文</button>
           <button class="button" data-edit-char="${esc(c.id)}" style="padding:3px 8px;font-size:10px">编辑</button>
         </div>`).join('') : '<div class="empty"><p>暂无人物卡。点击右上角“新增人物卡”开始创建主角与重要配角。</p></div>'}</div>`;
@@ -7243,6 +7856,7 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
             <div class="task-title">${esc(it.name || it.title || it.text || `条目 ${idx+1}`)}</div>
             <div class="task-meta">${esc(it.description || it.effect || it.definition || it.rule || it.text || '')}</div>
           </div>
+          <button class="button" data-completion-cite-to-prompt="【创作资料设定】#${esc(it.name || it.title || '设定')}：${esc(it.description || it.effect || it.definition || it.rule || it.text || '')}" data-cite-title="资料 · ${esc(it.name || it.title || '条目')}" style="padding:3px 8px;font-size:10px;color:var(--amber,#b45309);border-color:rgba(245,158,11,0.4);font-weight:600" title="将设定内容引用至 AI 提示词">${ico('pin')}引用至AI</button>
           <button class="button" data-insert-material="${idx}" style="padding:3px 8px;font-size:10px" title="将设定内容快速插入当前编辑器">${ico('corner-down-left')}插正文</button>
         </div>`).join('') : '<div class="empty"><p>当前板块暂无素材条目。点击上方按钮快速添加，写正文时可一键插入光标处！</p></div>'}</div>`;
       }
@@ -7272,6 +7886,17 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
               state.type = p.primaryGenre || state.type;
               markEditorDirty(true);
               toast('作品定位与开篇资料已保存！');
+            };
+          }
+          const citePosBtn = document.getElementById('citePosHookBtn');
+          if (citePosBtn) {
+            citePosBtn.onclick = () => {
+              const titleP = document.getElementById('posTitle').value.trim();
+              const genreP = document.getElementById('posGenre').value.trim();
+              const shortSyn = document.getElementById('posShortSynopsis').value.trim();
+              const themeP = document.getElementById('posTheme').value.trim();
+              citeTextToPrompt(`书名：《${titleP || state.title}》，题材：${genreP}，主题立意：${themeP}，一句话简介：${shortSyn}`, '作品基础定位');
+              closeExistingModal();
             };
           }
           const insertBtn = document.getElementById('insertPosHookBtn');
@@ -7802,10 +8427,31 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
         void openMemoryWorkbenchModal('style', text);
         return;
       }
+      const saveDossierBtn = event.target.closest('[data-completion-ai-save-dossier]');
+      if (saveDossierBtn) {
+        event.preventDefault(); event.stopPropagation();
+        openQuickSaveDossierModal(Number(saveDossierBtn.dataset.completionAiSaveDossier));
+        return;
+      }
+      const citeBtn = event.target.closest('[data-completion-cite-to-prompt]');
+      if (citeBtn) {
+        event.preventDefault(); event.stopPropagation();
+        citeTextToPrompt(citeBtn.dataset.completionCiteToPrompt, citeBtn.dataset.citeTitle || '');
+        return;
+      }
+      const insertProseBtn = event.target.closest('[data-completion-insert-to-prose]');
+      if (insertProseBtn) {
+        event.preventDefault(); event.stopPropagation();
+        insertTextToEditor(insertProseBtn.dataset.completionInsertToProse);
+        return;
+      }
       const action = event.target.closest('[data-completion-action]');
       if (!action) return;
       event.preventDefault(); event.stopPropagation();
       const name = action.dataset.completionAction;
+      if (name === 'switch-ai-dock') { switchAiDock(action.dataset.dock); return; }
+      if (name === 'boost-context') { boostContextToPrompt(); return; }
+      if (name === 'open-full-workbench-browser') { openFullWorkbenchBrowser(); return; }
       if (name === 'open-memory-workbench') { void openMemoryWorkbenchModal(); return; }
       if (name === 'open-materials-seven') { void openMaterialsSevenWorkbenchModal(); return; }
       if (name === 'editor-save') { void persistNovel({ snapshot: true }); return; }
@@ -8059,6 +8705,8 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
       if (promptInput && event.key === 'Enter') {
         if (event.isComposing || event.keyCode === 229) return;
         if (event.shiftKey || event.ctrlKey || event.altKey) return;
+        const val = promptInput.value.trim();
+        if (val.startsWith('/')) return;
         event.preventDefault();
         event.stopPropagation();
         void sendEditorAI();
