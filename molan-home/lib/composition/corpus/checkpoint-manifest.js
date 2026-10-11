@@ -14,6 +14,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+const DEFAULT_STAGING_ROOT = path.resolve(__dirname, '../../../data/corpus-build/runs');
+
 function sha256(val) {
   return crypto.createHash('sha256').update(String(val || ''), 'utf8').digest('hex');
 }
@@ -113,7 +115,7 @@ class CheckpointManifest {
    * @param {Object} options
    */
   constructor(options = {}) {
-    this.stagingRoot = path.resolve(options.stagingRoot || path.join(process.cwd(), 'data', 'corpus-build', 'runs'));
+    this.stagingRoot = path.resolve(options.stagingRoot || DEFAULT_STAGING_ROOT);
     this.runId = options.runId || `corpus_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
     this.runDir = path.join(this.stagingRoot, this.runId);
     this.manifestFile = path.join(this.runDir, 'manifest.json');
@@ -348,7 +350,7 @@ class CheckpointManifest {
   /**
    * 自动探测最新运行目录以支持 --resume
    */
-  static findLatestRunId(stagingRoot = path.join(process.cwd(), 'data', 'corpus-build', 'runs')) {
+  static findLatestRunId(stagingRoot = DEFAULT_STAGING_ROOT) {
     if (!fs.existsSync(stagingRoot)) return null;
     const dirs = fs.readdirSync(stagingRoot).filter(d => fs.statSync(path.join(stagingRoot, d)).isDirectory());
     if (!dirs.length) return null;
@@ -359,7 +361,7 @@ class CheckpointManifest {
   /**
    * 自动探测最新未完成的运行目录以供 --resume 恢复
    */
-  static findLatestIncompleteRunId(stagingRoot = path.join(process.cwd(), 'data', 'corpus-build', 'runs')) {
+  static findLatestIncompleteRunId(stagingRoot = DEFAULT_STAGING_ROOT) {
     if (!fs.existsSync(stagingRoot)) return null;
     const dirs = fs.readdirSync(stagingRoot).filter(d => fs.statSync(path.join(stagingRoot, d)).isDirectory());
     if (!dirs.length) return null;

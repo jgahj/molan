@@ -126,10 +126,15 @@ class PackagePublisher {
       checksum: sha256File(path.join(targetPackageDir, 'package-manifest.json'))
     };
 
-    const tmpPointer = `${this.activePointerFile}.tmp_${Date.now()}`;
-    fs.writeFileSync(tmpPointer, JSON.stringify(activePointer, null, 2), 'utf8');
-    fs.renameSync(tmpPointer, this.activePointerFile);
-    this._cleanTmpPointers();
+    const tmpPointer = `${this.activePointerFile}.tmp_${Date.now()}_${process.pid}_${crypto.randomBytes(4).toString('hex')}`;
+    try {
+      fs.writeFileSync(tmpPointer, JSON.stringify(activePointer, null, 2), 'utf8');
+      fs.renameSync(tmpPointer, this.activePointerFile);
+    } catch (err) {
+      try { fs.rmSync(tmpPointer, { force: true }); } catch (_) {}
+      throw err;
+    }
+    this._cleanTmpPointers(5000);
 
     // 6. 执行 LRU 滚动保留策略：保留当前激活版本及最近 3 个历史包，防止残包膨胀
     const prunedPackages = this.pruneHistoryPackages(version, options.maxHistoryPackages ?? 3);
@@ -145,16 +150,25 @@ class PackagePublisher {
   }
 
   /**
-   * 清理 targetBase 下遗留的 active_package.json.tmp_* 碎片文件
+   * 清理 targetBase 下遗留的历史 active_package.json.tmp_* 碎片文件
+   * @param {number} olderThanMs 仅清理修改时间早于指定毫秒数的文件（默认 0 即全量清理，传入正数可避免并发竞争）
    */
-  _cleanTmpPointers() {
+  _cleanTmpPointers(olderThanMs = 0) {
     try {
       if (!fs.existsSync(this.targetBase)) return;
       const files = fs.readdirSync(this.targetBase);
+      const now = Date.now();
       for (const f of files) {
         if (f.startsWith('active_package.json.tmp_')) {
           try {
-            fs.rmSync(path.join(this.targetBase, f), { force: true });
+            const fullPath = path.join(this.targetBase, f);
+            if (olderThanMs > 0) {
+              const stat = fs.statSync(fullPath);
+              if (now - stat.mtimeMs < olderThanMs) {
+                continue;
+              }
+            }
+            fs.rmSync(fullPath, { force: true });
           } catch (_) {}
         }
       }

@@ -239,10 +239,13 @@ test('CorpusBatchPipeline: 端到端离线批处理 CLI 流水线 (Extract -> Mi
   const novelContent = `第1章 惊变\n${ch1Text}\n\n第2章 探秘\n${ch2Text}`;
   fs.writeFileSync(book1File, novelContent, 'utf8');
 
+  const tmpKb = createTempDir('molan-target-kb-');
+
   // 初始化管线
   const pipeline = new CorpusBatchPipeline({
     sourceDir: tmpCorpus,
     stagingRoot: tmpStaging,
+    targetKnowledgeBase: tmpKb,
     workers: 2
   });
 

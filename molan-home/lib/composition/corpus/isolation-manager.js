@@ -24,6 +24,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const DEFAULT_CORPUS_BUILD_ROOT = path.resolve(__dirname, '../../../data/corpus-build');
+
 class CorpusQuotaManager {
   /**
    * @param {Object} options
@@ -65,7 +67,7 @@ class IsolationManager {
   constructor(options = {}) {
     this.maxWorkers = Math.max(1, Math.min(8, Number(options.workers || 2)));
     this.memoryCeilingMb = Number(options.memoryCeilingMb || 512); // 单 Worker 内存上限 (MB)
-    this.stagingRoot = path.resolve(options.outputDir || path.join(process.cwd(), 'data', 'corpus-build'));
+    this.stagingRoot = path.resolve(options.outputDir || DEFAULT_CORPUS_BUILD_ROOT);
     this.sourceDir = options.sourceDir ? path.resolve(options.sourceDir) : null;
     this.quotaManager = new CorpusQuotaManager(options.quotaOptions || {});
     this._activeWorkers = 0;

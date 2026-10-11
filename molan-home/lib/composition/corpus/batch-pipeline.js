@@ -23,6 +23,8 @@ const { mineStrategiesFromFeatures } = require('./strategy-miner');
 const { PackagePublisher } = require('./package-publisher');
 
 const DEFAULT_SOURCE_DIR = path.resolve(__dirname, '../../../../资源库/小说原本');
+const DEFAULT_STAGING_ROOT = path.resolve(__dirname, '../../../data/corpus-build/runs');
+const DEFAULT_TARGET_BASE = path.resolve(__dirname, '../../../data/strategy-knowledge-base');
 const CHAPTER_REGEX = /^[ \t\r]*(第[0-9零一二两三四五六七八九十百千万]+[章回节折卷]|Chapter\s*[0-9]+|楔子|序章|尾声|番外|引子)[ \t\r]*([^\r\n]*)/gim;
 
 /**
@@ -158,16 +160,17 @@ class CorpusBatchPipeline {
    */
   constructor(options = {}) {
     this.sourceDir = options.sourceDir ? path.resolve(options.sourceDir) : DEFAULT_SOURCE_DIR;
-    this.stagingRoot = path.resolve(options.stagingRoot || (options.baseDir ? options.baseDir : path.join(process.cwd(), 'data', 'corpus-build', 'runs')));
+    this.stagingRoot = path.resolve(options.stagingRoot || (options.baseDir ? options.baseDir : DEFAULT_STAGING_ROOT));
     this.runId = options.runId || null;
     this.runDir = options.runDir ? path.resolve(options.runDir) : null;
     this.baseDir = options.baseDir ? path.resolve(options.baseDir) : null;
+    this.targetKnowledgeBase = options.targetKnowledgeBase || options.targetBase || DEFAULT_TARGET_BASE;
     this.isolationManager = new IsolationManager({
       workers: options.workers || 2,
       outputDir: path.dirname(this.stagingRoot),
       sourceDir: this.sourceDir
     });
-    this.publisher = new PackagePublisher();
+    this.publisher = new PackagePublisher(options.publisherOptions || { targetBase: this.targetKnowledgeBase });
   }
 
   /**

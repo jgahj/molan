@@ -3,9 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="alternate icon" href="./favicon.ico">
-  <link rel="stylesheet" href="./pages/tokens.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230a0a0a'/><text x='16' y='21' font-size='16' text-anchor='middle' fill='%23fff' font-family='serif'>墨</text></svg>">
+  <script>
+    if (location.protocol !== 'file:') {
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = './pages/tokens.css';
+      document.head.appendChild(l);
+    }
+  </script>
   <title>墨阑 · 本地创作工作台</title>
   <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
   <style>
@@ -102,6 +106,44 @@
     body.theme-dim .chat-bubble .button.primary { color: #171716; background: #f2f2ed; border-color: #f2f2ed; }
     body.theme-dim .chat-bubble .button.primary:hover { background: #ffffff; }
     body.theme-dim .chat-bubble details div { background: #20201e !important; border-color: #3b3b37 !important; color: #d7d7d0 !important; }
+    body.theme-dim .editor-dock { background: var(--paper); border-color: var(--line); }
+    body.theme-dim .dock-header { background: var(--paper-warm); border-color: var(--line); }
+    body.theme-dim .dock-title-badge { background: #3b3b37; color: var(--ink); }
+    body.theme-dim .dock-nav-bar { background: var(--paper); border-color: var(--line); }
+    body.theme-dim .dock-tab-btn { color: var(--muted); }
+    body.theme-dim .dock-tab-btn:hover { color: var(--ink); }
+    body.theme-dim .dock-tab-btn.active { color: var(--ink); border-bottom-color: var(--ink); background: var(--paper-warm); }
+    body.theme-dim .dock-subnav { background: #1c1c1a; }
+    body.theme-dim .dock-subtab.active { background: #282825; color: var(--ink); }
+    body.theme-dim .dock-node-card,
+    body.theme-dim .dock-entity-card,
+    body.theme-dim .dock-memory-card,
+    body.theme-dim .dock-tool-choice { background: #282825; border-color: var(--line); color: var(--ink-soft); }
+    body.theme-dim .dock-node-card:hover,
+    body.theme-dim .dock-entity-card:hover,
+    body.theme-dim .dock-memory-card:hover,
+    body.theme-dim .dock-tool-choice:hover { background: #30302d; border-color: var(--line-strong); }
+    body.theme-dim .dock-tool-choice.active { background: #30302d; border-color: var(--ink); }
+    body.theme-dim .dock-node-card.active-node { border-color: var(--amber); background: #30302d; }
+    body.theme-dim .dock-quote-btn { background: #363632; color: var(--ink); border-color: var(--line-strong); }
+    body.theme-dim .dock-quote-btn:hover { background: #42423d; border-color: var(--ink); }
+    body.theme-dim .dock-search-wrap,
+    body.theme-dim .dock-tool-editor { background: #1c1c1a; color: var(--ink); border-color: var(--line-strong); }
+    body.theme-dim .dock-tool-fetch-btn { background: #282825; color: var(--muted); border-color: var(--line-strong); }
+    body.theme-dim .dock-tool-fetch-btn:hover { background: #363632; color: var(--ink); }
+    body.theme-dim .dock-result-box { background: #1c1c1a; border-color: var(--line); color: var(--ink-soft); }
+    body.theme-dim .dock-segmented-tabs { background: #1c1c1a; border-color: var(--line); }
+    body.theme-dim .dock-pill-btn { color: var(--muted); }
+    body.theme-dim .dock-pill-btn:hover { color: var(--ink); background: #30302d; }
+    body.theme-dim .dock-pill-btn.active { background: #363632; color: var(--ink); border-color: var(--line-strong); }
+    body.theme-dim .editor-selection-menu { background: #282825; border-color: var(--line-strong); box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+    body.theme-dim .editor-selection-menu button { color: var(--ink-soft); }
+    body.theme-dim .editor-selection-menu button:hover { background: #363632; color: var(--ink); }
+    body.theme-dim .chat-bubble-actions button { background: #363632; color: var(--ink); border-color: var(--line-strong); }
+    body.theme-dim .chat-bubble-actions button:hover { background: #42423d; }
+    body.theme-dim .chat-bubble-actions button.primary { background: #f2f2ed; color: #171716; }
+    body.theme-dim .dock-filter-tag { background: #282825; border-color: var(--line); color: var(--muted); }
+    body.theme-dim .dock-filter-tag.active { background: #363632; color: var(--ink); border-color: var(--line-strong); }
     body.theme-dim .skeleton-pulse {
       background: linear-gradient(90deg, #2b2b28 25%, #383834 50%, #2b2b28 75%);
       background-size: 200% 100%;
@@ -296,14 +338,561 @@
     .mini-list-row { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; }
 
     /* Editor */
-    .editor-preview { height: 710px; min-height: 0; display: grid; grid-template-columns: 185px minmax(0, 1fr) 310px; grid-template-rows: minmax(0, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--canvas); }
-    body.editor-only-mode .editor-preview { width: 100%; height: 100vh; min-height: 0; grid-template-columns: 240px minmax(0, 1fr) 386px; grid-template-rows: minmax(0, 1fr); border: 0; border-radius: 0; }
+    .editor-preview { position: relative; height: 710px; min-height: 0; display: flex; flex-direction: row; align-items: stretch; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--canvas); }
+    body.editor-only-mode .editor-preview { width: 100%; height: 100vh; min-height: 0; border: 0; border-radius: 0; }
     .page-shell.editor-page { width: min(1440px, 100%); position: relative; }
     .page-shell.editor-page .page-header { margin-bottom: 15px; }
     .editor-rail-toggle { position: absolute; top: 106px; left: -50px; z-index: 8; width: 31px; height: 31px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--paper); color: var(--muted); box-shadow: var(--shadow); }
     .editor-rail-toggle:hover { color: var(--ink); background: var(--paper-warm); }
-    .editor-nav { background: var(--paper); border-right: 1px solid var(--line); min-width: 0; display: flex; flex-direction: column; }
+    .editor-nav { flex: 0 0 185px; width: 185px; min-width: 0; background: var(--paper); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+    body.editor-only-mode .editor-nav { flex: 0 0 220px; width: 220px; }
     .editor-nav-scrim { display: none; }
+    /* Workbench Dock Drawer */
+    .editor-dock {
+      flex: 0 0 330px;
+      width: 330px;
+      min-width: 0;
+      height: 100%;
+      background: var(--paper);
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 6;
+      transition: width .2s cubic-bezier(0.16, 1, 0.3, 1), flex-basis .2s cubic-bezier(0.16, 1, 0.3, 1), opacity .18s ease;
+    }
+    .editor-dock.collapsed {
+      flex: 0 0 0 !important;
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      border-right: none !important;
+      opacity: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .dock-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--paper-warm);
+      border-bottom: 1px solid var(--line);
+      gap: 8px;
+      flex: none;
+    }
+    .dock-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .dock-title-badge {
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 5px;
+      background: var(--ink);
+      color: #fff;
+    }
+    .dock-title-badge .icon {
+      width: 12px;
+      height: 12px;
+    }
+    .dock-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .dock-collapse-btn {
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .dock-collapse-btn:hover {
+      color: var(--ink);
+      background: var(--paper-warm);
+    }
+    .dock-nav-bar {
+      display: flex;
+      background: var(--paper);
+      border-bottom: 1px solid var(--line);
+      padding: 0 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      flex: none;
+    }
+    .dock-nav-bar::-webkit-scrollbar { display: none; }
+    .dock-tab-btn {
+      flex: 1 1 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 6px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10.5px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all .16s ease;
+    }
+    .dock-tab-btn .icon {
+      width: 13px;
+      height: 13px;
+    }
+    .dock-tab-btn:hover {
+      color: var(--ink);
+    }
+    .dock-tab-btn.active {
+      color: var(--ink);
+      font-weight: 600;
+      border-bottom-color: var(--ink);
+      background: var(--paper-warm);
+    }
+    .dock-body-scroll {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .dock-panel {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .dock-panel.active {
+      display: flex;
+    }
+    .dock-subnav {
+      display: flex;
+      gap: 4px;
+      padding: 2px;
+      background: var(--canvas);
+      border-radius: 6px;
+      margin-bottom: 4px;
+    }
+    .dock-subtab {
+      flex: 1;
+      padding: 5px 8px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s ease;
+    }
+    .dock-subtab.active {
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .dock-node-card, .dock-entity-card, .dock-memory-card {
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--paper-warm);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .dock-node-card:hover, .dock-entity-card:hover, .dock-memory-card:hover {
+      border-color: var(--line-strong);
+      background: var(--paper);
+    }
+    .dock-node-card.active-node {
+      border-color: var(--amber);
+      background: var(--paper);
+    }
+    .dock-node-head, .dock-entity-head, .dock-memory-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dock-node-idx {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--muted);
+      background: var(--line);
+      border-radius: 4px;
+      padding: 2px 5px;
+    }
+    .dock-node-titles, .dock-entity-titles {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .dock-node-titles strong, .dock-entity-titles strong {
+      font-size: 11px;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dock-node-titles small, .dock-entity-titles small {
+      font-size: 9px;
+      color: var(--muted);
+    }
+    .dock-node-desc, .dock-entity-desc, .dock-memory-desc {
+      font-size: 10px;
+      color: var(--ink-soft);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .dock-quote-btn {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 6px;
+      font-size: 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background: var(--paper);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .dock-quote-btn .icon {
+      width: 10px;
+      height: 10px;
+    }
+    .dock-quote-btn:hover {
+      color: var(--ink);
+      background: var(--paper-warm);
+      border-color: var(--ink);
+    }
+    .dock-search-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--paper);
+      margin-bottom: 6px;
+    }
+    .dock-search-wrap .icon {
+      width: 13px;
+      height: 13px;
+      color: var(--muted);
+    }
+    .dock-search-wrap input {
+      flex: 1;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font-size: 10px;
+      color: var(--ink);
+    }
+    .dock-filter-tags {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin-bottom: 6px;
+      padding-bottom: 2px;
+    }
+    .dock-filter-tags::-webkit-scrollbar { display: none; }
+    .dock-filter-tag {
+      padding: 3px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      font-size: 9.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .dock-filter-tag:hover {
+      color: var(--ink);
+    }
+    .dock-filter-tag.active {
+      color: var(--ink);
+      border-color: var(--line-strong);
+      background: var(--canvas);
+      font-weight: 600;
+    }
+    .dock-tools-selector {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .dock-tool-choice {
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--paper-warm);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      cursor: pointer;
+      text-align: left;
+      transition: all .15s;
+    }
+    .dock-tool-choice:hover {
+      border-color: var(--line-strong);
+      background: var(--paper);
+    }
+    .dock-tool-choice.active {
+      border-color: var(--ink);
+      background: var(--paper);
+      box-shadow: 0 0 0 1px var(--ink);
+    }
+    .dock-tool-choice .tool-ic {
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      background: var(--canvas);
+      color: var(--ink);
+      margin-bottom: 2px;
+    }
+    .dock-tool-choice strong {
+      font-size: 10.5px;
+      color: var(--ink);
+    }
+    .dock-tool-choice small {
+      font-size: 9px;
+      color: var(--muted);
+    }
+    .dock-tool-input-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .dock-tool-desc {
+      font-size: 9.5px;
+      color: var(--muted);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dock-tool-fetch-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 6px;
+      font-size: 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background: var(--paper);
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .dock-tool-fetch-btn:hover {
+      color: var(--ink);
+      background: var(--paper-warm);
+    }
+    .dock-tool-editor {
+      width: 100%;
+      min-height: 84px;
+      max-height: 140px;
+      resize: vertical;
+      padding: 8px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 10.5px;
+      line-height: 1.5;
+      outline: 0;
+      box-sizing: border-box;
+    }
+    .dock-tool-editor:focus {
+      border-color: var(--ink);
+    }
+    .dock-tool-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+      margin-bottom: 8px;
+    }
+    .dock-tool-wc {
+      font-size: 9.5px;
+      color: var(--muted);
+    }
+    .dock-result-box {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--paper-warm);
+      padding: 10px;
+      font-size: 10.5px;
+      line-height: 1.6;
+      color: var(--ink-soft);
+      min-height: 60px;
+      white-space: pre-wrap;
+    }
+    .dock-result-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .dock-result-btns .button {
+      flex: 1 1 auto;
+      font-size: 9.5px;
+      padding: 0 8px;
+      height: 27px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    /* Toolbar Dock Segmented Tabs */
+    .dock-segmented-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px;
+      background: var(--canvas);
+      border-radius: 5px;
+      border: 1px solid var(--line);
+    }
+    .dock-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      height: 22px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 9.5px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .14s ease;
+    }
+    .dock-pill-btn .icon {
+      width: 11px;
+      height: 11px;
+    }
+    .dock-pill-btn:hover {
+      color: var(--ink);
+      background: var(--paper-warm);
+    }
+    .dock-pill-btn.active {
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .toolbar-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--line-strong);
+      margin: 0 4px;
+      flex: none;
+    }
+    /* Selection Floating Menu */
+    .editor-selection-menu {
+      position: fixed;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 4px 6px;
+      background: var(--paper);
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.15);
+      animation: sel-pop .15s ease-out;
+    }
+    @keyframes sel-pop {
+      from { opacity: 0; transform: translateY(4px) scale(.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .editor-selection-menu button {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 4px 6px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--ink-soft);
+      font-size: 10px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .editor-selection-menu button:hover {
+      background: var(--paper-warm);
+      color: var(--ink);
+    }
+    .editor-selection-menu .icon {
+      width: 12px;
+      height: 12px;
+    }
+    /* Chat Bubble Actions */
+    .chat-bubble-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--line);
+    }
+    .chat-bubble-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      height: 22px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--paper);
+      color: var(--muted);
+      font-size: 9px;
+      cursor: pointer;
+      transition: all .14s ease;
+    }
+    .chat-bubble-action .icon {
+      width: 10px;
+      height: 10px;
+    }
+    .chat-bubble-action:hover {
+      color: var(--ink);
+      background: var(--paper-warm);
+      border-color: var(--line-strong);
+    }
+    .chat-bubble-action.primary {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+    .chat-bubble-action.primary:hover {
+      opacity: .9;
+    }
     .editor-nav-head { padding: 16px 13px; border-bottom: 1px solid var(--line); }
     .editor-nav-title-row { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
     .editor-nav-head strong { min-width: 0; flex: 1; overflow-wrap: anywhere; white-space: normal; line-height: 1.35; font-family: var(--serif); font-size: 14px; }
@@ -319,7 +908,7 @@
     .editor-chapter small { color: var(--muted-light); font-family: var(--mono); }
     .editor-chapter i { width: 5px; height: 5px; margin-left: auto; border-radius: 50%; background: var(--line-strong); }
     .editor-chapter i.done { background: var(--green); }
-    .editor-main { min-width: 0; min-height: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
+    .editor-main { flex: 1 1 0; min-width: 0; min-height: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
     .editor-bar { height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; background: rgba(243,243,240,.95); border-bottom: 1px solid var(--line); gap: 8px; }
     .editor-bar .toolbar { display: flex; align-items: center; gap: 3px; min-width: 0; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     .editor-bar .toolbar::-webkit-scrollbar { display: none; }
@@ -327,6 +916,8 @@
     .editor-toolbar-dissection { width: auto; padding: 0 7px; gap: 4px; font-size: 10px; white-space: nowrap; }
     .editor-mobile-back { display: none; }
     .editor-toolbar-button:hover { color: var(--ink); background: var(--paper); }
+    .editor-save-status { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 10px; transition: color .2s; }
+    .editor-save-status .icon { width: 12px; height: 12px; }
     .skeleton-pulse {
       background: linear-gradient(90deg, var(--line) 25%, var(--canvas) 50%, var(--line) 75%);
       background-size: 200% 100%;
@@ -343,7 +934,7 @@
     .editor-paper h2 { margin: 25px 0 8px; font-family: var(--serif); font-size: 27px; }
     .editor-paper p { margin: 0 0 14px; color: #33332f; font-family: var(--serif); font-size: 14px; line-height: 2; }
     .editor-paper .scene-note { padding: 10px 12px; margin: 19px 0; border-left: 2px solid var(--ink); background: var(--paper-warm); color: var(--muted); font-size: 10px; line-height: 1.65; }
-    .editor-ai { min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: var(--paper); border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+    .editor-ai { flex: 0 0 315px; width: 315px; min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: var(--paper); border-left: 1px solid var(--line); display: flex; flex-direction: column; }
     .ai-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; border-bottom: 1px solid var(--line); }
     .ai-name { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; }
     .ai-mark { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--ink); color: #fff; }
@@ -694,17 +1285,20 @@
       .overview-hero, .library-layout, .import-layout, .skills-layout, .billing-layout, .tool-workspace, .docs-layout, .account-grid { grid-template-columns: 1fr; }
       .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .editor-preview { height: 720px; grid-template-columns: 1fr; position: relative; }
+      .editor-preview { display: block; height: 720px; position: relative; }
       .page-shell.editor-page { width: 100%; }
       .editor-rail-toggle { left: 0; top: 93px; }
       .editor-nav { position: absolute; top: 0; bottom: 0; left: 0; z-index: 8; width: min(290px, 84vw); transform: translateX(-105%); box-shadow: 8px 0 30px rgba(0,0,0,.14); transition: transform .22s ease; }
       .editor-preview.nav-open .editor-nav { transform: translateX(0); }
+      .editor-dock { position: absolute; top: 0; bottom: 0; left: 0; z-index: 8; width: min(330px, 90vw); transform: translateX(-105%); box-shadow: 8px 0 30px rgba(0,0,0,.14); transition: transform .22s ease; }
+      .editor-preview.dock-open .editor-dock { transform: translateX(0); }
       .editor-nav-scrim { position: absolute; inset: 0; z-index: 7; display: none; background: rgba(0,0,0,.35); backdrop-filter: blur(1px); }
-      .editor-preview.nav-open .editor-nav-scrim, .editor-preview.ai-open .editor-nav-scrim { display: block; }
+      .editor-preview.nav-open .editor-nav-scrim, .editor-preview.ai-open .editor-nav-scrim, .editor-preview.dock-open .editor-nav-scrim { display: block; }
       .editor-mobile-back { display: inline-flex; }
       .editor-ai { position: absolute; top: 0; right: 0; bottom: 0; z-index: 8; width: min(315px, 88vw); transform: translateX(105%); transition: transform .22s ease; box-shadow: -8px 0 28px rgba(0,0,0,.14); }
       .editor-preview.ai-open .editor-ai { transform: translateX(0); }
-      .editor-main { height: 100%; }
+      .editor-main { width: 100%; height: 100%; flex: 1 1 100%; }
+      .dock-segmented-tabs span { display: none; }
       .knowledge-layout { grid-template-columns: 1fr; height: auto; max-height: none; overflow: visible; }
       .knowledge-tree { display: block; max-height: 220px; border-right: 0; border-bottom: 1px solid var(--line); overflow-y: auto; }
       .entity-list, .entity-detail { max-height: min(55vh, 520px); }
@@ -814,6 +1408,44 @@
       .private-skill-name { display: block; overflow-wrap: anywhere; white-space: normal; line-height: 1.4; }
       .private-skill > .button { align-self: flex-start; }
     }
+    @media print {
+      .site-header,
+      .app-sidebar,
+      .editor-nav,
+      .editor-dock,
+      .editor-bar,
+      .editor-ai,
+      .editor-rail-toggle,
+      .editor-selection-menu,
+      .editor-nav-scrim,
+      .scrim,
+      .header-tools,
+      .dock-segmented-tabs,
+      #editorSelectionMenu {
+        display: none !important;
+      }
+      .page-scroll,
+      .editor-preview,
+      .editor-scroll {
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+      }
+      .editor-main {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+      }
+      .editor-paper {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        background: transparent !important;
+      }
+      .scene-note {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -904,7 +1536,7 @@
     }
 
     function editorPage() {
-      return shell('editor', `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="展开工作台导航" title="展开工作台导航">${icon('panel-left-open')}</button><div class="editor-preview" id="editorPreview"><div class="editor-nav-scrim" data-close-nav aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>逆天重生：从废物到至尊</strong><button class="editor-back-button" type="button" data-page="novels" aria-label="返回我的小说" title="返回我的小说">${icon('arrow-left')}<span>返回</span></button></div><span>18 章 · 连载中</span></div><div class="editor-chapters"><div class="editor-chapter" tabindex="0" role="button" data-chapter="轮回神玉"><small>001</small>轮回神玉<i class="done"></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="叶家废物"><small>002</small>叶家废物<i class="done"></i></div><div class="editor-chapter active" tabindex="0" role="button" data-chapter="雨夜试锋"><small>003</small>雨夜试锋<i></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="玄天宗的邀请"><small>004</small>玄天宗的邀请<i></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="未命名章节"><small>005</small>未命名章节<i></i></div></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button editor-mobile-back" data-page="novels" aria-label="返回我的小说" title="返回我的小说">${icon('arrow-left')}</button><button class="editor-toolbar-button" id="openChapterNav" data-open-nav aria-label="打开章节导航" title="打开章节导航">${icon('list')}</button><button class="editor-toolbar-button" data-toast="已撤销。" aria-label="撤销">${icon('undo-2')}</button><button class="editor-toolbar-button" data-toast="已重做。" aria-label="重做">${icon('redo-2')}</button><button class="editor-toolbar-button" data-toast="阅读模式预览。" aria-label="阅读模式">${icon('book-open')}</button></div><div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:10px"><span>${icon('check')}已自动保存</span><button class="editor-toolbar-button" data-open-ai aria-label="打开 AI 助手">${icon('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="true" spellcheck="false"><div class="editor-paper-meta"><span>第三章 · 雨夜试锋</span><span>1,286 字</span></div><h2>雨夜试锋</h2><p>雨落在青石阶上，像有人在黑暗里一遍遍敲门。叶辰抬起头，看见叶家高墙外的灯火被水汽揉成一片。</p><p>他没有立刻走进雨里。掌心的轮回神玉仍带着一丝尚未散尽的温度，那点微光贴着皮肤游走，像一条沉睡的河。</p><div class="scene-note"><strong>当前场景提示</strong><br>叶辰前往祠堂，叶灵儿已经等在那里。建议保持克制，把冲突落在“是否接受玄天宗邀请”的选择上。</div><p>“少爷，家主让你去祠堂。”门外的声音压得很低，“叶灵儿也在。”</p><p>叶辰握紧手指，玉上的光随之收敛。他推开门，冷雨迎面而来。</p></article></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${icon('sparkles')}</span>AI 创作助手</div><button class="icon-button" data-close-ai aria-label="关闭 AI 助手">${icon('x')}</button></div><select class="ai-select" id="editorModelSelect" data-model-select aria-label="选择模型"><option>DeepSeek V3 · 默认模型</option><option>GPT-4.1 · VIP</option></select><select class="ai-select" id="editorSkillSelect" aria-label="选择 Skill"><option value="">当前作品默认 Skill</option></select><select class="ai-select" id="editorHistorySelect" aria-label="选择历史记录"><option value="">当前会话</option></select><div style="display:flex;gap:6px;margin:6px 0"><select class="ai-select" id="editorCreationMode" aria-label="创作模式" style="flex:1"><option value="creation">名家正文创作 (2500~3200字)</option><option value="assistant">常规助手对话</option></select><select class="ai-select" id="editorStylePreset" aria-label="叙事引擎" style="flex:1"><option value="auto" selected>自动 / 智能识别 (auto) · 题材智能匹配 (推荐兜底)</option><option value="fanren">古典仙侠 (凡人流)</option><option value="xuanhuan">宏大玄幻 (大局博弈)</option><option value="dark_intellect">暗黑智斗 (冷酷博弈)</option><option value="urban">都市商战 (心理博弈)</option><option value="mystery">悬疑怪谈 (规则压迫)</option><option value="scifi">硬核科幻 (技术深空)</option></select></div><div class="chat-scroll" id="editorChat"><div class="chat-message"><span class="chat-avatar">墨</span><div class="chat-bubble">我已读取当前章节、人物卡和“玄天宗邀请”伏笔。你想先推进冲突，还是补一段环境描写？</div></div><div class="chat-message user"><span class="chat-avatar">你</span><div class="chat-bubble">把祠堂这场戏写得更有压迫感，但不要马上揭开邀请的真实目的。</div></div><div class="chat-message"><span class="chat-avatar">墨</span><div class="chat-bubble">可以。我会把信息停留在“异常”层面，用人物动作和空间声音制造压力。</div></div></div><div class="chat-thinking" id="editorThinking" aria-live="polite">正在整理上下文</div><div class="chat-composer"><div class="chat-input-box"><textarea id="editorPrompt" placeholder="描述你想让 AI 完成的创作任务…（按 Enter 发送，Shift + Enter 换行）"></textarea><div class="chat-send-actions"><button class="chat-send" id="editorSend" aria-label="发送">${icon('arrow-up')}</button></div></div></div></aside></div>`, 'editor-page');
+      return shell('editor', `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="展开工作台导航" title="展开工作台导航">${icon('panel-left-open')}</button><div class="editor-preview" id="editorPreview"><div class="editor-nav-scrim" data-close-nav aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>逆天重生：从废物到至尊</strong><button class="editor-back-button" type="button" data-page="novels" aria-label="返回我的小说" title="返回我的小说">${icon('arrow-left')}<span>返回</span></button></div><span>18 章 · 连载中</span></div><div class="editor-chapters"><div class="editor-chapter" tabindex="0" role="button" data-chapter="轮回神玉"><small>001</small>轮回神玉<i class="done"></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="叶家废物"><small>002</small>叶家废物<i class="done"></i></div><div class="editor-chapter active" tabindex="0" role="button" data-chapter="雨夜试锋"><small>003</small>雨夜试锋<i></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="玄天宗的邀请"><small>004</small>玄天宗的邀请<i></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="未命名章节"><small>005</small>未命名章节<i></i></div></div></aside><aside class="editor-dock" id="editorWorkbenchDock" aria-label="创作工作台坞站"><div class="dock-header"><div class="dock-title-wrap"><span class="dock-title-badge">${icon('layers')}</span><strong>创作坞站</strong></div><div class="dock-header-actions"><button class="dock-collapse-btn" id="dockCollapseBtn" aria-label="收起工作台坞站" title="收起工作台坞站">${icon('chevron-left')}</button></div></div><div class="dock-nav-bar" id="dockNavTabs"><button class="dock-tab-btn active" data-dock-tab="outline">${icon('milestone')}<span>大纲</span></button><button class="dock-tab-btn" data-dock-tab="knowledge">${icon('network')}<span>设定</span></button><button class="dock-tab-btn" data-dock-tab="memory">${icon('brain')}<span>记忆文风</span></button><button class="dock-tab-btn" data-dock-tab="tools">${icon('wand-sparkles')}<span>AI工具</span></button></div><div class="dock-body-scroll"><div class="dock-panel active" data-dock-panel="outline"><div class="dock-subnav"><button class="dock-subtab active" data-outline-sub="timeline">时间线</button><button class="dock-subtab" data-outline-sub="ledger">伏笔台账</button></div><div class="dock-outline-timeline-list" id="dockOutlineTimeline"><div class="dock-node-card" data-quote-title="轮回神玉归来" data-quote-meta="第 1 章 · 叶辰 · 叶家" data-quote-desc="叶辰重生于叶家破败柴房，掌心隐现轮回神玉温润微光，暗中重聚碎裂的元府气海。"><div class="dock-node-head"><span class="dock-node-idx">01</span><div class="dock-node-titles"><strong>轮回神玉归来</strong><small>第 1 章 · 叶辰 · 叶家</small></div><span class="badge green">已发生</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">叶辰重生于叶家破败柴房，掌心隐现轮回神玉温润微光，暗中重聚碎裂的元府气海。</p></div><div class="dock-node-card" data-quote-title="玄天宗发出邀请" data-quote-meta="第 2 章 · 玄天宗 · 主线" data-quote-desc="玄天宗执事暗送邀请金符，表面为招纳城内少年英才，暗地却在试探叶家当年的守护隐秘。"><div class="dock-node-head"><span class="dock-node-idx">02</span><div class="dock-node-titles"><strong>玄天宗发出邀请</strong><small>第 2 章 · 玄天宗 · 主线</small></div><span class="badge green">已发生</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">玄天宗执事暗送邀请金符，表面为招纳城内少年英才，暗地却在试探叶家当年的守护隐秘。</p></div><div class="dock-node-card active-node" data-quote-title="祠堂试探" data-quote-meta="第 3 章 · 叶灵儿 · 伏笔 F-003" data-quote-desc="在祠堂对话中埋下邀请真实目的，叶灵儿的态度发生变化，建议把冲突落在是否接受玄天宗邀请的选择上。"><div class="dock-node-head"><span class="dock-node-idx">03</span><div class="dock-node-titles"><strong>祠堂试探</strong><small>第 3 章 · 叶灵儿 · 当前</small></div><span class="badge amber">当前节点</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">在祠堂对话中埋下邀请真实目的，叶灵儿的态度发生变化，建议把冲突落在是否接受玄天宗邀请的选择上。</p></div><div class="dock-node-card" data-quote-title="宗门初选" data-quote-meta="第 4 章 · 玄天宗 · 待展开" data-quote-desc="叶辰决定入宗，初试锋芒，获得第一份关于轮回殿的间接线索。"><div class="dock-node-head"><span class="dock-node-idx">04</span><div class="dock-node-titles"><strong>宗门初选</strong><small>第 4 章 · 待展开</small></div><span class="badge blue">下一节点</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">叶辰决定入宗，初试锋芒，获得第一份关于轮回殿的间接线索。</p></div></div><div class="dock-outline-ledger-list" id="dockOutlineLedger" style="display:none"><div class="dock-node-card" data-quote-title="F-001 轮回神玉第二道印记" data-quote-meta="埋设：第 1 章 · 预计：第 8 章" data-quote-desc="神玉表面存在一道细微裂隙，需特殊幽冥火方可破除禁制，关乎前世道侣生死线索。"><div class="dock-node-head"><span class="dock-node-idx">F-1</span><div class="dock-node-titles"><strong>神玉第二道印记</strong><small>埋设第 1 章 · 预计第 8 章</small></div><span class="badge blue">发酵中</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">神玉表面存在一道细微裂隙，需特殊幽冥火方可破除禁制，关乎前世道侣生死线索。</p></div><div class="dock-node-card" data-quote-title="F-003 邀请背后的交换条件" data-quote-meta="埋设：第 2 章 · 预计：第 4 章" data-quote-desc="邀请并非单纯看重资质，背后存在宗门内部派系博弈与交换条件，需以叶家祖传秘匙为质押。"><div class="dock-node-head"><span class="dock-node-idx">F-3</span><div class="dock-node-titles"><strong>邀请背后的交换条件</strong><small>埋设第 2 章 · 预计第 4 章</small></div><span class="badge amber">待回收</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">邀请并非单纯看重资质，背后存在宗门内部派系博弈与交换条件，需以叶家祖传秘匙为质押。</p></div><div class="dock-node-card" data-quote-title="F-006 叶灵儿隐瞒的消息" data-quote-meta="埋设：第 3 章 · 风险：高" data-quote-desc="叶灵儿暗中与青云城黑市神秘人通信，手握半枚残缺玉佩，关乎叶家直系血脉受戮真相。"><div class="dock-node-head"><span class="dock-node-idx">F-6</span><div class="dock-node-titles"><strong>叶灵儿隐瞒的消息</strong><small>埋设第 3 章 · 风险高</small></div><span class="badge danger">高风险</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">叶灵儿暗中与青云城黑市神秘人通信，手握半枚残缺玉佩，关乎叶家直系血脉受戮真相。</p></div></div></div><div class="dock-panel" data-dock-panel="knowledge"><div class="dock-search-wrap">${icon('search')}<input id="dockEntitySearch" placeholder="搜索实体、人物、地点..."></div><div class="dock-filter-tags"><button class="dock-filter-tag active" data-entity-filter="all">全部</button><button class="dock-filter-tag" data-entity-filter="人物">人物</button><button class="dock-filter-tag" data-entity-filter="地点">地点</button><button class="dock-filter-tag" data-entity-filter="势力">势力</button><button class="dock-filter-tag" data-entity-filter="物品">物品</button></div><div class="dock-entity-list" id="dockEntityList"><div class="dock-entity-card" data-entity-type="地点" data-quote-title="青云城" data-quote-meta="地点 / 中州 / 北境" data-quote-desc="玄天宗山门所在，叶家旧宅位于城南。城内势力交错，是第一卷主要活动区域。关联实体：玄天宗、叶家、叶灵儿。"><div class="dock-entity-head"><span class="badge blue">地点</span><div class="dock-entity-titles"><strong>青云城</strong><small>中州 / 北境 / 城池</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">玄天宗山门所在，叶家旧宅位于城南。城内势力交错，是第一卷主要活动区域。</p></div><div class="dock-entity-card" data-entity-type="势力" data-quote-title="玄天宗" data-quote-meta="势力 / 中州 / 宗门" data-quote-desc="北境顶尖宗门，三日前向叶辰发出入宗邀请，山门深处藏有轮回殿相关线索。关联实体：青云城、叶辰、轮回殿。"><div class="dock-entity-head"><span class="badge amber">势力</span><div class="dock-entity-titles"><strong>玄天宗</strong><small>中州 / 宗门 / 待确认</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">北境顶尖宗门，三日前向叶辰发出入宗邀请，山门深处藏有轮回殿相关线索。</p></div><div class="dock-entity-card" data-entity-type="人物" data-quote-title="叶灵儿" data-quote-meta="人物 / 叶家 / 青云城" data-quote-desc="叶辰的表妹，机警内敛，知道部分邀请内情，当前选择保持沉默。关联实体：叶辰、叶家、玄天宗。"><div class="dock-entity-head"><span class="badge green">人物</span><div class="dock-entity-titles"><strong>叶灵儿</strong><small>叶家 / 妹妹 / 已引用</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">叶辰的表妹，机警内敛，知道部分邀请内情，当前选择保持沉默。</p></div><div class="dock-entity-card" data-entity-type="人物" data-quote-title="叶辰" data-quote-meta="人物 / 主角 / 重生者" data-quote-desc="主角，前世至尊携轮回神玉归来，外表冷峻，杀伐果断，心志如铁。关联实体：轮回神玉、叶灵儿。"><div class="dock-entity-head"><span class="badge green">人物</span><div class="dock-entity-titles"><strong>叶辰</strong><small>主角 / 炼体三重</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">主角，前世至尊携轮回神玉归来，外表冷峻，杀伐果断，心志如铁。</p></div><div class="dock-entity-card" data-entity-type="物品" data-quote-title="轮回神玉" data-quote-meta="物品 / 灵器 / 核心" data-quote-desc="随叶辰重生的本命道器，温润如墨玉，内蕴九重造化封印，随气血运转可洞察功法破绽。关联实体：叶辰、轮回殿。"><div class="dock-entity-head"><span class="badge gray">物品</span><div class="dock-entity-titles"><strong>轮回神玉</strong><small>灵器 / 核心道器</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">随叶辰重生的本命道器，温润如墨玉，内蕴九重造化封印，随气血运转可洞察功法破绽。</p></div></div></div><div class="dock-panel" data-dock-panel="memory"><div class="section-title" style="font-size:11px;margin-bottom:6px">故事记忆与前情约束</div><div class="dock-memory-card" data-quote-title="前情事实·神玉修复" data-quote-meta="剧情事实" data-quote-desc="叶辰已暗中修复气海至炼体三重，在演武场震慑叶莽，引发执事顾长风的暗中注视。"><div class="dock-memory-head"><span class="badge green">前情</span><strong style="font-size:11px;flex:1">前情事实·神玉修复</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">叶辰已暗中修复气海至炼体三重，在演武场震慑叶莽，引发执事顾长风的暗中注视。</p></div><div class="dock-memory-card" data-quote-title="核心禁忌·隐匿神玉" data-quote-meta="前情约束" data-quote-desc="严禁在祠堂过早暴露轮回神玉的实体神光与推演能力；顾长风尚在暗处窥伺。"><div class="dock-memory-head"><span class="badge danger">禁忌</span><strong style="font-size:11px;flex:1">核心禁忌·隐匿神玉</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">严禁在祠堂过早暴露轮回神玉的实体神光与推演能力；顾长风尚在暗处窥伺。</p></div><div class="section-title" style="font-size:11px;margin-top:8px;margin-bottom:6px">文风规约与叙事引擎</div><div class="dock-memory-card" data-quote-title="视角规约·第三人称限知" data-quote-meta="文风规约" data-quote-desc="第三人称限知视角，聚焦叶辰视线所及与心智推演，严禁全知视角直接剧透敌手意图。"><div class="dock-memory-head"><span class="badge blue">视角</span><strong style="font-size:11px;flex:1">第三人称限知</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">第三人称限知视角，聚焦叶辰视线所及与心智推演，严禁全知视角直接剧透敌手意图。</p></div><div class="dock-memory-card" data-quote-title="语言风格·极简水墨冷峻" data-quote-meta="文风规约" data-quote-desc="动作白描为主，去除AI套话八股与排比句式，环境声音服务于压迫感。"><div class="dock-memory-head"><span class="badge gray">语言</span><strong style="font-size:11px;flex:1">极简水墨冷峻</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">动作白描为主，去除AI套话八股与排比句式，环境声音服务于压迫感。</p></div><div class="dock-memory-card" data-quote-title="对白规约·暗藏机锋" data-quote-meta="文风规约" data-quote-desc="少解释性台词，每句话皆暗藏试探与利益博弈，以人物神态与动作停顿体现潜台词。"><div class="dock-memory-head"><span class="badge amber">对白</span><strong style="font-size:11px;flex:1">对白暗藏机锋</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">少解释性台词，每句话皆暗藏试探与利益博弈，以人物神态与动作停顿体现潜台词。</p></div><button class="button primary" id="dockInjectStylePresetBtn" style="margin-top:6px;width:100%">${icon('sparkles')}一键引用完整文风规约</button></div><div class="dock-panel" data-dock-panel="tools"><div class="dock-tools-selector"><button class="dock-tool-choice active" data-tool="去 AI 味"><span class="tool-ic">${icon('eraser')}</span><strong>去 AI 味</strong><small>消除八股套话</small></button><button class="dock-tool-choice" data-tool="错别字检测"><span class="tool-ic">${icon('spell-check')}</span><strong>错别字检测</strong><small>校对病句标点</small></button><button class="dock-tool-choice" data-tool="扩写/润色"><span class="tool-ic">${icon('sparkles')}</span><strong>扩写/润色</strong><small>丰富细节白描</small></button><button class="dock-tool-choice" data-tool="节奏分析"><span class="tool-ic">${icon('activity')}</span><strong>节奏分析</strong><small>研判冲突密度</small></button></div><div class="dock-tool-input-bar"><span class="dock-tool-desc" id="dockCurrentToolDesc">依据 Stop AI Slop 准则消除机械排比与套话</span><button class="dock-tool-fetch-btn" id="dockFetchSelectionBtn" title="读取正文选区">${icon('mouse-pointer')}读取选中文本</button></div><textarea class="dock-tool-editor" id="dockToolInput" placeholder="从正文选中一段文本，或在此粘贴需要处理的内容..."></textarea><div class="dock-tool-actions"><span class="dock-tool-wc" id="dockToolWordCount">0 字</span><button class="button primary" id="dockExecuteToolBtn">${icon('play')}开始处理</button></div><div class="section-title" style="font-size:11px;margin-bottom:6px">处理结果</div><div class="dock-result-box" id="dockToolResultText">等待执行：从正文选中一段内容后点击上方工具，或直接输入正文开始。</div><div class="dock-result-btns" id="dockToolResultActions" style="display:none"><button class="button primary" id="dockApplyReplaceBtn" data-tool-action="apply-paper" title="应用至正文（替换选中正文或追加到末尾）">${icon('repeat')}应用至正文</button><button class="button" id="dockApplyInsertBtn" title="在光标位置插入">${icon('arrow-down-to-line')}插入光标处</button><button class="button" id="dockApplyAppendBtn" title="追加到章节末尾">${icon('plus')}追加到章节末尾</button><button class="button" id="dockCopyResultBtn" title="复制结果到剪贴板">${icon('copy')}复制结果</button></div></div></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button editor-mobile-back" data-page="novels" aria-label="返回我的小说" title="返回我的小说">${icon('arrow-left')}</button><button class="editor-toolbar-button" id="openChapterNav" data-open-nav aria-label="打开章节导航" title="打开章节导航">${icon('list')}</button><div class="dock-segmented-tabs" id="editorDockTabs"><button class="dock-pill-btn active" data-dock-tab="outline" title="切换大纲坞站">${icon('milestone')}<span>大纲</span></button><button class="dock-pill-btn" data-dock-tab="knowledge" title="切换设定坞站">${icon('network')}<span>设定</span></button><button class="dock-pill-btn" data-dock-tab="memory" title="切换记忆文风坞站">${icon('brain')}<span>记忆文风</span></button><button class="dock-pill-btn" data-dock-tab="tools" title="切换 AI 工具坞站">${icon('wand-sparkles')}<span>AI工具</span></button></div><button class="editor-toolbar-button" id="editorDockToggle" aria-label="收起工作台坞站" title="展开/收起工作台坞站">${icon('panel-left-close')}</button><div class="toolbar-divider"></div><button class="editor-toolbar-button" data-action="editor-undo" aria-label="撤销" title="撤销">${icon('undo-2')}</button><button class="editor-toolbar-button" data-action="editor-redo" aria-label="重做" title="重做">${icon('redo-2')}</button><button class="editor-toolbar-button" data-action="editor-read" aria-label="阅读模式" title="阅读模式">${icon('book-open')}</button></div><div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:10px"><span id="editorSaveStatus" class="editor-save-status">${icon('check')}<span>已自动保存</span></span><button class="editor-toolbar-button" data-open-ai aria-label="打开 AI 助手">${icon('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="true" spellcheck="false"><div class="editor-paper-meta" contenteditable="false"><span>第三章 · 雨夜试锋</span><span id="editorWordCount">1,286 字</span></div><h2>雨夜试锋</h2><p>雨落在青石阶上，像有人在黑暗里一遍遍敲门。叶辰抬起头，看见叶家高墙外的灯火被水汽揉成一片。</p><p>他没有立刻走进雨里。掌心的轮回神玉仍带着一丝尚未散尽的温度，那点微光贴着皮肤游走，像一条沉睡的河。</p><div class="scene-note" contenteditable="false"><strong>当前场景提示</strong><br>叶辰前往祠堂，叶灵儿已经等在那里。建议保持克制，把冲突落在“是否接受玄天宗邀请”的选择上。</div><p>“少爷，家主让你去祠堂。”门外的声音压得很低，“叶灵儿也在。”</p><p>叶辰握紧手指，玉上的光随之收敛。他推开门，冷雨迎面而来。</p></article><div class="editor-selection-menu" id="editorSelectionMenu" hidden><button data-sel-tool="去 AI 味">${icon('eraser')}去 AI 味</button><button data-sel-tool="错别字检测">${icon('spell-check')}错别字</button><button data-sel-tool="扩写/润色">${icon('sparkles')}扩写润色</button><button data-sel-tool="节奏分析">${icon('activity')}节奏分析</button><button data-sel-tool="ai-prompt">${icon('message-square')}发给 AI</button></div></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${icon('sparkles')}</span>AI 创作助手</div><button class="icon-button" data-close-ai aria-label="关闭 AI 助手">${icon('x')}</button></div><select class="ai-select" id="editorModelSelect" data-model-select aria-label="选择模型"><option>DeepSeek V3 · 默认模型</option><option>GPT-4.1 · VIP</option></select><select class="ai-select" id="editorSkillSelect" aria-label="选择 Skill"><option value="">当前作品默认 Skill</option></select><select class="ai-select" id="editorHistorySelect" aria-label="选择历史记录"><option value="">当前会话</option></select><div style="display:flex;gap:6px;margin:6px 0"><select class="ai-select" id="editorCreationMode" aria-label="创作模式" style="flex:1"><option value="creation">名家正文创作 (2500~3200字)</option><option value="assistant">常规助手对话</option></select><select class="ai-select" id="editorStylePreset" aria-label="叙事引擎" style="flex:1"><option value="auto" selected>自动 / 智能识别 (auto) · 题材智能匹配 (推荐兜底)</option><option value="fanren">古典仙侠 (凡人流)</option><option value="xuanhuan">宏大玄幻 (大局博弈)</option><option value="dark_intellect">暗黑智斗 (冷酷博弈)</option><option value="urban">都市商战 (心理博弈)</option><option value="mystery">悬疑怪谈 (规则压迫)</option><option value="scifi">硬核科幻 (技术深空)</option></select></div><div class="chat-scroll" id="editorChat"><div class="chat-message"><span class="chat-avatar">墨</span><div class="chat-bubble"><div class="chat-bubble-text">我已读取当前章节、人物卡和“玄天宗邀请”伏笔。你想先推进冲突，还是补一段环境描写？</div><div class="chat-bubble-actions"><button class="chat-bubble-action primary" data-chat-action="apply-paper" title="采纳写入正文">${icon('arrow-down-to-line')}写入正文</button><button class="chat-bubble-action" data-chat-action="copy" title="复制">${icon('copy')}复制</button></div></div></div><div class="chat-message user"><span class="chat-avatar">你</span><div class="chat-bubble">把祠堂这场戏写得更有压迫感，但不要马上揭开邀请的真实目的。</div></div><div class="chat-message"><span class="chat-avatar">墨</span><div class="chat-bubble"><div class="chat-bubble-text">可以。我会把信息停留在“异常”层面，用人物动作和空间声音制造压力。</div><div class="chat-bubble-actions"><button class="chat-bubble-action primary" data-chat-action="apply-paper" title="采纳写入正文">${icon('arrow-down-to-line')}写入正文</button><button class="chat-bubble-action" data-chat-action="copy" title="复制">${icon('copy')}复制</button></div></div></div></div><div class="chat-thinking" id="editorThinking" aria-live="polite">正在整理上下文</div><div class="chat-composer"><div class="chat-input-box"><textarea id="editorPrompt" placeholder="描述你想让 AI 完成的创作任务…（按 Enter 发送，Shift + Enter 换行）"></textarea><div class="chat-send-actions"><button class="chat-send" id="editorSend" aria-label="发送">${icon('arrow-up')}</button></div></div></div></aside></div>`, 'editor-page');
     }
 
     function resourcesPage() {
@@ -2052,15 +2684,15 @@
         ? chapters.map((chapter, index) => `<div class="editor-chapter ${index === 0 ? 'active' : ''}" tabindex="0" role="button" data-chapter="${escapeBackendHtml(chapter.title)}"><small>${String(chapter.num || index + 1).padStart(3, '0')}</small>${escapeBackendHtml(chapter.title)}<i></i></div>`).join('')
         : '<div class="empty"><div class="empty-icon">—</div><p>当前作品还没有章节。</p></div>';
       const currentBody = typeof previewState.editorBody === 'string' ? previewState.editorBody.trim() : '';
-      if (paper && !currentBody) paper.innerHTML = `<div class="editor-paper-meta"><span>第 1 章 · ${escapeBackendHtml(activeTitle)}</span><span>0 字</span></div><h2>${escapeBackendHtml(activeTitle)}</h2><p class="editor-empty-copy">从这里开始输入当前章节正文。</p>`;
-      if (paper && currentBody) {
-        const wordCount = currentBody.replace(/<[^>]*>/g, '').replace(/\s/g, '').length;
-        const count = paper.querySelector('.editor-paper-meta span:last-child');
-        if (count) count.textContent = `${wordCount.toLocaleString()} 字`;
+      if (paper && !currentBody && !paper.querySelector('h2')) {
+        paper.innerHTML = `<div class="editor-paper-meta"><span>第 1 章 · ${escapeBackendHtml(activeTitle)}</span><span id="editorWordCount">0 字</span></div><h2>${escapeBackendHtml(activeTitle)}</h2><p class="editor-empty-copy">从这里开始输入当前章节正文。</p>`;
+      }
+      if (paper) {
+        updateEditorWordCount(paper);
       }
       const chapterMeta = stage.querySelector('.editor-nav-head > span');
       if (chapterMeta) chapterMeta.textContent = chapters.length ? `${chapters.length} 章 · 已保存` : '0 章 · 草稿';
-      if (chat && !previewState.editorChat) chat.innerHTML = '<div class="empty"><div class="empty-icon">—</div><p>当前章节还没有 AI 对话记录。</p></div>';
+      if (chat && !previewState.editorChat && !chat.querySelector('.chat-message')) chat.innerHTML = '<div class="empty"><div class="empty-icon">—</div><p>当前章节还没有 AI 对话记录。</p></div>';
     }
 
     async function openBackendNovel(id) {
@@ -3218,7 +3850,13 @@
               'wand-sparkles': '✨', 'network': '🕸', 'sparkles': '✦', 'coins': '🪙',
               'book-open': '📖', 'settings-2': '⚙', 'log-in': '⎆', 'blocks': '☵',
               'notebook-pen': '📝', 'shield-check': '🛡', 'menu': '☰', 'chevron-right': '›',
-              'bell': '🔔', 'sun': '☼', 'user-round': '👤'
+              'bell': '🔔', 'sun': '☼', 'user-round': '👤',
+              'panel-left-open': '◨', 'panel-left-close': '◧', 'chevron-left': '‹',
+              'quote': '❝', 'eraser': '⌫', 'spell-check': '✓', 'activity': '∿',
+              'mouse-pointer': '↖', 'play': '▶', 'repeat': '⇄', 'replace': '⇄',
+              'arrow-down-to-line': '⤓', 'plus': '+', 'copy': '❐', 'undo-2': '↺',
+              'redo-2': '↻', 'check': '✓', 'message-square': '💬', 'arrow-up': '↑',
+              'search': '🔍', 'x': '✕', 'loader-2': '⟳'
             };
             el.textContent = fallbackMap[name] || '•';
           }
@@ -3299,10 +3937,369 @@
 
     function captureEditorChat() {
       if (previewState.editorChat) return;
-      previewState.editorChat = [...stage.querySelectorAll('#editorChat .chat-message')].map((item) => ({
-        kind: item.classList.contains('user') ? 'user' : 'assistant',
-        text: item.querySelector('.chat-bubble')?.textContent || ''
-      }));
+      previewState.editorChat = [...stage.querySelectorAll('#editorChat .chat-message')].map((item) => {
+        const textEl = item.querySelector('.chat-bubble-text');
+        let text = '';
+        if (textEl) {
+          text = textEl.textContent.trim();
+        } else {
+          const bubble = item.querySelector('.chat-bubble');
+          if (bubble) {
+            const clone = bubble.cloneNode(true);
+            clone.querySelectorAll('.chat-bubble-actions').forEach(el => el.remove());
+            text = clone.textContent.trim();
+          }
+        }
+        return {
+          kind: item.classList.contains('user') ? 'user' : 'assistant',
+          text
+        };
+      });
+    }
+
+    let lastEditorSelection = null;
+    let lastEditorSelectedText = '';
+
+    function captureEditorSelection() {
+      const paper = stage?.querySelector('.editor-paper');
+      if (!paper) return;
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      if (paper.contains(range.commonAncestorContainer)) {
+        lastEditorSelection = {
+          range: range.cloneRange(),
+          text: sel.toString().trim(),
+          collapsed: range.collapsed
+        };
+        lastEditorSelectedText = lastEditorSelection.text;
+      }
+    }
+
+    function updateEditorWordCount(paper) {
+      if (!paper) paper = stage?.querySelector('.editor-paper');
+      if (!paper) return;
+      const clone = paper.cloneNode(true);
+      clone.querySelectorAll('.editor-paper-meta, .scene-note').forEach(el => el.remove());
+      const textOnly = (clone.textContent || '').replace(/\s/g, '');
+      const countEl = paper.querySelector('#editorWordCount') || paper.querySelector('.editor-paper-meta span:last-child');
+      if (countEl) countEl.textContent = `${textOnly.length.toLocaleString()} 字`;
+    }
+
+    function appendParagraphsToPaper(paper, text) {
+      const paragraphs = text.split(/\n+/).map(p => p.trim()).filter(Boolean);
+      if (!paragraphs.length) return;
+      paragraphs.forEach(p => {
+        const pEl = document.createElement('p');
+        pEl.textContent = p;
+        paper.appendChild(pEl);
+      });
+    }
+
+    let editorAutoSaveTimer = null;
+    function scheduleEditorAutoSave(immediate = false) {
+      if (editorAutoSaveTimer) clearTimeout(editorAutoSaveTimer);
+      const executeSave = () => {
+        const paper = stage?.querySelector('.editor-paper');
+        if (paper) previewState.editorBody = paper.innerHTML;
+        const state = ensurePreviewNovelState();
+        if (!backendState.token) {
+          try {
+            localStorage.setItem('molan_guest_novel_state', JSON.stringify({ novel: previewState.novel, state }));
+            setEditorSaveStatus('已自动保存', 'check');
+          } catch (_) {
+            setEditorSaveStatus('保存失败', 'alert-circle');
+          }
+        } else {
+          void saveCurrentNovel();
+        }
+      };
+      if (immediate) {
+        executeSave();
+      } else {
+        setEditorSaveStatus('正在自动保存…', 'loader-2');
+        editorAutoSaveTimer = setTimeout(executeSave, 600);
+      }
+    }
+
+    function setEditorSaveStatus(text, iconName = 'check') {
+      const status = stage?.querySelector('#editorSaveStatus');
+      if (!status) return;
+      status.innerHTML = `${icon(iconName)}<span>${escapeBackendHtml(text)}</span>`;
+      mountIcons();
+    }
+
+    function ensureEditorPaperStructure(paper) {
+      if (!paper) return;
+
+      // 1. Hoist any nested <p> inside h2 out to siblings after h2
+      const h2 = paper.querySelector('h2');
+      if (h2) {
+        const nestedInH2 = Array.from(h2.querySelectorAll('p'));
+        if (nestedInH2.length) {
+          let insertRef = h2.nextSibling;
+          nestedInH2.forEach(p => {
+            const text = p.textContent.trim();
+            p.remove();
+            if (text) {
+              const newP = document.createElement('p');
+              newP.textContent = text;
+              paper.insertBefore(newP, insertRef);
+              insertRef = newP.nextSibling;
+            }
+          });
+        }
+      }
+
+      // 2. Hoist any nested <p> inside <p>
+      let nestedP = paper.querySelectorAll('p p');
+      let safetyCount = 0;
+      while (nestedP.length > 0 && safetyCount < 20) {
+        safetyCount++;
+        nestedP.forEach(childP => {
+          const parentP = childP.parentElement;
+          if (parentP && parentP.tagName.toLowerCase() === 'p') {
+            const text = childP.textContent.trim();
+            childP.remove();
+            if (text) {
+              const newP = document.createElement('p');
+              newP.textContent = text;
+              parentP.parentNode.insertBefore(newP, parentP.nextSibling);
+            }
+          }
+        });
+        nestedP = paper.querySelectorAll('p p');
+      }
+
+      // 3. Ensure meta exists and is contenteditable="false"
+      let meta = paper.querySelector('.editor-paper-meta');
+      if (!meta) {
+        meta = document.createElement('div');
+        meta.className = 'editor-paper-meta';
+        meta.setAttribute('contenteditable', 'false');
+        const chTitle = h2 ? h2.textContent.trim() : '雨夜试锋';
+        meta.innerHTML = `<span>第三章 · ${escapeBackendHtml(chTitle)}</span><span id="editorWordCount">0 字</span>`;
+        paper.insertBefore(meta, paper.firstChild);
+      } else {
+        meta.setAttribute('contenteditable', 'false');
+      }
+
+      // 4. Ensure h2 exists after meta
+      let currentH2 = paper.querySelector('h2');
+      if (!currentH2) {
+        currentH2 = document.createElement('h2');
+        const metaTitle = meta.querySelector('span:first-child')?.textContent || '';
+        const match = metaTitle.match(/·\s*([^·]+)$/);
+        currentH2.textContent = match ? match[1].trim() : '雨夜试锋';
+        if (meta.nextSibling) {
+          paper.insertBefore(currentH2, meta.nextSibling);
+        } else {
+          paper.appendChild(currentH2);
+        }
+      }
+
+      // 5. Ensure scene-note is contenteditable="false"
+      paper.querySelectorAll('.scene-note').forEach(note => {
+        note.setAttribute('contenteditable', 'false');
+      });
+
+      // 6. Wrap any bare top-level text nodes in <p>
+      Array.from(paper.childNodes).forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          const p = document.createElement('p');
+          p.textContent = node.textContent.trim();
+          paper.replaceChild(p, node);
+        }
+      });
+
+      // 7. Remove completely empty paragraphs (without children or text)
+      paper.querySelectorAll('p').forEach(p => {
+        if (!p.textContent.trim() && !p.children.length) p.remove();
+      });
+    }
+
+    function applyTextToEditorPaper(text, mode = 'replace') {
+      const paper = stage?.querySelector('.editor-paper');
+      if (!paper) return false;
+      initEditorHistory(paper);
+      const before = paper.innerHTML;
+      const paragraphs = text.split(/\r?\n+/).map(p => p.trim()).filter(Boolean);
+      if (!paragraphs.length) return false;
+
+      let applied = false;
+      const rawRange = (lastEditorSelection && lastEditorSelection.range && paper.contains(lastEditorSelection.range.commonAncestorContainer)) ? lastEditorSelection.range : null;
+      const metaEl = paper.querySelector('.editor-paper-meta');
+      const noteEl = paper.querySelector('.scene-note');
+      const intersectsProtected = rawRange && Boolean(
+        (metaEl && (metaEl.contains(rawRange.commonAncestorContainer) || (typeof rawRange.intersectsNode === 'function' && rawRange.intersectsNode(metaEl)))) ||
+        (noteEl && (noteEl.contains(rawRange.commonAncestorContainer) || (typeof rawRange.intersectsNode === 'function' && rawRange.intersectsNode(noteEl))))
+      );
+      const selRange = intersectsProtected ? null : rawRange;
+      const hasRealSelection = Boolean(selRange && !lastEditorSelection.collapsed);
+
+      let effectiveMode = mode;
+      if (mode === 'insert') {
+        effectiveMode = hasRealSelection ? 'replace' : (selRange ? 'cursor' : 'append');
+      }
+
+      if (effectiveMode === 'replace') {
+        if (hasRealSelection) {
+          try {
+            let startBlock = selRange.startContainer;
+            while (startBlock && startBlock.parentNode !== paper && startBlock !== paper) {
+              startBlock = startBlock.parentNode;
+            }
+            let endBlock = selRange.endContainer;
+            while (endBlock && endBlock.parentNode !== paper && endBlock !== paper) {
+              endBlock = endBlock.parentNode;
+            }
+
+            if (startBlock && startBlock === endBlock && startBlock !== paper && startBlock.nodeType === 1) {
+              const tag = startBlock.tagName.toLowerCase();
+              if (paragraphs.length === 1) {
+                selRange.deleteContents();
+                selRange.insertNode(document.createTextNode(paragraphs[0]));
+                applied = true;
+              } else {
+                const pBefore = document.createElement(tag);
+                const pAfter = document.createElement(tag);
+
+                const rangeBefore = document.createRange();
+                rangeBefore.setStart(startBlock, 0);
+                rangeBefore.setEnd(selRange.startContainer, selRange.startOffset);
+                pBefore.appendChild(rangeBefore.cloneContents());
+
+                const rangeAfter = document.createRange();
+                rangeAfter.setStart(selRange.endContainer, selRange.endOffset);
+                rangeAfter.setEnd(startBlock, startBlock.childNodes.length);
+                pAfter.appendChild(rangeAfter.cloneContents());
+
+                const frag = document.createDocumentFragment();
+                const preText = pBefore.textContent || '';
+                const postText = pAfter.textContent || '';
+
+                const firstEl = document.createElement(tag === 'h2' ? 'h2' : 'p');
+                firstEl.textContent = preText + paragraphs[0];
+                frag.appendChild(firstEl);
+
+                for (let i = 1; i < paragraphs.length; i++) {
+                  const pEl = document.createElement('p');
+                  if (i === paragraphs.length - 1 && postText) {
+                    pEl.textContent = paragraphs[i] + (tag === 'h2' ? '' : postText);
+                  } else {
+                    pEl.textContent = paragraphs[i];
+                  }
+                  frag.appendChild(pEl);
+                }
+
+                paper.replaceChild(frag, startBlock);
+                applied = true;
+              }
+            } else {
+              selRange.deleteContents();
+              const frag = document.createDocumentFragment();
+              paragraphs.forEach(p => {
+                const pEl = document.createElement('p');
+                pEl.textContent = p;
+                frag.appendChild(pEl);
+              });
+              selRange.insertNode(frag);
+              applied = true;
+            }
+          } catch (_) {
+            applied = false;
+          }
+        }
+
+        if (!applied) {
+          appendParagraphsToPaper(paper, text);
+          showToast(mode === 'insert' ? '已将 AI 回复写入正文' : (intersectsProtected ? '选区涉及只读区域，已自动追加至章节末尾' : '未在正文中选中文本，已自动追加至章节末尾'));
+        } else {
+          showToast('已替换正文选中内容');
+        }
+      } else if (effectiveMode === 'cursor' && selRange) {
+        try {
+          if (!selRange.collapsed) {
+            selRange.deleteContents();
+          }
+          let curBlock = selRange.startContainer;
+          while (curBlock && curBlock.parentNode !== paper && curBlock !== paper) {
+            curBlock = curBlock.parentNode;
+          }
+
+          const curTag = curBlock && curBlock.nodeType === 1 ? curBlock.tagName.toLowerCase() : '';
+          if (curBlock && curBlock.parentNode === paper && (curTag === 'p' || curTag === 'h2')) {
+            if (paragraphs.length <= 1) {
+              selRange.insertNode(document.createTextNode(paragraphs[0] || text));
+              applied = true;
+            } else {
+              const pBefore = document.createElement(curTag);
+              const pAfter = document.createElement(curTag);
+
+              const rangeBefore = document.createRange();
+              rangeBefore.setStart(curBlock, 0);
+              rangeBefore.setEnd(selRange.startContainer, selRange.startOffset);
+              pBefore.appendChild(rangeBefore.cloneContents());
+
+              const rangeAfter = document.createRange();
+              rangeAfter.setStart(selRange.startContainer, selRange.startOffset);
+              rangeAfter.setEnd(curBlock, curBlock.childNodes.length);
+              pAfter.appendChild(rangeAfter.cloneContents());
+
+              const frag = document.createDocumentFragment();
+              const preText = pBefore.textContent || '';
+              const postText = pAfter.textContent || '';
+
+              const firstEl = document.createElement(curTag === 'h2' ? 'h2' : 'p');
+              firstEl.textContent = preText + paragraphs[0];
+              frag.appendChild(firstEl);
+
+              for (let i = 1; i < paragraphs.length; i++) {
+                const pEl = document.createElement('p');
+                if (i === paragraphs.length - 1 && postText) {
+                  pEl.textContent = paragraphs[i] + (curTag === 'h2' ? '' : postText);
+                } else {
+                  pEl.textContent = paragraphs[i];
+                }
+                frag.appendChild(pEl);
+              }
+
+              paper.replaceChild(frag, curBlock);
+              applied = true;
+            }
+          } else {
+            const frag = document.createDocumentFragment();
+            paragraphs.forEach(p => {
+              const pEl = document.createElement('p');
+              pEl.textContent = p;
+              frag.appendChild(pEl);
+            });
+            selRange.insertNode(frag);
+            applied = true;
+          }
+          showToast(mode === 'insert' ? '已将 AI 回复插入光标处' : '已插入光标所在位置');
+        } catch (_) {
+          appendParagraphsToPaper(paper, text);
+          showToast('已追加至章节末尾');
+        }
+      } else {
+        appendParagraphsToPaper(paper, text);
+        showToast(mode === 'insert' ? '已将 AI 回复写入正文' : '已追加至章节末尾');
+      }
+
+      ensureEditorPaperStructure(paper);
+
+      const after = paper.innerHTML;
+      previewState.editorBody = after;
+      if (!previewState.editorHistory) previewState.editorHistory = { past: [before], future: [] };
+      previewState.editorHistory.past.push(after);
+      if (previewState.editorHistory.past.length > 50) previewState.editorHistory.past.shift();
+      previewState.editorHistory.future = [];
+      updateEditorWordCount(paper);
+      scheduleEditorAutoSave();
+      lastEditorSelection = null;
+      lastEditorSelectedText = '';
+      return true;
     }
 
     function appendEditorChat(kind, text, save = true) {
@@ -3311,10 +4308,14 @@
       if (save) captureEditorChat();
       const item = document.createElement('div');
       item.className = `chat-message ${kind}`;
-      item.innerHTML = kind === 'user'
-        ? `<span class="chat-avatar">你</span><div class="chat-bubble"></div>`
-        : `<span class="chat-avatar">墨</span><div class="chat-bubble"></div>`;
-      item.querySelector('.chat-bubble').textContent = text;
+      if (kind === 'user') {
+        item.innerHTML = `<span class="chat-avatar">你</span><div class="chat-bubble"></div>`;
+        item.querySelector('.chat-bubble').textContent = text;
+      } else {
+        item.innerHTML = `<span class="chat-avatar">墨</span><div class="chat-bubble"><div class="chat-bubble-text"></div><div class="chat-bubble-actions"><button class="chat-bubble-action primary" data-chat-action="apply-paper" title="采纳写入正文">${icon('arrow-down-to-line')}写入正文</button><button class="chat-bubble-action" data-chat-action="copy" title="复制">${icon('copy')}复制</button></div></div>`;
+        item.querySelector('.chat-bubble-text').textContent = text;
+        mountIcons();
+      }
       chat.appendChild(item);
       if (save) {
         previewState.editorChat.push({ kind, text });
@@ -3342,19 +4343,18 @@
       }
     }
 
-    function setEditorSaveStatus(text) {
-      const status = stage.querySelector('#editorSaveStatus');
-      if (status) status.textContent = text;
-    }
-
     function editorUndo() {
       const paper = stage.querySelector('.editor-paper');
       const history = previewState.editorHistory;
       if (!paper || !history || history.past.length < 2) return showToast('没有可撤销的修改');
       history.future.push(history.past.pop());
       paper.innerHTML = history.past[history.past.length - 1];
+      ensureEditorPaperStructure(paper);
       previewState.editorBody = paper.innerHTML;
-      setEditorSaveStatus('有未保存更改');
+      updateEditorWordCount(paper);
+      scheduleEditorAutoSave();
+      lastEditorSelection = null;
+      lastEditorSelectedText = '';
       showToast('已撤销');
     }
 
@@ -3365,8 +4365,12 @@
       const next = history.future.pop();
       history.past.push(next);
       paper.innerHTML = next;
+      ensureEditorPaperStructure(paper);
       previewState.editorBody = next;
-      setEditorSaveStatus('有未保存更改');
+      updateEditorWordCount(paper);
+      scheduleEditorAutoSave();
+      lastEditorSelection = null;
+      lastEditorSelectedText = '';
       showToast('已重做');
     }
 
@@ -3523,18 +4527,21 @@
 
       if (currentPage === 'editor') {
         if (!previewState.novelState && !previewState.novelId && !backendState.novels.length) {
-          const editorPreview = stage.querySelector('.editor-preview');
-          if (editorPreview) editorPreview.innerHTML = '<div class="empty" style="margin:24px"><div class="empty-icon">—</div><h3>还没有可编辑的作品</h3><p>先创建或登录后打开一本小说，编辑器会加载真实正文。</p></div>';
-          return;
+          previewState.novelState = createPreviewNovelState(previewState.novel, previewState.editorBody);
         }
         renderBackendEditorState();
         const preview = document.getElementById('editorPreview');
         const railToggle = document.getElementById('editorRailToggle');
         const paper = stage.querySelector('.editor-paper');
         const editorToolbar = stage.querySelector('.editor-bar .toolbar');
-        const saveStatus = stage.querySelector('[data-completion-save-status], #editorSaveStatus, .editor-bar > div:last-child > span');
-        if (saveStatus) { saveStatus.id = 'editorSaveStatus'; saveStatus.textContent = '已加载'; }
+        const saveStatus = stage.querySelector('#editorSaveStatus, [data-completion-save-status]');
+        if (saveStatus) {
+          saveStatus.id = 'editorSaveStatus';
+          setEditorSaveStatus('已自动保存', 'check');
+        }
         initEditorHistory(paper);
+        updateEditorWordCount(paper);
+
         if (editorToolbar && !editorToolbar.querySelector('[data-action="editor-generate"]')) {
           const generateButton = document.createElement('button');
           generateButton.className = 'editor-toolbar-button';
@@ -3545,6 +4552,7 @@
           editorToolbar.appendChild(generateButton);
           mountIcons();
         }
+
         const setEditorFocus = (collapsed) => {
           frame.classList.toggle('editor-focus', collapsed);
           document.body.classList.toggle('editor-only-mode', collapsed);
@@ -3555,10 +4563,26 @@
           mountIcons();
         };
         railToggle?.addEventListener('click', () => setEditorFocus(!frame.classList.contains('editor-focus')));
-        stage.querySelector('[data-open-ai]')?.addEventListener('click', () => preview.classList.add('ai-open'));
+        stage.querySelector('[data-open-ai]')?.addEventListener('click', () => {
+          if (window.innerWidth <= 820) setDockState(false);
+          preview.classList.add('ai-open');
+        });
         stage.querySelector('[data-close-ai]')?.addEventListener('click', () => preview.classList.remove('ai-open'));
-        stage.querySelector('[data-open-nav]')?.addEventListener('click', () => { preview.classList.add('nav-open'); showToast('章节导航已打开'); });
-        stage.querySelector('[data-close-nav]')?.addEventListener('click', () => preview.classList.remove('nav-open'));
+        stage.querySelector('[data-open-nav]')?.addEventListener('click', () => {
+          if (window.innerWidth <= 820) {
+            setDockState(false);
+            preview.classList.remove('ai-open');
+          }
+          preview.classList.add('nav-open');
+          showToast('章节导航已打开');
+        });
+        stage.querySelector('[data-close-nav]')?.addEventListener('click', () => {
+          preview.classList.remove('nav-open');
+          preview.classList.remove('ai-open');
+          setDockState(false);
+        });
+
+        // Chapter Selection
         stage.querySelectorAll('[data-chapter]').forEach((chapter) => {
           const selectChapter = () => {
             stage.querySelectorAll('.editor-chapter').forEach((item) => item.classList.remove('active'));
@@ -3573,6 +4597,8 @@
           chapter.addEventListener('click', selectChapter);
           chapter.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectChapter(); } });
         });
+
+        // Paper input and undo/redo keyboard listener
         paper?.addEventListener('input', () => {
           const next = paper.innerHTML;
           previewState.editorBody = next;
@@ -3581,8 +4607,427 @@
           if (history.past[history.past.length - 1] !== next) history.past.push(next);
           if (history.past.length > 50) history.past.shift();
           history.future = [];
-          setEditorSaveStatus('有未保存更改');
+          updateEditorWordCount(paper);
+          scheduleEditorAutoSave();
         });
+
+        paper?.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            if (e.shiftKey) {
+              e.preventDefault();
+              editorRedo();
+            } else {
+              e.preventDefault();
+              editorUndo();
+            }
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+            e.preventDefault();
+            editorRedo();
+          }
+        });
+
+        // Floating Selection Menu
+        const selMenu = document.getElementById('editorSelectionMenu');
+        const updateSelectionMenu = () => {
+          captureEditorSelection();
+          if (!selMenu || !paper) return;
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed || !sel.rangeCount) {
+            selMenu.hidden = true;
+            return;
+          }
+          const range = sel.getRangeAt(0);
+          if (!paper.contains(range.commonAncestorContainer)) {
+            selMenu.hidden = true;
+            return;
+          }
+          const text = sel.toString().trim();
+          if (!text) {
+            selMenu.hidden = true;
+            return;
+          }
+          const rect = range.getBoundingClientRect();
+          selMenu.hidden = false;
+          const top = Math.max(10, rect.top - 40);
+          const left = Math.max(10, Math.min(window.innerWidth - 300, rect.left));
+          selMenu.style.top = `${top}px`;
+          selMenu.style.left = `${left}px`;
+        };
+
+        paper?.addEventListener('mouseup', updateSelectionMenu);
+        paper?.addEventListener('keyup', updateSelectionMenu);
+        document.addEventListener('selectionchange', () => {
+          if (currentPage === 'editor') captureEditorSelection();
+        });
+        selMenu?.addEventListener('mousedown', (event) => {
+          event.preventDefault();
+        });
+        document.addEventListener('mousedown', (event) => {
+          if (selMenu && !selMenu.contains(event.target) && !paper?.contains(event.target)) {
+            selMenu.hidden = true;
+          }
+        });
+
+        // Multi-tab Workbench Dock Controls
+        const dock = document.getElementById('editorWorkbenchDock');
+        const dockToggle = document.getElementById('editorDockToggle');
+        const dockCollapseBtn = document.getElementById('dockCollapseBtn');
+
+        const setDockState = (expanded) => {
+          if (!dock) return;
+          dock.classList.toggle('collapsed', !expanded);
+          preview.classList.toggle('dock-open', expanded && window.innerWidth <= 820);
+          if (expanded && window.innerWidth <= 820) {
+            preview.classList.remove('ai-open');
+            preview.classList.remove('nav-open');
+          }
+          if (dockToggle) {
+            dockToggle.innerHTML = icon(expanded ? 'panel-left-close' : 'panel-left-open');
+            dockToggle.setAttribute('aria-label', expanded ? '收起工作台坞站' : '展开工作台坞站');
+            dockToggle.title = expanded ? '收起工作台坞站' : '展开工作台坞站';
+            dockToggle.classList.toggle('active', expanded);
+            mountIcons();
+          }
+          if (!expanded) {
+            stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => btn.classList.remove('active'));
+          } else {
+            const activePanel = stage.querySelector('#editorWorkbenchDock [data-dock-panel].active');
+            const activeTabId = activePanel ? activePanel.dataset.dockPanel : 'outline';
+            stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+              btn.classList.toggle('active', btn.dataset.dockTab === activeTabId);
+            });
+          }
+        };
+
+        const switchDockTab = (tabId) => {
+          if (!dock) return;
+          setDockState(true);
+          // Toolbar pill tabs
+          stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.dockTab === tabId);
+          });
+          // Dock header nav tabs
+          stage.querySelectorAll('#dockNavTabs .dock-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.dockTab === tabId);
+          });
+          // Dock body panels
+          stage.querySelectorAll('#editorWorkbenchDock [data-dock-panel]').forEach(panel => {
+            panel.classList.toggle('active', panel.dataset.dockPanel === tabId);
+          });
+        };
+
+        const isDockOpen = () => {
+          if (!dock) return false;
+          if (window.innerWidth <= 820) {
+            return preview ? preview.classList.contains('dock-open') : false;
+          }
+          return !dock.classList.contains('collapsed');
+        };
+
+        if (window.innerWidth <= 820) {
+          setDockState(false);
+        }
+
+        dockToggle?.addEventListener('click', () => {
+          setDockState(!isDockOpen());
+        });
+
+        dockCollapseBtn?.addEventListener('click', () => setDockState(false));
+
+        // Toolbar dock pill tabs click
+        stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tabId = btn.dataset.dockTab;
+            if (btn.classList.contains('active') && isDockOpen()) {
+              setDockState(false);
+            } else {
+              switchDockTab(tabId);
+            }
+          });
+        });
+
+        // Dock header nav tabs click
+        stage.querySelectorAll('#dockNavTabs .dock-tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => switchDockTab(btn.dataset.dockTab));
+        });
+
+        // Inject reference context to AI prompt (#editorPrompt)
+        const injectPromptContext = (title, meta, desc, typePrefix) => {
+          const promptInput = document.getElementById('editorPrompt');
+          if (!promptInput) return;
+          const formatted = `【${typePrefix || '上下文引用'}·${title}】${meta ? meta + '：' : ''}${desc}`;
+          const current = promptInput.value.trim();
+          promptInput.value = current ? `${current}\n\n${formatted}` : `${formatted}\n\n`;
+          promptInput.focus();
+          promptInput.selectionStart = promptInput.selectionEnd = promptInput.value.length;
+          if (window.innerWidth <= 820) {
+            setDockState(false);
+          }
+          preview.classList.add('ai-open');
+          showToast(`已引用「${title}」至 AI 提示词`);
+        };
+
+        // Outline tab cards and quote buttons
+        stage.querySelectorAll('#editorWorkbenchDock [data-dock-panel="outline"] .dock-node-card').forEach(card => {
+          const title = card.dataset.quoteTitle || '';
+          const meta = card.dataset.quoteMeta || '';
+          const desc = card.dataset.quoteDesc || '';
+          const isLedger = card.closest('#dockOutlineLedger') !== null;
+          card.addEventListener('click', () => {
+            injectPromptContext(title, meta, desc, isLedger ? '伏笔上下文' : '大纲上下文');
+          });
+        });
+
+        // Outline subtabs (Timeline vs Ledger)
+        stage.querySelectorAll('[data-outline-sub]').forEach(subBtn => {
+          subBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const mode = subBtn.dataset.outlineSub;
+            stage.querySelectorAll('[data-outline-sub]').forEach(b => b.classList.toggle('active', b === subBtn));
+            const tl = document.getElementById('dockOutlineTimeline');
+            const ld = document.getElementById('dockOutlineLedger');
+            if (tl) tl.style.display = mode === 'timeline' ? 'block' : 'none';
+            if (ld) ld.style.display = mode === 'ledger' ? 'block' : 'none';
+          });
+        });
+
+        // Knowledge tab cards and search filter
+        const entitySearchInput = document.getElementById('dockEntitySearch');
+        const filterEntities = () => {
+          const query = (entitySearchInput?.value || '').trim().toLowerCase();
+          const activeFilter = stage.querySelector('.dock-filter-tag.active')?.dataset.entityFilter || 'all';
+          stage.querySelectorAll('#dockEntityList .dock-entity-card').forEach(card => {
+            const type = card.dataset.entityType || '';
+            const title = (card.dataset.quoteTitle || '').toLowerCase();
+            const desc = (card.dataset.quoteDesc || '').toLowerCase();
+            const matchQuery = !query || title.includes(query) || desc.includes(query);
+            const matchFilter = activeFilter === 'all' || type === activeFilter;
+            card.style.display = (matchQuery && matchFilter) ? 'flex' : 'none';
+          });
+        };
+
+        entitySearchInput?.addEventListener('input', filterEntities);
+
+        stage.querySelectorAll('.dock-filter-tag').forEach(tag => {
+          tag.addEventListener('click', () => {
+            stage.querySelectorAll('.dock-filter-tag').forEach(t => t.classList.remove('active'));
+            tag.classList.add('active');
+            filterEntities();
+          });
+        });
+
+        stage.querySelectorAll('#dockEntityList .dock-entity-card').forEach(card => {
+          const title = card.dataset.quoteTitle || '';
+          const meta = card.dataset.quoteMeta || '';
+          const desc = card.dataset.quoteDesc || '';
+          card.addEventListener('click', () => {
+            injectPromptContext(title, meta, desc, '设定参考');
+          });
+        });
+
+        // Story Memory and Style tab
+        stage.querySelectorAll('#editorWorkbenchDock [data-dock-panel="memory"] .dock-memory-card').forEach(card => {
+          const title = card.dataset.quoteTitle || '';
+          const meta = card.dataset.quoteMeta || '';
+          const desc = card.dataset.quoteDesc || '';
+          card.addEventListener('click', () => {
+            injectPromptContext(title, meta, desc, meta || '故事记忆');
+          });
+        });
+
+        document.getElementById('dockInjectStylePresetBtn')?.addEventListener('click', () => {
+          const fullSpec = '视角：第三人称限知视角（聚焦叶辰感官与心智博弈）；节奏：高压迫推进、每千字递进一次冲突；语言：极简水墨冷峻、去除AI套话八股、强化微动作与环境声音；对白：潜台词试探、拒绝解释性长句。';
+          injectPromptContext('长篇水墨玄幻', '全套叙事引擎', fullSpec, '文风规约合集');
+        });
+
+        // AI Tools Tab
+        const toolInput = document.getElementById('dockToolInput');
+        const toolWc = document.getElementById('dockToolWordCount');
+        const toolDesc = document.getElementById('dockCurrentToolDesc');
+        const toolResultText = document.getElementById('dockToolResultText');
+        const toolResultActions = document.getElementById('dockToolResultActions');
+        const runToolBtn = document.getElementById('dockExecuteToolBtn');
+        let currentActiveTool = '去 AI 味';
+
+        const toolDescriptions = {
+          '去 AI 味': '依据 Stop AI Slop 准则消除机械排比与套话，还原人话叙事',
+          '错别字检测': '检查错别字、标点规范、语病与语义重复',
+          '扩写/润色': '丰富感官白描、动作细节与场景冷雨质感',
+          '节奏分析': '诊断场景目标推进、冲突密度与情绪张力'
+        };
+
+        stage.querySelectorAll('.dock-tool-choice').forEach(choice => {
+          choice.addEventListener('click', () => {
+            stage.querySelectorAll('.dock-tool-choice').forEach(c => c.classList.remove('active'));
+            choice.classList.add('active');
+            currentActiveTool = choice.dataset.tool;
+            if (toolDesc) toolDesc.textContent = toolDescriptions[currentActiveTool] || 'AI 写作工具分析';
+          });
+        });
+
+        const updateToolWordCount = () => {
+          if (!toolInput || !toolWc) return;
+          const len = toolInput.value.replace(/\s/g, '').length;
+          toolWc.textContent = `${len} 字`;
+        };
+        toolInput?.addEventListener('input', updateToolWordCount);
+
+        document.getElementById('dockFetchSelectionBtn')?.addEventListener('click', () => {
+          captureEditorSelection();
+          if (lastEditorSelectedText) {
+            if (toolInput) toolInput.value = lastEditorSelectedText;
+            updateToolWordCount();
+            showToast('已读取正文选中内容');
+          } else {
+            showToast('请先在正文编辑区划选文字');
+          }
+        });
+
+        let currentToolProcessedText = '';
+
+        const executeDockTool = async () => {
+          const rawText = toolInput?.value.trim() || '';
+          if (!rawText) {
+            showToast('请先输入或从正文读取要处理的内容');
+            toolInput?.focus();
+            return;
+          }
+          if (runToolBtn) runToolBtn.disabled = true;
+          if (toolResultText) toolResultText.innerHTML = '<span class="chat-thinking visible" style="display:inline-block">正在处理，调用创作模型…</span>';
+          if (toolResultActions) toolResultActions.style.display = 'none';
+
+          const toolPrompts = {
+            '去 AI 味': '你的任务是依据 Stop AI Slop 准则消除中文 AI 写作痕迹，把机械生硬的文本改写成人话。严格执行：1. 拆排比三件套；2. 去名词化；3. 换抽象主语为具体的人或细节；4. 删金句收尾与抒情扩散；5. 删虚词与程度副词；6. 删元评论与八股连接词；7. 价值判断替换为具体动作或场景。保持原意，先列出消除点，再给出完整自然改写稿：\n【改写稿】\n',
+            '错别字检测': '请检查错别字、标点、病句和语义重复，按清单列出后，给出：\n【校对后建议稿】\n',
+            '扩写/润色': '请在保持原意和克制水墨风格的前提下，扩写丰富感官白描、动作细节与心理微滞，给出：\n【扩写稿】\n',
+            '节奏分析': '请分析场景目标、冲突推进、信息增量和节奏停留，指出修改建议。'
+          };
+
+          try {
+            let output = '';
+            if (backendState.token && typeof requestChatText === 'function') {
+              output = await requestChatText([
+                { role: 'system', content: `你是墨阑创作工作台专用工具“${currentActiveTool}”。${toolPrompts[currentActiveTool] || ''}` },
+                { role: 'user', content: rawText }
+              ], { stage: 'humanizer', maxTokens: 1400 });
+            } else {
+              // High quality offline fallback
+              await new Promise(r => setTimeout(r, 260));
+              if (currentActiveTool === '去 AI 味') {
+                output = `【主要消除点】\n1. 拆除排比连缀，增强冷雨与青石阶的物理触感\n2. 剥离「其实/某种程度上」等虚化修饰词\n3. 换抽象主格为主角视线与微动作\n\n【改写稿】\n青石阶上的水洼被冷雨激起一圈圈细纹。叶辰垂下眼帘，五指缓缓收拢，掌心残存的神玉微温贴着掌纹沉寂下去。祠堂深处的长明灯在水汽中晃动，门外的随从垂手屏息，不敢多言半句。`;
+              } else if (currentActiveTool === '错别字检测') {
+                output = `【校对清单】\n1. 标点规范：祠堂对白破折号与逗号节奏得当\n2. 语病精简：删除了重叠的修饰字词，语意更加洗练\n\n【校对后建议稿】\n雨落在青石阶上，像有人在暗处敲门。叶辰收回目光，神玉微温隐于袖间，推门向祠堂走去。`;
+              } else if (currentActiveTool === '扩写/润色') {
+                output = `【扩写稿】\n冷雨斜打在回廊的青石阶沿上，溅起微凉的泥腥味。叶辰每走一步，鞋底便踏破一片晃动的灯影。他下意识将手指扣入掌心，那枚轮回神玉沉入经脉深处，散出微不可察的灼热。祠堂高阔的门槛在雨雾中像一道沉默的界碑，檐角的滴水声一下接一下，砸得人心口发沉。`;
+              } else {
+                output = `【节奏诊断报告】\n- 场景张力：88 / 100（高压抑蓄势）\n- 节奏曲线：前置冷雨压迫，中置祠堂博弈，适宜在说出「玄天宗」三字时达到峰值\n- 推进建议：建议在叶辰跨进祠堂门槛前增加半拍动作停顿，强化心理博弈张力。`;
+              }
+            }
+            currentToolProcessedText = output;
+            if (toolResultText) toolResultText.textContent = output;
+            if (toolResultActions) toolResultActions.style.display = 'flex';
+          } catch (err) {
+            showToast('处理失败：' + (err.message || '网络或模型异常'));
+            if (toolResultText) toolResultText.textContent = '处理遇到问题，请稍后重试。';
+          } finally {
+            if (runToolBtn) runToolBtn.disabled = false;
+          }
+        };
+
+        runToolBtn?.addEventListener('click', executeDockTool);
+
+        const extractRevisedProse = (fullText) => {
+          if (!fullText) return '';
+          let text = fullText;
+          text = text.replace(/^```(?:markdown|text)?\s*[\r\n]/i, '').replace(/[\r\n]```\s*$/i, '');
+          const markers = [
+            '【改写稿】',
+            '【校对后建议稿】',
+            '【扩写稿】',
+            '【改写建议】',
+            '【建议片段】',
+            '【改写正文】'
+          ];
+          for (const marker of markers) {
+            const idx = text.indexOf(marker);
+            if (idx !== -1) {
+              let after = text.slice(idx + marker.length).trim();
+              after = after.replace(/^\*+\s*/, '').replace(/^[：:\n\r]+/, '').trim();
+              const stopIdx = after.search(/\n\s*【(?:消除点|注意|解析|分析|说明|总结|点评|推进建议|修改点|改写说明|注意点|思考|附注)/);
+              if (stopIdx !== -1) {
+                after = after.slice(0, stopIdx).trim();
+              }
+              after = after.replace(/```+\s*$/g, '').trim();
+              return after;
+            }
+          }
+          if (text.includes('推进建议')) {
+            const match = text.match(/推进建议[：:]([^\n]+)/);
+            if (match) return match[1].replace(/^\*+|\*+$/g, '').trim();
+          }
+          return text.trim();
+        };
+
+        document.getElementById('dockApplyReplaceBtn')?.addEventListener('click', () => {
+          const prose = extractRevisedProse(currentToolProcessedText);
+          applyTextToEditorPaper(prose, 'replace');
+        });
+
+        document.getElementById('dockApplyInsertBtn')?.addEventListener('click', () => {
+          const prose = extractRevisedProse(currentToolProcessedText);
+          applyTextToEditorPaper(prose, 'cursor');
+        });
+
+        document.getElementById('dockApplyAppendBtn')?.addEventListener('click', () => {
+          const prose = extractRevisedProse(currentToolProcessedText);
+          applyTextToEditorPaper(prose, 'append');
+        });
+
+        document.getElementById('dockCopyResultBtn')?.addEventListener('click', () => {
+          const textToCopy = (currentToolProcessedText || '').trim() || extractRevisedProse(currentToolProcessedText);
+          copyText(textToCopy).then(() => showToast('已复制处理结果'));
+        });
+
+        // Floating Selection Menu Tool Action buttons
+        selMenu?.querySelectorAll('button[data-sel-tool]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tool = btn.dataset.selTool;
+            selMenu.hidden = true;
+            if (tool === 'ai-prompt') {
+              injectPromptContext('正文选区', '', `"${lastEditorSelectedText}"`, '选区探讨');
+            } else {
+              if (toolInput) toolInput.value = lastEditorSelectedText;
+              updateToolWordCount();
+              switchDockTab('tools');
+              stage.querySelectorAll('.dock-tool-choice').forEach(c => {
+                c.classList.toggle('active', c.dataset.tool === tool);
+              });
+              currentActiveTool = tool;
+              if (toolDesc) toolDesc.textContent = toolDescriptions[tool] || '';
+              executeDockTool();
+            }
+          });
+        });
+
+        // AI Chat bubbles action delegation (Write to paper & Copy)
+        document.getElementById('editorChat')?.addEventListener('click', (event) => {
+          const btn = event.target.closest('[data-chat-action]');
+          if (!btn) return;
+          const bubble = btn.closest('.chat-bubble');
+          if (!bubble) return;
+          const textEl = bubble.querySelector('.chat-bubble-text') || bubble;
+          const clone = textEl.cloneNode(true);
+          clone.querySelectorAll('.chat-bubble-actions').forEach(el => el.remove());
+          const content = clone.textContent.trim();
+          if (!content) return;
+          if (btn.dataset.chatAction === 'copy') {
+            copyText(content).then(() => showToast('已复制到剪贴板'));
+          } else if (btn.dataset.chatAction === 'apply-paper') {
+            applyTextToEditorPaper(content, 'insert');
+          }
+        });
+
+        // Skill and History
         restoreEditorChat();
         const editorSkillSelect = document.getElementById('editorSkillSelect');
         const editorHistorySelect = document.getElementById('editorHistorySelect');
@@ -3596,6 +5041,8 @@
         });
         renderEditorSkillSelector();
         renderEditorHistorySelector();
+
+        // Editor Prompt and Chat
         const editorInput = document.getElementById('editorPrompt');
         if (editorInput && previewState.editorPendingPrompt) {
           editorInput.value = previewState.editorPendingPrompt;
@@ -3606,9 +5053,6 @@
         const sendEditorPrompt = async () => {
           const text = editorInput.value.trim();
           if (!text || editorSend.disabled) return;
-          const modeEl = document.getElementById('editorCreationMode');
-          const styleEl = document.getElementById('editorStylePreset');
-          const isCreation = !modeEl || modeEl.value !== 'assistant';
           appendEditorChat('user', text);
           editorInput.value = '';
           editorSend.disabled = true;
@@ -3622,7 +5066,8 @@
                 if (editorThinking) editorThinking.textContent = status;
               },
               onDelta: (_delta, fullText) => {
-                if (assistantBubble) assistantBubble.textContent = fullText;
+                const textEl = assistantBubble ? (assistantBubble.querySelector('.chat-bubble-text') || assistantBubble) : null;
+                if (textEl) textEl.textContent = fullText;
                 const messages = previewState.editorChat || [];
                 const last = messages[messages.length - 1];
                 if (last && last.kind === 'assistant') last.text = fullText;
@@ -3632,7 +5077,8 @@
             });
             if (!document.body.contains(editorSend)) return;
             editorThinking.classList.remove('visible');
-            if (assistantBubble) assistantBubble.textContent = response;
+            const textEl = assistantBubble ? (assistantBubble.querySelector('.chat-bubble-text') || assistantBubble) : null;
+            if (textEl) textEl.textContent = response;
             const messages = previewState.editorChat || [];
             const last = messages[messages.length - 1];
             if (last && last.kind === 'assistant') last.text = response;
@@ -3641,7 +5087,8 @@
             showToast(error.message || 'AI 请求失败');
             if (document.body.contains(editorSend)) {
               const failure = `请求未完成：${error.message || '后端模型暂不可用'}`;
-              if (assistantBubble) assistantBubble.textContent = failure;
+              const textEl = assistantBubble ? (assistantBubble.querySelector('.chat-bubble-text') || assistantBubble) : null;
+              if (textEl) textEl.textContent = failure;
               const messages = previewState.editorChat || [];
               const last = messages[messages.length - 1];
               if (last && last.kind === 'assistant') last.text = failure;
@@ -4030,11 +5477,21 @@
     window.addEventListener('molan:completion-ready', startBackendBootstrap, { once: true });
     window.addEventListener('load', startBackendBootstrap, { once: true });
   </script>
-  <script src="./completion-library.js"></script>
-  <script src="./completion-editor.js?v=chat-state-sync-17"></script>
-  <script src="./completion-import.js?v=pro-craft-6"></script>
-  <script src="./completion-platform.js?v=imports-1"></script>
-  <script src="./completion-admin.js"></script>
-  <script src="./workspace-completion.js"></script>
+  <script>
+    if (location.protocol !== 'file:') {
+      [
+        './completion-library.js',
+        './completion-editor.js?v=chat-state-sync-17',
+        './completion-import.js?v=pro-craft-6',
+        './completion-platform.js?v=imports-1',
+        './completion-admin.js',
+        './workspace-completion.js'
+      ].forEach(src => {
+        const s = document.createElement('script');
+        s.src = src;
+        document.body.appendChild(s);
+      });
+    }
+  </script>
 </body>
 </html>
