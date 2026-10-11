@@ -1618,7 +1618,7 @@
     }
 
     function loginPage() {
-      return shell('login', `<div class="user-login"><section class="user-login-copy"><div><div style="display:flex;align-items:center;gap:9px"><span class="brand-mark">墨</span><strong style="font-family:var(--serif);font-size:16px">墨阑</strong></div><h2>让每一个故事，都有自己的工作台。</h2><p>保存你的作品、设定和 Skill，在任意设备继续创作。登录后，所有 AI 任务和积分记录都会归属于当前账户。</p><div class="login-signal"><span></span>你的作品数据按账户独立保存</div></div><div class="metric-foot">墨阑 · 以书香之韵，驭现代之智</div></section><section class="user-login-form"><div class="user-login-inner"><div class="login-tabs"><button class="login-tab active">登录</button><button class="login-tab">注册</button></div><h1>欢迎回来</h1><p>登录后继续最近编辑的小说和 AI 任务。</p><div class="form-grid"><div class="field"><label for="userEmail">邮箱</label><input id="userEmail" type="email" placeholder="you@example.com"></div><div class="field"><label for="userPassword">密码</label><input id="userPassword" type="password" placeholder="请输入密码"></div></div><div class="login-links"><label class="check"><input id="rememberUser" type="checkbox"> 记住我</label><a href="#" data-toast="找回密码流程预览。">忘记密码？</a></div><button class="button primary" style="width:100%;margin-top:21px" data-page="overview">登录并进入工作台 ${icon('arrow-right')}</button><div class="notice" style="margin-top:18px">${icon('info')}<span>本地服务模式：登录或注册后，作品和任务会保存到当前本地后端。</span></div></div></section></div>`, 'login-page');
+      return shell('login', `<div class="user-login"><section class="user-login-copy"><div><div style="display:flex;align-items:center;gap:9px"><span class="brand-mark">墨</span><strong style="font-family:var(--serif);font-size:16px">墨阑</strong></div><h2>让每一个故事，都有自己的工作台。</h2><p>保存你的作品、设定和 Skill，在任意设备继续创作。登录后，所有 AI 任务和积分记录都会归属于当前账户。</p><div class="login-signal"><span></span>你的作品数据按账户独立保存</div></div><div class="metric-foot">墨阑 · 以书香之韵，驭现代之智</div></section><section class="user-login-form"><div class="user-login-inner"><div class="login-tabs"><button class="login-tab active">登录</button><button class="login-tab">注册</button></div><h1>欢迎回来</h1><p>登录后继续最近编辑的小说和 AI 任务。</p><div class="form-grid"><div class="field"><label for="userEmail">邮箱</label><input id="userEmail" type="email" placeholder="you@example.com"></div><div class="field"><label for="userPassword">密码</label><input id="userPassword" type="password" placeholder="请输入密码"></div></div><div class="login-links"><label class="check"><input id="rememberUser" type="checkbox" checked> 记住我</label><a href="#" data-toast="找回密码流程预览。">忘记密码？</a></div><button class="button primary" style="width:100%;margin-top:21px" data-page="overview">登录并进入工作台 ${icon('arrow-right')}</button><div class="notice" style="margin-top:18px">${icon('info')}<span>本地服务模式：登录或注册后，作品和任务会保存到当前本地后端。</span></div></div></section></div>`, 'login-page');
     }
 
     function adminLoginPage() {
@@ -1777,6 +1777,7 @@
       backendState.user = null;
       resetBackendRemoteState();
       persistBackendAuth();
+      window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
     }
 
     function resetBackendRemoteState() {
@@ -1998,6 +1999,7 @@
           if (data && data.user) {
             backendState.user = data.user;
             persistBackendAuth();
+            window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }));
             return backendState.user;
           }
           return backendState.user;

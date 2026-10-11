@@ -27,8 +27,10 @@ function mergeResourcesIntoState(state, resources) {
   if (source.knowledge && typeof source.knowledge === 'object') {
     nextState.knowledge = {
       ...source.knowledge,
-      entities: source.knowledge.entities && typeof source.knowledge.entities === 'object' && !Array.isArray(source.knowledge.entities)
-        ? { ...source.knowledge.entities }
+      entities: source.knowledge.entities && typeof source.knowledge.entities === 'object'
+        ? (Array.isArray(source.knowledge.entities)
+            ? Object.fromEntries(source.knowledge.entities.filter(item => item && (item.id || item.name)).map(item => [item.id || item.name, { ...item }]))
+            : { ...source.knowledge.entities })
         : {},
       edges: Array.isArray(source.knowledge.edges) ? [...source.knowledge.edges] : []
     };

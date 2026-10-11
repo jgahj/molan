@@ -2225,4 +2225,92 @@ molan-home/
 2. **后续运维建议**：
    - 部署到 ECS 服务器后，若使用 PostgreSQL 主库，需在数据库控制台或通过迁移执行 `0051_novel_open_latency_indexes.sql`，确保生产云端 PostgreSQL 复合索引生效。
 
+---
+
+## 阶段记录：对抗性审查返修 —— 修复 crypto 注入缺失崩溃、缓存失效遗漏、数组实体归一化与跨组件鉴权广播 (Round 1 Review Fix)
+
+### 一、改动范围与核心逻辑 (Scope & Implementation Details)
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/auth-account-service.js` | 核心鉴权服务加固与缺陷修复 | 1. **默认 crypto 依赖优雅兜底**：定义 `const cryptoModule = crypto \|\| require('node:crypto');`，彻底修复因调用方未显式传入 `crypto` 选项（如 `test/postgres-runtime-no-cache.test.js`）导致在工厂顶层抛出 `Cannot read properties of undefined (reading 'scrypt')` 的致命运行时崩溃；<br>2. **全面替换内部 crypto 访问**：将 `hashPwd`、`createPasswordRecord`、`verifyPassword`、`hashSessionToken`、`issueToken` 等全部 11 处 `crypto.` 统一替换为 `cryptoModule.`；<br>3. **多维缓存失效补全**：在 `saveUser`、`saveUsers` 以及 `insertUserIfAbsent` 执行时显式调用 `invalidateUserMemoryCache`，防止用户资料/积分更新后因 5s 缓存未刷新导致脏读；<br>4. **新会话检查时间戳置入**：在 `issueToken` 成功颁发 Token 时设置 `dbCheckedAt: Date.now()`，消除刚登录用户后续首个请求对 SQLite `auth_sessions` 的多余同步读取。 |
+| `molan-home/lib/project-resource-projection.js` | 资料状态投影容错 | 重构 `mergeResourcesIntoState` 中的 `source.knowledge.entities` 处理，当其为旧版数组格式（`Array.isArray`）时，将其安全映射为以 `id` 索引的对象 Map，防止数组被盲目置换为 `{}` 导致既有设定实体丢失。 |
+| `molan-home/completion-editor.js` | 编辑器与鉴权跨层通信加固 | 1. 在 `refFunction` 中增加对 `backendRequest` 与 `openBackendNovel` 的显式查找，确保模块化加载下异步通信始终可靠；<br>2. 在 `callMemoryApi` 与小说导出端点中支持 `sessionStorage` 降级读取 Token，防止不同会话持久化形态下的鉴权漏传。 |
+| `molan-home/index.html` | 前端状态广播与登录模板加固 | 1. `loginPage` 表单中为 `#rememberUser` 默认赋予 `checked` 属性，与 JS 状态双向一致；<br>2. `clearBackendAuth()` 中增加广播 `window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }))`，确保清空鉴权时各个子模块（编辑器、模型选择器、导航栏）实时接收重置通知；<br>3. `refreshBackendUser` 静默更新用户信息成功时同样广播 `molan:auth-changed`，保证积分和 VIP 角色即时响应。 |
+| `molan-home/test/auth-persistence-and-latency.test.js` | 自动化回归测试扩充 | 新增 3 项专项回归测试：<br>1. `createAuthAccountService defaults crypto dependency gracefully when omitted`（防退化，验证未传 crypto 时的安全性）；<br>2. `userMemoryCache invalidates properly on saveUser and saveUsers`（验证更新即时淘汰缓存）；<br>3. `mergeResourcesIntoState preserves legacy array knowledge.entities safely`（验证数组设定实体保真）。 |
+
+---
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **依赖可选性与防御性设计 (Defensive Dependency Defaults)**：
+   - 依赖注入（DI）在微服务与单元测试中非常灵活，但若是核心加密库 `crypto` 在工厂入口被直接解构并在顶层无条件执行 `util.promisify(crypto.scrypt)`，极易在精简实例化场景下引发致命空指针错误。通过 `crypto || require('node:crypto')` 既允许测试注入自定义 mock，又对未传场景提供零负担的生产级原生回退。
+2. **读写一致性与写穿失效优先 (Write-Through Cache Invalidation)**：
+   - 内存缓存极大加速了高频读，但写操作（`saveUser`、`saveUsers`）必须严格写穿并同步淘汰缓存。此前只在查询和密码升级处零散处理，补齐 `saveUser`/`saveUsers`/`insertUserIfAbsent` 之后的读写状态达到严格的一致性。
+3. **老数据格式自适应迁移 (Adaptive Legacy Entity Normalization)**：
+   - 设定实体在历史版本曾以数组形式存储，新版则要求字典映射。合并资料时通过 `Object.fromEntries(entities.map(e => [e.id, e]))` 平滑兼容，杜绝因格式升级而无意覆写擦除用户已有数据。
+
+---
+
+### 三、真实验证证据 (Verification Evidence)
+
+- **Node 运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2，严格遵守工作区约束)
+- **1. 修复后回归受影响测试 `test/postgres-runtime-no-cache.test.js` (6/6 真实通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/postgres-runtime-no-cache.test.js
+  # TAP version 13
+  # ok 1 - PG 同步账户入口拒绝缓存读取与未等待的写回
+  # ok 2 - PG 预占清理由原生维护身份执行，不依赖账户镜像
+  # ok 3 - PG 同步技能入口拒绝读取空镜像或全量写回
+  # ok 4 - PG 健康接口等待原生管理员统计，不访问同步数据库
+  # ok 5 - 健康路由等待异步处理完成并传播错误
+  # ok 6 - PG 生成能力按原生仓储公布暂停恢复与中断恢复
+  # 1..6
+  # tests 6, pass 6, fail 0, duration_ms: ~116ms
+  ```
+- **2. 扩充后的鉴权持久化与延迟专项测试 `test/auth-persistence-and-latency.test.js` (8/8 真实通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/auth-persistence-and-latency.test.js
+  # TAP version 13
+  # ok 1 - createPasswordRecordAsync and verifyPasswordAsync handle non-blocking scrypt hashing
+  # ok 2 - userMemoryCache caches lookups within TTL and invalidates on update
+  # ok 3 - mergeResourcesIntoState preserves reference identity of unmodified branches without full-tree JSON clone
+  # ok 4 - SQLite composite indexes for novels, project_members, and project_resources are created properly
+  # ok 5 - refreshBackendUser silent retry preserves auth on transient failure and only clears on 401
+  # ok 6 - createAuthAccountService defaults crypto dependency gracefully when omitted
+  # ok 7 - userMemoryCache invalidates properly on saveUser and saveUsers
+  # ok 8 - mergeResourcesIntoState preserves legacy array knowledge.entities safely
+  # 1..8
+  # tests 8, pass 8, fail 0, duration_ms: ~403ms
+  ```
+- **3. 全量 JavaScript 自动化测试套件 `test/**/*.test.js` (2,261 测试项全部运行，2,248 通过，0 失败)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --no-warnings --test "test/**/*.test.js"
+  # 1..1983
+  # tests 2261, suites 73, pass 2248, fail 0, cancelled 0, skipped 13, todo 0
+  # duration_ms: ~35284ms (100% 真实通过，0 错误)
+  ```
+- **4. 全量 ESM 测试套件 `test/**/*.test.mjs` (209 测试项全部运行，207 通过，0 失败)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --no-warnings --test "test/**/*.test.mjs"
+  # 1..209
+  # tests 209, suites 0, pass 207, fail 0, cancelled 0, skipped 2, todo 0
+  # duration_ms: ~2516ms (100% 真实通过，0 错误)
+  ```
+- **5. 语法静态校验 (`--check` 0 错误)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --check services/auth-account-service.js lib/project-resource-projection.js completion-editor.js test/auth-persistence-and-latency.test.js
+  # exit code 0, 0 errors
+  ```
+
+---
+
+### 四、已知限制与后续运维建议 (Known Limits & Operational Guide)
+
+1. **已知限制**：
+   - 当前在单节点 Node.js 实例下，会话与用户内存缓存可达成亚毫秒级响应；若未来横向扩展为多节点 Cluster，在无集中式 Redis 缓存情况下，跨节点的数据同步依然依赖 5 秒的短 TTL 自动过期。
+2. **后续运维建议**：
+   - 生产 ECS 发布后，定期核验 PostgreSQL `pg_stat_user_indexes`，监测 `luna.project_members` 与 `luna.project_resources` 复合索引命中率。
+
+
 

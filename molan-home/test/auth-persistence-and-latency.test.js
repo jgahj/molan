@@ -306,3 +306,112 @@ test('refreshBackendUser silent retry preserves auth on transient failure and on
   assert.equal(userAfter401, null);
   assert.equal(backendState.token, '');
 });
+
+test('createAuthAccountService defaults crypto dependency gracefully when omitted', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-auth-nocrypto-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  // 模拟 postgres-runtime-no-cache 等没有显式传入 crypto 的环境
+  const service = createAuthAccountService({
+    DATA_DIR: directory,
+    POSTGRES_MODE: false,
+    USERS_FILE: path.join(directory, 'users.json'),
+    SESSIONS_FILE: path.join(directory, 'sessions.json'),
+    SESSION_TTL_MS: 3600000,
+    USER_CACHE_TTL_MS: 1000,
+    fs,
+    dbReady: () => false,
+    getDatabase: () => null,
+    projectScope: { stableUserId: email => 'user-' + email, ensureUserWorkspace: () => {} },
+    normalizeUserRole: user => user.role || 'normal',
+    getUsageSummary: () => ({}),
+    requestError: (status, message) => Object.assign(new Error(message), { status })
+  });
+  t.after(() => service.flushSessionsSync());
+
+  assert.ok(service, '服务应当成功实例化，不能因缺少 crypto 参数而报错');
+  const record = await service.createPasswordRecordAsync('TestPassword123');
+  assert.ok(record.salt);
+  assert.ok(record.pwd.startsWith('scrypt$'));
+  const verify = await service.verifyPasswordAsync('TestPassword123', { salt: record.salt, pwd: record.pwd });
+  assert.equal(verify.ok, true);
+});
+
+test('userMemoryCache invalidates properly on saveUser and saveUsers', t => {
+  let dbUser = {
+    email: 'invalidation@example.test',
+    userId: 'usr_inv_1',
+    name: 'Initial Name',
+    avatar: '',
+    bio: '',
+    defaultModel: '',
+    salt: 's1',
+    pwd: 'p1',
+    role: 'normal',
+    level: 'normal',
+    plan: 'normal',
+    credits: 50,
+    spent: 0,
+    createdAt: new Date().toISOString()
+  };
+  const mockDb = {
+    exec: () => {},
+    prepare: (sql) => ({
+      get: (param) => ({ ...dbUser }),
+      run: (email, userId, name, avatar, bio, defaultModel, salt, pwd, role, level, plan, credits, spent, createdAt) => {
+        dbUser = { ...dbUser, email, userId, name, avatar, bio, defaultModel, salt, pwd, role, level, plan, credits, spent, createdAt };
+        return { changes: 1 };
+      }
+    })
+  };
+  const { service } = fixture(t, {
+    dbReady: () => true,
+    getDatabase: () => mockDb,
+    persistUsersToDb: (users) => {
+      if (users && users[0]) dbUser = { ...dbUser, ...users[0] };
+    }
+  });
+
+  // 1. 初次查询：落入缓存
+  const first = service.getUserByEmail('invalidation@example.test');
+  assert.equal(first.name, 'Initial Name');
+
+  // 2. 更新用户信息并通过 saveUser 保存
+  service.saveUser({ ...first, name: 'Updated Name', credits: 200 });
+
+  // 3. 再次查询：应当立刻返回更新后的数据，不能命中旧缓存
+  const afterSave = service.getUserByEmail('invalidation@example.test');
+  assert.equal(afterSave.name, 'Updated Name', 'saveUser 必须立即使内存缓存失效');
+
+  // 4. saveUsers 全量保存：同样清空缓存
+  service.saveUsers([{ ...dbUser, name: 'Batch Name' }]);
+  const afterBatch = service.getUserByEmail('invalidation@example.test');
+  assert.equal(afterBatch.name, 'Batch Name', 'saveUsers 必须清空内存缓存');
+});
+
+test('mergeResourcesIntoState preserves legacy array knowledge.entities safely', () => {
+  const stateWithArrayEntities = {
+    title: '测试作品',
+    knowledge: {
+      entities: [
+        { id: 'char_01', name: '林雷', type: 'character' },
+        { id: 'char_02', name: '贝贝', type: 'character' }
+      ],
+      edges: []
+    }
+  };
+  const resources = [
+    {
+      id: 'char_01',
+      kind: 'character',
+      status: 'active',
+      payload: { name: '林雷·巴鲁克', bio: '龙血战士' }
+    }
+  ];
+
+  const merged = mergeResourcesIntoState(stateWithArrayEntities, resources);
+  assert.ok(merged.knowledge.entities, 'knowledge.entities 应存在');
+  assert.ok(merged.knowledge.entities.char_01, 'char_01 应当被正确合并');
+  assert.equal(merged.knowledge.entities.char_01.name, '林雷·巴鲁克');
+  assert.ok(merged.knowledge.entities.char_02, '原有数组中的 char_02 不得被覆盖抹除');
+  assert.equal(merged.knowledge.entities.char_02.name, '贝贝');
+});

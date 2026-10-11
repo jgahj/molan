@@ -32,8 +32,9 @@ function createAuthAccountService({
   respondError,
   sessionEventUserId
 }) {
+  const cryptoModule = crypto || require('node:crypto');
   const util = require('node:util');
-  const scryptAsync = util.promisify(crypto.scrypt);
+  const scryptAsync = util.promisify(cryptoModule.scrypt);
   const PASSWORD_SCRYPT_KEYLEN = 64;
   const PASSWORD_SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
   const MAX_AVATAR_DATA_LENGTH = 300000;
@@ -90,6 +91,7 @@ function createAuthAccountService({
   }
   
   function saveUsers(users) {
+    invalidateUserMemoryCache();
     if (POSTGRES_MODE) {
       throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存写回');
     }
@@ -105,6 +107,8 @@ function createAuthAccountService({
   }
   
   function saveUser(user, actorUserId = '') {
+    if (user && user.email) invalidateUserMemoryCache(user.email);
+    if (user && user.userId) invalidateUserMemoryCache(user.userId);
     if (POSTGRES_MODE) {
       throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存写回');
     }
@@ -124,6 +128,8 @@ function createAuthAccountService({
   async function insertUserIfAbsent(user) {
     const email = String(user && user.email || '').trim().toLowerCase();
     if (!email) return false;
+    invalidateUserMemoryCache(email);
+    if (user && user.userId) invalidateUserMemoryCache(user.userId);
     if (POSTGRES_MODE) {
       const normalized = { ...user, email, userId: String(user.userId || projectScope.stableUserId(email)) };
       const saved = await postgresRepository.runtimeRegisterAccount({ ...normalized, createdAtText: normalized.createdAt });
@@ -233,17 +239,17 @@ function createAuthAccountService({
   }
   
   function hashPwd(pwd, salt) {
-    return crypto.createHash('sha256').update(String(pwd) + ':' + salt).digest('hex');
+    return cryptoModule.createHash('sha256').update(String(pwd) + ':' + salt).digest('hex');
   }
   
   function createPasswordRecord(password) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const derived = crypto.scryptSync(String(password), Buffer.from(salt, 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS).toString('hex');
+    const salt = cryptoModule.randomBytes(16).toString('hex');
+    const derived = cryptoModule.scryptSync(String(password), Buffer.from(salt, 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS).toString('hex');
     return { salt, pwd: 'scrypt$' + derived };
   }
 
   async function createPasswordRecordAsync(password) {
-    const salt = crypto.randomBytes(16).toString('hex');
+    const salt = cryptoModule.randomBytes(16).toString('hex');
     const derived = await scryptAsync(String(password), Buffer.from(salt, 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS);
     return { salt, pwd: 'scrypt$' + derived.toString('hex') };
   }
@@ -253,8 +259,8 @@ function createAuthAccountService({
     if (stored.startsWith('scrypt$')) {
       try {
         const expected = Buffer.from(stored.slice(7), 'hex');
-        const actual = crypto.scryptSync(String(password), Buffer.from(String(user.salt || ''), 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS);
-        return { ok: expected.length === actual.length && crypto.timingSafeEqual(expected, actual), needsUpgrade: false };
+        const actual = cryptoModule.scryptSync(String(password), Buffer.from(String(user.salt || ''), 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS);
+        return { ok: expected.length === actual.length && cryptoModule.timingSafeEqual(expected, actual), needsUpgrade: false };
       } catch (_) {
         return { ok: false, needsUpgrade: false };
       }
@@ -268,7 +274,7 @@ function createAuthAccountService({
       try {
         const expected = Buffer.from(stored.slice(7), 'hex');
         const actual = await scryptAsync(String(password), Buffer.from(String(user.salt || ''), 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS);
-        return { ok: expected.length === actual.length && crypto.timingSafeEqual(expected, actual), needsUpgrade: false };
+        return { ok: expected.length === actual.length && cryptoModule.timingSafeEqual(expected, actual), needsUpgrade: false };
       } catch (_) {
         return { ok: false, needsUpgrade: false };
       }
@@ -292,7 +298,7 @@ function createAuthAccountService({
   }
   
   function hashSessionToken(token) {
-    return crypto.createHash('sha256').update('molan-session:' + String(token || '')).digest('hex');
+    return cryptoModule.createHash('sha256').update('molan-session:' + String(token || '')).digest('hex');
   }
   
   function normalizeSessionScope(value) {
@@ -477,7 +483,7 @@ function createAuthAccountService({
   
   function issueToken(email, scope = 'client') {
     if (POSTGRES_MODE) return issuePostgresToken(email, scope);
-    const token = crypto.randomBytes(24).toString('hex');
+    const token = cryptoModule.randomBytes(24).toString('hex');
     const tokenHash = hashSessionToken(token);
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const account = getUserByEmail(normalizedEmail);
@@ -490,7 +496,8 @@ function createAuthAccountService({
       email: normalizedEmail,
       expiresAt,
       scope: normalizedScope,
-      dbBacked: POSTGRES_MODE || dbReady()
+      dbBacked: POSTGRES_MODE || dbReady(),
+      dbCheckedAt: Date.now()
     });
     if (dbReady()) {
       getDatabase().prepare(`INSERT OR REPLACE INTO auth_sessions
@@ -504,9 +511,9 @@ function createAuthAccountService({
   async function issuePostgresToken(email, scope) {
     const user = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(email));
     if (!user) throw requestError(401, '账户不存在');
-    const token = crypto.randomBytes(24).toString('hex');
+    const token = cryptoModule.randomBytes(24).toString('hex');
     await postgresRepository.createAuthSession({
-      sessionId: crypto.randomUUID(), userId: user.userId, legacyId: user.userId,
+      sessionId: cryptoModule.randomUUID(), userId: user.userId, legacyId: user.userId,
       tokenHash: hashSessionToken(token), scope: normalizeSessionScope(scope),
       expiresAt: Date.now() + SESSION_TTL_MS
     });

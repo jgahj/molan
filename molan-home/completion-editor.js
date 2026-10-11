@@ -612,6 +612,8 @@
 
   function refFunction(name) {
     try {
+      if (name === 'backendRequest') return typeof backendRequest === 'function' ? backendRequest : null;
+      if (name === 'openBackendNovel') return typeof openBackendNovel === 'function' ? openBackendNovel : null;
       if (name === 'renderPage') return renderPage;
       if (name === 'mountIcons') return mountIcons;
       if (name === 'showToast') return showToast;
@@ -6709,9 +6711,10 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       params.set('toChapter', String(toChapter));
     }
     const apiBase = window.location.protocol === 'file:' || window.location.protocol === 'about:' ? 'http://127.0.0.1:3000' : '';
+    const exportToken = (backend && backend.token) || localStorage.getItem('ml_token') || sessionStorage.getItem('ml_token') || '';
     const response = await fetch(`${apiBase}/api/novels/${encodeURIComponent(novelId)}/export?${params.toString()}`, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${backend.token}` },
+      headers: { ...(exportToken ? { Authorization: `Bearer ${exportToken}` } : {}) },
       cache: 'no-store'
     });
     if (!response.ok) {
@@ -7630,7 +7633,7 @@ ${h.suggestions && h.suggestions.length ? `<div style="margin-top:8px"><div styl
 
   /** 请求记忆与文风相关后端的通用异步辅助函数。 */
   async function callMemoryApi(path, options = {}) {
-    const token = localStorage.getItem('ml_token') || (getBackend() && getBackend().token) || '';
+    const token = localStorage.getItem('ml_token') || sessionStorage.getItem('ml_token') || (getBackend() && getBackend().token) || '';
     const headers = {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: 'Bearer ' + token } : {}),
