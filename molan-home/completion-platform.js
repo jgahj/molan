@@ -452,7 +452,7 @@
   }
   async function saveAccount() {
     if (!logged()) { go('login'); return say('请先登录后保存账户资料'); }
-    try { var data = await backendRequest('/api/auth/profile', { method: 'PATCH', body: { name: document.getElementById('c-account-name')?.value.trim() || '', bio: document.getElementById('c-account-bio')?.value.trim() || '', avatar: s.account.avatar || '', defaultModel: document.querySelector('[data-c-model-select]')?.value || '' } }); backendState.user = data.user || backendState.user; persistBackendAuth(); refreshChrome(); say('账户资料已保存'); } catch (error) { say(error.message || '账户资料保存失败'); }
+    try { var data = await backendRequest('/api/auth/profile', { method: 'PATCH', body: { name: document.getElementById('c-account-name')?.value.trim() || '', bio: document.getElementById('c-account-bio')?.value.trim() || '', avatar: s.account.avatar || '', defaultModel: document.querySelector('[data-c-model-select]')?.value || '' } }); backendState.user = data.user || backendState.user; persistBackendAuth(); refreshChrome(); window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user })); say('账户资料已保存'); } catch (error) { say(error.message || '账户资料保存失败'); }
   }
   async function avatar(file) {
     if (!/^image\/(?:png|jpe?g|webp|gif)$/i.test(file.type)) throw new Error('请选择 PNG、JPG、WebP 或 GIF 图片');

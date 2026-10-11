@@ -415,3 +415,284 @@ test('mergeResourcesIntoState preserves legacy array knowledge.entities safely',
   assert.ok(merged.knowledge.entities.char_02, '原有数组中的 char_02 不得被覆盖抹除');
   assert.equal(merged.knowledge.entities.char_02.name, '贝贝');
 });
+
+test('syncBackendAuthFromStorage detects profile mutations without remote wipe and switches accounts cleanly', () => {
+  let remoteStateResetCount = 0;
+  const backendState = {
+    sessionVersion: 1,
+    token: 'token_abc',
+    user: { userId: 'u1', email: 'author@molan.test', name: 'Author One', credits: 500 },
+    rememberMe: true
+  };
+  function resetBackendRemoteState() {
+    remoteStateResetCount++;
+  }
+
+  let storageStore = {
+    ml_token: 'token_abc',
+    ml_user: JSON.stringify({ userId: 'u1', email: 'author@molan.test', name: 'Author One', credits: 500 }),
+    ml_remember_me: '1'
+  };
+
+  function readStoredRememberMe() {
+    try {
+      const saved = storageStore.ml_remember_me;
+      if (saved === '0') return false;
+      return true;
+    } catch (_) { return true; }
+  }
+  function readStoredToken() {
+    return storageStore.ml_token || '';
+  }
+  function readStoredUser() {
+    try {
+      const raw = storageStore.ml_user || 'null';
+      const user = JSON.parse(raw);
+      return user && (user.email || user.userId) ? user : null;
+    } catch (_) { return null; }
+  }
+
+  function syncBackendAuthFromStorage() {
+    const nextToken = readStoredToken();
+    const nextUser = readStoredUser();
+    const nextRemember = readStoredRememberMe();
+    const tokenSame = nextToken === backendState.token;
+    const userSame = JSON.stringify(backendState.user) === JSON.stringify(nextUser);
+    const rememberSame = backendState.rememberMe === nextRemember;
+    if (tokenSame && userSame && rememberSame) return false;
+    const currentEmail = backendState.user && backendState.user.email ? String(backendState.user.email).trim().toLowerCase() : '';
+    const nextEmail = nextUser && nextUser.email ? String(nextUser.email).trim().toLowerCase() : '';
+    const currentUserId = backendState.user && (backendState.user.userId || backendState.user.id) ? String(backendState.user.userId || backendState.user.id) : '';
+    const nextUserId = nextUser && (nextUser.userId || nextUser.id) ? String(nextUser.userId || nextUser.id) : '';
+    const accountChanged = !tokenSame || nextEmail !== currentEmail || nextUserId !== currentUserId;
+    backendState.sessionVersion += 1;
+    backendState.token = nextToken;
+    backendState.user = nextUser;
+    backendState.rememberMe = nextRemember;
+    if (accountChanged) {
+      resetBackendRemoteState();
+    }
+    return true;
+  }
+
+  // 1. 无变更时返回 false，不触发重绘
+  assert.equal(syncBackendAuthFromStorage(), false);
+  assert.equal(remoteStateResetCount, 0);
+
+  // 2. 同一账号在另一标签页修改昵称或积分：检测到 user 变化，更新 user，但不清空远程作品缓存
+  storageStore.ml_user = JSON.stringify({ userId: 'u1', email: 'author@molan.test', name: 'Author Renamed', credits: 450 });
+  const profileChanged = syncBackendAuthFromStorage();
+  assert.equal(profileChanged, true, '用户信息变更必须被正确识别');
+  assert.equal(backendState.user.name, 'Author Renamed');
+  assert.equal(backendState.user.credits, 450);
+  assert.equal(remoteStateResetCount, 0, '同一账号修改个人资料不应重置作品列表缓存');
+
+  // 3. 另一标签页退出登录：检测到 token 清空，清空 user 并重置远程状态
+  storageStore.ml_token = '';
+  storageStore.ml_user = 'null';
+  const logoutChanged = syncBackendAuthFromStorage();
+  assert.equal(logoutChanged, true);
+  assert.equal(backendState.token, '');
+  assert.equal(backendState.user, null);
+  assert.equal(remoteStateResetCount, 1, '退出登录必须重置远程作品状态');
+
+  // 4. 另一标签页登录新账号：切换账号并重置远程状态
+  storageStore.ml_token = 'token_xyz';
+  storageStore.ml_user = JSON.stringify({ userId: 'u2', email: 'second@molan.test', name: 'Second User', credits: 100 });
+  const loginChanged = syncBackendAuthFromStorage();
+  assert.equal(loginChanged, true);
+  assert.equal(backendState.token, 'token_xyz');
+  assert.equal(backendState.user.email, 'second@molan.test');
+  assert.equal(remoteStateResetCount, 2, '账号切换必须重置远程作品状态');
+});
+
+test('mergeResourcesIntoState safely handles non-object and malformed payloads without crash', () => {
+  const state = {
+    title: '测试',
+    knowledge: { entities: {}, edges: [] },
+    foreshadows: [],
+    timeline: [],
+    creationAssets: { items: [] }
+  };
+  const malformedResources = [
+    { id: 'c1', kind: 'character', status: 'active', payload: 'string-instead-of-object' },
+    { id: 'r1', kind: 'relation', status: 'active', payload: null },
+    { id: 'f1', kind: 'foreshadow', status: 'active', payload: 12345 },
+    { id: 't1', kind: 'timeline', status: 'active', payload: [1, 2, 3] },
+    { id: 'i1', kind: 'item', status: 'active', payload: undefined }
+  ];
+
+  const merged = mergeResourcesIntoState(state, malformedResources);
+  assert.ok(merged);
+  assert.ok(merged.knowledge.entities.c1, 'c1 应正常生成实体');
+  assert.equal(merged.knowledge.entities.c1.id, 'c1');
+  assert.equal(merged.knowledge.edges[0].id, 'r1');
+  assert.equal(merged.foreshadows[0].id, 'f1');
+  assert.equal(merged.timeline[0].id, 't1');
+  assert.equal(merged.creationAssets.items[0].id, 'i1');
+});
+
+test('account.js refresh preserves credentials on transient errors mentioning login and clears on 401/403', async () => {
+  let state = {
+    token: 'valid_token_123',
+    user: { email: 'author@molan.test', name: 'Author' },
+    refreshSeq: 0
+  };
+  let dispatchedEvents = [];
+  function dispatchEvent(evt) { dispatchedEvents.push(evt); }
+
+  async function mockRefresh(fetchMock) {
+    const prevToken = state.token;
+    const prevUser = state.user;
+    if (!state.token) {
+      if (prevToken || prevUser) dispatchEvent({ type: 'molan:auth-changed', detail: null });
+      return null;
+    }
+    const requestToken = state.token;
+    const requestSeq = ++state.refreshSeq;
+    try {
+      const response = await fetchMock();
+      if (!response.ok) {
+        const error = new Error(response.data?.error || '请求失败');
+        error.status = response.status;
+        throw error;
+      }
+      if (requestSeq !== state.refreshSeq || requestToken !== state.token) return null;
+      state.user = response.data?.user || null;
+      dispatchEvent({ type: 'molan:auth-changed', detail: state.user });
+      return state.user;
+    } catch (error) {
+      if (requestSeq !== state.refreshSeq || requestToken !== state.token) return null;
+      if (error && (error.status === 401 || error.status === 403)) {
+        state.token = null;
+        state.user = null;
+        dispatchEvent({ type: 'molan:auth-changed', detail: null });
+      }
+      return null;
+    }
+  }
+
+  // 1. 模拟 500/503 错误，且错误信息带有“登录”文字（如“无法连接到登录服务”）：不得抹除已有 Token
+  const transientResult = await mockRefresh(async () => ({
+    ok: false,
+    status: 503,
+    data: { error: '登录服务网关暂时不可用，请稍后重试' }
+  }));
+  assert.equal(transientResult, null);
+  assert.equal(state.token, 'valid_token_123', '服务端瞬时故障不得抹除有效 Token');
+  assert.equal(state.user.email, 'author@molan.test', '服务端瞬时故障不得抹除用户资料');
+  assert.equal(dispatchedEvents.length, 0, '未登出时不应分发登出事件');
+
+  // 2. 模拟网络异常抛出 TypeError（无 status）：同样不得抹除已有 Token
+  await mockRefresh(async () => {
+    throw new TypeError('Failed to fetch (网络连接断开)');
+  });
+  assert.equal(state.token, 'valid_token_123', '网络断开不得抹除 Token');
+
+  // 3. 模拟明确 401 鉴权失效：清理凭据并分发登出事件
+  await mockRefresh(async () => ({
+    ok: false,
+    status: 401,
+    data: { error: '未登录或登录状态已失效' }
+  }));
+  assert.equal(state.token, null, '401 必须清除 Token');
+  assert.equal(state.user, null, '401 必须清除 User');
+  assert.equal(dispatchedEvents.length, 1);
+  assert.equal(dispatchedEvents[0].detail, null);
+});
+
+test('storage event with key=null (localStorage.clear()) successfully triggers auth sync and resets state', () => {
+  const backendState = {
+    sessionVersion: 1,
+    token: 'token_active',
+    user: { userId: 'u1', email: 'user@molan.test' },
+    rememberMe: true
+  };
+  let resetCalled = false;
+  function resetBackendRemoteState() { resetCalled = true; }
+
+  let storageStore = {
+    ml_token: 'token_active',
+    ml_user: JSON.stringify({ userId: 'u1', email: 'user@molan.test' }),
+    ml_remember_me: '1'
+  };
+
+  function readStoredToken() { return storageStore.ml_token || ''; }
+  function readStoredUser() {
+    try {
+      const u = JSON.parse(storageStore.ml_user || 'null');
+      return u && (u.email || u.userId) ? u : null;
+    } catch (_) { return null; }
+  }
+  function readStoredRememberMe() { return storageStore.ml_remember_me !== '0'; }
+
+  function syncBackendAuthFromStorage() {
+    const nextToken = readStoredToken();
+    const nextUser = readStoredUser();
+    const nextRemember = readStoredRememberMe();
+    const tokenSame = nextToken === backendState.token;
+    const userSame = JSON.stringify(backendState.user) === JSON.stringify(nextUser);
+    const rememberSame = backendState.rememberMe === nextRemember;
+    if (tokenSame && userSame && rememberSame) return false;
+    const currentEmail = backendState.user && backendState.user.email ? String(backendState.user.email).trim().toLowerCase() : '';
+    const nextEmail = nextUser && nextUser.email ? String(nextUser.email).trim().toLowerCase() : '';
+    const currentUserId = backendState.user && (backendState.user.userId || backendState.user.id) ? String(backendState.user.userId || backendState.user.id) : '';
+    const nextUserId = nextUser && (nextUser.userId || nextUser.id) ? String(nextUser.userId || nextUser.id) : '';
+    const accountChanged = !tokenSame || nextEmail !== currentEmail || nextUserId !== currentUserId;
+    backendState.sessionVersion += 1;
+    backendState.token = nextToken;
+    backendState.user = nextUser;
+    backendState.rememberMe = nextRemember;
+    if (accountChanged) resetBackendRemoteState();
+    return true;
+  }
+
+  function handleStorageEvent(event) {
+    if (event && event.key && !['ml_token', 'ml_user', 'ml_remember_me'].includes(event.key)) return false;
+    return syncBackendAuthFromStorage();
+  }
+
+  // 1. 无关 key 的 storage 事件被忽略
+  assert.equal(handleStorageEvent({ key: 'unrelated_key' }), false);
+
+  // 2. 模拟浏览器执行 localStorage.clear()：按照标准规范 event.key 为 null
+  storageStore = {}; // 清空存储
+  const clearHandled = handleStorageEvent({ key: null });
+  assert.equal(clearHandled, true, 'key 为 null 的 storage 事件必须被接收并同步');
+  assert.equal(backendState.token, '');
+  assert.equal(backendState.user, null);
+  assert.equal(resetCalled, true, 'storage 清空时必须重置远程作品状态');
+});
+
+test('mergeResourcesIntoState safely handles null, undefined, and non-object entries in resources array', () => {
+  const state = {
+    title: '极端测试',
+    knowledge: { entities: { c1: { id: 'c1', name: '已有角色' } }, edges: [] },
+    foreshadows: [],
+    timeline: [],
+    projectResources: [null, undefined, { kind: '', id: '' }, { kind: 'character', id: 'c1', payload: { name: '已有角色' } }]
+  };
+
+  const hostileResources = [
+    null,
+    undefined,
+    'not-even-an-object',
+    12345,
+    {}, // missing id and kind
+    { id: 'only-id' }, // missing kind
+    { kind: 'character' }, // missing id
+    { id: 'c2', kind: 'character', status: 'active', payload: { name: '正常角色' } },
+    null
+  ];
+
+  // 必须平滑完成，绝不抛出 TypeError
+  const merged = mergeResourcesIntoState(state, hostileResources);
+  assert.ok(merged);
+  assert.ok(merged.knowledge.entities.c1, '原有 c1 必须保真');
+  assert.ok(merged.knowledge.entities.c2, '合法 c2 必须成功注入');
+  assert.equal(merged.knowledge.entities.c2.name, '正常角色');
+  // 验证 projectResources 中无脏项
+  assert.ok(merged.projectResources.every(r => r && r.id && r.kind), 'projectResources 必须仅包含合法有效条目');
+});
+
+

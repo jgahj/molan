@@ -1797,14 +1797,23 @@
     function syncBackendAuthFromStorage() {
       const nextToken = readStoredToken();
       const nextUser = readStoredUser();
+      const nextRemember = readStoredRememberMe();
+      const tokenSame = nextToken === backendState.token;
+      const userSame = JSON.stringify(backendState.user) === JSON.stringify(nextUser);
+      const rememberSame = backendState.rememberMe === nextRemember;
+      if (tokenSame && userSame && rememberSame) return false;
       const currentEmail = backendState.user && backendState.user.email ? String(backendState.user.email).trim().toLowerCase() : '';
       const nextEmail = nextUser && nextUser.email ? String(nextUser.email).trim().toLowerCase() : '';
-      if (nextToken === backendState.token && nextEmail === currentEmail) return false;
+      const currentUserId = backendState.user && (backendState.user.userId || backendState.user.id) ? String(backendState.user.userId || backendState.user.id) : '';
+      const nextUserId = nextUser && (nextUser.userId || nextUser.id) ? String(nextUser.userId || nextUser.id) : '';
+      const accountChanged = !tokenSame || nextEmail !== currentEmail || nextUserId !== currentUserId;
       backendState.sessionVersion += 1;
       backendState.token = nextToken;
       backendState.user = nextUser;
-      backendState.rememberMe = readStoredRememberMe();
-      resetBackendRemoteState();
+      backendState.rememberMe = nextRemember;
+      if (accountChanged) {
+        resetBackendRemoteState();
+      }
       return true;
     }
 
@@ -2828,6 +2837,8 @@
       const password = stage.querySelector('#userPassword')?.value || '';
       const button = stage.querySelector('.user-login-form .button.primary');
       const notice = stage.querySelector('.user-login-form .notice span');
+      const rememberInput = stage.querySelector('#rememberUser');
+      if (rememberInput) backendState.rememberMe = rememberInput.checked;
       if (!email || !password) { if (notice) notice.textContent = '请填写邮箱和密码。'; showToast('请填写邮箱和密码'); return; }
       if (button) button.disabled = true;
       if (notice) notice.textContent = backendAuthMode === 'register' ? '正在创建账户…' : '正在登录…';
@@ -2865,6 +2876,7 @@
         backendState.user = data.user || backendState.user;
         persistBackendAuth();
         applyBackendPageData();
+        window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }));
         showToast('账户资料已保存');
       } catch (error) {
         showToast(error.message || '账户资料保存失败');
@@ -3538,7 +3550,7 @@
         return openActionModal({ title: skill?.name || name || 'Skill 详情', body: `<div class="notice">${escapeBackendHtml(skill?.description || '当前账户 Skill')}</div><div class="field" style="margin-top:14px"><label>核心指令</label><textarea readonly>${escapeBackendHtml(skill?.instruction || '该 Skill 没有可读取的核心指令。')}</textarea></div>`, confirmText: '关闭', onConfirm: closeModal });
       }
       if (action === 'skill-detail') return openActionModal({ title: 'Skill 详情', body: '<div class="notice">该 Skill 会在调用前完整注入模型上下文，并按当前作品单独记录使用情况。</div>', confirmText: '关闭', onConfirm: closeModal });
-      if (action === 'avatar-help') return openActionModal({ title: '更换头像', body: '<div class="field"><label for="avatarFile">头像文件</label><input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>图片会保存到当前本地账户，建议使用 300 KB 以内的方形图片。</small></div>', confirmText: '保存头像', onConfirm: async () => { const file = document.getElementById('avatarFile').files?.[0]; if (!file) { showToast('请选择头像文件'); return false; } if (file.size > 300000) { showToast('头像文件不能超过 300 KB'); return false; } const reader = new FileReader(); const dataUrl = await new Promise((resolve, reject) => { reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); try { const data = await backendRequest('/api/auth/profile', { method: 'PATCH', body: { avatar: dataUrl } }); backendState.user = data.user || backendState.user; persistBackendAuth(); closeModal(); refreshCurrentPage(); showToast('头像已保存'); } catch (error) { showToast(error.message || '头像保存失败'); } } });
+      if (action === 'avatar-help') return openActionModal({ title: '更换头像', body: '<div class="field"><label for="avatarFile">头像文件</label><input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>图片会保存到当前本地账户，建议使用 300 KB 以内的方形图片。</small></div>', confirmText: '保存头像', onConfirm: async () => { const file = document.getElementById('avatarFile').files?.[0]; if (!file) { showToast('请选择头像文件'); return false; } if (file.size > 300000) { showToast('头像文件不能超过 300 KB'); return false; } const reader = new FileReader(); const dataUrl = await new Promise((resolve, reject) => { reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); try { const data = await backendRequest('/api/auth/profile', { method: 'PATCH', body: { avatar: dataUrl } }); backendState.user = data.user || backendState.user; persistBackendAuth(); closeModal(); refreshCurrentPage(); window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user })); showToast('头像已保存'); } catch (error) { showToast(error.message || '头像保存失败'); } } });
       if (action === 'password-help') return openActionModal({ title: '登录帮助', body: '<div class="notice">请使用注册账户的邮箱和密码登录。当前本地版本不发送邮件，管理员可以在本机数据目录中协助处理账户。</div>', confirmText: '关闭', onConfirm: closeModal });
     }
 
@@ -5551,7 +5563,7 @@
 
     let backendAuthSyncTimer = 0;
     window.addEventListener('storage', event => {
-      if (!event || !['ml_token', 'ml_user', 'ml_remember_me'].includes(event.key)) return;
+      if (event && event.key && !['ml_token', 'ml_user', 'ml_remember_me'].includes(event.key)) return;
       window.clearTimeout(backendAuthSyncTimer);
       backendAuthSyncTimer = window.setTimeout(() => {
         if (!syncBackendAuthFromStorage()) return;

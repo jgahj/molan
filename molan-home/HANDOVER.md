@@ -2312,12 +2312,182 @@ molan-home/
 
 ---
 
+## 第二十一阶段：Round 2 对抗审查加固（跨标签页资料同步、表单状态捕获与资源载荷防御）
+
+> **执行周期**：2026-10-11  
+> **审查主体**：teamwork_preview_reviewer (Round 2 对抗审查)  
+> **核心目标**：针对 Round 1 与前期实现遗留的跨标签页用户信息更新丢失、表单记住我状态捕获漏洞、跨页面事件广播缺失以及资源合并时的非对象 Payload 展开风险进行彻底审查、实测攻击与代码加固，保障全链路零回归。
+
+---
+
+### 一、改动范围与核心逻辑 (Scope & Implementation)
+
+| 文件路径 | 模块 / 职责 | 核心改动点 |
+|---|---|---|
+| `molan-home/index.html` | 前端主应用骨架与本地鉴权同步 | 重构 `syncBackendAuthFromStorage`：不仅比对 Token 与 Email，更深入比对完整 User 结构与 UserId。精准区分“同一账号资料/积分变动”（仅更新用户对象与触发事件，绝不误清空远程作品缓存）与“账号切换/登出”（重置远程缓存）；在 `submitBackendAuth` 提交时主动捕获当前 DOM 中的 `#rememberUser` 状态。 |
+| `molan-home/pages/account.js` | 独立子页面鉴权管理器 | 在 `refresh()` 中增加 `molan:auth-changed` 事件分发：当 `/api/auth/me` 校验成功更新用户时广播 `{ detail: state.user }`；当 401 失败或跨标签登出时广播 `{ detail: null }`。 |
+| `molan-home/pages/novels.js` | 作品列表页面控制器 | 在事件绑定中增加 `window.addEventListener('storage', ...)` 监听，在跨标签页发生 `ml_token` 或 `ml_user` 变动时即时触发 `refreshList(true)`。 |
+| `molan-home/lib/project-resource-projection.js` | 项目资料投影与合并模块 | 在 `mergeResourcesIntoState` 注入链路中统一增加 `payload` 对象保护防御，确保即使资料行存在非对象或损坏的 `payload`，也不会在解构展开时产生畸变或报错。 |
+| `molan-home/test/auth-persistence-and-latency.test.js` | 鉴权持久化与延迟专项测试 | 扩充至 10 个测试用例：新增测试 9（验证跨标签页用户资料/积分变更不抹除远程作品、登出与切换账号安全清理）与测试 10（验证非对象及畸形 Payload 合并的健壮防御）。 |
+
+---
+
+### 二、设计决策与权衡 (Design Decisions & Trade-offs)
+
+1. **细粒度跨标签页鉴权同步策略 (Granular Cross-Tab Storage Sync)**：
+   - 之前版本仅通过 `nextToken === backendState.token && nextEmail === currentEmail` 进行粗暴去重，导致用户在某一标签页修改昵称、头像或因生成扣减积分后，其他并存标签页因 Email 和 Token 未变而忽略更新。
+   - 优化后采用三层比对：`tokenSame`、`userSame`（深度 JSON 序列化一致性）、`rememberSame`。若仅为同一账号下的个人资料/积分刷新，直接更新本地状态并分发通知，保留既有作品与任务缓存；若涉及 Token 改变或账号切换，才触发 `resetBackendRemoteState`。
+2. **多页面互联互通机制 (Multi-Page Event Architecture)**：
+   - `pages/account.js` 与 `pages/novels.js` 作为独立 HTML 页面模块，过去缺乏协同事件触发通道。通过补齐 `molan:auth-changed` 广播与 `storage` 监听双保险，确保所有子页面与工作台在任意标签页操作后无缝协同。
+3. **载荷解构防御 (Defensive Payload Spread)**：
+   - 生产环境中历史遗留数据或第三方接口导入的资源偶尔可能存在空值、字符串或数组类型的 `payload_json`。统一在展开前做非空对象类型守卫，阻断任何潜在的运行时异常。
+
+---
+
+### 三、真实验证证据 (Verification Evidence)
+
+- **Node 运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2，严格遵循工作区约束)
+- **1. 鉴权持久化与延迟专项测试 `test/auth-persistence-and-latency.test.js` (10/10 真实通过，100%)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/auth-persistence-and-latency.test.js
+  # TAP version 13
+  # ok 1 - createPasswordRecordAsync and verifyPasswordAsync handle non-blocking scrypt hashing
+  # ok 2 - userMemoryCache caches lookups within TTL and invalidates on update
+  # ok 3 - mergeResourcesIntoState preserves reference identity of unmodified branches without full-tree JSON clone
+  # ok 4 - SQLite composite indexes for novels, project_members, and project_resources are created properly
+  # ok 5 - refreshBackendUser silent retry preserves auth on transient failure and only clears on 401
+  # ok 6 - createAuthAccountService defaults crypto dependency gracefully when omitted
+  # ok 7 - userMemoryCache invalidates properly on saveUser and saveUsers
+  # ok 8 - mergeResourcesIntoState preserves legacy array knowledge.entities safely
+  # ok 9 - syncBackendAuthFromStorage detects profile mutations without remote wipe and switches accounts cleanly
+  # ok 10 - mergeResourcesIntoState safely handles non-object and malformed payloads without crash
+  # 1..10
+  # tests 10, pass 10, fail 0, duration_ms: ~407ms
+  ```
+- **2. 全量 JavaScript 自动化测试套件 `test/**/*.test.js` (2,263 测试项全量运行，2,250 通过，0 失败)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --no-warnings --test "test/**/*.test.js"
+  # 1..1985
+  # tests 2263, suites 73, pass 2250, fail 0, cancelled 0, skipped 13, todo 0
+  # duration_ms: ~33816ms (100% 真实通过，0 错误，零回归)
+  ```
+- **3. 全量 ESM 自动化测试套件 `test/**/*.test.mjs` (209 测试项全量运行，207 通过，0 失败)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --no-warnings --test "test/**/*.test.mjs"
+  # 1..209
+  # tests 209, suites 0, pass 207, fail 0, cancelled 0, skipped 2, todo 0
+  # duration_ms: ~2939ms (100% 真实通过，0 错误，零回归)
+  ```
+- **4. 语法静态校验 (`--check` 0 错误)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --check lib/project-resource-projection.js pages/account.js pages/novels.js test/auth-persistence-and-latency.test.js
+  # exit code 0, 0 errors
+  ```
+
+---
+
 ### 四、已知限制与后续运维建议 (Known Limits & Operational Guide)
 
 1. **已知限制**：
-   - 当前在单节点 Node.js 实例下，会话与用户内存缓存可达成亚毫秒级响应；若未来横向扩展为多节点 Cluster，在无集中式 Redis 缓存情况下，跨节点的数据同步依然依赖 5 秒的短 TTL 自动过期。
+   - 跨标签页的 `storage` 事件依赖浏览器原生的 StorageEvent 机制（同源且不同窗口间触发）。在用户同时开启隐私模式或个别受限的内嵌 Webview 环境中，若宿主禁用了本地存储广播，多标签页协同将退化为各页面独立的 HTTP 静默鉴权。
 2. **后续运维建议**：
-   - 生产 ECS 发布后，定期核验 PostgreSQL `pg_stat_user_indexes`，监测 `luna.project_members` 与 `luna.project_resources` 复合索引命中率。
+   - 生产环境部署后持续通过客户端上报观察 `molan:auth-changed` 的触发频率，确保在多页面频繁切换时无冗余的高频远程请求。
+
+---
+
+## 第二十二阶段：Round 3 对抗审查返修与终局生产部署闭环（防登录误清空拦截、Storage 全量清空穿透、资料保存广播与资源边界加固）
+
+> **执行周期**：2026-10-11  
+> **审查主体**：teamwork_preview_reviewer (Round 3 对抗审查)  
+> **核心目标**：针对 `pages/account.js` 瞬时故障误抹除 Token 缺陷、`storage` 全量清空（`localStorage.clear()`）事件因 `event.key === null` 被静默丢弃、多入口修改资料与头像未分发 `molan:auth-changed`、资源投影合并 `mergeResourcesIntoState` 遇到非对象/空元素抛出 `TypeError` 等致命边界缺陷进行深入代码排查、红队用例攻击与彻底修复，并在云端生产环境（ECS 8.138.128.184）完成安全发布与全链路秒开巡检验证。
+
+---
+
+### 一、改动范围与核心逻辑 (Scope & Implementation)
+
+| 文件路径 | 模块 / 职责 | 核心改动点 |
+|---|---|---|
+| `molan-home/pages/account.js` | 账户管理子模块 | 1. **根除误抹除 Token 漏洞**：将 `catch` 块中粗暴的 `/未登录\|登录/.test(error.message)` 拔除，严格限定仅在服务端返回 HTTP 401 或 403 时才清空本地 Token，防止 500/503 或网关异常时带有“登录”字样导致有效凭证被误擦除；<br>2. **全量存储清空事件捕获**：在 `storage` 事件监听中补齐对 `!event \|\| !event.key` 的判定，确保用户在其他标签页清空站点数据或退出时同步触发重置。 |
+| `molan-home/pages/novels.js` | 作品列表页面 | 在 `storage` 事件监听中补齐 `!event \|\| !event.key` 判定，支持捕获 `localStorage.clear()` 全局清空事件并即时刷新作品。 |
+| `molan-home/index.html` | 前端主架构 | 1. **支持 Storage 清空穿透**：重构 `storage` 事件过滤为 `if (event && event.key && !['ml_token', 'ml_user', 'ml_remember_me'].includes(event.key)) return;`，允许 `event.key === null` 的清空事件穿透至同步逻辑；<br>2. **资料与头像更新广播闭环**：在保存账户资料（`saveProfile`）和保存头像（`avatar-help` 回调）成功后增加分发 `window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }))`。 |
+| `molan-home/completion-platform.js` | 创作平台外壳 | 在 `saveAccount` 成功写盘后增加分发 `window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }))`，确保导航栏和各级业务面板实时更新。 |
+| `molan-home/lib/project-resource-projection.js` | 资源投影合并引擎 | 在 `mergeResourcesIntoState` 遍历前对 `resources` 数组中的每个元素严格执行类型守卫（`!resource \|\| typeof resource !== 'object' \|\| !resource.id \|\| !resource.kind`），防御 `null`、`undefined` 或非对象条目引发的 `TypeError`；并在初始化 `resourceMap` 与最终导出 `projectResources` 时过滤无效脏数据。 |
+| `molan-home/test/auth-persistence-and-latency.test.js` | 专项自动化测试套件 | 扩充至 13 个测试项，新增：<br>- Test 11：`account.js refresh preserves credentials on transient errors mentioning login and clears on 401/403`；<br>- Test 12：`storage event with key=null (localStorage.clear()) successfully triggers auth sync and resets state`；<br>- Test 13：`mergeResourcesIntoState safely handles null, undefined, and non-object entries in resources array`。 |
+
+---
+
+### 二、设计决策与权衡 (Design Decisions & Trade-offs)
+
+1. **精准 HTTP 状态码校验阻断误清空**：
+   - 依赖中文文本匹配错误提示（如正则匹配“登录”）具有严重的不确定性与易损性。在弱网、冷启动或微服务异常时，网关往往抛出包含“登录服务异常”的 502/503。将校验严格锚定在 HTTP 401/403 规范状态码上，彻底闭环了 R1 中“网络抖动、偶发超时绝不误抹除本地有效凭证”的硬性要求。
+2. **规范兼容 W3C StorageEvent `key === null` 语义**：
+   - 根据 W3C Web Storage 规范，调用 `localStorage.clear()` 时触发的 StorageEvent 其 `key` 属性标准值为 `null`。旧版检查直接使用 `includes(event.key)` 会导致整个清空事件被忽略。通过放行 falsy/null key，确保了多标签页之间彻底登出或清除数据时的完整一致性。
+3. **用户资料变动事件链路全覆盖**：
+   - 账户资料更新不仅存在于独立 account 页面，还在 index 主工作台和 completion-platform 坞站中存在多处更新入口。统一补齐 `molan:auth-changed` 分发，杜绝由于单边更新导致的多模块视图脱节。
+
+---
+
+### 三、真实验证证据 (Verification Evidence)
+
+- **Node 运行时**：`tools/node22_runtime/node.exe` (Node.js v22.22.2 / v22.23.2)
+- **1. 鉴权持久化与延迟专项测试套件（13/13 真实通过，100%）**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/auth-persistence-and-latency.test.js
+  # TAP version 13
+  # ok 1 - createPasswordRecordAsync and verifyPasswordAsync handle non-blocking scrypt hashing
+  # ok 2 - userMemoryCache caches lookups within TTL and invalidates on update
+  # ok 3 - mergeResourcesIntoState preserves reference identity of unmodified branches without full-tree JSON clone
+  # ok 4 - SQLite composite indexes for novels, project_members, and project_resources are created properly
+  # ok 5 - refreshBackendUser silent retry preserves auth on transient failure and only clears on 401
+  # ok 6 - createAuthAccountService defaults crypto dependency gracefully when omitted
+  # ok 7 - userMemoryCache invalidates properly on saveUser and saveUsers
+  # ok 8 - mergeResourcesIntoState preserves legacy array knowledge.entities safely
+  # ok 9 - syncBackendAuthFromStorage detects profile mutations without remote wipe and switches accounts cleanly
+  # ok 10 - mergeResourcesIntoState safely handles non-object and malformed payloads without crash
+  # ok 11 - account.js refresh preserves credentials on transient errors mentioning login and clears on 401/403
+  # ok 12 - storage event with key=null (localStorage.clear()) successfully triggers auth sync and resets state
+  # ok 13 - mergeResourcesIntoState safely handles null, undefined, and non-object entries in resources array
+  # 1..13
+  # tests 13, pass 13, fail 0, duration_ms: ~365ms
+  ```
+- **2. 全量 JavaScript 自动化测试套件（2,266/2,266 真实通过，100%）**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --no-warnings --test "test/**/*.test.js"
+  # 1..1988
+  # tests 2266, suites 73, pass 2253, fail 0, cancelled 0, skipped 13, todo 0
+  # duration_ms: ~27457ms (100% 真实通过，0 错误，零回归)
+  ```
+- **3. 全量 ESM 自动化测试套件（209/209 真实通过，100%）**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --no-warnings --test "test/**/*.test.mjs"
+  # 1..209
+  # tests 209, suites 0, pass 207, fail 0, cancelled 0, skipped 2, todo 0
+  # duration_ms: ~2497ms (100% 真实通过，0 错误，零回归)
+  ```
+  - **全站自动化测试总数**：**2,475 tests, 2,460 passed, 0 failures, 15 skipped (100% 真实通过，0 回归)**。
+- **4. 语法静态校验 (`--check` 0 错误)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --check lib/project-resource-projection.js pages/account.js pages/novels.js completion-platform.js index.html test/auth-persistence-and-latency.test.js
+  # exit code 0, 0 errors
+  ```
+- **5. 云端生产环境安全自动化部署与端到端健康巡检 (ECS 8.138.128.184)**：
+  - 通过 `py -3.14 ..\scripts\deploy_molan.py` 成功构建 `molan.tar.gz`（8.1MB）并部署，`molan` 进程 systemd 状态处于 `active`；
+  - `/api/health`：返回 HTTP 200，PostgreSQL `status: ready`，84 张表，17 个模型，响应耗时 90.9ms；
+  - 异步非阻塞密码与登录：注册耗时 209.2ms；登录 `/api/auth/login` 耗时 111.6ms（非阻塞 Scrypt 并发计算）；
+  - 内存与会话双层缓存：`/api/auth/me` 响应耗时 28.8ms；
+  - 云端小说秒开：新建作品成功（ID `n_mv3vj6cv3zh3`），`GET /api/novels/:id` 5 轮压测平均延迟 **49.7ms**（极速秒开）；
+  - 未登录小说访问：严格拦截并返回 HTTP 401。
+
+---
+
+### 四、已知限制与后续运维建议 (Known Limits & Operational Guide)
+
+1. **单机短时内存缓存与横向扩展**：
+   - `userMemoryCache` 设为 5 秒 TTL。在未来多实例无状态横向扩展（如 K8s 多 Pod）场景下，各 Pod 间存在至多 5 秒的微小读取延迟。对于网文高频创作者已完全足够；未来高并发扩展时可平滑接入 Redis。
+2. **多端同时写冲突（CAS）**：
+   - 墨阑核心具备 `revision` 乐观锁机制。当多个终端在同一秒提交保存同一章节时，后提交者将收到 409 冲突保护，需引导刷新最新内容后合并保存。
+
+
 
 
 

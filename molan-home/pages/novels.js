@@ -295,6 +295,7 @@
     $('novelForm').addEventListener('submit', function (event) { event.preventDefault(); var title = $('novelTitleInput').value.trim(); var description = $('novelDescriptionInput').value.trim(); if (state.modalMode === 'rename') { var item = state.items.find(function (entry) { return entry.id === state.editingId; }); if (item) renameNovel(item); } else { if (!title) { showToast('请输入小说名称'); return; } goToNew(title, description, $('novelWorkspaceSelect') && $('novelWorkspaceSelect').value); } });
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !$('novelDialog').hidden) closeDialog(); });
     window.addEventListener('molan:auth-changed', function () { refreshList(true); });
+    window.addEventListener('storage', function (event) { if (!event || !event.key || event.key === TOKEN_KEY || event.key === USER_KEY) { refreshList(true); } });
   }
   function init() { bind(); if (window.lucide && window.lucide.createIcons) window.lucide.createIcons(); refreshList(false); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

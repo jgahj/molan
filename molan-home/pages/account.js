@@ -174,9 +174,16 @@
   }
 
   function refresh() {
+    var prevToken = state.token;
+    var prevUser = state.user;
     readState();
     renderAccounts();
-    if (!state.token) return Promise.resolve(null);
+    if (!state.token) {
+      if (prevToken || prevUser) {
+        window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
+      }
+      return Promise.resolve(null);
+    }
     var requestToken = state.token;
     var requestSeq = ++state.refreshSeq;
     return fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + requestToken }, cache: 'no-store' })
@@ -186,15 +193,17 @@
         state.user = data.user || null;
         saveState();
         renderAccounts();
+        window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: state.user }));
         return state.user;
       })
       .catch(function (error) {
         if (requestSeq !== state.refreshSeq || requestToken !== state.token) return null;
-        if (error && (error.status === 401 || /未登录|登录/.test(error.message || ''))) {
+        if (error && (error.status === 401 || error.status === 403)) {
           state.token = null;
           state.user = null;
           saveState();
           renderAccounts();
+          window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
         }
         return null;
       });
@@ -264,7 +273,7 @@
   function init() {
     refresh();
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeModal(); });
-    window.addEventListener('storage', function (event) { if (event.key === TOKEN_KEY || event.key === USER_KEY) { refresh(); } });
+    window.addEventListener('storage', function (event) { if (!event || !event.key || event.key === TOKEN_KEY || event.key === USER_KEY) { refresh(); } });
   }
 
   window.MolanAccount = { refresh: refresh, open: openModal, logout: logout };
