@@ -184,12 +184,12 @@ def main():
     migration_cmd = (
         'for f in $(ls -1 ' + release_dir + '/db/migrations/*.sql 2>/dev/null | sort -V); do '
         '  v=$(basename "$f" .sql); '
-        '  applied=$(sudo -u postgres psql -d molan -t -A -c "SELECT 1 FROM luna.schema_migrations WHERE version=\'$v\';" 2>/dev/null); '
+        '  applied=$(sudo -i -u postgres psql -d molan -t -A -c "SELECT 1 FROM luna.schema_migrations WHERE version=\'$v\';" 2>/dev/null); '
         '  if [ "$applied" != "1" ]; then '
         '    echo "   applying migration $v ..."; '
-        '    sudo -u postgres psql -d molan -f "$f" >/dev/null || exit 1; '
+        '    cat "$f" | sudo -i -u postgres psql -d molan >/dev/null || exit 1; '
         '    csum=$(sha256sum "$f" | cut -d" " -f1); '
-        '    sudo -u postgres psql -d molan -c "INSERT INTO luna.schema_migrations(version, checksum) VALUES (\'$v\', \'$csum\') ON CONFLICT (version) DO NOTHING;" >/dev/null || exit 1; '
+        '    sudo -i -u postgres psql -d molan -c "INSERT INTO luna.schema_migrations(version, checksum) VALUES (\'$v\', \'$csum\') ON CONFLICT (version) DO NOTHING;" >/dev/null || exit 1; '
         '  fi; '
         'done'
     )
