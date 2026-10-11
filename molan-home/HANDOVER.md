@@ -2302,6 +2302,13 @@ molan-home/
   ..\tools\node22_runtime\node.exe --check services/auth-account-service.js lib/project-resource-projection.js completion-editor.js test/auth-persistence-and-latency.test.js
   # exit code 0, 0 errors
   ```
+- **6. 云端生产环境安全自动化部署与端到端健康巡检 (ECS 8.138.128.184)**：
+  - **安全部署与服务重启**：通过 `py -3.14 scripts/deploy_molan.py` 安全构建 `molan.tar.gz`（8.1MB）并上传部署，`molan` 服务顺利重启且 systemd 状态处于 `active`；
+  - **健康检查**：`/api/health` 返回 HTTP 200（PostgreSQL `status: ready`，84 张表，17 个模型，耗时 171.3ms）；
+  - **用户注册与非阻塞登录**：注册耗时 170.9ms；登录 `/api/auth/login` 耗时 109.5ms（非阻塞 Scrypt + Libuv 线程池计算）；
+  - **鉴权命中缓存**：`/api/auth/me` 公网延迟降至 29.5ms（内存会话与账户双层缓存生效）；
+  - **云端小说秒开**：新建小说 85.6ms（ID `n_mv3uflkcl4ft`）；打开小说 `/api/novels/:id` 仅 47.5ms（联合索引与按需浅拷贝彻底消除卡顿）；
+  - **未登录安全拦截**：未携带 Token 访问小说接口严格拦截返回 HTTP 401。
 
 ---
 
