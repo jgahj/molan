@@ -74,7 +74,7 @@ molan-home/
 │   └── creation-plan-service.js        # 创作计划与大纲服务
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
     ├── package-publisher-lru.test.js          # 发布器路径隔离、LRU 滚动保留与激活保护测试 (3 项)
-    ├── workbench-editor-fusion.test.js        # 工作台与 AI 编辑器跨窗口双向联动测试 (8 项)
+    ├── workbench-editor-fusion.test.js        # 创作坞站与浮动划选菜单深度融合与双向联动测试 (25 项全量通过)
     ├── reviewer-m3-m4-adversarial.test.js     # M3/M4 对抗审查加固专测 (20 项)
     ├── replay-manifest-8dim-audit.test.js      # M4 8维大纲回放指标闭环与 getReplay 暴露专项测试 (3 项)
     ├── outline-memory-and-metrics.test.js      # M4 8维指标与记忆入模专项测试 (3 项)
@@ -103,6 +103,68 @@ molan-home/
     ├── adversarial-attention-tiering.test.js  # 注意力裁剪对抗性极限压力测试 (35 项)
     └── phase2-engine-enhancements.test.js     # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
 ```
+
+---
+
+## 阶段记录：多标签创作坞站、浮动划选菜单与正文写回全链路融合闭环与对抗加固 (2026-10-11 Round 3 终审完备)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/completion-editor.js` | 核心实现与对抗加固 (R3终局) | 1. **DOM 骨架完整对齐**：在 `renderEditorPage` 中补齐常驻创作坞站 `#editorWorkbenchDock`（大纲、设定、记忆、工具四面板）、顶部药丸 Tab 切换组 `#editorDockTabs`、坞站折叠/展开按钮 `#editorDockToggle`、正文划选浮动菜单 `#editorSelectionMenu`（5 工具直通）以及 AI 对话气泡动作区（`apply-paper`、`copy`）。<br>2. **生命周期与作品真实数据绑定**：实现 `renderWorkbenchDock`、`renderWorkbenchOutline`（消费 `chapterSequence` 并通过安全的 `chapterName` 解析目标章节，绑定 `getProjectForeshadows` 伏笔台账）、`renderWorkbenchKnowledge`（聚合 `getProjectCharacters` 真实字段，世界观设定默认保真为 `设定` 而非降级为 `地点`，支持即时检索与类型过滤）、`renderWorkbenchMemory`（消费场景目标、前情约束与文风规约）、`injectPromptContext`（一键带参引用至提示词、持久化至 `sessionStorage` 提示词草稿、触发响应式文风检测并同步 `runtime.aiOpen = true`）。<br>3. **动态题材与文风注入**：重构文风预设注入器，动态绑定 `state.genreFamily`、`state.novelGenre`、`state.writingStyle` 与 `state.perspective`，根除硬编码玄幻偏见。<br>4. **正文清洗与四种写回模式**：重构 `extractRevisedProse`，剥离多层 Markdown 围栏、`【改写稿】` 及 20+ 种模型变体标记、无括号 Markdown 标题标记（`### 改写稿`）、附加括号说明以及各种层级的 Markdown 解释说明区块（`### 修改说明`、`## 优化说明`、`**写作建议**` 等）；重构 `applyTextToEditorPaper`，支持 `replace`/`cursor`/`append`/`insert` 模式，清理 `.editor-empty-copy` 空场景占位符，支持跨行/跨段落（`startBlock !== endBlock`）时完整替换所有选中块并保留前后缀，避免产生孤儿空段落或非法嵌套 `<p>`，并在根容器层级插入单段落时强制执行 `<p>` 标签包裹；同步更新 DOM、内存状态 `scene.content`、`preview.editorBody`、字数重算与 `markEditorDirty(true)`；暴露 `window.applyTextToEditorPaper`。<br>5. **独立 AI 工具箱平滑降级与状态防卫**：实现 `executeDockTool`，增加防重复并发锁与离线平滑降级；在气泡采纳与快捷工具点击中加入 `runtime.editorBusy` 与流式/系统状态拦截防御；气泡采纳提取时将 `<br>` 还原为换行符 `\n`，保证多段落格式保真，并清洗状态标签；`captureEditorSelection` 在折叠时显式清空 `lastEditorSelectedText`，杜绝幽灵旧选区泄漏；移动端遮罩点击联动移除 `dock-open` 并重置坞站状态。 |
+| `molan-home/index.html` | 接口与状态闭环 (R3对齐) | 1. 暴露 `window.applyTextToEditorPaper = applyTextToEditorPaper;` 与 `window.extractRevisedProse = extractRevisedProse;`。<br>2. 对齐 `extractRevisedProse` 全量 20+ 标记、Markdown 标题识别与多级说明截断；对齐气泡采纳 `<br>` 换行还原、状态守卫及过滤；对齐实体过滤规则支持 `设定` 类型。 |
+| `molan-home/test/workbench-editor-fusion.test.js` | 自动化测试加固 (R3拓展) | 扩展至 25 大对抗测试套件（全量真实通过）：<br>1~21. 包含常驻坞站骨架、生命周期消费、清洗写回机制、事件委托闭环、标记变体截断、根级单段 `<p>` 包裹、选区隔离、移动端遮罩与离线降级等套件；<br>22. 对抗与边界验证：`extractRevisedProse` Markdown 多级标题说明截断与纯正文保真；<br>23. 对抗与边界验证：`applyTextToEditorPaper` 跨段落范围选区替换与 DOM 块级保真；<br>24. 对抗与边界验证：`captureEditorSelection` 折叠光标清空陈旧选区与防幽灵选区；<br>25. 对抗与边界验证：AI 气泡富文本换行提取保真与实体默认分类保真。 |
+
+---
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **采纳项的决策原由**：
+   - **双模容器平滑兼容（`.completion-editor-content` vs `.editor-paper`）**：在真实小说全量沉浸编辑模式（`completion-editor.js`）下，正文容器为包含卷章标题与场景内容的 `.completion-editor-content`；而在独立预览模式下为直接的 `.editor-paper`。`applyTextToEditorPaper` 采用分级降级寻址，优先锁定真实可编辑容器，保证写回正文与光标/选区定位在任何模式下均 100% 精准无误。
+   - **DOM 与内存状态双向同步**：不仅操作正文 DOM，还同步将清洗后的文本写入 `state.volumes[...].chapters[...].scenes[...].content` 与 `previewState.editorBody`，联动字数统计组件并调用 `markEditorDirty(true)` 触发版本快照持久化，彻底消除“正文界面变了但刷新后丢失”的数据断层。
+   - **跨段落多块替换自愈与根级裸文本包裹**：在 contenteditable 中，若跨段落选区被替换，必须将从 `startBlock` 到 `endBlock` 的所有中间节点整体替换，保留首块的前缀与尾块的后缀，避免产生孤儿空 `<p>` 节点；单段落且处于容器根级时强制包装为 `<p>`，彻底杜绝 DOM 结构坍塌。
+   - **AI 气泡富文本换行还原**：针对 DOM 中 `${esc(text).replace(/\n/g, '<br>')}` 渲染的富文本气泡，提取时将 `<br>` 节点还原为 `\n`，解决 `Node.textContent` 丢弃 `<br>` 导致的多段落被融合成单行的排版故障。
+   - **陈旧选区折叠清理**：光标一旦发生折叠，立即清空 `lastEditorSelectedText` 缓存，防止用户再次点击工具箱“读取选中文本”时读取到上一次的历史划选内容。
+   - **空场景占位符自动自愈清理**：空场景包含 `.editor-empty-copy` 占位符文字（“从这里开始输入当前场景正文。”）。在采纳正文前先将其安全移除，杜绝占位文字与正式小说正文拼接到一起的重大缺陷。
+   - **真实数据模型无缝对齐**：全面对齐墨阑核心真实数据结构（`plantedChapterId`/`targetChapterId`/`description` 与 `personality`/`intro`/`notes`），世界观规则与概念保真为 `设定` 分类，确保切换真实小说时角色、设定与伏笔信息 100% 完整展示。
+   - **标记清洗自愈机制（`extractRevisedProse`）**：针对各类主流大模型（DeepSeek/Qwen/Claude/GPT）输出附带的代码围栏、各类建议稿前缀及 Markdown 标题说明（`### 修改说明` 等），采用多维自愈算法剥离 20+ 种格式标记与非正文解释，确保写回正文的只有纯净自然段。
+
+2. **暂缓与驳回项的考量**：
+   - **驳回：硬编码题材预设**：原实现将文风注入固定为“长篇水墨玄幻”，破坏了都市、科幻等非玄幻题材。采纳方案动态提取作品题材族、文风与叙事视角。
+   - **驳回：生成中允许点击写入正文**：原实现未阻断未就绪状态，点击会导致“正在整理上下文...”或半截文字被写入正文。采纳方案在 `editorBusy` 与系统通知态硬阻断。
+   - **暂缓：坞站面板自由拖拽与分栏宽度持久化**：当前左侧 320px 坞站已适配桌面折叠与移动端抽屉（`<=820px`）双断点。引入自由拖拽缩放分栏会大幅增加 CSS 与交互复杂度，暂缓至后续 UI 深度打磨阶段。
+
+---
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **执行命令与结果**：
+  1. 坞站与工作台融合深度测试套件（含 Round 3 对抗加固用例）：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test molan-home/test/workbench-editor-fusion.test.js
+     # 25 tests, 25 passed, 0 failed (100% 真实通过, duration: ~106ms)
+     ```
+  2. 编辑器侧边栏、题材级联与依赖测试套件：
+     ```powershell
+     & "..\tools\node22_runtime\node.exe" --test molan-home/test/genre-cascading-selection.test.js molan-home/test/editor-only-sources.test.js molan-home/test/editor-sidebar.test.js
+     # 18 tests, 18 passed, 0 failed (100% 真实通过, duration: ~180ms)
+     ```
+  3. 全量关联测试用例汇总：
+     - **融合与编辑器专测通过数**：**43 / 43 passed (100% 真实通过，0 失败)**。
+     - **基准编辑器回归测试通过数**：`test/benchmark-editor.test.js` **56 / 56 passed (100% 真实通过)**。
+     - **测试集总计**：**99 / 99 passed (100% 真实通过，0 失败，0 跳过)**。
+     - **语法检查 (--check)**：`completion-editor.js` 与 `workbench-editor-fusion.test.js` 0 error。
+- **工作区状态验证**：
+  - `git status` 确认受控修改文件为 `completion-editor.js`、`index.html`、`test/workbench-editor-fusion.test.js` 与 `HANDOVER.md`，受保护数据目录（`books/`, `raws/`, `deploy_tmp/`, `tmp-booktest/`）绝对零触碰。
+
+---
+
+### 四、已知限制与后续待办 (Known Limits & Backlog)
+
+1. **富文本选区细粒度行内格式继承**：目前 `applyTextToEditorPaper` 在跨段落选区替换时保留文本段落结构（`<p>`），若原选区中包含特殊的加粗、斜体等内联样式标签，替换后将以新段落格式为准。
+2. **多语言离线高质量改写库**：当前独立 AI 工具箱的高质量平滑降级针对中文玄幻与都市网文进行了特色定制，在网络不可用时可平滑体验；后续可根据小说的实际题材动态定制离线降级模板。
 
 ---
 

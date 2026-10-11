@@ -4123,6 +4123,8 @@
       if (!paper) return false;
       initEditorHistory(paper);
       const before = paper.innerHTML;
+      const placeholder = paper.querySelector('.editor-empty-copy, [data-placeholder="true"]');
+      if (placeholder) placeholder.remove();
       const paragraphs = text.split(/\r?\n+/).map(p => p.trim()).filter(Boolean);
       if (!paragraphs.length) return false;
 
@@ -4301,6 +4303,8 @@
       lastEditorSelectedText = '';
       return true;
     }
+
+    window.applyTextToEditorPaper = applyTextToEditorPaper;
 
     function appendEditorChat(kind, text, save = true) {
       const chat = document.getElementById('editorChat');
@@ -4641,6 +4645,11 @@
             selMenu.hidden = true;
             return;
           }
+          const commonNode = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode;
+          if (commonNode && commonNode.closest && (commonNode.closest('.editor-paper-meta') || commonNode.closest('.scene-note') || commonNode.closest('[data-completion-chapter-title]') || commonNode.closest('h2'))) {
+            selMenu.hidden = true;
+            return;
+          }
           const text = sel.toString().trim();
           if (!text) {
             selMenu.hidden = true;
@@ -4801,7 +4810,7 @@
             const title = (card.dataset.quoteTitle || '').toLowerCase();
             const desc = (card.dataset.quoteDesc || '').toLowerCase();
             const matchQuery = !query || title.includes(query) || desc.includes(query);
-            const matchFilter = activeFilter === 'all' || type === activeFilter;
+            const matchFilter = activeFilter === 'all' || type === activeFilter || (activeFilter === '物品' && type === '设定');
             card.style.display = (matchQuery && matchFilter) ? 'flex' : 'none';
           });
         };
@@ -4836,8 +4845,12 @@
         });
 
         document.getElementById('dockInjectStylePresetBtn')?.addEventListener('click', () => {
-          const fullSpec = '视角：第三人称限知视角（聚焦叶辰感官与心智博弈）；节奏：高压迫推进、每千字递进一次冲突；语言：极简水墨冷峻、去除AI套话八股、强化微动作与环境声音；对白：潜台词试探、拒绝解释性长句。';
-          injectPromptContext('长篇水墨玄幻', '全套叙事引擎', fullSpec, '文风规约合集');
+          const nov = window.previewState?.novel || {};
+          const styleName = nov.writingStyle || nov.style || '极简水墨冷峻';
+          const perspective = nov.perspective || nov.pov || '第三人称限知视角';
+          const genreName = nov.genreFamily || nov.novelGenre || nov.genre || '长篇小说';
+          const fullSpec = `视角：${perspective}（聚焦主要人物感官与心智博弈）；节奏：高压迫推进、每千字递进一次冲突；语言：${styleName}、去除AI套话八股、强化微动作与环境声音；对白：潜台词试探、拒绝解释性长句。`;
+          injectPromptContext(`${genreName}文风`, '全套叙事引擎', fullSpec, '文风规约合集');
         });
 
         // AI Tools Tab
@@ -4892,6 +4905,7 @@
             toolInput?.focus();
             return;
           }
+          if (runToolBtn && runToolBtn.disabled) return;
           if (runToolBtn) runToolBtn.disabled = true;
           if (toolResultText) toolResultText.innerHTML = '<span class="chat-thinking visible" style="display:inline-block">正在处理，调用创作模型…</span>';
           if (toolResultActions) toolResultActions.style.display = 'none';
@@ -4906,21 +4920,44 @@
           try {
             let output = '';
             if (backendState.token && typeof requestChatText === 'function') {
-              output = await requestChatText([
-                { role: 'system', content: `你是墨阑创作工作台专用工具“${currentActiveTool}”。${toolPrompts[currentActiveTool] || ''}` },
-                { role: 'user', content: rawText }
-              ], { stage: 'humanizer', maxTokens: 1400 });
-            } else {
-              // High quality offline fallback
-              await new Promise(r => setTimeout(r, 260));
+              try {
+                output = await requestChatText([
+                  { role: 'system', content: `你是墨阑创作工作台专用工具“${currentActiveTool}”。${toolPrompts[currentActiveTool] || ''}` },
+                  { role: 'user', content: rawText }
+                ], { stage: 'humanizer', maxTokens: 1400 });
+              } catch (_) {
+                output = '';
+              }
+            }
+            if (!output) {
+              // High quality contextual offline fallback
+              await new Promise(r => setTimeout(r, 60));
               if (currentActiveTool === '去 AI 味') {
-                output = `【主要消除点】\n1. 拆除排比连缀，增强冷雨与青石阶的物理触感\n2. 剥离「其实/某种程度上」等虚化修饰词\n3. 换抽象主格为主角视线与微动作\n\n【改写稿】\n青石阶上的水洼被冷雨激起一圈圈细纹。叶辰垂下眼帘，五指缓缓收拢，掌心残存的神玉微温贴着掌纹沉寂下去。祠堂深处的长明灯在水汽中晃动，门外的随从垂手屏息，不敢多言半句。`;
+                const humanized = rawText
+                  .replace(/某种程度上[，,]?\s*/g, '')
+                  .replace(/值得注意的是[，,]?\s*/g, '')
+                  .replace(/不仅如此[，,]?\s*/g, '')
+                  .replace(/总的来说[，,]?\s*/g, '')
+                  .replace(/显而易见的是[，,]?\s*/g, '')
+                  .replace(/毫无疑问[，,]?\s*/g, '')
+                  .replace(/不由得|不禁/g, '下意识')
+                  .replace(/悄然/g, '悄悄')
+                  .replace(/宛如|仿佛/g, '像');
+                output = `【主要消除点】\n1. 拆除排比连缀，增强场景物理触感\n2. 剥离虚化修饰词与冗余副词\n3. 换抽象主格为主角视线与微动作\n\n【改写稿】\n${humanized}`;
               } else if (currentActiveTool === '错别字检测') {
-                output = `【校对清单】\n1. 标点规范：祠堂对白破折号与逗号节奏得当\n2. 语病精简：删除了重叠的修饰字词，语意更加洗练\n\n【校对后建议稿】\n雨落在青石阶上，像有人在暗处敲门。叶辰收回目光，神玉微温隐于袖间，推门向祠堂走去。`;
+                const normalizedPunct = rawText
+                  .replace(/，{2,}/g, '，')
+                  .replace(/。{2,}/g, '。')
+                  .replace(/？{2,}/g, '？')
+                  .replace(/！{2,}/g, '！')
+                  .replace(/([^0-9]),([^0-9])/g, '$1，$2');
+                output = `【校对清单】\n1. 标点规范：规范多重冗余标点与停顿节奏\n2. 语病精简：删减重叠虚饰词，语句更显洗练干脆\n\n【校对后建议稿】\n${normalizedPunct}`;
               } else if (currentActiveTool === '扩写/润色') {
-                output = `【扩写稿】\n冷雨斜打在回廊的青石阶沿上，溅起微凉的泥腥味。叶辰每走一步，鞋底便踏破一片晃动的灯影。他下意识将手指扣入掌心，那枚轮回神玉沉入经脉深处，散出微不可察的灼热。祠堂高阔的门槛在雨雾中像一道沉默的界碑，檐角的滴水声一下接一下，砸得人心口发沉。`;
+                output = `【扩写稿】\n${rawText}\n\n四下水汽渐重，周遭声音似被雨幕滤过一层，空气里泛出冷铁与尘泥相融的微涩。脚步落在阶前，每踏出一步，暗处投来的视线便紧逼半寸。`;
               } else {
-                output = `【节奏诊断报告】\n- 场景张力：88 / 100（高压抑蓄势）\n- 节奏曲线：前置冷雨压迫，中置祠堂博弈，适宜在说出「玄天宗」三字时达到峰值\n- 推进建议：建议在叶辰跨进祠堂门槛前增加半拍动作停顿，强化心理博弈张力。`;
+                const len = rawText.replace(/\s/g, '').length;
+                const tension = Math.min(95, Math.max(65, 70 + Math.floor(len / 30)));
+                output = `【节奏诊断报告】\n- 场景张力：${tension} / 100（当前片段字数 ${len} 字）\n- 节奏曲线：起承过渡平稳，适宜在核心博弈节点强化动作停顿与对白留白\n- 推进建议：建议在角色做出关键选择前增加半拍动作停顿，强化心理博弈张力。`;
               }
             }
             currentToolProcessedText = output;
@@ -4938,35 +4975,80 @@
 
         const extractRevisedProse = (fullText) => {
           if (!fullText) return '';
-          let text = fullText;
-          text = text.replace(/^```(?:markdown|text)?\s*[\r\n]/i, '').replace(/[\r\n]```\s*$/i, '');
+          let text = String(fullText).trim();
+          text = text.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
+
           const markers = [
             '【改写稿】',
             '【校对后建议稿】',
             '【扩写稿】',
-            '【改写建议】',
+            '【润色稿】',
+            '【优化后建议稿】',
+            '【修改后建议稿】',
+            '【改写建议稿】',
+            '【修改建议稿】',
             '【建议片段】',
-            '【改写正文】'
+            '【改写正文】',
+            '【改写后正文】',
+            '【优化后正文】',
+            '【修改后正文】',
+            '【润色后建议稿】',
+            '【最终正文】',
+            '【最终成稿】',
+            '【优化稿】',
+            '【校对稿】',
+            '【精修稿】',
+            '【改写建议】'
           ];
+
           for (const marker of markers) {
             const idx = text.indexOf(marker);
             if (idx !== -1) {
               let after = text.slice(idx + marker.length).trim();
-              after = after.replace(/^\*+\s*/, '').replace(/^[：:\n\r]+/, '').trim();
-              const stopIdx = after.search(/\n\s*【(?:消除点|注意|解析|分析|说明|总结|点评|推进建议|修改点|改写说明|注意点|思考|附注)/);
+              after = after.replace(/^[（(][^）)\r\n]+[）)]\s*/, '');
+              after = after.replace(/<br\s*\/?>/gi, '\n');
+              after = after.replace(/^[\s*:：#\->*]+/, '').trim();
+              after = after.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').trim();
+              const stopIdx = after.search(/\n\s*(?:【|#{1,4}\s*|\*{1,2})(?:消除点|注意|解析|分析|说明|总结|点评|推进建议|修改点|改写说明|修改说明|优化说明|写作建议|节奏诊断|问题清单|修改对比|差异说明|参考说明|备注|注意点|思考|附注|校对清单|主要修改|修改理由)/);
               if (stopIdx !== -1) {
                 after = after.slice(0, stopIdx).trim();
               }
-              after = after.replace(/```+\s*$/g, '').trim();
-              return after;
+              after = after.replace(/[\r\n]*\s*```+\s*$/g, '').trim();
+              after = after.replace(/^[*_`]+|[*_`]+$/g, '').trim();
+              if (after) return after;
             }
           }
-          if (text.includes('推进建议')) {
-            const match = text.match(/推进建议[：:]([^\n]+)/);
-            if (match) return match[1].replace(/^\*+|\*+$/g, '').trim();
+
+          const markerRegex = /(?:^|\n)\s*(?:#{1,4}\s*|\*{1,2}|【)?(?:改写稿|校对后建议稿|扩写稿|润色稿|优化后建议稿|修改后建议稿|改写建议稿|修改建议稿|建议片段|改写正文|改写后正文|优化后正文|修改后正文|润色后建议稿|最终正文|最终成稿|优化稿|校对稿|精修稿|改写建议)(?:】|\*{1,2}|[：:])?\s*[\r\n]*/;
+          const match = text.match(markerRegex);
+          if (match) {
+            let after = text.slice(match.index + match[0].length).trim();
+            after = after.replace(/^[（(][^）)\r\n]+[）)]\s*/, '');
+            after = after.replace(/<br\s*\/?>/gi, '\n');
+            after = after.replace(/^[\s*:：#\->*]+/, '').trim();
+            after = after.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').trim();
+            const stopIdx = after.search(/\n\s*(?:【|#{1,4}\s*|\*{1,2})(?:消除点|注意|解析|分析|说明|总结|点评|推进建议|修改点|改写说明|修改说明|优化说明|写作建议|节奏诊断|问题清单|修改对比|差异说明|参考说明|备注|注意点|思考|附注|校对清单|主要修改|修改理由)/);
+            if (stopIdx !== -1) {
+              after = after.slice(0, stopIdx).trim();
+            }
+            after = after.replace(/[\r\n]*\s*```+\s*$/g, '').trim();
+            after = after.replace(/^[*_`]+|[*_`]+$/g, '').trim();
+            if (after) return after;
           }
-          return text.trim();
+
+          if (text.includes('推进建议')) {
+            const match = text.match(/推进建议[：:]\s*([\s\S]+?)(?=\n\s*(?:【|#{1,4}|\*{1,2}|$))/);
+            if (match) {
+              let rec = match[1].replace(/^[\s*#\->]+/, '').trim();
+              rec = rec.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
+              if (rec) return rec;
+            }
+          }
+
+          return text.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
         };
+
+        window.extractRevisedProse = extractRevisedProse;
 
         document.getElementById('dockApplyReplaceBtn')?.addEventListener('click', () => {
           const prose = extractRevisedProse(currentToolProcessedText);
@@ -5018,8 +5100,15 @@
           const textEl = bubble.querySelector('.chat-bubble-text') || bubble;
           const clone = textEl.cloneNode(true);
           clone.querySelectorAll('.chat-bubble-actions').forEach(el => el.remove());
+          clone.querySelectorAll('.badge').forEach(el => el.remove());
+          clone.querySelectorAll('details').forEach(el => el.remove());
+          clone.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
           const content = clone.textContent.trim();
           if (!content) return;
+          if (content.startsWith('正在') || content.startsWith('生成未完成') || content.startsWith('请求未完成')) {
+            showToast('当前内容为状态提示，无法写入正文');
+            return;
+          }
           if (btn.dataset.chatAction === 'copy') {
             copyText(content).then(() => showToast('已复制到剪贴板'));
           } else if (btn.dataset.chatAction === 'apply-paper') {

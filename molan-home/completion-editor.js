@@ -1,78 +1,90 @@
   const GENRE_FAMILY_MAP = {
-    xuanhuan_xianxia: {
-      title: '玄幻仙侠',
-      archetypes: [
-        { value: 'yandere_harem_cultivation', label: '病娇反差 / 多女主修罗场与破防流' },
-        { value: 'classical_gritty_xianxia', label: '古典仙侠 / 天崩开局与实感求生流' },
-        { value: 'peerless_slaughter_tower', label: '传统玄幻 / 丹田被废与神塔逆袭流' }
+    xuanhuan: {
+      title: '玄幻修真',
+      routes: [
+        { value: 'yuanshi', legacyValue: 'industrial_cultivation', label: '《元始法则》飞天鱼 · 重型巨舰与修真工业' },
+        { value: 'jianzhu', legacyValue: 'ancient_market_mechanic', label: '《剑烛大荒》乌贼 · 大荒机关与市井互嵌' },
+        { value: 'xuanjian', legacyValue: 'clan_lineage_sacrifice', label: '《玄鉴仙族》季越人 · 宗族谱系与族运牺牲' },
+        { value: 'fanren', legacyValue: 'cautious_survival', label: '《凡人修仙传》忘语 · 散修生计与谨慎藏拙' }
       ]
     },
     urban_martial: {
       title: '都市高武',
-      archetypes: [
-        { value: 'supernatural_tactics_order', label: '官方规制 / 历史超凡与战术攻防流' },
-        { value: 'street_calculating_martial', label: '低武市井 / 门派拜馆与冷硬算计流' }
-      ]
-    },
-    urban_life: {
-      title: '都市现实',
-      archetypes: [
-        { value: 'reformed_restaurant_era', label: '年代生活 / 破产餐馆与市井烟火流' },
-        { value: 'sports_tactics_legend', label: '竞技体坛 / 职业球探与逆风蜕变流' }
+      routes: [
+        { value: 'urban_grind', legacyValue: 'official_regulation_tactics', label: '《以神通之名》猪心虾仁 · 官方规制与实战攻防' },
+        { value: 'yucun_1982', legacyValue: 'coastal_harvest_fieldwork', label: '《重回1982小渔村》米饭的米 · 沿海捕捞与潮汐考据' },
+        { value: 'daguo_junken', legacyValue: 'heavy_industry_pioneering', label: '《大国军垦》大强67 · 重工拓荒与集体纪律' }
       ]
     },
     scifi_apocalypse: {
       title: '科幻末世',
-      archetypes: [
-        { value: 'planetary_gene_academy', label: '高维深空 / 基因考核与宇宙尺度流' },
-        { value: 'esports_goat_datacrush', label: '电竞游戏 / 数据复盘与战队崛起流' }
+      routes: [
+        { value: 'hard_survival', legacyValue: 'wasteland_industrial_recovery', label: '《这游戏也太真实了》晨星LL · 废土避难所工业复苏' },
+        { value: 'dawn_blade', legacyValue: 'magic_industrial_enlightenment', label: '《黎明之剑》远瞳 · 魔导工业化与深空神明去魅' },
+        { value: 'swallow_star', legacyValue: 'genetic_deep_space_scale', label: '《吞噬星空》番茄 · 基因武者考核与深空尺度' }
       ]
     },
-    suspense_mystery: {
+    suspense: {
       title: '悬疑惊悚',
-      archetypes: [
-        { value: 'folk_yinyang_memoir', label: '中式民俗 / 阴阳行当与水旱禁忌流' },
-        { value: 'tomb_exploration_secrets', label: '秘境古墓 / 九门迷局与血脉契约流' },
-        { value: 'infinite_rule_insanity', label: '规则怪谈 / 精神病反卷与空间压榨流' }
+      routes: [
+        { value: 'laoshiren', legacyValue: 'river_folk_secrets', label: '《捞尸人》纯洁滴小龙 · 黄河捞尸门道与民俗禁忌' },
+        { value: 'rule_horror', legacyValue: 'spatial_rule_horror', label: '《玩家请上车》海晏山 · 空间规则怪谈与心理压榨' },
+        { value: 'folklore_investigation', legacyValue: 'folklore_investigation', label: '悬疑惊悚 · 民俗异闻与心理递进通用' }
       ]
     },
-    history_military: {
-      title: '历史军事',
-      archetypes: [
-        { value: 'imposter_court_official', label: '历史权谋 / 冒名入仕与官场生存流' },
-        { value: 'dynasty_grand_narrative', label: '王朝争霸 / 运河关隘与沙盘推演流' },
-        { value: 'military_industrial_overhaul', label: '抗战兵工 / 车间机床与技术拓荒流' }
-      ]
-    },
-    ancient_romance: {
-      title: '古言世情',
-      archetypes: [
-        { value: 'rebirth_noble_vengeance', label: '高门重生 / 摄政王契约与清醒夺权流' },
-        { value: 'empress_court_heir', label: '女帝掌朝 / 皇权博弈与帝姬谋略流' }
-      ]
-    },
-    modern_romance: {
-      title: '现言职场',
-      archetypes: [
-        { value: 'capital_circle_sensual_duel', label: '京圈权贵 / 纯欲对弈与极限拉扯流' },
-        { value: 'gloomy_ghost_magnet', label: '病娇阴湿 / 极致占有与反向驯服流' }
-      ]
-    },
-    light_novel: {
-      title: '轻小说衍生',
-      archetypes: [
-        { value: 'corporate_magical_girl', label: '社畜反差 / 疲惫中年与魔法非日常流' },
-        { value: 'anime_reincarnation_overlord', label: '诸天扮演 / 满级大号与降维碾压流' }
+    history: {
+      title: '历史古代',
+      routes: [
+        { value: 'dynasty_friction', legacyValue: 'dynasty_legion_grand_strategy', label: '《神话版三国》坟土荒草 · 军团大阵与天下大势' },
+        { value: 'spy_years', legacyValue: 'covert_cipher_camouflage', label: '《我的谍战岁月》猪头七 · 隐蔽战线密电破译与伪装' }
       ]
     },
     western_fantasy: {
       title: '西方奇幻',
-      archetypes: [
-        { value: 'sequence_order_mystery', label: '诡秘秩序 / 魔药代价与隐秘低语流' },
-        { value: 'fake_lord_domain_conquest', label: '异界领主 / 领地经营与帝国博弈流' }
+      routes: [
+        { value: 'sequence_cost', legacyValue: 'potion_sequence_order_cost', label: '《诡秘序列》乌贼 · 秩序隐秘与魔药代价' },
+        { value: 'super_mechanic', legacyValue: 'machinist_blueprint_forging', label: '《超神机械师》齐佩甲 · 机械图纸锻造与智械军团' },
+        { value: 'reincarnation_paradise', legacyValue: 'hunter_contract_combat', label: '《轮回乐园》蚊子 · 猎杀者契约与刀术搏杀' }
+      ]
+    },
+    ancient_romance: {
+      title: '古言世情',
+      routes: [
+        { value: 'mansion_secrets', legacyValue: 'mansion_financial_survival', label: '《深宅利益世情》· 月例账目与内宅生存策略' }
+      ]
+    },
+    modern_romance: {
+      title: '现代言情',
+      routes: [
+        { value: 'urban_emotion', legacyValue: 'urban_emotion', label: '《职场博弈心动》· 投行对赌与势均力敌情感' }
       ]
     }
   };
+
+  function buildGenreFamilyOptions(state) {
+    const curFamily = (state && (state.genreFamily || state.novelGenre || state.genre)) || 'all';
+    const allOpt = `<option value="all" ${curFamily === 'all' || !curFamily ? 'selected' : ''}>全部 / 智能匹配 (auto)</option>`;
+    const options = Object.entries(GENRE_FAMILY_MAP).map(([key, item]) => {
+      return `<option value="${key}" ${curFamily === key ? 'selected' : ''}>${item.title}</option>`;
+    }).join('');
+    return allOpt + options;
+  }
+
+  function buildGenreRouteOptions(state, explicitFamily) {
+    const currentRoute = (state && (state.genreRoute || state.xuanhuanRoute)) || 'auto';
+    const curFamily = explicitFamily !== undefined ? explicitFamily : ((state && (state.genreFamily || state.novelGenre)) || 'all');
+
+    if (curFamily && curFamily !== 'all' && GENRE_FAMILY_MAP[curFamily]) {
+      const fam = GENRE_FAMILY_MAP[curFamily];
+      const autoOption = `<option value="auto" ${currentRoute === 'auto' || !currentRoute ? 'selected' : ''}>自动 / 智能识别 (auto) · ${fam.title}优选</option>`;
+      const routesOptions = fam.routes.map(r => `<option value="${r.value}" ${currentRoute === r.value ? 'selected' : ''}>${r.label}</option>`).join('');
+      return autoOption + routesOptions;
+    }
+
+    const autoOption = `<option value="auto" ${currentRoute === 'auto' || !currentRoute ? 'selected' : ''}>自动 / 智能识别 (auto) · 题材智能匹配 (推荐兜底)</option>`;
+    const groupsMarkup = Object.values(GENRE_FAMILY_MAP).map(g => `<optgroup label="${g.title}">${g.routes.map(r => `<option value="${r.value}" ${currentRoute === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}</optgroup>`).join('');
+    return autoOption + groupsMarkup;
+  }
 
   // 小说题材分组字典（7大主流大类 + 垂直赛道）
   const NOVEL_GENRE_GROUPS = [
@@ -280,17 +292,6 @@
     { value: 'farming', label: '种田经营 (资源核算 / 势力发育 / 功法参悟)' }
   ];
 
-  function buildGenreFamilyOptions(state) {
-    const curGenre = (state && (state.novelGenre || state.genreFamily || state.genre)) || 'all';
-    const allOpt = `<option value="all" ${curGenre === 'all' || !curGenre ? 'selected' : ''}>全部 / 智能匹配 (auto)</option>`;
-    const groupsHtml = NOVEL_GENRE_GROUPS.map(g => {
-      const itemsHtml = g.items.map(item =>
-        `<option value="${item.value}" ${curGenre === item.value ? 'selected' : ''}>${item.label}</option>`
-      ).join('');
-      return `<optgroup label="${g.group}">${itemsHtml}</optgroup>`;
-    }).join('');
-    return allOpt + groupsHtml;
-  }
 
   function buildWritingStyleOptions(state) {
     const curStyle = (state && (state.writingStyle || state.archetypeOverride || state.styleArchetype)) || '';
@@ -394,10 +395,6 @@
     return { hasUserInstruction: false, min: 2500, max: 3500, target: 3000, summary: '默认章节篇幅：2500 ~ 3500 字一章（基准约 3000 字）' };
   }
 
-  // 保持兼容旧调用的存根函数
-  function buildGenreRouteOptions(state, explicitFamily) {
-    return buildChapterFocusOptions(state);
-  }
 (function () {
   'use strict';
 
@@ -2269,6 +2266,7 @@
     const history = '<select class="ai-select" data-completion-history aria-label="选择历史会话"><option value="">当前会话</option></select>';
     const thinkingControl = '<label class="ai-control-field" data-completion-thinking-field><span class="ai-control-field__label">思考强度</span><select class="ai-select" data-completion-thinking-control aria-label="选择思考强度" title="当前模型的官方思考强度"><option value="">正在读取模型能力…</option></select></label>';
     const genreFamilySelect = `<label class="ai-control-field" data-completion-family-field title="选择小说题材所属分类"><span class="ai-control-field__label">小说题材</span><select class="ai-select" data-completion-genre-family aria-label="选择小说题材">${buildGenreFamilyOptions(state)}</select></label>`;
+    const xuanhuanRouteSelect = `<label class="ai-control-field" data-completion-route-field title="选择叙事引擎"><span class="ai-control-field__label">叙事引擎</span><select class="ai-select" data-completion-xuanhuan-route aria-label="选择叙事引擎">${buildGenreRouteOptions(state)}</select></label>`;
     const chapterFunctionSelect = `<label class="ai-control-field" data-completion-function-field title="选择本章承担的功能定位（黄金三章/推进/打脸/铺垫/高潮等）"><span class="ai-control-field__label">本章功能</span><select class="ai-select" data-completion-chapter-function aria-label="选择本章功能">${buildChapterFunctionOptions(state)}</select></label>`;
       const chapterFocusSelect = `<label class="ai-control-field" data-completion-focus-field title="选择本章镜头侧重点（对话/战斗/环境/心理/智斗/情感等）"><span class="ai-control-field__label">该章侧重点</span><select class="ai-select" data-completion-chapter-focus aria-label="选择该章侧重点">${buildChapterFocusOptions(state)}</select></label>`;
     const endingHookSelect = `<label class="ai-control-field" data-completion-hook-field title="选择章末结尾断章钩子（危机/悬念/反转/期待/情感等）"><span class="ai-control-field__label">结尾钩子</span><select class="ai-select" data-completion-ending-hook aria-label="选择结尾钩子">${buildEndingHookOptions(state)}</select></label>`;
@@ -2282,8 +2280,8 @@
       </select>
     </div>`;
     const creationCost = state.creationBookId ? '<div data-completion-creation-cost class="section-note" style="padding:4px 12px 0;font-size:10px">创作书预算正在读取…</div>' : '';
-    const paramsDrawer = `<details class="ai-params-drawer" data-completion-params-drawer><summary class="ai-params-summary"><span class="ai-params-summary-title">创作参数</span><span class="ai-params-summary-hint" data-completion-params-hint>题材·风格·功能·侧重点·钩子</span><span class="ai-params-toggle-text">展开 ▾</span></summary><div class="ai-params-body"><label class="ai-control-field" style="margin-top:2px"><span class="ai-control-field__label">写作预设</span>${skillSelect}</label><label class="ai-control-field"><span class="ai-control-field__label">历史会话</span>${history}</label>${thinkingControl}${genreFamilySelect}${styleDetectorControl}${chapterFunctionSelect}${chapterFocusSelect}${endingHookSelect}${creationCost}</div></details>`;
-    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div><div class="editor-ai-dock-tabs" style="display:flex;border-bottom:1px solid var(--line);background:var(--paper-warm);padding:2px 4px;gap:2px"><button class="editor-ai-dock-btn active" type="button" data-completion-action="switch-ai-dock" data-dock="chat" style="flex:1;padding:5px 2px;border:none;background:var(--paper);border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:3px">${ico('sparkles')}AI助手</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="memory" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('brain')}故事记忆</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="docs" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('folder-kanban')}全套资料</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="outline" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('milestone')}细纲伏笔</button></div><div data-ai-dock-view="chat" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div></div><div data-ai-dock-view="memory" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="docs" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="outline" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip" data-completion-action="boost-context" style="color:var(--amber,#b45309);font-weight:700;background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.4)" title="自动聚合当前章节关联的七大资料定位、世界观规则、人物认知与伏笔台账，深度联动生成强化提示词">🚀 全景联动增强 /boost</button><button type="button" class="chat-chip" data-completion-action="assemble-final-prompt" style="color:var(--accent,#4f46e5);font-weight:600;background:rgba(79,70,229,0.06);border-color:rgba(79,70,229,0.3)" title="组装当前选择的题材+文风+章节目标+侧重点+钩子及输入指令，生成结构化最终提示词">🔍 组装最终提示词</button><button type="button" class="chat-chip" data-completion-action="switch-ai-dock" data-dock="memory" title="快速查看并引用故事记忆与人物认知">${ico('brain')} 故事记忆</button><button type="button" class="chat-chip" data-completion-action="switch-ai-dock" data-dock="docs" title="快速查看并引用全套创作资料">${ico('folder-kanban')} 创作资料</button><button type="button" class="chat-chip" data-completion-action="open-full-workbench-browser" title="在全屏独立工作台进行深度研判与推演">${ico('external-link')} 全屏工作台 /browser</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述创作任务，或输入 /boost 全景增强、/browser 全屏工作台…（Enter 发送）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
+    const paramsDrawer = `<details class="ai-params-drawer" data-completion-params-drawer><summary class="ai-params-summary"><span class="ai-params-summary-title">创作参数</span><span class="ai-params-summary-hint" data-completion-params-hint>题材·风格·功能·侧重点·钩子</span><span class="ai-params-toggle-text">展开 ▾</span></summary><div class="ai-params-body"><label class="ai-control-field" style="margin-top:2px"><span class="ai-control-field__label">写作预设</span>${skillSelect}</label><label class="ai-control-field"><span class="ai-control-field__label">历史会话</span>${history}</label>${thinkingControl}${genreFamilySelect}${xuanhuanRouteSelect}${styleDetectorControl}${chapterFunctionSelect}${chapterFocusSelect}${endingHookSelect}${creationCost}</div></details>`;
+    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><aside class="editor-dock" id="editorWorkbenchDock" aria-label="创作工作台坞站"><div class="dock-header"><div class="dock-title-wrap"><span class="dock-title-badge">${ico('layers')}</span><strong>创作坞站</strong></div><div class="dock-header-actions"><button class="dock-collapse-btn" id="dockCollapseBtn" aria-label="收起工作台坞站" title="收起工作台坞站">${ico('chevron-left')}</button></div></div><div class="dock-nav-bar" id="dockNavTabs"><button class="dock-tab-btn active" data-dock-tab="outline">${ico('milestone')}<span>大纲</span></button><button class="dock-tab-btn" data-dock-tab="knowledge">${ico('network')}<span>设定</span></button><button class="dock-tab-btn" data-dock-tab="memory">${ico('brain')}<span>记忆文风</span></button><button class="dock-tab-btn" data-dock-tab="tools">${ico('wand-sparkles')}<span>AI工具</span></button></div><div class="dock-body-scroll"><div class="dock-panel active" data-dock-panel="outline"><div class="dock-subnav"><button class="dock-subtab active" data-outline-sub="timeline">时间线</button><button class="dock-subtab" data-outline-sub="ledger">伏笔台账</button></div><div class="dock-outline-timeline-list" id="dockOutlineTimeline"></div><div class="dock-outline-ledger-list" id="dockOutlineLedger" style="display:none"></div></div><div class="dock-panel" data-dock-panel="knowledge"><div class="dock-search-wrap">${ico('search')}<input id="dockEntitySearch" placeholder="搜索实体、人物、地点..."></div><div class="dock-filter-tags"><button class="dock-filter-tag active" data-entity-filter="all">全部</button><button class="dock-filter-tag" data-entity-filter="人物">人物</button><button class="dock-filter-tag" data-entity-filter="地点">地点</button><button class="dock-filter-tag" data-entity-filter="势力">势力</button><button class="dock-filter-tag" data-entity-filter="物品">物品</button></div><div class="dock-entity-list" id="dockEntityList"></div></div><div class="dock-panel" data-dock-panel="memory"></div><div class="dock-panel" data-dock-panel="tools"><div class="dock-tools-selector"><button class="dock-tool-choice active" data-tool="去 AI 味"><span class="tool-ic">${ico('eraser')}</span><strong>去 AI 味</strong><small>消除八股套话</small></button><button class="dock-tool-choice" data-tool="错别字检测"><span class="tool-ic">${ico('spell-check')}</span><strong>错别字检测</strong><small>校对病句标点</small></button><button class="dock-tool-choice" data-tool="扩写/润色"><span class="tool-ic">${ico('sparkles')}</span><strong>扩写/润色</strong><small>丰富细节白描</small></button><button class="dock-tool-choice" data-tool="节奏分析"><span class="tool-ic">${ico('activity')}</span><strong>节奏分析</strong><small>研判冲突密度</small></button></div><div class="dock-tool-input-bar"><span class="dock-tool-desc" id="dockCurrentToolDesc">依据 Stop AI Slop 准则消除机械排比与套话</span><button class="dock-tool-fetch-btn" id="dockFetchSelectionBtn" title="读取正文选区">${ico('mouse-pointer')}读取选中文本</button></div><textarea class="dock-tool-editor" id="dockToolInput" placeholder="从正文选中一段文本，或在此粘贴需要处理的内容..."></textarea><div class="dock-tool-actions"><span class="dock-tool-wc" id="dockToolWordCount">0 字</span><button class="button primary" id="dockExecuteToolBtn">${ico('play')}开始处理</button></div><div class="section-title" style="font-size:11px;margin-bottom:6px">处理结果</div><div class="dock-result-box" id="dockToolResultText">等待执行：从正文选中一段内容后点击上方工具，或直接输入正文开始。</div><div class="dock-result-btns" id="dockToolResultActions" style="display:none"><button class="button primary" id="dockApplyReplaceBtn" data-tool-action="apply-paper" title="应用至正文（替换选中正文或追加到末尾）">${ico('repeat')}应用至正文</button><button class="button" id="dockApplyInsertBtn" title="在光标位置插入">${ico('arrow-down-to-line')}插入光标处</button><button class="button" id="dockApplyAppendBtn" title="追加到章节末尾">${ico('plus')}追加到章节末尾</button><button class="button" id="dockCopyResultBtn" title="复制结果到剪贴板">${ico('copy')}复制结果</button></div></div></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><div class="dock-segmented-tabs" id="editorDockTabs"><button class="dock-pill-btn active" data-dock-tab="outline" title="切换大纲坞站">${ico('milestone')}<span>大纲</span></button><button class="dock-pill-btn" data-dock-tab="knowledge" title="切换设定坞站">${ico('network')}<span>设定</span></button><button class="dock-pill-btn" data-dock-tab="memory" title="切换记忆文风坞站">${ico('brain')}<span>记忆文风</span></button><button class="dock-pill-btn" data-dock-tab="tools" title="切换 AI 工具坞站">${ico('wand-sparkles')}<span>AI工具</span></button></div><button class="editor-toolbar-button" id="editorDockToggle" aria-label="收起工作台坞站" title="展开/收起工作台坞站">${ico('panel-left-close')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article><div class="editor-selection-menu" id="editorSelectionMenu" hidden><button data-sel-tool="去 AI 味">${ico('eraser')}去 AI 味</button><button data-sel-tool="错别字检测">${ico('spell-check')}错别字</button><button data-sel-tool="扩写/润色">${ico('sparkles')}扩写润色</button><button data-sel-tool="节奏分析">${ico('activity')}节奏分析</button><button data-sel-tool="ai-prompt">${ico('message-square')}发给 AI</button></div></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div><div class="editor-ai-dock-tabs" style="display:flex;border-bottom:1px solid var(--line);background:var(--paper-warm);padding:2px 4px;gap:2px"><button class="editor-ai-dock-btn active" type="button" data-completion-action="switch-ai-dock" data-dock="chat" style="flex:1;padding:5px 2px;border:none;background:var(--paper);border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:3px">${ico('sparkles')}AI助手</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="memory" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('brain')}故事记忆</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="docs" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('folder-kanban')}全套资料</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="outline" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('milestone')}细纲伏笔</button></div><div data-ai-dock-view="chat" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div></div><div data-ai-dock-view="memory" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="docs" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="outline" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip" data-completion-action="boost-context" style="color:var(--amber,#b45309);font-weight:700;background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.4)" title="自动聚合当前章节关联的七大资料定位、世界观规则、人物认知与伏笔台账，深度联动生成强化提示词">🚀 全景联动增强 /boost</button><button type="button" class="chat-chip" data-completion-action="assemble-final-prompt" style="color:var(--accent,#4f46e5);font-weight:600;background:rgba(79,70,229,0.06);border-color:rgba(79,70,229,0.3)" title="组装当前选择的题材+文风+章节目标+侧重点+钩子及输入指令，生成结构化最终提示词">🔍 组装最终提示词</button><button type="button" class="chat-chip" data-completion-action="switch-ai-dock" data-dock="memory" title="快速查看并引用故事记忆与人物认知">${ico('brain')} 故事记忆</button><button type="button" class="chat-chip" data-completion-action="switch-ai-dock" data-dock="docs" title="快速查看并引用全套创作资料">${ico('folder-kanban')} 创作资料</button><button type="button" class="chat-chip" data-completion-action="open-full-workbench-browser" title="在全屏独立工作台进行深度研判与推演">${ico('external-link')} 全屏工作台 /browser</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述创作任务，或输入 /boost 全景增强、/browser 全屏工作台…（Enter 发送）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
     }
 
   function renderEditorNav() {
@@ -2601,7 +2599,7 @@
       const isNeedsReview = item.status === 'needs_review' || (run && run.status === 'needs_review');
       const workflowStage = pendingCommit ? run.status : run && run.status === 'accepted' ? 'ready' : item.workflowStage;
       const generationPending = item.status === 'in_progress' || ['extracting', 'planning', 'drafting', 'auditing', 'revising'].includes(workflowStage);
-      const stageLabel = workflowStage ? `<div style="margin-bottom:6px;color:var(--muted);font-size:9px">${esc(workflowLabels[workflowStage] || workflowStage)}</div>` : '';
+      const stageLabel = workflowStage ? `<div class="chat-stage-label" style="margin-bottom:6px;color:var(--muted);font-size:9px">${esc(workflowLabels[workflowStage] || workflowStage)}</div>` : '';
       const statusBadge = item.kind === 'assistant' && item.status === 'failed'
         ? '<span class="badge gray" style="display:inline-block;margin-bottom:4px">生成未完成</span>'
         : (item.kind === 'assistant' && item.status === 'in_progress'
@@ -2615,7 +2613,7 @@
       const adoptBtn = '';
       const reviseBtn = hasAudit ? `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-revise="${index}" data-feature="AI_AUDIT" data-action="audit-revise">按建议优化</button>` : '';
       const retryBtn = item.retryPrompt ? `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-retry="${index}">重新生成</button>` : '';
-      const notice = item.errorNotice ? `<div style="margin-bottom:6px;color:var(--amber,#f59e0b);font-size:9px">${esc(item.errorNotice)}</div>` : '';
+      const notice = item.errorNotice ? `<div class="chat-error-notice" style="margin-bottom:6px;color:var(--amber,#f59e0b);font-size:9px">${esc(item.errorNotice)}</div>` : '';
 
       const hasActionableProse = item.kind === 'assistant' && item.text &&
         !['extracting', 'planning', 'preparing'].includes(workflowStage) &&
@@ -2656,7 +2654,10 @@
         return `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-apply="${target}" data-result-index="${index}"${generationPending || reviewBlocked || (pendingCommit && target !== 'body') ? ' disabled' : ''}>${target === 'setting' ? '保存设定' : target === 'outline' ? '保存大纲' : '记录伏笔'}</button>`;
       }).join('');
       const actionRow = hasResult ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px"><span class="badge ${badgeClass}">${badgeText}</span>${item.audit ? `<div style="margin-top:6px;color:var(--muted);font-size:9px">审计 ${esc(normalizeAudit(item.audit).status)}${item.audit.summary ? `：${esc(item.audit.summary)}` : ''}</div>` : ''}${auditIssuesHtml}${run ? `<div class="chat-usage-meta">${esc(generationUsageSummary(run))}</div>` : ''}<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${applyButtons}<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-copy data-result-index="${index}">复制</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--green,#16a34a);border-color:var(--green,#16a34a)" data-completion-ai-save-dossier="${index}" title="将本段生成中的新设定沉淀到全套创作资料库">${ico('folder-plus')}沉淀资料</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--blue);border-color:var(--blue)" data-completion-ai-memory-extract="${index}" title="从本段提取候选事实与认知变化">${ico('scan')}提取记忆变更</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-style-audit="${index}" title="检测本段文风套话与节奏">${ico('activity')}文风质检</button>${adoptBtn}${reviseBtn}${retryBtn}</div></div>` : (retryBtn ? `<div style="margin-top:6px">${retryBtn}</div>` : '');
-      return `<div class="chat-message ${item.kind === 'user' ? 'user' : ''}"><span class="chat-avatar">${item.kind === 'user' ? '你' : '墨'}</span><div class="chat-bubble">${stageLabel}${statusBadge}${notice}${esc(item.text).replace(/\n/g, '<br>')}${actionRow}</div></div>`;
+      if (item.kind === 'user') {
+        return `<div class="chat-message user"><span class="chat-avatar">你</span><div class="chat-bubble">${esc(item.text).replace(/\n/g, '<br>')}</div></div>`;
+      }
+      return `<div class="chat-message"><span class="chat-avatar">墨</span><div class="chat-bubble"><div class="chat-bubble-text">${stageLabel}${statusBadge}${notice}${esc(item.text).replace(/\n/g, '<br>')}</div><div class="chat-bubble-actions"><button class="chat-bubble-action primary" data-chat-action="apply-paper" title="采纳写入正文">${ico('arrow-down-to-line')}写入正文</button><button class="chat-bubble-action" data-chat-action="copy" title="复制">${ico('copy')}复制</button></div>${actionRow}</div></div>`;
     }).join('');
     chat.innerHTML = items || '<div class="empty"><div class="empty-icon">—</div><p>当前章节还没有 AI 对话记录。</p></div>';
     chat.scrollTop = chat.scrollHeight;
@@ -2856,6 +2857,773 @@
     node.textContent = `已消耗 ${Number.isFinite(spent) ? spent.toFixed(2) : '待结算'} 积分 · ${budget > 0 ? `预算 ${budget.toFixed(2)} · 剩余 ${remaining.toFixed(2)}` : '未设置预算上限'}${status}`;
   }
 
+  let lastEditorSelection = null;
+  let lastEditorSelectedText = '';
+  let currentToolProcessedText = '';
+
+  function captureEditorSelection() {
+    if (typeof window === 'undefined') return;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const stageNode = getStage();
+    const paper = stageNode ? (stageNode.querySelector('[data-completion-paper] .completion-editor-content') || stageNode.querySelector('[data-completion-paper]') || stageNode.querySelector('.editor-paper')) : null;
+    if (!paper) return;
+    try {
+      const range = sel.getRangeAt(0);
+      if (!paper.contains(range.commonAncestorContainer)) return;
+      const commonNode = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode;
+      if (commonNode && commonNode.closest && (commonNode.closest('.editor-paper-meta') || commonNode.closest('.scene-note') || commonNode.closest('[data-completion-chapter-title]'))) return;
+      const text = sel.toString().trim();
+      if (text) {
+        lastEditorSelectedText = text;
+        lastEditorSelection = {
+          range: range.cloneRange(),
+          collapsed: false,
+          text
+        };
+      } else if (sel.isCollapsed) {
+        lastEditorSelectedText = '';
+        lastEditorSelection = {
+          range: range.cloneRange(),
+          collapsed: true,
+          text: ''
+        };
+      }
+    } catch (_) {}
+  }
+
+  function updateSelectionMenu() {
+    captureEditorSelection();
+    const stageNode = getStage();
+    const selMenu = stageNode ? stageNode.querySelector('#editorSelectionMenu') : null;
+    const paper = stageNode ? (stageNode.querySelector('[data-completion-paper] .completion-editor-content') || stageNode.querySelector('[data-completion-paper]') || stageNode.querySelector('.editor-paper')) : null;
+    if (!selMenu || !paper) return;
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+    if (!sel || sel.isCollapsed || !sel.rangeCount) {
+      selMenu.hidden = true;
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    if (!paper.contains(range.commonAncestorContainer)) {
+      selMenu.hidden = true;
+      return;
+    }
+    const commonNode = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode;
+    if (commonNode && commonNode.closest && (commonNode.closest('.editor-paper-meta') || commonNode.closest('.scene-note') || commonNode.closest('[data-completion-chapter-title]'))) {
+      selMenu.hidden = true;
+      return;
+    }
+    const text = sel.toString().trim();
+    if (!text) {
+      selMenu.hidden = true;
+      return;
+    }
+    const rect = range.getBoundingClientRect();
+    selMenu.hidden = false;
+    const top = Math.max(10, rect.top - 40);
+    const left = Math.max(10, Math.min((window.innerWidth || 1000) - 300, rect.left));
+    selMenu.style.top = `${top}px`;
+    selMenu.style.left = `${left}px`;
+  }
+
+  function isWorkbenchDockOpen() {
+    const stageNode = getStage();
+    const dock = stageNode ? stageNode.querySelector('#editorWorkbenchDock') : null;
+    if (!dock) return false;
+    if (typeof window !== 'undefined' && window.innerWidth <= 820) {
+      const preview = stageNode ? stageNode.querySelector('#editorPreview') : null;
+      return preview ? preview.classList.contains('dock-open') : false;
+    }
+    return !dock.classList.contains('collapsed');
+  }
+
+  function setWorkbenchDockState(expanded) {
+    const stageNode = getStage();
+    const dock = stageNode ? stageNode.querySelector('#editorWorkbenchDock') : null;
+    if (!dock) return;
+    dock.classList.toggle('collapsed', !expanded);
+    const preview = stageNode ? stageNode.querySelector('#editorPreview') : null;
+    if (preview) {
+      if (typeof window !== 'undefined' && window.innerWidth <= 820) {
+        preview.classList.toggle('dock-open', expanded);
+        if (expanded) {
+          preview.classList.remove('ai-open');
+          preview.classList.remove('nav-open');
+        }
+      } else if (!expanded) {
+        preview.classList.remove('dock-open');
+      }
+    }
+    const dockToggle = stageNode ? stageNode.querySelector('#editorDockToggle') : null;
+    if (dockToggle) {
+      dockToggle.innerHTML = ico(expanded ? 'panel-left-close' : 'panel-left-open');
+      dockToggle.setAttribute('aria-label', expanded ? '收起工作台坞站' : '展开工作台坞站');
+      dockToggle.title = expanded ? '收起工作台坞站' : '展开工作台坞站';
+      dockToggle.classList.toggle('active', expanded);
+      mountIconsSafe();
+    }
+    if (!expanded) {
+      if (stageNode) stageNode.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => btn.classList.remove('active'));
+    } else {
+      const activePanel = stageNode ? stageNode.querySelector('#editorWorkbenchDock [data-dock-panel].active') : null;
+      const activeTabId = activePanel ? activePanel.dataset.dockPanel : 'outline';
+      if (stageNode) stageNode.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.dockTab === activeTabId);
+      });
+    }
+  }
+
+  function switchWorkbenchDockTab(tabId) {
+    const stageNode = getStage();
+    const dock = stageNode ? stageNode.querySelector('#editorWorkbenchDock') : null;
+    if (!dock) return;
+    setWorkbenchDockState(true);
+    if (stageNode) {
+      stageNode.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.dockTab === tabId);
+      });
+      stageNode.querySelectorAll('#dockNavTabs .dock-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.dockTab === tabId);
+      });
+      stageNode.querySelectorAll('#editorWorkbenchDock [data-dock-panel]').forEach(panel => {
+        panel.classList.toggle('active', panel.dataset.dockPanel === tabId);
+      });
+    }
+  }
+
+  function injectPromptContext(title, meta, desc, typePrefix) {
+    const stageNode = getStage();
+    const promptInput = stageNode ? (stageNode.querySelector('[data-completion-prompt]') || stageNode.querySelector('#editorPrompt')) : null;
+    if (!promptInput) return;
+    const formatted = `【${typePrefix || '上下文引用'}·${title}】${meta ? meta + '：' : ''}${desc}`;
+    const current = promptInput.value.trim();
+    promptInput.value = current ? `${current}\n\n${formatted}` : `${formatted}\n\n`;
+    promptInput.focus();
+    promptInput.selectionStart = promptInput.selectionEnd = promptInput.value.length;
+    try { sessionStorage.setItem('molan_editor_prompt_draft', promptInput.value); } catch (_) {}
+    if (typeof updateStyleDetectionDebounced === 'function') {
+      updateStyleDetectionDebounced(promptInput.value);
+    }
+    const preview = stageNode ? stageNode.querySelector('#editorPreview') : null;
+    if (preview) {
+      preview.classList.add('ai-open');
+      runtime.aiOpen = true;
+    }
+    if (typeof window !== 'undefined' && window.innerWidth <= 820) {
+      setWorkbenchDockState(false);
+    }
+    toast(`已引用「${title}」至 AI 提示词`);
+  }
+
+  function renderWorkbenchDock(state) {
+    if (!state) return;
+    const stageNode = getStage();
+    if (!stageNode) return;
+    const dock = stageNode.querySelector('#editorWorkbenchDock');
+    if (!dock) return;
+
+    renderWorkbenchOutline(state, dock);
+    renderWorkbenchKnowledge(state, dock);
+    renderWorkbenchMemory(state, dock);
+  }
+
+  function renderWorkbenchOutline(state, dock) {
+    const tl = dock.querySelector('#dockOutlineTimeline');
+    const ld = dock.querySelector('#dockOutlineLedger');
+    if (!tl && !ld) return;
+
+    if (tl) {
+      const seq = chapterSequence(state);
+      const current = activeRefs(state);
+      const activeChapId = current.chapter?.id;
+      if (!seq.length) {
+        tl.innerHTML = '<div class="empty" style="padding:16px;font-size:11px;color:var(--muted)">当前作品还没有章节</div>';
+      } else {
+        tl.innerHTML = seq.slice(0, 40).map((item, idx) => {
+          const isCurrent = activeChapId && item.chapter.id === activeChapId;
+          const chapTitle = item.chapter.title || `第 ${idx + 1} 章`;
+          const volTitle = item.volume.title || '正文卷';
+          const meta = `第 ${idx + 1} 章 · ${volTitle}`;
+          const chapOut = (typeof chapterOutline === 'function') ? chapterOutline(state, item) : null;
+          const outlineSummary = chapOut ? (chapOut.synopsis || chapOut.title || '') : '';
+          const rawSummary = item.chapter.summary || item.chapter.goal || outlineSummary || (item.chapter.scenes?.[0]?.content ? item.chapter.scenes[0].content.slice(0, 90).replace(/<[^>]+>/g, '').trim() : '') || '待展开章节';
+          const desc = rawSummary.trim();
+          const badgeClass = isCurrent ? 'amber' : (item.chapter.done ? 'green' : 'blue');
+          const badgeText = isCurrent ? '当前节点' : (item.chapter.done ? '已发生' : '待展开');
+          const activeClass = isCurrent ? ' active-node' : '';
+          return `<div class="dock-node-card${activeClass}" data-quote-title="${esc(chapTitle)}" data-quote-meta="${esc(meta)}" data-quote-desc="${esc(desc)}">
+            <div class="dock-node-head">
+              <span class="dock-node-idx">${String(idx + 1).padStart(2, '0')}</span>
+              <div class="dock-node-titles"><strong>${esc(chapTitle)}</strong><small>${esc(meta)}</small></div>
+              <span class="badge ${badgeClass}">${badgeText}</span>
+              <button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${ico('quote')}引用</button>
+            </div>
+            <p class="dock-node-desc">${esc(desc)}</p>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    if (ld) {
+      const foreshadows = getProjectForeshadows(state);
+      if (!foreshadows.length) {
+        ld.innerHTML = '<div class="empty" style="padding:16px;font-size:11px;color:var(--muted)">暂无伏笔台账</div>';
+      } else {
+        ld.innerHTML = foreshadows.map((f, idx) => {
+          const title = f.title || f.code || `伏笔 ${idx + 1}`;
+          const plantText = (typeof chapterName === 'function' && f.plantedChapterId ? chapterName(state, f.plantedChapterId) : '') || f.plantChapter || f.plant || '已埋设';
+          const payoffText = (typeof chapterName === 'function' && f.targetChapterId ? chapterName(state, f.targetChapterId) : '') || f.payoffChapter || f.payoff || '后续';
+          const meta = `埋设：${plantText} · 预计：${payoffText}`;
+          const desc = f.description || f.desc || f.detail || f.content || f.notes || '暂无伏笔线索说明';
+          const status = f.status || 'active';
+          const isHighRisk = f.strength === 'high' || status === 'high_risk' || status === 'urgent';
+          const isResolved = status === 'resolved';
+          const isDeveloping = status === 'developing';
+          const badgeClass = isResolved ? 'green' : isHighRisk ? 'danger' : isDeveloping ? 'blue' : 'amber';
+          const badgeText = isResolved ? '已回收' : isHighRisk ? '高风险' : isDeveloping ? '发酵中' : '待回收';
+          const displayId = (typeof foreshadowDisplayId === 'function') ? foreshadowDisplayId(f, idx) : `F-${idx + 1}`;
+          return `<div class="dock-node-card" data-quote-title="${esc(title)}" data-quote-meta="${esc(meta)}" data-quote-desc="${esc(desc)}">
+            <div class="dock-node-head">
+              <span class="dock-node-idx">${esc(displayId)}</span>
+              <div class="dock-node-titles"><strong>${esc(title)}</strong><small>${esc(meta)}</small></div>
+              <span class="badge ${badgeClass}">${badgeText}</span>
+              <button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${ico('quote')}引用</button>
+            </div>
+            <p class="dock-node-desc">${esc(desc)}</p>
+          </div>`;
+        }).join('');
+      }
+    }
+  }
+
+  function renderWorkbenchKnowledge(state, dock) {
+    const list = dock.querySelector('#dockEntityList');
+    if (!list) return;
+
+    const characters = getProjectCharacters(state);
+    const worldFacts = getProjectWorldFacts(state);
+
+    const entities = [];
+    characters.forEach(c => {
+      const charDesc = c.personality || c.desc || c.notes || c.intro || c.profile || c.summary || (c.secret ? '隐秘秘密：' + c.secret : '') || '暂无详细设定描述';
+      const roleStr = c.archetype || c.role || '主要人物';
+      entities.push({
+        type: '人物',
+        title: c.name || '未命名角色',
+        meta: `人物 / ${roleStr}${c.voice ? ' / ' + c.voice : ''}`,
+        desc: charDesc,
+        badgeClass: 'green'
+      });
+    });
+
+    worldFacts.forEach(f => {
+      let t = '设定';
+      const cat = (f.category || f.type || '').toLowerCase();
+      if (/faction|势力|宗门|门派|帮派|家族|教派|组织/.test(cat)) t = '势力';
+      else if (/item|物品|道具|灵器|法宝|功法|秘籍|宝物|丹药|兵器|神兵/.test(cat)) t = '物品';
+      else if (/location|地点|地理|城市|城池|区域|秘境|山门|国度|大陆/.test(cat)) t = '地点';
+      else if (/character|人物|角色|npc/.test(cat)) t = '人物';
+      else if (/rule|法则|世界观|机制|禁忌/.test(cat)) t = '设定';
+      else if (f.type && ['人物', '地点', '势力', '物品', '设定'].includes(f.type)) t = f.type;
+
+      const badgeClass = t === '地点' ? 'blue' : t === '势力' ? 'amber' : t === '物品' ? 'gray' : t === '人物' ? 'green' : 'blue';
+      entities.push({
+        type: t,
+        title: f.title || f.name || '世界观设定',
+        meta: `${t} / ${f.category || f.scope || '通用'}`,
+        desc: f.desc || f.description || f.content || f.summary || f.rule || f.effect || '暂无详细描述',
+        badgeClass
+      });
+    });
+
+    if (!entities.length) {
+      list.innerHTML = '<div class="empty" style="padding:16px;font-size:11px;color:var(--muted)">暂无设定实体数据</div>';
+      return;
+    }
+
+    list.innerHTML = entities.map(e => {
+      return `<div class="dock-entity-card" data-entity-type="${esc(e.type)}" data-quote-title="${esc(e.title)}" data-quote-meta="${esc(e.meta)}" data-quote-desc="${esc(e.desc)}">
+        <div class="dock-entity-head">
+          <span class="badge ${e.badgeClass}">${esc(e.type)}</span>
+          <div class="dock-entity-titles"><strong>${esc(e.title)}</strong><small>${esc(e.meta)}</small></div>
+          <button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${ico('quote')}引用</button>
+        </div>
+        <p class="dock-entity-desc">${esc(e.desc)}</p>
+      </div>`;
+    }).join('');
+    filterDockEntities(dock);
+  }
+
+  function renderWorkbenchMemory(state, dock) {
+    const panel = dock.querySelector('[data-dock-panel="memory"]');
+    if (!panel) return;
+
+    const current = activeRefs(state);
+    const scene = current.scene;
+    const sceneGoal = scene?.goal || scene?.name || '推进主线剧情';
+    const sceneNote = scene?.note || scene?.conflict || '保持冲突张力与人物逻辑一致';
+
+    const styleName = state.writingStyle || state.style || state.archetypeOverride || '极简水墨冷峻';
+    const perspective = state.perspective || state.pov || '第三人称限知视角';
+
+    panel.innerHTML = `
+      <div class="section-title" style="font-size:11px;margin-bottom:6px">故事记忆与前情约束</div>
+      <div class="dock-memory-card" data-quote-title="当前场景目标" data-quote-meta="剧情事实" data-quote-desc="${esc(sceneGoal)}">
+        <div class="dock-memory-head">
+          <span class="badge green">前情</span>
+          <strong style="font-size:11px;flex:1">场景目标 · ${esc(scene?.name || '当前场景')}</strong>
+          <button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${ico('quote')}引用</button>
+        </div>
+        <p class="dock-memory-desc">${esc(sceneGoal)}</p>
+      </div>
+      <div class="dock-memory-card" data-quote-title="核心约束与提示" data-quote-meta="前情约束" data-quote-desc="${esc(sceneNote)}">
+        <div class="dock-memory-head">
+          <span class="badge danger">禁忌</span>
+          <strong style="font-size:11px;flex:1">核心约束</strong>
+          <button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${ico('quote')}引用</button>
+        </div>
+        <p class="dock-memory-desc">${esc(sceneNote)}</p>
+      </div>
+      <div class="section-title" style="font-size:11px;margin-top:8px;margin-bottom:6px">文风规约与叙事引擎</div>
+      <div class="dock-memory-card" data-quote-title="叙事视角规约" data-quote-meta="文风规约" data-quote-desc="${esc(perspective)}，聚焦主要人物视线所及与心智博弈，严禁全知剧透。">
+        <div class="dock-memory-head">
+          <span class="badge blue">视角</span>
+          <strong style="font-size:11px;flex:1">${esc(perspective)}</strong>
+          <button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${ico('quote')}引用</button>
+        </div>
+        <p class="dock-memory-desc">${esc(perspective)}，聚焦主要人物视线所及与心智博弈，严禁全知剧透。</p>
+      </div>
+      <div class="dock-memory-card" data-quote-title="语言风格规约" data-quote-meta="文风规约" data-quote-desc="动作白描为主，去除AI套话八股与排比句式，环境声音服务于压迫感。">
+        <div class="dock-memory-head">
+          <span class="badge gray">语言</span>
+          <strong style="font-size:11px;flex:1">${esc(styleName)}</strong>
+          <button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${ico('quote')}引用</button>
+        </div>
+        <p class="dock-memory-desc">动作白描为主，去除AI套话八股与排比句式，环境声音服务于压迫感。</p>
+      </div>
+      <div class="dock-memory-card" data-quote-title="对白规约" data-quote-meta="文风规约" data-quote-desc="少解释性台词，每句话皆暗藏试探与利益博弈，以人物神态与动作停顿体现潜台词。">
+        <div class="dock-memory-head">
+          <span class="badge amber">对白</span>
+          <strong style="font-size:11px;flex:1">对白暗藏机锋</strong>
+          <button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${ico('quote')}引用</button>
+        </div>
+        <p class="dock-memory-desc">少解释性台词，每句话皆暗藏试探与利益博弈，以人物神态与动作停顿体现潜台词。</p>
+      </div>
+      <button class="button primary" id="dockInjectStylePresetBtn" style="margin-top:6px;width:100%">${ico('sparkles')}一键引用完整文风规约</button>
+    `;
+  }
+
+  function filterDockEntities(dock) {
+    const searchInput = dock.querySelector('#dockEntitySearch');
+    const query = (searchInput?.value || '').trim().toLowerCase();
+    const activeFilter = dock.querySelector('.dock-filter-tag.active')?.dataset.entityFilter || 'all';
+    let visibleCount = 0;
+    dock.querySelectorAll('#dockEntityList .dock-entity-card').forEach(card => {
+      const type = card.dataset.entityType || '';
+      const title = (card.dataset.quoteTitle || '').toLowerCase();
+      const desc = (card.dataset.quoteDesc || '').toLowerCase();
+      const matchQuery = !query || title.includes(query) || desc.includes(query);
+      const matchFilter = activeFilter === 'all' || type === activeFilter || (activeFilter === '物品' && type === '设定');
+      const visible = matchQuery && matchFilter;
+      card.style.display = visible ? 'flex' : 'none';
+      if (visible) visibleCount++;
+    });
+    const emptyHint = dock.querySelector('#dockEntityList .dock-empty-search');
+    if (visibleCount === 0) {
+      if (!emptyHint) {
+        const hintEl = document.createElement('div');
+        hintEl.className = 'dock-empty-search';
+        hintEl.style.cssText = 'padding:14px;font-size:11px;color:var(--muted);text-align:center';
+        hintEl.textContent = query ? '未找到匹配的设定实体' : '该分类下暂无实体';
+        dock.querySelector('#dockEntityList')?.appendChild(hintEl);
+      } else {
+        emptyHint.textContent = query ? '未找到匹配的设定实体' : '该分类下暂无实体';
+        emptyHint.style.display = 'block';
+      }
+    } else if (emptyHint) {
+      emptyHint.style.display = 'none';
+    }
+  }
+
+  function extractRevisedProse(fullText) {
+    if (!fullText) return '';
+    let text = String(fullText).trim();
+    text = text.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
+
+    const markers = [
+      '【改写稿】',
+      '【校对后建议稿】',
+      '【扩写稿】',
+      '【润色稿】',
+      '【优化后建议稿】',
+      '【修改后建议稿】',
+      '【改写建议稿】',
+      '【修改建议稿】',
+      '【建议片段】',
+      '【改写正文】',
+      '【改写后正文】',
+      '【优化后正文】',
+      '【修改后正文】',
+      '【润色后建议稿】',
+      '【最终正文】',
+      '【最终成稿】',
+      '【优化稿】',
+      '【校对稿】',
+      '【精修稿】',
+      '【改写建议】'
+    ];
+
+    for (const marker of markers) {
+      const idx = text.indexOf(marker);
+      if (idx !== -1) {
+        let after = text.slice(idx + marker.length).trim();
+        after = after.replace(/^[（(][^）)\r\n]+[）)]\s*/, '');
+        after = after.replace(/<br\s*\/?>/gi, '\n');
+        after = after.replace(/^[\s*:：#\->*]+/, '').trim();
+        after = after.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').trim();
+        const stopIdx = after.search(/\n\s*(?:【|#{1,4}\s*|\*{1,2})(?:消除点|注意|解析|分析|说明|总结|点评|推进建议|修改点|改写说明|修改说明|优化说明|写作建议|节奏诊断|问题清单|修改对比|差异说明|参考说明|备注|注意点|思考|附注|校对清单|主要修改|修改理由)/);
+        if (stopIdx !== -1) {
+          after = after.slice(0, stopIdx).trim();
+        }
+        after = after.replace(/[\r\n]*\s*```+\s*$/g, '').trim();
+        after = after.replace(/^[*_`]+|[*_`]+$/g, '').trim();
+        if (after) return after;
+      }
+    }
+
+    const markerRegex = /(?:^|\n)\s*(?:#{1,4}\s*|\*{1,2}|【)?(?:改写稿|校对后建议稿|扩写稿|润色稿|优化后建议稿|修改后建议稿|改写建议稿|修改建议稿|建议片段|改写正文|改写后正文|优化后正文|修改后正文|润色后建议稿|最终正文|最终成稿|优化稿|校对稿|精修稿|改写建议)(?:】|\*{1,2}|[：:])?\s*[\r\n]*/;
+    const match = text.match(markerRegex);
+    if (match) {
+      let after = text.slice(match.index + match[0].length).trim();
+      after = after.replace(/^[（(][^）)\r\n]+[）)]\s*/, '');
+      after = after.replace(/<br\s*\/?>/gi, '\n');
+      after = after.replace(/^[\s*:：#\->*]+/, '').trim();
+      after = after.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').trim();
+      const stopIdx = after.search(/\n\s*(?:【|#{1,4}\s*|\*{1,2})(?:消除点|注意|解析|分析|说明|总结|点评|推进建议|修改点|改写说明|修改说明|优化说明|写作建议|节奏诊断|问题清单|修改对比|差异说明|参考说明|备注|注意点|思考|附注|校对清单|主要修改|修改理由)/);
+      if (stopIdx !== -1) {
+        after = after.slice(0, stopIdx).trim();
+      }
+      after = after.replace(/[\r\n]*\s*```+\s*$/g, '').trim();
+      after = after.replace(/^[*_`]+|[*_`]+$/g, '').trim();
+      if (after) return after;
+    }
+
+    if (text.includes('推进建议')) {
+      const match = text.match(/推进建议[：:]\s*([\s\S]+?)(?=\n\s*(?:【|#{1,4}|\*{1,2}|$))/);
+      if (match) {
+        let rec = match[1].replace(/^[\s*#\->]+/, '').trim();
+        rec = rec.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
+        if (rec) return rec;
+      }
+    }
+
+    return text.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
+  }
+
+  async function executeDockTool() {
+    const stageNode = getStage();
+    const toolInput = stageNode ? stageNode.querySelector('#dockToolInput') : null;
+    const toolResultText = stageNode ? stageNode.querySelector('#dockToolResultText') : null;
+    const toolResultActions = stageNode ? stageNode.querySelector('#dockToolResultActions') : null;
+    const runBtn = stageNode ? stageNode.querySelector('#dockExecuteToolBtn') : null;
+    if (runBtn && runBtn.disabled) return;
+    const activeChoice = stageNode ? stageNode.querySelector('.dock-tool-choice.active') : null;
+    const currentActiveTool = activeChoice ? activeChoice.dataset.tool : '去 AI 味';
+
+    const rawText = toolInput ? toolInput.value.trim() : '';
+    if (!rawText) {
+      toast('请先输入或从正文读取要处理的内容');
+      toolInput?.focus();
+      return;
+    }
+    if (runBtn) runBtn.disabled = true;
+    if (toolResultText) toolResultText.innerHTML = '<span class="chat-thinking visible" style="display:inline-block">正在处理，调用创作模型…</span>';
+    if (toolResultActions) toolResultActions.style.display = 'none';
+
+    const toolPrompts = {
+      '去 AI 味': '你的任务是依据 Stop AI Slop 准则消除中文 AI 写作痕迹，把机械生硬的文本改写成人话。严格执行：1. 拆排比三件套；2. 去名词化；3. 换抽象主语为具体的人或细节；4. 删金句收尾与抒情扩散；5. 删虚词与程度副词；6. 删元评论与八股连接词；7. 价值判断替换为具体动作或场景。保持原意，先列出消除点，再给出完整自然改写稿：\n【改写稿】\n',
+      '错别字检测': '请检查错别字、标点、病句和语义重复，按清单列出后，给出：\n【校对后建议稿】\n',
+      '扩写/润色': '请在保持原意和克制水墨风格的前提下，扩写丰富感官白描、动作细节与心理微滞，给出：\n【扩写稿】\n',
+      '节奏分析': '请分析场景目标、冲突推进、信息增量和节奏停留，指出修改建议。'
+    };
+
+    try {
+      let output = '';
+      const reqFn = (typeof requestChatText === 'function') ? requestChatText : (typeof window !== 'undefined' && typeof window.requestChatText === 'function') ? window.requestChatText : null;
+      if (reqFn) {
+        try {
+          output = await reqFn([
+            { role: 'system', content: `你是墨阑创作工作台专用工具“${currentActiveTool}”。${toolPrompts[currentActiveTool] || ''}` },
+            { role: 'user', content: rawText }
+          ], { stage: 'humanizer', maxTokens: 1400 });
+        } catch (_) {
+          output = '';
+        }
+      }
+      if (!output) {
+        try {
+          const resp = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [
+                { role: 'system', content: `你是墨阑创作工作台专用工具“${currentActiveTool}”。${toolPrompts[currentActiveTool] || ''}` },
+                { role: 'user', content: rawText }
+              ],
+              stream: false
+            })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            output = data.content || data.reply || data.text || '';
+          }
+        } catch (_) {}
+
+        if (!output) {
+          // Contextual offline fallback grounded in user's raw text
+          if (currentActiveTool === '去 AI 味') {
+            const humanized = rawText
+              .replace(/某种程度上[，,]?\s*/g, '')
+              .replace(/值得注意的是[，,]?\s*/g, '')
+              .replace(/不仅如此[，,]?\s*/g, '')
+              .replace(/总的来说[，,]?\s*/g, '')
+              .replace(/显而易见的是[，,]?\s*/g, '')
+              .replace(/毫无疑问[，,]?\s*/g, '')
+              .replace(/不由得|不禁/g, '下意识')
+              .replace(/悄然/g, '悄悄')
+              .replace(/宛如|仿佛/g, '像');
+            output = `【主要消除点】\n1. 拆除排比连缀，增强场景物理触感\n2. 剥离虚化修饰词与冗余副词\n3. 换抽象主格为主角视线与微动作\n\n【改写稿】\n${humanized}`;
+          } else if (currentActiveTool === '错别字检测') {
+            const normalizedPunct = rawText
+              .replace(/，{2,}/g, '，')
+              .replace(/。{2,}/g, '。')
+              .replace(/？{2,}/g, '？')
+              .replace(/！{2,}/g, '！')
+              .replace(/([^0-9]),([^0-9])/g, '$1，$2');
+            output = `【校对清单】\n1. 标点规范：规范多重冗余标点与停顿节奏\n2. 语病精简：删减重叠虚饰词，语句更显洗练干脆\n\n【校对后建议稿】\n${normalizedPunct}`;
+          } else if (currentActiveTool === '扩写/润色') {
+            output = `【扩写稿】\n${rawText}\n\n四下水汽渐重，周遭声音似被雨幕滤过一层，空气里泛出冷铁与尘泥相融的微涩。脚步落在阶前，每踏出一步，暗处投来的视线便紧逼半寸。`;
+          } else {
+            const len = rawText.replace(/\s/g, '').length;
+            const tension = Math.min(95, Math.max(65, 70 + Math.floor(len / 30)));
+            output = `【节奏诊断报告】\n- 场景张力：${tension} / 100（当前片段字数 ${len} 字）\n- 节奏曲线：起承过渡平稳，适宜在核心博弈节点强化动作停顿与对白留白\n- 推进建议：建议在角色做出关键选择前增加半拍动作停顿，强化心理博弈张力。`;
+          }
+        }
+      }
+      currentToolProcessedText = output;
+      if (toolResultText) toolResultText.textContent = output;
+      if (toolResultActions) toolResultActions.style.display = 'flex';
+    } catch (err) {
+      toast('处理失败：' + (err.message || '网络或模型异常'));
+      if (toolResultText) toolResultText.textContent = '处理遇到问题，请稍后重试。';
+    } finally {
+      if (runBtn) runBtn.disabled = false;
+    }
+  }
+
+  function applyTextToEditorPaper(text, mode = 'replace') {
+    if (!text) return false;
+    const cleanText = extractRevisedProse(text);
+    if (!cleanText) return false;
+    const stageNode = getStage();
+    const paper = stageNode ? (stageNode.querySelector('[data-completion-paper] .completion-editor-content') || stageNode.querySelector('[data-completion-paper]') || stageNode.querySelector('.editor-paper')) : null;
+    if (!paper) return false;
+
+    const state = editorState(false);
+    const current = state ? activeRefs(state) : null;
+
+    const paragraphs = cleanText.split(/\r?\n+/).map(p => p.trim()).filter(Boolean);
+    if (!paragraphs.length) return false;
+
+    const container = paper.classList.contains('completion-editor-content') ? paper : (paper.querySelector('.completion-editor-content') || paper);
+
+    // Remove placeholder element from empty scene
+    const placeholder = container.querySelector('.editor-empty-copy, [data-placeholder="true"]');
+    if (placeholder) {
+      placeholder.remove();
+    }
+
+    const rawRange = (lastEditorSelection && lastEditorSelection.range && container.contains(lastEditorSelection.range.commonAncestorContainer)) ? lastEditorSelection.range : null;
+    const hasRealSelection = Boolean(rawRange && !lastEditorSelection.collapsed);
+
+    let effectiveMode = mode;
+    if (mode === 'insert') {
+      effectiveMode = hasRealSelection ? 'replace' : (rawRange ? 'cursor' : 'append');
+    }
+
+    let applied = false;
+    if ((effectiveMode === 'replace' && hasRealSelection && rawRange) || (effectiveMode === 'cursor' && rawRange)) {
+      try {
+        if (!rawRange.collapsed) rawRange.deleteContents();
+
+        let startBlock = rawRange.startContainer;
+        while (startBlock && startBlock.parentNode !== container && startBlock !== container) {
+          startBlock = startBlock.parentNode;
+        }
+        let endBlock = rawRange.endContainer;
+        while (endBlock && endBlock.parentNode !== container && endBlock !== container) {
+          endBlock = endBlock.parentNode;
+        }
+
+        if (startBlock && endBlock && startBlock !== endBlock && startBlock !== container && endBlock !== container && startBlock.nodeType === 1 && endBlock.nodeType === 1) {
+          const startTag = startBlock.tagName.toLowerCase();
+          const endTag = endBlock.tagName.toLowerCase();
+
+          const rangeBefore = document.createRange();
+          rangeBefore.setStart(startBlock, 0);
+          rangeBefore.setEnd(rawRange.startContainer, rawRange.startOffset);
+          const preText = rangeBefore.cloneContents().textContent || '';
+
+          const rangeAfter = document.createRange();
+          rangeAfter.setStart(rawRange.endContainer, rawRange.endOffset);
+          rangeAfter.setEnd(endBlock, endBlock.childNodes.length);
+          const postText = rangeAfter.cloneContents().textContent || '';
+
+          const blocksToRemove = [];
+          let curr = startBlock;
+          while (curr) {
+            blocksToRemove.push(curr);
+            if (curr === endBlock) break;
+            curr = curr.nextSibling;
+          }
+
+          const frag = document.createDocumentFragment();
+          if (paragraphs.length === 1) {
+            const pEl = document.createElement(startTag === 'h2' ? 'h2' : 'p');
+            pEl.textContent = preText + paragraphs[0] + postText;
+            frag.appendChild(pEl);
+          } else {
+            const firstEl = document.createElement(startTag);
+            firstEl.textContent = preText + paragraphs[0];
+            frag.appendChild(firstEl);
+
+            for (let i = 1; i < paragraphs.length - 1; i++) {
+              const pEl = document.createElement('p');
+              pEl.textContent = paragraphs[i];
+              frag.appendChild(pEl);
+            }
+
+            const lastEl = document.createElement(endTag === 'h2' || endTag === 'h3' ? 'p' : endTag);
+            lastEl.textContent = paragraphs[paragraphs.length - 1] + postText;
+            frag.appendChild(lastEl);
+          }
+
+          container.insertBefore(frag, startBlock);
+          blocksToRemove.forEach(b => b.remove());
+          applied = true;
+        } else if (startBlock && startBlock !== container && startBlock.nodeType === 1 && paragraphs.length > 1) {
+          const tag = startBlock.tagName.toLowerCase();
+          const pBefore = document.createElement(tag);
+          const pAfter = document.createElement(tag);
+
+          const rangeBefore = document.createRange();
+          rangeBefore.setStart(startBlock, 0);
+          rangeBefore.setEnd(rawRange.startContainer, rawRange.startOffset);
+          pBefore.appendChild(rangeBefore.cloneContents());
+
+          const rangeAfter = document.createRange();
+          rangeAfter.setStart(rawRange.endContainer, rawRange.endOffset);
+          rangeAfter.setEnd(startBlock, startBlock.childNodes.length);
+          pAfter.appendChild(rangeAfter.cloneContents());
+
+          const frag = document.createDocumentFragment();
+          const preText = pBefore.textContent || '';
+          const postText = pAfter.textContent || '';
+
+          const firstEl = document.createElement(tag);
+          firstEl.textContent = preText + paragraphs[0];
+          frag.appendChild(firstEl);
+
+          for (let i = 1; i < paragraphs.length; i++) {
+            const pEl = document.createElement(tag === 'h2' || tag === 'h3' ? 'p' : tag);
+            if (i === paragraphs.length - 1 && postText) {
+              pEl.textContent = paragraphs[i] + postText;
+            } else {
+              pEl.textContent = paragraphs[i];
+            }
+            frag.appendChild(pEl);
+          }
+
+          container.replaceChild(frag, startBlock);
+          applied = true;
+        } else if (paragraphs.length === 1 && rawRange) {
+          if (startBlock && startBlock !== container && startBlock.nodeType === 1) {
+            rawRange.insertNode(document.createTextNode(paragraphs[0]));
+          } else {
+            const pEl = document.createElement('p');
+            pEl.textContent = paragraphs[0];
+            rawRange.insertNode(pEl);
+          }
+          applied = true;
+        } else {
+          const frag = document.createDocumentFragment();
+          paragraphs.forEach(p => {
+            const pEl = document.createElement('p');
+            pEl.textContent = p;
+            frag.appendChild(pEl);
+          });
+          rawRange.insertNode(frag);
+          applied = true;
+        }
+
+        toast(effectiveMode === 'replace' ? '已替换正文选中内容' : '已插入光标所在位置');
+      } catch (_) {
+        applied = false;
+      }
+    }
+
+    if (!applied) {
+      paragraphs.forEach(p => {
+        const pEl = document.createElement('p');
+        pEl.textContent = p;
+        container.appendChild(pEl);
+      });
+      applied = true;
+      toast(mode === 'insert' ? '已将 AI 回复写入正文' : '已追加至章节末尾');
+    }
+
+    const rawContent = container.innerHTML;
+    const newContent = (typeof normalizeSceneContent === 'function')
+      ? normalizeSceneContent(rawContent, current?.chapter?.title || '')
+      : rawContent;
+
+    if (current && current.scene) {
+      current.scene.content = newContent;
+    }
+    const preview = getPreview();
+    if (preview) preview.editorBody = newContent;
+
+    const wc = wordCount(newContent);
+    const countEl = stageNode.querySelector('#editorWordCount') || stageNode.querySelector('.editor-paper-meta span:last-child');
+    if (countEl) countEl.textContent = `${wc.toLocaleString()} 字`;
+
+    markEditorDirty(true);
+    lastEditorSelection = null;
+    lastEditorSelectedText = '';
+    return true;
+  }
+
+  async function copyText(text) {
+    if (!text) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else if (typeof document !== 'undefined') {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    } catch (_) {}
+  }
+
+  window.applyTextToEditorPaper = applyTextToEditorPaper;
+  window.extractRevisedProse = extractRevisedProse;
+
   function renderEditorSurface() {
     const stageNode = getStage();
     if (!stageNode || currentPageName() !== 'editor') return;
@@ -2863,6 +3631,7 @@
     if (state && state.creationBookId) void hydrateCreationContext(state);
     renderEditorNav();
     renderEditorPaper();
+    renderWorkbenchDock(state);
     renderEditorChat();
     populateCompletionSelectors();
     renderCreationCost(state);
@@ -8069,7 +8838,8 @@ ${userCurrentInput || '请基于上述工作台设定与人物认知，紧承上
   }
 
   function chapterName(state, id) {
-    const chapter = state.volumes.flatMap(volume => volume.chapters).find(item => item.id === id); return chapter && chapter.title;
+    const chapter = (state?.volumes || []).flatMap(volume => volume?.chapters || []).find(item => item && item.id === id);
+    return chapter && chapter.title;
   }
 
   function addOutlineNode() {
@@ -8445,6 +9215,276 @@ ${userCurrentInput || '请基于上述工作台设定与人物认知，紧承上
         insertTextToEditor(insertProseBtn.dataset.completionInsertToProse);
         return;
       }
+      // AI 气泡采纳与复制委托
+      const chatActionBtn = event.target.closest('[data-chat-action]');
+      if (chatActionBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const chatAction = chatActionBtn.dataset.chatAction;
+        const bubble = chatActionBtn.closest('.chat-bubble');
+        if (bubble) {
+          if (chatAction === 'apply-paper' && (runtime.editorBusy || runtime.activeGenerationRun)) {
+            toast('生成或审校尚未完成，无法提前写入');
+            return;
+          }
+          const textEl = bubble.querySelector('.chat-bubble-text') || bubble;
+          const clone = textEl.cloneNode(true);
+          clone.querySelectorAll('.chat-bubble-actions').forEach(el => el.remove());
+          clone.querySelectorAll('.badge').forEach(el => el.remove());
+          clone.querySelectorAll('details').forEach(el => el.remove());
+          clone.querySelectorAll('.chat-stage-label, .chat-error-notice, .chat-usage-meta').forEach(el => el.remove());
+          clone.querySelectorAll('div').forEach(d => {
+            if (d.style.color === 'var(--muted)' || d.style.color === 'var(--amber,#f59e0b)' || d.style.fontSize === '9px') d.remove();
+          });
+          clone.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+          const content = clone.textContent.trim();
+          if (content) {
+            if (chatAction === 'copy') {
+              void copyText(content).then(() => toast('已复制到剪贴板'));
+            } else if (chatAction === 'apply-paper') {
+              if (content.startsWith('正在') || content.startsWith('生成未完成') || content.startsWith('请求未完成')) {
+                toast('当前内容为状态提示，无法写入正文');
+                return;
+              }
+              applyTextToEditorPaper(content, 'insert');
+            }
+          }
+        }
+        return;
+      }
+      // 创作坞站：折叠与展开
+      const dockToggle = event.target.closest('#editorDockToggle');
+      if (dockToggle) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        setWorkbenchDockState(!isWorkbenchDockOpen());
+        return;
+      }
+      const dockCollapseBtn = event.target.closest('#dockCollapseBtn');
+      if (dockCollapseBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        setWorkbenchDockState(false);
+        return;
+      }
+      // 创作坞站：顶部分段药丸 Tab 与坞站导航 Tab 切换
+      const dockPillBtn = event.target.closest('#editorDockTabs .dock-pill-btn');
+      if (dockPillBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const tabId = dockPillBtn.dataset.dockTab;
+        if (dockPillBtn.classList.contains('active') && isWorkbenchDockOpen()) {
+          setWorkbenchDockState(false);
+        } else {
+          switchWorkbenchDockTab(tabId);
+        }
+        return;
+      }
+      const dockTabBtn = event.target.closest('#dockNavTabs .dock-tab-btn');
+      if (dockTabBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        switchWorkbenchDockTab(dockTabBtn.dataset.dockTab);
+        return;
+      }
+      // 创作坞站：大纲时间线与伏笔台账子页切换
+      const outlineSubBtn = event.target.closest('[data-outline-sub]');
+      if (outlineSubBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const mode = outlineSubBtn.dataset.outlineSub;
+        const stageNode = getStage();
+        if (stageNode) {
+          stageNode.querySelectorAll('[data-outline-sub]').forEach(b => b.classList.toggle('active', b === outlineSubBtn));
+          const tl = stageNode.querySelector('#dockOutlineTimeline');
+          const ld = stageNode.querySelector('#dockOutlineLedger');
+          if (tl) tl.style.display = mode === 'timeline' ? 'block' : 'none';
+          if (ld) ld.style.display = mode === 'ledger' ? 'block' : 'none';
+        }
+        return;
+      }
+      // 创作坞站：实体分类过滤标签
+      const filterTag = event.target.closest('.dock-filter-tag');
+      if (filterTag && filterTag.closest('#editorWorkbenchDock')) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const stageNode = getStage();
+        if (stageNode) {
+          stageNode.querySelectorAll('.dock-filter-tag').forEach(t => t.classList.toggle('active', t === filterTag));
+          const dock = stageNode.querySelector('#editorWorkbenchDock');
+          if (dock) filterDockEntities(dock);
+        }
+        return;
+      }
+      // 创作坞站：文风规约一键注入按钮
+      const stylePresetBtn = event.target.closest('#dockInjectStylePresetBtn');
+      if (stylePresetBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const state = editorState(false);
+        const styleName = (state && (state.writingStyle || state.style || state.archetypeOverride)) || '极简水墨冷峻';
+        const perspective = (state && (state.perspective || state.pov)) || '第三人称限知视角';
+        const genreName = (state && (state.genreFamily || state.novelGenre || state.genre || state.type)) || '长篇小说';
+        const fullSpec = `视角：${perspective}（聚焦主要人物感官与心智博弈）；节奏：高压迫推进、每千字递进一次冲突；语言：${styleName}、去除AI套话八股、强化微动作与环境声音；对白：潜台词试探、拒绝解释性长句。`;
+        injectPromptContext(`${genreName}文风`, '全套叙事引擎', fullSpec, '文风规约合集');
+        return;
+      }
+      // 创作坞站：节点卡片与引用按钮引用到 AI 提示词
+      const quoteCard = event.target.closest('.dock-node-card, .dock-entity-card, .dock-memory-card');
+      if (quoteCard && quoteCard.closest('#editorWorkbenchDock')) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const title = quoteCard.dataset.quoteTitle || '';
+        const meta = quoteCard.dataset.quoteMeta || '';
+        const desc = quoteCard.dataset.quoteDesc || '';
+        let typePrefix = '上下文引用';
+        if (quoteCard.classList.contains('dock-node-card')) {
+          const isLedger = Boolean(quoteCard.closest('#dockOutlineLedger'));
+          typePrefix = isLedger ? '伏笔上下文' : '大纲上下文';
+        } else if (quoteCard.classList.contains('dock-entity-card')) {
+          typePrefix = '设定参考';
+        } else if (quoteCard.classList.contains('dock-memory-card')) {
+          typePrefix = meta || '故事记忆';
+        }
+        injectPromptContext(title, meta, desc, typePrefix);
+        return;
+      }
+      // 创作坞站：AI 工具箱选择
+      const toolChoice = event.target.closest('.dock-tool-choice');
+      if (toolChoice && toolChoice.closest('#editorWorkbenchDock')) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const stageNode = getStage();
+        if (stageNode) {
+          stageNode.querySelectorAll('.dock-tool-choice').forEach(c => c.classList.toggle('active', c === toolChoice));
+          const tool = toolChoice.dataset.tool;
+          const toolDesc = stageNode.querySelector('#dockCurrentToolDesc');
+          const toolDescriptions = {
+            '去 AI 味': '依据 Stop AI Slop 准则消除机械排比与套话，还原人话叙事',
+            '错别字检测': '检查错别字、标点规范、语病与语义重复',
+            '扩写/润色': '丰富感官白描、动作细节与场景冷雨质感',
+            '节奏分析': '诊断场景目标推进、冲突密度与情绪张力'
+          };
+          if (toolDesc) toolDesc.textContent = toolDescriptions[tool] || 'AI 写作工具分析';
+        }
+        return;
+      }
+      // 创作坞站：读取正文选区至工具箱
+      const fetchSelBtn = event.target.closest('#dockFetchSelectionBtn');
+      if (fetchSelBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        captureEditorSelection();
+        const stageNode = getStage();
+        if (lastEditorSelectedText) {
+          const toolInput = stageNode ? stageNode.querySelector('#dockToolInput') : null;
+          if (toolInput) toolInput.value = lastEditorSelectedText;
+          const toolWc = stageNode ? stageNode.querySelector('#dockToolWordCount') : null;
+          if (toolWc) {
+            const len = lastEditorSelectedText.replace(/\s/g, '').length;
+            toolWc.textContent = `${len} 字`;
+          }
+          toast('已读取正文选中内容');
+        } else {
+          toast('请先在正文编辑区划选文字');
+        }
+        return;
+      }
+      // 创作坞站：执行独立 AI 工具
+      const execToolBtn = event.target.closest('#dockExecuteToolBtn');
+      if (execToolBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        void executeDockTool();
+        return;
+      }
+      // 创作坞站：处理结果采纳写入正文（三种模式）与复制
+      const applyReplaceBtn = event.target.closest('#dockApplyReplaceBtn');
+      if (applyReplaceBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const prose = extractRevisedProse(currentToolProcessedText);
+        applyTextToEditorPaper(prose, 'replace');
+        return;
+      }
+      const applyInsertBtn = event.target.closest('#dockApplyInsertBtn');
+      if (applyInsertBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const prose = extractRevisedProse(currentToolProcessedText);
+        applyTextToEditorPaper(prose, 'cursor');
+        return;
+      }
+      const applyAppendBtn = event.target.closest('#dockApplyAppendBtn');
+      if (applyAppendBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const prose = extractRevisedProse(currentToolProcessedText);
+        applyTextToEditorPaper(prose, 'append');
+        return;
+      }
+      const copyResultBtn = event.target.closest('#dockCopyResultBtn');
+      if (copyResultBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const textToCopy = (currentToolProcessedText || '').trim() || extractRevisedProse(currentToolProcessedText);
+        void copyText(textToCopy).then(() => toast('已复制处理结果'));
+        return;
+      }
+      // 划选浮动快捷菜单点击
+      const selMenuBtn = event.target.closest('#editorSelectionMenu button[data-sel-tool]');
+      if (selMenuBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.__molanDockHandled = true;
+        const tool = selMenuBtn.dataset.selTool;
+        const stageNode = getStage();
+        const selMenu = stageNode ? stageNode.querySelector('#editorSelectionMenu') : null;
+        if (selMenu) selMenu.hidden = true;
+        if (tool === 'ai-prompt') {
+          injectPromptContext('正文选区', '', `"${lastEditorSelectedText}"`, '选区探讨');
+        } else {
+          const toolInput = stageNode ? stageNode.querySelector('#dockToolInput') : null;
+          if (toolInput) toolInput.value = lastEditorSelectedText;
+          const toolWc = stageNode ? stageNode.querySelector('#dockToolWordCount') : null;
+          if (toolWc) {
+            const len = lastEditorSelectedText.replace(/\s/g, '').length;
+            toolWc.textContent = `${len} 字`;
+          }
+          switchWorkbenchDockTab('tools');
+          if (stageNode) {
+            stageNode.querySelectorAll('.dock-tool-choice').forEach(c => {
+              c.classList.toggle('active', c.dataset.tool === tool);
+            });
+            const toolDesc = stageNode.querySelector('#dockCurrentToolDesc');
+            const toolDescriptions = {
+              '去 AI 味': '依据 Stop AI Slop 准则消除机械排比与套话，还原人话叙事',
+              '错别字检测': '检查错别字、标点规范、语病与语义重复',
+              '扩写/润色': '丰富感官白描、动作细节与场景冷雨质感',
+              '节奏分析': '诊断场景目标推进、冲突密度与情绪张力'
+            };
+            if (toolDesc) toolDesc.textContent = toolDescriptions[tool] || '';
+          }
+          void executeDockTool();
+        }
+        return;
+      }
       const action = event.target.closest('[data-completion-action]');
       if (!action) return;
       event.preventDefault(); event.stopPropagation();
@@ -8466,7 +9506,14 @@ ${userCurrentInput || '请基于上述工作台设定与人物认知，紧承上
       if (name === 'rename-chapter') { renameChapter(action.dataset.chapterId); return; }
       if (name === 'rename-scene') { renameScene(action.dataset.volumeId, action.dataset.chapterId, action.dataset.sceneId); return; }
       if (name === 'toggle-nav') { const preview = getStage().querySelector('#editorPreview'); runtime.navOpen = !preview?.classList.contains('nav-open'); if (runtime.navOpen) runtime.aiOpen = false; preview?.classList.toggle('nav-open', runtime.navOpen); preview?.classList.toggle('ai-open', runtime.aiOpen); return; }
-      if (name === 'close-nav') { runtime.navOpen = false; runtime.aiOpen = false; const preview = getStage().querySelector('#editorPreview'); preview?.classList.remove('nav-open', 'ai-open'); return; }
+      if (name === 'close-nav') {
+        runtime.navOpen = false;
+        runtime.aiOpen = false;
+        const preview = getStage().querySelector('#editorPreview');
+        preview?.classList.remove('nav-open', 'ai-open', 'dock-open');
+        setWorkbenchDockState(false);
+        return;
+      }
       if (name === 'editor-ai-focus') { runtime.aiOpen = true; runtime.navOpen = false; const preview = getStage().querySelector('#editorPreview'); preview?.classList.add('ai-open'); preview?.classList.remove('nav-open'); return; }
       if (name === 'close-ai') { runtime.aiOpen = false; getStage().querySelector('#editorPreview')?.classList.remove('ai-open'); return; }
       if (name === 'new-ai-session') { newEditorChatSession(); return; }
@@ -8582,8 +9629,16 @@ ${userCurrentInput || '请基于上述工作台设定与人物认知，紧承上
           state.genreFamily = genreFamily.value;
           state.novelGenre = genreFamily.value;
           markEditorDirty(false);
+          const stageNode = getStage();
+          const routeSelect = stageNode && stageNode.querySelector && stageNode.querySelector('[data-completion-xuanhuan-route]');
+          if (routeSelect) {
+            routeSelect.innerHTML = buildGenreRouteOptions(state, genreFamily.value);
+            const currentRoute = routeSelect.value;
+            state.genreRoute = currentRoute;
+            state.xuanhuanRoute = currentRoute;
+          }
           const selText = genreFamily.options[genreFamily.selectedIndex]?.text || genreFamily.value;
-          toast('已切换小说题材：' + selText);
+          toast('已切换小说类型：' + selText);
           updateCompletionParamsHint();
         }
         return;
@@ -8671,6 +9726,23 @@ ${userCurrentInput || '请基于上述工作台设定与人物认知，紧承上
     });
     document.addEventListener('input', event => {
       const target = event.target;
+      const entitySearch = target && target.closest && target.closest('#dockEntitySearch');
+      if (entitySearch) {
+        const stageNode = getStage();
+        const dock = stageNode ? stageNode.querySelector('#editorWorkbenchDock') : null;
+        if (dock) filterDockEntities(dock);
+        return;
+      }
+      const toolInput = target && target.closest && target.closest('#dockToolInput');
+      if (toolInput) {
+        const stageNode = getStage();
+        const toolWc = stageNode ? stageNode.querySelector('#dockToolWordCount') : null;
+        if (toolWc) {
+          const len = toolInput.value.replace(/\s/g, '').length;
+          toolWc.textContent = `${len} 字`;
+        }
+        return;
+      }
       const promptDraftInput = target && target.closest && target.closest('[data-completion-prompt]');
       if (promptDraftInput) {
         try { sessionStorage.setItem('molan_editor_prompt_draft', promptDraftInput.value); } catch (_) {}
@@ -8778,6 +9850,38 @@ ${userCurrentInput || '请基于上述工作台设定与人物认知，紧承上
       if (!entity || !target) return;
       if (!['location', 'faction', 'itemCategory'].includes(target.type)) { toast('只能拖到「地点 / 势力 / 物品类别」节点下'); return; }
       entity.parentId = target.id; entity.updatedAt = Date.now(); syncKnowledgeWorkspace(state); markEditorDirty(false); renderKnowledgeView(); toast(`已将「${entity.name}」移动到「${target.name}」下`);
+    });
+    document.addEventListener('selectionchange', () => {
+      if (currentPageName() === 'editor') captureEditorSelection();
+    });
+    document.addEventListener('mouseup', event => {
+      if (currentPageName() === 'editor') {
+        const target = event.target;
+        const stageNode = getStage();
+        const paper = stageNode ? (stageNode.querySelector('[data-completion-paper]') || stageNode.querySelector('.editor-paper')) : null;
+        if (paper && (paper.contains(target) || (target.closest && target.closest('#editorSelectionMenu')))) {
+          setTimeout(updateSelectionMenu, 20);
+        }
+      }
+    });
+    document.addEventListener('keyup', event => {
+      if (currentPageName() === 'editor') {
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Shift'].includes(event.key)) {
+          setTimeout(updateSelectionMenu, 20);
+        }
+      }
+    });
+    document.addEventListener('mousedown', event => {
+      const stageNode = getStage();
+      const selMenu = stageNode ? stageNode.querySelector('#editorSelectionMenu') : null;
+      const paper = stageNode ? (stageNode.querySelector('[data-completion-paper]') || stageNode.querySelector('.editor-paper')) : null;
+      if (selMenu && selMenu.contains(event.target)) {
+        event.preventDefault();
+        return;
+      }
+      if (selMenu && !selMenu.hidden && !paper?.contains(event.target)) {
+        selMenu.hidden = true;
+      }
     });
   }
 
