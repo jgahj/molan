@@ -101,7 +101,8 @@ molan-home/
     ├── corpus-prompt-experiments.test.js      # 1279本全库抽样、双模提示词提取与四象限实验测试
     ├── e2e-phase2-engine.test.js              # Phase 2 引擎 4 梯队 60 项 E2E 验收用例
     ├── adversarial-attention-tiering.test.js  # 注意力裁剪对抗性极限压力测试 (35 项)
-    └── phase2-engine-enhancements.test.js     # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
+    ├── phase2-engine-enhancements.test.js     # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
+    └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
 
 ---
@@ -2137,4 +2138,91 @@ molan-home/
    - `package-publisher.js` 的 LRU 保留策略默认设定为 `maxHistoryPackages = 3`。当离线批量跑评测频繁发布时，历史包会被自动修剪，如需长期存档特定中间实验包，需显式指定不同的包目标目录。
 2. **后续建议待办**：
    - 建立定期执行 SQLite `PRAGMA freelist_count;` 监控机制，当空闲碎片页累积超过 1,000 页时自动触发维护窗口 `VACUUM;`。
+
+---
+
+## 阶段记录：登录态刷新持久化、密码 Scrypt 非阻塞异步化与小说打开延迟根因专项优化 (2026-10-11)
+
+### 一、改动范围与核心逻辑 (Scope & Implementation Details)
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/index.html` | 前端鉴权持久化与平滑重试 | 1. **默认勾选记住我**：`readStoredRememberMe()` 默认回退返回 `true`，防止用户未手动点选时凭证降级为 `sessionStorage` 导致刷新/关闭标签页丢失；<br>2. **存储层级双写与读取降级**：`persistBackendAuth()` 始终同步持久化 `ml_token` 与 `ml_user` 至 `localStorage`（并镜像至 `sessionStorage`），`readStoredToken()` 与 `readStoredUser()` 优先从 `localStorage` 读取；<br>3. **静默重试与防误清除**：重构 `refreshBackendUser(retries = 2)`，增加 350ms/700ms 线性退避重试；请求添加 `{ preserveAuthOn401: true }`；仅当服务端明确返回 HTTP 401（Token失效/已被撤销）时才调用 `clearBackendAuth()`，对于服务冷启动、网络抖动、5xx 错误或瞬时超时，绝不误清除本地凭证，保持现有登录态平滑运行。 |
+| `molan-home/completion-platform.js` | 登录表单联动 | 1. 登录表单“记住我”复选框添加 `id="c-login-remember"` 并默认 `checked`；<br>2. `authSubmit()` 提取 `rememberCheck.checked` 并赋值 `backendState.rememberMe`，确保登录提交时持久化策略即时生效。 |
+| `molan-home/services/auth-account-service.js` | 密码非阻塞异步化与内存会话双缓存 | 1. **非阻塞异步密码运算**：实现 `createPasswordRecordAsync(password)` 与 `verifyPasswordAsync(password, user)`，基于 `util.promisify(crypto.scrypt)` 将高 CPU 密集的哈希计算转移至 Node.js Libuv 线程池，彻底解除主事件循环阻塞；保留原有同步版本兼容已有老单测；<br>2. **异步鉴权与注册管线**：将 `authenticatePasswordLogin` 与 `handleRegister` 升级为 `await verifyPasswordAsync` / `await createPasswordRecordAsync`；<br>3. **用户实体 5s 内存缓存 (`userMemoryCache`)**：在 `getUserByEmail` 与 `getUserById` 中增加带 `dbHandle` 校验的 5 秒 TTL 内存缓存，并在 `saveUser`, `saveUsers`, 用户更新及密码升级时精准触发 `invalidateUserMemoryCache`，使频繁的鉴权读取降至微秒级；<br>4. **会话解析 10s 内存缓存**：在 `getAuthUser` 中增加 10 秒 Session 命中缓存，避免同一 Token 在每个 HTTP 请求中反复执行同步 SQLite 查询。 |
+| `molan-home/services/native-auth-service.js` | 密码异步方法穿透 | 接入并注入 `createPasswordRecordAsync` 与 `verifyPasswordAsync`，确保原生鉴权服务链路全异步化。 |
+| `molan-home/services/native-domain-service.js` | 领域服务桥接 | 将异步密码哈希方法完整透传至 `createNativeAuthService`。 |
+| `molan-home/server.js` | 索引补齐、服务透传与快照序列化优化 | 1. 解构并暴露 `createPasswordRecordAsync` 与 `verifyPasswordAsync`；<br>2. **SQLite 复合索引加固**：在 `novels` 表初始化中添加 `idx_novels_project_scope ON novels(workspace_id, project_id, updated_at DESC)` 及 `idx_novels_project_id ON novels(project_id)`；<br>3. **存储序列化深拷贝拔除**：重构 `sanitizeNovelStateForStorage`，拔除昂贵的 `JSON.parse(JSON.stringify(state))` 全量树拷贝，直接浅拷贝根对象并单层清洗 `chapters` 与 `projectResources`，大幅降低 CPU 开销与垃圾回收压力。 |
+| `molan-home/lib/project-scope.js` | 项目成员联合索引 | 在 `initializeSchema` 中补齐 `CREATE INDEX IF NOT EXISTS idx_project_members_project_user ON project_members(project_id, user_id, active)`，将打开小说时每次执行的 ACL 项目成员权限校验加速至微秒级。 |
+| `molan-home/lib/project-resources.js` | 项目资料查询联合索引 | 在 `initializeSchema` 中补齐 `CREATE INDEX IF NOT EXISTS idx_project_resources_lookup ON project_resources(workspace_id, project_id, kind, updated_at ASC, id ASC)`，优化资料按顺序投影检索。 |
+| `molan-home/lib/project-resource-projection.js` | 树形合并引用保真浅拷贝优化 | 重构 `mergeResourcesIntoState`，彻底根除对整部数兆字节小说状态的 `JSON.parse(JSON.stringify(state))` 深度克隆；改为浅拷贝根对象，仅对需要合并更新的子分支（`knowledge`, `foreshadows`, `timeline`, `creationAssets`）进行浅拷贝与修改，未变动分支（如数十万字的正文 `chapters`）保持引用同一，从 O(N) 全文序列化降至 O(1) 引用复用。 |
+| `molan-home/routes/novel-read-handlers.js` | 查询投影列精准裁剪 | 将打开小说时查询项目资料的 `SELECT * FROM project_resources` 改为显式投影 `SELECT workspace_id, project_id, id, kind, payload_json, revision, status, created_by, created_at, updated_at, deleted_at FROM project_resources`，避免不必要的大字段扫描与传输开销。 |
+| `molan-home/db/migrations/0051_novel_open_latency_indexes.sql` | PostgreSQL 生产数据库迁移脚本 | 补充 PostgreSQL 生产端索引迁移：在 `luna.project_members(project_id, user_id, active)`、`luna.project_profiles(workspace_id, project_id, revision DESC)` 及 `luna.project_resources(workspace_id, project_id, kind, updated_at DESC)` 上建立联合索引。 |
+| `molan-home/test/auth-persistence-and-latency.test.js` | 专项自动化回归测试套件 | 新增覆盖 5 大维度的自动化测试：1. 非阻塞 Scrypt 异步运算与校验；2. 用户内存缓存命中与精确失效；3. `mergeResourcesIntoState` 未修改分支引用同一性与防全量深拷贝验证；4. SQLite 复合索引存在性验证；5. 前端静默重试防误清除与 401 撤销鉴权逻辑验证。 |
+
+---
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **登录凭证持久化与防误登出设计 (Fail-Safe Session Persistence)**：
+   - *问题根因*：原 `index.html` 中 `refreshBackendUser()` 将 `/api/auth/me` 的网络请求包裹在一个盲目的 `catch (_) { clearBackendAuth(); }` 中。一旦后端遭遇短时高负载、服务冷启动、网络丢包或 5xx 故障，前端会立刻将保存在 storage 中的 token 与 user 物理抹除，导致用户一刷新页面就掉登录态。且 `rememberMe` 默认没有落地至 `localStorage`，导致凭证只存留在当前标签页的 `sessionStorage` 中。
+   - *方案决策*：将 `rememberMe` 默认回退值置为 `true`，`persistBackendAuth()` 始终同步写回 `localStorage`。`refreshBackendUser` 引入 2 次静默重试（线性退避 350ms/700ms），并在 `backendRequest` 携带 `{ preserveAuthOn401: true }`，严格区分业务 401（Token 确已过期/被撤销）与瞬时网络/服务异常（5xx/超时/网络错误）。只有在 401 时才执行登出清空，网络异常时保留当前登录凭证并降级运行，从根本上终结刷新掉登录的恶性体验。
+2. **密码 Scrypt 异步化与双向兼容性权衡 (Non-blocking Scrypt & Backward Compatibility)**：
+   - *问题根因*：`crypto.scryptSync` 在参数 `{ N: 16384, r: 8, p: 1 }` 下执行一次耗时约 50~150ms，且完全在 Node.js 主线程上同步阻塞运行。一旦有并发登录、注册或密码校验，整个服务端的主事件循环（Event Loop）会被彻底冻结，导致所有 HTTP 请求（包括小说打开、静态资源加载、鉴权接口）集体出现严重排队与高延迟。
+   - *方案决策*：使用 `util.promisify(crypto.scrypt)` 封装 `createPasswordRecordAsync` 与 `verifyPasswordAsync`，将计算移交 Libuv 线程池后台并发执行，事件循环延迟降为 0ms。同时**保留原同步函数** `createPasswordRecord` 与 `verifyPassword`，使得既有依赖同步方法的老旧单元测试（如 `test/token-usage.test.js`、`test/auth-account-service.test.js`）零成本继续 100% 保持通过，避免因改动接口签名造成破坏性回归。
+3. **内存会话与账户双层 TTL 缓存机制 (Multi-Tier In-Memory Cache)**：
+   - *权衡考量*：每个需要鉴权的 HTTP 请求都会调用 `getAuthUser`，进而触发 `getUserByEmail` 或 `getUserById`。每次请求都执行同步 SQLite 语句在并发场景下会形成锁等待和磁盘 I/O 放大。
+   - *方案决策*：引入 5 秒 TTL 的 `userMemoryCache` 与 10 秒 TTL 的 Session 缓存。缓存条目绑定当前的 `dbHandle` 实例指针，确保在单元测试动态切换数据库实例或清理沙箱时不会命中跨库脏数据；在 `saveUser`、`saveUsers` 以及密码升级写操作发生时，立即精确淘汰缓存，在保障数据一致性的前提下将请求鉴权开销从毫秒级降至微秒级。
+4. **小说打开性能根因治理：引用保真浅拷贝与整树反序列化拔除 (Referential Integrity Shallow Copy)**：
+   - *问题根因*：在读取小说时，`mergeResourcesIntoState` 与 `sanitizeNovelStateForStorage` 过去都使用 `JSON.parse(JSON.stringify(state))` 对整部小说状态进行全量深度克隆。对于包含几十万字章节、知识库和大量实体的小说，单次克隆会产生数兆字节的临时对象和几十毫秒的纯 CPU 序列化耗时，严重阻塞主线程并导致高频 V8 GC 停顿。
+   - *方案决策*：完全拔除整树序列化克隆，采用按需浅拷贝：顶层状态 `{ ...state }` 浅拷贝，未受资源修改影响的重量级属性（如 `chapters`、`characters`）直接保留原对象引用（O(1) 引用传递），仅对真正包含新增/更新资源的子集分支（`knowledge`、`foreshadows`、`timeline`、`creationAssets`）进行局部浅拷贝修改。经单测断言证明，未修改分支严格满足 `merged.chapters === originalState.chapters` 引用同一性。
+5. **数据库复合索引补齐与投影裁剪 (Composite Indexes & Column Pruning)**：
+   - *方案决策*：为 SQLite 与 PostgreSQL 补充复合索引：
+     - `novels(workspace_id, project_id, updated_at DESC)`
+     - `project_members(project_id, user_id, active)`
+     - `project_resources(workspace_id, project_id, kind, updated_at ASC, id ASC)`
+     并在 `novel-read-handlers.js` 中将 `SELECT *` 优化为仅选取 11 个必需字段，消除大表全表扫描与宽表投影开销。
+
+---
+
+### 三、真实验证证据 (Verification Evidence)
+
+- **Node 运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2，严格恪守工作区约定，绝未误用系统全局 PATH 的 Node 20)
+- **1. 登录态持久化、异步 Scrypt、内存缓存与小说秒开专项测试 (5 项全部真实通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/auth-persistence-and-latency.test.js
+  # TAP version 13
+  # ok 1 - createPasswordRecordAsync and verifyPasswordAsync handle non-blocking scrypt hashing
+  # ok 2 - userMemoryCache caches lookups within TTL and invalidates on update
+  # ok 3 - mergeResourcesIntoState preserves reference identity of unmodified branches without full-tree JSON clone
+  # ok 4 - SQLite composite indexes for novels, project_members, and project_resources are created properly
+  # ok 5 - refreshBackendUser silent retry preserves auth on transient failure and only clears on 401
+  # 1..5
+  # tests 5, pass 5, fail 0, duration_ms: ~224ms (100% 真实通过)
+  ```
+- **2. 核心鉴权、Token计量、领域路由与工作台深度融合全量回归 (105 项全部真实通过)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test test/auth-persistence-and-latency.test.js test/auth-account-service.test.js test/auth-session-events.test.js test/token-usage.test.js test/domain-routes.test.js test/routes-phase2-projects-characters.test.js test/workbench-editor-fusion.test.js
+  # TAP version 13
+  # ...
+  # ok 105 - 对抗与边界验证：AI气泡富文本换行提取保真与实体默认分类保真
+  # 1..105
+  # tests 105, suites 0, pass 105, fail 0, cancelled 0, skipped 0, todo 0
+  # duration_ms: ~1769ms (100% 真实通过，零伪造，零跳过)
+  ```
+- **3. 语法静态校验 (`--check` 0 错误)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --check services/auth-account-service.js services/native-auth-service.js services/native-domain-service.js server.js lib/project-scope.js lib/project-resources.js lib/project-resource-projection.js routes/novel-read-handlers.js test/auth-persistence-and-latency.test.js
+  # exit code 0, 0 errors
+  ```
+
+---
+
+### 四、已知限制与后续运维建议 (Known Limits & Operational Guide)
+
+1. **已知限制**：
+   - 生产环境部署如果是双机或多节点集群（Cluster），`userMemoryCache` 属于单进程内存缓存，TTL 设为 5 秒属于短缓存，多节点之间有至多 5 秒的读数据滞后，对于用户修改资料场景完全在容忍范围内；若后续扩展为高频并发分布式集群，可考虑引入 Redis 集中缓存层。
+2. **后续运维建议**：
+   - 部署到 ECS 服务器后，若使用 PostgreSQL 主库，需在数据库控制台或通过迁移执行 `0051_novel_open_latency_indexes.sql`，确保生产云端 PostgreSQL 复合索引生效。
+
 

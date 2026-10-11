@@ -1684,6 +1684,8 @@ function initDB(options = {}) {
     });
     db.exec('CREATE INDEX IF NOT EXISTS idx_novels_user ON novels(user_email, updated_at DESC)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_novels_owner ON novels(owner_user_id, updated_at DESC)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_novels_project_scope ON novels(workspace_id, project_id, updated_at DESC)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_novels_project_id ON novels(project_id)');
     projectScope.initializeSchema(db);
     projectResources.initializeSchema(db);
     memorySystem.initializeSchema(db);
@@ -2898,10 +2900,12 @@ function htmlWordCount(html) {
 }
 
 function sanitizeNovelStateForStorage(state) {
-  const copy = JSON.parse(JSON.stringify(state));
+  if (!state || typeof state !== 'object') return {};
   // 自定义模型源已下线，旧浏览器状态可能仍包含 apiKey；云端绝不保存或回传它。
-  if (Array.isArray(copy.modelSources)) copy.modelSources = [];
-  return copy;
+  if (Array.isArray(state.modelSources) && state.modelSources.length > 0) {
+    return { ...state, modelSources: [] };
+  }
+  return state;
 }
 
 const textExtract = require('./lib/text-extract.js');
@@ -6728,7 +6732,7 @@ const authAccountService = require('./services/auth-account-service').createAuth
   getDatabase: () => db,
   nativeAuthService: (...args) => nativeAuthService(...args)
 });
-const { loadUsers,saveUsers,saveUser,insertUserIfAbsent,userFromDbRow,getUserByEmail,getUserById,hashPwd,createPasswordRecord,verifyPassword,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,persistSessions,flushSessions,flushSessionsSync,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,persistUsersToDb, sessions } = authAccountService;
+const { loadUsers,saveUsers,saveUser,insertUserIfAbsent,userFromDbRow,getUserByEmail,getUserById,hashPwd,createPasswordRecord,createPasswordRecordAsync,verifyPassword,verifyPasswordAsync,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,persistSessions,flushSessions,flushSessionsSync,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,persistUsersToDb, sessions } = authAccountService;
 
 const { normalizeCreationPlan, creationPlanRules, normalizeBiblePayload, creationPlanTargets, creationPlanItemKey, creationNamedCount, creationChapterNumber, creationChapterTitle, creationChapterIsUsable, creationPlanCoverage, creationPlanText, creationPlanCompactList, creationPlanExpansionContext, creationPlanExpansionPrompt, mergeCreationUniqueList, mergeCreationVolumes, normalizeCreationExpansionChapter, normalizeCreationChapterPlanRhythm, mergeCreationChapterPlan, mergeCreationExpansionPayload, creationForbiddenTerms, creationChapterContext, creationPlanProjection, creationPlanHasContent, creationPlanIssue, reviewCreationPlan, normalizeCreationPlanReviewModel, mergeCreationPlanReview, normalizeCreationPlanPatchPath, creationPlanPatchValueKind, creationPlanPatchTypeMismatch, creationPlanPatchWouldShrink, applyCreationPlanPatches, eventChainLcsRatio, functionSetJaccard, computeStructuralSimilarity, evaluateSomaticGate, verifyModelAuditQuotes, creationOriginalityGate, deterministicContractValidation, normalizeForbiddenMatchText, checkForbiddenTerms, characterNameOverlapIssues, creationBibleSeedValidation } = require('./services/creation-plan-service').createCreationPlanService({
   CREATION_LINE_IDS,
@@ -7046,7 +7050,7 @@ const nativeDomain = require('./services/native-domain-service').createNativeDom
   createMemoryStore: require('./lib/memory-store').createMemoryStore,
   createNativeBillingService: require('./services/native-billing-service').createNativeBillingService,
   createNativeAuthService: require('./services/native-auth-service').createNativeAuthService,
-  crypto, readBody, json, respondError, createPasswordRecord, verifyPassword, hashSessionToken,
+  crypto, readBody, json, respondError, createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, hashSessionToken,
   allowAuthAttempt, isAdminUser, normalizeAvatar, findPlatformModel, canChooseModel,
   currentDefaultModel, sessionTtlMs: SESSION_TTL_MS,
   creditCostForUser, roundCreditValue, toTokenCount, matchesTokenUsageReservation,
@@ -7784,7 +7788,9 @@ module.exports = {
   recordDispatchAttempt,
   releaseStaleCreditReservations,
   createPasswordRecord,
+  createPasswordRecordAsync,
   verifyPassword,
+  verifyPasswordAsync,
   hashSessionToken,
   issueToken,
   getAuthUser,

@@ -39,7 +39,9 @@ function createNativeDomainService({
   json,
   respondError,
   createPasswordRecord,
+  createPasswordRecordAsync,
   verifyPassword,
+  verifyPasswordAsync,
   hashSessionToken,
   allowAuthAttempt,
   isAdminUser,
@@ -90,7 +92,7 @@ function createNativeDomainService({
   function nativeAuthService() {
     if (!auth) auth = createNativeAuthService({
       repository: appRepository(), crypto, readBody, json, respondError,
-      createPasswordRecord, verifyPassword, hashSessionToken,
+      createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, hashSessionToken,
       publicUser: nativePublicUser, allowAuthAttempt, isAdminUser, normalizeAvatar,
       findPlatformModel, canChooseModel, currentDefaultModel, sessionTtlMs
     });

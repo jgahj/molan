@@ -1712,20 +1712,20 @@
     function readStoredRememberMe() {
       try {
         const saved = localStorage.getItem('ml_remember_me');
-        if (saved === '1') return true;
         if (saved === '0') return false;
-        return Boolean(localStorage.getItem('ml_token'));
+        return true;
       } catch (_) { return true; }
     }
 
     function readStoredToken() {
-      try { return (readStoredRememberMe() ? localStorage : sessionStorage).getItem('ml_token') || ''; } catch (_) { return ''; }
+      try { return localStorage.getItem('ml_token') || sessionStorage.getItem('ml_token') || ''; } catch (_) { return ''; }
     }
 
     function readStoredUser() {
       try {
-        const user = JSON.parse((readStoredRememberMe() ? localStorage : sessionStorage).getItem('ml_user') || 'null');
-        return user && user.email ? user : null;
+        const raw = localStorage.getItem('ml_user') || sessionStorage.getItem('ml_user') || 'null';
+        const user = JSON.parse(raw);
+        return user && (user.email || user.userId) ? user : null;
       } catch (_) { return null; }
     }
 
@@ -1742,14 +1742,22 @@
 
     function persistBackendAuth() {
       try {
-        localStorage.setItem('ml_remember_me', backendState.rememberMe ? '1' : '0');
-        localStorage.removeItem('ml_token');
-        localStorage.removeItem('ml_user');
-        sessionStorage.removeItem('ml_token');
-        sessionStorage.removeItem('ml_user');
-        const storage = backendState.rememberMe ? localStorage : sessionStorage;
-        if (backendState.token) storage.setItem('ml_token', backendState.token);
-        if (backendState.user) storage.setItem('ml_user', JSON.stringify(backendState.user));
+        localStorage.setItem('ml_remember_me', backendState.rememberMe === false ? '0' : '1');
+        if (backendState.token) {
+          localStorage.setItem('ml_token', backendState.token);
+          sessionStorage.setItem('ml_token', backendState.token);
+        } else {
+          localStorage.removeItem('ml_token');
+          sessionStorage.removeItem('ml_token');
+        }
+        if (backendState.user) {
+          const userStr = JSON.stringify(backendState.user);
+          localStorage.setItem('ml_user', userStr);
+          sessionStorage.setItem('ml_user', userStr);
+        } else {
+          localStorage.removeItem('ml_user');
+          sessionStorage.removeItem('ml_user');
+        }
       } catch (_) {}
     }
 
@@ -1980,20 +1988,36 @@
       setCount('knowledge', knCount);
     }
 
-    async function refreshBackendUser() {
+    async function refreshBackendUser(retries = 2) {
       if (!backendState.token) return null;
       const session = captureBackendSession();
-      try {
-        const data = await backendRequest('/api/auth/me');
-        if (!isCurrentBackendSession(session)) return null;
-        backendState.user = data.user || null;
-        persistBackendAuth();
-        return backendState.user;
-      } catch (_) {
-        if (!isCurrentBackendSession(session)) return null;
-        clearBackendAuth();
-        return null;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const data = await backendRequest('/api/auth/me', { preserveAuthOn401: true });
+          if (!isCurrentBackendSession(session)) return null;
+          if (data && data.user) {
+            backendState.user = data.user;
+            persistBackendAuth();
+            return backendState.user;
+          }
+          return backendState.user;
+        } catch (error) {
+          if (!isCurrentBackendSession(session)) return null;
+          // 401 明确鉴权失败（token 过期/已被服务端撤销）
+          if (error && error.status === 401) {
+            clearBackendAuth();
+            return null;
+          }
+          // 网络抖动、服务冷启动、5xx 错误或偶发超时：平滑静默重试
+          if (attempt < retries) {
+            await new Promise(r => window.setTimeout(r, (attempt + 1) * 350));
+            continue;
+          }
+          // 重试后仍处于网络异常态：保持当前本地已持久化的登录凭证，绝不误清空登录态
+          return backendState.user;
+        }
       }
+      return backendState.user;
     }
 
     async function loadBackendModels() {

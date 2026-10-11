@@ -74,6 +74,7 @@ function initializeSchema(db) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_workspace_members_user ON workspace_members(user_id, active)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id, active)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(workspace_id, project_id, active)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_project_members_project_user ON project_members(project_id, user_id, active)');
 }
 
 /** 确保账户拥有个人工作区；不改变既有工作区成员关系。 */

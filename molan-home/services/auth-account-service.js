@@ -32,12 +32,22 @@ function createAuthAccountService({
   respondError,
   sessionEventUserId
 }) {
+  const util = require('node:util');
+  const scryptAsync = util.promisify(crypto.scrypt);
   const PASSWORD_SCRYPT_KEYLEN = 64;
   const PASSWORD_SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
   const MAX_AVATAR_DATA_LENGTH = 300000;
   const AVATAR_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i;
   const sessions = new Map();
   const locallyRevokedSessions = new Map();
+  const userMemoryCache = new Map();
+  function invalidateUserMemoryCache(key) {
+    if (key) {
+      userMemoryCache.delete(String(key).toLowerCase());
+    } else {
+      userMemoryCache.clear();
+    }
+  }
   let sessionsPersistTimer = null;
   let sessionsPersistInFlight = false;
   let sessionsPersistDirty = false;
@@ -176,24 +186,50 @@ function createAuthAccountService({
     const key = String(email || '').trim().toLowerCase();
     if (!key) return null;
     if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存读取');
-    if (dbReady()) {
-      const row = getDatabase().prepare(`SELECT email, user_id AS userId, name, avatar, bio, default_model AS defaultModel, salt, pwd, role, level, plan, credits, spent, created_at AS createdAt
-        FROM accounts WHERE email = ?`).get(key);
-      return row ? userFromDbRow(row) : null;
+    const now = Date.now();
+    const cached = userMemoryCache.get(key);
+    const currentDb = dbReady() ? getDatabase() : null;
+    if (cached && (now - cached.cachedAt < 5000) && cached.dbHandle === currentDb) {
+      return cached.user;
     }
-    return loadUsers().find(user => String(user.email || '').toLowerCase() === key) || null;
+    if (dbReady()) {
+      const row = currentDb.prepare(`SELECT email, user_id AS userId, name, avatar, bio, default_model AS defaultModel, salt, pwd, role, level, plan, credits, spent, created_at AS createdAt
+        FROM accounts WHERE email = ?`).get(key);
+      const user = row ? userFromDbRow(row) : null;
+      if (user) {
+        userMemoryCache.set(key, { user, cachedAt: now, dbHandle: currentDb });
+        if (user.userId) userMemoryCache.set(String(user.userId).trim().toLowerCase(), { user, cachedAt: now, dbHandle: currentDb });
+      }
+      return user;
+    }
+    const user = loadUsers().find(u => String(u.email || '').toLowerCase() === key) || null;
+    if (user) userMemoryCache.set(key, { user, cachedAt: now, dbHandle: null });
+    return user;
   }
   
   function getUserById(userId) {
     const key = String(userId || '').trim();
     if (!key) return null;
     if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步账户缓存读取');
-    if (dbReady()) {
-      const row = getDatabase().prepare(`SELECT email, user_id AS userId, name, avatar, bio, default_model AS defaultModel, salt, pwd, role, level, plan, credits, spent, created_at AS createdAt
-        FROM accounts WHERE user_id = ?`).get(key);
-      return row ? userFromDbRow(row) : null;
+    const now = Date.now();
+    const cached = userMemoryCache.get(key.toLowerCase());
+    const currentDb = dbReady() ? getDatabase() : null;
+    if (cached && (now - cached.cachedAt < 5000) && cached.dbHandle === currentDb) {
+      return cached.user;
     }
-    return loadUsers().find(user => String(user && user.userId || '') === key) || null;
+    if (dbReady()) {
+      const row = currentDb.prepare(`SELECT email, user_id AS userId, name, avatar, bio, default_model AS defaultModel, salt, pwd, role, level, plan, credits, spent, created_at AS createdAt
+        FROM accounts WHERE user_id = ?`).get(key);
+      const user = row ? userFromDbRow(row) : null;
+      if (user) {
+        userMemoryCache.set(key.toLowerCase(), { user, cachedAt: now, dbHandle: currentDb });
+        if (user.email) userMemoryCache.set(String(user.email).trim().toLowerCase(), { user, cachedAt: now, dbHandle: currentDb });
+      }
+      return user;
+    }
+    const user = loadUsers().find(u => String(u && u.userId || '') === key) || null;
+    if (user) userMemoryCache.set(key.toLowerCase(), { user, cachedAt: now, dbHandle: null });
+    return user;
   }
   
   function hashPwd(pwd, salt) {
@@ -205,6 +241,12 @@ function createAuthAccountService({
     const derived = crypto.scryptSync(String(password), Buffer.from(salt, 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS).toString('hex');
     return { salt, pwd: 'scrypt$' + derived };
   }
+
+  async function createPasswordRecordAsync(password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const derived = await scryptAsync(String(password), Buffer.from(salt, 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS);
+    return { salt, pwd: 'scrypt$' + derived.toString('hex') };
+  }
   
   function verifyPassword(password, user) {
     const stored = String(user && user.pwd || '');
@@ -212,6 +254,20 @@ function createAuthAccountService({
       try {
         const expected = Buffer.from(stored.slice(7), 'hex');
         const actual = crypto.scryptSync(String(password), Buffer.from(String(user.salt || ''), 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS);
+        return { ok: expected.length === actual.length && crypto.timingSafeEqual(expected, actual), needsUpgrade: false };
+      } catch (_) {
+        return { ok: false, needsUpgrade: false };
+      }
+    }
+    return { ok: hashPwd(password, user && user.salt) === stored, needsUpgrade: true };
+  }
+
+  async function verifyPasswordAsync(password, user) {
+    const stored = String(user && user.pwd || '');
+    if (stored.startsWith('scrypt$')) {
+      try {
+        const expected = Buffer.from(stored.slice(7), 'hex');
+        const actual = await scryptAsync(String(password), Buffer.from(String(user.salt || ''), 'hex'), PASSWORD_SCRYPT_KEYLEN, PASSWORD_SCRYPT_OPTIONS);
         return { ok: expected.length === actual.length && crypto.timingSafeEqual(expected, actual), needsUpgrade: false };
       } catch (_) {
         return { ok: false, needsUpgrade: false };
@@ -475,17 +531,21 @@ function createAuthAccountService({
     const tokenHash = hashSessionToken(token);
     if (isSessionRevoked(tokenHash)) return null;
     let session = sessions.get(tokenHash);
+    const now = Date.now();
     if (!POSTGRES_MODE && dbReady()) {
-      const row = getDatabase().prepare('SELECT email, user_id, scope, expires_at FROM auth_sessions WHERE token_hash = ? AND revoked_at IS NULL').get(tokenHash);
-      if (row) {
-        session = {
-          userId: row.user_id || projectScope.stableUserId(row.email),
-          email: row.email, expiresAt: Number(row.expires_at), scope: normalizeSessionScope(row.scope), dbBacked: true
-        };
-        sessions.set(tokenHash, session);
-      } else if (session && session.dbBacked) {
-        sessions.delete(tokenHash);
-        return null;
+      if (!session || (session.expiresAt > now && now - (session.dbCheckedAt || 0) > 10000)) {
+        const row = getDatabase().prepare('SELECT email, user_id, scope, expires_at FROM auth_sessions WHERE token_hash = ? AND revoked_at IS NULL').get(tokenHash);
+        if (row) {
+          session = {
+            userId: row.user_id || projectScope.stableUserId(row.email),
+            email: row.email, expiresAt: Number(row.expires_at), scope: normalizeSessionScope(row.scope), dbBacked: true,
+            dbCheckedAt: now
+          };
+          sessions.set(tokenHash, session);
+        } else if (session && session.dbBacked) {
+          sessions.delete(tokenHash);
+          return null;
+        }
       }
     }
     if (!session) return null;
@@ -556,7 +616,7 @@ function createAuthAccountService({
       if (POSTGRES_MODE ? await postgresRepository.runtimeAccountByEmail(email) : getUserByEmail(email)) {
         throw requestError(409, '该邮箱已注册，请直接登录');
       }
-      const passwordRecord = createPasswordRecord(password);
+      const passwordRecord = await createPasswordRecordAsync(password);
       const role = isAdminUser(email) ? 'admin' : 'normal';
       const user = {
         email, name: String(p.name || email.split('@')[0]).slice(0, 24),
@@ -575,14 +635,18 @@ function createAuthAccountService({
       ? postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(email))
       : getUserByEmail(email);
     if (!user) throw new Error('邮箱或密码错误');
-    const verification = verifyPassword(password, user);
+    const verification = await verifyPasswordAsync(password, user);
     if (!verification.ok) throw new Error('邮箱或密码错误');
     if (verification.needsUpgrade) {
-      const passwordRecord = createPasswordRecord(password);
+      const passwordRecord = await createPasswordRecordAsync(password);
       user.salt = passwordRecord.salt;
       user.pwd = passwordRecord.pwd;
       if (POSTGRES_MODE) await postgresRepository.runtimeUpdateAccount({ ...user, actorUserId: user.userId, preserveFinancials: true });
-      else saveUser(user);
+      else {
+        saveUser(user);
+        invalidateUserMemoryCache(user.email);
+        invalidateUserMemoryCache(user.userId);
+      }
     }
     return user;
   }
@@ -751,8 +815,9 @@ function createAuthAccountService({
   }
 
   return {
-    loadUsers, saveUsers, saveUser, insertUserIfAbsent, userFromDbRow, getUserByEmail, getUserById, hashPwd, createPasswordRecord, verifyPassword, markSessionRevoked, isSessionRevoked, hashSessionToken, normalizeSessionScope, loadSessions, hydratePostgresSessions, persistSessions, flushSessions, flushSessionsSync, issueToken, getAuthUser, publicUser, normalizeAvatar, storedAvatar, handleRegister, authenticatePasswordLogin, handleLogin, handleAdminLogin, handleSendCode, handleLoginByCode, handleMe, handleAdminMe, handleProfile, handleLogout, handleLogoutAll, persistUsersToDb, sessions,
-    resetUserCache: () => { usersCache = null; usersCacheMtimeMs = 0; usersCacheCheckedAt = 0; }
+    loadUsers, saveUsers, saveUser, insertUserIfAbsent, userFromDbRow, getUserByEmail, getUserById, hashPwd, createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, markSessionRevoked, isSessionRevoked, hashSessionToken, normalizeSessionScope, loadSessions, hydratePostgresSessions, persistSessions, flushSessions, flushSessionsSync, issueToken, getAuthUser, publicUser, normalizeAvatar, storedAvatar, handleRegister, authenticatePasswordLogin, handleLogin, handleAdminLogin, handleSendCode, handleLoginByCode, handleMe, handleAdminMe, handleProfile, handleLogout, handleLogoutAll, persistUsersToDb, sessions,
+    invalidateUserMemoryCache,
+    resetUserCache: () => { usersCache = null; usersCacheMtimeMs = 0; usersCacheCheckedAt = 0; invalidateUserMemoryCache(); }
   };
 }
 

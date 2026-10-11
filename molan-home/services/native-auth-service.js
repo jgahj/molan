@@ -1,7 +1,7 @@
 'use strict';
 
 function createNativeAuthService({ repository, crypto, readBody, json, respondError, createPasswordRecord,
-  verifyPassword, hashSessionToken, publicUser, allowAuthAttempt, isAdminUser, normalizeAvatar,
+  createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, hashSessionToken, publicUser, allowAuthAttempt, isAdminUser, normalizeAvatar,
   findPlatformModel, canChooseModel, currentDefaultModel, sessionTtlMs, now = Date.now }) {
   const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
   const scopeOf = value => value === 'admin' ? 'admin' : 'client';
@@ -37,8 +37,9 @@ function createNativeAuthService({ repository, crypto, readBody, json, respondEr
       if (password.length < 6 || password.length > 256) fail(400, '密码长度需为 6 到 256 位');
       if (await repository.getAccount({ email })) fail(409, '该邮箱已注册，请直接登录');
       const role = isAdminUser(email) ? 'admin' : 'normal';
+      const passwordRecord = createPasswordRecordAsync ? await createPasswordRecordAsync(password) : createPasswordRecord(password);
       const user = await repository.saveAccount({ email, name: String(body.name || email.split('@')[0]).slice(0, 24),
-        avatar: '', ...createPasswordRecord(password), role, level: role, plan: role,
+        avatar: '', ...passwordRecord, role, level: role, plan: role,
         credits: role === 'admin' ? 0 : 500, spent: 0, createdAt: new Date(now()).toISOString() }, 0);
       return json(res, 200, { ok: true, token: await issueToken(user), user: await publicUser(user) });
     });
@@ -49,11 +50,14 @@ function createNativeAuthService({ repository, crypto, readBody, json, respondEr
       return execute(req, res, async () => {
         const body = await readBody(req);
         let user = await repository.getAccount({ email: String(body.email || '').trim().toLowerCase() });
-        const verification = user && verifyPassword(String(body.password || ''), user);
+        const verification = user && (verifyPasswordAsync ? await verifyPasswordAsync(String(body.password || ''), user) : verifyPassword(String(body.password || ''), user));
         if (!verification?.ok) fail(400, '邮箱或密码错误');
         if (user.disabled || user.status === 'disabled') fail(403, '该账户已停用');
         if (scope === 'admin' && !isAdminUser(user)) fail(403, '该账户没有管理员权限');
-        if (verification.needsUpgrade) user = await repository.saveAccount({ ...user, ...createPasswordRecord(String(body.password || '')) }, user.revision);
+        if (verification.needsUpgrade) {
+          const upgradedRecord = createPasswordRecordAsync ? await createPasswordRecordAsync(String(body.password || '')) : createPasswordRecord(String(body.password || ''));
+          user = await repository.saveAccount({ ...user, ...upgradedRecord }, user.revision);
+        }
         return json(res, 200, { ok: true, token: await issueToken(user, scope), user: await publicUser(user) });
       });
     };

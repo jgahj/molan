@@ -2,8 +2,10 @@
 
 function mergeResourcesIntoState(state, resources) {
   if (!Array.isArray(resources) || resources.length === 0) return state;
-  const nextState = JSON.parse(JSON.stringify(state && typeof state === 'object' ? state : {}));
-  const projectResources = Array.isArray(nextState.projectResources) ? nextState.projectResources : [];
+  const source = state && typeof state === 'object' ? state : {};
+  // 浅拷贝顶层对象，避免大体积 state_json 重复全量 JSON.stringify/JSON.parse 导致的严重卡顿
+  const nextState = { ...source };
+  const projectResources = Array.isArray(source.projectResources) ? [...source.projectResources] : [];
   const resourceMap = new Map(projectResources.map(resource => [
     `${String(resource && resource.kind || '')}:${String(resource && resource.id || '')}`,
     resource
@@ -22,6 +24,29 @@ function mergeResourcesIntoState(state, resources) {
     'writing-task': 'writingTasks',
     issue: 'issues'
   };
+  if (source.knowledge && typeof source.knowledge === 'object') {
+    nextState.knowledge = {
+      ...source.knowledge,
+      entities: source.knowledge.entities && typeof source.knowledge.entities === 'object' && !Array.isArray(source.knowledge.entities)
+        ? { ...source.knowledge.entities }
+        : {},
+      edges: Array.isArray(source.knowledge.edges) ? [...source.knowledge.edges] : []
+    };
+  }
+  if (Array.isArray(source.foreshadows)) {
+    nextState.foreshadows = [...source.foreshadows];
+  }
+  if (Array.isArray(source.timeline)) {
+    nextState.timeline = [...source.timeline];
+  }
+  if (source.creationAssets && typeof source.creationAssets === 'object') {
+    nextState.creationAssets = { ...source.creationAssets };
+    for (const key of Object.values(creationAssetKeys)) {
+      if (Array.isArray(source.creationAssets[key])) {
+        nextState.creationAssets[key] = [...source.creationAssets[key]];
+      }
+    }
+  }
   for (const resource of resources) {
     const key = `${resource.kind}:${resource.id}`;
     if (resource.status === 'deleted') {

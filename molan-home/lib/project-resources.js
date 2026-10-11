@@ -93,6 +93,7 @@ function initializeSchema(db) {
   )`);
   db.exec('CREATE INDEX IF NOT EXISTS idx_project_resources_kind ON project_resources(workspace_id, project_id, kind, status, updated_at DESC)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_project_resource_versions ON project_resource_versions(workspace_id, project_id, resource_id, revision DESC)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_project_resources_lookup ON project_resources(workspace_id, project_id, kind, updated_at ASC, id ASC)');
 }
 
 /** 校验资源类型，防止通用路由被用作任意表名执行器。 */

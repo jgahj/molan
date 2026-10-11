@@ -53,7 +53,7 @@ function createNovelReadHandlers({
       try { state = sanitizeNovelState(JSON.parse(row.state_json)); }
       catch (_) { return json(res, 500, { error: 'state_json 解析失败' }); }
       try {
-        const resources = database.prepare(`SELECT * FROM project_resources
+        const resources = database.prepare(`SELECT workspace_id, project_id, id, kind, payload_json, revision, status, created_by, created_at, updated_at, deleted_at FROM project_resources
           WHERE workspace_id = ? AND project_id = ? ORDER BY kind ASC, updated_at ASC, id ASC`)
           .all(access.workspace_id, access.project_id).map(projectResources.publicResource);
         state = postgresData.mergeResourcesIntoState(state, resources);
