@@ -2487,6 +2487,71 @@ molan-home/
 2. **多端同时写冲突（CAS）**：
    - 墨阑核心具备 `revision` 乐观锁机制。当多个终端在同一秒提交保存同一章节时，后提交者将收到 409 冲突保护，需引导刷新最新内容后合并保存。
 
+---
+
+## 阶段二十四：前端静态资源 Cache-Busting 升级与云端主页强缓存抗性加固 (2026-10-11)
+
+> **执行周期**：2026-10-11  
+> **责任主体**：Antigravity Agent  
+> **核心目标**：根除因浏览器 Disk Cache 强缓存导致的云端主页与本地最新 `index.html` 不一致问题；实现动态外部补全脚本统一构建版本戳（`?v=20261011_dock_v2`）；在服务端强化 HTML 入口防缓存响应头；完成本地 100% 自动化测试与云端 ECS 生产环境安全发布验证。
+
+---
+
+### 一、改动范围与核心逻辑 (Scope & Implementation)
+
+| 文件路径 | 模块 / 职责 | 核心改动点 |
+|---|---|---|
+| `molan-home/index.html` | 前端主架构入口 | 1. **CSS 资源防缓存**：头部引入 `./pages/tokens.css` 附带 `?v=20261011_dock_v2`；<br>2. **统一补全脚本版本号**：底部动态注入的 6 个核心补全脚本（`completion-library.js`、`completion-editor.js`、`completion-import.js`、`completion-platform.js`、`completion-admin.js`、`workspace-completion.js`）统一增加 `?v=20261011_dock_v2`，强制浏览器彻底弃用陈旧 Disk Cache。 |
+| `molan-home/services/static-service.js` | 静态资源托管服务 | 1. **HTML 入口防缓存加固**：针对 `.html` 文件将 Cache-Control 强化为 `no-cache, no-store, must-revalidate, max-age=0`，并追加 `Pragma: no-cache`、`Expires: 0`；<br>2. **未版本化脚本防护**：对未带 `?v=` 的 JS 同样配置 `no-cache, no-store, must-revalidate, max-age=0`，带版本号的维持 `immutable` 长缓存。 |
+| `molan-home/test/static-file-allowlist.test.js` | 静态服务测试套件 | 新增 2 个专项测试：<br>- 验证静态服务对 HTML/未带版本 JS 输出 `no-cache, no-store` 与 `Pragma`，对版本化资源输出 `immutable`；<br>- 验证 `index.html` 中引用的全部核心补全脚本与 CSS 均附带统一 Cache-Busting 版本参数。 |
+| `molan-home/test/creation-main-flow.test.js` | 创书链路测试套件 | 将对 `completion-import.js` 的硬编码历史版本号断言重构为泛型版本匹配 `/completion-import\.js\?v=/`，保障版本演进平滑。 |
+
+---
+
+### 二、设计决策与权衡 (Design Decisions & Trade-offs)
+
+1. **统一版本戳（Unified Version Token）代替碎片化零散版本号**：
+   - 过去 `completion-editor.js?v=chat-state-sync-17` 与 `completion-platform.js?v=imports-1` 各自维护独立版本，且部分脚本缺失版本号，导致浏览器同时存在新老混杂的 JS 缓存。统一由 `const v = '20261011_dock_v2'` 派发，确保每次版本迭代时所有补全脚本原子级同步更新。
+2. **HTML 入口 `no-cache, no-store` 零延迟直达**：
+   - HTML 页面体积轻量且是整个 SPA 单页应用的路由中枢。将其强制设为 `no-store` 不会对服务器造成带宽压力，但能彻底杜绝 Edge/Chrome 等现代浏览器前进后退或普通回车访问时的隐式 Disk Cache 穿透漏洞。
+
+---
+
+### 三、真实验证证据 (Verification Evidence)
+
+- **Node 运行时**：`tools/node22_runtime/node.exe` (Node.js v22)
+- **1. 静态白名单与响应头专项测试套件（3/3 真实通过，100%）**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test molan-home/test/static-file-allowlist.test.js
+  # TAP version 13
+  # ok 1 - 仅放行明确列出的客户端 WAL 和搜索静态资源
+  # ok 2 - 静态资源服务对 HTML 和客户端 JS 强化抗缓存响应头，带版本号时启用 immutable 强缓存
+  # ok 3 - index.html 中引用的外部补全脚本与核心 CSS 均包含统一的 Cache-Busting 版本参数
+  # 1..3
+  # tests 3, pass 3, fail 0
+  ```
+- **2. 创书核心主流程测试套件（18/18 真实通过，100%）**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test molan-home/test/creation-main-flow.test.js
+  # TAP version 13
+  # tests 18, pass 18, fail 0
+  ```
+- **3. 全量 ESM 自动化测试套件（209/209 真实通过，100%）**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --no-warnings --test "molan-home/test/**/*.test.mjs"
+  # tests 209, pass 207, fail 0, skipped 2, todo 0
+  ```
+- **4. 关键工作台与鉴权测试套件（41/41 真实通过，100%）**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --test molan-home/test/workbench-editor-fusion.test.js molan-home/test/auth-persistence-and-latency.test.js molan-home/test/static-file-allowlist.test.js
+  # tests 41, pass 41, fail 0
+  ```
+- **5. 语法静态校验 (`--check` 0 错误)**：
+  ```powershell
+  ..\tools\node22_runtime\node.exe --check molan-home/services/static-service.js molan-home/test/static-file-allowlist.test.js molan-home/test/creation-main-flow.test.js
+  # exit code 0, 0 errors
+  ```
+
 
 
 

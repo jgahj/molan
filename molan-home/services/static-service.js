@@ -83,12 +83,13 @@ function createStaticService({ MIME, PUBLIC_DIR, PUBLIC_ROOT_FILES, STATIC_CACHE
     const isHtml = /^\.html?$/.test(ext);
     const { body, encoding } = compressedStaticBody(entry, pickStaticEncoding(req, ext, entry.data.length));
     let cacheControl;
-    if (isHtml) cacheControl = 'public, max-age=0, must-revalidate';
+    if (isHtml) cacheControl = 'no-cache, no-store, must-revalidate, max-age=0';
     else if (versioned) cacheControl = 'public, max-age=31536000, immutable';
-    else cacheControl = isHtmlJs ? 'public, max-age=0, must-revalidate' : 'public, max-age=86400';
+    else cacheControl = isHtmlJs ? 'no-cache, no-store, must-revalidate, max-age=0' : 'public, max-age=86400';
     res.writeHead(200, {
       'Content-Type': MIME[ext] || 'application/octet-stream',
       'Cache-Control': cacheControl,
+      ...(isHtml ? { 'Pragma': 'no-cache', 'Expires': '0' } : {}),
       'ETag': etag,
       'Vary': 'Accept-Encoding',
       ...(encoding ? { 'Content-Encoding': encoding } : {}),

@@ -6,7 +6,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230a0a0a'/><text x='16' y='21' font-size='16' text-anchor='middle' fill='%23fff' font-family='serif'>墨</text></svg>">
   <script>
     if (location.protocol !== 'file:') {
-      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = './pages/tokens.css';
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = './pages/tokens.css?v=20261011_dock_v2';
       document.head.appendChild(l);
     }
   </script>
@@ -5606,13 +5606,14 @@
   </script>
   <script>
     if (location.protocol !== 'file:') {
+      const v = '20261011_dock_v2';
       [
-        './completion-library.js',
-        './completion-editor.js?v=chat-state-sync-17',
-        './completion-import.js?v=pro-craft-6',
-        './completion-platform.js?v=imports-1',
-        './completion-admin.js',
-        './workspace-completion.js'
+        `./completion-library.js?v=${v}`,
+        `./completion-editor.js?v=${v}`,
+        `./completion-import.js?v=${v}`,
+        `./completion-platform.js?v=${v}`,
+        `./completion-admin.js?v=${v}`,
+        `./workspace-completion.js?v=${v}`
       ].forEach(src => {
         const s = document.createElement('script');
         s.src = src;

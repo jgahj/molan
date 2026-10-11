@@ -131,7 +131,7 @@ test('创书核心包由服务端任务生成，随后顺序扩展资源和完�
   assert.match(importSource, /章纲扩展中 · 已完成/);
   assert.match(importSource, /正在扩展创作资源/);
   assert.match(importSource, /正在扩展章纲/);
-  assert.match(indexSource, /completion-import\.js\?v=pro-craft-6/);
+  assert.match(indexSource, /completion-import\.js\?v=/);
 });
 
 test('创书结果优先保留用户计划书名，模型自拟名只作为备选', () => {
