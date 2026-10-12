@@ -212,10 +212,42 @@ function createChatService({
         return m;
       });
 
-      const userText = (Array.isArray(validatedMessages) ? validatedMessages : [])
+      const userMessages = (Array.isArray(validatedMessages) ? validatedMessages : [])
         .filter(m => m && m.role === 'user')
-        .map(m => String(m.content || ''))
-        .join('\n');
+        .map(m => String(m.content || ''));
+      const directPrompt = String((input && (input.prompt || input.userPrompt)) || '');
+      const allCandidatePrompts = directPrompt ? [...userMessages, directPrompt] : userMessages;
+      const userText = userMessages.join('\n');
+
+      const { detectPromptExtractionIntent, PROMPT_LEAK_BLOCK_NOTICE, PROMPT_PROTECTION_GUARD } = require('../lib/security-guard');
+      const hasExtraction = allCandidatePrompts.some(msg => detectPromptExtractionIntent(msg));
+      if (hasExtraction) {
+        releaseSlot();
+        if (input && input.stream) {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          });
+          const payload = JSON.stringify({
+            choices: [{ delta: { content: PROMPT_LEAK_BLOCK_NOTICE }, finish_reason: 'stop' }]
+          });
+          res.write(`data: ${payload}\n\ndata: [DONE]\n\n`);
+          res.end();
+          return;
+        }
+        return json(res, 200, {
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: PROMPT_LEAK_BLOCK_NOTICE
+            }
+          }],
+          usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+          protected: true
+        });
+      }
+
       const isCreationTask = input.creationMode === true ||
         /生成.*?章节|生成.*?小说|创作第.*?节|续写.*?章|写一章|写完整章节|正文（约\d+.*?字）|正文撰写任务|剧情节点|主要人物|世界观/i.test(userText);
 
@@ -370,6 +402,14 @@ function createChatService({
       let messages = validateChatMessages(editorOnly
         ? injectEditorOnlyCorrectionLibrary(preparedMessages.messages, editorCorrectionLibrary, correctionEnabled, { requestText: correctionRequestText, onRender: render => { editorCorrectionRender = render; } })
         : injectUniversalCorrectionPolicy(preparedMessages.messages, correctionEnabled));
+      const sysMsgIndex = messages.findIndex(m => m && m.role === 'system');
+      if (sysMsgIndex >= 0) {
+        if (!messages[sysMsgIndex].content.includes('【系统安全防御铁律')) {
+          messages[sysMsgIndex].content += '\n\n' + PROMPT_PROTECTION_GUARD;
+        }
+      } else {
+        messages.unshift({ role: 'system', content: PROMPT_PROTECTION_GUARD });
+      }
       skillAudit = preparedMessages.skillAudit;
       skillAudit = {
         ...skillAudit,

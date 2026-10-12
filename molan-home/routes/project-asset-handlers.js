@@ -136,7 +136,25 @@ function createProjectAssetHandlers(deps) {
     try {
       const { compileFullWritingSpecification, getAtomicPromptBlocks } = require('../lib/generation/corpus-archetypes');
       if (req.method === 'GET') {
-        return json(res, 200, { ok: true, blocks: getAtomicPromptBlocks() });
+        const rawBlocks = getAtomicPromptBlocks();
+        const sanitizeBlock = (items) => {
+          if (!items || typeof items !== 'object') return {};
+          const sanitized = {};
+          for (const [k, v] of Object.entries(items)) {
+            sanitized[k] = {
+              id: v.id || k,
+              category: v.category,
+              name: v.name,
+              protected: true
+            };
+          }
+          return sanitized;
+        };
+        const sanitizedBlocks = {};
+        for (const [dim, group] of Object.entries(rawBlocks || {})) {
+          sanitizedBlocks[dim] = sanitizeBlock(group);
+        }
+        return json(res, 200, { ok: true, protected: true, blocks: sanitizedBlocks });
       }
       const body = await readBody(req);
       const input = body && typeof body === 'object' ? body : {};
@@ -150,11 +168,21 @@ function createProjectAssetHandlers(deps) {
         userPrompt: input.userPrompt || input.prompt || '',
         wordBudget: input.wordBudget
       });
+      // 严格安全保护：禁止向普通前端输出未授权系统提示词源码
       return json(res, 200, {
         ok: true,
         success: true,
-        finalPrompt: compiled.directive,
-        wordBudget: compiled.wordBudget
+        compiled: true,
+        wordBudget: compiled.wordBudget,
+        protected: true,
+        summary: {
+          genre: input.genre || input.novelGenre || '通用文学',
+          writingStyle: input.writingStyle || input.styleArchetype || '自然白描',
+          chapterFunction: input.chapterFunction || '自然推进',
+          chapterFocus: input.chapterFocus || '综合推进',
+          endingHook: input.endingHook || '自然收束'
+        },
+        message: '提示词已在服务端完成结构化安全编译（受知识产权保护，已脱敏并禁止明文暴露）'
       });
     } catch (err) {
       return json(res, 500, { error: err.message || '编译提示词异常' });

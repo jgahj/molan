@@ -629,6 +629,11 @@ function buildDraftRequest(options = {}) {
   const targetChars = compiled.wordBudget?.target ?? (req.targetChars != null ? Number(req.targetChars) : null) ?? 2400;
   const writerMaxTokens = (req.modelParams?.maxTokens ?? req.maxTokens ?? options.maxTokens) ?? Math.max(8192, Math.min(16000, Math.ceil(targetChars * 3.5)));
 
+  const { PROMPT_PROTECTION_GUARD } = require('../security-guard');
+  if (PROMPT_PROTECTION_GUARD && !effectiveSystem.includes('【系统安全防御铁律')) {
+    effectiveSystem = effectiveSystem ? `${effectiveSystem}\n\n${PROMPT_PROTECTION_GUARD}` : PROMPT_PROTECTION_GUARD;
+  }
+
   const canonicalMessages = [
     { role: 'system', content: effectiveSystem },
     { role: 'user', content: effectiveUser },
