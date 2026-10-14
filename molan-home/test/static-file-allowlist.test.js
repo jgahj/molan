@@ -73,25 +73,37 @@ test('静态资源服务对 HTML 和客户端 JS 强化抗缓存响应头，带�
   assert.equal(imgRes.getHeader('Cache-Control'), 'public, max-age=86400');
 });
 
-test('index.html 中引用的外部补全脚本与核心 CSS 均包含统一的 Cache-Busting 版本参数', () => {
+test('index.html 与 app-boot.js 引用的外部脚本均包含统一的 Cache-Busting 版本参数', () => {
   const fs = require('fs');
   const path = require('path');
   const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8');
+  const boot = fs.readFileSync(path.resolve(__dirname, '../app-boot.js'), 'utf8');
 
   // 检查 tokens.css 带版本号
   assert.match(html, /tokens\.css\?v=[a-zA-Z0-9_-]+/);
+  // 外移后的引导脚本同样带版本号
+  assert.match(html, /app-boot\.js\?v=[a-zA-Z0-9_-]+/);
 
-  // 检查 6 个 completion 脚本均带版本号
-  const requiredScripts = [
+  // 首屏 4 个核心补全脚本在 index.html 中均带版本号
+  const eagerScripts = [
     'completion-library.js',
     'completion-editor.js',
-    'completion-import.js',
     'completion-platform.js',
-    'completion-admin.js',
     'workspace-completion.js'
   ];
-  for (const script of requiredScripts) {
+  for (const script of eagerScripts) {
     const pattern = new RegExp(`${script}\\?v=`);
     assert.ok(pattern.test(html), `index.html 中 ${script} 必须附带 ?v= 版本号查询参数`);
   }
+
+  // 2026-10-14 懒加载：import/admin 脚本改由 app-boot.js 按路由加载，
+  // 版本戳在运行时从 app-boot 自身 URL 自读取后拼接，不得硬编码过期戳
+  const lazyScripts = ['completion-import.js', 'completion-admin.js'];
+  for (const script of lazyScripts) {
+    assert.ok(boot.includes(script), `app-boot.js 懒加载表必须注册 ${script}`);
+  }
+  assert.match(boot, /FRONTEND_STAMP \? `\$\{src\}\?v=\$\{FRONTEND_STAMP\}` : src/, '懒加载 URL 必须运行时拼接自读取版本戳');
+  // 旧版全量加载清单不得残留（防止回退到首屏全载）
+  assert.ok(!/completion-import\.js\?v=/.test(html), 'completion-import.js 不得再出现于 index.html 首屏清单');
+  assert.ok(!/completion-admin\.js\?v=/.test(html), 'completion-admin.js 不得再出现于 index.html 首屏清单');
 });

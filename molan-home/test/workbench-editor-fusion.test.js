@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const completionEditorSource = fs.readFileSync(path.join(__dirname, '..', 'completion-editor.js'), 'utf8');
-const indexHtmlSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const indexHtmlSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
 const storyWorkbenchHtml = fs.readFileSync(path.join(__dirname, '..', 'pages', 'story-workbench.html'), 'utf8');
 const storyWorkbenchJs = fs.readFileSync(path.join(__dirname, '..', 'pages', 'story-workbench.js'), 'utf8');
 const projectDocsJs = fs.readFileSync(path.join(__dirname, '..', 'pages', 'project-docs.js'), 'utf8');

@@ -132,6 +132,38 @@ function screenDeterministicSemantics(text, contract = {}) {
  * @param {Object} options 审计参数
  * @returns {Promise<Object>} 语义审计结果
  */
+/**
+ * 章节级证据包（Evidence Packet）。
+ * 历史缺陷：判官输入仅 draftExcerpt = text.slice(0, 4000)，章中/高潮/章末 Hook
+ * 完全不在评委视野，"开头好→误判全章好"。
+ * 现按开篇/中段/高潮/结尾四段截取；短章（<=4000 字）直接给全文不重复计费。
+ * 判官引文仍由 verifyQuoteInText 对全文校验，分段不影响引文真实性防线。
+ */
+function buildDraftEvidencePacket(text, options = {}) {
+  const total = text.length;
+  if (total <= 4000) {
+    return {
+      mode: 'full',
+      totalChars: total,
+      full: text,
+      ...(options.stateBefore ? { stateBefore: options.stateBefore } : {}),
+      ...(options.stateAfter ? { stateAfter: options.stateAfter } : {})
+    };
+  }
+  const seg = (start, len) => text.slice(Math.max(0, Math.min(total, start)), Math.max(0, Math.min(total, start + len)));
+  const packet = {
+    mode: 'segmented',
+    totalChars: total,
+    opening: seg(0, 1200),
+    middle: seg(Math.floor(total * 0.35) - 500, 1000),
+    climax: seg(Math.floor(total * 0.7) - 500, 1000),
+    ending: seg(total - 1200, 1200)
+  };
+  if (options.stateBefore) packet.stateBefore = options.stateBefore;
+  if (options.stateAfter) packet.stateAfter = options.stateAfter;
+  return packet;
+}
+
 async function auditSemantics(options = {}) {
   const {
     draft = '',
@@ -207,14 +239,14 @@ async function auditSemantics(options = {}) {
 
       const prompt = {
         task: '文学与逻辑语义审计',
-        instruction: '请审查小说正文是否存在以下维度的严重文学或逻辑硬缺陷：1.因果断裂 2.角色行为严重OOC 3.视角越界 4.前后事实矛盾。若有缺陷，必须提供正文中逐字准确的原句 quote。严禁虚构引文。',
+        instruction: '请审查小说正文是否存在以下维度的严重文学或逻辑硬缺陷：1.因果断裂 2.角色行为严重OOC 3.视角越界 4.前后事实矛盾。审阅证据包：短章为 full 全文；长章按 opening/middle/climax/ending 四段覆盖开篇、中段、高潮与章末（含章末 Hook）。若有缺陷，必须提供正文中逐字准确的原句 quote。严禁虚构引文。',
         contract: {
           chapterGoal: contract.chapterGoal,
           pov: contract.pov,
           viewpointCharacter: contract.viewpointCharacter,
           characters: contract.characters
         },
-        draftExcerpt: text.slice(0, 4000)
+        evidencePacket: buildDraftEvidencePacket(text, { stateBefore: options.stateBefore, stateAfter: options.stateAfter })
       };
 
       const response = await callModel(auth, {
@@ -417,5 +449,6 @@ module.exports = {
   SEMANTIC_AUDIT_STATUS,
   verifyQuoteInText,
   screenDeterministicSemantics,
+  buildDraftEvidencePacket,
   auditSemantics
 };

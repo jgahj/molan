@@ -44,6 +44,7 @@ function createNativeDomainService({
   verifyPasswordAsync,
   hashSessionToken,
   allowAuthAttempt,
+  authAttemptLimiter,
   isAdminUser,
   normalizeAvatar,
   findPlatformModel,
@@ -93,7 +94,7 @@ function createNativeDomainService({
     if (!auth) auth = createNativeAuthService({
       repository: appRepository(), crypto, readBody, json, respondError,
       createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, hashSessionToken,
-      publicUser: nativePublicUser, allowAuthAttempt, isAdminUser, normalizeAvatar,
+      publicUser: nativePublicUser, allowAuthAttempt, authAttemptLimiter, isAdminUser, normalizeAvatar,
       findPlatformModel, canChooseModel, currentDefaultModel, sessionTtlMs
     });
     return auth;

@@ -97,7 +97,7 @@ test('checkPayoffExecution 对具备对手身心受挫与即时触感验货的�
 
 test('evidenceAudit 对严重超篇幅生成给出聚焦修剪提示', async () => {
   const lines = [];
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     lines.push('第' + i + '段，风浪愈发狂暴，货船在夜色中艰难前行，水手们各司其职不敢有丝毫松懈。');
   }
   const longText = lines.join('\n');

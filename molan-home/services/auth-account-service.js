@@ -9,6 +9,7 @@ function createAuthAccountService({
   USERS_FILE,
   USER_CACHE_TTL_MS,
   allowAuthAttempt,
+  authAttemptLimiter,
   applyAuthSessionInvalidation,
   canChooseModel,
   crypto,
@@ -614,7 +615,7 @@ function createAuthAccountService({
   }
   
   function handleRegister(req, res) {
-    if (!allowAuthAttempt(req, 'register', 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' });
+    if (!allowAuthAttempt(req, 'register', 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' }, { 'Retry-After': String(authRetryAfter(req, 'register')) });
     readBody(req).then(async p => {
       const email = String(p.email || '').trim().toLowerCase();
       const password = String(p.password || '');
@@ -657,23 +658,52 @@ function createAuthAccountService({
     }
     return user;
   }
-  
+
+  /** 登录失败计数：达到软/硬阈值后自动收紧或阻断（XFF 还原真实客户端 IP） */
+  function recordAuthFailure(req, scope) {
+    try { if (authAttemptLimiter) authAttemptLimiter.recordFailure(req, scope); } catch (_) {}
+  }
+
+  /** 登录成功清零失败计数，避免共享 NAT/误操作牵连后续正常登录 */
+  function recordAuthSuccess(req, scope) {
+    try { if (authAttemptLimiter) authAttemptLimiter.recordSuccess(req, scope); } catch (_) {}
+  }
+
+  /** 429 响应的 Retry-After 秒数 */
+  function authRetryAfter(req, scope) {
+    try { return authAttemptLimiter ? authAttemptLimiter.retryAfterSeconds(req, scope) : 0; } catch (_) { return 0; }
+  }
+
   function handleLogin(req, res) {
-    if (!allowAuthAttempt(req, 'login', 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' });
+    if (!allowAuthAttempt(req, 'login', 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' }, { 'Retry-After': String(authRetryAfter(req, 'login')) });
     readBody(req).then(async p => {
       const email = String(p.email || '').trim().toLowerCase();
       const password = String(p.password || '');
-      const user = await authenticatePasswordLogin(email, password);
+      let user;
+      try {
+        user = await authenticatePasswordLogin(email, password);
+      } catch (e) {
+        recordAuthFailure(req, 'login');
+        throw e;
+      }
+      recordAuthSuccess(req, 'login');
       json(res, 200, { ok: true, token: await issueToken(user.email, 'client'), user: await publicUser(user) });
     }).catch(e => respondError(res, e));
   }
-  
+
   function handleAdminLogin(req, res) {
-    if (!allowAuthAttempt(req, 'admin-login', 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' });
+    if (!allowAuthAttempt(req, 'admin-login', 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' }, { 'Retry-After': String(authRetryAfter(req, 'admin-login')) });
     readBody(req).then(async p => {
       const email = String(p.email || '').trim().toLowerCase();
       const password = String(p.password || '');
-      const user = await authenticatePasswordLogin(email, password);
+      let user;
+      try {
+        user = await authenticatePasswordLogin(email, password);
+      } catch (e) {
+        recordAuthFailure(req, 'admin-login');
+        throw e;
+      }
+      recordAuthSuccess(req, 'admin-login');
       if (!isAdminUser(user)) throw requestError(403, '该账户没有管理员权限');
       json(res, 200, { ok: true, token: await issueToken(user.email, 'admin'), user: await publicUser(user) });
     }).catch(e => respondError(res, e));

@@ -17,58 +17,25 @@
 
 const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
 
-const TOKENIZER_RATIOS = {
-  o200k_base: { cjkRatio: 0.70, nonCjkRatio: 0.30 },
-  cl100k_base: { cjkRatio: 0.85, nonCjkRatio: 0.32 },
-  claude: { cjkRatio: 0.75, nonCjkRatio: 0.30 },
-  deepseek: { cjkRatio: 0.72, nonCjkRatio: 0.28 },
-  qwen: { cjkRatio: 0.68, nonCjkRatio: 0.28 },
-  standard: { cjkRatio: 0.75, nonCjkRatio: 0.30 }
-};
-
 /**
- * 校验并估算文本 Token 消耗（模型分词器校准）
- * @param {string} text 待测文本
- * @param {Object} options 模型族或分词器选项
- * @returns {number} 估算的 Token 数量
+ * 校验并估算文本 Token 消耗（模型分词器校准）。
+ * 2026-10-14 统一：本函数不再私建比率表，全权委托 model-registry 的
+ * estimatePromptTokens（唯一估算入口，族回退表已收口至该处），
+ * 杜绝 attention 与 context-budget 双估算漂移。签名保持不变。
  */
 function estimateTokens(text, options = {}) {
-  const str = String(text || '');
-  if (!str) return 0;
-
-  let ratios = null;
-  const modelId = options.modelId || options.model || options.targetModel;
-  if (modelId) {
-    try {
-      const { getModelCapability } = require('../../model/model-registry');
-      const cap = getModelCapability(modelId);
-      if (cap) {
-        ratios = {
-          cjkRatio: cap.cjkTokenRatio || 0.75,
-          nonCjkRatio: cap.nonCjkTokenRatio || 0.30
-        };
-      }
-    } catch (_) {}
+  try {
+    const { estimatePromptTokens } = require('../../model/model-registry');
+    return estimatePromptTokens(text, options, options);
+  } catch (_) {
+    // 注册表不可用时的最小可用回退（与统一估算器的 standard 档一致）
+    const str = String(text || '');
+    if (!str) return 0;
+    const cjkCount = (str.match(CJK_REGEX) || []).length;
+    const nonCjkCount = str.length - cjkCount;
+    const safetyMargin = Number(options.safetyMargin) || 1.05;
+    return Math.ceil(Math.ceil(cjkCount * 0.75 + nonCjkCount * 0.30) * safetyMargin);
   }
-
-  if (!ratios) {
-    const modelFamily = String(options.targetModelFamily || options.modelFamily || '').toLowerCase();
-    const tokenizerKey = options.tokenizer || (
-      modelFamily.includes('gpt') || modelFamily.includes('o1') || modelFamily.includes('o3') ? 'o200k_base' :
-      modelFamily.includes('claude') ? 'claude' :
-      modelFamily.includes('deepseek') ? 'deepseek' :
-      modelFamily.includes('qwen') || modelFamily.includes('llama') || modelFamily.includes('local') ? 'qwen' :
-      'standard'
-    );
-    ratios = TOKENIZER_RATIOS[tokenizerKey] || TOKENIZER_RATIOS.standard;
-  }
-  const cjkMatches = str.match(CJK_REGEX);
-  const cjkCount = cjkMatches ? cjkMatches.length : 0;
-  const nonCjkCount = str.length - cjkCount;
-
-  const rawTokens = Math.ceil(cjkCount * ratios.cjkRatio + nonCjkCount * ratios.nonCjkRatio);
-  const safetyMargin = Number(options.safetyMargin) || 1.05;
-  return Math.ceil(rawTokens * safetyMargin);
 }
 
 /**
@@ -676,5 +643,6 @@ module.exports = {
   truncateToBudget,
   compactCriticalBlock,
   FINAL_BUDGET_ASSERT,
-  TOKENIZER_RATIOS
+  // 比率表已统一收口至 model-registry；此处再导出仅为兼容既有导入方
+  TOKENIZER_RATIOS: require('../../model/model-registry').TOKENIZER_RATIOS
 };

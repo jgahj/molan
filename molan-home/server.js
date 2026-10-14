@@ -391,7 +391,7 @@ function stablePromptCacheKey(email, modelId, messages) {
   return 'molan:prompt-v4:' + userKey + ':' + String(modelId || '').replace(/[^A-Za-z0-9_.-]/g, '_') + ':' + digest;
 }
 
-const DYNAMIC_PROMPT_MARKER = '<!-- molan-dynamic-context-v2 -->';
+const DYNAMIC_PROMPT_MARKER = require('./lib/generation/prompt-markers').DYNAMIC_PROMPT_MARKER;
 const DYNAMIC_PROMPT_FLAG = '__molanDynamicContext';
 const UNIVERSAL_CORRECTION_MARKER = '<!-- molan-universal-correction-policy-v1 -->';
 // 提示词注入防御：用户消息中的指令性文字只视为小说素材，不得改变系统规则。
@@ -554,7 +554,7 @@ const CORS_SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'X-Frame-Options': 'SAMEORIGIN',
   'Cross-Origin-Resource-Policy': 'same-origin',
-  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self';"
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self';"
 };
 function corsHeadersForOrigin(origin) {
   const headers = { ...CORS_SECURITY_HEADERS };
@@ -567,7 +567,7 @@ function corsHeadersForOrigin(origin) {
     headers['Access-Control-Allow-Origin'] = candidate || '*';
     headers['Cross-Origin-Resource-Policy'] = 'cross-origin';
     headers['Access-Control-Allow-Private-Network'] = 'true';
-    headers['Content-Security-Policy'] = "default-src 'self' 'unsafe-inline' data: blob:; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https:;";
+    headers['Content-Security-Policy'] = "default-src 'self' 'unsafe-inline' data: blob:; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https:;";
   }
   return headers;
 }
@@ -587,8 +587,11 @@ const PUBLIC_ROOT_FILES = new Set([
   '/favicon.ico',
   '/favicon.svg',
   '/app.js',
+  '/app-boot.js',
   '/llms.txt',
   '/assets/login-writing-room.png',
+  '/assets/lucide.min.js',
+  '/assets/tailwind-browser.js',
   '/lib/project-material-schema.js',
   '/lib/client/local-wal.js',
   '/lib/client/search-index.js',
@@ -1153,6 +1156,9 @@ const emailCodes = new Map(); // email -> { code, expires }
 
 const authAttemptLimiter = createAuthAttemptLimiter();
 const allowAuthAttempt = authAttemptLimiter.allow;
+const authRetryAfter = (req, scope) => { try { return authAttemptLimiter.retryAfterSeconds(req, scope); } catch (_) { return 0; } };
+const { createObservabilityService } = require('./services/observability-service');
+const observability = createObservabilityService();
 
 /** 邮箱验证码暂未开放：没有邮件服务时绝不生成或返回演示验证码。 */
 
@@ -6485,6 +6491,30 @@ async function handleHealth(req, res) {
   json(res, 200, { ...(auth && isAdminUser(auth.user) ? health : healthCache), ...runtime });
 }
 
+/* ---------- 可观测性：客户端错误回收 + 管理员指标（2026-10-14） ---------- */
+
+/** POST /api/client-errors —— 前端 window.onerror / unhandledrejection 上报（免鉴权，按 IP 限流） */
+function handleClientErrors(req, res) {
+  readBody(req, 64 * 1024).then(payload => {
+    const ip = (req.socket && req.socket.remoteAddress) || 'unknown';
+    const result = observability.recordClientError(ip, payload || {});
+    if (!result.accepted) return json(res, 429, { error: '上报过于频繁，请稍后再试' }, { 'Retry-After': '60' });
+    observability.logEvent('warn', 'client_error', {
+      ip, type: String((payload && payload.type) || 'error'),
+      message: String((payload && payload.message) || '').slice(0, 200),
+      href: String((payload && payload.href) || '').slice(0, 200)
+    });
+    json(res, 202, { ok: true });
+  }).catch(e => respondError(res, e));
+}
+
+/** GET /api/metrics —— 进程指标与近期客户端错误（仅管理员） */
+function handleMetrics(req, res) {
+  const auth = getAuthUser(req);
+  if (!auth || !isAdminUser(auth.user)) return json(res, 403, { error: '仅管理员可查看运行指标' });
+  json(res, 200, { ok: true, metrics: observability.getMetrics() });
+}
+
 /* ---------- 旧版网页 AI 兼容接口：统一关闭，避免绕过平台计费 ---------- */
 function handleWebChat(req, res) {
   if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleWebChat) {
@@ -6502,11 +6532,11 @@ function handleWebChatStatus(req, res) {
 
 // 全局兜底：未捕获的 Promise 拒绝只记日志不退出，保持服务可用
 process.on('unhandledRejection', (reason) => {
-  console.error('[molan] unhandledRejection:', reason);
+  observability.logEvent('error', 'unhandled_rejection', { reason: String(reason && reason.message || reason).slice(0, 300) });
 });
 // 未捕获同步异常：记日志后退出，交给 pm2 拉起，避免半死状态
 process.on('uncaughtException', (err) => {
-  console.error('[molan] uncaughtException:', err);
+  observability.logEvent('error', 'uncaught_exception', { message: String(err && err.message || err).slice(0, 300), stack: String(err && err.stack || '').slice(0, 500) });
   process.exit(1);
 });
 
@@ -6709,6 +6739,7 @@ const authAccountService = require('./services/auth-account-service').createAuth
   USERS_FILE,
   USER_CACHE_TTL_MS,
   allowAuthAttempt,
+  authAttemptLimiter,
   applyAuthSessionInvalidation,
   canChooseModel,
   crypto,
@@ -7051,7 +7082,7 @@ const nativeDomain = require('./services/native-domain-service').createNativeDom
   createNativeBillingService: require('./services/native-billing-service').createNativeBillingService,
   createNativeAuthService: require('./services/native-auth-service').createNativeAuthService,
   crypto, readBody, json, respondError, createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, hashSessionToken,
-  allowAuthAttempt, isAdminUser, normalizeAvatar, findPlatformModel, canChooseModel,
+  allowAuthAttempt, authAttemptLimiter, isAdminUser, normalizeAvatar, findPlatformModel, canChooseModel,
   currentDefaultModel, sessionTtlMs: SESSION_TTL_MS,
   creditCostForUser, roundCreditValue, toTokenCount, matchesTokenUsageReservation,
   normalizeUserRole, storedAvatar, buildUsageSummary, publicUsageRow, novelListSummary
@@ -7290,6 +7321,8 @@ function getPostgresDissectionMutationService() {
 
 let nativeKnowledgeCatalogService = null;
 const server = http.createServer((req, res) => {
+  observability.countRequest();
+  res.on('finish', () => { if (res.statusCode >= 500) observability.countServerError(); });
   void dispatchRequest(req, res).catch(error => respondError(res, error));
 });
 async function dispatchRequest(req, res) {
@@ -7309,6 +7342,9 @@ async function dispatchRequest(req, res) {
     req.molanNativeAuth = await nativeAuthService().resolve(req);
   }
   const u = req.url.split('?')[0];
+  // 可观测性端点（先行拦截，不走领域路由）
+  if (u === '/api/client-errors' && req.method === 'POST') return handleClientErrors(req, res);
+  if (u === '/api/metrics' && req.method === 'GET') return handleMetrics(req, res);
   if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
     if (!nativeKnowledgeCatalogService) nativeKnowledgeCatalogService = require('./services/native-knowledge-catalog-service').createNativeKnowledgeCatalogService({ json });
     if (nativeKnowledgeCatalogService.dispatch(req, res, u)) return;

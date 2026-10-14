@@ -13,20 +13,9 @@
 
 const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
 
-const TOKENIZER_RATIOS = {
-  // o200k_base (GPT-4o, GPT-5.6-Luna, Grok 4.5/4.6)
-  o200k_base: { cjkRatio: 0.70, nonCjkRatio: 0.30 },
-  // cl100k_base (GPT-4)
-  cl100k_base: { cjkRatio: 0.85, nonCjkRatio: 0.32 },
-  // Claude tokenizer (Claude 3.5 Sonnet / Opus)
-  claude: { cjkRatio: 0.75, nonCjkRatio: 0.30 },
-  // DeepSeek tokenizer (DeepSeek V3 / R1)
-  deepseek: { cjkRatio: 0.72, nonCjkRatio: 0.28 },
-  // Qwen tokenizer (Qwen 2.5 / Plus / Max)
-  qwen: { cjkRatio: 0.68, nonCjkRatio: 0.28 },
-  // Local / standard fallback
-  standard: { cjkRatio: 0.75, nonCjkRatio: 0.30 }
-};
+// 2026-10-14 统一：比率表与估算逻辑收口至 model-registry（唯一入口），
+// 本文件不再私建 TOKENIZER_RATIOS 副本，杜绝第三套估算漂移。
+const { estimatePromptTokens: estimatePromptTokensUnified, TOKENIZER_RATIOS } = require('../../model/model-registry');
 
 /**
  * 校验并估算提示词 Token 消耗（模型分词器校准）
@@ -35,26 +24,7 @@ const TOKENIZER_RATIOS = {
  * @returns {number} 估算的 Token 数量
  */
 function estimatePromptTokens(text, options = {}) {
-  const str = String(text || '');
-  if (!str) return 0;
-
-  const modelFamily = String(options.targetModelFamily || options.modelFamily || 'generic').toLowerCase();
-  const tokenizerKey = options.tokenizer || (
-    modelFamily.includes('gpt') || modelFamily.includes('o1') || modelFamily.includes('o3') ? 'o200k_base' :
-    modelFamily.includes('claude') ? 'claude' :
-    modelFamily.includes('deepseek') ? 'deepseek' :
-    modelFamily.includes('qwen') || modelFamily.includes('llama') || modelFamily.includes('local') ? 'qwen' :
-    'standard'
-  );
-
-  const ratios = TOKENIZER_RATIOS[tokenizerKey] || TOKENIZER_RATIOS.standard;
-  const cjkMatches = str.match(CJK_REGEX);
-  const cjkCount = cjkMatches ? cjkMatches.length : 0;
-  const nonCjkCount = str.length - cjkCount;
-
-  const rawTokens = Math.ceil(cjkCount * ratios.cjkRatio + nonCjkCount * ratios.nonCjkRatio);
-  const safetyMargin = Number(options.safetyMargin) || 1.05;
-  return Math.ceil(rawTokens * safetyMargin);
+  return estimatePromptTokensUnified(text, options, options);
 }
 
 /**

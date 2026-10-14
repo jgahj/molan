@@ -5,7 +5,7 @@ const { test } = require('node:test');
 
 require('./helpers/local-runtime').createLocalRuntime();
 const server = require('../server');
-const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
 const importSource = fs.readFileSync(path.join(__dirname, '..', 'completion-import.js'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'completion-editor.js'), 'utf8');
 const serverSource = ['server.js', 'services/creation-book-service.js', 'services/creation-core-job-runtime.js', 'services/creation-core-job-http-service.js'].map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
@@ -131,7 +131,10 @@ test('创书核心包由服务端任务生成，随后顺序扩展资源和完�
   assert.match(importSource, /章纲扩展中 · 已完成/);
   assert.match(importSource, /正在扩展创作资源/);
   assert.match(importSource, /正在扩展章纲/);
-  assert.match(indexSource, /completion-import\.js\?v=/);
+  // 2026-10-14 起 completion-import.js 改按路由懒加载：注册于 app-boot.js 的
+  // LAZY_ROUTE_SCRIPTS，版本戳运行时自 app-boot 自身 URL 拼接
+  assert.match(indexSource, /LAZY_ROUTE_SCRIPTS[\s\S]*completion-import\.js/);
+  assert.match(indexSource, /FRONTEND_STAMP \? `\$\{src\}\?v=\$\{FRONTEND_STAMP\}`/);
 });
 
 test('创书结果优先保留用户计划书名，模型自拟名只作为备选', () => {

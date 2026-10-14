@@ -59,6 +59,9 @@ class ExperimentEngine {
     this.synergyRecords = new Map();
     this._dirty = false;
     this._failedRecords = [];
+    // 持久化韧性指标：实验数据即知识资产，写失败必须可观测、可补写、不静默
+    this._persistenceMetrics = { attempts: 0, failures: 0, retries: 0, recovered: 0, dropped: 0 };
+    this._failedRecordsMax = Number(options.failedRecordsMax) > 0 ? Number(options.failedRecordsMax) : 1000;
 
     if (this.persistencePath) {
       this.loadSynergyRecords(this.persistencePath);
@@ -166,8 +169,26 @@ class ExperimentEngine {
     const effectiveCausalScore = Number(Math.min(0.98, Math.max(0.1, causalScore + structuralCausalBonus)).toFixed(3));
     const effectiveTensionDelta = Number(Math.max(-0.4, rawTensionDelta - speculativeTensionDiscount).toFixed(3));
 
+    // L1 结构真值分（0~1）：有验证时由债务清偿/状态跃迁驱动，无验证时取中性 0.5
+    const structuralScore = Number((hasStructuralVerification
+      ? Math.min(1.0, 0.5 + structuralCausalBonus * 2.5)
+      : 0.5).toFixed(3));
+
     // 5. 综合复合评分 (Composite Score)
-    const rawComposite = 0.35 * effectiveCausalScore + 0.35 * literaryScore + 0.30 * Math.max(0, effectiveTensionDelta + 0.5) - (aiFlavorRisk * 0.60);
+    // 2026-10-14 结构真值化：词频层（L0）不再主导总分。
+    //   - 有结构验证：structuralScore 占 45%，词频层降为 40%，张力 15%（相对值折算），AI 味惩罚不变；
+    //   - 无结构验证：结构分中性 0.5 仅占 10%，词频层 75%（保持既有排序能力，不回归）；
+    //   - 投机文本（词频堆砌 + 有验证但零推进）叠加直接惩罚，杜绝"杀机越来越浓"式刷分。
+    const wStructural = hasStructuralVerification ? 0.45 : 0.10;
+    const wLexical = 1 - wStructural - 0.15;
+    const lexicalLayer = Number((0.5 * effectiveCausalScore + 0.5 * literaryScore).toFixed(4));
+    const tensionLayer = Math.max(0, effectiveTensionDelta + 0.5);
+    const speculativePenalty = speculativeTensionDiscount > 0 ? 0.10 : 0;
+    const rawComposite = wStructural * structuralScore
+      + wLexical * lexicalLayer
+      + 0.15 * tensionLayer
+      - (aiFlavorRisk * 0.60)
+      - speculativePenalty;
     const compositeScore = Number(Math.max(0.01, Math.min(1.0, rawComposite)).toFixed(3));
 
     return {
@@ -176,11 +197,18 @@ class ExperimentEngine {
       aiFlavorRisk,
       tensionDelta: effectiveTensionDelta,
       compositeScore,
+      structuralScore,
+      scoring: {
+        weights: { structural: wStructural, lexical: wLexical, tension: 0.15 },
+        lexicalLayer,
+        speculativePenalty
+      },
       l0Prescreen,
       l1Structural: {
         hasStructuralVerification,
         structuralCausalBonus,
-        speculativeTensionDiscount
+        speculativeTensionDiscount,
+        structuralScore
       }
     };
   }
@@ -314,19 +342,68 @@ class ExperimentEngine {
    */
   appendSynergyRecord(record, filePath = this.persistencePath) {
     if (!filePath || !record) return;
+    this._persistenceMetrics.attempts += 1;
     try {
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
+      // 先补写此前积压的失败记录（有界，避免延迟尖刺），再写当前记录以保持时序
+      if (this._failedRecords.length > 0) this.retryFailedRecords({ max: 50 });
       const line = JSON.stringify(record) + '\n';
       fs.appendFileSync(filePath, line, 'utf8');
     } catch (err) {
+      this._persistenceMetrics.failures += 1;
       this._dirty = true;
       if (!this._failedRecords) this._failedRecords = [];
       this._failedRecords.push(record);
-      console.warn(`[ExperimentEngine] 协同实验记录追加落盘失败: ${err.message}`, { recordKey: record?.key });
+      // 队列溢出时丢弃最旧记录并计数，保证内存有界
+      while (this._failedRecords.length > this._failedRecordsMax) {
+        this._failedRecords.shift();
+        this._persistenceMetrics.dropped += 1;
+      }
+      console.warn(`[ExperimentEngine] 协同实验记录追加落盘失败: ${err.message}`, { recordKey: record?.key, pending: this._failedRecords.length });
     }
+  }
+
+  /**
+   * 补写积压的失败记录（Outbox 模式）。
+   * 成功写入的记录移出队列；仍失败的保留等待下次补写。
+   * @param {Object} options
+   * @param {number} options.max 单次最多补写条数（默认 50）
+   * @returns {number} 本次成功补写的条数
+   */
+  retryFailedRecords({ max = 50 } = {}) {
+    if (!this._failedRecords || this._failedRecords.length === 0) return 0;
+    const limit = Math.max(1, Math.min(Number(max) || 50, this._failedRecords.length));
+    let recovered = 0;
+    for (let i = 0; i < limit; i += 1) {
+      const record = this._failedRecords[0];
+      try {
+        const dir = path.dirname(this.persistencePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.appendFileSync(this.persistencePath, JSON.stringify(record) + '\n', 'utf8');
+        this._failedRecords.shift();
+        recovered += 1;
+      } catch (err) {
+        // 磁盘仍不可用：停止本轮补写，保留队列
+        this._persistenceMetrics.retries += 1;
+        console.warn(`[ExperimentEngine] 协同实验记录补写仍失败: ${err.message}`, { pending: this._failedRecords.length });
+        break;
+      }
+    }
+    this._persistenceMetrics.recovered += recovered;
+    if (this._failedRecords.length === 0) this._dirty = false;
+    return recovered;
+  }
+
+  /** 持久化韧性指标（供监控与测试断言） */
+  getPersistenceMetrics() {
+    return {
+      ...this._persistenceMetrics,
+      pending: this._failedRecords ? this._failedRecords.length : 0,
+      dirty: Boolean(this._dirty)
+    };
   }
 
   /**
@@ -350,6 +427,7 @@ class ExperimentEngine {
       this._failedRecords = [];
       return lines.length;
     } catch (err) {
+      this._persistenceMetrics.failures += 1;
       this._dirty = true;
       console.warn(`[ExperimentEngine] 协同实验快照刷盘失败: ${err.message}`);
       return 0;

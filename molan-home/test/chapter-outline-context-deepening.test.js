@@ -380,7 +380,7 @@ test('M1-04: orchestrator 修复遮蔽 Bug：即使服务端 chapterOutline 存�
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) {
       break;

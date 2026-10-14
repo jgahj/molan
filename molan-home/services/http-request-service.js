@@ -18,7 +18,7 @@ function createHttpRequestService({ MAX_JSON_BODY_BYTES, responseCors, shouldFlu
     else if (!res.writableEnded) { try { res.end(); } catch (_) {} }
   }
 
-  function json(res, status, obj) {
+  function json(res, status, obj, headers) {
     const body = typeof obj === 'string' ? obj : JSON.stringify(obj);
     const send = (sendStatus = status, sendBody = body) => {
       if (res.headersSent || res.writableEnded || res.destroyed) return;
@@ -26,6 +26,7 @@ function createHttpRequestService({ MAX_JSON_BODY_BYTES, responseCors, shouldFlu
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
         'Content-Length': Buffer.byteLength(sendBody),
+        ...(headers && typeof headers === 'object' ? headers : null),
         ...responseCors(res)
       });
       res.end(sendBody);

@@ -2749,3 +2749,62 @@ molan-home/
 
 
 
+
+---
+
+## 阶段二十六：全方位优化轮（安全加固 · 前端载荷 · 生成主链单一真相 · 可观测性）(2026-10-14)
+
+> **执行周期**：2026-10-14
+> **核心目标**：依据《优化空间分析报告-2026-10-14.md》实施 P0/P1/P2 优化：修复前端缓存戳过期导致安全修复不到达回访用户的问题；加固认证限流（XFF 还原 + 失败升级退避）；知识页全量重扫性能治理；实验数据持久化韧性；CI 门禁落地（含缓存戳防再发）；前端载荷重构（内联外移 + 路由懒加载 + CDN 自托管）；生成主链统一（Token 估算器收口、RenderedPromptPackage 唯一请求源、判官证据包、实验结构真值评分）；可观测性三件套。
+
+### 一、改动范围与核心逻辑
+
+| 文件 | 改动类型 | 核心改动点 |
+|---|---|---|
+| `index.html` | 缓存戳升级 + 载荷重构 | ① 版本戳 `20261011_dock_v2` → `20261014_opt_v1`（修复 10-12 编辑器安全改动未升戳、回访用户 immutable 缓存旧 JS 的问题）；② 289KB 内联引导脚本外移为 `app-boot.js`（defer 加载，时序等价），入口 412KB→96KB；③ 动态加载清单只保留 4 个核心脚本，`completion-import.js`/`completion-admin.js` 改按路由懒加载；④ lucide/tailwind 全部自托管（消除 unpkg/jsdelivr 第三方脚本源） |
+| `app-boot.js` | 新建（自 index.html 外移） | 应用引导脚本。**约束：不得包 IIFE**（completion-*.js 依赖共享全局词法作用域直接引用 `renderPage`/`renderers`，见 completion-library.js:1054）。内含：路由脚本懒加载守卫（renderPage 顶部挂起-重渲，版本戳自 script URL 读取）、前端错误捕获上报（error/unhandledrejection → `/api/client-errors`，5s 节流 + sendBeacon） |
+| `services/auth-attempt-limiter.js` | 安全加固（重写） | ① XFF 客户端 IP 还原（取最右条目防伪造，修复 Nginx 反代下 remoteAddress 恒为 127.0.0.1 导致限流退化为全局桶的缺陷）；② 失败升级退避（软阈值 5 次收紧额度至 1/4，硬阈值 10 次窗口内阻断）；③ 登录成功清零；④ Retry-After 秒数；⑤ maxEntries 容量驱逐 |
+| `services/auth-account-service.js` / `native-auth-service.js` / `native-domain-service.js` | 接线 | 登录/管理登录失败记 strike、成功清零；429 响应带 Retry-After 头 |
+| `services/http-request-service.js` | 增强 | `json(res, status, obj, headers)` 增加可选自定义响应头参数（向后兼容） |
+| `completion-editor.js` | 性能治理 | 引用统计改「单遍合并正则索引 + 版本 memoize」：全部实体 needle 合并为一条正则对全书一遍扫描生成 Map，以「章数+正文长度+needle 长度+editorChangeVersion」为签名跨渲染缓存；知识页搜索 input 加 180ms 防抖；DOM 无关 `citationPlain` 替代逐场景 DOM 建销 |
+| `lib/composition/evaluation/experiment-engine.js` | 持久化韧性 + 评分结构真值化 | ① 追加写失败计数指标 + 有界补写重试（Outbox，成功写入后自动 drain 积压）+ 队列容量上限；② compositeScore 权重重构：有结构验证时 structuralScore 占 45%（无验证时中性 0.5 仅占 10%），词频层降为辅助，投机文本（词频堆砌+零推进）叠加直接惩罚 |
+| `lib/generation/semantic-audit.js` | 判官证据包 | 弃 `slice(0, 4000)` 单截取，改 Opening/Middle/Climax/Ending 四段证据包（短章 full 全文），支持 stateBefore/stateAfter 透传；引文仍由 verifyQuoteInText 对全文校验 |
+| `lib/model/model-registry.js` | 估算器统一 | 新增唯一估算入口 `estimatePromptTokens`（modelId → 能力比率；族/分词器 → 回退表）；`estimateTokensWithCapability` 改为委托；导出 TOKENIZER_RATIOS |
+| `lib/composition/compiler/attention-tiering.js` / `lib/composition/ir/ir-lowering.js` | 估算器收口 | 两处私建比率表/估算逻辑删除，全权委托 model-registry（消除第三套估算漂移）；attention-tiering 再导出 TOKENIZER_RATIOS 保持兼容 |
+| `lib/generation/content-engine.js` | 唯一请求源补全 | canonicalMessages 用户消息补 `DYNAMIC_PROMPT_MARKER`（与回退路径字节一致，stable/dynamic 拆分行生效）；manifest promptHash 改用完整 promptDigest |
+| `lib/generation/prompt-markers.js` | 新建 | DYNAMIC_PROMPT_MARKER 常量唯一来源（server.js 内联定义改为引用） |
+| `services/observability-service.js` | 新建 | 结构化 JSON 日志（logEvent）、进程指标计数（请求/5xx/认证失败）、客户端错误环形缓冲（100 条 + IP 限流 10 条/分钟） |
+| `server.js` | 接线 | ① `/api/client-errors`（POST 免鉴权限流）与 `/api/metrics`（GET 仅管理员）端点；② createServer 计数请求与 5xx；③ 进程兜底改结构化日志；④ PUBLIC_ROOT_FILES 增加 app-boot.js/lucide.min.js/tailwind-browser.js；⑤ CSP 两处定义移除 unpkg/jsdelivr 第三方脚本源 |
+| `.github/workflows/ci.yml` | CI 加固（重写） | 显式 `permissions: contents: read`、concurrency 取消、timeout 25min、paths 过滤、npm 缓存、失败日志 artifact 上传、**新增前端缓存戳联动门禁** |
+| `scripts/check-frontend-stamp.mjs` | 新建 | 缓存戳防再发门禁：自引入当前版本戳的提交起，受保护前端资产不得再变更 |
+| `assets/lucide.min.js` / `assets/tailwind-browser.js` | 新建（自托管） | lucide v1.8.0 UMD（ISC）与 tailwind browser 4.3.1 落地本地 |
+| `lib/generation/orchestrator.js` | 稳定性 | 租约续期间隔 LEASE_TTL_MS/3 → /6（并行负载下续期饥饿窗口减半） |
+| 测试（7 个新文件 + 18 个修订） | 测试加固 | 新增：auth-attempt-limiter / knowledge-citation-index / experiment-persistence-resilience / semantic-evidence-packet / rendered-prompt-package-single-source / experiment-structural-scoring / observability 专项；修订：challenger-m2-2（证据包契约）、native-chat-http（Windows 临时目录重试）、story-workbench-browser（Linux 浏览器路径）；12 个 orchestrator 测试文件轮询预算 60→300 |
+
+### 二、设计决策与权衡
+
+1. **缓存戳立即升级 + CI 门禁防再发**：版本化静态资源 immutable 一年，漏升戳=修复永远到达不了回访用户。门禁规则「自引入当前戳的提交起受保护资产不得变更」经双向验证（旧戳场景正确拦截并点名 completion-editor.js；新戳首次引入放行）。
+2. **内联脚本外移但拒绝 IIFE 包装**：首版外移曾包 IIFE，实测发现 completion-library.js:1054 直接引用 `renderers.overview = renderOverview`——IIFE 会切断经典脚本间的全局词法作用域共享导致全站崩溃。最终保持字节级原样（仅加文件头注释），defer 加载时序与原内联位置等价，浏览器实测 15/15 通过。
+3. **懒加载采用 renderPage 守卫而非 window 包装**：app-boot 内部约 30 处直接调用 renderPage（侧栏点击等），包装 window.renderPage 拦不住。守卫挂在 renderPage 顶部，脚本未就绪时挂起渲染（保留当前页），onload 后同参重渲；失败时降级到 mock renderer 不白屏。
+4. **限流保留 IP 维度未加账号维度**：按邮箱限流会引入「攻击者恶意刷锁定向账户」的 DoS 向量，暂不加；XFF 取最右条目（Nginx `$proxy_add_x_forwarded_for` 追加真实 IP 在末尾）防伪造轮换。
+5. **Token 估算器收口而非新写**：model-registry 已是多数路径的事实标准，attention-tiering/ir-lowering 改为委托，比率表单一来源；三路估算实测一致（同文本同结果）。
+6. **实验评分权重重构保留兼容**：旧字段（causalScore/literaryScore/tensionDelta/l0Prescreen/l1Structural）全部保留，仅 composite 权重改为「有验证 45% 结构 / 无验证 10% 结构」双档，既有宽松断言（good>50）不回归。
+7. **CSP 保留 'unsafe-inline'**：12 个页面仍有内联脚本，全量外移超出本轮风险预算；已消除全部第三方脚本源（unpkg/jsdelivr），Google Fonts 属样式域暂不动。
+
+### 三、真实验证证据
+
+- **全量测试**（Node 22.23.2，实跑，`--test-concurrency=4`）：**2531 项 / 2516 通过 / 0 失败 / 15 跳过**（exit=0）。默认并发下曾出现 33 项 orchestrator 租约时序假失败，限并发后全绿——CI 已固定 `--test-concurrency=4`。
+- **浏览器实测**（playwright-core + 系统 Edge，127.0.0.1:3000）：
+  - 载荷重构 15/15：app-boot.js 200；4 核心脚本首屏加载；import/admin 首屏不加载；导航 dissect/admin 精确触发懒加载并渲染真实页；零 JS 错误/零 console.error/零 4xx。
+  - 自托管 9/9：主应用 34 个 lucide 图标渲染；营销页 Tailwind styled + 36 图标；两资产 200；CSP 无第三方脚本源；零 CSP 违规。
+- **静态缓存头**：`app-boot.js?v=20261014_opt_v1` → `Cache-Control: public, max-age=31536000, immutable`。
+- **估算器一致性**：registry/attention/ir-lowering 三路对同文本同结果。
+- **载荷对比**：首屏 1595KB→1211KB（-24.1%）；回访 412KB→96KB（-76.7%）；懒加载延后 390KB。
+
+### 四、遗留与后续（需用户决策）
+
+1. **DeepSeek API key 轮换**：`security-backup-20260831/config.json` 曾以明文持有 key（已被 .gitignore 未入远程），按安全惯例应轮换——需用户在 DeepSeek 控制台操作。
+2. **git 入库语料 59MB**（character-material 分片、genre-lab）：迁对象存储需历史重写，待用户决策。
+3. **Postgres/SQLite 双模分支 335 处/17 文件**：终态切档（PG-only）属架构决策，待用户裁决。
+4. **server.js 7962 行 / postgres-repository.js 7444 行**：继续下沉为持续项。
+5. **CSP 'unsafe-inline' 彻底移除**：待 12 个页面内联脚本全量外移后实施。

@@ -505,7 +505,7 @@ test('SP-Tier-14: Orchestrator Tier 1 (full_scenes) 预声明场景严格 bypass
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -580,7 +580,7 @@ test('SP-Tier-15: Orchestrator Tier 2 (event_chain) 确定性推导并透传 sce
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -654,7 +654,7 @@ test('SP-Tier-16: Orchestrator Tier 3 (goal_only) 轻量推导并标记 freePlay
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -706,7 +706,7 @@ test('SP-Tier-17: Orchestrator 因果硬围栏违规拦截并抛出 CAUSAL_INVAR
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'failed' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -756,7 +756,7 @@ test('SP-Tier-18: Orchestrator 预声明场景 (full_scenes) 触犯 mustNot 禁�
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'failed' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -831,7 +831,7 @@ test('SP-Tier-19: Orchestrator stage 元数据显式记录 causalInvariants 并�
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));

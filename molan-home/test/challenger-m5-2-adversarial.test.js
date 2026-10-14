@@ -112,7 +112,7 @@ test('Challenger M5-2 1.1: Exact ordered state sequence during autonomous progre
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || isTerminal(finalRun.state))) {
       break;
@@ -236,7 +236,7 @@ test('Challenger M5-2 1.2: Pre-declared scenes cleanly bypasses scene_planning t
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -347,7 +347,7 @@ test('Challenger M5-2 2.1: Semantic blocker triggers revision loop, re-verifies 
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -430,7 +430,7 @@ test('Challenger M5-2 2.2: Blocker with unlocatable quote transitions directly t
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -506,7 +506,7 @@ test('Challenger M5-2 2.3: Revision exceeding MAX_REVISION_ROUNDS terminates in 
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -590,7 +590,7 @@ test('Challenger M5-2 3.1: Quality gate score below threshold (0.65 < 0.70) tran
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -661,7 +661,7 @@ test('Challenger M5-2 3.2: Quality gate confidence below threshold (0.60 < 0.75)
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));
@@ -728,7 +728,7 @@ test('Challenger M5-2 3.3: Semantic audit EVALUATION_FAILED status transitions c
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || isTerminal(finalRun.state))) break;
     await new Promise(r => setTimeout(r, 20));

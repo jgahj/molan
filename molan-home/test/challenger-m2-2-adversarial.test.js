@@ -444,9 +444,15 @@ test('Challenger M2 Stress 8: Large scale prose (50K+ chars) and non-string draf
     contract: { viewpointCharacter: '陆羽' },
     enableModelJudge: true,
     callModel: async (auth, { userPrompt }) => {
-      // 验证截断机制 text.slice(0, 4000)
+      // 验证有界输入：证据包分段截取（每段 <=1200，四段合计 <=4800），杜绝 50K 全文直入 prompt
       const promptObj = JSON.parse(userPrompt);
-      assert.ok(promptObj.draftExcerpt.length <= 4000, '大文本进入 prompt 必须受到 4000 字限制截断');
+      assert.ok(promptObj.evidencePacket, '大文本必须走 evidencePacket 证据包');
+      assert.equal(promptObj.evidencePacket.mode, 'segmented');
+      assert.ok(!('draftExcerpt' in promptObj), '不得退回无界单截取');
+      assert.equal(promptObj.evidencePacket.totalChars, largeDraft.length);
+      const segs = ['opening', 'middle', 'climax', 'ending'].map(k => promptObj.evidencePacket[k]);
+      segs.forEach(seg => assert.ok(seg.length <= 1200, `分段超界: ${seg.length}`));
+      assert.ok(segs.reduce((n, s) => n + s.length, 0) <= 4800, '证据包总量必须有界');
       return {
         json: {
           issues: [

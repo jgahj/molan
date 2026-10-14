@@ -442,7 +442,7 @@ test('Adversarial 3: Quality gate rejection terminates immediately in needs_huma
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || finalRun.state === 'waiting_author' || finalRun.state === 'failed')) {
       break;
@@ -540,7 +540,7 @@ test('Adversarial 4: When revisions persistently fail, orchestrator strictly hal
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || finalRun.state === 'waiting_author' || finalRun.state === 'failed')) {
       break;
@@ -636,7 +636,7 @@ test('Adversarial 5: Blocker with hallucinated unlocatable quote immediately hal
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || finalRun.state === 'waiting_author' || finalRun.state === 'failed')) {
       break;

@@ -5,7 +5,7 @@ const { test } = require('node:test');
 const server = require('../server');
 const T = server.__test;
 const importSource = fs.readFileSync(require.resolve('../completion-import.js'), 'utf8');
-const indexSource = fs.readFileSync(require.resolve('../index.html'), 'utf8');
+const indexSource = fs.readFileSync(require.resolve('../index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(require.resolve('../app-boot.js'), 'utf8');
 
 // ============ Task 1 · Bible seed 原创性校验 ============
 function validPayload(overrides) {

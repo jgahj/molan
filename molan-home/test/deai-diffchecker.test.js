@@ -96,14 +96,14 @@ test('completion-platform.js 与 index.html 包含去 AI 味对比工具与复�
   assert.match(platformCode, /已复制全文/);
   assert.match(platformCode, /openDiffcheckerModal/);
 
-  const indexCode = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const indexCode = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '../app-boot.js'), 'utf8');
   assert.match(indexCode, /toolDiffBtn/);
   assert.match(indexCode, /进入对比工具/);
   assert.match(indexCode, /已复制全文/);
 });
 
 test('工作台 (index.html 与 completion-platform.js) 路由 tools 统一重定向到独立工具页 pages/tools.html', () => {
-  const indexCode = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const indexCode = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '../app-boot.js'), 'utf8');
   assert.match(indexCode, /if\s*\(page === 'tools'\)\s*\{\s*window\.location\.href = '\.\/pages\/tools\.html'/);
   assert.match(indexCode, /if\s*\(targetPage === 'tools'\)\s*\{\s*window\.location\.href = '\.\/pages\/tools\.html'/);
 

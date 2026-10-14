@@ -8,6 +8,7 @@ const { assertContextBudget } = require('./context-budget');
 const { CRITICAL_QUALITY_DIMENSIONS } = require('./audit-evidence');
 const { detectAiFlavorFindings } = require('../genre-engine');
 const { computeAiFlavorScore } = require('../ai-flavor-detector');
+const { DYNAMIC_PROMPT_MARKER } = require('./prompt-markers');
 const scenePlanner = require('../scene-planner');
 const { sanitizeInPlace } = require('./inplace-sanitizer');
 const {
@@ -634,9 +635,12 @@ function buildDraftRequest(options = {}) {
     effectiveSystem = effectiveSystem ? `${effectiveSystem}\n\n${PROMPT_PROTECTION_GUARD}` : PROMPT_PROTECTION_GUARD;
   }
 
+  // 规范主链（RenderedPromptPackage）用户消息带 DYNAMIC_PROMPT_MARKER：
+  // 与 model-call-service 回退路径保持字节一致，使上游 splitDynamicPrompt 的
+  // stable/dynamic 拆分（提示词缓存）在规范路径同样生效，指纹覆盖完整请求。
   const canonicalMessages = [
     { role: 'system', content: effectiveSystem },
-    { role: 'user', content: effectiveUser },
+    { role: 'user', content: DYNAMIC_PROMPT_MARKER + '\n' + effectiveUser },
     { role: 'user', content: '请直接输出内容，不要解释。' }
   ];
 
@@ -817,7 +821,7 @@ async function generateDraft(options = {}) {
     modelId: draftRequest.modelId,
     contextHash: draftRequest.contextPlan.contextHash || sha256(context),
     contractHash: hashValue(contract),
-    promptHash: sha256(draftRequest.system + '\n' + draftRequest.userPrompt),
+    promptHash: draftRequest.renderedPromptPackage?.promptDigest || sha256(draftRequest.system + '\n' + draftRequest.userPrompt),
     outputHash: sha256(text)
   });
 

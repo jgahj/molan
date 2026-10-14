@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
 
 function extractSource(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);

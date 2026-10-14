@@ -1,10 +1,16 @@
 'use strict';
 
 function createNativeAuthService({ repository, crypto, readBody, json, respondError, createPasswordRecord,
-  createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, hashSessionToken, publicUser, allowAuthAttempt, isAdminUser, normalizeAvatar,
+  createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, hashSessionToken, publicUser, allowAuthAttempt, authAttemptLimiter, isAdminUser, normalizeAvatar,
   findPlatformModel, canChooseModel, currentDefaultModel, sessionTtlMs, now = Date.now }) {
   const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
   const scopeOf = value => value === 'admin' ? 'admin' : 'client';
+  /** 登录失败计数：XFF 还原真实客户端 IP，软/硬阈值自动升级退避 */
+  const recordAuthFailure = (req, scope) => { try { if (authAttemptLimiter) authAttemptLimiter.recordFailure(req, scope); } catch (_) {} };
+  /** 登录成功清零失败计数 */
+  const recordAuthSuccess = (req, scope) => { try { if (authAttemptLimiter) authAttemptLimiter.recordSuccess(req, scope); } catch (_) {} };
+  /** 429 响应的 Retry-After 秒数 */
+  const authRetryAfter = (req, scope) => { try { return authAttemptLimiter ? authAttemptLimiter.retryAfterSeconds(req, scope) : 0; } catch (_) { return 0; } };
   async function resolve(req) {
     const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
     if (!token || token.length > 256) return null;
@@ -46,14 +52,16 @@ function createNativeAuthService({ repository, crypto, readBody, json, respondEr
   }
   function loginFor(scope) {
     return function login(req, res) {
-      if (!allowAuthAttempt(req, scope === 'admin' ? 'admin-login' : 'login', 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' });
+      const scopeKey = scope === 'admin' ? 'admin-login' : 'login';
+      if (!allowAuthAttempt(req, scopeKey, 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' }, { 'Retry-After': String(authRetryAfter(req, scopeKey)) });
       return execute(req, res, async () => {
         const body = await readBody(req);
         let user = await repository.getAccount({ email: String(body.email || '').trim().toLowerCase() });
         const verification = user && (verifyPasswordAsync ? await verifyPasswordAsync(String(body.password || ''), user) : verifyPassword(String(body.password || ''), user));
-        if (!verification?.ok) fail(400, '邮箱或密码错误');
+        if (!verification?.ok) { recordAuthFailure(req, scopeKey); fail(400, '邮箱或密码错误'); }
         if (user.disabled || user.status === 'disabled') fail(403, '该账户已停用');
         if (scope === 'admin' && !isAdminUser(user)) fail(403, '该账户没有管理员权限');
+        recordAuthSuccess(req, scopeKey);
         if (verification.needsUpgrade) {
           const upgradedRecord = createPasswordRecordAsync ? await createPasswordRecordAsync(String(body.password || '')) : createPasswordRecord(String(body.password || ''));
           user = await repository.saveAccount({ ...user, ...upgradedRecord }, user.revision);

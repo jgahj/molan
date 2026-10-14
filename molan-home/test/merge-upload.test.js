@@ -4,7 +4,7 @@ const path = require('path');
 
 const read = name => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
 const app = read('app.js');
-const home = read('index.html');
+const home = read('index.html') + '\n/* == app-boot.js == */\n' + read('app-boot.js');
 const server = read('server.js');
 const generationRoutes = read('routes/generation.js');
 

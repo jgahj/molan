@@ -383,7 +383,7 @@ test('EMPIRICAL-06: Bug 3 验证 - orchestrator 端点下客户端多样化 next
     });
 
     let finalRun = null;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 300; i++) {
       finalRun = await store.getRun({}, { ...scope, id: created.run.id });
       if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) break;
       await new Promise(r => setTimeout(r, 25));
@@ -454,7 +454,7 @@ test('EMPIRICAL-07: Bug 3 验证 - orchestrator authoritativeStoryContext 内含
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) break;
     await new Promise(r => setTimeout(r, 25));

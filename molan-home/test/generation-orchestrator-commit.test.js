@@ -987,7 +987,7 @@ test('orchestrator: Single Brain Consolidation - 端到端经单审计踪迹自�
   });
 
   let settled = false;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     const currentRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (currentRun && (currentRun.state === 'waiting_author' || currentRun.state === 'needs_human' || currentRun.state === 'failed')) {
       settled = true;

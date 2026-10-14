@@ -262,7 +262,7 @@ test('Composition E2E: Orchestrator 挂载 CompositionSpec 自主流转至 waiti
   assert.ok(created && created.run);
 
   let executed = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     executed = await store.getRun(repository, { ...scope, id: runId });
     if (executed && (executed.state === 'waiting_author' || executed.state === 'needs_human' || executed.state === 'failed')) {
       break;

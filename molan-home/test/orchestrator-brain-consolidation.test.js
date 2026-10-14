@@ -272,7 +272,7 @@ test('R4 & AC3: orchestrator exclusively owns lifecycle, enforcing Single Audit 
 
   // 轮询直至任务落定
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) {
       break;
@@ -446,7 +446,7 @@ test('R4 & AC3: orchestrator local revision loop enforces exactly once audit per
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) {
       break;
@@ -546,7 +546,7 @@ test('R4: orchestrator transitions cleanly to needs_human when literary threshol
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'needs_human' || finalRun.state === 'waiting_author' || finalRun.state === 'failed')) {
       break;

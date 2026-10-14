@@ -348,22 +348,71 @@ function getModelCapability(modelId = '') {
  * @param {Object} [options] 额外参数（如 safetyMargin）
  * @returns {number} 估算 token 数量
  */
-function estimateTokensWithCapability(text, modelId = 'default', options = {}) {
+const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
+
+/**
+ * 分词器族回退比率表（唯一来源）。
+ * 历史问题：attention-tiering 与 context-budget 各持一套估算逻辑与比率表，
+ * 同一文本在不同层算出不同 token 数（attention 5800 / budget 6200 / provider 6400）。
+ * 现统一为：有 modelId → MODEL_REGISTRY 能力比率；仅有族/分词器线索 → 本表；
+ * 都没有 → standard。所有层必须经此函数估算，不得再私建比率表。
+ */
+const TOKENIZER_RATIOS = {
+  o200k_base: { cjkRatio: 0.70, nonCjkRatio: 0.30 },
+  cl100k_base: { cjkRatio: 0.85, nonCjkRatio: 0.32 },
+  claude: { cjkRatio: 0.75, nonCjkRatio: 0.30 },
+  deepseek: { cjkRatio: 0.72, nonCjkRatio: 0.28 },
+  qwen: { cjkRatio: 0.68, nonCjkRatio: 0.28 },
+  standard: { cjkRatio: 0.75, nonCjkRatio: 0.30 }
+};
+
+/**
+ * 统一 Token 估算器（全站唯一入口）。
+ * @param {string} text 待测文本
+ * @param {string|Object} modelRef modelId 字符串，或 { modelId, modelFamily, targetModelFamily, tokenizer } 选项对象
+ * @param {Object} options { safetyMargin }
+ * @returns {number} 估算 token 数
+ */
+function estimatePromptTokens(text, modelRef = 'default', options = {}) {
   if (text == null) return 0;
   const str = typeof text === 'string' ? text : JSON.stringify(text);
   if (!str) return 0;
 
-  const capability = getModelCapability(modelId);
-  const cjkMatches = str.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
+  const opts = (modelRef && typeof modelRef === 'object') ? modelRef : {};
+  const modelId = (typeof modelRef === 'string' && modelRef) ? modelRef : (opts.modelId || opts.model || opts.targetModel);
+
+  let ratios = null;
+  if (modelId) {
+    const cap = getModelCapability(modelId);
+    if (cap) {
+      ratios = {
+        cjkRatio: cap.cjkTokenRatio || 0.75,
+        nonCjkRatio: cap.nonCjkTokenRatio || 0.30
+      };
+    }
+  }
+  if (!ratios) {
+    const modelFamily = String(opts.targetModelFamily || opts.modelFamily || '').toLowerCase();
+    const tokenizerKey = opts.tokenizer || (
+      modelFamily.includes('gpt') || modelFamily.includes('o1') || modelFamily.includes('o3') ? 'o200k_base' :
+      modelFamily.includes('claude') ? 'claude' :
+      modelFamily.includes('deepseek') ? 'deepseek' :
+      modelFamily.includes('qwen') || modelFamily.includes('llama') || modelFamily.includes('local') ? 'qwen' :
+      'standard'
+    );
+    ratios = TOKENIZER_RATIOS[tokenizerKey] || TOKENIZER_RATIOS.standard;
+  }
+
+  const cjkMatches = str.match(CJK_REGEX);
   const cjkCount = cjkMatches ? cjkMatches.length : 0;
   const nonCjkCount = str.length - cjkCount;
-
-  const cjkRatio = capability.cjkTokenRatio || 0.75;
-  const nonCjkRatio = capability.nonCjkTokenRatio || 0.30;
-  const rawTokens = Math.ceil(cjkCount * cjkRatio + nonCjkCount * nonCjkRatio);
-
-  const safetyMargin = Number(options.safetyMargin) || 1.05; // 默认 5% 安全裕度
+  const rawTokens = Math.ceil(cjkCount * ratios.cjkRatio + nonCjkCount * ratios.nonCjkRatio);
+  const safetyMargin = Number(options.safetyMargin) || 1.05;
   return Math.ceil(rawTokens * safetyMargin);
+}
+
+function estimateTokensWithCapability(text, modelId = 'default', options = {}) {
+  return estimatePromptTokens(text, modelId, options);
 }
 
 /**
@@ -375,6 +424,8 @@ function listSupportedModels() {
 
 module.exports = {
   getModelCapability,
+  estimatePromptTokens,
   estimateTokensWithCapability,
-  listSupportedModels
+  listSupportedModels,
+  TOKENIZER_RATIOS
 };

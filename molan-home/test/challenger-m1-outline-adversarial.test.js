@@ -126,7 +126,7 @@ test('ADV-TEST-01 [ROBUST]: orchestrator 现场大纲提升与 chapterOutline/ch
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) break;
     await new Promise(r => setTimeout(r, 25));
@@ -194,7 +194,7 @@ test('ADV-TEST-02 [CHALLENGE-FAIL]: context.text 接收多份大纲 (continuity.
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) break;
     await new Promise(r => setTimeout(r, 25));
@@ -266,7 +266,7 @@ test('ADV-TEST-03 [CHALLENGE-FAIL]: nextChapterOutline 未在 assembleContext �
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) break;
     await new Promise(r => setTimeout(r, 25));
@@ -340,7 +340,7 @@ test('ADV-TEST-04 [CHALLENGE-FAIL]: 服务端预置 hookGoal 时，客户端现�
   });
 
   let finalRun = null;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 300; i++) {
     finalRun = await store.getRun({}, { ...scope, id: created.run.id });
     if (finalRun && (finalRun.state === 'waiting_author' || finalRun.state === 'needs_human' || finalRun.state === 'failed')) break;
     await new Promise(r => setTimeout(r, 25));

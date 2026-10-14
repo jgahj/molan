@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const completionEditorSource = fs.readFileSync(path.join(__dirname, '..', 'completion-editor.js'), 'utf8');
-const indexHtmlSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const indexHtmlSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
 
 test('completion-editor.js 集成了长篇记忆与文风稳定工作台 (openMemoryWorkbenchModal)', () => {
   // 1. 函数声明与参数支持 (initialTab, initialText)

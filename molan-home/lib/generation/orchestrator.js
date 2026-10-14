@@ -141,7 +141,7 @@ function createGenerationOrchestrator(options = {}) {
               if (!renewed) controller.abort(new GenerationError('PROVIDER_UNKNOWN', '生成任务租约丢失，Provider 结果需要核对', { status: 502, unknown: true }));
             })
             .catch(() => controller.abort(new GenerationError('PROVIDER_UNKNOWN', '生成任务租约续期失败，Provider 结果需要核对', { status: 502, unknown: true })));
-        }, Math.floor(LEASE_TTL_MS / 3))
+        }, Math.floor(LEASE_TTL_MS / 6))
       : null;
     if (renewTimer && typeof renewTimer.unref === 'function') renewTimer.unref();
     worker.promise = run(workerScope, id, controller, {
@@ -940,7 +940,7 @@ function createGenerationOrchestrator(options = {}) {
         renewal = Promise.resolve(store.renewLease(db, { ...scope, id: run.id, leaseOwner, fencingToken: lease.fencingToken, ttlMs: LEASE_TTL_MS }))
           .then(renewed => { if (!renewed) leaseLost = true; })
           .catch(() => { leaseLost = true; });
-      }, Math.floor(LEASE_TTL_MS / 3));
+      }, Math.floor(LEASE_TTL_MS / 6));
       if (typeof renewTimer.unref === 'function') renewTimer.unref();
       const leasedRun = await store.getRun(db, { ...scope, id: run.id });
       if (!recoveringCommit) await move(workerScope, run.id, 'committing', { message: '正在提交正文' });

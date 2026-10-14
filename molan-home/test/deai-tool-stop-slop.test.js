@@ -87,7 +87,7 @@ test('completion-platform.js 与 index.html 中的去 AI 味工具提示词对�
   assert.match(platformCode, /拆排比三件套/);
   assert.match(platformCode, /去名词化/);
 
-  const indexCode = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const indexCode = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '../app-boot.js'), 'utf8');
   assert.match(indexCode, /Stop AI Slop/);
   assert.match(indexCode, /拆排比三件套/);
   assert.match(indexCode, /去名词化/);

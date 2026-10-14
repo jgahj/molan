@@ -46,6 +46,15 @@ test('native chat calls a local provider and persists exact token billing in sha
     await new Promise(resolve => app.server.close(resolve));
     await app.closeStorageStores();
     await new Promise(resolve => provider.close(resolve));
-    await fs.rm(directory, { recursive: true, force: true });
+    // Windows 下文件索引/AV 会短暂持有句柄导致 ENOTEMPTY，退避重试清理
+    let removed = false;
+    for (let attempt = 0; attempt < 5 && !removed; attempt += 1) {
+      try { await fs.rm(directory, { recursive: true, force: true }); removed = true; }
+      catch (err) {
+        if (err && err.code === 'ENOENT') { removed = true; break; }
+        if (attempt === 4) throw err;
+        await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+      }
+    }
   }
 });

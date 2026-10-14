@@ -99,7 +99,7 @@ test('editor correction injection uses the structured library tiers and keeps dy
 test('editor-only requests do not activate the two-pass style pipeline', () => {
   assert.equal(server.isTwoPassHumanizeEnabled('writing', { editorOnly: true }), false);
   const editorSource = fs.readFileSync(path.join(projectRoot, 'completion-editor.js'), 'utf8');
-  const indexSource = fs.readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
+  const indexSource = fs.readFileSync(path.join(projectRoot, 'index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(projectRoot, 'app-boot.js'), 'utf8');
   assert.match(editorSource, /editorOnly:\s*true/);
   assert.match(indexSource, /if \(options\.editorOnly === true\) body\.editorOnly = true/);
   assert.match(indexSource, /editorOnly: true, onDelta/);

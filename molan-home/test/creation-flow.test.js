@@ -33,7 +33,7 @@ test('创书保存后重新绑定当前作品会话，避免按钮清理被旧�
 });
 
 test('每次打开操作弹窗都会清理上一次请求遗留的禁用状态', () => {
-  const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
   assert.match(indexSource, /const confirmButton = document\.getElementById\('confirmModal'\);\s*confirmButton\.disabled = false;/);
 });
 
@@ -44,7 +44,7 @@ test('编辑器入口统一使用新版 index.html#editor 并保留旧链接兼�
   const dissectSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'dissect.js'), 'utf8');
   const shellSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'molan-shell.js'), 'utf8');
   const legacyEditor = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.html'), 'utf8');
-  const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
   assert.doesNotMatch(rootSource, /\.\/pages\/editor\.html/);
   assert.match(dashboardSource, /\.\/index\.html#editor/);
   assert.match(novelsSource, /\.\.\/index\.html\?' \+ query\.toString\(\) \+ '#editor'/);

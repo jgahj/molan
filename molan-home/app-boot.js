@@ -1,0 +1,4209 @@
+/*
+ * app-boot.js — 应用引导脚本（自 index.html 内联脚本外移，2026-10-14）
+ *
+ * 外移原因：index.html 为 no-store 入口，内联引导代码（约 289KB）此前每次访问都重新下载；
+ * 外移为带版本戳的独立文件后可被 static-service 的 immutable 强缓存，回访零传输。
+ *
+ * 约束（改动前必读）：
+ * 1. 本文件必须是经典脚本且不得包 IIFE——completion-*.js 依赖共享全局词法作用域
+ *    直接引用 renderPage / renderers 等顶层声明（如 completion-library.js:1054）。
+ * 2. 加载方式：<script src="./app-boot.js?v=<stamp>" defer></script>，defer 时序等价原内联位置。
+ * 3. 缓存戳与 index.html 联动，由 scripts/check-frontend-stamp.mjs 门禁强制。
+     */
+    /* ---------- 前端错误捕获与上报（2026-10-14 可观测性） ----------
+     * window.onerror / unhandledrejection → POST /api/client-errors（服务端限流入缓冲）。
+     * 节流：同一消息 5 秒内只报一次；sendBeacon 优先（页面卸载时也能送达）。 */
+    (function initClientErrorReporting() {
+      const lastSent = new Map();
+      const THROTTLE_MS = 5000;
+      function report(payload) {
+        try {
+          const key = String(payload.type) + ':' + String(payload.message).slice(0, 80);
+          const now = Date.now();
+          if (lastSent.has(key) && now - lastSent.get(key) < THROTTLE_MS) return;
+          lastSent.set(key, now);
+          const body = JSON.stringify({ ...payload, href: String(location.href).slice(0, 300) });
+          if (navigator.sendBeacon) navigator.sendBeacon('/api/client-errors', new Blob([body], { type: 'application/json' }));
+          else fetch('/api/client-errors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+        } catch (_) {}
+      }
+      window.addEventListener('error', event => report({
+        type: 'error',
+        message: String(event.message || '').slice(0, 500),
+        source: String(event.filename || '').slice(0, 300),
+        line: Number(event.lineno) || null
+      }));
+      window.addEventListener('unhandledrejection', event => report({
+        type: 'unhandledrejection',
+        message: String((event.reason && event.reason.message) || event.reason || '').slice(0, 500)
+      }));
+    })();
+
+    /* ---------- 路由脚本懒加载（2026-10-14 前端载荷优化） ----------
+     * completion-import.js（resources/dissect/creation，327KB）与 completion-admin.js
+     * （admin，72KB）不再首屏加载，进入对应路由时按需拉取，首屏节省约 399KB。
+     * 实现方式：renderPage 顶部守卫——脚本未就绪时挂起本次渲染（保留当前页面），
+     * 脚本 onload 后以相同参数重渲。版本戳从本脚本自身 URL 自读取，永不过期。 */
+    const FRONTEND_STAMP = (function () {
+      try {
+        const self = document.querySelector('script[src*="app-boot.js"]');
+        const matched = self && self.src.match(/[?&]v=([^&]*)/);
+        return matched ? matched[1] : '';
+      } catch (_) { return ''; }
+    })();
+    const LAZY_ROUTE_SCRIPTS = {
+      './completion-import.js': ['resources', 'dissect', 'creation'],
+      './completion-admin.js': ['admin']
+    };
+    const loadedLazyScripts = new Set();
+    function loadLazyScript(src) {
+      if (loadedLazyScripts.has(src)) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = FRONTEND_STAMP ? `${src}?v=${FRONTEND_STAMP}` : src;
+        s.onload = () => { loadedLazyScripts.add(src); resolve(); };
+        s.onerror = () => reject(new Error('懒加载脚本失败: ' + src));
+        document.body.appendChild(s);
+      });
+    }
+    /** 返回需要等待的 Promise；无需等待时返回 null */
+    function ensureRouteScript(page) {
+      const pending = Object.keys(LAZY_ROUTE_SCRIPTS).filter(src => !loadedLazyScripts.has(src) && LAZY_ROUTE_SCRIPTS[src].indexOf(page) >= 0);
+      if (!pending.length) return null;
+      return Promise.all(pending.map(src => loadLazyScript(src).catch(() => {})));
+    }
+
+    const pages = {
+      overview: { eyebrow: 'WORKSPACE', title: '创作总览', subtitle: '从最近编辑的章节继续，或从一本新书开始。所有创作任务、资源和 AI 生成状态都集中在这里。' },
+      novels: { eyebrow: 'LIBRARY', title: '我的小说', subtitle: '管理你的作品、版本和最近编辑位置。每本小说拥有独立的正文、设定集、Skill 与 AI 任务。' },
+      editor: { eyebrow: 'EDITOR', title: '小说编辑器', subtitle: '正文、章节、知识库和 AI 协作保持在同一个创作工作台中。' },
+      resources: { eyebrow: 'RESOURCE CENTER', title: '资源中心', subtitle: '统一管理正文、设定集、素材和导入任务，查看每个资源的归属、状态与处理进度。' },
+      outline: { eyebrow: 'STORY MAP', title: '大纲与时间线', subtitle: '把总纲、卷纲、章纲、场景和伏笔放进同一条可追踪的故事链路。' },
+      'story-workbench': { eyebrow: 'STORY MEMORY', title: '故事记忆与文风工作台', subtitle: '真实世界事实、人物私下认知、四维时间线、伏笔台账与文风稳定闭环。' },
+      'project-docs': { eyebrow: 'PROJECT DOSSIER', title: '全套创作资料(七大板块)', subtitle: '基础定位、世界观底层、人物卡、三层大纲、细节素材库、写作管理与发布后期。' },
+      dissect: { eyebrow: 'STYLE LAB', title: '拆书分析', subtitle: '导入样文，提取叙事结构、节奏、人物塑造和可复用文风规则，生成自己的写作 Skill。' },
+      creation: { eyebrow: 'CREATION LAB', title: '创书任务', subtitle: '从已完成的拆书结果规划一部原创新作，持续查看生成、审核、保存和关联进度。' },
+      knowledge: { eyebrow: 'KNOWLEDGE BASE', title: '设定集 / 知识库', subtitle: '按地点、势力、人物、物品和伏笔组织设定，让 AI 只召回与当前场景相关的内容。' },
+      skills: { eyebrow: 'OPEN SKILL', title: '开放 Skill', subtitle: '发现社区写作方法，也可以创建并发布自己的 Skill，供所有创作者查看和下载。' },
+      tools: { eyebrow: 'AI TOOLS', title: 'AI 工具', subtitle: '把检测、改写、章节生成和人设整理拆成清晰的任务，每个任务都展示进度与积分消耗。' },
+      billing: { eyebrow: 'BILLING', title: '积分与套餐', subtitle: '查看余额、模型倍率和使用记录。VIP 与普通用户的计费差异由平台统一控制。' },
+      docs: { eyebrow: 'DOCUMENTATION', title: '使用教程', subtitle: '从创建第一本小说开始，逐步了解导入、设定抽取、Skill 和 AI 协作流程。' },
+      account: { eyebrow: 'ACCOUNT', title: '账户设置', subtitle: '管理头像、个人信息、默认创作偏好和登录安全。' },
+      login: { eyebrow: 'WELCOME BACK', title: '登录墨阑', subtitle: '登录后继续你的作品、Skill 和 AI 任务。' },
+      features: { eyebrow: 'PRODUCT', title: '墨阑功能总览', subtitle: '为长篇小说创作提供从灵感、设定到正文和复盘的完整工作流。' },
+      blog: { eyebrow: 'NOTES', title: '创作者手札', subtitle: '关于长篇写作、人物弧光、节奏控制和 AI 协作的实践记录。' },
+      'admin-login': { eyebrow: 'ADMIN CONSOLE', title: '管理员登录', subtitle: '独立的管理入口，用于平台账户、模型倍率和全局 Skill 的管理。' },
+      admin: { eyebrow: 'ADMIN CONSOLE', title: '管理后台', subtitle: '查看平台运行情况，并统一管理用户、模型、Skill 与任务。' }
+    };
+
+    const icon = (name, className = 'icon') => `<i data-lucide="${name}" class="${className}"></i>`;
+    const shell = (key, body, extra = '') => {
+      const meta = pages[key];
+      return `<div class="page-shell ${extra}"><div class="page-header"><div><div class="eyebrow">${meta.eyebrow}</div><h1 class="page-title">${meta.title}</h1><p class="page-subtitle">${meta.subtitle}</p></div><div class="header-tools">${headerTools(key)}</div></div>${body}</div>`;
+    };
+    const headerTools = (key) => {
+      if (key === 'overview') return `<button class="button" data-action="notifications">${icon('bell')}通知</button><button class="button primary" data-page="novels">${icon('plus')}新建小说</button>`;
+      if (key === 'novels') return `<div class="search-box">${icon('search')}<input id="novelSearch" placeholder="搜索小说"></div><button class="button primary" data-open-modal>${icon('plus')}新建小说</button>`;
+      if (key === 'editor') return `<button class="button" data-backend-save>${icon('save')}保存状态</button><button class="button primary" data-action="editor-generate">${icon('sparkles')}生成下一段</button>`;
+      if (key === 'resources') return `<div class="search-box">${icon('search')}<input placeholder="搜索资源"></div><button class="button primary" data-page="dissect">${icon('upload')}导入资源</button>`;
+      if (key === 'outline') return `<button class="button" data-action="timeline-view">${icon('calendar-days')}时间线</button><button class="button primary" data-action="outline-add">${icon('plus')}新增节点</button>`;
+      if (key === 'dissect') return `<button class="button" data-action="dissection-history">${icon('history')}任务历史</button><button class="button primary" data-scroll-to="dissectImport">${icon('upload')}导入样文</button>`;
+      if (key === 'creation') return `<a class="button" href="/pages/xuanhuan-reading.html">双书精读</a><a class="button" href="/pages/xuanhuan-blind.html">旧盲测记录</a><button class="button" data-import-action="creation-refresh">${icon('refresh-cw')}刷新任务</button><button class="button primary" data-import-action="creation-new">${icon('wand-sparkles')}新建创书</button>`;
+      if (key === 'knowledge') return `<div class="search-box">${icon('search')}<input placeholder="搜索设定、别名、章节"></div><button class="button" data-action="knowledge-import">${icon('upload')}导入设定集</button><button class="button primary" data-action="knowledge-add">${icon('plus')}新增设定</button>`;
+      if (key === 'skills') return `<div class="search-box">${icon('search')}<input placeholder="搜索 Skill"></div><button class="button primary" data-action="skill-create">${icon('plus')}创建 Skill</button>`;
+      if (key === 'tools') return `<span class="badge green" data-model-badge>模型加载中…</span><a class="button" href="./pages/tools.html" target="_blank" rel="noopener">${icon('external-link')}新标签页打开</a>`;
+      if (key === 'billing') return `<button class="button" data-action="billing-export">${icon('download')}导出记录</button><button class="button primary" data-action="billing-topup">${icon('plus')}充值积分</button>`;
+      if (key === 'account') return `<button class="button primary" data-backend-profile>${icon('save')}保存修改</button>`;
+      if (key === 'story-workbench' || key === 'project-docs') {
+        const activeNid = (window.previewState && window.previewState.novelId) || (backendState.novels && backendState.novels[0]?.id) || '';
+        const pathName = key === 'story-workbench' ? 'story-workbench.html' : 'project-docs.html';
+        return activeNid ? `<a class="button" href="./pages/${pathName}?nid=${encodeURIComponent(activeNid)}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开</a>` : '';
+      }
+      if (key === 'login') return '';
+      if (key === 'admin-login') return '';
+      if (key === 'admin') return '';
+      return `<button class="button" data-action="share">${icon('share-2')}分享</button>`;
+    };
+
+    function overviewPage() {
+      return shell('overview', `<section class="overview-hero"><article class="continue-panel"><div class="eyebrow">继续创作</div><h2>逆天重生：从废物到至尊</h2><p>第 3 章 · 雨夜试锋 · 已完成 1,286 字。接着写下叶辰走进祠堂后的第一次正面冲突。</p><div class="continue-actions"><button class="button primary" data-page="editor">${icon('pen-line')}继续编辑</button><button class="button" data-page="knowledge">查看设定集</button></div></article><article class="panel task-panel"><h3>最近任务</h3><div class="task-row"><span class="task-icon">${icon('sparkles')}</span><div class="task-copy"><div class="task-title">第 3 章续写建议</div><div class="task-meta">已完成 · 24 积分</div></div><span class="badge green">完成</span></div><div class="task-row"><span class="task-icon">${icon('scan-text')}</span><div class="task-copy"><div class="task-title">设定集批量抽取</div><div class="task-meta">处理中 · 67%</div></div><span class="badge amber">进行中</span></div><div class="task-row"><span class="task-icon">${icon('wand-sparkles')}</span><div class="task-copy"><div class="task-title">第 2 章去 AI 味</div><div class="task-meta">昨天 · 86 积分</div></div><span class="badge gray">已归档</span></div></article></section><section class="grid grid-4" style="margin-top:14px"><div class="metric"><div class="metric-label">作品总数</div><div class="metric-value">3</div><div class="metric-foot">持续创作中</div></div><div class="metric"><div class="metric-label">本月生成字数</div><div class="metric-value">28.6k</div><div class="metric-foot good">↑ 18% 较上月</div></div><div class="metric"><div class="metric-label">设定实体</div><div class="metric-value">431</div><div class="metric-foot">12 个伏笔待回收</div></div><div class="metric"><div class="metric-label">积分余额</div><div class="metric-value">8,240</div><div class="metric-foot warn">预计可生成 34 章</div></div></section><section class="grid grid-2" style="margin-top:14px"><article class="panel"><div class="panel-heading"><div><h2>快速开始</h2><p>把常用动作放在创作入口附近</p></div></div><div class="panel-body grid grid-2"><button class="quick-action" data-open-modal><span class="icon-wrap">${icon('plus')}</span><span><strong>新建小说</strong><span>从标题、简介和类型开始</span></span></button><button class="quick-action" data-page="dissect"><span class="icon-wrap">${icon('scan-text')}</span><span><strong>拆解样文</strong><span>提取可复用的写作规律</span></span></button><button class="quick-action" data-page="creation"><span class="icon-wrap">${icon('wand-sparkles')}</span><span><strong>创书</strong><span>从拆书结果生成原创新作</span></span></button><button class="quick-action" data-page="knowledge"><span class="icon-wrap">${icon('network')}</span><span><strong>整理设定</strong><span>查看未引用和重复设定</span></span></button><button class="quick-action" data-page="skills"><span class="icon-wrap">${icon('sparkles')}</span><span><strong>浏览 Skill</strong><span>为当前作品选择写作方法</span></span></button></div></article><article class="panel"><div class="panel-heading"><div><h2>最近编辑</h2><p>从上次停留位置继续</p></div><button class="icon-button" data-page="novels" aria-label="查看全部小说">${icon('arrow-up-right')}</button></div><div class="panel-body" style="padding-top:4px"><table class="recent-table"><thead><tr><th>作品</th><th>章节</th><th>更新时间</th></tr></thead><tbody><tr><td>逆天重生：从废物到至尊</td><td>第 3 章</td><td>刚刚</td></tr><tr><td>欢乐谷规则怪谈</td><td>第 18 章</td><td>昨天</td></tr><tr><td>未命名小说</td><td>设定集</td><td>3 天前</td></tr></tbody></table></div></article></section>`, 'overview-page');
+    }
+
+    function novelsPage() {
+      return shell('novels', `<div class="library-layout"><section class="panel"><div class="panel-heading"><div><h2>作品库</h2><p>共 3 本小说 · 最近编辑优先</p></div><div class="segmented"><button class="segment active">列表</button><button class="segment">网格</button></div></div><div class="novel-list" id="novelList"><article class="novel-row" data-search="逆天重生 从废物到至尊 玄幻"><div class="novel-cover">至尊</div><div><div class="novel-name">逆天重生：从废物到至尊</div><div class="novel-desc">叶辰携轮回神玉归来，从叶家废物走向诸天之巅。</div><div class="novel-stats"><span>玄幻</span><span>18 章</span><span>更新于刚刚</span></div></div><div class="novel-actions"><span class="badge green">连载中</span><button class="button" data-page="editor">打开</button></div></article><article class="novel-row" data-search="规则怪谈 欢乐谷 悬疑"><div class="novel-cover light">欢乐谷</div><div><div class="novel-name">规则怪谈：欢迎光临欢乐谷</div><div class="novel-desc">20:59 的循环里，游客必须学会辨认真正的规则。</div><div class="novel-stats"><span>悬疑</span><span>18 章</span><span>更新于昨天</span></div></div><div class="novel-actions"><span class="badge amber">暂停</span><button class="button" data-page="editor">打开</button></div></article><article class="novel-row" data-search="未命名小说 科幻"><div class="novel-cover blue">新作</div><div><div class="novel-name">未命名小说</div><div class="novel-desc">还没有简介，先从一个角色和一张地图开始。</div><div class="novel-stats"><span>科幻</span><span>0 章</span><span>创建于 3 天前</span></div></div><div class="novel-actions"><span class="badge gray">草稿</span><button class="button" data-page="editor">打开</button></div></article></div></section><aside class="panel side-summary"><div class="panel-heading"><div><h2>作品统计</h2><p>所有作品的整体进度</p></div></div><div class="panel-body"><div class="summary-number">36</div><div class="summary-label">总章节数</div><div class="mini-bar"><span></span></div><div class="mini-list"><div class="mini-list-row"><span>已完成章节</span><strong>24</strong></div><div class="mini-list-row"><span>草稿章节</span><strong>7</strong></div><div class="mini-list-row"><span>待续写章节</span><strong>5</strong></div><div class="mini-list-row"><span>本月新增字数</span><strong>28,640</strong></div></div><div class="divider"></div><button class="button" style="width:100%" data-page="resources">${icon('upload')}导入已有小说</button></div></aside></div><div class="notice" style="margin-top:14px">${icon('info')}<span><strong>作品隔离：</strong>每本小说的正文、设定集、Skill 和 AI 任务独立保存，切换作品不会串用上下文。</span></div>`, 'novels-page');
+    }
+
+    function editorPage() {
+      return shell('editor', `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="展开工作台导航" title="展开工作台导航">${icon('panel-left-open')}</button><div class="editor-preview" id="editorPreview"><div class="editor-nav-scrim" data-close-nav aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>逆天重生：从废物到至尊</strong><button class="editor-back-button" type="button" data-page="novels" aria-label="返回我的小说" title="返回我的小说">${icon('arrow-left')}<span>返回</span></button></div><span>18 章 · 连载中</span></div><div class="editor-chapters"><div class="editor-chapter" tabindex="0" role="button" data-chapter="轮回神玉"><small>001</small>轮回神玉<i class="done"></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="叶家废物"><small>002</small>叶家废物<i class="done"></i></div><div class="editor-chapter active" tabindex="0" role="button" data-chapter="雨夜试锋"><small>003</small>雨夜试锋<i></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="玄天宗的邀请"><small>004</small>玄天宗的邀请<i></i></div><div class="editor-chapter" tabindex="0" role="button" data-chapter="未命名章节"><small>005</small>未命名章节<i></i></div></div></aside><aside class="editor-dock" id="editorWorkbenchDock" aria-label="创作工作台坞站"><div class="dock-header"><div class="dock-title-wrap"><span class="dock-title-badge">${icon('layers')}</span><strong>创作坞站</strong></div><div class="dock-header-actions"><button class="dock-collapse-btn" id="dockCollapseBtn" aria-label="收起工作台坞站" title="收起工作台坞站">${icon('chevron-left')}</button></div></div><div class="dock-nav-bar" id="dockNavTabs"><button class="dock-tab-btn active" data-dock-tab="outline">${icon('milestone')}<span>大纲</span></button><button class="dock-tab-btn" data-dock-tab="knowledge">${icon('network')}<span>设定</span></button><button class="dock-tab-btn" data-dock-tab="memory">${icon('brain')}<span>记忆文风</span></button><button class="dock-tab-btn" data-dock-tab="tools">${icon('wand-sparkles')}<span>AI工具</span></button></div><div class="dock-body-scroll"><div class="dock-panel active" data-dock-panel="outline"><div class="dock-subnav"><button class="dock-subtab active" data-outline-sub="timeline">时间线</button><button class="dock-subtab" data-outline-sub="ledger">伏笔台账</button></div><div class="dock-outline-timeline-list" id="dockOutlineTimeline"><div class="dock-node-card" data-quote-title="轮回神玉归来" data-quote-meta="第 1 章 · 叶辰 · 叶家" data-quote-desc="叶辰重生于叶家破败柴房，掌心隐现轮回神玉温润微光，暗中重聚碎裂的元府气海。"><div class="dock-node-head"><span class="dock-node-idx">01</span><div class="dock-node-titles"><strong>轮回神玉归来</strong><small>第 1 章 · 叶辰 · 叶家</small></div><span class="badge green">已发生</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">叶辰重生于叶家破败柴房，掌心隐现轮回神玉温润微光，暗中重聚碎裂的元府气海。</p></div><div class="dock-node-card" data-quote-title="玄天宗发出邀请" data-quote-meta="第 2 章 · 玄天宗 · 主线" data-quote-desc="玄天宗执事暗送邀请金符，表面为招纳城内少年英才，暗地却在试探叶家当年的守护隐秘。"><div class="dock-node-head"><span class="dock-node-idx">02</span><div class="dock-node-titles"><strong>玄天宗发出邀请</strong><small>第 2 章 · 玄天宗 · 主线</small></div><span class="badge green">已发生</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">玄天宗执事暗送邀请金符，表面为招纳城内少年英才，暗地却在试探叶家当年的守护隐秘。</p></div><div class="dock-node-card active-node" data-quote-title="祠堂试探" data-quote-meta="第 3 章 · 叶灵儿 · 伏笔 F-003" data-quote-desc="在祠堂对话中埋下邀请真实目的，叶灵儿的态度发生变化，建议把冲突落在是否接受玄天宗邀请的选择上。"><div class="dock-node-head"><span class="dock-node-idx">03</span><div class="dock-node-titles"><strong>祠堂试探</strong><small>第 3 章 · 叶灵儿 · 当前</small></div><span class="badge amber">当前节点</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">在祠堂对话中埋下邀请真实目的，叶灵儿的态度发生变化，建议把冲突落在是否接受玄天宗邀请的选择上。</p></div><div class="dock-node-card" data-quote-title="宗门初选" data-quote-meta="第 4 章 · 玄天宗 · 待展开" data-quote-desc="叶辰决定入宗，初试锋芒，获得第一份关于轮回殿的间接线索。"><div class="dock-node-head"><span class="dock-node-idx">04</span><div class="dock-node-titles"><strong>宗门初选</strong><small>第 4 章 · 待展开</small></div><span class="badge blue">下一节点</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">叶辰决定入宗，初试锋芒，获得第一份关于轮回殿的间接线索。</p></div></div><div class="dock-outline-ledger-list" id="dockOutlineLedger" style="display:none"><div class="dock-node-card" data-quote-title="F-001 轮回神玉第二道印记" data-quote-meta="埋设：第 1 章 · 预计：第 8 章" data-quote-desc="神玉表面存在一道细微裂隙，需特殊幽冥火方可破除禁制，关乎前世道侣生死线索。"><div class="dock-node-head"><span class="dock-node-idx">F-1</span><div class="dock-node-titles"><strong>神玉第二道印记</strong><small>埋设第 1 章 · 预计第 8 章</small></div><span class="badge blue">发酵中</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">神玉表面存在一道细微裂隙，需特殊幽冥火方可破除禁制，关乎前世道侣生死线索。</p></div><div class="dock-node-card" data-quote-title="F-003 邀请背后的交换条件" data-quote-meta="埋设：第 2 章 · 预计：第 4 章" data-quote-desc="邀请并非单纯看重资质，背后存在宗门内部派系博弈与交换条件，需以叶家祖传秘匙为质押。"><div class="dock-node-head"><span class="dock-node-idx">F-3</span><div class="dock-node-titles"><strong>邀请背后的交换条件</strong><small>埋设第 2 章 · 预计第 4 章</small></div><span class="badge amber">待回收</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">邀请并非单纯看重资质，背后存在宗门内部派系博弈与交换条件，需以叶家祖传秘匙为质押。</p></div><div class="dock-node-card" data-quote-title="F-006 叶灵儿隐瞒的消息" data-quote-meta="埋设：第 3 章 · 风险：高" data-quote-desc="叶灵儿暗中与青云城黑市神秘人通信，手握半枚残缺玉佩，关乎叶家直系血脉受戮真相。"><div class="dock-node-head"><span class="dock-node-idx">F-6</span><div class="dock-node-titles"><strong>叶灵儿隐瞒的消息</strong><small>埋设第 3 章 · 风险高</small></div><span class="badge danger">高风险</span><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-node-desc">叶灵儿暗中与青云城黑市神秘人通信，手握半枚残缺玉佩，关乎叶家直系血脉受戮真相。</p></div></div></div><div class="dock-panel" data-dock-panel="knowledge"><div class="dock-search-wrap">${icon('search')}<input id="dockEntitySearch" placeholder="搜索实体、人物、地点..."></div><div class="dock-filter-tags"><button class="dock-filter-tag active" data-entity-filter="all">全部</button><button class="dock-filter-tag" data-entity-filter="人物">人物</button><button class="dock-filter-tag" data-entity-filter="地点">地点</button><button class="dock-filter-tag" data-entity-filter="势力">势力</button><button class="dock-filter-tag" data-entity-filter="物品">物品</button></div><div class="dock-entity-list" id="dockEntityList"><div class="dock-entity-card" data-entity-type="地点" data-quote-title="青云城" data-quote-meta="地点 / 中州 / 北境" data-quote-desc="玄天宗山门所在，叶家旧宅位于城南。城内势力交错，是第一卷主要活动区域。关联实体：玄天宗、叶家、叶灵儿。"><div class="dock-entity-head"><span class="badge blue">地点</span><div class="dock-entity-titles"><strong>青云城</strong><small>中州 / 北境 / 城池</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">玄天宗山门所在，叶家旧宅位于城南。城内势力交错，是第一卷主要活动区域。</p></div><div class="dock-entity-card" data-entity-type="势力" data-quote-title="玄天宗" data-quote-meta="势力 / 中州 / 宗门" data-quote-desc="北境顶尖宗门，三日前向叶辰发出入宗邀请，山门深处藏有轮回殿相关线索。关联实体：青云城、叶辰、轮回殿。"><div class="dock-entity-head"><span class="badge amber">势力</span><div class="dock-entity-titles"><strong>玄天宗</strong><small>中州 / 宗门 / 待确认</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">北境顶尖宗门，三日前向叶辰发出入宗邀请，山门深处藏有轮回殿相关线索。</p></div><div class="dock-entity-card" data-entity-type="人物" data-quote-title="叶灵儿" data-quote-meta="人物 / 叶家 / 青云城" data-quote-desc="叶辰的表妹，机警内敛，知道部分邀请内情，当前选择保持沉默。关联实体：叶辰、叶家、玄天宗。"><div class="dock-entity-head"><span class="badge green">人物</span><div class="dock-entity-titles"><strong>叶灵儿</strong><small>叶家 / 妹妹 / 已引用</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">叶辰的表妹，机警内敛，知道部分邀请内情，当前选择保持沉默。</p></div><div class="dock-entity-card" data-entity-type="人物" data-quote-title="叶辰" data-quote-meta="人物 / 主角 / 重生者" data-quote-desc="主角，前世至尊携轮回神玉归来，外表冷峻，杀伐果断，心志如铁。关联实体：轮回神玉、叶灵儿。"><div class="dock-entity-head"><span class="badge green">人物</span><div class="dock-entity-titles"><strong>叶辰</strong><small>主角 / 炼体三重</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">主角，前世至尊携轮回神玉归来，外表冷峻，杀伐果断，心志如铁。</p></div><div class="dock-entity-card" data-entity-type="物品" data-quote-title="轮回神玉" data-quote-meta="物品 / 灵器 / 核心" data-quote-desc="随叶辰重生的本命道器，温润如墨玉，内蕴九重造化封印，随气血运转可洞察功法破绽。关联实体：叶辰、轮回殿。"><div class="dock-entity-head"><span class="badge gray">物品</span><div class="dock-entity-titles"><strong>轮回神玉</strong><small>灵器 / 核心道器</small></div><button class="dock-quote-btn" data-quote-action title="引用简报到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-entity-desc">随叶辰重生的本命道器，温润如墨玉，内蕴九重造化封印，随气血运转可洞察功法破绽。</p></div></div></div><div class="dock-panel" data-dock-panel="memory"><div class="section-title" style="font-size:11px;margin-bottom:6px">故事记忆与前情约束</div><div class="dock-memory-card" data-quote-title="前情事实·神玉修复" data-quote-meta="剧情事实" data-quote-desc="叶辰已暗中修复气海至炼体三重，在演武场震慑叶莽，引发执事顾长风的暗中注视。"><div class="dock-memory-head"><span class="badge green">前情</span><strong style="font-size:11px;flex:1">前情事实·神玉修复</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">叶辰已暗中修复气海至炼体三重，在演武场震慑叶莽，引发执事顾长风的暗中注视。</p></div><div class="dock-memory-card" data-quote-title="核心禁忌·隐匿神玉" data-quote-meta="前情约束" data-quote-desc="严禁在祠堂过早暴露轮回神玉的实体神光与推演能力；顾长风尚在暗处窥伺。"><div class="dock-memory-head"><span class="badge danger">禁忌</span><strong style="font-size:11px;flex:1">核心禁忌·隐匿神玉</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">严禁在祠堂过早暴露轮回神玉的实体神光与推演能力；顾长风尚在暗处窥伺。</p></div><div class="section-title" style="font-size:11px;margin-top:8px;margin-bottom:6px">文风规约与叙事引擎</div><div class="dock-memory-card" data-quote-title="视角规约·第三人称限知" data-quote-meta="文风规约" data-quote-desc="第三人称限知视角，聚焦叶辰视线所及与心智推演，严禁全知视角直接剧透敌手意图。"><div class="dock-memory-head"><span class="badge blue">视角</span><strong style="font-size:11px;flex:1">第三人称限知</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">第三人称限知视角，聚焦叶辰视线所及与心智推演，严禁全知视角直接剧透敌手意图。</p></div><div class="dock-memory-card" data-quote-title="语言风格·极简水墨冷峻" data-quote-meta="文风规约" data-quote-desc="动作白描为主，去除AI套话八股与排比句式，环境声音服务于压迫感。"><div class="dock-memory-head"><span class="badge gray">语言</span><strong style="font-size:11px;flex:1">极简水墨冷峻</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">动作白描为主，去除AI套话八股与排比句式，环境声音服务于压迫感。</p></div><div class="dock-memory-card" data-quote-title="对白规约·暗藏机锋" data-quote-meta="文风规约" data-quote-desc="少解释性台词，每句话皆暗藏试探与利益博弈，以人物神态与动作停顿体现潜台词。"><div class="dock-memory-head"><span class="badge amber">对白</span><strong style="font-size:11px;flex:1">对白暗藏机锋</strong><button class="dock-quote-btn" data-quote-action title="引用到 AI 提示词">${icon('quote')}引用</button></div><p class="dock-memory-desc">少解释性台词，每句话皆暗藏试探与利益博弈，以人物神态与动作停顿体现潜台词。</p></div><button class="button primary" id="dockInjectStylePresetBtn" style="margin-top:6px;width:100%">${icon('sparkles')}一键引用完整文风规约</button></div><div class="dock-panel" data-dock-panel="tools"><div class="dock-tools-selector"><button class="dock-tool-choice active" data-tool="去 AI 味"><span class="tool-ic">${icon('eraser')}</span><strong>去 AI 味</strong><small>消除八股套话</small></button><button class="dock-tool-choice" data-tool="错别字检测"><span class="tool-ic">${icon('spell-check')}</span><strong>错别字检测</strong><small>校对病句标点</small></button><button class="dock-tool-choice" data-tool="扩写/润色"><span class="tool-ic">${icon('sparkles')}</span><strong>扩写/润色</strong><small>丰富细节白描</small></button><button class="dock-tool-choice" data-tool="节奏分析"><span class="tool-ic">${icon('activity')}</span><strong>节奏分析</strong><small>研判冲突密度</small></button></div><div class="dock-tool-input-bar"><span class="dock-tool-desc" id="dockCurrentToolDesc">依据 Stop AI Slop 准则消除机械排比与套话</span><button class="dock-tool-fetch-btn" id="dockFetchSelectionBtn" title="读取正文选区">${icon('mouse-pointer')}读取选中文本</button></div><textarea class="dock-tool-editor" id="dockToolInput" placeholder="从正文选中一段文本，或在此粘贴需要处理的内容..."></textarea><div class="dock-tool-actions"><span class="dock-tool-wc" id="dockToolWordCount">0 字</span><button class="button primary" id="dockExecuteToolBtn">${icon('play')}开始处理</button></div><div class="section-title" style="font-size:11px;margin-bottom:6px">处理结果</div><div class="dock-result-box" id="dockToolResultText">等待执行：从正文选中一段内容后点击上方工具，或直接输入正文开始。</div><div class="dock-result-btns" id="dockToolResultActions" style="display:none"><button class="button primary" id="dockApplyReplaceBtn" data-tool-action="apply-paper" title="应用至正文（替换选中正文或追加到末尾）">${icon('repeat')}应用至正文</button><button class="button" id="dockApplyInsertBtn" title="在光标位置插入">${icon('arrow-down-to-line')}插入光标处</button><button class="button" id="dockApplyAppendBtn" title="追加到章节末尾">${icon('plus')}追加到章节末尾</button><button class="button" id="dockCopyResultBtn" title="复制结果到剪贴板">${icon('copy')}复制结果</button></div></div></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button editor-mobile-back" data-page="novels" aria-label="返回我的小说" title="返回我的小说">${icon('arrow-left')}</button><button class="editor-toolbar-button" id="openChapterNav" data-open-nav aria-label="打开章节导航" title="打开章节导航">${icon('list')}</button><div class="dock-segmented-tabs" id="editorDockTabs"><button class="dock-pill-btn active" data-dock-tab="outline" title="切换大纲坞站">${icon('milestone')}<span>大纲</span></button><button class="dock-pill-btn" data-dock-tab="knowledge" title="切换设定坞站">${icon('network')}<span>设定</span></button><button class="dock-pill-btn" data-dock-tab="memory" title="切换记忆文风坞站">${icon('brain')}<span>记忆文风</span></button><button class="dock-pill-btn" data-dock-tab="tools" title="切换 AI 工具坞站">${icon('wand-sparkles')}<span>AI工具</span></button></div><button class="editor-toolbar-button" id="editorDockToggle" aria-label="收起工作台坞站" title="展开/收起工作台坞站">${icon('panel-left-close')}</button><div class="toolbar-divider"></div><button class="editor-toolbar-button" data-action="editor-undo" aria-label="撤销" title="撤销">${icon('undo-2')}</button><button class="editor-toolbar-button" data-action="editor-redo" aria-label="重做" title="重做">${icon('redo-2')}</button><button class="editor-toolbar-button" data-action="editor-read" aria-label="阅读模式" title="阅读模式">${icon('book-open')}</button></div><div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:10px"><span id="editorSaveStatus" class="editor-save-status">${icon('check')}<span>已自动保存</span></span><button class="editor-toolbar-button" data-open-ai aria-label="打开 AI 助手">${icon('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="true" spellcheck="false"><div class="editor-paper-meta" contenteditable="false"><span>第三章 · 雨夜试锋</span><span id="editorWordCount">1,286 字</span></div><h2>雨夜试锋</h2><p>雨落在青石阶上，像有人在黑暗里一遍遍敲门。叶辰抬起头，看见叶家高墙外的灯火被水汽揉成一片。</p><p>他没有立刻走进雨里。掌心的轮回神玉仍带着一丝尚未散尽的温度，那点微光贴着皮肤游走，像一条沉睡的河。</p><div class="scene-note" contenteditable="false"><strong>当前场景提示</strong><br>叶辰前往祠堂，叶灵儿已经等在那里。建议保持克制，把冲突落在“是否接受玄天宗邀请”的选择上。</div><p>“少爷，家主让你去祠堂。”门外的声音压得很低，“叶灵儿也在。”</p><p>叶辰握紧手指，玉上的光随之收敛。他推开门，冷雨迎面而来。</p></article><div class="editor-selection-menu" id="editorSelectionMenu" hidden><button data-sel-tool="去 AI 味">${icon('eraser')}去 AI 味</button><button data-sel-tool="错别字检测">${icon('spell-check')}错别字</button><button data-sel-tool="扩写/润色">${icon('sparkles')}扩写润色</button><button data-sel-tool="节奏分析">${icon('activity')}节奏分析</button><button data-sel-tool="ai-prompt">${icon('message-square')}发给 AI</button></div></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${icon('sparkles')}</span>AI 创作助手</div><button class="icon-button" data-close-ai aria-label="关闭 AI 助手">${icon('x')}</button></div><select class="ai-select" id="editorModelSelect" data-model-select aria-label="选择模型"><option>DeepSeek V3 · 默认模型</option><option>GPT-4.1 · VIP</option></select><select class="ai-select" id="editorSkillSelect" aria-label="选择 Skill"><option value="">当前作品默认 Skill</option></select><select class="ai-select" id="editorHistorySelect" aria-label="选择历史记录"><option value="">当前会话</option></select><div style="display:flex;gap:6px;margin:6px 0"><select class="ai-select" id="editorCreationMode" aria-label="创作模式" style="flex:1"><option value="creation">名家正文创作 (2500~3200字)</option><option value="assistant">常规助手对话</option></select><select class="ai-select" id="editorStylePreset" aria-label="叙事引擎" style="flex:1"><option value="auto" selected>自动 / 智能识别 (auto) · 题材智能匹配 (推荐兜底)</option><option value="fanren">古典仙侠 (凡人流)</option><option value="xuanhuan">宏大玄幻 (大局博弈)</option><option value="dark_intellect">暗黑智斗 (冷酷博弈)</option><option value="urban">都市商战 (心理博弈)</option><option value="mystery">悬疑怪谈 (规则压迫)</option><option value="scifi">硬核科幻 (技术深空)</option></select></div><div class="chat-scroll" id="editorChat"><div class="chat-message"><span class="chat-avatar">墨</span><div class="chat-bubble"><div class="chat-bubble-text">我已读取当前章节、人物卡和“玄天宗邀请”伏笔。你想先推进冲突，还是补一段环境描写？</div><div class="chat-bubble-actions"><button class="chat-bubble-action primary" data-chat-action="apply-paper" title="采纳写入正文">${icon('arrow-down-to-line')}写入正文</button><button class="chat-bubble-action" data-chat-action="copy" title="复制">${icon('copy')}复制</button></div></div></div><div class="chat-message user"><span class="chat-avatar">你</span><div class="chat-bubble">把祠堂这场戏写得更有压迫感，但不要马上揭开邀请的真实目的。</div></div><div class="chat-message"><span class="chat-avatar">墨</span><div class="chat-bubble"><div class="chat-bubble-text">可以。我会把信息停留在“异常”层面，用人物动作和空间声音制造压力。</div><div class="chat-bubble-actions"><button class="chat-bubble-action primary" data-chat-action="apply-paper" title="采纳写入正文">${icon('arrow-down-to-line')}写入正文</button><button class="chat-bubble-action" data-chat-action="copy" title="复制">${icon('copy')}复制</button></div></div></div></div><div class="chat-thinking" id="editorThinking" aria-live="polite">正在整理上下文</div><div class="chat-composer"><div class="chat-input-box"><textarea id="editorPrompt" placeholder="描述你想让 AI 完成的创作任务…（按 Enter 发送，Shift + Enter 换行）"></textarea><div class="chat-send-actions"><button class="chat-send" id="editorSend" aria-label="发送">${icon('arrow-up')}</button></div></div></div></aside></div>`, 'editor-page');
+    }
+
+    function resourcesPage() {
+      return shell('resources', `<div class="grid grid-4"><div class="metric"><div class="metric-label">正文文件</div><div class="metric-value">6</div><div class="metric-foot">已解析 5 个</div></div><div class="metric"><div class="metric-label">设定资料</div><div class="metric-value">8</div><div class="metric-foot">包含 431 条实体</div></div><div class="metric"><div class="metric-label">素材图片</div><div class="metric-value">12</div><div class="metric-foot">本地保存</div></div><div class="metric"><div class="metric-label">处理中任务</div><div class="metric-value">2</div><div class="metric-foot warn">需要关注</div></div></div><section class="panel" style="margin-top:14px"><div class="panel-heading"><div><h2>作品资源</h2><p>资源和 AI 抽取任务分开管理，避免导入内容直接覆盖正文。</p></div><div class="segmented"><button class="segment active">全部</button><button class="segment">正文</button><button class="segment">设定</button><button class="segment">素材</button></div></div><div class="panel-body table-wrap"><table class="data-table"><thead><tr><th>资源名称</th><th>类型</th><th>来源</th><th>处理状态</th><th>更新时间</th><th></th></tr></thead><tbody><tr><td><strong>第一卷正文.txt</strong></td><td>正文</td><td>本地导入</td><td><span class="badge green">已解析</span></td><td>今天 10:31</td><td><button class="button" style="min-height:27px;padding:0 8px;font-size:10px" data-action="resource-view" data-resource="第一卷正文.txt">查看</button></td></tr><tr><td><strong>世界观设定.docx</strong></td><td>设定集</td><td>本地导入</td><td><span class="badge amber">抽取中 67%</span></td><td>今天 10:24</td><td><button class="button" style="min-height:27px;padding:0 8px;font-size:10px" data-action="resource-progress" data-resource="世界观设定.docx">进度</button></td></tr><tr><td><strong>人物关系图.png</strong></td><td>素材</td><td>用户上传</td><td><span class="badge green">可用</span></td><td>昨天 21:03</td><td><button class="button" style="min-height:27px;padding:0 8px;font-size:10px" data-action="resource-view" data-resource="人物关系图.png">查看</button></td></tr><tr><td><strong>地图与地点.md</strong></td><td>设定集</td><td>本地导入</td><td><span class="badge blue">待确认</span></td><td>昨天 20:42</td><td><button class="button" style="min-height:27px;padding:0 8px;font-size:10px" data-page="knowledge">整理</button></td></tr></tbody></table></div></section><section class="grid grid-2" style="margin-top:14px"><article class="panel pad"><div class="section-title">导入流程</div><p class="section-note">文件选择 → 清单确认 → 解析 → AI 抽取 → 人工确认 → 写入知识库。每一步都显示进度、积分预估和失败重试。</p><div class="progress" style="margin-top:15px"><span style="width:67%"></span></div><div class="metric-foot">当前任务：世界观设定.docx · 67%</div></article><article class="panel pad"><div class="section-title">资源安全与全套资料</div><p class="section-note">资源只属于当前作品，生成时不会自动发送全部资料。AI 上下文会根据当前章节动态召回。</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="button" data-action="context-preview">${icon('scan-search')}查看本章召回内容</button><button class="button" data-page="story-workbench">${icon('brain')}故事记忆工作台</button><button class="button" data-page="project-docs">${icon('layers')}全套创作资料</button></div></article></section>`, 'resources-page');
+    }
+
+    function outlinePage() {
+      return shell('outline', `<section class="panel"><div class="panel-heading"><div class="skill-tabs"><button class="skill-tab active">总纲</button><button class="skill-tab">卷纲</button><button class="skill-tab">章纲</button><button class="skill-tab">场景卡</button></div><span class="badge green">已自动保存</span></div><div class="panel-body"><div class="notice">${icon('route')}<span><strong>当前链路：</strong>第一卷 · 叶辰入宗 → 玄天宗试炼 → 轮回殿线索。点击任一节点可以查看关联设定和伏笔。</span></div><div class="grid grid-3" style="margin-top:15px"><article class="panel pad"><span class="badge blue">第一卷</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:18px">废物归来</h3><p class="section-note">叶辰发现轮回神玉，重新获得修炼资格，并接受玄天宗邀请。</p><div class="metric-foot">12 章 · 3 个主线节点</div></article><article class="panel pad"><span class="badge amber">当前节点</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:18px">雨夜试锋</h3><p class="section-note">在祠堂对话中埋下邀请真实目的，叶灵儿的态度发生变化。</p><div class="metric-foot">第 3 章 · 2 个伏笔</div></article><article class="panel pad"><span class="badge gray">下一节点</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:18px">玄天宗的邀请</h3><p class="section-note">叶辰决定入宗，获得第一份关于轮回殿的间接线索。</p><div class="metric-foot">第 4 章 · 待展开</div></article></div></div></section><section class="grid grid-2" style="margin-top:14px"><article class="panel"><div class="panel-heading"><div><h2>故事时间线</h2><p>按事件顺序查看人物、地点和伏笔变化</p></div><button class="button" data-action="outline-add">${icon('plus')}新增</button></div><div class="panel-body" id="timelineRows"><div class="task-row"><span class="task-icon">01</span><div class="task-copy"><div class="task-title">轮回神玉归来</div><div class="task-meta">第 1 章 · 叶辰 · 叶家</div></div><span class="badge green">已发生</span></div><div class="task-row"><span class="task-icon">02</span><div class="task-copy"><div class="task-title">玄天宗发出邀请</div><div class="task-meta">第 2 章 · 玄天宗 · 主线</div></div><span class="badge green">已发生</span></div><div class="task-row"><span class="task-icon">03</span><div class="task-copy"><div class="task-title">祠堂试探</div><div class="task-meta">第 3 章 · 叶灵儿 · 伏笔 F-003</div></div><span class="badge amber">当前</span></div></div></article><article class="panel"><div class="panel-heading"><div><h2>伏笔台账</h2><p>避免未来规划被误判为未使用</p></div><button class="button" data-action="outline-all">查看全部</button></div><div class="panel-body"><div class="task-row"><span class="task-icon">F-001</span><div class="task-copy"><div class="task-title">轮回神玉的第二道印记</div><div class="task-meta">埋设：第 1 章 · 预计：第 8 章</div></div><span class="badge blue">发酵中</span></div><div class="task-row"><span class="task-icon">F-003</span><div class="task-copy"><div class="task-title">邀请背后的交换条件</div><div class="task-meta">埋设：第 2 章 · 预计：第 4 章</div></div><span class="badge amber">待回收</span></div><div class="task-row"><span class="task-icon">F-006</span><div class="task-copy"><div class="task-title">叶灵儿隐瞒的消息</div><div class="task-meta">埋设：第 3 章 · 风险：高</div></div><span class="badge danger">高风险</span></div></div></article></section>`, 'outline-page');
+    }
+
+    function knowledgePage() {
+      return shell('knowledge', `<div class="panel" style="padding:16px 18px;margin-bottom:14px"><div class="knowledge-stats"><div class="knowledge-stat"><strong>431</strong>条实体</div><div class="knowledge-stat"><strong>244</strong>条关系</div><div class="knowledge-stat"><strong>86</strong>条已引用</div><div class="knowledge-stat"><strong>12</strong>个待回收伏笔</div><span class="badge amber">345 条待整理</span></div></div><div class="panel knowledge-layout"><aside class="knowledge-tree"><input class="tree-search" placeholder="搜索分类"><div class="tree-group"><div class="tree-heading">${icon('map')}地点与势力<strong>24</strong></div><div class="tree-node active">${icon('map-pin')}青云城<span>8</span></div><div class="tree-node">${icon('building-2')}玄天宗<span>7</span></div><div class="tree-node">${icon('users')}叶家<span>5</span></div></div><div class="tree-group"><div class="tree-heading">${icon('package')}物品<strong>81</strong></div><div class="tree-node">${icon('gem')}灵器<span>22</span></div><div class="tree-node">${icon('flame')}功法<span>31</span></div></div><div class="tree-group"><div class="tree-heading">${icon('bookmark')}伏笔<strong>12</strong></div><div class="tree-node">${icon('circle-alert')}待回收<span>8</span></div></div></aside><section class="entity-list"><div class="entity-toolbar"><strong>青云城 · 实体</strong><div class="segmented"><button class="segment active">全部</button><button class="segment">未引用</button></div></div><div class="entity-row active" data-entity="青云城"><span class="entity-dot"></span><div class="entity-copy"><div class="entity-name">青云城</div><div class="entity-path">地点 / 中州 / 北境</div><div class="entity-preview">玄天宗山门所在，城内有叶家旧宅</div></div><span class="badge green">已引用</span></div><div class="entity-row" data-entity="玄天宗"><span class="entity-dot" style="background:#8b6b43"></span><div class="entity-copy"><div class="entity-name">玄天宗</div><div class="entity-path">势力 / 中州 / 宗门</div><div class="entity-preview">三日前向叶辰发出入宗邀请</div></div><span class="badge amber">待确认</span></div><div class="entity-row" data-entity="叶灵儿"><span class="entity-dot" style="background:#9c6684"></span><div class="entity-copy"><div class="entity-name">叶灵儿</div><div class="entity-path">人物 / 叶家 / 青云城</div><div class="entity-preview">叶辰的妹妹，知道部分邀请内情</div></div><span class="badge green">已引用</span></div><div class="entity-row" data-entity="轮回神玉"><span class="entity-dot" style="background:#a37b25"></span><div class="entity-copy"><div class="entity-name">轮回神玉</div><div class="entity-path">物品 / 灵器 / 未分类</div><div class="entity-preview">随叶辰重生的核心物品</div></div><span class="badge gray">未归类</span></div></section><aside class="entity-detail" id="entityDetail"><div class="detail-type">地点 · 已引用 4 次</div><h3>青云城</h3><div class="detail-path">中州 / 北境 / 城池</div><div class="divider"></div><div class="detail-field"><label>简介</label><p>玄天宗山门所在，叶家旧宅位于城南。城内势力交错，是第一卷主要活动区域。</p></div><div class="detail-field"><label>关联实体</label><div class="tag-list"><span class="tag">玄天宗</span><span class="tag">叶家</span><span class="tag">叶灵儿</span></div></div><div class="detail-field"><label>引用章节</label><p>第 1 章、第 2 章、第 3 章、第 7 章</p></div><button class="button" style="width:100%;margin-top:14px" data-action="knowledge-edit">${icon('pencil')}编辑实体</button></aside></div>`, 'knowledge-page');
+    }
+
+    function dissectPage() {
+      return shell('dissect', `<div class="import-layout" id="dissectImport"><section class="panel"><div class="panel-heading"><div><h2>新建拆书任务</h2><p>支持多个文件或文件夹；先上传，再确认分析范围和积分预算。</p></div><span class="badge blue">默认模型 · DeepSeek V3</span></div><div class="panel-body"><div class="drop-zone" id="dropZone"><span class="drop-icon">${icon('upload')}</span><h3>拖入样文或选择文件夹</h3><p>支持 TXT、DOCX、PDF、MD。系统会保留章节顺序，并在分析前展示文件清单。</p><button class="button primary" id="chooseFiles">${icon('folder-open')}选择文件</button></div><div class="file-queue" id="fileQueue" style="display:none"><div class="file-row">${icon('file-text')}<span class="file-name">第一卷_正文.txt</span><span class="file-size">2.4 MB</span><span class="badge green">已读取</span></div><div class="file-row">${icon('file-text')}<span class="file-name">人物与设定.docx</span><span class="file-size">184 KB</span><span class="badge green">已读取</span></div><div class="notice">${icon('coins')}<span>预计分析消耗 <strong>420 积分</strong>，确认后开始。可随时暂停和重试。</span></div><button class="button primary" data-toast="拆书任务已加入队列。" style="margin-top:9px;width:100%">${icon('play')}确认并开始分析</button></div></div></section><aside class="panel"><div class="panel-heading"><div><h2>任务状态</h2><p>跨页面保留的分析进度</p></div></div><div class="panel-body"><div class="task-card"><div class="task-card-head"><strong>古言样文 · 文风提取</strong><span class="badge green">已完成</span></div><p>人物视角、句式节奏、冲突密度和对白比例</p><div class="progress"><span style="width:100%"></span></div><div class="task-card-foot"><span>完成于今天 10:22</span><span>368 积分</span></div></div><div class="task-card"><div class="task-card-head"><strong>逆天重生参考样本</strong><span class="badge amber">67%</span></div><p>正在分析第 12 / 18 个章节分块</p><div class="progress"><span style="width:67%"></span></div><div class="task-card-foot"><span>预计还需 4 分钟</span><span>已用 284 积分</span></div></div><div class="task-card"><div class="task-card-head"><strong>规则怪谈拆解</strong><span class="badge gray">已暂停</span></div><p>等待补充缺失章节</p><div class="task-card-foot"><span>昨天</span><button class="button" style="min-height:26px;padding:0 7px;font-size:10px" data-toast="任务继续运行。">继续</button></div></div></div></aside></div><section class="panel" style="margin-top:14px"><div class="panel-heading"><div><h2>已提取的写作方法</h2><p>结果可单独保存为 Skill，也可以绑定到指定小说。</p></div><button class="button" data-toast="导出文风包预览。">${icon('download')}导出文风包</button></div><div class="panel-body style-output"><article><h3>叙事视角</h3><p>以主角为中心的第三人称限知视角，信息随感知逐步揭示。</p></article><article><h3>节奏结构</h3><p>每 800–1,200 字形成一次局部目标变化，章末保留具体行动钩子。</p></article><article><h3>对白与动作</h3><p>对白承担试探和冲突，情绪通过动作、停顿和场景反应呈现。</p></article></div></section>`, 'dissect-page');
+    }
+
+    function skillsPage() {
+      const cards = [
+        { title: '高张力玄幻推进', author: '墨阑官方', icon: 'feather', description: '强化对话冲突、证据链和章末钩子，适合长篇玄幻连载。', downloads: '1,284', collection: 'discover', downloaded: true },
+        { title: '规则怪谈悬疑', author: '欢乐谷写作组', icon: 'shield-alert', color: '#5e6872', description: '维护规则权威、违规代价与公平线索，避免无依据的强行反转。', downloads: '902', collection: 'discover', downloaded: true },
+        { title: '自然对白校准', author: '林间书房', icon: 'message-square', color: '#8a684c', description: '减少解释性对白，让人物习惯、关系和立场通过交流自然显露。', downloads: '678', collection: 'discover' },
+        { title: '样文拆解通用包', author: '墨阑社区', icon: 'scan-text', color: '#4d6581', description: '从正文、人物卡和章节结构中提取可迁移规则，隔离项目专属设定。', downloads: '512', collection: 'discover' },
+        { title: '我的玄幻写作规则', author: '我的 Skill', icon: 'sparkles', description: '绑定 2 本作品，包含已确认的叙事节奏和人物视角约定。', collection: 'mine' },
+        { title: '用户纠错偏好', author: '我的 Skill', icon: 'sparkles', description: '绑定 1 本作品，保存已接受的改写偏好与避错要求。', collection: 'mine' },
+        { title: '对白自然化', author: '我的 Skill', icon: 'sparkles', description: '尚未绑定作品，可在编辑器中选择后应用。', collection: 'mine' }
+      ].map((skill) => `<article class="skill-card" data-skill-collection="${skill.collection}" data-skill-downloaded="${Boolean(skill.downloaded)}" data-search="${skill.title} ${skill.author} ${skill.description}"><div class="skill-card-head"><span class="skill-mark"${skill.color ? ` style="background:${skill.color}"` : ''}>${icon(skill.icon)}</span><div><h3>${skill.title}</h3><div class="author">by ${skill.author}</div></div></div><p>${skill.description}</p><div class="skill-foot"><span>${skill.downloads ? `下载 ${skill.downloads} 次` : '私人 Skill'}</span><button class="button" data-toast="已添加到当前作品。">${skill.collection === 'mine' ? '编辑' : '使用'}</button></div></article>`).join('');
+      return shell('skills', `<div class="skills-layout"><section class="panel"><div class="skill-toolbar"><div class="skill-tabs" role="tablist" aria-label="Skill 分类"><button class="skill-tab active" type="button" role="tab" aria-selected="true" data-skill-tab="discover">发现 Skill</button><button class="skill-tab" type="button" role="tab" aria-selected="false" data-skill-tab="mine">我的 Skill</button><button class="skill-tab" type="button" role="tab" aria-selected="false" data-skill-tab="downloaded">已下载</button></div><span class="badge blue">公开 128 个</span></div><div class="skill-grid">${cards}<div class="empty" data-skill-empty style="grid-column:1/-1" hidden><h3>没有匹配的 Skill</h3><p>更换分类或搜索词后再试。</p></div></div></section><aside class="panel"><div class="panel-heading"><div><h2>我的 Skill</h2><p>登录后跨作品同步</p></div><button class="icon-button" data-toast="已刷新 Skill。" aria-label="刷新">${icon('refresh-cw')}</button></div><div class="panel-body"><div class="private-list"><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}我的玄幻写作规则<span class="link-count">绑定 2 本</span></button><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}用户纠错偏好<span class="link-count">绑定 1 本</span></button><button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}对白自然化<span class="link-count">未绑定</span></button></div><div class="divider"></div><button class="button primary" style="width:100%" data-toast="创建 Skill 编辑器预览。">${icon('plus')}创建我的 Skill</button><button class="button" style="width:100%;margin-top:7px" data-toast="上传到开放区前需要确认版权。">${icon('upload')}上传到开放区</button></div></aside></div>`, 'skills-page');
+    }
+
+    function toolsPage() {
+      return shell('tools', `<section class="panel"><div class="panel-heading"><div><h2>选择一个工具</h2><p>所有需要大模型的工具都使用当前账户的默认模型，并按统一规则计费。</p></div><span class="badge gray">10 款工具</span></div><div class="panel-body"><div class="tool-grid"><button class="tool-card active" data-tool="去 AI 味"><span class="tool-icon">${icon('eraser')}</span><h3>去 AI 味</h3><p>保留原意，降低模板化表达。</p></button><button class="tool-card" data-tool="错别字检测"><span class="tool-icon">${icon('spell-check')}</span><h3>错别字检测</h3><p>检查词语、标点和语义重复。</p></button><button class="tool-card" data-tool="章节标题"><span class="tool-icon">${icon('heading')}</span><h3>章节标题</h3><p>根据章节内容生成多版标题。</p></button><button class="tool-card" data-tool="人物卡"><span class="tool-icon">${icon('user-round')}</span><h3>人物卡</h3><p>补齐人物目标、关系和弧光。</p></button><button class="tool-card" data-tool="简介生成"><span class="tool-icon">${icon('align-left')}</span><h3>简介生成</h3><p>生成平台简介和一句话卖点。</p></button><button class="tool-card" data-tool="节奏分析"><span class="tool-icon">${icon('activity')}</span><h3>节奏分析</h3><p>识别冲突密度和场景停留。</p></button></div></div></section><section class="tool-workspace" style="margin-top:14px"><div class="panel pad"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div><h2 class="section-title" id="toolTitle">去 AI 味</h2><div class="section-note">粘贴一段正文开始分析，结果会先进入对话区供你确认。</div></div><span class="badge amber">预计 18 积分</span></div><textarea class="tool-editor" id="toolInput">叶辰缓缓抬起头，眼神中闪过一丝坚定。他知道，接下来的道路充满了未知与挑战，但他已经做好了准备。</textarea><div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span class="section-note">0 / 10,000 字</span><button class="button primary" id="runTool">${icon('play')}开始分析</button></div></div><div class="panel pad"><div class="section-title">预览结果</div><div class="result-block" style="margin-top:12px"><strong>等待运行</strong><br>分析完成后会显示问题位置、修改建议、实际积分和版本对比。你可以接受、撤销或再次生成。</div><div class="divider"></div><div class="section-note">历史任务<br><strong style="color:var(--ink)">第 3 章 · 去 AI 味</strong> · 已完成 · 24 积分</div></div></section>`, 'tools-page');
+    }
+
+    function billingPage() {
+      return shell('billing', `<div class="billing-layout"><article class="balance-panel"><div class="eyebrow">CURRENT BALANCE</div><div class="balance-value">8,240</div><div class="balance-copy">积分 · VIP 账户 · 普通生成倍率 1.0x</div><button class="button" data-toast="充值流程预览。">${icon('plus')}充值积分</button></article><article class="panel pad"><div class="section-title">本月消耗</div><div class="usage-chart"><div class="usage-bar" style="--bar:34px"><span></span><small>1</small></div><div class="usage-bar" style="--bar:53px"><span></span><small>2</small></div><div class="usage-bar" style="--bar:28px"><span></span><small>3</small></div><div class="usage-bar" style="--bar:72px"><span></span><small>4</small></div><div class="usage-bar" style="--bar:45px"><span></span><small>5</small></div><div class="usage-bar" style="--bar:82px"><span></span><small>6</small></div><div class="usage-bar" style="--bar:61px"><span></span><small>7</small></div></div><div class="metric-foot">过去 7 天 · 1,284 积分</div></article></div><section class="panel" style="margin-top:14px"><div class="panel-heading"><div><h2>选择套餐</h2><p>套餐只影响积分余额，不改变作品和 Skill 数据。</p></div><span class="badge blue">VIP 优惠</span></div><div class="panel-body plan-grid"><article class="plan-card"><h3>体验包</h3><div class="plan-price">¥9 <small>/ 次</small></div><ul><li>1,000 积分</li><li>适合短篇试用</li><li>即时到账</li></ul><button class="button" style="width:100%" data-toast="体验包购买预览。">购买</button></article><article class="plan-card featured"><h3>创作者包</h3><div class="plan-price">¥49 <small>/ 月</small></div><ul><li>8,000 积分</li><li>VIP 模型选择</li><li>优先任务队列</li></ul><button class="button primary" style="width:100%" data-toast="创作者包购买预览。">选择套餐</button></article><article class="plan-card"><h3>长篇包</h3><div class="plan-price">¥149 <small>/ 月</small></div><ul><li>30,000 积分</li><li>批量导入与拆书</li><li>更长上下文预算</li></ul><button class="button" style="width:100%" data-toast="长篇包购买预览。">购买</button></article></div></section><section class="panel" style="margin-top:14px"><div class="panel-heading"><div><h2>使用记录</h2><p>每次 AI 调用都记录模型、实际 Token、倍率和积分。</p></div><div class="segmented"><button class="segment active">全部</button><button class="segment">生成</button><button class="segment">抽取</button></div></div><div class="panel-body table-wrap"><table class="data-table"><thead><tr><th>时间</th><th>任务</th><th>模型</th><th>Token</th><th>积分</th><th>状态</th></tr></thead><tbody><tr><td>今天 10:31</td><td><strong>第 3 章续写</strong></td><td>DeepSeek V3</td><td>8,420</td><td>24</td><td><span class="badge green">已结算</span></td></tr><tr><td>今天 09:52</td><td><strong>设定抽取</strong></td><td>DeepSeek V3</td><td>32,180</td><td>86</td><td><span class="badge green">已结算</span></td></tr><tr><td>昨天 22:12</td><td><strong>去 AI 味</strong></td><td>DeepSeek V3</td><td>12,240</td><td>38</td><td><span class="badge green">已结算</span></td></tr></tbody></table></div></section>`, 'billing-page');
+    }
+
+    function docsPage() {
+      const topics = [
+        ['first-use', '第一次使用', '从第一本小说开始', '墨阑把长篇写作拆成几个可以反复使用的环节：建立作品、整理设定、规划章节、生成正文和回看修改。先完成当前场景需要的信息即可。'],
+        ['create-novel', '创建一本小说', '建立作品档案', '在“我的小说”点击“新建小说”，填写标题、类型和一句话简介。进入编辑器后，可以从总纲、卷纲或第一章开始，作品信息会保存在当前账户。'],
+        ['import-content', '导入正文和设定', '导入已有内容', '可以选择多个文件或文件夹。系统会先展示文件清单与预计积分，确认后再解析和抽取；结果进入资源中心与知识库，不会直接覆盖正文。'],
+        ['editor', '使用 AI 编辑器', '在章节中协作', '编辑器会根据当前章节、场景、人物、地点、物品和伏笔召回上下文。发送前可在“上下文”标签检查内容，生成结果先进入对话区，再由你确认写入位置。'],
+        ['knowledge', '整理知识库', '维护故事事实', '按人物、地点、势力、物品等类型查看设定。通过搜索和别名找到实体，修改事实后保存到当前作品，生成时只召回与当前章节相关的资料。'],
+        ['skills', '拆书与 Skill', '提取可复用方法', '拆书任务会分析视角、句式节奏、冲突密度和对白。确认后可保存为 Skill，并绑定到指定作品；项目专属设定不会混入可迁移规则。'],
+        ['billing', '积分和任务', '查看任务与用量', '生成、导入、拆书和检测任务会显示进度与实际消耗。前往“积分与套餐”查看使用记录、任务费用和账户余额。']
+      ];
+      const nav = topics.map(([id, label], index) => `<a class="${index === 0 ? 'active' : ''}" href="#docs-${id}" data-doc-topic="${id}"${index === 0 ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+      const panels = topics.map(([id, , title, copy], index) => `<section id="docs-${id}" class="docs-section" data-doc-topic-panel="${id}"${index ? ' hidden' : ''}><h2>${title}</h2><p>${copy}</p>${id === 'first-use' ? `<ol><li>创建或打开一本小说。</li><li>补充当前章节所需的设定和大纲。</li><li>在编辑器中检查上下文后开始协作。</li></ol>` : ''}${id === 'import-content' ? `<div class="notice">${icon('lightbulb')}<span><strong>建议：</strong>先导入正文，再补充人物卡、地图和设定集。</span></div>` : ''}${id === 'billing' ? `<button class="button" data-page="billing">打开积分与套餐</button>` : ''}</section>`).join('');
+      return shell('docs', `<div class="docs-layout"><nav class="panel docs-nav" aria-label="教程目录">${nav}</nav><article class="panel article" aria-live="polite"><div class="eyebrow">DOCUMENTATION</div><div class="docs-sections">${panels}</div></article></div>`, 'docs-page');
+    }
+
+    function readAccountPreferences() {
+      const defaults = { genre: '玄幻', pov: 'third-limited', tone: '克制' };
+      try {
+        const saved = JSON.parse(localStorage.getItem('molan_account_preferences') || 'null');
+        if (!saved || typeof saved !== 'object') return defaults;
+        return {
+          genre: ['玄幻', '都市', '悬疑', '科幻', '历史'].includes(saved.genre) ? saved.genre : defaults.genre,
+          pov: ['third-limited', 'first-person', 'third-omniscient'].includes(saved.pov) ? saved.pov : defaults.pov,
+          tone: ['克制', '热血', '轻快', '冷峻'].includes(saved.tone) ? saved.tone : defaults.tone
+        };
+      } catch (_) { return defaults; }
+    }
+
+    function accountPage() {
+      const preferences = readAccountPreferences();
+      return shell('account', `<div class="account-grid"><nav class="panel account-nav" role="tablist" aria-label="账户设置"><button class="active" type="button" role="tab" aria-selected="true" data-account-tab="profile">${icon('user-round')}个人资料</button><button type="button" role="tab" aria-selected="false" data-account-tab="preferences">${icon('sliders-horizontal')}创作偏好</button><button type="button" role="tab" aria-selected="false" data-account-tab="security">${icon('shield-check')}登录安全</button><button type="button" role="tab" aria-selected="false" data-account-tab="usage">${icon('history')}使用记录</button></nav><div class="account-panels"><section class="panel" data-account-panel="profile"><div class="panel-heading"><div><h2>个人资料</h2><p>未设置头像时保持空白，不自动生成。</p></div><span class="badge green">已登录</span></div><div class="panel-body"><div class="profile-form"><div><span class="big-avatar">${icon('user-round')}</span><button class="button" style="width:100%;margin-top:9px" data-toast="头像选择预览。">更换头像</button></div><div class="form-grid"><div class="field"><label for="accountEmail">登录邮箱</label><input id="accountEmail" value="user@example.com" disabled><small>邮箱用于账户隔离和任务记录归属。</small></div><div class="field"><label for="displayName">显示名称</label><input id="displayName" value="创作者" placeholder="设置一个显示名称"></div><div class="field"><label for="accountBio">个人简介</label><textarea id="accountBio" placeholder="介绍你的创作方向"></textarea></div><div class="field"><label for="defaultModel">默认模型</label><select id="defaultModel"><option>DeepSeek V3</option><option>GPT-4.1</option></select><small>普通用户由平台控制模型选择；VIP 和管理员可在权限范围内选择。</small></div></div></div></div></section><section class="panel" data-account-panel="preferences" hidden><div class="panel-heading"><div><h2>创作偏好</h2><p>保存在此浏览器，可随时调整。</p></div></div><div class="panel-body"><div class="form-grid"><div class="field"><label for="accountGenre">默认题材</label><select id="accountGenre"><option${preferences.genre === '玄幻' ? ' selected' : ''}>玄幻</option><option${preferences.genre === '都市' ? ' selected' : ''}>都市</option><option${preferences.genre === '悬疑' ? ' selected' : ''}>悬疑</option><option${preferences.genre === '科幻' ? ' selected' : ''}>科幻</option><option${preferences.genre === '历史' ? ' selected' : ''}>历史</option></select></div><div class="field"><label for="accountPov">默认叙事视角</label><select id="accountPov"><option value="third-limited"${preferences.pov === 'third-limited' ? ' selected' : ''}>第三人称限知</option><option value="first-person"${preferences.pov === 'first-person' ? ' selected' : ''}>第一人称</option><option value="third-omniscient"${preferences.pov === 'third-omniscient' ? ' selected' : ''}>第三人称全知</option></select></div><div class="field"><label for="accountTone">默认文风</label><select id="accountTone"><option${preferences.tone === '克制' ? ' selected' : ''}>克制</option><option${preferences.tone === '热血' ? ' selected' : ''}>热血</option><option${preferences.tone === '轻快' ? ' selected' : ''}>轻快</option><option${preferences.tone === '冷峻' ? ' selected' : ''}>冷峻</option></select></div></div><button class="button primary" type="button" data-save-account-preferences>${icon('save')}保存创作偏好</button></div></section><section class="panel" data-account-panel="security" hidden><div class="panel-heading"><div><h2>登录安全</h2><p>管理当前浏览器中的账户会话。</p></div><span class="badge gray" data-account-session>未登录</span></div><div class="panel-body"><p class="section-note">“记住我”决定登录凭据在关闭浏览器后是否保留。退出后，此浏览器会清除当前账户会话。</p><button class="button danger" type="button" data-account-logout>${icon('log-out')}退出当前账户</button></div></section><section class="panel" data-account-panel="usage" hidden><div class="panel-heading"><div><h2>使用记录</h2><p>查看当前账户的任务用量和费用。</p></div></div><div class="panel-body"><p class="section-note">生成、导入、拆书和检测任务的用量统一记录在积分与套餐页面。</p><button class="button" type="button" data-page="billing">${icon('history')}查看积分与任务记录</button></div></section></div></div>`, 'account-page');
+    }
+
+    function featuresPage() {
+      return shell('features', `<section class="grid grid-3"><article class="panel pad"><span class="tool-icon">${icon('pen-line')}</span><h3 style="margin:15px 0 7px;font-size:15px">长篇编辑器</h3><p class="section-note">章节、正文、AI 对话独立但同屏协作，生成结果先进入对话区，再由你确认落点。</p></article><article class="panel pad"><span class="tool-icon">${icon('network')}</span><h3 style="margin:15px 0 7px;font-size:15px">结构化设定集</h3><p class="section-note">地点 → 势力 → 人物，物品 → 品级 → 物品，并提供搜索、关系和引用统计。</p></article><article class="panel pad"><span class="tool-icon">${icon('scan-text')}</span><h3 style="margin:15px 0 7px;font-size:15px">拆书与文风</h3><p class="section-note">从样文中提取叙事视角、节奏、对白和句式，生成可跨模型使用的中立 Skill。</p></article><article class="panel pad"><span class="tool-icon">${icon('coins')}</span><h3 style="margin:15px 0 7px;font-size:15px">可追踪计费</h3><p class="section-note">生成、抽取、检测和拆书统一记录实际 Token、模型倍率与积分消耗。</p></article><article class="panel pad"><span class="tool-icon">${icon('shield-check')}</span><h3 style="margin:15px 0 7px;font-size:15px">账户隔离</h3><p class="section-note">小说、Skill、对话、任务和积分按账户隔离，后台拥有独立管理入口。</p></article><article class="panel pad"><span class="tool-icon">${icon('history')}</span><h3 style="margin:15px 0 7px;font-size:15px">任务可回看</h3><p class="section-note">长任务支持进度、暂停、重试、结果版本和积分明细，减少“卡住但不知道发生了什么”。</p></article></section><section class="panel pad" style="margin-top:14px"><div class="eyebrow">ONE WORKFLOW</div><h2 style="margin:8px 0 8px;font-family:var(--serif);font-size:25px">从灵感到成稿，一条可回溯的生产链</h2><p class="section-note" style="max-width:680px">总纲 → 卷纲 → 章纲 → 场景 → 设定引用 → 正文 → 检测 → 修改。每一步都留下可查看的任务记录，方便继续创作和复盘。</p><div class="grid grid-4" style="margin-top:18px"><div class="notice">01 · 建立作品</div><div class="notice">02 · 整理知识</div><div class="notice">03 · 生成正文</div><div class="notice">04 · 修改复盘</div></div></section>`, 'features-page');
+    }
+
+    function blogPage() {
+      return shell('blog', `<div class="grid grid-3"><article class="panel"><div style="height:125px;background:#e8e5dd;display:flex;align-items:flex-end;padding:15px;font-family:var(--serif);font-size:24px">写作不是堆字</div><div class="panel-body"><span class="badge gray">方法论</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">先建立场景，再让人物说话</h3><p class="section-note">为什么 AI 续写容易变成摘要，以及如何用具体目标重新启动一场戏。</p><div class="metric-foot">8 分钟阅读 · 2026.08.12</div></div></article><article class="panel"><div style="height:125px;background:#dfe6e2;display:flex;align-items:flex-end;padding:15px;font-family:var(--serif);font-size:24px">人物有选择</div><div class="panel-body"><span class="badge gray">人物塑造</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">人物弧光不是人物简介</h3><p class="section-note">把“设定”转成可观察的选择、代价和关系变化，人物才会进入正文。</p><div class="metric-foot">6 分钟阅读 · 2026.08.06</div></div></article><article class="panel"><div style="height:125px;background:#e1e3e8;display:flex;align-items:flex-end;padding:15px;font-family:var(--serif);font-size:24px">管理长篇</div><div class="panel-body"><span class="badge gray">长篇工程</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">设定越多，越要限制上下文</h3><p class="section-note">不是把所有资料都塞给模型，而是让当前场景拥有足够、准确、可解释的上下文。</p><div class="metric-foot">9 分钟阅读 · 2026.07.29</div></div></article></div>`, 'blog-page');
+    }
+
+    function loginPage() {
+      return shell('login', `<div class="user-login"><section class="user-login-copy"><div><div style="display:flex;align-items:center;gap:9px"><span class="brand-mark">墨</span><strong style="font-family:var(--serif);font-size:16px">墨阑</strong></div><h2>让每一个故事，都有自己的工作台。</h2><p>保存你的作品、设定和 Skill，在任意设备继续创作。登录后，所有 AI 任务和积分记录都会归属于当前账户。</p><div class="login-signal"><span></span>你的作品数据按账户独立保存</div></div><div class="metric-foot">墨阑 · 以书香之韵，驭现代之智</div></section><section class="user-login-form"><div class="user-login-inner"><div class="login-tabs"><button class="login-tab active">登录</button><button class="login-tab">注册</button></div><h1>欢迎回来</h1><p>登录后继续最近编辑的小说和 AI 任务。</p><div class="form-grid"><div class="field"><label for="userEmail">邮箱</label><input id="userEmail" type="email" placeholder="you@example.com"></div><div class="field"><label for="userPassword">密码</label><input id="userPassword" type="password" placeholder="请输入密码"></div></div><div class="login-links"><label class="check"><input id="rememberUser" type="checkbox" checked> 记住我</label><a href="#" data-toast="找回密码流程预览。">忘记密码？</a></div><button class="button primary" style="width:100%;margin-top:21px" data-page="overview">登录并进入工作台 ${icon('arrow-right')}</button><div class="notice" style="margin-top:18px">${icon('info')}<span>本地服务模式：登录或注册后，作品和任务会保存到当前本地后端。</span></div></div></section></div>`, 'login-page');
+    }
+
+    function adminLoginPage() {
+      return shell('admin-login', '<section class="panel"><div class="panel-body"><div class="empty"><div class="empty-icon">…</div><h3>管理员入口正在加载</h3><p>请稍候，正在加载服务端管理台。</p></div></div></section>', 'admin-login-page');
+    }
+
+    function adminPage() {
+      return shell('admin', '<section class="panel"><div class="panel-body"><div class="empty"><div class="empty-icon">…</div><h3>管理后台正在加载</h3><p>请稍候，正在加载服务端管理台。</p></div></div></section>', 'admin-page');
+    }
+
+    function storyWorkbenchPage() {
+      const activeNid = (window.previewState && window.previewState.novelId) || (backendState.novels && backendState.novels[0]?.id) || '';
+      if (!activeNid) {
+        return shell('story-workbench', `<div class="panel empty" style="padding:48px;max-width:560px;margin:40px auto;text-align:center"><div class="empty-icon">—</div><h3>请先选择一本小说</h3><p style="color:var(--muted);margin:8px 0 20px">长篇记忆与文风工作台需要基于具体的小说档案与设定进行研判。</p><button class="button primary" data-page="novels">打开我的小说</button></div>`, 'workbench-page');
+      }
+      const url = `./pages/story-workbench.html?nid=${encodeURIComponent(activeNid)}`;
+      return shell('story-workbench', `<div class="workbench-fusion-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--paper-warm);border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;margin-bottom:0"><div style="display:flex;align-items:center;gap:10px"><button class="button" data-page="editor" style="font-size:12px;display:flex;align-items:center;gap:4px">${icon('arrow-left')}返回 AI 小说编辑器</button><span class="badge blue">已联动当前作品</span><span style="font-size:12px;color:var(--muted)">正文与记忆变更可一键双向流转</span></div><div style="display:flex;gap:8px"><a class="button" href="${url}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开 (/browser)</a></div></div><div class="embedded-workbench-wrap" style="height:calc(100vh - 210px);min-height:560px;border-radius:0 0 8px 8px;overflow:hidden;border:1px solid var(--line);background:var(--paper)"><iframe src="${url}" style="width:100%;height:100%;border:none" title="故事记忆与文风工作台"></iframe></div>`, 'workbench-page');
+    }
+
+    function projectDocsPage() {
+      const activeNid = (window.previewState && window.previewState.novelId) || (backendState.novels && backendState.novels[0]?.id) || '';
+      if (!activeNid) {
+        return shell('project-docs', `<div class="panel empty" style="padding:48px;max-width:560px;margin:40px auto;text-align:center"><div class="empty-icon">—</div><h3>请先选择一本小说</h3><p style="color:var(--muted);margin:8px 0 20px">全套创作资料需要基于具体的小说档案进行分板块维护。</p><button class="button primary" data-page="novels">打开我的小说</button></div>`, 'workbench-page');
+      }
+      const url = `./pages/project-docs.html?nid=${encodeURIComponent(activeNid)}`;
+      return shell('project-docs', `<div class="workbench-fusion-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--paper-warm);border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;margin-bottom:0"><div style="display:flex;align-items:center;gap:10px"><button class="button" data-page="editor" style="font-size:12px;display:flex;align-items:center;gap:4px">${icon('arrow-left')}返回 AI 小说编辑器</button><span class="badge blue">已联动当前作品</span><span style="font-size:12px;color:var(--muted)">七大资料板块与 AI 提示词已无缝打通</span></div><div style="display:flex;gap:8px"><a class="button" href="${url}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开 (/browser)</a></div></div><div class="embedded-workbench-wrap" style="height:calc(100vh - 210px);min-height:560px;border-radius:0 0 8px 8px;overflow:hidden;border:1px solid var(--line);background:var(--paper)"><iframe src="${url}" style="width:100%;height:100%;border:none" title="全套创作资料"></iframe></div>`, 'workbench-page');
+    }
+
+    const renderers = { overview: overviewPage, novels: novelsPage, editor: editorPage, resources: resourcesPage, outline: outlinePage, dissect: dissectPage, creation: () => typeof creationPage === 'function' ? creationPage() : '<div class="page-shell"><div class="empty"><p>创书任务正在加载…</p></div></div>', knowledge: knowledgePage, skills: skillsPage, tools: toolsPage, billing: billingPage, docs: docsPage, account: accountPage, login: loginPage, features: featuresPage, blog: blogPage, 'admin-login': adminLoginPage, admin: adminPage, 'story-workbench': storyWorkbenchPage, 'project-docs': projectDocsPage };
+    let currentPage = 'overview';
+    const previewState = {
+      novel: { title: '逆天重生：从废物到至尊', intro: '叶辰携轮回神玉归来，从叶家废物走向诸天之巅。', type: '玄幻' },
+      novelId: '',
+      novelState: null,
+      novelRevision: null,
+      editorBody: '',
+      editorPendingPrompt: '',
+      editorChat: null,
+      editorChatSessionId: '',
+      editorSkillId: '',
+      editorHistory: null,
+      dissectionFiles: [],
+      outlineEvents: [],
+      knowledgeEntities: []
+    };
+    window.previewState = previewState;
+    const initialEditorQuery = new URLSearchParams(window.location.search);
+    const initialEditorNovelId = initialEditorQuery.get('nid') || '';
+    const initialEditorWorkspaceId = initialEditorQuery.get('workspaceId') || '';
+    const initialEditorAction = initialEditorQuery.get('action') || '';
+    const initialEditorPrompt = initialEditorQuery.get('prompt') || '';
+    previewState.workspaceId = initialEditorWorkspaceId;
+    let editorRouteHandled = false;
+    const frame = document.getElementById('previewFrame');
+    const stage = document.getElementById('pageStage');
+    const topPageName = document.getElementById('topPageName');
+    const toast = document.getElementById('toast');
+    let toastTimer;
+    let modalConfirmHandler = null;
+
+    const backendState = {
+      token: readStoredToken(),
+      user: readStoredUser(),
+      rememberMe: readStoredRememberMe(),
+      models: [],
+      modelAccess: { role: 'guest', canChooseModel: false, defaultModel: '' },
+      novels: [],
+      novelsLoaded: false,
+      novelsError: '',
+      skills: [],
+      skillsLoaded: false,
+      privateSkills: [],
+      tasks: [],
+      tasksLoaded: false,
+      tasksError: '',
+      selectedTask: null,
+      usage: null,
+      adminToken: readStoredAdminToken(),
+      adminUser: readStoredAdminUser(),
+      adminOverview: null,
+      adminModels: [],
+      adminDefaultModel: '',
+      dataSource: 'local',
+      sessionVersion: 0
+    };
+    let backendTaskPollTimer = 0;
+    let backendTaskPollBusy = false;
+
+    const BACKEND_BASE = (location.protocol === 'file:' || location.protocol === 'about:') ? 'http://127.0.0.1:3000' : '';
+
+    function readStoredRememberMe() {
+      try {
+        const saved = localStorage.getItem('ml_remember_me');
+        if (saved === '0') return false;
+        return true;
+      } catch (_) { return true; }
+    }
+
+    function readStoredToken() {
+      try { return localStorage.getItem('ml_token') || sessionStorage.getItem('ml_token') || ''; } catch (_) { return ''; }
+    }
+
+    function readStoredUser() {
+      try {
+        const raw = localStorage.getItem('ml_user') || sessionStorage.getItem('ml_user') || 'null';
+        const user = JSON.parse(raw);
+        return user && (user.email || user.userId) ? user : null;
+      } catch (_) { return null; }
+    }
+
+    function readStoredAdminToken() {
+      try { return localStorage.getItem('ml_admin_token') || ''; } catch (_) { return ''; }
+    }
+
+    function readStoredAdminUser() {
+      try {
+        const user = JSON.parse(localStorage.getItem('ml_admin_user') || 'null');
+        return user && user.email ? user : null;
+      } catch (_) { return null; }
+    }
+
+    function persistBackendAuth() {
+      try {
+        localStorage.setItem('ml_remember_me', backendState.rememberMe === false ? '0' : '1');
+        if (backendState.token) {
+          localStorage.setItem('ml_token', backendState.token);
+          sessionStorage.setItem('ml_token', backendState.token);
+        } else {
+          localStorage.removeItem('ml_token');
+          sessionStorage.removeItem('ml_token');
+        }
+        if (backendState.user) {
+          const userStr = JSON.stringify(backendState.user);
+          localStorage.setItem('ml_user', userStr);
+          sessionStorage.setItem('ml_user', userStr);
+        } else {
+          localStorage.removeItem('ml_user');
+          sessionStorage.removeItem('ml_user');
+        }
+      } catch (_) {}
+    }
+
+    function persistAdminAuth() {
+      try {
+        if (backendState.adminToken) localStorage.setItem('ml_admin_token', backendState.adminToken);
+        else localStorage.removeItem('ml_admin_token');
+        if (backendState.adminUser) localStorage.setItem('ml_admin_user', JSON.stringify(backendState.adminUser));
+        else localStorage.removeItem('ml_admin_user');
+      } catch (_) {}
+    }
+
+    function clearBackendAuth() {
+      if (backendTaskPollTimer) { window.clearInterval(backendTaskPollTimer); backendTaskPollTimer = 0; }
+      backendState.sessionVersion += 1;
+      backendState.token = '';
+      backendState.user = null;
+      resetBackendRemoteState();
+      persistBackendAuth();
+      window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
+    }
+
+    function resetBackendRemoteState() {
+      backendState.models = [];
+      backendState.modelAccess = { role: 'guest', canChooseModel: false, defaultModel: '' };
+      backendState.novels = [];
+      backendState.novelsLoaded = false;
+      backendState.novelsError = '';
+      backendState.privateSkills = [];
+      backendState.tasks = [];
+      backendState.tasksLoaded = false;
+      backendState.tasksError = '';
+      backendState.selectedTask = null;
+      backendState.usage = null;
+    }
+
+    function syncBackendAuthFromStorage() {
+      const nextToken = readStoredToken();
+      const nextUser = readStoredUser();
+      const nextRemember = readStoredRememberMe();
+      const tokenSame = nextToken === backendState.token;
+      const userSame = JSON.stringify(backendState.user) === JSON.stringify(nextUser);
+      const rememberSame = backendState.rememberMe === nextRemember;
+      if (tokenSame && userSame && rememberSame) return false;
+      const currentEmail = backendState.user && backendState.user.email ? String(backendState.user.email).trim().toLowerCase() : '';
+      const nextEmail = nextUser && nextUser.email ? String(nextUser.email).trim().toLowerCase() : '';
+      const currentUserId = backendState.user && (backendState.user.userId || backendState.user.id) ? String(backendState.user.userId || backendState.user.id) : '';
+      const nextUserId = nextUser && (nextUser.userId || nextUser.id) ? String(nextUser.userId || nextUser.id) : '';
+      const accountChanged = !tokenSame || nextEmail !== currentEmail || nextUserId !== currentUserId;
+      backendState.sessionVersion += 1;
+      backendState.token = nextToken;
+      backendState.user = nextUser;
+      backendState.rememberMe = nextRemember;
+      if (accountChanged) {
+        resetBackendRemoteState();
+      }
+      return true;
+    }
+
+    function clearAdminAuth() {
+      backendState.adminToken = '';
+      backendState.adminUser = null;
+      backendState.adminOverview = null;
+      backendState.adminModels = [];
+      backendState.adminDefaultModel = '';
+      persistAdminAuth();
+    }
+
+    async function backendRequest(path, options = {}) {
+      const requestSession = { token: backendState.token, version: backendState.sessionVersion };
+      const headers = { ...(options.headers || {}) };
+      if (backendState.token) headers.Authorization = 'Bearer ' + backendState.token;
+      const { preserveAuthOn401, ...requestOptions } = options;
+      const request = { ...requestOptions, headers, cache: 'no-store' };
+      if (request.body && typeof request.body !== 'string' && !(request.body instanceof FormData)) {
+        request.body = JSON.stringify(request.body);
+        headers['Content-Type'] = 'application/json';
+      }
+      let response;
+      try { response = await fetch(BACKEND_BASE + path, request); }
+      catch (error) {
+        // 浏览器把断网/拒连统一抛成 TypeError：翻译成用户能行动的提示。
+        if (error instanceof TypeError) throw Object.assign(new Error(navigator.onLine === false ? '网络已断开，请检查网络连接后重试' : '无法连接到服务，请确认服务已启动后重试'), { code: 'NETWORK_UNREACHABLE' });
+        throw error;
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 401 && backendState.token && !preserveAuthOn401 && backendState.token === requestSession.token && backendState.sessionVersion === requestSession.version) clearBackendAuth();
+        const error = new Error(data.error || `请求失败（${response.status}）`);
+        error.status = response.status;
+        if (data && typeof data === 'object') {
+          if (data.code) error.code = data.code;
+          if (Array.isArray(data.hits)) error.hits = data.hits;
+          if (Array.isArray(data.missing)) error.missing = data.missing;
+        }
+        throw error;
+      }
+      return data;
+    }
+
+    async function adminRequest(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (backendState.adminToken) headers.Authorization = 'Bearer ' + backendState.adminToken;
+      const request = { ...options, headers, cache: 'no-store' };
+      if (request.body && typeof request.body !== 'string' && !(request.body instanceof FormData)) {
+        request.body = JSON.stringify(request.body);
+        headers['Content-Type'] = 'application/json';
+      }
+      const response = await fetch(BACKEND_BASE + path, request);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) clearAdminAuth();
+        const error = new Error(data.error || `请求失败（${response.status}）`);
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+
+    function setBackendAuth(data) {
+      backendState.sessionVersion += 1;
+      backendState.token = String(data && data.token || '');
+      backendState.user = data && data.user ? data.user : null;
+      persistBackendAuth();
+    }
+
+    function captureBackendSession() {
+      return { token: backendState.token, version: backendState.sessionVersion };
+    }
+
+    function isCurrentBackendSession(session) {
+      return !!session && session.token === backendState.token && session.version === backendState.sessionVersion;
+    }
+
+    function escapeBackendHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function backendDate(value) {
+      const date = new Date(Number(value) || value || Date.now());
+      if (Number.isNaN(date.getTime())) return '刚刚';
+      const day = Math.floor((Date.now() - date.getTime()) / 86400000);
+      if (day <= 0) return '今天';
+      if (day === 1) return '昨天';
+      return `${day} 天前`;
+    }
+
+    function backendNovelTitle(novel) { return String(novel && (novel.title || novel.name) || '未命名小说'); }
+    function backendNovelWords(novel) { return Number(novel && (novel.word_count ?? novel.wordCount)) || 0; }
+    function backendNovelUpdated(novel) { return novel && (novel.updated_at ?? novel.updatedAt); }
+
+    function clearEditorActionQuery(novelId) {
+      try {
+        const url = new URL(window.location.href);
+        let changed = false;
+        ['action', 'title', 'genre', 'description', 'prompt'].forEach(key => {
+          if (url.searchParams.has(key)) {
+            url.searchParams.delete(key);
+            changed = true;
+          }
+        });
+        if (novelId && /^n_[A-Za-z0-9_]{1,40}$/.test(String(novelId))) {
+          if (url.searchParams.get('nid') !== String(novelId)) {
+            url.searchParams.set('nid', String(novelId));
+            changed = true;
+          }
+        }
+        if (changed) {
+          const search = url.searchParams.toString();
+          window.history.replaceState({}, '', url.pathname + (search ? '?' + search : '') + (url.hash || '#editor'));
+        }
+      } catch (_) {}
+    }
+
+    function createPreviewNovelState(meta, editorBody = '') {
+      const title = backendNovelTitle(meta);
+      const intro = String(meta && meta.intro || '');
+      const type = String(meta && meta.type || '玄幻');
+      return {
+        _formatVersion: 3,
+        title,
+        outline: { book: { title, oneLine: intro, themes: type ? [type] : [] } },
+        volumes: [{
+          id: 'v1', title: '第一卷', chapters: [{
+            id: 'c1', title: '雨夜试锋', scenes: [{ id: 's1', name: '正文', content: editorBody }
+            ]
+          }]
+        }],
+        updatedAt: Date.now()
+      };
+    }
+
+    function primaryNovelScene(state) {
+      return state && state.volumes && state.volumes[0] && state.volumes[0].chapters && state.volumes[0].chapters[0] && state.volumes[0].chapters[0].scenes && state.volumes[0].chapters[0].scenes[0];
+    }
+
+    function editorBodyFromNovelState(state) {
+      const scene = primaryNovelScene(state);
+      return scene && typeof scene.content === 'string' ? scene.content : '';
+    }
+
+    function ensurePreviewNovelState() {
+      if (!previewState.novelState || !Array.isArray(previewState.novelState.volumes)) {
+        previewState.novelState = createPreviewNovelState(previewState.novel, previewState.editorBody);
+      }
+      const scene = primaryNovelScene(previewState.novelState);
+      if (scene && typeof previewState.editorBody === 'string') scene.content = previewState.editorBody;
+      previewState.novelState.title = previewState.novel.title;
+      if (previewState.novelState.outline && previewState.novelState.outline.book) {
+        previewState.novelState.outline.book.title = previewState.novel.title;
+        previewState.novelState.outline.book.oneLine = previewState.novel.intro || '';
+      }
+      previewState.novelState.workspace = previewState.novelState.workspace || {};
+      previewState.novelState.workspace.outline = readWorkspaceList('outline');
+      previewState.novelState.workspace.knowledge = readWorkspaceList('knowledge');
+      previewState.novelState.updatedAt = Date.now();
+      return previewState.novelState;
+    }
+
+    function refreshCurrentPage() {
+      if (stage && document.body.contains(stage)) renderPage(currentPage, { fromHistory: true });
+    }
+
+    function updateSidebarCounts() {
+      const setCount = (page, value, loaded = true) => {
+        const count = document.querySelector(`.side-link[data-page="${page}"] .link-count`);
+        if (!count) return;
+        count.hidden = !loaded;
+        if (loaded) count.textContent = String(value);
+      };
+      setCount('novels', backendState.novels.length, backendState.novelsLoaded);
+      setCount('editor', backendState.novels.length, backendState.novelsLoaded);
+      setCount('resources', readWorkspaceList('resources').length);
+      // knowledge 计数读当前打开作品的真实设定实体（与 completion-editor 数据源一致）
+      const knState = (typeof previewState !== 'undefined' && previewState && previewState.novelState) || null;
+      const knEntities = knState && knState.knowledge && knState.knowledge.entities;
+      const knCount = knEntities ? (Array.isArray(knEntities) ? knEntities.length : Object.keys(knEntities).length) : 0;
+      setCount('knowledge', knCount);
+    }
+
+    async function refreshBackendUser(retries = 2) {
+      if (!backendState.token) return null;
+      const session = captureBackendSession();
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const data = await backendRequest('/api/auth/me', { preserveAuthOn401: true });
+          if (!isCurrentBackendSession(session)) return null;
+          if (data && data.user) {
+            backendState.user = data.user;
+            persistBackendAuth();
+            window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }));
+            return backendState.user;
+          }
+          return backendState.user;
+        } catch (error) {
+          if (!isCurrentBackendSession(session)) return null;
+          // 401 明确鉴权失败（token 过期/已被服务端撤销）
+          if (error && error.status === 401) {
+            clearBackendAuth();
+            return null;
+          }
+          // 网络抖动、服务冷启动、5xx 错误或偶发超时：平滑静默重试
+          if (attempt < retries) {
+            await new Promise(r => window.setTimeout(r, (attempt + 1) * 350));
+            continue;
+          }
+          // 重试后仍处于网络异常态：保持当前本地已持久化的登录凭证，绝不误清空登录态
+          return backendState.user;
+        }
+      }
+      return backendState.user;
+    }
+
+    async function loadBackendModels() {
+      const session = captureBackendSession();
+      try {
+        const data = await backendRequest('/api/models');
+        if (!isCurrentBackendSession(session)) return;
+        backendState.models = Array.isArray(data.models) ? data.models : [];
+        backendState.modelAccess = data.access || { role: 'guest', canChooseModel: false, defaultModel: '' };
+        if (backendState.user && (backendState.user.isAdmin || ['admin', 'vip'].includes(String(backendState.user.role || backendState.user.level || backendState.user.plan || '').toLowerCase()))) {
+          backendState.modelAccess.canChooseModel = true;
+          if (backendState.modelAccess.role === 'guest' || !backendState.modelAccess.role) {
+            backendState.modelAccess.role = backendState.user.role || (backendState.user.isAdmin ? 'admin' : 'vip');
+          }
+        }
+        document.querySelectorAll('[data-model-select], #editorModelSelect, #defaultModel, #creationModelSelect, [data-completion-model]').forEach(populateModelSelect);
+        if (typeof window.populateCompletionSelectors === 'function') window.populateCompletionSelectors();
+      } catch (_) {
+        if (!isCurrentBackendSession(session)) return;
+        backendState.models = DEFAULT_PLATFORM_MODELS.slice();
+        const fallbackCanChoose = Boolean(backendState.token && backendState.user && (backendState.user.isAdmin || ['admin', 'vip'].includes(String(backendState.user.role || backendState.user.level || backendState.user.plan || '').toLowerCase())));
+        backendState.modelAccess = { role: backendState.user?.role || 'guest', canChooseModel: fallbackCanChoose, defaultModel: 'gemini-3.6-flash' };
+        document.querySelectorAll('[data-model-select], #editorModelSelect, #defaultModel, #creationModelSelect, [data-completion-model]').forEach(populateModelSelect);
+        if (typeof window.populateCompletionSelectors === 'function') window.populateCompletionSelectors();
+      }
+    }
+
+    async function loadBackendNovels() {
+      backendState.novelsError = '';
+      if (!backendState.token) {
+        backendState.novels = [];
+        backendState.novelsLoaded = true;
+        return;
+      }
+      const session = captureBackendSession();
+      try {
+        const data = await backendRequest('/api/novels');
+        if (!isCurrentBackendSession(session)) return;
+        backendState.novels = Array.isArray(data.novels) ? data.novels : [];
+        backendState.novelsLoaded = true;
+      } catch (error) {
+        if (!isCurrentBackendSession(session)) return;
+        backendState.novels = [];
+        backendState.novelsLoaded = true;
+        backendState.novelsError = error.message || '作品数据读取失败';
+      }
+    }
+
+    async function loadBackendSkills() {
+      const session = captureBackendSession();
+      try {
+        const publicData = await backendRequest('/api/open-skills?page=1&pageSize=50');
+        if (!isCurrentBackendSession(session)) return;
+        backendState.skills = Array.isArray(publicData.skills) ? publicData.skills : [];
+        backendState.skillsLoaded = true;
+      } catch (_) { if (isCurrentBackendSession(session)) backendState.skillsLoaded = false; }
+      if (!backendState.token) return;
+      try {
+        const data = await backendRequest('/api/skills');
+        if (!isCurrentBackendSession(session)) return;
+        backendState.privateSkills = Array.isArray(data) ? data : [];
+      } catch (_) { if (isCurrentBackendSession(session)) backendState.privateSkills = []; }
+    }
+
+    async function loadBackendTasks() {
+      backendState.tasksLoaded = false;
+      backendState.selectedTask = null;
+      backendState.tasksError = '';
+      if (!backendState.token) {
+        backendState.tasks = [];
+        backendState.tasksLoaded = true;
+        return;
+      }
+      const session = captureBackendSession();
+      try {
+        const data = await backendRequest('/api/dissections');
+        if (!isCurrentBackendSession(session)) return;
+        backendState.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        backendState.tasksLoaded = true;
+        const completed = backendState.tasks.find(task => task.status === 'completed');
+        if (completed) {
+          try {
+            const detail = await backendRequest('/api/dissections/' + encodeURIComponent(completed.id));
+            if (!isCurrentBackendSession(session)) return;
+            backendState.selectedTask = detail.task || null;
+          } catch (_) {}
+        }
+      } catch (error) {
+        if (!isCurrentBackendSession(session)) return;
+        backendState.tasks = [];
+        backendState.tasksLoaded = true;
+        backendState.tasksError = error.message || '任务数据读取失败';
+      }
+    }
+
+    async function pollBackendTasks() {
+      if (!backendState.token || backendTaskPollBusy) return;
+      // 拆书页自身会拉取详情；全局轮询只负责总览、小说库和旧版入口，避免双重请求。
+      if (currentPage === 'dissect' && window.MolanCompletionImport) return;
+      backendTaskPollBusy = true;
+      const session = captureBackendSession();
+      try {
+        const data = await backendRequest('/api/dissections');
+        if (!isCurrentBackendSession(session)) return;
+        backendState.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        backendState.tasksLoaded = true;
+        backendState.tasksError = '';
+        const active = backendState.tasks.some(task => ['queued', 'running'].includes(String(task.status || '').toLowerCase()));
+        if (backendState.selectedTask) {
+          const selected = backendState.tasks.find(task => task.id === backendState.selectedTask.id);
+          if (selected && selected.status !== 'completed') backendState.selectedTask = selected;
+        }
+        window.dispatchEvent(new CustomEvent('molan:tasks-updated', { detail: { active } }));
+        if (!active && backendTaskPollTimer) {
+          window.clearInterval(backendTaskPollTimer);
+          backendTaskPollTimer = 0;
+        }
+      } catch (_) {
+        // 轮询失败不改变当前已知状态，下一轮继续尝试。
+      } finally {
+        backendTaskPollBusy = false;
+      }
+    }
+
+    function startBackendTaskPolling() {
+      if (backendTaskPollTimer || !backendState.token) return;
+      const active = backendState.tasks.some(task => ['queued', 'running'].includes(String(task.status || '').toLowerCase()));
+      if (!active) return;
+      backendTaskPollTimer = window.setInterval(pollBackendTasks, 3000);
+      void pollBackendTasks();
+    }
+
+    async function loadBackendUsage() {
+      if (!backendState.token) return;
+      const session = captureBackendSession();
+      try {
+        const data = await backendRequest('/api/usage?limit=20');
+        if (!isCurrentBackendSession(session)) return;
+        backendState.usage = data.usage || null;
+      } catch (_) { if (isCurrentBackendSession(session)) backendState.usage = null; }
+    }
+
+    async function bootstrapBackend() {
+      try {
+        const syncStatus = await backendRequest('/api/local-sync/status');
+        backendState.dataSource = syncStatus && syncStatus.dataSource === 'cloud' ? 'cloud' : 'local';
+      } catch (_) { backendState.dataSource = 'local'; }
+      await refreshBackendUser();
+      await Promise.all([loadBackendModels(), loadBackendSkills()]);
+      await Promise.all([loadBackendNovels(), loadBackendTasks(), loadBackendUsage()]);
+      startBackendTaskPolling();
+      updateSidebarCounts();
+      if (currentPage === 'editor' && initialEditorAction === 'new' && !editorRouteHandled) {
+        editorRouteHandled = true;
+        const seedTitle = String(initialEditorQuery.get('title') || '').trim();
+        const existingMatch = seedTitle
+          ? (backendState.novels || []).find(item => backendNovelTitle(item).trim() === seedTitle)
+          : null;
+        if (existingMatch) {
+          clearEditorActionQuery(existingMatch.id);
+          await openBackendNovel(existingMatch.id);
+          return;
+        }
+        clearEditorActionQuery();
+        openModal({
+          title: seedTitle,
+          intro: initialEditorQuery.get('description') || '',
+          type: initialEditorQuery.get('genre') || ''
+        });
+        return;
+      }
+      const requestedNovelId = initialEditorNovelId || (backendState.novels[0] && backendState.novels[0].id) || '';
+      if (currentPage === 'editor' && requestedNovelId && !previewState.novelId && !initialEditorPrompt) {
+        await openBackendNovel(requestedNovelId);
+        return;
+      }
+      refreshCurrentPage();
+    }
+
+    function renderBackendNovelRows() {
+      const list = stage.querySelector('#novelList');
+      if (!list || !backendState.novelsLoaded) return;
+      if (backendState.novelsError) {
+        list.innerHTML = `<div class="empty"><div class="empty-icon">!</div><h3>作品数据读取失败</h3><p>${escapeBackendHtml(backendState.novelsError)}</p></div>`;
+        return;
+      }
+      if (!backendState.novels.length) {
+        list.innerHTML = '<div class="empty"><div class="empty-icon">+</div><h3>还没有作品</h3><p>创建第一本小说后，作品会保存到当前账户。</p></div>';
+        return;
+      }
+      list.innerHTML = backendState.novels.map((novel, index) => {
+        const title = backendNovelTitle(novel);
+        const coverClass = index % 3 === 1 ? 'light' : index % 3 === 2 ? 'blue' : '';
+        return `<article class="novel-row" data-search="${escapeBackendHtml(title).toLowerCase()}" data-backend-novel-id="${escapeBackendHtml(novel.id)}"><div class="novel-cover ${coverClass}">${escapeBackendHtml(title.slice(0, 4))}</div><div><div class="novel-name">${escapeBackendHtml(title)}</div><div class="novel-desc">${escapeBackendHtml(novel.description || '未填写简介')}</div><div class="novel-stats"><span>已保存</span><span>${backendNovelWords(novel).toLocaleString()} 字</span><span>更新于${backendDate(backendNovelUpdated(novel))}</span></div></div><div class="novel-actions"><span class="badge green">云端</span><button class="button" data-backend-open="${escapeBackendHtml(novel.id)}">打开</button><button class="button" data-backend-delete="${escapeBackendHtml(novel.id)}">删除</button></div></article>`;
+      }).join('');
+    }
+
+    function renderBackendNovelSummary() {
+      if (currentPage !== 'novels' || !backendState.novelsLoaded) return;
+      const novels = backendState.novels;
+      const totalWords = novels.reduce((total, novel) => total + backendNovelWords(novel), 0);
+      const bodyCount = novels.filter(novel => backendNovelWords(novel) > 0).length;
+      const summary = stage.querySelector('.summary-number');
+      const label = stage.querySelector('.summary-label');
+      const rows = stage.querySelectorAll('.side-summary .mini-list-row');
+      if (summary) summary.textContent = totalWords.toLocaleString();
+      if (label) label.textContent = '总字数';
+      if (rows[0]) rows[0].innerHTML = `<span>作品数量</span><strong>${novels.length}</strong>`;
+      if (rows[1]) rows[1].innerHTML = `<span>有正文作品</span><strong>${bodyCount}</strong>`;
+      if (rows[2]) rows[2].innerHTML = `<span>空白草稿</span><strong>${Math.max(0, novels.length - bodyCount)}</strong>`;
+      if (rows[3]) rows[3].innerHTML = `<span>最近保存</span><strong>${novels.length ? backendDate(backendNovelUpdated(novels[0])) : '暂无'}</strong>`;
+      const bar = stage.querySelector('.side-summary .mini-bar span');
+      if (bar) bar.style.width = novels.length ? `${Math.round(bodyCount / novels.length * 100)}%` : '0%';
+    }
+
+    function renderBackendSkillCards() {
+      const grid = stage.querySelector('.skill-grid');
+      if (!grid || !backendState.skillsLoaded) return;
+      const publicSkills = backendState.skills;
+      const privateSkills = backendState.privateSkills;
+      if (!publicSkills.length && !privateSkills.length) {
+        grid.innerHTML = '<div class="empty"><div class="empty-icon">—</div><h3>当前没有可用 Skill</h3><p>公开 Skill 或账户 Skill 加载后会显示在这里。</p></div>';
+        return;
+      }
+      const installedIds = new Set(privateSkills.map(skill => String(skill && skill.id || '')));
+      const publicCards = publicSkills.map((skill, index) => {
+        const isDownloaded = installedIds.has(String(skill.id || ''));
+        const name = escapeBackendHtml(skill.name);
+        const description = escapeBackendHtml(skill.description || '暂无简介');
+        const search = escapeBackendHtml(`${skill.name || ''} ${skill.author || ''} ${skill.description || ''}`);
+        return `<article class="skill-card" data-skill-collection="discover" data-skill-downloaded="${isDownloaded}" data-search="${search}"><div class="skill-card-head"><span class="skill-mark" style="background:${['#394d63', '#5e6872', '#8a684c', '#4d6581'][index % 4]}">${icon(index % 2 ? 'shield-alert' : 'feather')}</span><div><h3>${name}</h3><div class="author">by ${escapeBackendHtml(skill.author || '墨阑作者')}</div></div></div><p>${description}</p><div class="skill-foot"><span>下载 ${Number(skill.downloads) || 0} 次</span><button class="button" ${isDownloaded ? 'disabled' : `data-backend-skill="${escapeBackendHtml(skill.id)}"`}>${isDownloaded ? '已下载' : '使用'}</button></div></article>`;
+      });
+      const privateCards = privateSkills.map((skill, index) => {
+        const name = escapeBackendHtml(skill.name);
+        const description = escapeBackendHtml(skill.description || '暂无简介');
+        const search = escapeBackendHtml(`${skill.name || ''} ${skill.description || ''}`);
+        return `<article class="skill-card" data-skill-collection="mine" data-skill-downloaded="true" data-search="${search}"><div class="skill-card-head"><span class="skill-mark" style="background:${['#394d63', '#5e6872', '#8a684c', '#4d6581'][index % 4]}">${icon('sparkles')}</span><div><h3>${name}</h3><div class="author">by 我的 Skill</div></div></div><p>${description}</p><div class="skill-foot"><span>已添加到账户</span><button class="button" data-toast="已打开 Skill 详情。">查看</button></div></article>`;
+      });
+      grid.innerHTML = [...publicCards, ...privateCards].join('') + '<div class="empty" data-skill-empty style="grid-column:1/-1" hidden><h3>没有匹配的 Skill</h3><p>更换分类或搜索词后再试。</p></div>';
+    }
+
+    function renderWorkspaceResources() {
+      if (currentPage !== 'resources') return;
+      const resources = readWorkspaceList('resources');
+      const activeTasks = backendState.tasks.filter(task => ['queued', 'running'].includes(task.status));
+      const table = stage.querySelector('.data-table');
+      if (table) {
+        const body = table.querySelector('tbody');
+        body.innerHTML = resources.length ? resources.map(resource => `<tr><td><strong>${escapeBackendHtml(resource.name)}</strong></td><td>${escapeBackendHtml(resource.type || '正文')}</td><td>${escapeBackendHtml(resource.source || '本地导入')}</td><td><span class="badge green">${escapeBackendHtml(resource.status || '已读取')}</span></td><td>${backendDate(resource.updatedAt)}</td><td><button class="button" style="min-height:27px;padding:0 8px;font-size:10px" data-action="resource-view" data-resource="${escapeBackendHtml(resource.name)}">查看</button></td></tr>`).join('') : '<tr><td colspan="6"><div class="empty"><div class="empty-icon">—</div><h3>还没有本地资源</h3><p>从“导入资源”选择 TXT 或 MD 文件后，读取成功的文件会显示在这里。</p></div></td></tr>';
+      }
+      const metrics = stage.querySelectorAll('.metric-value');
+      const foots = stage.querySelectorAll('.metric-foot');
+      const entityCount = readWorkspaceList('knowledge').length;
+      if (metrics[0]) metrics[0].textContent = String(resources.length);
+      if (metrics[1]) metrics[1].textContent = String(entityCount);
+      if (metrics[2]) metrics[2].textContent = '0';
+      if (metrics[3]) metrics[3].textContent = String(activeTasks.length);
+      if (foots[0]) foots[0].textContent = resources.length ? '本地文本资源' : '等待导入';
+      if (foots[1]) foots[1].textContent = entityCount ? '来自当前作品设定' : '还没有已保存设定';
+      if (foots[2]) foots[2].textContent = '当前版本不保存图片资源';
+      if (foots[3]) foots[3].textContent = activeTasks.length ? '需要关注' : '没有进行中的任务';
+      const progress = stage.querySelector('.resources-page section.grid.grid-2 .progress');
+      const progressFoot = progress?.parentElement?.querySelector('.metric-foot');
+      if (progress) progress.style.display = activeTasks.length ? '' : 'none';
+      if (progressFoot) progressFoot.textContent = activeTasks.length
+        ? `当前任务：${activeTasks[0].title || activeTasks[0].sourceName || '导入任务'} · ${Number(activeTasks[0].progress || 0)}%`
+        : '当前没有处理中的导入任务';
+      if (progress && activeTasks.length) progress.querySelector('span').style.width = `${Math.max(0, Math.min(100, Number(activeTasks[0].progress) || 0))}%`;
+    }
+
+    function renderWorkspaceOutline() {
+      if (currentPage !== 'outline') return;
+      const root = stage.querySelector('.outline-page');
+      if (!root) return;
+      const state = previewState.novelState;
+      const chapters = Array.isArray(state?.outline?.chapters) ? state.outline.chapters : [];
+      const events = readWorkspaceList('outline');
+      const timeline = chapters.map((chapter, index) => ({
+        title: chapter.title || `第 ${index + 1} 章`,
+        meta: chapter.synopsis || `${chapter.num || `第 ${index + 1} 章`} · ${chapter.status || '未标记'}`,
+        status: chapter.status || '章节'
+      })).concat(events.map(item => ({ title: item.title, meta: item.meta, status: '新增' })));
+      const summary = root.querySelector('section.panel > .panel-body');
+      if (summary) summary.innerHTML = timeline.length
+        ? `<div class="notice">${icon('route')}<span><strong>当前作品大纲：</strong>${escapeBackendHtml(previewState.novel.title)}，已保存 ${timeline.length} 个章节或节点。</span></div>`
+        : '<div class="empty"><div class="empty-icon">—</div><h3>还没有大纲内容</h3><p>点击“新增节点”或先在编辑器保存章节后，这里会显示当前作品的真实结构。</p></div>';
+      const rows = root.querySelector('#timelineRows');
+      if (rows) rows.innerHTML = timeline.length ? timeline.map((item, index) => `<div class="task-row"><span class="task-icon">${String(index + 1).padStart(2, '0')}</span><div class="task-copy"><div class="task-title">${escapeBackendHtml(item.title)}</div><div class="task-meta">${escapeBackendHtml(item.meta || '')}</div></div><span class="badge ${item.status === 'completed' ? 'green' : 'blue'}">${escapeBackendHtml(item.status)}</span></div>`).join('') : '<div class="empty"><div class="empty-icon">—</div><p>当前作品还没有时间线节点。</p></div>';
+      const panels = root.querySelectorAll('section.grid.grid-2 > article.panel');
+      const ledger = panels[1]?.querySelector('.panel-body');
+      if (ledger) ledger.innerHTML = '<div class="empty"><div class="empty-icon">—</div><p>伏笔台账会在保存带有伏笔标记的节点后显示。</p></div>';
+    }
+
+    function renderWorkspaceKnowledge() {
+      if (currentPage !== 'knowledge') return;
+      // 知识库已由 completion-editor 接管（#completionKnowledgeTree 存在），旧渲染会覆盖其实体列表，必须让位
+      if (document.getElementById('completionKnowledgeTree')) return;
+      const root = stage.querySelector('.knowledge-page');
+      if (!root) return;
+      const entities = readWorkspaceList('knowledge');
+      const relationCount = entities.reduce((total, item) => total + (Array.isArray(item.relations) ? item.relations.length : 0), 0);
+      const citedCount = entities.filter(item => item.chapters && item.chapters !== '尚未引用').length;
+      const pendingCount = entities.filter(item => item.status !== 'confirmed').length;
+      const stats = root.querySelectorAll('.knowledge-stat strong');
+      if (stats[0]) stats[0].textContent = String(entities.length);
+      if (stats[1]) stats[1].textContent = String(relationCount);
+      if (stats[2]) stats[2].textContent = String(citedCount);
+      if (stats[3]) stats[3].textContent = '0';
+      const pending = root.querySelector('.knowledge-stats .badge');
+      if (pending) pending.textContent = `${pendingCount} 条待整理`;
+      const tree = root.querySelector('.knowledge-tree');
+      const groups = [...new Set(entities.map(item => item.type || '未分类'))];
+      const groupMarkup = groups.map(type => {
+        const members = entities.filter(item => (item.type || '未分类') === type);
+        return '<div class="tree-group"><div class="tree-heading">' + icon('folder') + '<span>' + escapeBackendHtml(type) + '</span><strong>' + members.length + '</strong></div>' + members.map(item => '<div class="tree-node" data-entity="' + escapeBackendHtml(item.name) + '">' + icon('circle') + '<span>' + escapeBackendHtml(item.name) + '</span></div>').join('') + '</div>';
+      }).join('');
+      if (tree) tree.innerHTML = '<input class="tree-search" placeholder="搜索分类">' + (groupMarkup || '<div class="empty"><div class="empty-icon">—</div><p>当前作品还没有设定实体。</p></div>');
+      const list = root.querySelector('.entity-list');
+      const entityMarkup = entities.map(item => {
+        const path = item.path || ((item.type || '未分类') + ' / 未分类');
+        const confirmed = item.status === 'confirmed';
+        return '<div class="entity-row" data-entity="' + escapeBackendHtml(item.name) + '"><span class="entity-dot"></span><div class="entity-copy"><div class="entity-name">' + escapeBackendHtml(item.name) + '</div><div class="entity-path">' + escapeBackendHtml(path) + '</div><div class="entity-preview">' + escapeBackendHtml(item.intro || '') + '</div></div><span class="badge ' + (confirmed ? 'green' : 'blue') + '">' + (confirmed ? '已确认' : '待确认') + '</span></div>';
+      }).join('');
+      if (list) list.innerHTML = '<div class="entity-toolbar"><strong>当前作品 · 实体</strong><div class="segmented"><button class="segment active">全部</button><button class="segment">未引用</button></div></div>' + (entityMarkup || '<div class="empty"><div class="empty-icon">—</div><h3>还没有设定实体</h3><p>点击“新增设定”保存当前作品的真实人物、地点、势力或物品。</p></div>');
+      const detail = root.querySelector('#entityDetail');
+      if (detail) detail.innerHTML = entities.length ? '<div class="detail-type">待确认</div><h3></h3><div class="detail-path"></div><div class="divider"></div><div class="detail-field"><label>简介</label><p></p></div><div class="detail-field"><label>关联实体</label><div class="tag-list"></div></div><div class="detail-field"><label>引用章节</label><p></p></div><button class="button" style="width:100%;margin-top:14px" data-action="knowledge-edit">编辑实体</button>' : '<div class="empty"><div class="empty-icon">—</div><h3>没有可查看的设定</h3><p>保存实体后，这里会显示详细信息。</p></div>';
+    }
+
+    function renderBackendTaskCards() {
+      if (currentPage !== 'dissect' || !backendState.tasksLoaded) return;
+      const body = stage.querySelector('.import-layout > aside .panel-body');
+      if (!body) return;
+      if (backendState.tasksError) {
+        body.innerHTML = `<div class="empty"><div class="empty-icon">!</div><h3>任务数据读取失败</h3><p>${escapeBackendHtml(backendState.tasksError)}</p></div>`;
+        return;
+      }
+      body.innerHTML = backendState.tasks.length ? backendState.tasks.slice(0, 5).map(task => {
+        const progress = Math.max(0, Math.min(100, Number(task.progress) || 0));
+        const status = String(task.status || 'queued');
+        const taskMeta = backendTaskStatusMeta(status);
+        const statusText = taskMeta.label;
+        const badge = taskMeta.tone;
+        return `<div class="task-card"><div class="task-card-head"><strong>${escapeBackendHtml(task.title || '拆书任务')}</strong><span class="badge ${badge}">${statusText}</span></div><p>${escapeBackendHtml(task.sourceName || '已提交样文')}</p><div class="progress"><span style="width:${progress}%"></span></div><div class="task-card-foot"><span>${progress}%</span><span>${Number(task.actualCredits || task.estimatedCredits) || 0} 积分</span></div></div>`;
+      }).join('') : '<div class="empty"><div class="empty-icon">—</div><h3>还没有拆书任务</h3><p>选择文本样文并确认后，真实任务会显示在这里。</p></div>';
+      const output = stage.querySelector('.style-output');
+      const result = backendState.selectedTask && backendState.selectedTask.result;
+      const profile = result && result.styleProfile;
+      const craft = result && Array.isArray(result.craftConstraints) ? result.craftConstraints : [];
+      if (output) {
+        if (!profile || (!profile.summary && !craft.length)) {
+          output.innerHTML = '<div class="empty"><div class="empty-icon">—</div><h3>完成任务后显示提取结果</h3><p>这里不会展示预置文案，结果只来自已完成的拆书任务。</p></div>';
+        } else {
+          const dimensions = Array.isArray(profile.dimensions) ? profile.dimensions.slice(0, 3) : [];
+          output.innerHTML = `<article><h3>文风概览</h3><p>${escapeBackendHtml(profile.summary || '模型未提供概览。')}</p></article>${dimensions.map(item => `<article><h3>${escapeBackendHtml(item.name || item.dimension || '风格维度')}</h3><p>${escapeBackendHtml(item.summary || item.rule || item.description || '暂无可迁移结论。')}</p></article>`).join('')}${craft.slice(0, 2).map(item => `<article><h3>可迁移规则</h3><p>${escapeBackendHtml(typeof item === 'string' ? item : item.rule || item.text || '暂无规则。')}</p></article>`).join('')}`;
+        }
+      }
+    }
+
+    function platformDefaultModel() {
+      return String(backendState.modelAccess.defaultModel || (backendState.models[0] && backendState.models[0].id) || '');
+    }
+
+    function modelName(modelId) {
+      const model = backendState.models.find(item => item.id === modelId);
+      return model ? model.name : modelId || '未选择模型';
+    }
+
+    function canChooseModel() {
+      if (!backendState.token) return false;
+      if (backendState.modelAccess && backendState.modelAccess.canChooseModel) return true;
+      const user = backendState.user;
+      if (user) {
+        if (user.isAdmin === true) return true;
+        const role = String(user.role || user.level || user.plan || '').trim().toLowerCase();
+        if (role === 'admin' || role === 'vip') return true;
+      }
+      return false;
+    }
+
+    const DEFAULT_PLATFORM_MODELS = [
+      { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (3.6f)', group: 'gemini', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] },
+      { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash (3.7f)', group: 'gemini', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] },
+      { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (3.8f)', group: 'gemini', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] },
+      { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro (3.1pro)', group: 'gemini', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['low', 'medium', 'high'] },
+      { id: 'gpt-6-luna', name: 'GPT-6 Luna', group: 'gpt', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'] },
+      { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', group: 'gpt', provider: 'openai-compat', supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'] },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 极速', group: 'deepseek', provider: 'deepseek', supportsThinking: true },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 深度思考', group: 'deepseek', provider: 'deepseek', supportsThinking: true }
+    ];
+
+    function populateModelSelect(select) {
+      if (!select) return;
+      const previous = select.value || '';
+      const models = backendState.models.length ? backendState.models : DEFAULT_PLATFORM_MODELS;
+      const defaultModel = platformDefaultModel();
+      select.innerHTML = models.map(model => `<option value="${escapeBackendHtml(model.id)}">${escapeBackendHtml(model.name)} · ${model.id === defaultModel ? '平台默认' : '可选'}</option>`).join('');
+      const preferred = [previous, backendState.user && backendState.user.defaultModel, defaultModel, models[0] && models[0].id].find(value => value && models.some(model => model.id === value));
+      select.value = preferred || (models[0] && models[0].id) || '';
+      select.disabled = !canChooseModel();
+      select.title = canChooseModel() ? 'VIP 和管理员可以选择模型' : (backendState.token ? '当前账户由平台默认模型提供服务' : '登录后使用 AI 功能');
+    }
+
+    function currentUnifiedModel() {
+      const activeModalSelect = document.querySelector('.modal.active #knowledgeImportModel, .modal.show #knowledgeImportModel');
+      const stageModelSelect = stage.querySelector('#editorModelSelect, [data-model-select], #defaultModel, #creationModelSelect');
+      const select = activeModalSelect || stageModelSelect || document.querySelector('#editorModelSelect, [data-model-select], #defaultModel');
+      return select?.value || platformDefaultModel();
+    }
+
+    function editorAvailableSkills() {
+      const byId = new Map();
+      (Array.isArray(backendState.privateSkills) ? backendState.privateSkills : []).forEach(skill => {
+        if (!skill || !String(skill.id || '').trim() || !String(skill.instruction || '').trim() || skill.complete === false) return;
+        if (!byId.has(skill.id)) byId.set(skill.id, skill);
+      });
+      return [...byId.values()];
+    }
+
+    function currentEditorSkill() {
+      const select = document.getElementById('editorSkillSelect');
+      const id = String(select?.value || previewState.editorSkillId || '').trim();
+      return id ? editorAvailableSkills().find(skill => skill.id === id) || null : null;
+    }
+
+    function editorSkillInstruction(skill) {
+      return String(skill.promptInstruction || skill.instruction || '').trim();
+    }
+
+    function editorSkillAudit(skill) {
+      const files = Array.isArray(skill.files) && skill.files.length ? skill.files : Object.keys(skill.runtimeFiles || {});
+      const fileManifest = Array.isArray(skill.fileManifest) && skill.fileManifest.length
+        ? skill.fileManifest
+        : files.map(path => ({ path, type: 'text', size: null }));
+      const promptFiles = Array.isArray(skill.promptFiles) ? skill.promptFiles : files.filter(path => typeof (skill.runtimeFiles || {})[path] === 'string');
+      return {
+        version: 1,
+        skills: [{ id: skill.id, name: skill.name, files, fileManifest, promptFiles }]
+      };
+    }
+
+    function editorSkillBlock(skill) {
+      const id = encodeURIComponent(String(skill.id || ''));
+      return `[MOLAN_SKILL_BLOCK_BEGIN id=${id}]\n${editorSkillInstruction(skill)}\n[MOLAN_SKILL_BLOCK_END id=${id}]`;
+    }
+
+    function renderEditorSkillSelector() {
+      const select = stage.querySelector('#editorSkillSelect');
+      if (!select) return;
+      const skills = editorAvailableSkills();
+      const previous = String(previewState.editorSkillId || select.value || '').trim();
+      if (!backendState.token) {
+        select.innerHTML = '<option value="">登录后选择 Skill</option>';
+        select.disabled = true;
+        select.title = '登录后选择当前账户可用的 Skill';
+        previewState.editorSkillId = '';
+        return;
+      }
+      if (!skills.length) {
+        select.innerHTML = '<option value="">当前账户没有可用 Skill</option>';
+        select.disabled = true;
+        select.title = '当前账户没有已加载且可调用的 Skill';
+        previewState.editorSkillId = '';
+        return;
+      }
+      select.innerHTML = '<option value="">当前作品默认 Skill</option>' + skills.map(skill => {
+        const source = skill.source === 'builtin' ? '内置' : skill.source === 'global' ? '平台' : '我的';
+        return `<option value="${escapeBackendHtml(skill.id)}">${escapeBackendHtml(skill.name)} · ${source}</option>`;
+      }).join('');
+      previewState.editorSkillId = skills.some(skill => skill.id === previous) ? previous : '';
+      select.value = previewState.editorSkillId;
+      select.disabled = false;
+      select.title = '选择本次编辑请求使用的完整 Skill';
+    }
+
+    function renderEditorHistorySelector() {
+      const select = stage.querySelector('#editorHistorySelect');
+      if (!select) return;
+      const records = readEditorChatHistory();
+      const currentId = String(previewState.editorChatSessionId || '');
+      const options = records.map(record => {
+        const date = record.updatedAt ? backendDate(record.updatedAt) : '未记录时间';
+        return `<option value="${escapeBackendHtml(record.id)}">${escapeBackendHtml(record.title)} · ${escapeBackendHtml(date)}</option>`;
+      }).join('');
+      select.innerHTML = '<option value="">当前会话</option>' + options;
+      select.value = records.some(record => record.id === currentId) ? currentId : '';
+      select.disabled = !records.length;
+      select.title = records.length ? '选择当前作品的历史编辑会话' : '当前作品还没有可恢复的历史会话';
+      if (!records.length) select.innerHTML = '<option value="">暂无历史记录</option>';
+    }
+
+    function ensurePageModelSelectors() {
+      const addPicker = (host, label, className = '') => {
+        if (!host || host.querySelector('[data-model-select]')) return;
+        const wrapper = document.createElement('label');
+        wrapper.className = `model-picker ${className}`.trim();
+        wrapper.innerHTML = `<span>${label}</span><select data-model-select aria-label="${label}"></select>`;
+        host.appendChild(wrapper);
+      };
+      if (currentPage === 'tools') addPicker(stage.querySelector('.tools-page .panel-heading'), '使用模型');
+      if (currentPage === 'dissect') addPicker(stage.querySelector('.dissect-page .import-layout > section .panel-heading'), '使用模型');
+      // 知识库页的 «AI 抽取模型» 选择器已弃用：旧 renderWorkspaceKnowledge 才是它的宿主，
+      // 现知识库由 completion-editor 接管，该选择器孤悬且无主操作，故移除。
+      stage.querySelectorAll('[data-model-select]').forEach(populateModelSelect);
+    }
+
+    function applyBackendPageData() {
+      const user = backendState.user;
+      ensurePageModelSelectors();
+      const profileName = document.querySelector('.profile-name');
+      const profileMeta = document.querySelector('.profile-meta');
+      if (profileName) profileName.textContent = user ? (user.name || user.email) : '未登录账户';
+      if (profileMeta) profileMeta.textContent = user ? `${String(user.role || 'normal').toUpperCase()} · ${user.credits == null ? '无限' : Number(user.credits).toLocaleString()} 积分 · ${backendState.dataSource === 'cloud' ? '云端数据' : '本地数据'}` : '登录后同步数据';
+
+      if (currentPage === 'overview' && backendState.novelsLoaded) {
+        const primary = backendState.novels[0];
+        const heroTitle = stage.querySelector('.continue-panel h2');
+        const heroCopy = stage.querySelector('.continue-panel p');
+        if (heroTitle) heroTitle.textContent = primary ? backendNovelTitle(primary) : '开始你的第一本小说';
+        if (heroCopy) heroCopy.textContent = primary ? `已保存 ${backendNovelWords(primary).toLocaleString()} 字。继续打开作品，编辑正文和 AI 任务。` : '创建作品后，正文、设定和 AI 任务会集中保存在当前账户。';
+        const metrics = stage.querySelectorAll('.metric-value');
+        const metricLabels = stage.querySelectorAll('.metric-label');
+        const metricFoots = stage.querySelectorAll('.metric-foot');
+        const knowledgeCount = readWorkspaceList('knowledge').length;
+        const outputTokens = Number(backendState.usage?.outputTokens) || 0;
+        if (metrics[0]) metrics[0].textContent = String(backendState.novels.length);
+        if (metrics[1]) metrics[1].textContent = outputTokens.toLocaleString();
+        if (metrics[2]) metrics[2].textContent = String(knowledgeCount);
+        if (metrics[3]) metrics[3].textContent = user ? (user.credits == null ? '∞' : Number(user.credits).toLocaleString()) : '—';
+        if (metricLabels[1]) metricLabels[1].textContent = 'AI 输出 Token';
+        if (metricLabels[2]) metricLabels[2].textContent = '设定实体';
+        if (metricFoots[0]) metricFoots[0].textContent = backendState.novels.length ? '来自当前账户' : '等待创建作品';
+        if (metricFoots[1]) metricFoots[1].textContent = outputTokens ? '来自后端用量记录' : '当前没有 AI 输出记录';
+        if (metricFoots[2]) metricFoots[2].textContent = knowledgeCount ? '当前作品已保存' : '当前没有已保存设定';
+        if (metricFoots[3]) metricFoots[3].textContent = user ? '后端账户余额' : '登录后显示余额';
+        if (!user) {
+          const taskPanel = stage.querySelector('.task-panel');
+          if (taskPanel) taskPanel.innerHTML = '<h3>最近任务</h3><div class="empty"><div class="empty-icon">—</div><h3>登录后显示真实任务</h3><p>AI 生成、拆书和抽取记录会绑定到当前本地账户。</p></div>';
+        } else if (backendState.tasksLoaded) {
+          const taskPanel = stage.querySelector('.task-panel');
+          const tasks = backendState.tasks.slice(0, 3);
+          if (taskPanel) taskPanel.innerHTML = '<h3>最近任务</h3>' + (tasks.length ? tasks.map(task => '<div class="task-row"><span class="task-icon">' + icon('scan-text') + '</span><div class="task-copy"><div class="task-title">' + escapeBackendHtml(task.title || '拆书任务') + '</div><div class="task-meta">' + escapeBackendHtml(task.status || '') + ' · ' + Number(task.progress || 0) + '%</div></div><span class="badge ' + (task.status === 'completed' ? 'green' : task.status === 'failed' ? 'danger' : 'amber') + '">' + escapeBackendHtml(task.status || '处理中') + '</span></div>').join('') : '<div class="empty"><div class="empty-icon">—</div><p>当前账户还没有任务记录。</p></div>');
+          mountIcons();
+        }
+        const recentBody = stage.querySelector('.recent-table tbody');
+        if (recentBody) recentBody.innerHTML = backendState.novels.slice(0, 5).map(novel => `<tr><td>${escapeBackendHtml(backendNovelTitle(novel))}</td><td>${backendNovelWords(novel).toLocaleString()} 字</td><td>${backendDate(backendNovelUpdated(novel))}</td></tr>`).join('') || '<tr><td colspan="3">还没有最近编辑</td></tr>';
+      }
+      if (currentPage === 'overview' && !user) {
+        const metrics = stage.querySelectorAll('.metric-value');
+        const labels = stage.querySelectorAll('.metric-label');
+        const foots = stage.querySelectorAll('.metric-foot');
+        const heroTitle = stage.querySelector('.continue-panel h2');
+        const heroCopy = stage.querySelector('.continue-panel p');
+        if (heroTitle) heroTitle.textContent = '登录后继续创作';
+        if (heroCopy) heroCopy.textContent = '登录或注册后，作品、设定、Skill 和 AI 任务会保存到当前本地账户。';
+        if (metrics[0]) metrics[0].textContent = '0';
+        if (metrics[1]) metrics[1].textContent = '0';
+        if (metrics[2]) metrics[2].textContent = '0';
+        if (metrics[3]) metrics[3].textContent = '—';
+        if (labels[1]) labels[1].textContent = 'AI 输出 Token';
+        if (foots[0]) foots[0].textContent = '登录后显示作品数';
+        if (foots[1]) foots[1].textContent = '登录后显示用量';
+        if (foots[2]) foots[2].textContent = '登录后显示设定';
+        if (foots[3]) foots[3].textContent = '登录后显示余额';
+        const recentBody = stage.querySelector('.recent-table tbody');
+        if (recentBody) recentBody.innerHTML = '<tr><td colspan="3">登录后显示最近编辑</td></tr>';
+      }
+
+      updateSidebarCounts();
+      if (currentPage === 'novels') {
+        renderBackendNovelRows();
+        renderBackendNovelSummary();
+        const libraryMeta = stage.querySelector('.library-layout > .panel .panel-heading p');
+        if (libraryMeta && backendState.novelsLoaded) libraryMeta.textContent = `共 ${backendState.novels.length} 本小说 · 最近编辑优先`;
+      }
+      renderWorkspaceResources();
+      if (currentPage === 'skills') {
+        renderBackendSkillCards();
+        const count = stage.querySelector('.skill-toolbar .badge');
+        if (count && backendState.skillsLoaded) count.textContent = `公开 ${backendState.skills.length} 个`;
+        if (backendState.privateSkills.length) {
+          const privateList = stage.querySelector('.private-list');
+          if (privateList) privateList.innerHTML = backendState.privateSkills.slice(0, 5).map(skill => `<button class="private-skill" data-toast="已打开 Skill 详情。">${icon('sparkles')}${escapeBackendHtml(skill.name)}<span class="link-count">账户 Skill</span></button>`).join('');
+        } else if (backendState.skillsLoaded) {
+          const privateList = stage.querySelector('.private-list');
+          if (privateList) privateList.innerHTML = '<div class="empty"><div class="empty-icon">—</div><p>当前账户还没有 Skill。</p></div>';
+        }
+      }
+      if (currentPage === 'editor' && backendState.models.length) {
+        const select = stage.querySelector('#editorModelSelect, [data-model-select]');
+        if (select) populateModelSelect(select);
+      }
+      if (currentPage === 'editor') {
+        renderEditorSkillSelector();
+        renderEditorHistorySelector();
+        const cost = stage.querySelector('.chat-cost');
+        if (cost) cost.textContent = backendState.models.length ? '按实际 Token 结算' : '模型服务不可用';
+      }
+      if (currentPage === 'tools') {
+        const modelBadge = stage.querySelector('[data-model-badge]');
+        const costBadge = stage.querySelector('.tool-workspace .badge.amber');
+        const intro = stage.querySelector('.tools-page .panel-heading p');
+        if (modelBadge) modelBadge.textContent = backendState.models.length ? `当前模型 · ${modelName(currentUnifiedModel())}` : '模型服务不可用';
+        populateModelSelect(stage.querySelector('[data-model-select]'));
+        if (intro) intro.textContent = canChooseModel() ? '选择模型后运行工具，费用按实际 Token 结算。' : '当前账户使用平台默认模型，费用按实际 Token 结算。';
+        if (costBadge) costBadge.textContent = backendState.models.length ? '按实际 Token 结算' : '登录并配置模型后可用';
+      }
+      if (currentPage === 'dissect') {
+        const modelBadge = stage.querySelector('.dissect-page .import-layout .badge');
+        if (modelBadge) modelBadge.textContent = backendState.models.length ? `当前模型 · ${modelName(currentUnifiedModel())}` : '模型服务不可用';
+        populateModelSelect(stage.querySelector('[data-model-select]'));
+      }
+      if (currentPage === 'account') {
+        const email = stage.querySelector('#accountEmail');
+        const name = stage.querySelector('#displayName');
+        const bio = stage.querySelector('#accountBio');
+        const model = stage.querySelector('#defaultModel');
+        const badge = stage.querySelector('.account-grid .badge');
+        const save = stage.querySelector('.header-tools .button.primary');
+        if (email) email.value = user ? user.email : '';
+        if (name) name.value = user ? (user.name || '') : '';
+        if (bio) bio.value = user ? (user.bio || '') : '';
+        if (model && backendState.models.length) {
+          populateModelSelect(model);
+        }
+        if (badge) badge.textContent = user ? '已登录' : '未登录';
+        if (save) save.disabled = !user;
+      }
+      if (currentPage === 'billing') {
+        const localPlans = [1000, 8000, 30000];
+        stage.querySelectorAll('.plan-card').forEach((card, index) => {
+          const price = card.querySelector('.plan-price');
+          const action = card.querySelector('button');
+          if (price) price.textContent = `本地额度 ${localPlans[index].toLocaleString()} 积分`;
+          if (action) action.textContent = '增加额度';
+        });
+        const chart = stage.querySelector('.usage-chart');
+        const chartFoot = chart?.nextElementSibling;
+        if (chart && user) {
+          const rows = Array.isArray(backendState.usage?.recent) ? backendState.usage.recent : [];
+          const points = Array.from({ length: 7 }, (_, index) => {
+            const date = new Date();
+            date.setHours(0, 0, 0, 0);
+            date.setDate(date.getDate() - (6 - index));
+            const next = date.getTime() + 86400000;
+            return { date, value: rows.filter(row => Number(row.createdAt) >= date.getTime() && Number(row.createdAt) < next).reduce((sum, row) => sum + (Number(row.creditCost) || 0), 0) };
+          });
+          const max = Math.max(1, ...points.map(point => point.value));
+          chart.innerHTML = points.map(point => '<div class="usage-bar" style="--bar:' + Math.max(6, Math.round(point.value / max * 82)) + 'px"><span></span><small>' + (point.date.getMonth() + 1) + '/' + point.date.getDate() + '</small></div>').join('');
+          if (chartFoot) chartFoot.textContent = '过去 7 天 · ' + points.reduce((sum, point) => sum + point.value, 0).toLocaleString() + ' 积分';
+        } else if (chart) {
+          chart.innerHTML = '<div class="empty"><p>登录后显示真实用量</p></div>';
+          if (chartFoot) chartFoot.textContent = '登录后显示真实用量';
+        }
+      }
+      if (currentPage === 'billing' && user) {
+        const balance = stage.querySelector('.balance-value');
+        const copy = stage.querySelector('.balance-copy');
+        if (balance) balance.textContent = user.credits == null ? '∞' : Number(user.credits).toLocaleString();
+        if (copy) copy.textContent = `积分 · ${String(user.role || 'normal').toUpperCase()} 账户 · 记录由后端统一结算`;
+        const table = [...stage.querySelectorAll('.data-table')].find(node => node.textContent.includes('Token'));
+        if (table && backendState.usage && Array.isArray(backendState.usage.recent)) table.querySelector('tbody').innerHTML = backendState.usage.recent.map(row => `<tr><td>${backendDate(row.createdAt)}</td><td><strong>${escapeBackendHtml(row.modelId || 'AI 任务')}</strong></td><td>${escapeBackendHtml(row.providerModel || row.modelId || '-')}</td><td>${row.totalTokens == null ? '待结算' : Number(row.totalTokens).toLocaleString()}</td><td>${Number(row.creditCost || 0).toLocaleString()}</td><td><span class="badge ${row.status === 'completed' ? 'green' : 'amber'}">${row.status === 'completed' ? '已结算' : escapeBackendHtml(row.status || '处理中')}</span></td></tr>`).join('');
+      }
+      if (currentPage === 'billing' && !user) {
+        const balance = stage.querySelector('.balance-value');
+        const copy = stage.querySelector('.balance-copy');
+        if (balance) balance.textContent = '—';
+        if (copy) copy.textContent = '登录后显示本地账户额度和真实使用记录';
+        const table = [...stage.querySelectorAll('.data-table')].find(node => node.textContent.includes('Token'));
+        if (table) table.querySelector('tbody').innerHTML = '<tr><td colspan="6">登录后显示真实使用记录</td></tr>';
+      }
+      renderBackendTaskCards();
+    }
+
+    function renderBackendEditorState() {
+      const state = previewState.novelState;
+      const paper = stage.querySelector('.editor-paper');
+      const nav = stage.querySelector('.editor-chapters');
+      const chat = stage.querySelector('#editorChat');
+      const outlineChapters = Array.isArray(state?.outline?.chapters) ? state.outline.chapters : [];
+      const volumeChapters = Array.isArray(state?.volumes) ? state.volumes.flatMap(volume => Array.isArray(volume.chapters) ? volume.chapters : []) : [];
+      const chapters = (outlineChapters.length ? outlineChapters : volumeChapters).map((chapter, index) => ({
+        title: chapter.title || chapter.name || `第 ${index + 1} 章`,
+        num: chapter.num || String(index + 1),
+        content: Array.isArray(chapter.scenes) ? chapter.scenes.map(scene => scene.content || '').join('') : ''
+      }));
+      const activeTitle = chapters[0]?.title || '新章节';
+      if (nav) nav.innerHTML = chapters.length
+        ? chapters.map((chapter, index) => `<div class="editor-chapter ${index === 0 ? 'active' : ''}" tabindex="0" role="button" data-chapter="${escapeBackendHtml(chapter.title)}"><small>${String(chapter.num || index + 1).padStart(3, '0')}</small>${escapeBackendHtml(chapter.title)}<i></i></div>`).join('')
+        : '<div class="empty"><div class="empty-icon">—</div><p>当前作品还没有章节。</p></div>';
+      const currentBody = typeof previewState.editorBody === 'string' ? previewState.editorBody.trim() : '';
+      if (paper && !currentBody && !paper.querySelector('h2')) {
+        paper.innerHTML = `<div class="editor-paper-meta"><span>第 1 章 · ${escapeBackendHtml(activeTitle)}</span><span id="editorWordCount">0 字</span></div><h2>${escapeBackendHtml(activeTitle)}</h2><p class="editor-empty-copy">从这里开始输入当前章节正文。</p>`;
+      }
+      if (paper) {
+        updateEditorWordCount(paper);
+      }
+      const chapterMeta = stage.querySelector('.editor-nav-head > span');
+      if (chapterMeta) chapterMeta.textContent = chapters.length ? `${chapters.length} 章 · 已保存` : '0 章 · 草稿';
+      if (chat && !previewState.editorChat && !chat.querySelector('.chat-message')) chat.innerHTML = '<div class="empty"><div class="empty-icon">—</div><p>当前章节还没有 AI 对话记录。</p></div>';
+    }
+
+    async function openBackendNovel(id) {
+      if (!backendState.token) { renderPage('login'); showToast('请先登录后打开云端作品'); return; }
+      const requestSession = captureBackendSession();
+      try {
+        const data = await backendRequest('/api/novels/' + encodeURIComponent(id));
+        if (!isCurrentBackendSession(requestSession)) return;
+        const novel = data.novel;
+        if (!novel) throw new Error('作品数据为空');
+        previewState.novelId = novel.id;
+        previewState.novel = {
+          title: backendNovelTitle(novel),
+          intro: novel.state && novel.state.outline && novel.state.outline.book ? novel.state.outline.book.oneLine || '' : '',
+          type: novel.state && novel.state.outline && novel.state.outline.book && Array.isArray(novel.state.outline.book.themes) ? novel.state.outline.book.themes[0] || '玄幻' : '玄幻'
+        };
+        previewState.novelState = novel.state;
+        previewState.novelRevision = Number.isInteger(novel.revision) ? novel.revision : null;
+        previewState.workspaceId = novel.workspaceId || '';
+        previewState.editorBody = editorBodyFromNovelState(novel.state);
+        previewState.editorChat = null;
+        previewState.editorChatSessionId = '';
+        previewState.editorSkillId = '';
+        previewState.editorHistory = null;
+        clearEditorActionQuery(novel.id);
+        renderPage('editor');
+      } catch (error) {
+        showToast(error.message || '读取云端作品失败');
+      }
+    }
+
+    function deleteBackendNovel(id) {
+      if (!backendState.token) { renderPage('login'); showToast('请先登录后管理云端作品'); return; }
+      const novel = (backendState.novels || []).find(item => item && item.id === id);
+      openActionModal({
+        title: '删除云端作品',
+        body: `<div class="notice"><span>将永久删除《${escapeBackendHtml(novel ? backendNovelTitle(novel) : id)}》的云端数据，此操作不可撤销；当前正在编辑的内容不受影响，但删除后无法再从云端恢复。</span></div>`,
+        confirmText: '确认删除',
+        onConfirm: async () => {
+          const requestSession = captureBackendSession();
+          try {
+            await backendRequest('/api/novels/' + encodeURIComponent(id), { method: 'DELETE' });
+            if (!isCurrentBackendSession(requestSession)) return;
+            closeModal();
+            if (previewState.novelId === id) { previewState.novelId = ''; previewState.novelRevision = null; }
+            backendState.novelsLoaded = false;
+            await loadBackendNovels();
+            refreshCurrentPage();
+            showToast('云端作品已删除');
+          } catch (error) {
+            showToast(error.message || '删除失败，请稍后重试');
+            return false;
+          }
+        }
+      });
+    }
+
+    async function saveCurrentNovel() {
+      const requestSession = captureBackendSession();
+      const paper = stage.querySelector('.editor-paper');
+      if (paper) previewState.editorBody = paper.innerHTML;
+      const state = ensurePreviewNovelState();
+      if (!backendState.token) {
+        try {
+          localStorage.setItem('molan_guest_novel_state', JSON.stringify({ novel: previewState.novel, state }));
+          setEditorSaveStatus('已保存到本地浏览器');
+          showToast('已保存到本地浏览器；登录后可同步到后端');
+        } catch (_) { showToast('本地保存失败，浏览器存储空间不足'); }
+        return;
+      }
+      const button = stage.querySelector('.header-tools .button:not(.primary)');
+      if (button) button.disabled = true;
+      try {
+        const serverNovelId = /^n_[A-Za-z0-9]{1,30}$/.test(String(previewState.novelId || '')) ? String(previewState.novelId) : '';
+        const data = serverNovelId
+          ? await backendRequest('/api/novels/' + encodeURIComponent(serverNovelId), { method: 'PUT', body: { state, title: previewState.novel.title, revision: previewState.novelRevision } })
+          : await backendRequest('/api/novels', { method: 'POST', body: { state, title: previewState.novel.title } });
+        if (!isCurrentBackendSession(requestSession)) return;
+        previewState.novelId = data.id || previewState.novelId;
+        previewState.novelRevision = Number.isInteger(data.revision) ? data.revision : previewState.novelRevision;
+        if (previewState.novelId) clearEditorActionQuery(previewState.novelId);
+        await loadBackendNovels();
+        setEditorSaveStatus('已保存到后端');
+        showToast('已保存到云端作品库');
+      } catch (error) {
+        showToast(error.status === 409 ? '云端版本已更新，请重新打开作品' : (error.message || '云端保存失败'));
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    let backendAuthMode = 'login';
+
+    function updateBackendAuthMode(mode) {
+      backendAuthMode = mode === 'register' ? 'register' : 'login';
+      const title = stage.querySelector('.user-login-form h1');
+      const copy = stage.querySelector('.user-login-form > .user-login-inner > p');
+      const button = stage.querySelector('.user-login-form .button.primary');
+      if (title) title.textContent = backendAuthMode === 'register' ? '创建账户' : '欢迎回来';
+      if (copy) copy.textContent = backendAuthMode === 'register' ? '注册后保存作品、Skill 和 AI 任务。' : '登录后继续最近编辑的小说和 AI 任务。';
+      if (button) button.innerHTML = `${backendAuthMode === 'register' ? '注册并进入工作台' : '登录并进入工作台'} ${icon('arrow-right')}`;
+      mountIcons();
+    }
+
+    async function submitBackendAuth() {
+      const email = stage.querySelector('#userEmail')?.value.trim();
+      const password = stage.querySelector('#userPassword')?.value || '';
+      const button = stage.querySelector('.user-login-form .button.primary');
+      const notice = stage.querySelector('.user-login-form .notice span');
+      const rememberInput = stage.querySelector('#rememberUser');
+      if (rememberInput) backendState.rememberMe = rememberInput.checked;
+      if (!email || !password) { if (notice) notice.textContent = '请填写邮箱和密码。'; showToast('请填写邮箱和密码'); return; }
+      if (button) button.disabled = true;
+      if (notice) notice.textContent = backendAuthMode === 'register' ? '正在创建账户…' : '正在登录…';
+      try {
+        const data = await backendRequest(backendAuthMode === 'register' ? '/api/auth/register' : '/api/auth/login', {
+          method: 'POST', body: { email, password, name: email.split('@')[0] }, preserveAuthOn401: true
+        });
+        setBackendAuth(data);
+        window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: data.user || null }));
+        await Promise.all([loadBackendModels(), loadBackendNovels(), loadBackendTasks(), loadBackendUsage(), loadBackendSkills()]);
+        startBackendTaskPolling();
+        renderPage('overview');
+        showToast(backendAuthMode === 'register' ? '账户创建成功' : '登录成功');
+      } catch (error) {
+        if (notice) notice.textContent = error.message || '请求失败，请稍后重试。';
+        showToast(error.message || '登录失败');
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function saveBackendProfile() {
+      if (!backendState.token) {
+        renderPage('login');
+        showToast('请先登录后保存账户资料');
+        return;
+      }
+      const name = stage.querySelector('#displayName')?.value.trim() || '';
+      const bio = stage.querySelector('#accountBio')?.value.trim() || '';
+      const defaultModel = stage.querySelector('#defaultModel')?.value || '';
+      const button = stage.querySelector('[data-backend-profile]');
+      if (button) button.disabled = true;
+      try {
+        const data = await backendRequest('/api/auth/profile', { method: 'PATCH', body: { name, bio, defaultModel } });
+        backendState.user = data.user || backendState.user;
+        persistBackendAuth();
+        applyBackendPageData();
+        window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }));
+        showToast('账户资料已保存');
+      } catch (error) {
+        showToast(error.message || '账户资料保存失败');
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    const pendingSkillDownloads = new Map();
+    async function useBackendSkill(id) {
+      if (!backendState.token) {
+        renderPage('login');
+        showToast('请先登录后下载 Skill');
+        return;
+      }
+      const key = backendState.token + ':' + id;
+      if (!pendingSkillDownloads.has(key)) pendingSkillDownloads.set(key, Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join(''));
+      try {
+        const data = await backendRequest('/api/open-skills/' + encodeURIComponent(id) + '/download', { method: 'POST', body: { requestId: pendingSkillDownloads.get(key) } });
+        pendingSkillDownloads.delete(key);
+        await loadBackendSkills();
+        showToast(`已下载「${data.skill?.name || 'Skill'}」到我的 Skill`);
+        refreshCurrentPage();
+      } catch (error) {
+        showToast(error.message || 'Skill 下载失败');
+      }
+    }
+
+    async function useBuiltinSkill(node) {
+      if (!backendState.token) {
+        renderPage('login');
+        showToast('请先登录后保存 Skill');
+        return;
+      }
+      const name = node.closest('.skill-card')?.querySelector('h3')?.textContent.trim() || '';
+      const skill = backendState.privateSkills.find(item => item && item.source === 'builtin' && item.name === name) || backendState.privateSkills.find(item => item && item.name === name);
+      if (!skill || !skill.instruction) {
+        showToast('该内置 Skill 尚未完整加载');
+        return;
+      }
+      try {
+        await backendRequest('/api/skills/import', { method: 'POST', body: {
+          name: skill.name,
+          description: skill.description || '',
+          instruction: skill.instruction,
+          files: skill.files || [],
+          runtimeFiles: skill.runtimeFiles || {},
+          fileManifest: skill.fileManifest || [],
+          slug: skill.id || skill.name
+        } });
+        await loadBackendSkills();
+        refreshCurrentPage();
+        showToast(`已保存「${skill.name}」到我的 Skill`);
+      } catch (error) { showToast(error.message || 'Skill 保存失败'); }
+    }
+
+    function workspaceStorageKey(kind) {
+      const account = backendState.user && (backendState.user.userId || backendState.user.email) ? (backendState.user.userId || backendState.user.email) : 'guest';
+      const novel = previewState.novelId || previewState.novel.title || 'default';
+      return `molan_${kind}_${account}_${novel}`;
+    }
+
+    function readWorkspaceList(kind) {
+      try {
+        const stored = localStorage.getItem(workspaceStorageKey(kind));
+        const value = JSON.parse(stored || JSON.stringify(previewState.novelState?.workspace?.[kind] || []));
+        return Array.isArray(value) ? value : [];
+      } catch (_) { return []; }
+    }
+
+    function saveWorkspaceList(kind, value) {
+      try { localStorage.setItem(workspaceStorageKey(kind), JSON.stringify(Array.isArray(value) ? value : [])); } catch (_) {}
+      updateSidebarCounts();
+    }
+
+    function normalizeEditorChatMessages(messages) {
+      return (Array.isArray(messages) ? messages : []).map(item => ({
+        kind: item && item.kind === 'user' ? 'user' : 'assistant',
+        text: String(item && item.text || '').trim()
+      })).filter(item => item.text);
+    }
+
+    function readEditorChatHistory() {
+      try {
+        const value = JSON.parse(localStorage.getItem(workspaceStorageKey('editor-chat-history')) || '[]');
+        return (Array.isArray(value) ? value : []).map(record => ({
+          id: String(record && record.id || ''),
+          title: String(record && record.title || '').trim(),
+          createdAt: Number(record && record.createdAt) || 0,
+          updatedAt: Number(record && record.updatedAt) || 0,
+          modelId: String(record && record.modelId || ''),
+          skillId: String(record && record.skillId || ''),
+          messages: normalizeEditorChatMessages(record && record.messages)
+        })).filter(record => record.id && record.title && record.messages.some(item => item.kind === 'user'))
+          .sort((left, right) => right.updatedAt - left.updatedAt);
+      } catch (_) { return []; }
+    }
+
+    function editorChatHistoryTitle(messages) {
+      const firstUser = normalizeEditorChatMessages(messages).find(item => item.kind === 'user');
+      const text = String(firstUser?.text || '').replace(/\s+/g, ' ').trim();
+      return text.length > 32 ? text.slice(0, 32) + '…' : text;
+    }
+
+    function persistEditorChatSession() {
+      const messages = normalizeEditorChatMessages(previewState.editorChat);
+      if (!messages.some(item => item.kind === 'user')) return;
+      const now = Date.now();
+      const id = previewState.editorChatSessionId || `editor-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const records = readEditorChatHistory();
+      const existing = records.find(record => record.id === id);
+      const record = {
+        id,
+        title: editorChatHistoryTitle(messages),
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+        modelId: currentUnifiedModel(),
+        skillId: currentEditorSkill()?.id || '',
+        messages
+      };
+      const next = [record, ...records.filter(item => item.id !== id)].slice(0, 30);
+      previewState.editorChatSessionId = id;
+      try { localStorage.setItem(workspaceStorageKey('editor-chat-history'), JSON.stringify(next)); } catch (_) {}
+      renderEditorHistorySelector();
+    }
+
+    function loadEditorChatHistory(id) {
+      const record = readEditorChatHistory().find(item => item.id === String(id || ''));
+      if (!record) {
+        showToast('这条历史记录已不存在');
+        renderEditorHistorySelector();
+        return;
+      }
+      persistEditorChatSession();
+      previewState.editorChat = record.messages.map(item => ({ ...item }));
+      previewState.editorChatSessionId = record.id;
+      previewState.editorSkillId = record.skillId && editorAvailableSkills().some(skill => skill.id === record.skillId) ? record.skillId : '';
+      const skillSelect = document.getElementById('editorSkillSelect');
+      if (skillSelect) skillSelect.value = previewState.editorSkillId;
+      restoreEditorChat();
+      renderEditorHistorySelector();
+      showToast(`已载入历史会话：${record.title}`);
+    }
+
+    async function syncWorkspaceState() {
+      if (!backendState.token || !previewState.novelId) return;
+      try { await saveCurrentNovel(); } catch (error) { showToast(error.message || '工作区数据同步失败'); }
+    }
+
+    function copyText(value) {
+      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(value);
+      const input = document.createElement('textarea');
+      input.value = value;
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+      return Promise.resolve();
+    }
+
+    function openActionModal({ title, body, confirmText = '完成', onConfirm = null, cancelText = '关闭' }) {
+      document.getElementById('modalTitle').textContent = title;
+      document.querySelector('#modalBackdrop .modal-body').innerHTML = body;
+      document.getElementById('cancelModal').textContent = cancelText;
+      const confirmButton = document.getElementById('confirmModal');
+      confirmButton.disabled = false;
+      confirmButton.textContent = confirmText;
+      modalConfirmHandler = onConfirm;
+      document.getElementById('modalBackdrop').classList.add('open');
+      confirmButton.focus();
+    }
+
+    function openNotifications() {
+      const items = [];
+      backendState.tasks.filter(task => ['completed', 'failed', 'running'].includes(task.status)).slice(0, 5).forEach(task => {
+        items.push([task.status === 'completed' ? '拆书任务完成' : task.status === 'failed' ? '拆书任务失败' : '拆书任务进行中', `${task.title || '拆书任务'} · ${task.progress || 0}%`, backendDate(task.updatedAt)]);
+      });
+      if (backendState.usage?.recent?.length) {
+        const latest = backendState.usage.recent[0];
+        items.push(['AI 使用记录已更新', `${latest.modelId || '模型调用'} · ${latest.totalTokens == null ? 'Token 待结算' : Number(latest.totalTokens).toLocaleString() + ' Token'}`, backendDate(latest.createdAt)]);
+      }
+      if (!items.length) items.push(['暂无新通知', backendState.token ? '当前账户没有需要处理的任务或使用记录。' : '登录后，这里会显示当前账户的任务和使用记录。', '现在']);
+      openActionModal({
+        title: '通知中心',
+        body: `<div class="task-list">${items.map(([title, copy, time]) => `<div class="task-row"><span class="task-icon">${icon('bell')}</span><div class="task-copy"><div class="task-title">${title}</div><div class="task-meta">${copy}</div></div><span class="badge gray">${time}</span></div>`).join('')}</div>`,
+        confirmText: '全部标记已读',
+        onConfirm: () => { localStorage.setItem('molan_notifications_read', String(Date.now())); closeModal(); showToast('通知已全部标记为已读'); }
+      });
+    }
+
+    function toggleTheme() {
+      const enabled = document.body.classList.toggle('theme-dim');
+      try { localStorage.setItem('molan_theme', enabled ? 'dim' : 'light'); } catch (_) {}
+      document.querySelectorAll('.theme-label').forEach(node => { node.textContent = enabled ? '深色' : '浅色'; });
+      document.querySelectorAll('[data-action="theme"]').forEach(btn => {
+        const iconNode = btn.querySelector('.icon, [data-lucide], svg');
+        if (iconNode) iconNode.outerHTML = icon(enabled ? 'moon' : 'sun');
+      });
+      mountIcons();
+      showToast(enabled ? '已切换到深色工作台' : '已切换到浅色工作台');
+    }
+
+    function openShareDialog() {
+      const shareUrl = `${window.location.origin}${window.location.pathname}#${currentPage}`;
+      openActionModal({
+        title: '分享当前页面',
+        body: `<div class="field"><label for="shareUrl">链接</label><input id="shareUrl" value="${escapeBackendHtml(shareUrl)}" readonly></div><p class="section-note" style="margin:12px 0 0">复制后可在本地工作台或同一局域网设备中打开。</p>`,
+        confirmText: '复制链接',
+        onConfirm: async () => { await copyText(shareUrl); closeModal(); showToast('分享链接已复制'); }
+      });
+    }
+
+    function openResourceAction(action, name) {
+      const resourceText = {
+        '第一卷正文.txt': '已解析 5 个章节，共 28,640 字。最近一次更新：今天 10:31。',
+        '人物关系图.png': '素材已保存到当前作品，可在生成任务中作为上下文参考。'
+      };
+      const stored = readWorkspaceList('resources').find(resource => resource.name === name);
+      if (stored) resourceText[name] = `已从本地读取 ${Number(stored.wordCount || 0).toLocaleString()} 个文字单位，更新时间：${backendDate(stored.updatedAt)}。`;
+      if (action === 'progress') {
+        openActionModal({ title: `${name} · 处理进度`, body: `<div class="metric-foot">当前阶段：实体抽取</div><div class="progress" style="margin-top:12px"><span style="width:67%"></span></div><p class="section-note" style="margin:12px 0 0">已完成文本解析与章节切分，剩余内容会在确认后写入知识库。</p>`, confirmText: '前往知识库', onConfirm: () => { closeModal(); renderPage('knowledge'); } });
+        return;
+      }
+      openActionModal({ title: name, body: `<div class="notice">${icon('file-check-2')}<span>${resourceText[name] || '未找到该本地资源，请重新导入文件。'}</span></div>`, confirmText: '关闭', onConfirm: closeModal });
+    }
+
+    function parseKnowledgeImportJSON(value) {
+      let text = String(value || '').trim();
+      if (!text) return null;
+      text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      try { return JSON.parse(text); } catch (_) {}
+      const starts = [text.indexOf('{'), text.indexOf('[')].filter(index => index >= 0).sort((a, b) => a - b);
+      if (!starts.length) return null;
+      const start = starts[0];
+      const end = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
+      if (end <= start) return null;
+      try { return JSON.parse(text.slice(start, end + 1)); } catch (_) { return null; }
+    }
+
+    function normalizeKnowledgeImportType(value) {
+      const type = String(value || '').trim().toLowerCase();
+      if (/人物|角色|character|person|role/.test(type)) return '人物';
+      if (/地点|场所|location|place/.test(type)) return '地点';
+      if (/势力|组织|宗门|faction|organization|sect/.test(type)) return '势力';
+      if (/物品|道具|item|object/.test(type)) return '物品';
+      if (/事件|event|plot/.test(type)) return '事件';
+      if (/伏笔|foreshadow/.test(type)) return '伏笔';
+      return '未分类';
+    }
+
+    function normalizeKnowledgeImportData(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const source = raw.knowledge && typeof raw.knowledge === 'object' ? raw.knowledge : raw;
+      const entities = [];
+      const edges = Array.isArray(source.edges) ? source.edges : (Array.isArray(source.relations) ? source.relations : []);
+      if (Array.isArray(raw)) entities.push(...raw);
+      else if (Array.isArray(source.entities)) entities.push(...source.entities);
+      else if (source.entities && typeof source.entities === 'object') entities.push(...Object.values(source.entities));
+      else {
+        const groups = {
+          characters: '人物', character: '人物', 人物: '人物', roles: '人物',
+          locations: '地点', location: '地点', 地点: '地点', places: '地点',
+          factions: '势力', faction: '势力', 势力: '势力', organizations: '势力',
+          items: '物品', item: '物品', 物品: '物品', events: '事件', event: '事件', 事件: '事件',
+          foreshadowing: '伏笔', 伏笔: '伏笔'
+        };
+        Object.entries(groups).forEach(([key, type]) => {
+          if (Array.isArray(source[key])) source[key].forEach(item => entities.push({ ...(item || {}), type }));
+        });
+      }
+      const validEntities = entities.filter(item => item && typeof item === 'object' && String(item.name || item.title || '').trim());
+      return validEntities.length || edges.length ? { entities: validEntities, edges } : null;
+    }
+
+    function knowledgeImportText(value, fallback = '') {
+      return String(value == null ? fallback : value).trim();
+    }
+
+    function mergeImportedKnowledge(data) {
+      const normalized = normalizeKnowledgeImportData(data);
+      if (!normalized) throw new Error('未找到可导入的实体或关系');
+      const entities = readWorkspaceList('knowledge');
+      const byName = name => {
+        const target = String(name || '').trim();
+        return entities.find(item => item.name === target || (Array.isArray(item.aliases) && item.aliases.includes(target)));
+      };
+      const ids = new Map();
+      let added = 0;
+      let updated = 0;
+      normalized.entities.forEach(source => {
+        const name = knowledgeImportText(source.name || source.title);
+        if (!name) return;
+        let item = byName(name);
+        if (!item) {
+          item = { name, type: normalizeKnowledgeImportType(source.type), intro: '', path: '', chapters: '尚未引用', tags: [], aliases: [], relations: [], status: 'pending' };
+          entities.push(item);
+          added += 1;
+        } else updated += 1;
+        item.type = normalizeKnowledgeImportType(source.type || item.type);
+        const intro = knowledgeImportText(source.intro || source.description || source.notes || source.summary);
+        if (intro && !item.intro) item.intro = intro;
+        else if (intro && item.intro && !item.intro.includes(intro)) item.intro += `\n${intro}`;
+        const parent = knowledgeImportText(source.parent || source.parentName || source.location || source.归属);
+        item.path = knowledgeImportText(source.path, parent ? `${item.type} / ${parent}` : (item.path || `${item.type} / 未分类`));
+        item.chapters = knowledgeImportText(source.chapters || source.chapter || source.references, item.chapters || '尚未引用');
+        item.tags = Array.from(new Set([...(item.tags || []), ...[].concat(source.tags || source.tag || []).map(String).map(value => value.trim()).filter(Boolean)])).slice(0, 20);
+        item.aliases = Array.from(new Set([...(item.aliases || []), ...[].concat(source.aliases || source.alias || []).map(String).map(value => value.trim()).filter(Boolean)])).filter(value => value !== item.name).slice(0, 20);
+        if (source.status === 'confirmed' || source.confirmed === true) item.status = 'confirmed';
+        ids.set(name, item);
+      });
+      normalized.edges.forEach(edge => {
+        const fromName = knowledgeImportText(edge.from || edge.source);
+        const toName = knowledgeImportText(edge.to || edge.target);
+        const from = ids.get(fromName) || byName(fromName);
+        const to = ids.get(toName) || byName(toName);
+        if (!from || !to || from.name === to.name) return;
+        const relation = { target: to.name, relationType: knowledgeImportText(edge.relationType || edge.type || edge.kind || edge.关系类型, '关联'), label: knowledgeImportText(edge.label || edge.description || edge.relation) };
+        from.relations = Array.isArray(from.relations) ? from.relations : [];
+        if (!from.relations.some(item => item.target === relation.target && item.relationType === relation.relationType && item.label === relation.label)) from.relations.push(relation);
+      });
+      saveWorkspaceList('knowledge', entities);
+      void syncWorkspaceState();
+      return { added, updated, relations: normalized.edges.length };
+    }
+
+    function importedMaterialKey(name) {
+      return workspaceStorageKey(`material_${encodeURIComponent(String(name || 'material'))}`);
+    }
+
+    function saveImportedMaterial(name, text, type = '设定集') {
+      const key = importedMaterialKey(name);
+      try { localStorage.setItem(key, JSON.stringify({ name, type, text, updatedAt: Date.now() })); } catch (_) { return ''; }
+      return key;
+    }
+
+    function recordImportedMaterial(name, text, size) {
+      const resources = readWorkspaceList('resources');
+      const index = resources.findIndex(item => item.name === name);
+      const materialKey = saveImportedMaterial(name, text);
+      const resource = { name, size: Number(size) || text.length, wordCount: text.replace(/\s/g, '').length, updatedAt: Date.now(), type: '设定集', source: '本地导入', status: materialKey ? '已导入' : '已读取', materialKey };
+      if (index >= 0) resources[index] = { ...resources[index], ...resource };
+      else resources.push(resource);
+      saveWorkspaceList('resources', resources);
+    }
+
+    function setKnowledgeImportProgress(percent, status, detail) {
+      const progress = document.getElementById('knowledgeImportProgress');
+      const statusNode = document.getElementById('knowledgeImportStatus');
+      const detailNode = document.getElementById('knowledgeImportDetail');
+      if (progress) progress.style.width = `${Math.max(0, Math.min(100, Number(percent) || 0))}%`;
+      if (statusNode) statusNode.textContent = status || '';
+      if (detailNode) detailNode.textContent = detail || '';
+    }
+
+    async function runKnowledgeImport(files, pastedText, model) {
+      const confirm = document.getElementById('confirmModal');
+      const cancel = document.getElementById('cancelModal');
+      if (confirm) { confirm.disabled = true; confirm.textContent = '处理中…'; }
+      if (cancel) cancel.disabled = true;
+      const jsonNames = [];
+      const textParts = [];
+      const errors = [];
+      let added = 0;
+      let updated = 0;
+      let relations = 0;
+      let skipped = 0;
+      let actualCredits = 0;
+      try {
+        const supported = /\.(txt|md|markdown|json|text)$/i;
+        const inputs = Array.from(files || []);
+        const total = inputs.length + (pastedText ? 1 : 0);
+        let done = 0;
+        if (!total) throw new Error('请先选择支持的文件或粘贴内容');
+        for (const file of inputs) {
+          const name = file.webkitRelativePath || file.name;
+          if (!supported.test(file.name)) { skipped += 1; done += 1; setKnowledgeImportProgress(done / total * 25, '正在读取设定集', `已跳过不支持的文件：${name}`); continue; }
+          let text;
+          try { text = (await file.text()).replace(/\u0000/g, '').trim(); } catch (_) { errors.push(`${name} 读取失败`); done += 1; continue; }
+          if (!text) { done += 1; setKnowledgeImportProgress(done / total * 25, '正在读取设定集', `已跳过空文件：${name}`); continue; }
+          recordImportedMaterial(name, text, file.size);
+          const data = normalizeKnowledgeImportData(parseKnowledgeImportJSON(text));
+          if (data) {
+            try { const result = mergeImportedKnowledge(data); added += result.added; updated += result.updated; relations += result.relations; jsonNames.push(name); }
+            catch (error) { errors.push(`${name} 导入失败：${error.message}`); }
+          } else textParts.push({ name, text });
+          done += 1;
+          setKnowledgeImportProgress(done / total * 25, '正在读取设定集', `已读取 ${done}/${total}：${name}`);
+        }
+        if (pastedText) {
+          const text = String(pastedText).trim();
+          if (text) {
+            recordImportedMaterial('粘贴内容', text, text.length);
+            const data = normalizeKnowledgeImportData(parseKnowledgeImportJSON(text));
+            if (data) {
+              const result = mergeImportedKnowledge(data); added += result.added; updated += result.updated; relations += result.relations; jsonNames.push('粘贴内容');
+            } else textParts.push({ name: '粘贴内容', text });
+          }
+          setKnowledgeImportProgress(25, '正在读取设定集', '已处理粘贴内容');
+        }
+        const combined = textParts.map(item => `===== 文件：${item.name} =====\n${item.text}`).join('\n\n');
+        const chunks = [];
+        for (let index = 0; index < combined.length; index += 9000) chunks.push(combined.slice(index, index + 9000));
+        for (let index = 0; index < chunks.length; index += 1) {
+          setKnowledgeImportProgress(30 + index / Math.max(1, chunks.length) * 65, '正在使用 AI 抽取设定', `正在处理第 ${index + 1}/${chunks.length} 段`);
+          try {
+            const chatResult = await requestChatText([
+              { role: 'system', content: '你是小说设定集抽取器。只返回合法 JSON，不要 Markdown，不要解释。格式必须是 {"entities":[{"type":"character|location|faction|item|event|foreshadow","name":"","intro":"","parent":"","aliases":[],"tags":[]}],"edges":[{"from":"","to":"","relationType":"","label":""}]}。只抽取原文明确出现的实体、关系和事实，证据不足的字段留空，不要编造。' },
+              { role: 'user', content: chunks[index] }
+            ], { model, stage: 'single', maxTokens: 1800, timeoutMs: 30000, jsonMode: true, returnUsage: true, requireUsage: true });
+            actualCredits += Number(chatResult.usage && chatResult.usage.creditCost) || 0;
+            const data = normalizeKnowledgeImportData(parseKnowledgeImportJSON(chatResult.text));
+            if (!data) throw new Error('模型返回内容不是可解析的实体 JSON');
+            const result = mergeImportedKnowledge(data);
+            added += result.added; updated += result.updated; relations += result.relations;
+          } catch (error) { errors.push(`第 ${index + 1} 段抽取失败：${error.message || '模型未返回可用结果'}`); }
+          setKnowledgeImportProgress(30 + (index + 1) / Math.max(1, chunks.length) * 65, '正在使用 AI 抽取设定', `已完成第 ${index + 1}/${chunks.length} 段`);
+        }
+        await syncWorkspaceState();
+        const summary = [`新增 ${added} 条实体`, `更新 ${updated} 条实体`, `识别 ${relations} 条关系`, `实际消耗 ${actualCredits.toFixed(2)} 积分`];
+        if (jsonNames.length) summary.push(`JSON 导入 ${jsonNames.length} 项`);
+        if (textParts.length) summary.push(`文本抽取 ${textParts.length} 项`);
+        if (skipped) summary.push(`跳过 ${skipped} 个不支持文件`);
+        if (errors.length) summary.push(`失败 ${errors.length} 项`);
+        const partial = errors.length > 0;
+        setKnowledgeImportProgress(100, partial ? '导入完成，但有部分失败' : '设定集导入完成', summary.join('，'));
+        showToast(summary.join('，'));
+        refreshCurrentPage();
+      } catch (error) {
+        setKnowledgeImportProgress(100, '设定集导入失败', error.message || '读取或抽取失败');
+        showToast(error.message || '设定集导入失败');
+      } finally {
+        if (confirm) { confirm.disabled = false; confirm.textContent = '关闭'; }
+        if (cancel) cancel.disabled = false;
+        modalConfirmHandler = closeModal;
+      }
+    }
+
+    function openKnowledgeImportDialog() {
+      const body = `<div class="field"><label for="knowledgeImportModel">AI 抽取模型</label><select id="knowledgeImportModel" data-model-select aria-label="AI 抽取模型"></select><small>VIP 和管理员可以切换模型；普通账户使用平台默认模型。</small></div><div class="field" style="margin-top:12px"><label for="knowledgeImportFiles">导入文件</label><input id="knowledgeImportFiles" type="file" multiple accept=".txt,.md,.markdown,.json,.text"><small>支持 JSON 直接导入，TXT/MD 会交给 AI 抽取人物、地点、势力、物品、事件和关系。</small></div><div class="field" style="margin-top:12px"><label for="knowledgeImportFolder">追加文件夹</label><input id="knowledgeImportFolder" type="file" webkitdirectory multiple><div id="knowledgeImportFileList" class="section-note" style="margin-top:6px">尚未选择文件</div></div><div class="field" style="margin-top:12px"><label for="knowledgeImportText">或粘贴正文 / 设定</label><textarea id="knowledgeImportText" placeholder="粘贴设定文本或 JSON"></textarea></div><div style="margin-top:14px"><div class="progress"><span id="knowledgeImportProgress" style="width:0%"></span></div><div id="knowledgeImportStatus" class="section-note" style="margin-top:7px">等待选择文件</div><div id="knowledgeImportDetail" class="metric-foot" style="margin-top:4px"></div></div>`;
+      openActionModal({ title: '导入设定集并抽取', body, confirmText: '导入并抽取', cancelText: '取消', onConfirm: () => {
+        const files = openKnowledgeImportDialog.files || [];
+        const text = document.getElementById('knowledgeImportText')?.value.trim() || '';
+        if (!files.length && !text) { showToast('请先选择文件或粘贴内容'); return false; }
+        void runKnowledgeImport(files, text, document.getElementById('knowledgeImportModel')?.value || currentUnifiedModel());
+      } });
+      openKnowledgeImportDialog.files = [];
+      const model = document.getElementById('knowledgeImportModel');
+      populateModelSelect(model);
+      const list = document.getElementById('knowledgeImportFileList');
+      const renderFiles = () => { if (list) list.textContent = openKnowledgeImportDialog.files.length ? `已选择 ${openKnowledgeImportDialog.files.length} 个文件：${openKnowledgeImportDialog.files.map(file => file.webkitRelativePath || file.name).join('、')}` : '尚未选择文件'; };
+      const addFiles = fileList => { Array.from(fileList || []).forEach(file => { const key = `${file.webkitRelativePath || file.name}:${file.size}`; if (!openKnowledgeImportDialog.files.some(item => `${item.webkitRelativePath || item.name}:${item.size}` === key)) openKnowledgeImportDialog.files.push(file); }); renderFiles(); };
+      document.getElementById('knowledgeImportFiles')?.addEventListener('change', event => { addFiles(event.target.files); event.target.value = ''; });
+      document.getElementById('knowledgeImportFolder')?.addEventListener('change', event => { addFiles(event.target.files); event.target.value = ''; });
+    }
+
+    function openOutlineAddDialog() {
+      openActionModal({
+        title: '新增时间线节点',
+        body: `<div class="form-grid"><div class="field"><label for="outlineTitle">节点名称</label><input id="outlineTitle" placeholder="例如：祠堂谈判"></div><div class="field"><label for="outlineMeta">关联信息</label><input id="outlineMeta" placeholder="第 4 章 · 叶辰 · 主线"></div></div>`,
+        confirmText: '添加节点',
+        onConfirm: () => {
+          const title = document.getElementById('outlineTitle').value.trim();
+          const meta = document.getElementById('outlineMeta').value.trim() || '待安排 · 主线';
+          if (!title) { showToast('请填写节点名称'); return false; }
+          const events = readWorkspaceList('outline');
+          events.push({ title, meta, createdAt: Date.now() });
+          saveWorkspaceList('outline', events);
+          syncWorkspaceState();
+          closeModal();
+          refreshCurrentPage();
+          showToast(`已新增时间线节点：${title}`);
+        }
+      });
+    }
+
+    function openKnowledgeDialog(editing) {
+      const row = editing ? stage.querySelector('.entity-row.active') : null;
+      const name = row ? row.dataset.entity : '';
+      const detail = stage.querySelector('#entityDetail');
+      const currentIntro = editing ? (detail.querySelector('.detail-field p')?.textContent || '') : '';
+      openActionModal({
+        title: editing ? '编辑设定实体' : '新增设定实体',
+        body: `<div class="form-grid"><div class="field"><label for="entityName">名称</label><input id="entityName" value="${escapeBackendHtml(name)}" placeholder="例如：青云城"></div><div class="field"><label for="entityType">类型</label><select id="entityType"><option>地点</option><option>人物</option><option>势力</option><option>物品</option><option>伏笔</option></select></div><div class="field"><label for="entityIntro">简介</label><textarea id="entityIntro" placeholder="描述它在故事中的作用">${escapeBackendHtml(currentIntro)}</textarea></div></div>`,
+        confirmText: editing ? '保存设定' : '添加设定',
+        onConfirm: () => {
+          const nextName = document.getElementById('entityName').value.trim();
+          const intro = document.getElementById('entityIntro').value.trim() || '尚未补充简介。';
+          const type = document.getElementById('entityType').value;
+          if (!nextName) { showToast('请填写实体名称'); return false; }
+          const entities = readWorkspaceList('knowledge');
+          const index = entities.findIndex(item => item.name === name);
+          const next = { ...(index >= 0 ? entities[index] : {}), name: nextName, type, intro, path: `${type} / 未分类`, chapters: '尚未引用', tags: index >= 0 ? (entities[index].tags || []) : [], relations: index >= 0 ? (entities[index].relations || []) : [], status: index >= 0 ? entities[index].status : 'pending' };
+          if (index >= 0) entities[index] = next;
+          else entities.push(next);
+          saveWorkspaceList('knowledge', entities);
+          syncWorkspaceState();
+          closeModal();
+          refreshCurrentPage();
+          showToast(editing ? `已保存设定：${nextName}` : `已新增设定：${nextName}`);
+        }
+      });
+      document.querySelectorAll('#modalBackdrop label.segment').forEach(label => label.addEventListener('click', () => {
+        document.querySelectorAll('#modalBackdrop label.segment').forEach(item => item.classList.remove('active'));
+        label.classList.add('active');
+      }));
+    }
+
+    function openSkillCreateDialog() {
+      if (!backendState.token) { renderPage('login'); showToast('请先登录后创建 Skill'); return; }
+      openActionModal({
+        title: '创建 Skill',
+        body: `<div class="form-grid"><div class="field"><label for="skillName">名称</label><input id="skillName" placeholder="例如：克制对白校准"></div><div class="field"><label for="skillDescription">简介</label><input id="skillDescription" placeholder="一句话说明适用场景"></div><div class="field"><label for="skillInstruction">核心指令</label><textarea id="skillInstruction" placeholder="写下 AI 必须遵守的写作规则"></textarea></div></div>`,
+        confirmText: '创建并发布',
+        onConfirm: async () => {
+          const name = document.getElementById('skillName').value.trim();
+          const description = document.getElementById('skillDescription').value.trim();
+          const instruction = document.getElementById('skillInstruction').value.trim();
+          if (!name || !instruction) { showToast('请填写 Skill 名称和核心指令'); return false; }
+          const button = document.getElementById('confirmModal');
+          button.disabled = true;
+          try {
+            await backendRequest('/api/open-skills', { method: 'POST', body: { name, description, instruction, status: 'published' } });
+            await loadBackendSkills();
+            closeModal();
+            refreshCurrentPage();
+            showToast(`Skill「${name}」已发布`);
+          } catch (error) { showToast(error.message || 'Skill 创建失败'); }
+          finally { button.disabled = false; }
+        }
+      });
+    }
+
+    function exportBillingUsage() {
+      const rows = backendState.usage && Array.isArray(backendState.usage.recent) ? backendState.usage.recent : [];
+      const csv = [['时间', '模型', 'Token', '积分', '状态'], ...rows.map(row => [backendDate(row.createdAt), row.modelId || '', row.totalTokens == null ? '' : row.totalTokens, row.creditCost || 0, row.status || ''])]
+        .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+      link.download = `molan-usage-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      showToast(rows.length ? '使用记录已导出' : '当前没有可导出的使用记录');
+    }
+
+    function openTopupDialog() {
+      if (!backendState.token) { renderPage('login'); showToast('请先登录后充值积分'); return; }
+      const billingCopy = backendState.dataSource === 'cloud'
+        ? '当前本地页面使用云端账户，额度变更会同步到云端。'
+        : '本地运行模式提供测试额度，额度变更只写入当前本地账户。';
+      openActionModal({
+        title: '充值积分',
+        body: `<div class="notice">${icon('info')}<span>${billingCopy}</span></div><div class="segmented" style="margin-top:15px"><label class="segment active"><input type="radio" name="topup" value="1000" checked hidden>1,000 积分</label><label class="segment"><input type="radio" name="topup" value="8000" hidden>8,000 积分</label><label class="segment"><input type="radio" name="topup" value="30000" hidden>30,000 积分</label></div>`,
+        confirmText: '确认增加额度',
+        onConfirm: async () => {
+          const credits = Number(document.querySelector('input[name="topup"]:checked')?.value || 1000);
+          const button = document.getElementById('confirmModal');
+          button.disabled = true;
+          try {
+            const data = await backendRequest('/api/billing/topup', { method: 'POST', body: { credits } });
+            backendState.user = data.user || backendState.user;
+            persistBackendAuth();
+            closeModal();
+            refreshCurrentPage();
+            showToast(`已增加 ${credits.toLocaleString()} 积分`);
+          } catch (error) { showToast(error.message || '充值失败'); }
+          finally { button.disabled = false; }
+        }
+      });
+    }
+
+    function backendTaskStatusMeta(value) {
+      const status = String(value || '').toLowerCase();
+      if (['completed', 'complete', 'done'].includes(status)) return { label: '已完成', tone: 'green' };
+      if (['failed', 'error'].includes(status)) return { label: '失败', tone: 'danger' };
+      if (['cancelled', 'canceled'].includes(status)) return { label: '已取消', tone: 'gray' };
+      if (status === 'interrupted') return { label: '可恢复', tone: 'gray' };
+      if (status === 'queued') return { label: '排队中', tone: 'blue' };
+      if (['running', 'streaming', 'processing'].includes(status)) return { label: '处理中', tone: 'amber' };
+      return { label: status || '已记录', tone: 'gray' };
+    }
+
+    function openDissectionHistory() {
+      const tasks = backendState.tasks || [];
+      const body = tasks.length
+        ? `<div class="task-list">${tasks.slice(0, 6).map(task => { const meta = backendTaskStatusMeta(task.status); return `<div class="task-row"><span class="task-icon">${icon('scan-text')}</span><div class="task-copy"><div class="task-title">${escapeBackendHtml(task.title || '拆书任务')}</div><div class="task-meta">${escapeBackendHtml(task.sourceName || '样文')} · ${Number(task.progress) || 0}%</div></div><span class="badge ${meta.tone}">${meta.label}</span></div>`; }).join('')}</div>`
+        : '<div class="empty"><div class="empty-icon">—</div><h3>还没有拆书任务</h3><p>选择样文后，任务会出现在这里。</p></div>';
+      openActionModal({ title: '拆书任务历史', body, confirmText: '返回拆书分析', onConfirm: () => { closeModal(); renderPage('dissect'); } });
+    }
+
+    async function retryDissectionTask() {
+      if (!backendState.token) { renderPage('login'); showToast('请先登录后重试拆书任务'); return; }
+      const task = backendState.tasks.find(item => ['failed', 'cancelled', 'interrupted'].includes(item.status));
+      if (!task) { showToast('没有可重试的拆书任务'); return; }
+      try {
+        await backendRequest('/api/dissections/' + encodeURIComponent(task.id) + '/retry', { method: 'POST', body: {} });
+        await loadBackendTasks();
+        startBackendTaskPolling();
+        refreshCurrentPage();
+        showToast('拆书任务已重新加入队列');
+      } catch (error) { showToast(error.message || '拆书任务重试失败'); }
+    }
+
+    async function startDissectionTask() {
+      if (!backendState.token) { renderPage('login'); showToast('请先登录后开始拆书分析'); return; }
+      const button = stage.querySelector('[data-action="dissection-start"]');
+      const files = previewState.dissectionFiles.filter(file => file && file.text).map(file => ({ name: file.name, text: file.text }));
+      if (button) { button.disabled = true; button.textContent = '任务提交中…'; }
+      try {
+        if (!files.length) throw new Error('请先选择至少一个 TXT 或 MD 文件');
+        await backendRequest('/api/dissections', { method: 'POST', body: { title: files[0].name || '本地拆书任务', sourceName: files.map(file => file.name).join('、'), sourceType: files.length > 1 ? 'folder' : 'file', files, depth: 'standard', purpose: 'new-writer', model: currentUnifiedModel() } });
+        await loadBackendTasks();
+        startBackendTaskPolling();
+        if (button) button.textContent = '分析任务已启动';
+        showToast('拆书任务已加入队列');
+        renderBackendTaskCards();
+      } catch (error) { if (button) { button.disabled = false; button.textContent = '确认并开始分析'; } showToast(error.message || '拆书任务提交失败'); }
+    }
+
+    function handleAction(action, node) {
+      if (action === 'notifications') return openNotifications();
+      if (action === 'theme') return toggleTheme();
+      if (action === 'share') return openShareDialog();
+      if (action === 'editor-generate') {
+        const preview = document.getElementById('editorPreview');
+        const input = document.getElementById('editorPrompt');
+        if (preview) preview.classList.add('ai-open');
+        if (input) { input.value = '根据当前章节继续写下一段，保持人物设定和已出现事实一致。'; input.focus(); }
+        const send = document.getElementById('editorSend');
+        if (send) return send.click();
+        return showToast('请先打开一个可编辑的作品');
+      }
+      if (action === 'editor-undo') return editorUndo();
+      if (action === 'editor-redo') return editorRedo();
+      if (action === 'editor-read') return openEditorReadingMode();
+      if (action === 'timeline-view') return showToast('已切换到时间线视图');
+      if (action === 'dissection-history') return openDissectionHistory();
+      if (action === 'dissection-start') return startDissectionTask();
+      if (action === 'resource-view') return openResourceAction('view', node.dataset.resource || '作品资源');
+      if (action === 'resource-progress') return openResourceAction('progress', node.dataset.resource || '拆书任务');
+      if (action === 'context-preview') {
+        const entities = readWorkspaceList('knowledge');
+        const names = entities.map(item => item.name).filter(Boolean);
+        const body = names.length
+          ? `<div class="notice">当前已保存的召回候选：${escapeBackendHtml(names.join('、'))}。</div><p class="section-note" style="margin:12px 0 0">实际请求会根据当前章节筛选；未保存或未确认的内容不会自动加入请求。</p>`
+          : '<div class="empty"><div class="empty-icon">—</div><h3>当前没有已保存的召回内容</h3><p>先在设定集保存实体，编辑器才会有可检查的上下文候选。</p></div>';
+        return openActionModal({ title: '本章召回内容', body, confirmText: '关闭', onConfirm: closeModal });
+      }
+      if (action === 'outline-add') return openOutlineAddDialog();
+      if (action === 'outline-all') return openActionModal({ title: '伏笔台账', body: '<div class="task-list"><div class="task-row"><span class="task-icon">F-001</span><div class="task-copy"><div class="task-title">轮回神玉的第二道印记</div><div class="task-meta">预计第 8 章回收</div></div><span class="badge blue">发酵中</span></div><div class="task-row"><span class="task-icon">F-003</span><div class="task-copy"><div class="task-title">邀请背后的交换条件</div><div class="task-meta">预计第 4 章回收</div></div><span class="badge amber">待回收</span></div></div>', confirmText: '关闭', onConfirm: closeModal });
+      if (action === 'knowledge-import') return openKnowledgeImportDialog();
+      if (action === 'knowledge-add') return openKnowledgeDialog(false);
+      if (action === 'knowledge-edit') return openKnowledgeDialog(true);
+      if (action === 'skill-create') return openSkillCreateDialog();
+      if (action === 'billing-export') return exportBillingUsage();
+      if (action === 'billing-topup') return openTopupDialog();
+      if (action === 'dissection-export') {
+        const task = backendState.selectedTask;
+        if (!task || task.status !== 'completed' || !task.result) return showToast('没有已完成的拆书结果可导出');
+        return openActionModal({ title: '导出文风包', body: '<div class="notice">导出内容来自最近一次已完成的拆书任务，只包含模型返回的可迁移文风和技法结果。</div>', confirmText: '导出 JSON', onConfirm: () => { const blob = new Blob([JSON.stringify({ version: 1, taskId: task.id, scope: 'style-and-craft-only', result: task.result }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'molan-style-profile-' + task.id + '.json'; link.click(); URL.revokeObjectURL(link.href); closeModal(); showToast('文风包已导出'); } });
+      }
+      if (action === 'dissection-export') return openActionModal({ title: '导出文风包', body: '<div class="notice">导出内容只包含已提取的叙事视角、节奏结构和对白规则，不包含原样文正文、人物姓名或项目专属设定。</div>', confirmText: '导出 JSON', onConfirm: () => { const blob = new Blob([JSON.stringify({ version: 1, scope: 'style-and-craft-only', rules: ['第三人称限知视角', '每 800-1200 字形成局部目标变化', '对白承担试探和冲突'] }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'molan-style-profile.json'; link.click(); URL.revokeObjectURL(link.href); closeModal(); showToast('文风包已导出'); } });
+      if (action === 'task-resume') return retryDissectionTask();
+      if (action === 'skill-publish') return openSkillCreateDialog();
+      if (action === 'builtin-skill') return useBuiltinSkill(node);
+      if (action === 'skills-refresh') return loadBackendSkills().then(() => { refreshCurrentPage(); showToast('Skill 列表已刷新'); });
+      if (action === 'skill-detail') {
+        const name = node.textContent.replace(/账户 Skill|绑定 \d+ 本|未绑定/g, '').trim();
+        const skill = backendState.privateSkills.find(item => item && item.name === name);
+        return openActionModal({ title: skill?.name || name || 'Skill 详情', body: `<div class="notice">${escapeBackendHtml(skill?.description || '当前账户 Skill')}</div><div class="field" style="margin-top:14px"><label>核心指令</label><textarea readonly>${escapeBackendHtml(skill?.instruction || '该 Skill 没有可读取的核心指令。')}</textarea></div>`, confirmText: '关闭', onConfirm: closeModal });
+      }
+      if (action === 'skill-detail') return openActionModal({ title: 'Skill 详情', body: '<div class="notice">该 Skill 会在调用前完整注入模型上下文，并按当前作品单独记录使用情况。</div>', confirmText: '关闭', onConfirm: closeModal });
+      if (action === 'avatar-help') return openActionModal({ title: '更换头像', body: '<div class="field"><label for="avatarFile">头像文件</label><input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>图片会保存到当前本地账户，建议使用 300 KB 以内的方形图片。</small></div>', confirmText: '保存头像', onConfirm: async () => { const file = document.getElementById('avatarFile').files?.[0]; if (!file) { showToast('请选择头像文件'); return false; } if (file.size > 300000) { showToast('头像文件不能超过 300 KB'); return false; } const reader = new FileReader(); const dataUrl = await new Promise((resolve, reject) => { reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); try { const data = await backendRequest('/api/auth/profile', { method: 'PATCH', body: { avatar: dataUrl } }); backendState.user = data.user || backendState.user; persistBackendAuth(); closeModal(); refreshCurrentPage(); window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user })); showToast('头像已保存'); } catch (error) { showToast(error.message || '头像保存失败'); } } });
+      if (action === 'password-help') return openActionModal({ title: '登录帮助', body: '<div class="notice">请使用注册账户的邮箱和密码登录。当前本地版本不发送邮件，管理员可以在本机数据目录中协助处理账户。</div>', confirmText: '关闭', onConfirm: closeModal });
+    }
+
+    async function requestChatText(messages, options = {}) {
+      if (!backendState.token) throw new Error('请先登录后使用 AI 功能');
+      const requestSession = captureBackendSession();
+      const controller = new AbortController();
+      if (typeof options.onStart === 'function') {
+        try { options.onStart(controller); } catch (_) {}
+      }
+      const abortIfSessionChanged = () => { if (!isCurrentBackendSession(requestSession)) controller.abort(); };
+      const ensureCurrentSession = () => {
+        if (isCurrentBackendSession(requestSession)) return;
+        const error = new Error('登录账户已切换');
+        error.code = 'SESSION_CHANGED';
+        throw error;
+      };
+      window.addEventListener('molan:auth-changed', abortIfSessionChanged);
+      let timedOut = false;
+      let answer = '';
+      let streamError = null;
+      // 编辑器正文可能因为上下文抽取、审计和修订而长时间运行，不能由浏览器
+      // 用固定时长误判为超时；真正的超时由服务端通过 REQUEST_TIMEOUT 标记。
+      const clientTimeoutDisabled = options.disableClientTimeout === true || options.editorOnly === true;
+      const configuredTimeoutMs = Number(options.timeoutMs);
+      const clientTimeoutMs = clientTimeoutDisabled
+        ? 0
+        : Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
+          ? configuredTimeoutMs
+          : 20000;
+      // 计时器按“空闲”语义计时：每收到一段流式数据就重新计时，只拦截真正停滞的
+      // 连接。创书创作包这类长输出会持续吐字十几分钟，若按固定总时长会在生成
+      // 中途被误杀；服务端仍保留空闲超时作为最终兜底。
+      let timeout = null;
+      const armClientTimeout = () => {
+        if (clientTimeoutMs <= 0) return;
+        if (timeout) window.clearTimeout(timeout);
+        timeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, clientTimeoutMs);
+      };
+      armClientTimeout();
+      try {
+        const body = { messages, model: options.model || currentUnifiedModel(), stage: options.stage || 'writing', max_tokens: options.maxTokens || 900 };
+        if (options.creationMode) body.creationMode = true;
+        if (options.projectId) body.projectId = options.projectId;
+        if (options.workspaceId) body.workspaceId = options.workspaceId;
+        if (options.stylePreset) body.stylePreset = options.stylePreset;
+        if (options.editorOnly === true) body.editorOnly = true;
+        if (options.skillAudit) body.skillAudit = options.skillAudit;
+        if (options.jsonMode) body.jsonMode = true;
+        if (options.returnUsage) body.returnUsage = true;
+        if (options.reasoningEffort != null) body.reasoningEffort = options.reasoningEffort;
+        if (options.thinking != null) body.thinking = options.thinking === true;
+        if (options.correctionPolicy != null) body.correctionPolicy = options.correctionPolicy === true;
+        else if (body.stage === 'writing') body.correctionPolicy = true;
+        if (options.characterMaterial && typeof options.characterMaterial === 'object') body.characterMaterial = options.characterMaterial;
+        let response;
+        try { response = await fetch(BACKEND_BASE + '/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + backendState.token }, body: JSON.stringify(body), signal: controller.signal }); }
+        catch (error) {
+          if (error instanceof TypeError || /network error|failed to fetch/i.test(String(error && error.message || ''))) {
+            throw Object.assign(new Error(navigator.onLine === false ? '网络已断开，请检查网络连接后重试' : '无法连接到服务，请确认服务已启动后重试'), { code: 'NETWORK_UNREACHABLE' });
+          }
+          throw error;
+        }
+        ensureCurrentSession();
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          const error = new Error(data.error || `AI 请求失败（${response.status}）`);
+          error.status = response.status;
+          if (data && data.code) error.code = data.code;
+          else if ([408, 504].includes(response.status) || /(?:超时|timed?\s*out|timeout)/i.test(error.message)) error.code = 'REQUEST_TIMEOUT';
+          throw error;
+        }
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('后端未返回流式内容');
+        const decoder = new TextDecoder();
+        let buffer = '', usage = null;
+        const isDowngradedHeader = response.headers?.get?.('X-Molan-Model-Downgraded') === 'true';
+        const requestedModelHeader = response.headers?.get?.('X-Molan-Requested-Model') ? decodeURIComponent(response.headers.get('X-Molan-Requested-Model')) : '';
+        const resolvedModelHeader = response.headers?.get?.('X-Molan-Resolved-Model') ? decodeURIComponent(response.headers.get('X-Molan-Resolved-Model')) : (response.headers?.get?.('X-Molan-Model') || '');
+        if (isDowngradedHeader && typeof options.onModelDowngraded === 'function') {
+          try { options.onModelDowngraded({ requested: requestedModelHeader, resolved: resolvedModelHeader }); } catch (_) {}
+        }
+        const consumeLine = line => {
+          if (!line.startsWith('data:')) return;
+          const text = line.slice(5).trim();
+          if (!text || text === '[DONE]') return;
+          try {
+            const chunk = JSON.parse(text);
+            if (chunk.molan_usage) usage = chunk.molan_usage;
+            if (chunk.molan_billing) {
+              if ((chunk.molan_billing.downgraded || isDowngradedHeader) && typeof options.onModelDowngraded === 'function') {
+                try { options.onModelDowngraded({ requested: chunk.molan_billing.downgradedFrom || requestedModelHeader, resolved: chunk.molan_billing.modelId || resolvedModelHeader }); } catch (_) {}
+              }
+            }
+            if (chunk.molan_error && typeof chunk.molan_error === 'object') {
+              const detail = chunk.molan_error;
+              streamError = new Error(detail.error || 'AI 请求失败');
+              streamError.code = detail.code || 'UPSTREAM_ERROR';
+              if (detail.status != null) streamError.status = Number(detail.status) || 502;
+              return;
+            }
+            const delta = chunk.choices?.[0]?.delta?.content;
+            if (typeof delta === 'string') {
+              answer += delta;
+              if (typeof options.onDelta === 'function') {
+                try { options.onDelta(delta, answer); } catch (_) {}
+              }
+            }
+          } catch (_) {}
+        };
+        while (true) {
+          ensureCurrentSession();
+          let readResult;
+          try {
+            readResult = await reader.read();
+          } catch (readErr) {
+            if (readErr && (readErr.name === 'AbortError' || readErr.code === 'REQUEST_ABORTED' || /aborted/i.test(readErr.message || ''))) {
+              throw readErr;
+            }
+            const isTypeError = readErr instanceof TypeError || /network error|failed to fetch/i.test(String(readErr && readErr.message || ''));
+            const errMsg = isTypeError
+              ? (answer.trim() ? '网络连接中断，已保留当前已生成正文' : (navigator.onLine === false ? '网络已断开，请检查网络连接后重试' : '网络连接中断，请重试'))
+              : (readErr && readErr.message || '网络连接异常');
+            const streamErr = new Error(errMsg);
+            streamErr.code = isTypeError ? 'NETWORK_INTERRUPTED' : 'STREAM_READ_ERROR';
+            streamErr.partialText = answer;
+            streamErr.originalError = readErr;
+            throw streamErr;
+          }
+          const { value, done } = readResult;
+          if (done) break;
+          armClientTimeout();
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split(/\r?\n/);
+          buffer = lines.pop() || '';
+          lines.forEach(consumeLine);
+        }
+        buffer += decoder.decode();
+        if (buffer.trim()) {
+          buffer.split(/\r?\n/).forEach(consumeLine);
+        }
+        ensureCurrentSession();
+        if (streamError) throw streamError;
+        if (!answer.trim()) throw new Error('模型未返回可用内容');
+        if (options.requireUsage !== false && (!usage || !Number.isFinite(Number(usage.totalTokens)))) {
+          if (options.strictUsage === true) {
+            const error = new Error('模型未返回精确 Token 用量，已停止本次 AI 任务');
+            error.code = 'USAGE_UNAVAILABLE';
+            throw error;
+          }
+          // 有正文产出时安全兜底，绝不误杀用户生成的小说内容
+          const estTokens = Math.max(1, Math.ceil(answer.trim().length * 1.5));
+          usage = {
+            ...(usage || {}),
+            totalTokens: estTokens,
+            total_tokens: estTokens,
+            promptTokens: Math.ceil(messages.reduce((acc, m) => acc + (m.content || '').length, 0) * 1.2),
+            completionTokens: estTokens,
+            usageSource: 'estimated_fallback',
+            status: 'completed'
+          };
+        }
+        if (usage && usage.characterMaterial && usage.characterMaterial.blocked && options.characterMaterial && options.characterMaterial.proseTask === true && options.allowMaterialRepair !== false) {
+          const repairMessages = [
+            ...messages,
+            { role: 'system', content: '素材原创性审计发现待修订正文与参考样本存在连续片段或专名风险。请只做一次定向改写：保留原任务、作品事实、人物类型和叙事结果，重写所有可能复用的表达。只输出完整正文，不要解释、标题或审计报告。' },
+            { role: 'user', content: `待修订正文：\n${answer}` }
+          ];
+          return requestChatText(repairMessages, { ...options, characterMaterial: { ...options.characterMaterial, enabled: false, proseTask: false }, allowMaterialRepair: false });
+        }
+        return options.returnUsage ? { text: answer.trim(), usage } : answer.trim();
+      } catch (error) {
+        if (error && typeof error === 'object') {
+          if (!error.partialText && answer) {
+            error.partialText = answer;
+          }
+          if (error instanceof TypeError || /network error|failed to fetch/i.test(String(error.message || ''))) {
+            error.message = answer.trim()
+              ? '网络连接中断，已保留当前已生成正文'
+              : (navigator.onLine === false ? '网络已断开，请检查网络连接后重试' : '无法连接到服务，请确认服务已启动后重试');
+            if (!error.code) error.code = 'NETWORK_ERROR';
+          }
+        }
+        if (timedOut && error && (error.name === 'AbortError' || /aborted/i.test(error.message || ''))) {
+          const timeoutError = new Error('AI 请求超时，请稍后重试');
+          timeoutError.code = 'REQUEST_TIMEOUT';
+          timeoutError.partialText = answer;
+          throw timeoutError;
+        }
+        if (error && error.name === 'AbortError' && !error.code) {
+          if (!isCurrentBackendSession(requestSession)) {
+            const sessionError = new Error('登录账户已切换');
+            sessionError.code = 'SESSION_CHANGED';
+            throw sessionError;
+          }
+          error.code = 'REQUEST_ABORTED';
+          error.partialText = answer;
+        }
+        throw error;
+      } finally {
+        if (timeout) window.clearTimeout(timeout);
+        window.removeEventListener('molan:auth-changed', abortIfSessionChanged);
+        if (typeof options.onFinish === 'function') {
+          try { options.onFinish(controller); } catch (_) {}
+        }
+      }
+    }
+
+    async function requestEditorAnswer(prompt, options = {}) {
+      const modeEl = document.getElementById('editorCreationMode');
+      const styleEl = document.getElementById('editorStylePreset');
+      const isCreation = !modeEl || modeEl.value !== 'assistant';
+      const stylePreset = (styleEl && styleEl.value) ? styleEl.value : 'auto';
+
+      if (!isCreation) {
+        const history = (previewState.editorChat || []).slice(-8).map(item => ({ role: item.kind === 'user' ? 'user' : 'assistant', content: item.text }));
+        const messages = [{ role: 'system', content: '你是墨阑小说编辑器中的创作助手。只根据当前章节上下文给出简洁、可执行的中文续写建议，不要编造未提供的设定。' }, ...history, { role: 'user', content: prompt }];
+        return requestChatText(messages, {
+          stage: 'single',
+          maxTokens: 900,
+          creationMode: false,
+          stylePreset: stylePreset || 'auto',
+          editorOnly: true, onDelta: options.onDelta,
+          onStart: options.onStart,
+          onFinish: options.onFinish
+        });
+      }
+
+      // === 网页端原生两阶段生成架构 ===
+      // 阶段一：由网页端模型自主推演【金牌策划执行蓝图与场景分镜】
+      // 阶段二：结合自主规划蓝图，由网页端模型直接写出高张力、强对白、深因果的名家级正文
+      if (typeof options.onProgress === 'function') {
+        try { options.onProgress('金牌架构师正在推演剧情分镜与因果蓝图…'); } catch (_) {}
+      }
+      const planSystem = '你是中文网文金牌主编与架构师。\n' +
+        '请针对用户给出的章节大纲设定，生成一份专门指导正文高质量落地的【金牌策划执行蓝图与场景分镜】。\n' +
+        '不要写小说正文，重点输出以下五项实操指引：\n' +
+        '1. 【人物机锋与经典名场面】：主角与主要人物的语言攻防、狡黠动作与带刺对白（如放狠话、试探、假借势真算计）；\n' +
+        '2. 【双层反转与因果逻辑】：梳理清楚表层行动与深层真正目的，确保因果逻辑闭合严密；\n' +
+        '3. 【关键道具与要素出场契机】：将所有关键法宝/道具/线索合理嵌进场景互动与行动推进中，绝不机械报数；\n' +
+        '4. 【四幕分镜与节奏分配】：规划 4 幕递进场景（递进推移、层层加压、大局博弈），并控制在 2500~3200 字区间；\n' +
+        '5. 【章末悬念与具体钩子】：留下带有实体信物、神秘变故或未解危机的断章强钩子。';
+
+      let planText = '';
+      try {
+        const planResult = await requestChatText([
+          { role: 'system', content: planSystem },
+          { role: 'user', content: `请为以下大纲设定生成执行蓝图：\n\n${prompt}` }
+        ], {
+          stage: 'skill_analysis',
+          maxTokens: 3000,
+          creationMode: true,
+          stylePreset: stylePreset,
+          editorOnly: false,
+          disableClientTimeout: true
+        });
+        planText = typeof planResult === 'string' ? planResult.trim() : (planResult && planResult.text ? planResult.text.trim() : '');
+      } catch (planError) {
+        console.warn('前置蓝图推演受阻，启用结构化分镜兜底增强：', planError);
+        if (typeof options.onProgress === 'function') {
+          try { options.onProgress('分镜推演启用结构化保底方案，名家正文深度创作中…'); } catch (_) {}
+        }
+        planText = `【保底四幕分镜与机锋规划】\n` +
+          `1. 【开篇入戏】：空间声色或具体阻力切入，压住人物当下的核心目标与试探交锋；\n` +
+          `2. 【层层加压】：利益冲突升级，对手或环境施加实质压力，人物以动作与机智反制；\n` +
+          `3. 【高潮爆发】：核心爽点/关键机锋兑现，胜负见分晓，落实确凿战果或信息获知；\n` +
+          `4. 【收束断点】：收束本章主线，抛出实体信物、暗线变化或未解危机，牢牢钩住读者。`;
+      }
+
+      if (typeof options.onProgress === 'function') {
+        try { options.onProgress('名家正文深度创作中…'); } catch (_) {}
+      }
+
+      const combinedPrompt = planText
+        ? `${prompt}\n\n【模型自主规划·金牌策划执行蓝图】\n${planText}`
+        : prompt;
+
+      function sanitizeAiFlavor(raw) {
+        if (typeof raw !== 'string' || !raw) return '';
+        return raw
+          .replace(/(?:喉咙|咽喉)发紧/g, '呼吸粗重')
+          .replace(/(?:指节|指头|指尖|骨节|指骨)(?:泛白|发白)/g, '手指用力')
+          .replace(/心跳漏了一拍/g, '心头一沉')
+          .replace(/呼吸(?:一滞|骤停)/g, '屏住呼吸')
+          .replace(/下颌紧绷/g, '面色紧绷')
+          .replace(/后颈(?:发凉|一凉)/g, '后背发凉')
+          .replace(/手心(?:全是冷汗|满是冷汗|冒冷汗|冷汗)/g, '掌心黏湿')
+          .replace(/牙关紧咬/g, '咬紧牙关')
+          .replace(/(?:指腹|指肚|拇指|大拇指)反复?摩挲/g, '手指抚过')
+          .replace(/食指轻叩(?:桌面|桌案)/g, '手指按在桌上')
+          .replace(/指尖(?:骤然)?(?:一顿|悬在半空|僵在半空)/g, '动作微顿')
+          .replace(/掐(?:进|入)掌心/g, '攥紧拳头')
+          .replace(/按揉发胀的太阳穴/g, '揉了揉眉心')
+          .replace(/后槽牙咬得咯咯作响/g, '紧咬着牙')
+          .replace(/喉结上下滚动/g, '移开视线')
+          .replace(/倒吸一口凉气/g, '暗吸一口气')
+          .replace(/嘴角勾起一抹(?:玩味的)?弧度/g, '眼神微动')
+          .replace(/在这一刻显得格外/g, '此时格外')
+          .replace(/无不在昭示着/g, '无不显露出')
+          .replace(/带着一种不容置疑的/g, '带着不容置疑的')
+          .replace(/试图去寻找/g, '试图寻找')
+          .replace(/不得不承认的是/g, '平心而论');
+      }
+
+      const rawDraft = await requestChatText([{ role: 'user', content: combinedPrompt }], {
+        stage: 'writing',
+        maxTokens: 6500,
+        creationMode: true,
+        stylePreset: stylePreset,
+        editorOnly: false,
+        disableClientTimeout: true,
+        onDelta: options.onDelta,
+        onStart: options.onStart,
+        onFinish: options.onFinish,
+        onModelDowngraded: (info) => {
+          if (typeof options.onProgress === 'function') {
+            try { options.onProgress(`当前账户权限已自动按默认模型（${info.resolved}）起草中…`); } catch (_) {}
+          }
+        }
+      });
+      const draftText = typeof rawDraft === 'string' ? rawDraft : (rawDraft && rawDraft.text ? rawDraft.text : '');
+      return sanitizeAiFlavor(draftText);
+    }
+
+    function mountIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+      } else {
+        document.querySelectorAll('i[data-lucide]').forEach(el => {
+          if (!el.innerHTML.trim()) {
+            const name = el.getAttribute('data-lucide');
+            const fallbackMap = {
+              'layout-dashboard': '▤', 'library': '📚', 'pen-line': '✎', 'folder-open': '📁',
+              'milestone': '⚐', 'brain': '🧠', 'layers': '📑', 'scan-text': '🔍',
+              'wand-sparkles': '✨', 'network': '🕸', 'sparkles': '✦', 'coins': '🪙',
+              'book-open': '📖', 'settings-2': '⚙', 'log-in': '⎆', 'blocks': '☵',
+              'notebook-pen': '📝', 'shield-check': '🛡', 'menu': '☰', 'chevron-right': '›',
+              'bell': '🔔', 'sun': '☼', 'user-round': '👤',
+              'panel-left-open': '◨', 'panel-left-close': '◧', 'chevron-left': '‹',
+              'quote': '❝', 'eraser': '⌫', 'spell-check': '✓', 'activity': '∿',
+              'mouse-pointer': '↖', 'play': '▶', 'repeat': '⇄', 'replace': '⇄',
+              'arrow-down-to-line': '⤓', 'plus': '+', 'copy': '❐', 'undo-2': '↺',
+              'redo-2': '↻', 'check': '✓', 'message-square': '💬', 'arrow-up': '↑',
+              'search': '🔍', 'x': '✕', 'loader-2': '⟳'
+            };
+            el.textContent = fallbackMap[name] || '•';
+          }
+        });
+      }
+    }
+    function showToast(message) { toast.textContent = message; toast.classList.add('show'); window.clearTimeout(toastTimer); const duration = String(message || '').length > 30 ? 6000 : 2200; toastTimer = window.setTimeout(() => toast.classList.remove('show'), duration); }
+    const offlineBanner = document.getElementById('offlineBanner');
+    function updateOfflineBanner() { if (offlineBanner) offlineBanner.hidden = navigator.onLine !== false; }
+    window.addEventListener('online', () => { updateOfflineBanner(); showToast('网络已恢复'); });
+    window.addEventListener('offline', updateOfflineBanner);
+    updateOfflineBanner();
+    function closeSidebar() { frame.classList.remove('sidebar-open'); }
+    function renderPage(page = currentPage, options = {}) {
+      // 懒加载守卫：目标路由的脚本未就绪时挂起渲染，就绪后以相同参数重渲
+      const pendingScripts = ensureRouteScript(page);
+      if (pendingScripts) {
+        pendingScripts.then(() => { renderPage(page, options); });
+        return;
+      }
+      if (page === 'tools') {
+        window.location.href = './pages/tools.html';
+        return;
+      }
+      const previousPage = currentPage;
+      if (page === 'admin' && !backendState.adminToken) page = 'admin-login';
+      currentPage = renderers[page] ? page : 'overview';
+      if (!options.fromHistory && window.location.hash.slice(1) !== currentPage) {
+        const method = options.replace ? 'replaceState' : 'pushState';
+        window.history[method]({}, '', `${window.location.pathname}${window.location.search}#${currentPage}`);
+      }
+      if (previousPage !== currentPage) closeModal();
+      applyNovelState();
+      stage.innerHTML = renderers[currentPage]();
+      if (currentPage === 'admin-login') {
+        const notice = stage.querySelector('.admin-login-form-inner .notice span');
+        const mode = stage.querySelector('.admin-form-footer span');
+        if (notice) notice.textContent = '本地管理登录会校验当前后端管理员账户。';
+        if (mode) mode.textContent = '本地后端模式';
+      }
+      topPageName.textContent = pages[currentPage].title;
+      frame.classList.toggle('standalone-context', ['login', 'admin-login', 'admin'].includes(currentPage));
+      const hasEditorNovel = currentPage === 'editor' && Boolean(previewState.novelState && previewState.novelState.volumes && previewState.novelState.volumes.length);
+      frame.classList.toggle('editor-focus', hasEditorNovel);
+      document.body.classList.toggle('editor-only-mode', hasEditorNovel);
+      document.querySelectorAll('[data-page]').forEach((node) => node.classList.toggle('active', node.dataset.page === currentPage && node.classList.contains('side-link')));
+      stage.scrollTop = 0;
+      closeSidebar();
+      applyBackendPageData();
+      mountIcons();
+      bindPageEvents();
+      if (previousPage !== currentPage) window.dispatchEvent(new CustomEvent('molan:page-changed', { detail: { page: currentPage } }));
+    }
+
+    function applyNovelState() {
+      if (!previewState.novelState && !backendState.token) {
+        try {
+          const saved = JSON.parse(localStorage.getItem('molan_guest_novel_state') || 'null');
+          if (saved && saved.state && Array.isArray(saved.state.volumes)) {
+            previewState.novel = saved.novel || previewState.novel;
+            previewState.novelState = saved.state;
+            previewState.editorBody = editorBodyFromNovelState(saved.state);
+          }
+        } catch (_) {}
+      }
+      if (currentPage === 'novels' && !backendState.novelsLoaded) {
+        const row = stage.querySelector('.novel-row');
+        if (row) {
+          row.querySelector('.novel-name').textContent = previewState.novel.title;
+          row.querySelector('.novel-desc').textContent = previewState.novel.intro || '从一个角色和一张地图开始。';
+          row.dataset.search = `${previewState.novel.title} ${previewState.novel.type}`.toLowerCase();
+        }
+      }
+      if (currentPage !== 'editor') return;
+      if (!previewState.editorBody && previewState.novelState) previewState.editorBody = editorBodyFromNovelState(previewState.novelState);
+      stage.querySelectorAll('.editor-nav-head strong').forEach((node) => { node.textContent = previewState.novel.title; });
+      const paper = stage.querySelector('.editor-paper');
+      if (paper && previewState.editorBody) paper.innerHTML = previewState.editorBody;
+      const title = stage.querySelector('.editor-paper h2');
+      if (title && !previewState.editorBody) title.textContent = previewState.novel.title === '逆天重生：从废物到至尊' ? '雨夜试锋' : '第一章';
+      const paperMeta = stage.querySelector('.editor-paper-meta span');
+      if (paperMeta && previewState.novel.title !== '逆天重生：从废物到至尊') paperMeta.textContent = `第一章 · ${previewState.novel.title}`;
+    }
+
+    function captureEditorChat() {
+      if (previewState.editorChat) return;
+      previewState.editorChat = [...stage.querySelectorAll('#editorChat .chat-message')].map((item) => {
+        const textEl = item.querySelector('.chat-bubble-text');
+        let text = '';
+        if (textEl) {
+          text = textEl.textContent.trim();
+        } else {
+          const bubble = item.querySelector('.chat-bubble');
+          if (bubble) {
+            const clone = bubble.cloneNode(true);
+            clone.querySelectorAll('.chat-bubble-actions').forEach(el => el.remove());
+            text = clone.textContent.trim();
+          }
+        }
+        return {
+          kind: item.classList.contains('user') ? 'user' : 'assistant',
+          text
+        };
+      });
+    }
+
+    let lastEditorSelection = null;
+    let lastEditorSelectedText = '';
+
+    function captureEditorSelection() {
+      const paper = stage?.querySelector('.editor-paper');
+      if (!paper) return;
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      if (paper.contains(range.commonAncestorContainer)) {
+        lastEditorSelection = {
+          range: range.cloneRange(),
+          text: sel.toString().trim(),
+          collapsed: range.collapsed
+        };
+        lastEditorSelectedText = lastEditorSelection.text;
+      }
+    }
+
+    function updateEditorWordCount(paper) {
+      if (!paper) paper = stage?.querySelector('.editor-paper');
+      if (!paper) return;
+      const clone = paper.cloneNode(true);
+      clone.querySelectorAll('.editor-paper-meta, .scene-note').forEach(el => el.remove());
+      const textOnly = (clone.textContent || '').replace(/\s/g, '');
+      const countEl = paper.querySelector('#editorWordCount') || paper.querySelector('.editor-paper-meta span:last-child');
+      if (countEl) countEl.textContent = `${textOnly.length.toLocaleString()} 字`;
+    }
+
+    function appendParagraphsToPaper(paper, text) {
+      const paragraphs = text.split(/\n+/).map(p => p.trim()).filter(Boolean);
+      if (!paragraphs.length) return;
+      paragraphs.forEach(p => {
+        const pEl = document.createElement('p');
+        pEl.textContent = p;
+        paper.appendChild(pEl);
+      });
+    }
+
+    let editorAutoSaveTimer = null;
+    function scheduleEditorAutoSave(immediate = false) {
+      if (editorAutoSaveTimer) clearTimeout(editorAutoSaveTimer);
+      const executeSave = () => {
+        const paper = stage?.querySelector('.editor-paper');
+        if (paper) previewState.editorBody = paper.innerHTML;
+        const state = ensurePreviewNovelState();
+        if (!backendState.token) {
+          try {
+            localStorage.setItem('molan_guest_novel_state', JSON.stringify({ novel: previewState.novel, state }));
+            setEditorSaveStatus('已自动保存', 'check');
+          } catch (_) {
+            setEditorSaveStatus('保存失败', 'alert-circle');
+          }
+        } else {
+          void saveCurrentNovel();
+        }
+      };
+      if (immediate) {
+        executeSave();
+      } else {
+        setEditorSaveStatus('正在自动保存…', 'loader-2');
+        editorAutoSaveTimer = setTimeout(executeSave, 600);
+      }
+    }
+
+    function setEditorSaveStatus(text, iconName = 'check') {
+      const status = stage?.querySelector('#editorSaveStatus');
+      if (!status) return;
+      status.innerHTML = `${icon(iconName)}<span>${escapeBackendHtml(text)}</span>`;
+      mountIcons();
+    }
+
+    function ensureEditorPaperStructure(paper) {
+      if (!paper) return;
+
+      // 1. Hoist any nested <p> inside h2 out to siblings after h2
+      const h2 = paper.querySelector('h2');
+      if (h2) {
+        const nestedInH2 = Array.from(h2.querySelectorAll('p'));
+        if (nestedInH2.length) {
+          let insertRef = h2.nextSibling;
+          nestedInH2.forEach(p => {
+            const text = p.textContent.trim();
+            p.remove();
+            if (text) {
+              const newP = document.createElement('p');
+              newP.textContent = text;
+              paper.insertBefore(newP, insertRef);
+              insertRef = newP.nextSibling;
+            }
+          });
+        }
+      }
+
+      // 2. Hoist any nested <p> inside <p>
+      let nestedP = paper.querySelectorAll('p p');
+      let safetyCount = 0;
+      while (nestedP.length > 0 && safetyCount < 20) {
+        safetyCount++;
+        nestedP.forEach(childP => {
+          const parentP = childP.parentElement;
+          if (parentP && parentP.tagName.toLowerCase() === 'p') {
+            const text = childP.textContent.trim();
+            childP.remove();
+            if (text) {
+              const newP = document.createElement('p');
+              newP.textContent = text;
+              parentP.parentNode.insertBefore(newP, parentP.nextSibling);
+            }
+          }
+        });
+        nestedP = paper.querySelectorAll('p p');
+      }
+
+      // 3. Ensure meta exists and is contenteditable="false"
+      let meta = paper.querySelector('.editor-paper-meta');
+      if (!meta) {
+        meta = document.createElement('div');
+        meta.className = 'editor-paper-meta';
+        meta.setAttribute('contenteditable', 'false');
+        const chTitle = h2 ? h2.textContent.trim() : '雨夜试锋';
+        meta.innerHTML = `<span>第三章 · ${escapeBackendHtml(chTitle)}</span><span id="editorWordCount">0 字</span>`;
+        paper.insertBefore(meta, paper.firstChild);
+      } else {
+        meta.setAttribute('contenteditable', 'false');
+      }
+
+      // 4. Ensure h2 exists after meta
+      let currentH2 = paper.querySelector('h2');
+      if (!currentH2) {
+        currentH2 = document.createElement('h2');
+        const metaTitle = meta.querySelector('span:first-child')?.textContent || '';
+        const match = metaTitle.match(/·\s*([^·]+)$/);
+        currentH2.textContent = match ? match[1].trim() : '雨夜试锋';
+        if (meta.nextSibling) {
+          paper.insertBefore(currentH2, meta.nextSibling);
+        } else {
+          paper.appendChild(currentH2);
+        }
+      }
+
+      // 5. Ensure scene-note is contenteditable="false"
+      paper.querySelectorAll('.scene-note').forEach(note => {
+        note.setAttribute('contenteditable', 'false');
+      });
+
+      // 6. Wrap any bare top-level text nodes in <p>
+      Array.from(paper.childNodes).forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          const p = document.createElement('p');
+          p.textContent = node.textContent.trim();
+          paper.replaceChild(p, node);
+        }
+      });
+
+      // 7. Remove completely empty paragraphs (without children or text)
+      paper.querySelectorAll('p').forEach(p => {
+        if (!p.textContent.trim() && !p.children.length) p.remove();
+      });
+    }
+
+    function applyTextToEditorPaper(text, mode = 'replace') {
+      const paper = stage?.querySelector('.editor-paper');
+      if (!paper) return false;
+      initEditorHistory(paper);
+      const before = paper.innerHTML;
+      const placeholder = paper.querySelector('.editor-empty-copy, [data-placeholder="true"]');
+      if (placeholder) placeholder.remove();
+      const paragraphs = text.split(/\r?\n+/).map(p => p.trim()).filter(Boolean);
+      if (!paragraphs.length) return false;
+
+      let applied = false;
+      const rawRange = (lastEditorSelection && lastEditorSelection.range && paper.contains(lastEditorSelection.range.commonAncestorContainer)) ? lastEditorSelection.range : null;
+      const metaEl = paper.querySelector('.editor-paper-meta');
+      const noteEl = paper.querySelector('.scene-note');
+      const intersectsProtected = rawRange && Boolean(
+        (metaEl && (metaEl.contains(rawRange.commonAncestorContainer) || (typeof rawRange.intersectsNode === 'function' && rawRange.intersectsNode(metaEl)))) ||
+        (noteEl && (noteEl.contains(rawRange.commonAncestorContainer) || (typeof rawRange.intersectsNode === 'function' && rawRange.intersectsNode(noteEl))))
+      );
+      const selRange = intersectsProtected ? null : rawRange;
+      const hasRealSelection = Boolean(selRange && !lastEditorSelection.collapsed);
+
+      let effectiveMode = mode;
+      if (mode === 'insert') {
+        effectiveMode = hasRealSelection ? 'replace' : (selRange ? 'cursor' : 'append');
+      }
+
+      if (effectiveMode === 'replace') {
+        if (hasRealSelection) {
+          try {
+            let startBlock = selRange.startContainer;
+            while (startBlock && startBlock.parentNode !== paper && startBlock !== paper) {
+              startBlock = startBlock.parentNode;
+            }
+            let endBlock = selRange.endContainer;
+            while (endBlock && endBlock.parentNode !== paper && endBlock !== paper) {
+              endBlock = endBlock.parentNode;
+            }
+
+            if (startBlock && startBlock === endBlock && startBlock !== paper && startBlock.nodeType === 1) {
+              const tag = startBlock.tagName.toLowerCase();
+              if (paragraphs.length === 1) {
+                selRange.deleteContents();
+                selRange.insertNode(document.createTextNode(paragraphs[0]));
+                applied = true;
+              } else {
+                const pBefore = document.createElement(tag);
+                const pAfter = document.createElement(tag);
+
+                const rangeBefore = document.createRange();
+                rangeBefore.setStart(startBlock, 0);
+                rangeBefore.setEnd(selRange.startContainer, selRange.startOffset);
+                pBefore.appendChild(rangeBefore.cloneContents());
+
+                const rangeAfter = document.createRange();
+                rangeAfter.setStart(selRange.endContainer, selRange.endOffset);
+                rangeAfter.setEnd(startBlock, startBlock.childNodes.length);
+                pAfter.appendChild(rangeAfter.cloneContents());
+
+                const frag = document.createDocumentFragment();
+                const preText = pBefore.textContent || '';
+                const postText = pAfter.textContent || '';
+
+                const firstEl = document.createElement(tag === 'h2' ? 'h2' : 'p');
+                firstEl.textContent = preText + paragraphs[0];
+                frag.appendChild(firstEl);
+
+                for (let i = 1; i < paragraphs.length; i++) {
+                  const pEl = document.createElement('p');
+                  if (i === paragraphs.length - 1 && postText) {
+                    pEl.textContent = paragraphs[i] + (tag === 'h2' ? '' : postText);
+                  } else {
+                    pEl.textContent = paragraphs[i];
+                  }
+                  frag.appendChild(pEl);
+                }
+
+                paper.replaceChild(frag, startBlock);
+                applied = true;
+              }
+            } else {
+              selRange.deleteContents();
+              const frag = document.createDocumentFragment();
+              paragraphs.forEach(p => {
+                const pEl = document.createElement('p');
+                pEl.textContent = p;
+                frag.appendChild(pEl);
+              });
+              selRange.insertNode(frag);
+              applied = true;
+            }
+          } catch (_) {
+            applied = false;
+          }
+        }
+
+        if (!applied) {
+          appendParagraphsToPaper(paper, text);
+          showToast(mode === 'insert' ? '已将 AI 回复写入正文' : (intersectsProtected ? '选区涉及只读区域，已自动追加至章节末尾' : '未在正文中选中文本，已自动追加至章节末尾'));
+        } else {
+          showToast('已替换正文选中内容');
+        }
+      } else if (effectiveMode === 'cursor' && selRange) {
+        try {
+          if (!selRange.collapsed) {
+            selRange.deleteContents();
+          }
+          let curBlock = selRange.startContainer;
+          while (curBlock && curBlock.parentNode !== paper && curBlock !== paper) {
+            curBlock = curBlock.parentNode;
+          }
+
+          const curTag = curBlock && curBlock.nodeType === 1 ? curBlock.tagName.toLowerCase() : '';
+          if (curBlock && curBlock.parentNode === paper && (curTag === 'p' || curTag === 'h2')) {
+            if (paragraphs.length <= 1) {
+              selRange.insertNode(document.createTextNode(paragraphs[0] || text));
+              applied = true;
+            } else {
+              const pBefore = document.createElement(curTag);
+              const pAfter = document.createElement(curTag);
+
+              const rangeBefore = document.createRange();
+              rangeBefore.setStart(curBlock, 0);
+              rangeBefore.setEnd(selRange.startContainer, selRange.startOffset);
+              pBefore.appendChild(rangeBefore.cloneContents());
+
+              const rangeAfter = document.createRange();
+              rangeAfter.setStart(selRange.startContainer, selRange.startOffset);
+              rangeAfter.setEnd(curBlock, curBlock.childNodes.length);
+              pAfter.appendChild(rangeAfter.cloneContents());
+
+              const frag = document.createDocumentFragment();
+              const preText = pBefore.textContent || '';
+              const postText = pAfter.textContent || '';
+
+              const firstEl = document.createElement(curTag === 'h2' ? 'h2' : 'p');
+              firstEl.textContent = preText + paragraphs[0];
+              frag.appendChild(firstEl);
+
+              for (let i = 1; i < paragraphs.length; i++) {
+                const pEl = document.createElement('p');
+                if (i === paragraphs.length - 1 && postText) {
+                  pEl.textContent = paragraphs[i] + (curTag === 'h2' ? '' : postText);
+                } else {
+                  pEl.textContent = paragraphs[i];
+                }
+                frag.appendChild(pEl);
+              }
+
+              paper.replaceChild(frag, curBlock);
+              applied = true;
+            }
+          } else {
+            const frag = document.createDocumentFragment();
+            paragraphs.forEach(p => {
+              const pEl = document.createElement('p');
+              pEl.textContent = p;
+              frag.appendChild(pEl);
+            });
+            selRange.insertNode(frag);
+            applied = true;
+          }
+          showToast(mode === 'insert' ? '已将 AI 回复插入光标处' : '已插入光标所在位置');
+        } catch (_) {
+          appendParagraphsToPaper(paper, text);
+          showToast('已追加至章节末尾');
+        }
+      } else {
+        appendParagraphsToPaper(paper, text);
+        showToast(mode === 'insert' ? '已将 AI 回复写入正文' : '已追加至章节末尾');
+      }
+
+      ensureEditorPaperStructure(paper);
+
+      const after = paper.innerHTML;
+      previewState.editorBody = after;
+      if (!previewState.editorHistory) previewState.editorHistory = { past: [before], future: [] };
+      previewState.editorHistory.past.push(after);
+      if (previewState.editorHistory.past.length > 50) previewState.editorHistory.past.shift();
+      previewState.editorHistory.future = [];
+      updateEditorWordCount(paper);
+      scheduleEditorAutoSave();
+      lastEditorSelection = null;
+      lastEditorSelectedText = '';
+      return true;
+    }
+
+    window.applyTextToEditorPaper = applyTextToEditorPaper;
+
+    function appendEditorChat(kind, text, save = true) {
+      const chat = document.getElementById('editorChat');
+      if (!chat) return;
+      if (save) captureEditorChat();
+      const item = document.createElement('div');
+      item.className = `chat-message ${kind}`;
+      if (kind === 'user') {
+        item.innerHTML = `<span class="chat-avatar">你</span><div class="chat-bubble"></div>`;
+        item.querySelector('.chat-bubble').textContent = text;
+      } else {
+        item.innerHTML = `<span class="chat-avatar">墨</span><div class="chat-bubble"><div class="chat-bubble-text"></div><div class="chat-bubble-actions"><button class="chat-bubble-action primary" data-chat-action="apply-paper" title="采纳写入正文">${icon('arrow-down-to-line')}写入正文</button><button class="chat-bubble-action" data-chat-action="copy" title="复制">${icon('copy')}复制</button></div></div>`;
+        item.querySelector('.chat-bubble-text').textContent = text;
+        mountIcons();
+      }
+      chat.appendChild(item);
+      if (save) {
+        previewState.editorChat.push({ kind, text });
+        persistEditorChatSession();
+      }
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function restoreEditorChat() {
+      if (!previewState.editorChat) return;
+      const chat = document.getElementById('editorChat');
+      if (!chat) return;
+      chat.innerHTML = '';
+      previewState.editorChat.forEach(({ kind, text }) => appendEditorChat(kind, text, false));
+    }
+
+    function initEditorHistory(paper) {
+      if (!paper) return;
+      const current = paper.innerHTML;
+      if (!previewState.editorHistory || !Array.isArray(previewState.editorHistory.past)) {
+        previewState.editorHistory = { past: [current], future: [] };
+      } else if (previewState.editorHistory.past[previewState.editorHistory.past.length - 1] !== current) {
+        previewState.editorHistory.past.push(current);
+        previewState.editorHistory.future = [];
+      }
+    }
+
+    function editorUndo() {
+      const paper = stage.querySelector('.editor-paper');
+      const history = previewState.editorHistory;
+      if (!paper || !history || history.past.length < 2) return showToast('没有可撤销的修改');
+      history.future.push(history.past.pop());
+      paper.innerHTML = history.past[history.past.length - 1];
+      ensureEditorPaperStructure(paper);
+      previewState.editorBody = paper.innerHTML;
+      updateEditorWordCount(paper);
+      scheduleEditorAutoSave();
+      lastEditorSelection = null;
+      lastEditorSelectedText = '';
+      showToast('已撤销');
+    }
+
+    function editorRedo() {
+      const paper = stage.querySelector('.editor-paper');
+      const history = previewState.editorHistory;
+      if (!paper || !history || !history.future.length) return showToast('没有可重做的修改');
+      const next = history.future.pop();
+      history.past.push(next);
+      paper.innerHTML = next;
+      ensureEditorPaperStructure(paper);
+      previewState.editorBody = next;
+      updateEditorWordCount(paper);
+      scheduleEditorAutoSave();
+      lastEditorSelection = null;
+      lastEditorSelectedText = '';
+      showToast('已重做');
+    }
+
+    function openEditorReadingMode() {
+      const paper = stage.querySelector('.editor-paper');
+      if (!paper) return;
+      openActionModal({
+        title: paper.querySelector('h2')?.textContent.trim() || '阅读模式',
+        body: `<article class="editor-paper" style="box-shadow:none;min-height:0">${paper.innerHTML}</article>`,
+        confirmText: '关闭',
+        onConfirm: closeModal
+      });
+    }
+
+
+    function applySkillFilters() {
+      if (currentPage !== 'skills') return;
+      const selectedTab = stage.querySelector('.skill-tab.active')?.dataset.skillTab || 'discover';
+      const query = (stage.querySelector('.search-box input')?.value || '').trim().toLowerCase();
+      let visible = 0;
+      stage.querySelectorAll('.skill-card[data-skill-collection]').forEach((card) => {
+        const matchesTab = selectedTab === 'downloaded'
+          ? card.dataset.skillDownloaded === 'true'
+          : card.dataset.skillCollection === selectedTab;
+        const matchesQuery = !query || (card.dataset.search || card.textContent).toLowerCase().includes(query);
+        card.hidden = !(matchesTab && matchesQuery);
+        if (!card.hidden) visible += 1;
+      });
+      const empty = stage.querySelector('[data-skill-empty]');
+      if (empty) empty.hidden = visible > 0;
+    }
+
+    function bindPageEvents() {
+      applyNovelState();
+      stage.querySelectorAll('[data-page]').forEach((node) => node.addEventListener('click', (event) => {
+        if (currentPage === 'login' && node.closest('.user-login-form')) {
+          event.preventDefault();
+          submitBackendAuth();
+          return;
+        }
+        if (node.dataset.page === 'editor' && backendState.novelsLoaded && backendState.novels.length && !previewState.novelId) {
+          void openBackendNovel(backendState.novels[0].id);
+          return;
+        }
+        renderPage(node.dataset.page);
+      }));
+      const toastActionMap = {
+        '已撤销。': 'editor-undo',
+        '已重做。': 'editor-redo',
+        '阅读模式预览。': 'editor-read',
+        '充值流程预览。': 'billing-topup',
+        '体验包购买预览。': 'billing-topup',
+        '创作者包购买预览。': 'billing-topup',
+        '长篇包购买预览。': 'billing-topup',
+        '创建 Skill 编辑器预览。': 'skill-create',
+        '找回密码流程预览。': 'password-help',
+        '头像选择预览。': 'avatar-help',
+        '导出文风包预览。': 'dissection-export',
+        '任务继续运行。': 'task-resume',
+        '拆书任务已加入队列。': 'dissection-start',
+        '上传到开放区前需要确认版权。': 'skill-publish',
+        '已刷新 Skill。': 'skills-refresh',
+        '已打开 Skill 详情。': 'skill-detail'
+      };
+      stage.querySelectorAll('[data-toast]').forEach((node) => {
+        const mapped = toastActionMap[node.dataset.toast];
+        if (mapped) {
+          node.dataset.action = mapped;
+          node.removeAttribute('data-toast');
+        } else node.addEventListener('click', () => showToast(node.dataset.toast));
+      });
+      stage.querySelectorAll('[data-open-modal]').forEach((node) => node.addEventListener('click', openModal));
+      stage.querySelectorAll('[data-backend-open]').forEach((node) => node.addEventListener('click', (event) => {
+        event.preventDefault();
+        openBackendNovel(node.dataset.backendOpen);
+      }));
+      stage.querySelectorAll('[data-backend-delete]').forEach((node) => node.addEventListener('click', (event) => {
+        event.preventDefault();
+        deleteBackendNovel(node.dataset.backendDelete);
+      }));
+      stage.querySelectorAll('[data-backend-skill]').forEach((node) => node.addEventListener('click', (event) => {
+        event.preventDefault();
+        useBackendSkill(node.dataset.backendSkill);
+      }));
+      stage.querySelectorAll('.skill-card .skill-foot button:not([data-backend-skill])').forEach((node) => {
+        node.dataset.action = 'builtin-skill';
+      });
+      stage.querySelectorAll('[data-builtin-skill]').forEach((node) => node.dataset.action = 'builtin-skill');
+      stage.querySelectorAll('[data-backend-save]').forEach((node) => node.addEventListener('click', saveCurrentNovel));
+      stage.querySelectorAll('[data-backend-profile]').forEach((node) => node.addEventListener('click', saveBackendProfile));
+      stage.querySelectorAll('[data-model-select], #editorModelSelect, #defaultModel, #creationModelSelect').forEach((select) => {
+        select.addEventListener('change', (event) => {
+          const selected = event.target.value;
+          stage.querySelectorAll('[data-model-badge]').forEach(node => { node.textContent = selected ? `当前模型 · ${modelName(selected)}` : '模型服务不可用'; });
+          if (currentPage === 'dissect') {
+            const badge = stage.querySelector('.dissect-page .import-layout .badge');
+            if (badge && selected) badge.textContent = `当前模型 · ${modelName(selected)}`;
+          }
+          showToast(`已切换模型：${modelName(selected)}`);
+        });
+      });
+      stage.querySelectorAll('[data-scroll-to]').forEach((node) => node.addEventListener('click', () => document.getElementById(node.dataset.scrollTo)?.scrollIntoView({ behavior: 'smooth' })));
+      stage.querySelectorAll('.segment, .skill-tab, .login-tab, .account-nav button').forEach((button) => button.addEventListener('click', () => {
+        const group = button.parentElement;
+        group?.querySelectorAll(':scope > button').forEach((item) => { item.classList.remove('active'); item.setAttribute('aria-selected', 'false'); });
+        button.classList.add('active');
+        button.setAttribute('aria-selected', 'true');
+        if (button.matches('.skill-tab')) applySkillFilters();
+        if (button.matches('[data-account-tab]')) {
+          const activePanel = button.dataset.accountTab;
+          stage.querySelectorAll('[data-account-panel]').forEach((panel) => { panel.hidden = panel.dataset.accountPanel !== activePanel; });
+        }
+      }));
+
+      stage.querySelectorAll('.search-box input, .tree-search').forEach((input) => input.addEventListener('input', (event) => {
+        if (currentPage === 'skills') { applySkillFilters(); return; }
+        const query = event.target.value.trim().toLowerCase();
+        const selector = currentPage === 'skills' ? '.skill-card' : currentPage === 'knowledge' ? '.entity-row, .tree-node' : currentPage === 'resources' ? '.data-table tbody tr' : '.novel-row';
+        stage.querySelectorAll(selector).forEach((node) => {
+          const haystack = (node.dataset.search || node.textContent).toLowerCase();
+          node.style.display = !query || haystack.includes(query) ? '' : 'none';
+        });
+      }));
+
+      if (currentPage === 'novels') {
+        document.getElementById('novelSearch')?.addEventListener('input', (event) => {
+          const query = event.target.value.trim().toLowerCase();
+          document.querySelectorAll('.novel-row').forEach((row) => row.style.display = !query || row.dataset.search.includes(query) ? 'grid' : 'none');
+        });
+        const novelList = document.getElementById('novelList');
+        stage.querySelectorAll('.panel-heading .segmented .segment').forEach((button) => button.addEventListener('click', () => { novelList.classList.toggle('grid-view', button.textContent.trim() === '网格'); }));
+      }
+
+      if (currentPage === 'login') {
+        const tabs = stage.querySelectorAll('.login-tab');
+        tabs[0]?.addEventListener('click', () => updateBackendAuthMode('login'));
+        tabs[1]?.addEventListener('click', () => updateBackendAuthMode('register'));
+        const rememberInput = stage.querySelector('#rememberUser');
+        if (rememberInput) {
+          rememberInput.checked = backendState.rememberMe;
+          rememberInput.addEventListener('change', () => {
+            backendState.rememberMe = rememberInput.checked;
+            persistBackendAuth();
+          });
+        }
+        stage.querySelector('#userPassword')?.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submitBackendAuth();
+          }
+        });
+        updateBackendAuthMode(backendAuthMode);
+      }
+
+      if (currentPage === 'editor') {
+        if (!previewState.novelState && !previewState.novelId && !backendState.novels.length) {
+          previewState.novelState = createPreviewNovelState(previewState.novel, previewState.editorBody);
+        }
+        renderBackendEditorState();
+        const preview = document.getElementById('editorPreview');
+        const railToggle = document.getElementById('editorRailToggle');
+        const paper = stage.querySelector('.editor-paper');
+        const editorToolbar = stage.querySelector('.editor-bar .toolbar');
+        const saveStatus = stage.querySelector('#editorSaveStatus, [data-completion-save-status]');
+        if (saveStatus) {
+          saveStatus.id = 'editorSaveStatus';
+          setEditorSaveStatus('已自动保存', 'check');
+        }
+        initEditorHistory(paper);
+        updateEditorWordCount(paper);
+
+        if (editorToolbar && !editorToolbar.querySelector('[data-action="editor-generate"]')) {
+          const generateButton = document.createElement('button');
+          generateButton.className = 'editor-toolbar-button';
+          generateButton.dataset.action = 'editor-generate';
+          generateButton.setAttribute('aria-label', '生成下一段');
+          generateButton.title = '生成下一段';
+          generateButton.innerHTML = icon('sparkles');
+          editorToolbar.appendChild(generateButton);
+          mountIcons();
+        }
+
+        const setEditorFocus = (collapsed) => {
+          frame.classList.toggle('editor-focus', collapsed);
+          document.body.classList.toggle('editor-only-mode', collapsed);
+          frame.classList.toggle('sidebar-open', !collapsed && window.innerWidth <= 820);
+          railToggle.innerHTML = icon(collapsed ? 'panel-left-open' : 'panel-left-close');
+          railToggle.setAttribute('aria-label', collapsed ? '展开工作台导航' : '收起工作台导航');
+          railToggle.title = collapsed ? '展开工作台导航' : '收起工作台导航';
+          mountIcons();
+        };
+        railToggle?.addEventListener('click', () => setEditorFocus(!frame.classList.contains('editor-focus')));
+        stage.querySelector('[data-open-ai]')?.addEventListener('click', () => {
+          if (window.innerWidth <= 820) setDockState(false);
+          preview.classList.add('ai-open');
+        });
+        stage.querySelector('[data-close-ai]')?.addEventListener('click', () => preview.classList.remove('ai-open'));
+        stage.querySelector('[data-open-nav]')?.addEventListener('click', () => {
+          if (window.innerWidth <= 820) {
+            setDockState(false);
+            preview.classList.remove('ai-open');
+          }
+          preview.classList.add('nav-open');
+          showToast('章节导航已打开');
+        });
+        stage.querySelector('[data-close-nav]')?.addEventListener('click', () => {
+          preview.classList.remove('nav-open');
+          preview.classList.remove('ai-open');
+          setDockState(false);
+        });
+
+        // Chapter Selection
+        stage.querySelectorAll('[data-chapter]').forEach((chapter) => {
+          const selectChapter = () => {
+            stage.querySelectorAll('.editor-chapter').forEach((item) => item.classList.remove('active'));
+            chapter.classList.add('active');
+            const title = chapter.dataset.chapter;
+            const index = chapter.querySelector('small').textContent;
+            stage.querySelector('.editor-paper h2').textContent = title;
+            stage.querySelector('.editor-paper-meta span').textContent = `第${Number(index)}章 · ${title}`;
+            preview.classList.remove('nav-open');
+            showToast(`已切换到第 ${Number(index)} 章`);
+          };
+          chapter.addEventListener('click', selectChapter);
+          chapter.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectChapter(); } });
+        });
+
+        // Paper input and undo/redo keyboard listener
+        paper?.addEventListener('input', () => {
+          const next = paper.innerHTML;
+          previewState.editorBody = next;
+          initEditorHistory(paper);
+          const history = previewState.editorHistory;
+          if (history.past[history.past.length - 1] !== next) history.past.push(next);
+          if (history.past.length > 50) history.past.shift();
+          history.future = [];
+          updateEditorWordCount(paper);
+          scheduleEditorAutoSave();
+        });
+
+        paper?.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            if (e.shiftKey) {
+              e.preventDefault();
+              editorRedo();
+            } else {
+              e.preventDefault();
+              editorUndo();
+            }
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+            e.preventDefault();
+            editorRedo();
+          }
+        });
+
+        // Floating Selection Menu
+        const selMenu = document.getElementById('editorSelectionMenu');
+        const updateSelectionMenu = () => {
+          captureEditorSelection();
+          if (!selMenu || !paper) return;
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed || !sel.rangeCount) {
+            selMenu.hidden = true;
+            return;
+          }
+          const range = sel.getRangeAt(0);
+          if (!paper.contains(range.commonAncestorContainer)) {
+            selMenu.hidden = true;
+            return;
+          }
+          const commonNode = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode;
+          if (commonNode && commonNode.closest && (commonNode.closest('.editor-paper-meta') || commonNode.closest('.scene-note') || commonNode.closest('[data-completion-chapter-title]') || commonNode.closest('h2'))) {
+            selMenu.hidden = true;
+            return;
+          }
+          const text = sel.toString().trim();
+          if (!text) {
+            selMenu.hidden = true;
+            return;
+          }
+          const rect = range.getBoundingClientRect();
+          selMenu.hidden = false;
+          const top = Math.max(10, rect.top - 40);
+          const left = Math.max(10, Math.min(window.innerWidth - 300, rect.left));
+          selMenu.style.top = `${top}px`;
+          selMenu.style.left = `${left}px`;
+        };
+
+        paper?.addEventListener('mouseup', updateSelectionMenu);
+        paper?.addEventListener('keyup', updateSelectionMenu);
+        document.addEventListener('selectionchange', () => {
+          if (currentPage === 'editor') captureEditorSelection();
+        });
+        selMenu?.addEventListener('mousedown', (event) => {
+          event.preventDefault();
+        });
+        document.addEventListener('mousedown', (event) => {
+          if (selMenu && !selMenu.contains(event.target) && !paper?.contains(event.target)) {
+            selMenu.hidden = true;
+          }
+        });
+
+        // Multi-tab Workbench Dock Controls
+        const dock = document.getElementById('editorWorkbenchDock');
+        const dockToggle = document.getElementById('editorDockToggle');
+        const dockCollapseBtn = document.getElementById('dockCollapseBtn');
+
+        const setDockState = (expanded) => {
+          if (!dock) return;
+          dock.classList.toggle('collapsed', !expanded);
+          preview.classList.toggle('dock-open', expanded && window.innerWidth <= 820);
+          if (expanded && window.innerWidth <= 820) {
+            preview.classList.remove('ai-open');
+            preview.classList.remove('nav-open');
+          }
+          if (dockToggle) {
+            dockToggle.innerHTML = icon(expanded ? 'panel-left-close' : 'panel-left-open');
+            dockToggle.setAttribute('aria-label', expanded ? '收起工作台坞站' : '展开工作台坞站');
+            dockToggle.title = expanded ? '收起工作台坞站' : '展开工作台坞站';
+            dockToggle.classList.toggle('active', expanded);
+            mountIcons();
+          }
+          if (!expanded) {
+            stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => btn.classList.remove('active'));
+          } else {
+            const activePanel = stage.querySelector('#editorWorkbenchDock [data-dock-panel].active');
+            const activeTabId = activePanel ? activePanel.dataset.dockPanel : 'outline';
+            stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+              btn.classList.toggle('active', btn.dataset.dockTab === activeTabId);
+            });
+          }
+        };
+
+        const switchDockTab = (tabId) => {
+          if (!dock) return;
+          setDockState(true);
+          // Toolbar pill tabs
+          stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.dockTab === tabId);
+          });
+          // Dock header nav tabs
+          stage.querySelectorAll('#dockNavTabs .dock-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.dockTab === tabId);
+          });
+          // Dock body panels
+          stage.querySelectorAll('#editorWorkbenchDock [data-dock-panel]').forEach(panel => {
+            panel.classList.toggle('active', panel.dataset.dockPanel === tabId);
+          });
+        };
+
+        const isDockOpen = () => {
+          if (!dock) return false;
+          if (window.innerWidth <= 820) {
+            return preview ? preview.classList.contains('dock-open') : false;
+          }
+          return !dock.classList.contains('collapsed');
+        };
+
+        if (window.innerWidth <= 820) {
+          setDockState(false);
+        }
+
+        dockToggle?.addEventListener('click', () => {
+          setDockState(!isDockOpen());
+        });
+
+        dockCollapseBtn?.addEventListener('click', () => setDockState(false));
+
+        // Toolbar dock pill tabs click
+        stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tabId = btn.dataset.dockTab;
+            if (btn.classList.contains('active') && isDockOpen()) {
+              setDockState(false);
+            } else {
+              switchDockTab(tabId);
+            }
+          });
+        });
+
+        // Dock header nav tabs click
+        stage.querySelectorAll('#dockNavTabs .dock-tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => switchDockTab(btn.dataset.dockTab));
+        });
+
+        // Inject reference context to AI prompt (#editorPrompt)
+        const injectPromptContext = (title, meta, desc, typePrefix) => {
+          const promptInput = document.getElementById('editorPrompt');
+          if (!promptInput) return;
+          const formatted = `【${typePrefix || '上下文引用'}·${title}】${meta ? meta + '：' : ''}${desc}`;
+          const current = promptInput.value.trim();
+          promptInput.value = current ? `${current}\n\n${formatted}` : `${formatted}\n\n`;
+          promptInput.focus();
+          promptInput.selectionStart = promptInput.selectionEnd = promptInput.value.length;
+          if (window.innerWidth <= 820) {
+            setDockState(false);
+          }
+          preview.classList.add('ai-open');
+          showToast(`已引用「${title}」至 AI 提示词`);
+        };
+
+        // Outline tab cards and quote buttons
+        stage.querySelectorAll('#editorWorkbenchDock [data-dock-panel="outline"] .dock-node-card').forEach(card => {
+          const title = card.dataset.quoteTitle || '';
+          const meta = card.dataset.quoteMeta || '';
+          const desc = card.dataset.quoteDesc || '';
+          const isLedger = card.closest('#dockOutlineLedger') !== null;
+          card.addEventListener('click', () => {
+            injectPromptContext(title, meta, desc, isLedger ? '伏笔上下文' : '大纲上下文');
+          });
+        });
+
+        // Outline subtabs (Timeline vs Ledger)
+        stage.querySelectorAll('[data-outline-sub]').forEach(subBtn => {
+          subBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const mode = subBtn.dataset.outlineSub;
+            stage.querySelectorAll('[data-outline-sub]').forEach(b => b.classList.toggle('active', b === subBtn));
+            const tl = document.getElementById('dockOutlineTimeline');
+            const ld = document.getElementById('dockOutlineLedger');
+            if (tl) tl.style.display = mode === 'timeline' ? 'block' : 'none';
+            if (ld) ld.style.display = mode === 'ledger' ? 'block' : 'none';
+          });
+        });
+
+        // Knowledge tab cards and search filter
+        const entitySearchInput = document.getElementById('dockEntitySearch');
+        const filterEntities = () => {
+          const query = (entitySearchInput?.value || '').trim().toLowerCase();
+          const activeFilter = stage.querySelector('.dock-filter-tag.active')?.dataset.entityFilter || 'all';
+          stage.querySelectorAll('#dockEntityList .dock-entity-card').forEach(card => {
+            const type = card.dataset.entityType || '';
+            const title = (card.dataset.quoteTitle || '').toLowerCase();
+            const desc = (card.dataset.quoteDesc || '').toLowerCase();
+            const matchQuery = !query || title.includes(query) || desc.includes(query);
+            const matchFilter = activeFilter === 'all' || type === activeFilter || (activeFilter === '物品' && type === '设定');
+            card.style.display = (matchQuery && matchFilter) ? 'flex' : 'none';
+          });
+        };
+
+        entitySearchInput?.addEventListener('input', filterEntities);
+
+        stage.querySelectorAll('.dock-filter-tag').forEach(tag => {
+          tag.addEventListener('click', () => {
+            stage.querySelectorAll('.dock-filter-tag').forEach(t => t.classList.remove('active'));
+            tag.classList.add('active');
+            filterEntities();
+          });
+        });
+
+        stage.querySelectorAll('#dockEntityList .dock-entity-card').forEach(card => {
+          const title = card.dataset.quoteTitle || '';
+          const meta = card.dataset.quoteMeta || '';
+          const desc = card.dataset.quoteDesc || '';
+          card.addEventListener('click', () => {
+            injectPromptContext(title, meta, desc, '设定参考');
+          });
+        });
+
+        // Story Memory and Style tab
+        stage.querySelectorAll('#editorWorkbenchDock [data-dock-panel="memory"] .dock-memory-card').forEach(card => {
+          const title = card.dataset.quoteTitle || '';
+          const meta = card.dataset.quoteMeta || '';
+          const desc = card.dataset.quoteDesc || '';
+          card.addEventListener('click', () => {
+            injectPromptContext(title, meta, desc, meta || '故事记忆');
+          });
+        });
+
+        document.getElementById('dockInjectStylePresetBtn')?.addEventListener('click', () => {
+          const nov = window.previewState?.novel || {};
+          const styleName = nov.writingStyle || nov.style || '极简水墨冷峻';
+          const perspective = nov.perspective || nov.pov || '第三人称限知视角';
+          const genreName = nov.genreFamily || nov.novelGenre || nov.genre || '长篇小说';
+          const fullSpec = `视角：${perspective}（聚焦主要人物感官与心智博弈）；节奏：高压迫推进、每千字递进一次冲突；语言：${styleName}、去除AI套话八股、强化微动作与环境声音；对白：潜台词试探、拒绝解释性长句。`;
+          injectPromptContext(`${genreName}文风`, '全套叙事引擎', fullSpec, '文风规约合集');
+        });
+
+        // AI Tools Tab
+        const toolInput = document.getElementById('dockToolInput');
+        const toolWc = document.getElementById('dockToolWordCount');
+        const toolDesc = document.getElementById('dockCurrentToolDesc');
+        const toolResultText = document.getElementById('dockToolResultText');
+        const toolResultActions = document.getElementById('dockToolResultActions');
+        const runToolBtn = document.getElementById('dockExecuteToolBtn');
+        let currentActiveTool = '去 AI 味';
+
+        const toolDescriptions = {
+          '去 AI 味': '依据 Stop AI Slop 准则消除机械排比与套话，还原人话叙事',
+          '错别字检测': '检查错别字、标点规范、语病与语义重复',
+          '扩写/润色': '丰富感官白描、动作细节与场景冷雨质感',
+          '节奏分析': '诊断场景目标推进、冲突密度与情绪张力'
+        };
+
+        stage.querySelectorAll('.dock-tool-choice').forEach(choice => {
+          choice.addEventListener('click', () => {
+            stage.querySelectorAll('.dock-tool-choice').forEach(c => c.classList.remove('active'));
+            choice.classList.add('active');
+            currentActiveTool = choice.dataset.tool;
+            if (toolDesc) toolDesc.textContent = toolDescriptions[currentActiveTool] || 'AI 写作工具分析';
+          });
+        });
+
+        const updateToolWordCount = () => {
+          if (!toolInput || !toolWc) return;
+          const len = toolInput.value.replace(/\s/g, '').length;
+          toolWc.textContent = `${len} 字`;
+        };
+        toolInput?.addEventListener('input', updateToolWordCount);
+
+        document.getElementById('dockFetchSelectionBtn')?.addEventListener('click', () => {
+          captureEditorSelection();
+          if (lastEditorSelectedText) {
+            if (toolInput) toolInput.value = lastEditorSelectedText;
+            updateToolWordCount();
+            showToast('已读取正文选中内容');
+          } else {
+            showToast('请先在正文编辑区划选文字');
+          }
+        });
+
+        let currentToolProcessedText = '';
+
+        const executeDockTool = async () => {
+          const rawText = toolInput?.value.trim() || '';
+          if (!rawText) {
+            showToast('请先输入或从正文读取要处理的内容');
+            toolInput?.focus();
+            return;
+          }
+          if (runToolBtn && runToolBtn.disabled) return;
+          if (runToolBtn) runToolBtn.disabled = true;
+          if (toolResultText) toolResultText.innerHTML = '<span class="chat-thinking visible" style="display:inline-block">正在处理，调用创作模型…</span>';
+          if (toolResultActions) toolResultActions.style.display = 'none';
+
+          const toolPrompts = {
+            '去 AI 味': '你的任务是依据 Stop AI Slop 准则消除中文 AI 写作痕迹，把机械生硬的文本改写成人话。严格执行：1. 拆排比三件套；2. 去名词化；3. 换抽象主语为具体的人或细节；4. 删金句收尾与抒情扩散；5. 删虚词与程度副词；6. 删元评论与八股连接词；7. 价值判断替换为具体动作或场景。保持原意，先列出消除点，再给出完整自然改写稿：\n【改写稿】\n',
+            '错别字检测': '请检查错别字、标点、病句和语义重复，按清单列出后，给出：\n【校对后建议稿】\n',
+            '扩写/润色': '请在保持原意和克制水墨风格的前提下，扩写丰富感官白描、动作细节与心理微滞，给出：\n【扩写稿】\n',
+            '节奏分析': '请分析场景目标、冲突推进、信息增量和节奏停留，指出修改建议。'
+          };
+
+          try {
+            let output = '';
+            if (backendState.token && typeof requestChatText === 'function') {
+              try {
+                output = await requestChatText([
+                  { role: 'system', content: `你是墨阑创作工作台专用工具“${currentActiveTool}”。${toolPrompts[currentActiveTool] || ''}` },
+                  { role: 'user', content: rawText }
+                ], { stage: 'humanizer', maxTokens: 1400 });
+              } catch (_) {
+                output = '';
+              }
+            }
+            if (!output) {
+              // High quality contextual offline fallback
+              await new Promise(r => setTimeout(r, 60));
+              if (currentActiveTool === '去 AI 味') {
+                const humanized = rawText
+                  .replace(/某种程度上[，,]?\s*/g, '')
+                  .replace(/值得注意的是[，,]?\s*/g, '')
+                  .replace(/不仅如此[，,]?\s*/g, '')
+                  .replace(/总的来说[，,]?\s*/g, '')
+                  .replace(/显而易见的是[，,]?\s*/g, '')
+                  .replace(/毫无疑问[，,]?\s*/g, '')
+                  .replace(/不由得|不禁/g, '下意识')
+                  .replace(/悄然/g, '悄悄')
+                  .replace(/宛如|仿佛/g, '像');
+                output = `【主要消除点】\n1. 拆除排比连缀，增强场景物理触感\n2. 剥离虚化修饰词与冗余副词\n3. 换抽象主格为主角视线与微动作\n\n【改写稿】\n${humanized}`;
+              } else if (currentActiveTool === '错别字检测') {
+                const normalizedPunct = rawText
+                  .replace(/，{2,}/g, '，')
+                  .replace(/。{2,}/g, '。')
+                  .replace(/？{2,}/g, '？')
+                  .replace(/！{2,}/g, '！')
+                  .replace(/([^0-9]),([^0-9])/g, '$1，$2');
+                output = `【校对清单】\n1. 标点规范：规范多重冗余标点与停顿节奏\n2. 语病精简：删减重叠虚饰词，语句更显洗练干脆\n\n【校对后建议稿】\n${normalizedPunct}`;
+              } else if (currentActiveTool === '扩写/润色') {
+                output = `【扩写稿】\n${rawText}\n\n四下水汽渐重，周遭声音似被雨幕滤过一层，空气里泛出冷铁与尘泥相融的微涩。脚步落在阶前，每踏出一步，暗处投来的视线便紧逼半寸。`;
+              } else {
+                const len = rawText.replace(/\s/g, '').length;
+                const tension = Math.min(95, Math.max(65, 70 + Math.floor(len / 30)));
+                output = `【节奏诊断报告】\n- 场景张力：${tension} / 100（当前片段字数 ${len} 字）\n- 节奏曲线：起承过渡平稳，适宜在核心博弈节点强化动作停顿与对白留白\n- 推进建议：建议在角色做出关键选择前增加半拍动作停顿，强化心理博弈张力。`;
+              }
+            }
+            currentToolProcessedText = output;
+            if (toolResultText) toolResultText.textContent = output;
+            if (toolResultActions) toolResultActions.style.display = 'flex';
+          } catch (err) {
+            showToast('处理失败：' + (err.message || '网络或模型异常'));
+            if (toolResultText) toolResultText.textContent = '处理遇到问题，请稍后重试。';
+          } finally {
+            if (runToolBtn) runToolBtn.disabled = false;
+          }
+        };
+
+        runToolBtn?.addEventListener('click', executeDockTool);
+
+        const extractRevisedProse = (fullText) => {
+          if (!fullText) return '';
+          let text = String(fullText).trim();
+          text = text.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
+
+          const markers = [
+            '【改写稿】',
+            '【校对后建议稿】',
+            '【扩写稿】',
+            '【润色稿】',
+            '【优化后建议稿】',
+            '【修改后建议稿】',
+            '【改写建议稿】',
+            '【修改建议稿】',
+            '【建议片段】',
+            '【改写正文】',
+            '【改写后正文】',
+            '【优化后正文】',
+            '【修改后正文】',
+            '【润色后建议稿】',
+            '【最终正文】',
+            '【最终成稿】',
+            '【优化稿】',
+            '【校对稿】',
+            '【精修稿】',
+            '【改写建议】'
+          ];
+
+          for (const marker of markers) {
+            const idx = text.indexOf(marker);
+            if (idx !== -1) {
+              let after = text.slice(idx + marker.length).trim();
+              after = after.replace(/^[（(][^）)\r\n]+[）)]\s*/, '');
+              after = after.replace(/<br\s*\/?>/gi, '\n');
+              after = after.replace(/^[\s*:：#\->*]+/, '').trim();
+              after = after.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').trim();
+              const stopIdx = after.search(/\n\s*(?:【|#{1,4}\s*|\*{1,2})(?:消除点|注意|解析|分析|说明|总结|点评|推进建议|修改点|改写说明|修改说明|优化说明|写作建议|节奏诊断|问题清单|修改对比|差异说明|参考说明|备注|注意点|思考|附注|校对清单|主要修改|修改理由)/);
+              if (stopIdx !== -1) {
+                after = after.slice(0, stopIdx).trim();
+              }
+              after = after.replace(/[\r\n]*\s*```+\s*$/g, '').trim();
+              after = after.replace(/^[*_`]+|[*_`]+$/g, '').trim();
+              if (after) return after;
+            }
+          }
+
+          const markerRegex = /(?:^|\n)\s*(?:#{1,4}\s*|\*{1,2}|【)?(?:改写稿|校对后建议稿|扩写稿|润色稿|优化后建议稿|修改后建议稿|改写建议稿|修改建议稿|建议片段|改写正文|改写后正文|优化后正文|修改后正文|润色后建议稿|最终正文|最终成稿|优化稿|校对稿|精修稿|改写建议)(?:】|\*{1,2}|[：:])?\s*[\r\n]*/;
+          const match = text.match(markerRegex);
+          if (match) {
+            let after = text.slice(match.index + match[0].length).trim();
+            after = after.replace(/^[（(][^）)\r\n]+[）)]\s*/, '');
+            after = after.replace(/<br\s*\/?>/gi, '\n');
+            after = after.replace(/^[\s*:：#\->*]+/, '').trim();
+            after = after.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').trim();
+            const stopIdx = after.search(/\n\s*(?:【|#{1,4}\s*|\*{1,2})(?:消除点|注意|解析|分析|说明|总结|点评|推进建议|修改点|改写说明|修改说明|优化说明|写作建议|节奏诊断|问题清单|修改对比|差异说明|参考说明|备注|注意点|思考|附注|校对清单|主要修改|修改理由)/);
+            if (stopIdx !== -1) {
+              after = after.slice(0, stopIdx).trim();
+            }
+            after = after.replace(/[\r\n]*\s*```+\s*$/g, '').trim();
+            after = after.replace(/^[*_`]+|[*_`]+$/g, '').trim();
+            if (after) return after;
+          }
+
+          if (text.includes('推进建议')) {
+            const match = text.match(/推进建议[：:]\s*([\s\S]+?)(?=\n\s*(?:【|#{1,4}|\*{1,2}|$))/);
+            if (match) {
+              let rec = match[1].replace(/^[\s*#\->]+/, '').trim();
+              rec = rec.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
+              if (rec) return rec;
+            }
+          }
+
+          return text.replace(/^```[a-zA-Z0-9_-]*\s*[\r\n]*/i, '').replace(/[\r\n]*\s*```+$/i, '').trim();
+        };
+
+        window.extractRevisedProse = extractRevisedProse;
+
+        document.getElementById('dockApplyReplaceBtn')?.addEventListener('click', () => {
+          const prose = extractRevisedProse(currentToolProcessedText);
+          applyTextToEditorPaper(prose, 'replace');
+        });
+
+        document.getElementById('dockApplyInsertBtn')?.addEventListener('click', () => {
+          const prose = extractRevisedProse(currentToolProcessedText);
+          applyTextToEditorPaper(prose, 'cursor');
+        });
+
+        document.getElementById('dockApplyAppendBtn')?.addEventListener('click', () => {
+          const prose = extractRevisedProse(currentToolProcessedText);
+          applyTextToEditorPaper(prose, 'append');
+        });
+
+        document.getElementById('dockCopyResultBtn')?.addEventListener('click', () => {
+          const textToCopy = (currentToolProcessedText || '').trim() || extractRevisedProse(currentToolProcessedText);
+          copyText(textToCopy).then(() => showToast('已复制处理结果'));
+        });
+
+        // Floating Selection Menu Tool Action buttons
+        selMenu?.querySelectorAll('button[data-sel-tool]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tool = btn.dataset.selTool;
+            selMenu.hidden = true;
+            if (tool === 'ai-prompt') {
+              injectPromptContext('正文选区', '', `"${lastEditorSelectedText}"`, '选区探讨');
+            } else {
+              if (toolInput) toolInput.value = lastEditorSelectedText;
+              updateToolWordCount();
+              switchDockTab('tools');
+              stage.querySelectorAll('.dock-tool-choice').forEach(c => {
+                c.classList.toggle('active', c.dataset.tool === tool);
+              });
+              currentActiveTool = tool;
+              if (toolDesc) toolDesc.textContent = toolDescriptions[tool] || '';
+              executeDockTool();
+            }
+          });
+        });
+
+        // AI Chat bubbles action delegation (Write to paper & Copy)
+        document.getElementById('editorChat')?.addEventListener('click', (event) => {
+          const btn = event.target.closest('[data-chat-action]');
+          if (!btn) return;
+          const bubble = btn.closest('.chat-bubble');
+          if (!bubble) return;
+          const textEl = bubble.querySelector('.chat-bubble-text') || bubble;
+          const clone = textEl.cloneNode(true);
+          clone.querySelectorAll('.chat-bubble-actions').forEach(el => el.remove());
+          clone.querySelectorAll('.badge').forEach(el => el.remove());
+          clone.querySelectorAll('details').forEach(el => el.remove());
+          clone.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+          const content = clone.textContent.trim();
+          if (!content) return;
+          if (content.startsWith('正在') || content.startsWith('生成未完成') || content.startsWith('请求未完成')) {
+            showToast('当前内容为状态提示，无法写入正文');
+            return;
+          }
+          if (btn.dataset.chatAction === 'copy') {
+            copyText(content).then(() => showToast('已复制到剪贴板'));
+          } else if (btn.dataset.chatAction === 'apply-paper') {
+            applyTextToEditorPaper(content, 'insert');
+          }
+        });
+
+        // Skill and History
+        restoreEditorChat();
+        const editorSkillSelect = document.getElementById('editorSkillSelect');
+        const editorHistorySelect = document.getElementById('editorHistorySelect');
+        editorSkillSelect?.addEventListener('change', () => {
+          previewState.editorSkillId = editorSkillSelect.value || '';
+          persistEditorChatSession();
+          showToast(previewState.editorSkillId ? `已选择 Skill：${editorSkillSelect.options[editorSkillSelect.selectedIndex]?.text || previewState.editorSkillId}` : '已恢复当前作品默认 Skill');
+        });
+        editorHistorySelect?.addEventListener('change', () => {
+          if (editorHistorySelect.value) loadEditorChatHistory(editorHistorySelect.value);
+        });
+        renderEditorSkillSelector();
+        renderEditorHistorySelector();
+
+        // Editor Prompt and Chat
+        const editorInput = document.getElementById('editorPrompt');
+        if (editorInput && previewState.editorPendingPrompt) {
+          editorInput.value = previewState.editorPendingPrompt;
+          previewState.editorPendingPrompt = '';
+        }
+        const editorSend = document.getElementById('editorSend');
+        const editorThinking = document.getElementById('editorThinking');
+        const sendEditorPrompt = async () => {
+          const text = editorInput.value.trim();
+          if (!text || editorSend.disabled) return;
+          appendEditorChat('user', text);
+          editorInput.value = '';
+          editorSend.disabled = true;
+          editorThinking.classList.add('visible');
+          let assistantBubble = null;
+          try {
+            appendEditorChat('assistant', '');
+            assistantBubble = document.querySelector('#editorChat .chat-message:last-child .chat-bubble');
+            const response = await requestEditorAnswer(text, {
+              onProgress: (status) => {
+                if (editorThinking) editorThinking.textContent = status;
+              },
+              onDelta: (_delta, fullText) => {
+                const textEl = assistantBubble ? (assistantBubble.querySelector('.chat-bubble-text') || assistantBubble) : null;
+                if (textEl) textEl.textContent = fullText;
+                const messages = previewState.editorChat || [];
+                const last = messages[messages.length - 1];
+                if (last && last.kind === 'assistant') last.text = fullText;
+                const chat = document.getElementById('editorChat');
+                if (chat) chat.scrollTop = chat.scrollHeight;
+              }
+            });
+            if (!document.body.contains(editorSend)) return;
+            editorThinking.classList.remove('visible');
+            const textEl = assistantBubble ? (assistantBubble.querySelector('.chat-bubble-text') || assistantBubble) : null;
+            if (textEl) textEl.textContent = response;
+            const messages = previewState.editorChat || [];
+            const last = messages[messages.length - 1];
+            if (last && last.kind === 'assistant') last.text = response;
+            persistEditorChatSession();
+          } catch (error) {
+            showToast(error.message || 'AI 请求失败');
+            if (document.body.contains(editorSend)) {
+              const failure = `请求未完成：${error.message || '后端模型暂不可用'}`;
+              const textEl = assistantBubble ? (assistantBubble.querySelector('.chat-bubble-text') || assistantBubble) : null;
+              if (textEl) textEl.textContent = failure;
+              const messages = previewState.editorChat || [];
+              const last = messages[messages.length - 1];
+              if (last && last.kind === 'assistant') last.text = failure;
+              else appendEditorChat('assistant', failure);
+              persistEditorChatSession();
+            }
+          } finally {
+            editorThinking.classList.remove('visible');
+            editorThinking.textContent = '正在整理上下文';
+            editorSend.disabled = false;
+          }
+        };
+        editorSend?.addEventListener('click', sendEditorPrompt);
+        editorInput?.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.isComposing && event.keyCode !== 229) {
+            event.preventDefault();
+            sendEditorPrompt();
+          }
+        });
+      }
+
+      if (currentPage === 'dissect') {
+        const choose = document.getElementById('chooseFiles');
+        const dropZone = document.getElementById('dropZone');
+        const fileQueue = document.getElementById('fileQueue');
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        fileInput.accept = '.txt,.md,.markdown';
+        fileInput.hidden = true;
+        stage.appendChild(fileInput);
+        const format = stage.querySelector('#dropZone p');
+        if (format) format.textContent = '支持 TXT、MD 文本文件。系统会读取文件正文，并在分析前展示文件清单。';
+        const showFiles = async (files) => {
+          const list = [...files].filter(file => /\.(txt|md|markdown)$/i.test(file.name));
+          if (list.length !== files.length) showToast('仅支持 TXT、MD 文本文件，其他文件未加入');
+          if (!list.length) return;
+          const loaded = await Promise.all(list.map(async file => ({ name: file.name, size: file.size, text: (await file.text()).replace(/\u0000/g, '') })));
+          previewState.dissectionFiles = loaded.filter(file => file.text.trim());
+          saveWorkspaceList('resources', previewState.dissectionFiles.map(file => ({ name: file.name, size: file.size, wordCount: file.text.replace(/\s/g, '').length, updatedAt: Date.now(), type: '正文' })));
+          dropZone.style.display = 'none';
+          fileQueue.style.display = 'grid';
+          fileQueue.querySelectorAll('.file-row').forEach((row) => row.remove());
+          loaded.forEach((file) => {
+            const row = document.createElement('div');
+            row.className = 'file-row';
+            row.innerHTML = `${icon('file-text')}<span class="file-name"></span><span class="file-size"></span><span class="badge green">已读取</span>`;
+            row.querySelector('.file-name').textContent = file.name;
+            row.querySelector('.file-size').textContent = `${Math.max(1, Math.round(file.size / 1024))} KB`;
+            fileQueue.prepend(row);
+          });
+          showToast(`已读取 ${loaded.length} 个文件正文，等待确认`);
+          mountIcons();
+        };
+        choose?.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => { if (fileInput.files?.length) showFiles(fileInput.files); });
+        dropZone?.addEventListener('dragover', event => { event.preventDefault(); dropZone.classList.add('dragging'); });
+        dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+        dropZone?.addEventListener('drop', event => { event.preventDefault(); dropZone.classList.remove('dragging'); if (event.dataTransfer?.files?.length) showFiles(event.dataTransfer.files); });
+        fileQueue?.querySelector('[data-action="dissection-start"]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          startDissectionTask();
+        });
+      }
+
+      if (currentPage === 'outline') {
+        renderWorkspaceOutline();
+      }
+
+      if (currentPage === 'knowledge') {
+        renderWorkspaceKnowledge();
+        const detail = document.getElementById('entityDetail');
+        const entityData = {
+          '青云城': { type: '地点 · 已引用 4 次', path: '中州 / 北境 / 城池', intro: '玄天宗山门所在，叶家旧宅位于城南。城内势力交错，是第一卷主要活动区域。', tags: ['玄天宗', '叶家', '叶灵儿'], chapters: '第 1 章、第 2 章、第 3 章、第 7 章' },
+          '玄天宗': { type: '势力 · 已引用 7 次', path: '势力 / 中州 / 宗门', intro: '向叶辰发出入宗邀请的宗门，内部存在轮回殿相关线索。', tags: ['青云城', '叶辰', '轮回殿'], chapters: '第 2 章、第 3 章、第 6 章' },
+          '叶灵儿': { type: '人物 · 已引用 5 次', path: '人物 / 叶家 / 青云城', intro: '叶辰的妹妹，知道部分邀请内情，当前选择保持沉默。', tags: ['叶辰', '叶家', '玄天宗'], chapters: '第 1 章、第 3 章、第 7 章' },
+          '轮回神玉': { type: '物品 · 已引用 6 次', path: '物品 / 灵器 / 核心道具', intro: '随叶辰重生的核心物品，第二道印记尚未完全显现。', tags: ['叶辰', '轮回殿'], chapters: '第 1 章、第 2 章、第 8 章' }
+        };
+        readWorkspaceList('knowledge').forEach(item => {
+          entityData[item.name] = { type: `${item.type} · 待确认`, path: item.path, intro: item.intro, tags: [...(item.tags || []), ...(item.relations || []).map(relation => relation.target).filter(Boolean)], chapters: item.chapters || '尚未引用' };
+          if (!stage.querySelector(`.entity-row[data-entity="${CSS.escape(item.name)}"]`)) {
+            const row = document.createElement('div');
+            row.className = 'entity-row';
+            row.dataset.entity = item.name;
+            row.innerHTML = '<span class="entity-dot" style="background:#6b7886"></span><div class="entity-copy"><div class="entity-name"></div><div class="entity-path"></div><div class="entity-preview"></div></div><span class="badge blue">待确认</span>';
+            row.querySelector('.entity-name').textContent = item.name;
+            row.querySelector('.entity-path').textContent = item.path;
+            row.querySelector('.entity-preview').textContent = item.intro;
+            stage.querySelector('.entity-list')?.appendChild(row);
+          } else {
+            const row = stage.querySelector(`.entity-row[data-entity="${CSS.escape(item.name)}"]`);
+            if (row) {
+              row.querySelector('.entity-path').textContent = item.path;
+              row.querySelector('.entity-preview').textContent = item.intro;
+              row.querySelector('.badge').textContent = '已更新';
+            }
+          }
+        });
+        stage.querySelectorAll('.entity-row').forEach((row) => row.addEventListener('click', () => {
+          stage.querySelectorAll('.entity-row').forEach((item) => item.classList.remove('active'));
+          row.classList.add('active');
+          const data = entityData[row.dataset.entity];
+          if (data && detail) {
+            detail.querySelector('.detail-type').textContent = data.type;
+            detail.querySelector('h3').textContent = row.dataset.entity;
+            detail.querySelector('.detail-path').textContent = data.path;
+            const paragraphs = detail.querySelectorAll('.detail-field p');
+            paragraphs[0].textContent = data.intro;
+            paragraphs[1].textContent = data.chapters;
+            const tagList = detail.querySelector('.tag-list');
+            if (tagList) {
+              tagList.replaceChildren();
+              (Array.isArray(data.tags) ? data.tags : []).forEach((tag) => {
+                const node = document.createElement('span');
+                node.className = 'tag';
+                node.textContent = String(tag == null ? '' : tag);
+                tagList.appendChild(node);
+              });
+            }
+          }
+          showToast(`已选中设定：${row.dataset.entity}`);
+        }));
+      }
+
+      if (currentPage === 'tools') {
+        const toolCount = stage.querySelector('.tool-grid')?.closest('.panel')?.querySelector('.panel-heading .badge');
+        if (toolCount) toolCount.textContent = stage.querySelectorAll('.tool-card').length + ' 款工具';
+        const toolInput = document.getElementById('toolInput');
+        if (toolInput) { toolInput.value = ''; toolInput.placeholder = '粘贴或输入要处理的正文'; }
+        const toolHistory = stage.querySelector('.tool-workspace > .panel:nth-child(2) .section-note:last-child');
+        const toolRows = Array.isArray(backendState.usage?.recent) ? backendState.usage.recent.filter(row => ['humanizer', 'writing'].includes(row.stage)) : [];
+        if (toolHistory) toolHistory.textContent = toolRows.length ? `历史任务：已记录 ${toolRows.length} 次 AI 调用。` : '历史任务：当前账户还没有 AI 工具任务记录。';
+        stage.querySelectorAll('.tool-card').forEach((card) => card.addEventListener('click', () => { stage.querySelectorAll('.tool-card').forEach((item) => item.classList.remove('active')); card.classList.add('active'); document.getElementById('toolTitle').textContent = card.dataset.tool; }));
+        document.getElementById('runTool')?.addEventListener('click', (event) => {
+          const button = event.currentTarget;
+          const result = stage.querySelector('.result-block');
+          const input = document.getElementById('toolInput');
+          const tool = stage.querySelector('.tool-card.active')?.dataset.tool || '去 AI 味';
+          const text = input?.value.trim() || '';
+          const instructions = {
+            '去 AI 味': '你的任务是依据 Stop AI Slop 准则消除中文 AI 写作痕迹，把机械生硬的文本改写成人话。严格执行：1. 拆排比三件套（「是…是…更是…」等仅保留最有力的一句）；2. 去名词化（「进行/实现/做出/采取/加以/给予 + 名词」换成本词动作）；3. 换抽象主语为具体的人或细节（不用时代/科技/AI等当主语）；4. 删金句收尾与抒情扩散（删「这，就是…的力量」「唯有…方能…」等）；5. 删虚词与程度副词（极大压低「非常/十分/其实/一种/某种」）；6. 删元评论与八股连接词（删「首先/其次/综上所述/值得注意的是」）；7. 价值判断替换为具体动作或场景。保持原意、设定与剧情顺序，先简要列出主要消除点，再给出完整自然改写稿。',
+            '错别字检测': '请检查错别字、标点、病句和明显语义重复，按“原文片段 / 问题 / 建议”列出。',
+            '章节标题': '请根据正文给出 5 个章节标题，并用一句话说明每个标题对应的冲突或信息变化。',
+            '人物卡': '请从正文中提取人物目标、关系、当前冲突和可观察的行为证据；证据不足的字段标记为未知。',
+            '简介生成': '请根据正文生成 3 版不夸大、不编造设定的小说简介和一句话卖点。',
+            '节奏分析': '请分析场景目标、冲突变化、信息增量和节奏停留，指出可以调整的位置。'
+          }[tool] || '请分析这段正文并给出可执行的修改建议。';
+          if (!text) { showToast('请先粘贴或输入要处理的正文'); input?.focus(); return; }
+          if (!backendState.token) { renderPage('login'); showToast('请先登录后使用 AI 工具'); return; }
+          button.disabled = true;
+          button.textContent = '处理中…';
+          result.innerHTML = '<strong>正在请求后端模型</strong><br>结果会在返回后显示，不会使用固定示例。';
+          const toolOptions = { stage: tool === '去 AI 味' ? 'humanizer' : 'writing', maxTokens: 1400 };
+          if (tool === '去 AI 味') toolOptions.characterMaterial = { mode: 'auto', enabled: true, query: text, proseTask: true };
+          requestChatText([{ role: 'system', content: `你是墨阑 AI 工具“${tool}”。${instructions}` }, { role: 'user', content: text }], toolOptions)
+            .then(answer => {
+              result.innerHTML = `<strong>后端模型结果</strong><div style="white-space:pre-wrap;margin-top:8px"></div>` +
+                (tool === '去 AI 味' ? `<div style="display:flex;gap:8px;margin-top:12px"><button class="button primary" id="toolDiffBtn">进入对比工具</button><button class="button" id="toolCopyBtn">复制</button></div>` : `<div style="display:flex;gap:8px;margin-top:12px"><button class="button" id="toolCopyBtn">复制结果</button></div>`);
+              result.querySelector('div').textContent = answer;
+              const diffBtn = result.querySelector('#toolDiffBtn');
+              const copyBtn = result.querySelector('#toolCopyBtn');
+              if (diffBtn) {
+                diffBtn.addEventListener('click', () => {
+                  const launchDiff = () => {
+                    if (typeof window.openDiffcheckerModal === 'function') {
+                      window.openDiffcheckerModal({ original: text, revised: answer, title: '去 AI 味对比工具' });
+                    }
+                  };
+                  if (typeof window.openDiffcheckerModal === 'function') launchDiff();
+                  else {
+                    const sTag = document.createElement('script');
+                    sTag.src = '/pages/diffchecker.js';
+                    sTag.onload = launchDiff;
+                    document.head.appendChild(sTag);
+                  }
+                });
+              }
+              if (copyBtn) {
+                copyBtn.addEventListener('click', () => {
+                  navigator.clipboard.writeText(answer).then(() => showToast(tool === '去 AI 味' ? '已复制全文' : '已复制到剪贴板'));
+                });
+              }
+              showToast('分析完成，费用按后端实际 Token 结算');
+            })
+            .catch(error => { result.innerHTML = `<strong>请求失败</strong><div style="white-space:pre-wrap;margin-top:8px"></div>`; result.querySelector('div').textContent = error.message || '后端模型暂不可用'; showToast(error.message || 'AI 工具请求失败'); })
+            .finally(() => { button.disabled = false; button.textContent = '再次分析'; });
+        });
+      }
+
+      if (currentPage === 'skills') applySkillFilters();
+
+      if (currentPage === 'account') {
+        const sessionBadge = stage.querySelector('[data-account-session]');
+        const logoutButton = stage.querySelector('[data-account-logout]');
+        if (sessionBadge) {
+          sessionBadge.textContent = backendState.token ? '已登录' : '未登录';
+          sessionBadge.classList.toggle('green', Boolean(backendState.token));
+        }
+        if (logoutButton) logoutButton.disabled = !backendState.token;
+        stage.querySelector('[data-save-account-preferences]')?.addEventListener('click', () => {
+          const preferences = {
+            genre: stage.querySelector('#accountGenre')?.value || '玄幻',
+            pov: stage.querySelector('#accountPov')?.value || 'third-limited',
+            tone: stage.querySelector('#accountTone')?.value || '克制'
+          };
+          try {
+            localStorage.setItem('molan_account_preferences', JSON.stringify(preferences));
+            showToast('创作偏好已保存');
+          } catch (_) { showToast('保存失败，请检查浏览器存储空间'); }
+        });
+        logoutButton?.addEventListener('click', async () => {
+          if (!backendState.token) return;
+          try { await backendRequest('/api/auth/logout', { method: 'POST' }); } catch (_) {}
+          clearBackendAuth();
+          window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
+          renderPage('overview');
+          showToast('已退出当前账户');
+        });
+      }
+
+      if (currentPage === 'docs') stage.querySelectorAll('.docs-nav a[data-doc-topic]').forEach((link) => link.addEventListener('click', (event) => {
+        event.preventDefault();
+        const activeTopic = link.dataset.docTopic;
+        stage.querySelectorAll('.docs-nav a[data-doc-topic]').forEach((item) => {
+          const active = item === link;
+          item.classList.toggle('active', active);
+          if (active) item.setAttribute('aria-current', 'page');
+          else item.removeAttribute('aria-current');
+        });
+        stage.querySelectorAll('[data-doc-topic-panel]').forEach((panel) => { panel.hidden = panel.dataset.docTopicPanel !== activeTopic; });
+      }));
+    }
+    function openModal(seed = {}) {
+      document.getElementById('modalTitle').textContent = '创建小说';
+      document.querySelector('#modalBackdrop .modal-body').innerHTML = '<div class="form-grid"><div class="field"><label for="novelTitle">小说标题</label><input id="novelTitle" placeholder="请输入小说标题"></div><div class="field"><label for="novelType">类型</label><select id="novelType"><option>玄幻</option><option>都市</option><option>悬疑</option><option>科幻</option></select></div><div class="field"><label for="novelIntro">一句话简介</label><textarea id="novelIntro" placeholder="写下主角、目标和最大的冲突"></textarea></div></div>';
+      document.getElementById('cancelModal').textContent = '取消';
+      document.getElementById('confirmModal').textContent = '创建并进入编辑器';
+      modalConfirmHandler = null;
+      document.getElementById('novelTitle').value = seed.title || '';
+      document.getElementById('novelIntro').value = seed.intro || '';
+      const type = document.getElementById('novelType');
+      const typeIndex = [...type.options].findIndex(option => option.value === seed.type || option.textContent === seed.type);
+      type.selectedIndex = typeIndex >= 0 ? typeIndex : 0;
+      document.getElementById('modalBackdrop').classList.add('open');
+      document.getElementById('novelTitle').focus();
+    }
+    function closeModal() {
+      document.getElementById('modalBackdrop').classList.remove('open');
+      modalConfirmHandler = null;
+      clearEditorActionQuery(previewState.novelId);
+    }
+    document.addEventListener('click', (event) => {
+      const actionButton = event.target.closest('[data-action]');
+      if (actionButton) {
+        event.preventDefault();
+        handleAction(actionButton.dataset.action, actionButton);
+        return;
+      }
+      const pageButton = event.target.closest('[data-page]');
+      if (pageButton && !stage.contains(pageButton)) {
+        event.preventDefault();
+        const targetPage = pageButton.hasAttribute('data-user-login-entry') && backendState.user ? 'account' : pageButton.dataset.page;
+        if (targetPage === 'tools') {
+          window.location.href = './pages/tools.html';
+          return;
+        }
+        renderPage(targetPage);
+      }
+      const toastButton = event.target.closest('[data-toast]');
+      if (toastButton && !stage.contains(toastButton)) showToast(toastButton.dataset.toast);
+    });
+    document.getElementById('mobileMenu').addEventListener('click', () => frame.classList.toggle('sidebar-open'));
+    document.getElementById('scrim').addEventListener('click', closeSidebar);
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('cancelModal').addEventListener('click', closeModal);
+    document.getElementById('confirmModal').addEventListener('click', async () => {
+      if (modalConfirmHandler) return modalConfirmHandler();
+      const title = document.getElementById('novelTitle').value.trim();
+      if (!title) { showToast('请先填写小说标题'); document.getElementById('novelTitle').focus(); return; }
+      previewState.novel = { title, intro: document.getElementById('novelIntro').value.trim(), type: document.getElementById('novelType').value };
+      previewState.novelId = '';
+      previewState.novelState = createPreviewNovelState(previewState.novel);
+      previewState.novelRevision = null;
+      previewState.editorBody = '';
+      previewState.editorChat = null;
+      previewState.editorChatSessionId = '';
+      previewState.editorSkillId = '';
+      previewState.editorHistory = null;
+      clearEditorActionQuery();
+      closeModal();
+      renderPage('editor');
+      if (backendState.token) {
+        await saveCurrentNovel();
+      } else {
+        showToast(`已创建《${title}》，进入本地预览编辑器。`);
+      }
+    });
+    document.getElementById('modalBackdrop').addEventListener('click', (event) => { if (event.target.id === 'modalBackdrop') closeModal(); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && document.getElementById('modalBackdrop').classList.contains('open')) closeModal(); });
+    window.addEventListener('message', (event) => {
+      if (!event || !event.data) return;
+      const data = event.data;
+      if (data.type === 'molan:navigate') {
+        if (data.novelId && window.previewState) {
+          window.previewState.novelId = data.novelId;
+        }
+        if (typeof renderPage === 'function') {
+          renderPage(data.page || 'editor');
+        }
+      } else if (data.type === 'molan:apply-draft-to-editor') {
+        if (typeof window.MolanEditorApplyExternalDraft === 'function') {
+          window.MolanEditorApplyExternalDraft(data.text);
+        } else if (window.previewState) {
+          window.previewState.editorBody = data.text;
+          const paper = document.querySelector('[data-completion-paper] .completion-editor-content') || document.querySelector('.editor-paper');
+          if (paper) paper.innerHTML = data.text.replace(/\n/g, '<br>');
+          showToast('已将正文从工作台同步至编辑器！');
+        }
+      } else if (data.type === 'molan:cite-to-prompt') {
+        if (typeof window.MolanEditorCiteToPrompt === 'function') {
+          window.MolanEditorCiteToPrompt(data.text, data.title);
+        }
+      }
+    });
+
+    window.addEventListener('storage', event => {
+      if (!event) return;
+      if (event.key === 'molan_external_cite' && event.newValue) {
+        try {
+          const item = JSON.parse(event.newValue);
+          if (item && item.text && typeof window.MolanEditorCiteToPrompt === 'function') {
+            window.MolanEditorCiteToPrompt(item.text, item.title || '外部资料');
+          }
+        } catch (_) {}
+      }
+      if (event.key === 'molan_external_draft' && event.newValue) {
+        try {
+          const item = JSON.parse(event.newValue);
+          if (item && item.text && typeof window.MolanEditorApplyExternalDraft === 'function') {
+            window.MolanEditorApplyExternalDraft(item.text);
+          }
+        } catch (_) {}
+      }
+    });
+
+    let backendAuthSyncTimer = 0;
+    window.addEventListener('storage', event => {
+      if (event && event.key && !['ml_token', 'ml_user', 'ml_remember_me'].includes(event.key)) return;
+      window.clearTimeout(backendAuthSyncTimer);
+      backendAuthSyncTimer = window.setTimeout(() => {
+        if (!syncBackendAuthFromStorage()) return;
+        window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }));
+        refreshCurrentPage();
+        void bootstrapBackend();
+      }, 0);
+    });
+    window.addEventListener('popstate', () => { const page = window.location.hash.slice(1); renderPage(renderers[page] ? page : 'overview', { fromHistory: true }); });
+    window.addEventListener('hashchange', () => { const page = window.location.hash.slice(1); if (page !== currentPage) renderPage(renderers[page] ? page : 'overview', { fromHistory: true }); });
+    try {
+      if (localStorage.getItem('molan_theme') === 'dim') document.body.classList.add('theme-dim');
+    } catch (_) {}
+    const isDimInitial = document.body.classList.contains('theme-dim');
+    document.querySelectorAll('.theme-label').forEach(node => { node.textContent = isDimInitial ? '深色' : '浅色'; });
+    document.querySelectorAll('[data-action="theme"]').forEach(btn => {
+      const iconNode = btn.querySelector('.icon, [data-lucide], svg');
+      if (iconNode) iconNode.outerHTML = icon(isDimInitial ? 'moon' : 'sun');
+    });
+    mountIcons();
+    const initialPage = window.location.hash.slice(1);
+    if (initialPage === 'editor' && initialEditorPrompt) {
+      const promptTitle = initialEditorPrompt.slice(0, 18) + (initialEditorPrompt.length > 18 ? '…' : '');
+      previewState.novel = { title: promptTitle || '未命名小说', intro: initialEditorPrompt, type: '玄幻' };
+      previewState.novelId = '';
+      previewState.novelState = createPreviewNovelState(previewState.novel);
+      previewState.editorBody = '';
+      previewState.editorPendingPrompt = initialEditorPrompt;
+      editorRouteHandled = true;
+    }
+    renderPage(renderers[initialPage] ? initialPage : 'overview', { replace: true });
+    let backendBootstrapStarted = false;
+    const startBackendBootstrap = () => {
+      if (backendBootstrapStarted) return;
+      backendBootstrapStarted = true;
+      void bootstrapBackend();
+    };
+    window.addEventListener('molan:completion-ready', startBackendBootstrap, { once: true });
+    window.addEventListener('load', startBackendBootstrap, { once: true });

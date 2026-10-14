@@ -12,7 +12,11 @@ const materialSchema = require('../lib/project-material-schema');
 const browserPath = [
   process.env.MOLAN_TEST_BROWSER,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Google/Chrome/Application/chrome.exe'
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser'
 ].find(candidate => candidate && fs.existsSync(candidate));
 
 test('真实浏览器：正文候选→提取→确认→正式提交→投影同步→刷新与文风版本', {

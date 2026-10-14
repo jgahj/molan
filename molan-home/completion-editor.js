@@ -1863,19 +1863,120 @@
     return [knowledgeLabel(entity && entity.type), ...chain].join(' / ');
   }
 
-  function citationStats(state, entity) {
-    const needles = [entity.name, ...(entity.aliases || [])].filter(Boolean).map(value => text(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    if (!needles.length) return { count: 0, chapters: [] };
-    const pattern = new RegExp(needles.join('|'), 'g');
-    const chapters = [];
-    let count = 0;
-    state.volumes.forEach(volume => volume.chapters.forEach(chapter => {
-      const body = chapter.scenes.map(scene => plainText(scene.content)).join('\n');
-      const hits = body.match(pattern);
-      if (hits && hits.length) { count += hits.length; chapters.push(chapter.title); }
-    }));
-    return { count, chapters };
+  /* ---------- 引用统计：单遍合并正则索引 + 版本 memoize ----------
+   * 历史缺陷：citationStats 原先对每个实体独立正则全本扫描，而实体列表一次渲染
+   * （筛选/排序/统计/行渲染/详情）会对同一实体调用 4~6 次，叠加搜索框无防抖，
+   * 百章×百实体规模下每次渲染达数十万次正则匹配与 DOM 建销。
+   * 现改为：全部实体 needle 合并为一条正则，对全书做一遍扫描生成 Map；
+   * 以「章节数+正文长度+needle 长度+编辑器变更版本」为签名做跨渲染 memoize，
+   * 搜索输入只改 query 不变签名 → 直接命中缓存。 */
+  let citationIndexCache = { key: '', map: null };
+
+  /** DOM 无关的可见文本提取（与 plainText 的 DOM 行为等价：去标签 + 解实体，不改空白） */
+  function citationPlain(value) {
+    return text(value)
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#x2f;/gi, '/');
   }
+
+  function citationIndexSignature(state) {
+    const data = ensureKnowledge(state);
+    let chapters = 0, contentLength = 0, needleLength = 0;
+    (state.volumes || []).forEach(volume => (volume.chapters || []).forEach(chapter => {
+      chapters += 1;
+      (chapter.scenes || []).forEach(scene => { contentLength += String((scene && scene.content) || '').length; });
+    }));
+    const entities = (data && data.entities) || {};
+    Object.keys(entities).forEach(id => {
+      const entity = entities[id] || {};
+      needleLength += String(entity.name || '').length;
+      (entity.aliases || []).forEach(alias => { needleLength += String(alias || '').length; });
+    });
+    // editorChangeVersion 由 markEditorDirty 自增：任何正文编辑即使长度不变也强制重建
+    return `${chapters}|${contentLength}|${needleLength}|${runtime.editorChangeVersion}`;
+  }
+
+  function buildCitationIndex(state) {
+    const data = ensureKnowledge(state);
+    const entities = (data && data.entities) || {};
+    const map = new Map();
+    Object.keys(entities).forEach(id => map.set(id, { count: 0, chapters: [] }));
+    const needleOwners = new Map();
+    Object.keys(entities).forEach(id => {
+      const entity = entities[id] || {};
+      [entity.name, ...(entity.aliases || [])].map(value => text(value).trim()).filter(Boolean).forEach(name => {
+        if (!needleOwners.has(name)) needleOwners.set(name, new Set());
+        needleOwners.get(name).add(id);
+      });
+    });
+    if (needleOwners.size === 0) return map;
+    const escapeNeedle = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // 长 needle 优先：避免短名前缀误吞长名匹配（如「林」抢先于「林安」）
+    const needles = [...needleOwners.keys()].sort((a, b) => b.length - a.length);
+    const useCombined = needles.length <= 4000;
+    const combined = useCombined ? new RegExp(needles.map(escapeNeedle).join('|'), 'g') : null;
+    const perNeedle = useCombined ? null : needles.map(name => ({ owners: needleOwners.get(name), pattern: new RegExp(escapeNeedle(name), 'g') }));
+    (state.volumes || []).forEach(volume => (volume.chapters || []).forEach(chapter => {
+      const body = (chapter.scenes || []).map(scene => citationPlain(scene && scene.content)).join('');
+      if (!body) return;
+      if (combined) {
+        const hits = body.match(combined);
+        if (!hits) return;
+        const seen = new Map();
+        hits.forEach(hit => {
+          const owners = needleOwners.get(hit);
+          if (!owners) return;
+          owners.forEach(id => seen.set(id, (seen.get(id) || 0) + 1));
+        });
+        seen.forEach((count, id) => {
+          const entry = map.get(id);
+          if (entry) { entry.count += count; entry.chapters.push(chapter.title); }
+        });
+      } else {
+        perNeedle.forEach(({ owners, pattern }) => {
+          const hits = body.match(pattern);
+          if (!hits) return;
+          owners.forEach(id => {
+            const entry = map.get(id);
+            if (entry) { entry.count += hits.length; entry.chapters.push(chapter.title); }
+          });
+        });
+      }
+    }));
+    return map;
+  }
+
+  function citationIndexFor(state) {
+    if (!state) return new Map();
+    const key = citationIndexSignature(state);
+    if (citationIndexCache.key === key && citationIndexCache.map) return citationIndexCache.map;
+    const map = buildCitationIndex(state);
+    citationIndexCache = { key, map };
+    return map;
+  }
+
+  function citationStats(state, entity) {
+    if (!state || !entity) return { count: 0, chapters: [] };
+    return citationIndexFor(state).get(entity.id) || { count: 0, chapters: [] };
+  }
+
+  /** 简易防抖：知识页搜索输入专用（避免每次按键全量重渲） */
+  function debounce(fn, wait) {
+    let timer = 0;
+    const wrapped = (...args) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { timer = 0; fn(...args); }, wait);
+    };
+    wrapped.cancel = () => { if (timer) { clearTimeout(timer); timer = 0; } };
+    return wrapped;
+  }
+  const debouncedKnowledgeSearchRender = debounce(() => renderKnowledgeList(editorState(false)), 180);
 
   function relationRows(state, entity) {
     const data = ensureKnowledge(state);
@@ -10151,7 +10252,7 @@ ${userInstruction || '请基于上述工作台设定与人物认知，紧承上�
         markEditorDirty(false, sceneContentChanged ? { patchSave: true, sceneRef: current.scene } : null);
         return;
       }
-      const search = target.closest('[data-completion-knowledge-search]'); if (search) { runtime.knowledgeQuery = search.value.trim(); renderKnowledgeList(editorState(false)); return; }
+      const search = target.closest('[data-completion-knowledge-search]'); if (search) { runtime.knowledgeQuery = search.value.trim(); debouncedKnowledgeSearchRender(); return; }
       const treeSearch = target.closest('[data-completion-knowledge-tree-search]'); if (treeSearch) {
         const query = treeSearch.value.trim().toLowerCase();
         getStage().querySelectorAll('#completionKnowledgeTree .tree-group').forEach(group => {

@@ -1,18 +1,38 @@
 name: CI Pipeline
 
+# 契约：
+#   触发器 —— push(main / feature/**) 与 pull_request(→main)，仅 molan-home 或本文件变更时运行
+#   目标   —— 仅验证（依赖安装 + 生产导入审计 + 全量测试 + Golden 审计 + 功能契约审计 + 缓存戳门禁）
+#   产物   —— 各步骤通过即绿；失败时上传 test_output.log 供事后分析
 on:
   push:
     branches:
       - main
       - 'feature/**'
+    paths:
+      - 'molan-home/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'molan-home/**'
+      - '.github/workflows/ci.yml'
+
+# 最小权限：CI 只读仓库，不写内容、不发包
+permissions:
+  contents: read
+
+# 同分支新推送自动取消旧运行，节省分钟数并降低信号噪声
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-and-audit:
     name: Unit Tests & Quality Audits
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: molan-home
@@ -27,6 +47,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: molan-home/package-lock.json
 
       - name: Install Dependencies
         run: npm ci
@@ -37,7 +59,9 @@ jobs:
       - name: Run Unit & Integration Tests
         run: |
           set +e
-          npm test > test_output.log 2>&1
+          # --test-concurrency=4：orchestrator 租约时序测试在高并发下会因事件循环饥饿
+          # 出现 STATE_CONFLICT 抖动（实测默认并发 33 项假失败，限 4 后 0 失败）
+          node --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/**/*.test.js" "test/**/*.test.mjs" "test/**/*.test.cjs" > test_output.log 2>&1
           TEST_EXIT_CODE=$?
           if [ $TEST_EXIT_CODE -ne 0 ]; then
             FAIL_SUMMARY=$(grep -E '✖' test_output.log | head -n 10 | tr '\n' '; ')
@@ -57,3 +81,15 @@ jobs:
       - name: Run Feature Contract Audit
         run: npm run audit:features
 
+      # 防再发门禁：前端资产变更必须同步升级 index.html 缓存戳
+      # （版本化静态资源为 immutable 一年缓存，漏升戳=回访用户永远拿到旧文件）
+      - name: Frontend Cache-Busting Stamp Guard
+        run: node scripts/check-frontend-stamp.mjs HEAD
+
+      - name: Upload Test Log on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: molan-home/test_output.log
+          retention-days: 7

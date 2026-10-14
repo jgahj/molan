@@ -6,7 +6,7 @@ const { test } = require('node:test');
 const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 const chatServiceSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'chat-service.js'), 'utf8');
 const cloudProxySource = fs.readFileSync(path.join(__dirname, '..', 'services', 'cloud-proxy-service.js'), 'utf8');
-const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + '\n/* == app-boot.js (2026-10-14 外移) == */\n' + fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
 const completionEditorSource = fs.readFileSync(path.join(__dirname, '..', 'completion-editor.js'), 'utf8');
 
 test('server implements SSE keep-alive heartbeats for cloud proxy and direct chat', () => {
