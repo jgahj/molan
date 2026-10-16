@@ -3,3 +3,13 @@ data/character-material-v3.1-rebuild/candidate-pool.jsonl filter=lfs diff=lfs me
 data/character-material-v3.1-rebuild/rich-intermediate.json filter=lfs diff=lfs merge=lfs -text
 data/character-material-v3.1-rebuild/safe-intermediate.json filter=lfs diff=lfs merge=lfs -text
 lib/character-material/index.json filter=lfs diff=lfs merge=lfs -text
+
+# 语料数据资产 LFS 化（2026-10-15，任务 #17）。
+# 背景：这些文件有生产/测试硬依赖（lib/genre-engine.js:1009 运行时读 corpus-*.json、
+# test/corpus-prompt-experiments.test.js 依赖语料归档），物理出库不可行；LFS 化后
+# 历史重写把 blob 换为指针，.git 69MB → 约 12MB，clone/网络传输与 git 操作大幅受益。
+# LFS 对象本身约 40MB（GitHub 免费额度 1GB 内），首次 clone 默认仍会拉取。
+data/genre-lab/corpus-*.json filter=lfs diff=lfs merge=lfs -text
+data/corpus-prompt-experiments/** filter=lfs diff=lfs merge=lfs -text
+data/paragraph-samples.json filter=lfs diff=lfs merge=lfs -text
+lib/character-material/sharded/buckets/*.json filter=lfs diff=lfs merge=lfs -text
