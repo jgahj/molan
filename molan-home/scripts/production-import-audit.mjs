@@ -7,6 +7,22 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 /**
+ * 兼容期例外白名单（2026-10-15 登记；关联回归 test/sqlite-factory-injection.test.js）。
+ * resolveLocalDatabaseFactory 是本地/独立 SQLite 部署的启动接线：非 PG 环境下必须
+ * 注入 SQLite 引擎工厂，否则 db 恒为 null、/api/health 报 db:"off"、云端读写全部
+ * 503 且无日志（P0，已修）。原生领域仓储迁移完成前（Postgres/SQLite 双模式收敛），
+ * 该兼容层有意保留在 server.js 启动路径。仅豁免上述两处字面 require；其余任何位置
+ * 引用 SQLite 驱动 / SQL 兼容存储仍一律拦截。
+ * 匹配键 = '<相对路径>:<行号>:<规范化后的代码行>'：行号+内容双重锚定，任何漂移
+ * （含测试 fixture 的同内容不同位置）都不会误命中，迫使重新审查。
+ * test/production-import-audit.test.js 断言条目数受控（≤2），新增豁免必须先过评审。
+ */
+export const COMPAT_WHITELIST = new Set([
+  "server.js:1663:const { DatabaseSync } = require('node:sqlite');",
+  "server.js:1667:const { PureJsDatabase } = require('./lib/pure-js-database');"
+]);
+
+/**
  * 生产代码架构导入门禁 (Production Import Audit)
  * 严格执行约束：
  * 1. server.js 和 lib/generation/* 严禁引用 legacy/ 或历史生成调度器；
@@ -71,6 +87,7 @@ export function runProductionImportAudit({ root = rootDir } = {}) {
     { pattern: /import\s+.*from\s+['"][^'"]*generation-pipeline-coordinator['"]/, desc: '引用已废弃的 generation-pipeline-coordinator' }
   ];
 
+  // 白名单条目释义见模块顶部 COMPAT_WHITELIST 定义（兼容期债务，可收敛）。
   const violations = [];
 
   for (const filePath of productionFiles) {
@@ -85,6 +102,7 @@ export function runProductionImportAudit({ root = rootDir } = {}) {
 
       for (const { pattern, desc } of forbiddenPatterns) {
         if (pattern.test(line)) {
+          if (COMPAT_WHITELIST.has(`${relPath}:${i + 1}:${line.trim()}`)) continue;
           violations.push({
             file: relPath,
             line: i + 1,

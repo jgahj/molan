@@ -78,13 +78,17 @@ test('index.html 与 app-boot.js 引用的外部脚本均包含统一的 Cache-B
   const path = require('path');
   const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8');
   const boot = fs.readFileSync(path.resolve(__dirname, '../app-boot.js'), 'utf8');
+  const bootHead = fs.readFileSync(path.resolve(__dirname, '../boot-head.js'), 'utf8');
 
-  // 检查 tokens.css 带版本号
-  assert.match(html, /tokens\.css\?v=[a-zA-Z0-9_-]+/);
+  // 检查 tokens.css 带版本号（链接注入逻辑 2026-10-15 随内联脚本外移至 boot-head.js）
+  assert.match(bootHead, /tokens\.css\?v=[a-zA-Z0-9_-]+/);
   // 外移后的引导脚本同样带版本号
+  assert.match(html, /boot-head\.js\?v=[a-zA-Z0-9_-]+/);
+  assert.match(html, /boot-scripts\.js\?v=[a-zA-Z0-9_-]+/);
   assert.match(html, /app-boot\.js\?v=[a-zA-Z0-9_-]+/);
 
-  // 首屏 4 个核心补全脚本在 index.html 中均带版本号
+  // 首屏 4 个核心补全脚本由 boot-scripts.js 动态注入，均拼接运行时版本戳
+  const bootScripts = fs.readFileSync(path.resolve(__dirname, '../boot-scripts.js'), 'utf8');
   const eagerScripts = [
     'completion-library.js',
     'completion-editor.js',
@@ -92,8 +96,8 @@ test('index.html 与 app-boot.js 引用的外部脚本均包含统一的 Cache-B
     'workspace-completion.js'
   ];
   for (const script of eagerScripts) {
-    const pattern = new RegExp(`${script}\\?v=`);
-    assert.ok(pattern.test(html), `index.html 中 ${script} 必须附带 ?v= 版本号查询参数`);
+    const pattern = new RegExp(`\\./${script}\\?v=\\$\\{v\\}`);
+    assert.ok(pattern.test(bootScripts), `boot-scripts.js 中 ${script} 必须拼接 ?v=\${v} 运行时版本戳`);
   }
 
   // 2026-10-14 懒加载：import/admin 脚本改由 app-boot.js 按路由加载，

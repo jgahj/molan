@@ -2808,3 +2808,46 @@ molan-home/
 3. **Postgres/SQLite 双模分支 335 处/17 文件**：终态切档（PG-only）属架构决策，待用户裁决。
 4. **server.js 7962 行 / postgres-repository.js 7444 行**：继续下沉为持续项。
 5. **CSP 'unsafe-inline' 彻底移除**：待 12 个页面内联脚本全量外移后实施。
+
+## 阶段二十七：server.js 三块下沉与本地 SQLite P0 修复固化（2026-10-15）
+
+> **执行周期**：2026-10-15
+> **核心目标**：按 refactor-safely 小步安全重构模式把 server.js 三大块下沉为独立模块（runDissectionChat 对话运行器 / 流水线聚合簇 9 函数 / initDB 本地 SQLite 引导），同步固化本地 SQLite P0 修复（databaseFactory 注入接线 + 显式报错）并消解其与生产导入门禁的冲突。server.js 8025 → 6705 行（累计 -1320）。
+
+### 一、改动范围与核心逻辑
+
+| 文件 | 改动类型 | 核心改动点 |
+|---|---|---|
+| `lib/dissection-chat.js` | 新建（286 行） | `createDissectionChatRunner(deps)` 工厂 + 19 依赖注入；搬迁 runDissectionChat（函数体逐字节切片，仅 4 处命名替换：PORT/POSTGRES_MODE/INTERNAL_MODEL_ROUTE_HEADER/INTERNAL_MODEL_ROUTE_KEY） |
+| `services/dissection-pipeline-aggregation-service.js` | 新建（622 行） | `createDissectionPipelineAggregationService(deps)` 工厂 + 43 依赖注入 + getDatabase；搬迁 9 函数（buildChapterSummaries/buildVolumeSummaries/buildArcSummaries/buildPipelineVolumeDigest/buildBookSummary/callDissectionPipelineModel/recordPipelineUsageAsync/pipelineChat/runPipelineAggregation，原 548 行）；唯一机械改写：8 处 `db.prepare(` → `getDatabase().prepare(` |
+| `services/local-database-bootstrap.js` | 新建（688 行） | `createLocalDatabaseBootstrap(deps)` 工厂 + 14 依赖注入；搬迁 initDB（651 行）：180 处 `db.` → `database.`、建库赋值改 `const database = ...; setDatabase(database);`、catch 置空改 `setDatabase(null)`、函数内 `require('./lib/benchmark-commit')` 随目录基准改 `../lib/` |
+| `server.js` | 委托桩 + 接线 | 三处委托桩（runDissectionChat / 聚合簇 / initDB）+ 惰性 ensure 装配（规避 skillService 等模块后段解构符号的 TDZ，与 dissectionHandlers 既有模式一致）；新增 3 条 require；**导出面与 `__test` 入口零变化**（三个符号在 HEAD 即未导出） |
+| `server.js` | P0 修复固化（未提交成果并入） | `resolveLocalDatabaseFactory()`（优先原生 node:sqlite，回退 pure-js-database）+ `initDB({ databaseFactory: resolveLocalDatabaseFactory() })` 启动接线 + 工厂缺失显式报错文案（test/sqlite-factory-injection.test.js 三个源码断言锚点全部保留在委托桩内） |
+| `scripts/production-import-audit.mjs` | 门禁增强 | 新增顶层导出 `COMPAT_WHITELIST`（兼容期例外登记）：豁免 resolveLocalDatabaseFactory 的两处 SQLite require；键 = `<file>:<行号>:<规范化代码行>` 双锚定 |
+| `test/dissection-graph.test.js` | 适配 | serverSource 拼接追加 local-database-bootstrap.js（该测试对搬迁代码有 10 处源码断言，多文件拼接为既有消化模式） |
+| `test/production-import-audit.test.js` | 增强 | 新增白名单受控断言（条目 ≤2、必须锚定 server.js 启动路径工厂） |
+
+### 二、设计决策与权衡
+
+1. **工厂注入 + 委托桩而非直接替换**：`createXxxService(deps)` 工厂返回原函数，server.js 保留同名委托桩（`async function xxx(...) { return ensureXxx()(...args); }`）。导出面、调用方、`__test` 测试入口零变化，回滚成本=删三个文件+还原三行 require。
+2. **惰性初始化规避 TDZ**：注入依赖中 skillService/dissection-result-service 等多行解构符号在模块后段才就绪，故委托桩首次调用时才装配（`let xxxRunner = null; function ensureXxx() {...}`），与 dissectionHandlers 既有装配模式一致。
+3. **模块级 db 经 setDatabase 回调写回**：initDB 原直接赋值模块级 `db`，下沉后经注入的 `setDatabase: (instance) => { db = instance; }` 写回，server.js 其余代码无感。
+4. **工厂缺失报错文案保留在 server.js 委托桩**：该文案是 test/sqlite-factory-injection.test.js 的源码断言锚点，且语义上属宿主持管职责（注入契约校验），不随函数体下沉。
+5. **门禁冲突处置：显式白名单而非删规则或下沉工厂**：P0 修复的两处 SQLite require 触发 production-import-audit（扫描 server.js + services/ + import 闭包传递）。评估过三个选项：①工厂下沉 lib/——闭包照样拉入，仍需白名单，且要多改测试；②删门禁规则——削弱架构约束；③显式白名单登记（选中）——门禁不动、例外可审计、带关联测试注释、条目数受断言封顶。行号+内容双锚定源于一次真实教训：仅内容匹配时测试 fixture 的同内容行被误豁免（violations 3→2）。
+6. **字节级一致性验证作为重构安全网**：每步下沉均以「原函数体 vs 新模块函数体」切片 diff，仅允许声明的机械改写（本轮 5 项：函数头/`database`→`db`/建库赋值+setDatabase/catch 置空/benchmark-commit 相对路径，外加把 HEAD 静默失败折回工作区 P0 报错形态）。注意基准陷阱：工作区含未提交 P0 修复，git HEAD 的 initDB 是旧静默失败版。
+
+### 三、真实验证证据
+
+- **字节级一致性**：initDB 搬迁经 5 项声明改写归一化后与 git HEAD 逐字节相同（38122 chars / 651 行）。
+- **模块冒烟**：三个新模块 `require` + 工厂调用通过（local-database-bootstrap 相对路径 `require.resolve` 从 services/ 解析 OK）。
+- **服务实跑**：重启后 `/api/health` → `db:"ready"`（修复 benchmark-commit 相对路径前为 `db:"off"，日志 "Cannot find module './lib/benchmark-commit'"，即函数内相对 require 是下沉头号坑）。
+- **直接相关测试**：sqlite-factory-injection 4/4（P0 三锚点+工厂契约）；dissection-graph + production-storage-import-audit + production-import-audit + sqlite-factory-injection 合计 48/48；novel-write-handlers-http 1/1（真实建库 + CAS 写链路）；benchmark-database + storage-audit 17/17。
+- **CI 模式全量**（与 CI 完全一致：`--test-concurrency=4`）：**2540 tests / 2525 pass / 0 fail / 15 skipped，exit=0**。
+- **门禁反向验证**：白名单漂移键不命中（false）、真实键命中（true）、审计脚本直跑 235 个生产文件零违规。
+
+### 四、已知限制与后续（需用户决策）
+
+1. **测试并发纪律**：默认并发（=CPU 核数）下 orchestrator/scene-planner/challenger 系时序测试会因事件循环饥饿假失败（本轮实测三组不同失败集合，单独重跑均过）；**本地跑全量必须带 `--test-concurrency=4`**（CI 自阶段二十六起已固定，package.json test 脚本未带该参数——建议后续补上，防再发）。
+2. **git 入库语料瘦身（LFS 化 + 历史重写）**：genre-lab/corpus-*.json（22.1MB，lib/genre-engine.js:1009 运行时读）、corpus-prompt-experiments（9.3MB，测试依赖）、paragraph-samples.json（2.3MB，character-material 生产读）——物理删除均不可行，正解为 LFS 化（.gitattributes 已有 5 个 LFS 条目为基础）+ filter-repo 重写 + 备份标签 + force-push（影响协作者重新 clone）。待用户决策。
+3. **Postgres/SQLite 双模分支 287 处/15 文件**（server.js 104 为大头）：终态切档属架构决策；首个收敛样板建议 auth-account-service.js（861 行/28 处、POSTGRES_MODE 已注入式、账户域边界清晰、有专项测试）。待用户裁决收敛策略（接口抽象 / PG-only / 样板+runbook）。
+4. **server.js 6705 行 / postgres-repository.js 7444 行**：继续下沉为持续项（下一候选：server.js 剩余 104 处 POSTGRES_MODE 路由分发段）。

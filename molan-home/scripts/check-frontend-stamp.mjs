@@ -8,7 +8,7 @@
  * 2026-10-12 的编辑器安全加固即因此未触达回访用户。
  *
  * 规则：自“引入当前版本戳的那次提交”起，任何受缓存戳保护的前端文件
- * 不得再发生变更；否则退出码 1 并指出应升级 index.html 中的版本戳。
+ * 不得再发生变更；否则退出码 1 并指出应升级版本戳。
  *
  * 用法：
  *   node scripts/check-frontend-stamp.mjs            # 校验工作区/HEAD
@@ -21,13 +21,17 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const INDEX_HTML = path.join(REPO_ROOT, 'index.html');
+// 版本戳声明（const v = '...'）自 2026-10-15 CSP 收紧起外移至 boot-scripts.js，
+// index.html 仅保留 ?v= 引用；两者都纳入探测范围。
+const STAMP_DECL_FILES = ['boot-scripts.js', 'index.html'];
 
 /** 受版本戳保护的前端资产（与 index.html 动态加载清单 + tokens.css 保持一致） */
 const STAMPED_ASSETS = [
   'index.html',
   'app.js',
   'app-boot.js',
+  'boot-head.js',
+  'boot-scripts.js',
   'completion-library.js',
   'completion-editor.js',
   'completion-import.js',
@@ -38,6 +42,17 @@ const STAMPED_ASSETS = [
   'pages/tokens.css',
   'assets/lucide.min.js',
   'assets/tailwind-browser.js',
+  'pages/js/about.js',
+  'pages/js/admin-login.js',
+  'pages/js/blog.js',
+  'pages/js/contact.js',
+  'pages/js/docs.js',
+  'pages/js/editor.js',
+  'pages/js/features.js',
+  'pages/js/login.js',
+  'pages/js/pricing.js',
+  'pages/js/quality-evolution-report.js',
+  'pages/js/tools.js',
 ];
 
 function git(args) {
@@ -52,30 +67,33 @@ function gitLines(args) {
 function main() {
   const base = process.argv[2] || 'HEAD';
 
-  // 1. 读取 index.html 中的当前版本戳（取 completion 脚本清单那处， tokens.css 与其一致）
-  const html = readFileSync(INDEX_HTML, 'utf8');
-  const stampMatch = html.match(/const v = '([^']+)'/);
-  if (!stampMatch) {
-    console.error('[stamp-guard] index.html 中未找到 `const v = \'...\'` 版本戳声明');
+  // 1. 读取当前版本戳（优先 boot-scripts.js 的 const v 声明，回退 index.html）
+  let stamp = '';
+  for (const rel of STAMP_DECL_FILES) {
+    const src = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+    const m = src.match(/const v = '([^']+)'/);
+    if (m) { stamp = m[1]; break; }
+  }
+  if (!stamp) {
+    console.error('[stamp-guard] boot-scripts.js / index.html 中均未找到 `const v = \'...\'` 版本戳声明');
     process.exit(1);
   }
-  const stamp = stampMatch[1];
 
-  // 2. 找到引入当前版本戳的提交（在该字符串首次出现的提交）
+  // 2. 找到引入当前版本戳的提交（在该字符串首次出现的提交；探测 index.html 与 boot-scripts.js）
   let stampCommit;
   try {
-    stampCommit = git(['log', '--max-count=1', '--format=%H', `-S${stamp}`, '--', 'index.html']);
+    stampCommit = git(['log', '--max-count=1', '--format=%H', `-S${stamp}`, '--', ...STAMP_DECL_FILES]);
   } catch {
     stampCommit = '';
   }
   if (!stampCommit) {
-    // 版本戳尚未提交（首次引入场景）：退化为“工作区内 index.html 有未提交改动则放行”
-    const dirty = gitLines(['status', '--porcelain', '--', 'index.html']);
+    // 版本戳尚未提交（首次引入场景）：退化为“工作区内声明文件有未提交改动则放行”
+    const dirty = gitLines(['status', '--porcelain', '--', ...STAMP_DECL_FILES]);
     if (dirty.length > 0) {
-      console.log(`[stamp-guard] 版本戳 ${stamp} 尚未提交，index.html 有未提交改动 → 视为本次引入，放行`);
+      console.log(`[stamp-guard] 版本戳 ${stamp} 尚未提交，声明文件有未提交改动 → 视为本次引入，放行`);
       process.exit(0);
     }
-    console.error(`[stamp-guard] 无法定位版本戳 ${stamp} 的引入提交，且 index.html 无未提交改动`);
+    console.error(`[stamp-guard] 无法定位版本戳 ${stamp} 的引入提交，且声明文件无未提交改动`);
     process.exit(1);
   }
 
@@ -92,15 +110,15 @@ function main() {
   if (changed.length > 0) {
     console.error(`[stamp-guard] ✗ 前端资产在版本戳 ${stamp}（引入于 ${stampCommit.slice(0, 8)}）之后发生变更：`);
     for (const f of changed) console.error(`  - ${f}`);
-    console.error('[stamp-guard] 请升级 index.html 中的版本戳（const v = \'<新戳>\' 与 tokens.css 链接同步）后重新提交。');
+    console.error('[stamp-guard] 请升级版本戳（boot-scripts.js 的 const v = \'<新戳>\' 与 index.html / 页面 ?v= 引用同步）后重新提交。');
     process.exit(1);
   }
 
-  // 4. 附加校验：工作区内受保护资产有未提交改动而 index.html 干净时同样拦截
-  const dirtyAssets = gitLines(['status', '--porcelain', '--', ...STAMPED_ASSETS.filter(a => a !== 'index.html')]);
-  const dirtyIndex = gitLines(['status', '--porcelain', '--', 'index.html']);
-  if (dirtyAssets.length > 0 && dirtyIndex.length === 0) {
-    console.error('[stamp-guard] ✗ 受保护前端资产有未提交变更，但 index.html（版本戳所在）无改动：');
+  // 4. 附加校验：工作区内受保护资产有未提交改动而版本戳声明文件干净时同样拦截
+  const dirtyAssets = gitLines(['status', '--porcelain', '--', ...STAMPED_ASSETS.filter(a => !STAMP_DECL_FILES.includes(a))]);
+  const dirtyDecl = gitLines(['status', '--porcelain', '--', ...STAMP_DECL_FILES]);
+  if (dirtyAssets.length > 0 && dirtyDecl.length === 0) {
+    console.error('[stamp-guard] ✗ 受保护前端资产有未提交变更，但版本戳声明文件无改动：');
     for (const f of dirtyAssets) console.error(`  - ${f}`);
     console.error('[stamp-guard] 请先升级版本戳再提交。');
     process.exit(1);

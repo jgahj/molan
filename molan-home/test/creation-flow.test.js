@@ -43,7 +43,8 @@ test('编辑器入口统一使用新版 index.html#editor 并保留旧链接兼�
   const novelsSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'novels.js'), 'utf8');
   const dissectSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'dissect.js'), 'utf8');
   const shellSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'molan-shell.js'), 'utf8');
-  const legacyEditor = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.html'), 'utf8');
+  // 2026-10-15 CSP 收紧：editor.html 的内联跳转脚本已外移至 pages/js/editor.js，两处合并断言
+  const legacyEditor = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.html'), 'utf8') + '\n/* == pages/js/editor.js == */\n' + fs.readFileSync(path.join(__dirname, '..', 'pages', 'js', 'editor.js'), 'utf8');
   const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + '\n/* == app-boot.js == */\n' + fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
   assert.doesNotMatch(rootSource, /\.\/pages\/editor\.html/);
   assert.match(dashboardSource, /\.\/index\.html#editor/);
