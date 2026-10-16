@@ -2851,3 +2851,45 @@ molan-home/
 2. **git 入库语料瘦身（LFS 化 + 历史重写）**：genre-lab/corpus-*.json（22.1MB，lib/genre-engine.js:1009 运行时读）、corpus-prompt-experiments（9.3MB，测试依赖）、paragraph-samples.json（2.3MB，character-material 生产读）——物理删除均不可行，正解为 LFS 化（.gitattributes 已有 5 个 LFS 条目为基础）+ filter-repo 重写 + 备份标签 + force-push（影响协作者重新 clone）。待用户决策。
 3. **Postgres/SQLite 双模分支 287 处/15 文件**（server.js 104 为大头）：终态切档属架构决策；首个收敛样板建议 auth-account-service.js（861 行/28 处、POSTGRES_MODE 已注入式、账户域边界清晰、有专项测试）。待用户裁决收敛策略（接口抽象 / PG-only / 样板+runbook）。
 4. **server.js 6705 行 / postgres-repository.js 7444 行**：继续下沉为持续项（下一候选：server.js 剩余 104 处 POSTGRES_MODE 路由分发段）。
+
+## 阶段二十八：语料数据资产 LFS 化与 git 历史重写（2026-10-16）
+
+> **执行周期**：2026-10-16
+> **核心目标**：落实阶段二十七遗留项 2——把 4 组运行时必需、物理删除不可行的语料数据资产（genre-lab/corpus-*、corpus-prompt-experiments、paragraph-samples、character-material 分片 buckets，共 2638 文件 / 172.6MB）转入 Git LFS，经 `git lfs migrate` 全历史重写 + 镜像备份 + 分拆 force-push，收敛 pack 体积并恢复 git 常规操作性能。
+
+### 一、改动范围与核心逻辑
+
+| 对象 | 改动类型 | 核心改动点 |
+|---|---|---|
+| `molan-home/.gitattributes` | 新增 4 组 LFS 规则 | `data/genre-lab/corpus-*.json`、`data/corpus-prompt-experiments/**`、`data/paragraph-samples.json`、`lib/character-material/sharded/buckets/*.json`；叠加既有 5 组 character-material 系规则 |
+| git 历史（全 refs） | `git lfs migrate import --everything` 重写 | 2638 个文件转指针；main 7bc58a4→47b3b4a、feature/generation-v2 a38ed7c→2d6a1a2、tag 97c7ec5→e1ad1c8、codex ref de065b6→68bb1d5（migrate 重写所有 refs） |
+| `C:/Users/lyh/Desktop/小说专属网页.molan-backup-pre-lfs.git` | 镜像备份（60M） | 重写前本地+远程全状态快照（main=072214e / origin/main=7bc58a4 / origin/feature=a38ed7c / tag→97c7ec5 / codex→de065b6），回滚安全网 |
+| refs 卫生 | 删除 2 个锚点 | tag e1ad1c8（新 main 祖先，纯卫生）+ codex ref 68bb1d5（非 main 祖先，真锚点；备份镜像持有其重写前版本） |
+| 索引 stat 缓存 | 修复 | 对全部 LFS 路径 `git add` 刷新 stat（staged 内容与 HEAD 逐字节一致，零 diff）——修复 migrate 后 2627 文件误报 modified |
+
+### 二、设计决策与权衡
+
+1. **LFS 化而非物理删除**：四组语料均被运行时/测试直接读（genre-engine.js:1009 运行时读 genre-lab、character-material 生产读 paragraph-samples、8 个测试文件依赖 corpus-prompt-experiments），删除即功能回退；LFS 化后 clone 按需拉取、git 操作恢复指针级性能。
+2. **镜像备份而非 tag/bundle 固定旧历史**：migrate 会重写 tag，旧 tag 指向新历史、不能当回滚锚；`--mirror` clone 保留重写前全部 ref（含 FETCH_HEAD/ORIG_HEAD 之外的完整 ref 集），且 migrate 不清除远端对象，回滚 = 改 remote 指向备份仓。
+3. **分拆推送规避 SSH 空闲超时**：pre-push hook 上传 8 分钟 LFS 对象期间，git push 的 SSH 连接因空闲被远程关闭（exit 141 SIGPIPE、ref 未更新）。解法：先 `git lfs push origin <refs>`（HTTPS 通道，无 SSH 空闲问题），再 `git push --no-verify` + `core.sshCommand` 带 ServerAliveInterval=60。
+4. **reflog 过期必须发生在 push 之后**：`git gc` 内置 reflog 过期默认 90 天不清当天条目；force-push 本身会在 origin/* reflog 留下旧 SHA 条目持有旧历史——首次 gc 后 pack 仍 60.22 MiB 即因此。push 后 `git reflog expire --expire=now --expire-unreachable=now --all` + 删陈旧 FETCH_HEAD/ORIG_HEAD + 重跑 gc，pack 才降到 19.28 MiB。
+5. **索引 stat 污染用 `git add` 修复而非 `update-index --really-refresh`**：git 的索引刷新路径不跑 clean 过滤器（实测 2627 文件全部 "needs update"），而 `git add` 会跑 clean 并刷新 stat——这是 migrate 后 status 全量误报 modified 的标准解法；status 与 diff 结论分歧（status 报 modified、diff 空）是该后遗症的特征信号。
+6. **体积诚实账**：pack 60.22→19.28 MiB（-68%），但 .git 总量 60MB→198MB（LFS 存未压缩当前版本 vs 旧 pack 的 delta 压缩）。收益不在本地磁盘，而在历史卫生（敏感/大文件可真正逐出历史）与 git 日常操作速度；本地膨胀是已知代价。
+
+### 三、真实验证证据
+
+- **全量完整性（主仓，恢复事故后复验）**：2638/2638 文件 sha256+size 与 HEAD 指针一致，0 bad（`lfs_integrity_check.py` 全树扫描）。
+- **LFS 库存完备性**：HEAD 全部 2637 个唯一 oid 在 `.git/lfs/objects/` 存在，0 missing（2638 文件中有 1 个 oid 被两文件共享）。
+- **`git lfs fsck`**：主仓 OK。
+- **关键测试回归**：8 个语料依赖测试文件 **169 tests / 167 pass / 0 fail / 2 skipped，exit=0**。
+- **Fresh clone 端到端**（`git lfs clone` 全量）：exit=0，5186 文件 + 2638 LFS 对象 166.46 MiB 全量下载成功；status 0、fsck OK、pack 20.66 MiB / 7948 对象、log 正确（47b3b4a→db48c60→ac5f500）。
+- **推送核验**：ls-remote 显示 main=47b3b4a / feature=2d6a1a2 与本地齐平；LFS 对象显式 push 0 B/s（远程已全，fresh clone 下载即证）。
+- **feature 分支核验**：该分支 HEAD 无任何 LFS 指针文件（122 个 json 全为裸内容；.gitattributes 中 5 条 character-material 规则为 vestigial——匹配文件从未进入该分支历史）；`lib/character-material/` 单体布局为 main 近期才分片。checkout + `git lfs fsck` 通过。
+- **工作区事故与恢复**（本会话运维教训）：一次中断的 checkout（后台任务 cwd 重置至主仓执行 `git checkout feature/generation-v2`，被 SIGTERM）误删主仓 1643 个文件并留陈旧 index.lock；索引与 HEAD 一致，`git reset --hard HEAD` 全量恢复后 status 0 / 5186 文件 / 2638 完整性 0 bad——证据链完整，无数据损失。
+
+### 四、已知限制与后续
+
+1. **协作者影响**：历史重写后所有既有 clone 失效，需重新 clone（或按备份镜像回滚）；已 force-push 完成，无回头路。
+2. **本地 .git 膨胀**：60MB→198MB（LFS 存未压缩版本）；如需回收可 `git lfs prune`（已执行，2637 对象全保留）。
+3. **后台任务 cwd 陷阱**（新沉淀纪律）：后台 Bash 从会话主 cwd（=主仓根）启动，不继承前台 cd——后台 git 命令必须显式 cd 目标仓库；执行 checkout 类破坏性操作前先确认无陈旧 `.git/index.lock`（0 字节 + 无 git.exe 进程 = 可删）。
+4. **下一遗留**：Postgres/SQLite 双模收敛 287 处/15 文件（见阶段二十七第 3 条，用户已于 2026-10-02 在 `docs/postgres-only-checkpoint-20261002.md` 授权 PG-only 终态，收敛策略细节待本轮范围决策）。
