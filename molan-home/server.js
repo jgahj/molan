@@ -5259,6 +5259,11 @@ function skillRepository() {
 async function nativeSkillCatalog(user) {
   if (POSTGRES_MODE) {
     const repository = postgresRepository;
+    // PG-only 收敛：禁用态桩（PG 未配置或测试环境）没有 runtime* 方法时降级为空目录——
+    // skill 目录缺失不应中断写作主链（fail-open：无 skill 不阻止生成）。生产 PG 启用时方法必然存在。
+    if (typeof repository.runtimeListUserSkills !== 'function' || typeof repository.runtimeListGlobalSkills !== 'function') {
+      return { userSkills: [], globalSkills: [] };
+    }
     const [users, global] = await Promise.all([
       repository.runtimeListUserSkills(user.userId),
       repository.runtimeListGlobalSkills(user.userId)

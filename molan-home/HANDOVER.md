@@ -2940,3 +2940,29 @@ molan-home/
 3. **其余基线既有**：story-workbench-browser / structural-originality / platform-config-gate / chapter-outline 系等（失败模式与基线逐一致，未受坍缩影响）。
 4. **批 4 候选**：native JSON 服务工厂区死代码清除（约 230 行，需 appRepository 可达性分析）；`test/*.test.mjs` 中 production-import-audit 断言同步 PG-only 化。
 5. **部署动作**：本次改动需同步部署 ECS（`/opt/molan`，systemd molan；前端静态文件上传即生效，server.js 改动必须 `systemctl restart molan`）。
+
+### 五、#18-F 收口执行记录（2026-10-17 追加）
+
+> **用户决策**（本轮请示确认）：A 族 JSON 模式测试 = **归档子目录 + 回归排除**；B 族 2 项非模式失败 = **一并修复**。
+
+#### 1. A 族归档（39 个失败 / 18 个文件）
+
+| 动作 | 内容 |
+|---|---|
+| 归档目录 | `test/legacy-json-mode/`（README 说明背景、处置方式、18 文件覆盖意图清单、恢复步骤） |
+| 移动方式 | `git mv` 原样移动（内容零改动，git 历史连续） |
+| 入口收紧 | `package.json` 的 `test`/`ci` glob 由 `test/**/*.test.*` 改为 `test/*.test.*`（顶层匹配；`test/e2e/` 为 playwright `.spec.js` 本就不匹配，`test/helpers/` 被 5 个顶层测试共用故留原地） |
+| 交叉引用核查 | 全仓 grep：仅 docs/ 历史记录、HANDOVER 历史阶段、`data/evaluation-input/` 历史快照引用被归档路径（受保护数据不动），无活跃脚本/顶层测试依赖 |
+
+#### 2. B 族修复（2 项）
+
+| 测试 | 根因 | 修复 |
+|---|---|---|
+| `structural-originality`（callMolanChat 上游返回 HTML 应抛错） | 测试无 PG 环境，`nativeSkillCatalog` 调禁用态桩的 `runtimeListUserSkills` → TypeError 掩盖了真实断言 | `server.js:nativeSkillCatalog` 加存在性守卫：PG 模式下桩方法缺失时降级为空目录（fail-open：无 skill 不阻断写作主链；生产 PG 启用时方法必然存在，行为不变）。复跑 16/16 全绿，真实覆盖恢复 |
+| `platform-config-gate`（global prompt 写入 quality gate） | skill-service 坍缩后 `saveGlobalSkills` 导出已删（本地 JSON 写入路径移除），测试直调报 TypeError | 锚点反转为"守住移除事实 + gate 迁移事实"：断言 `saveGlobalSkills/persistGlobalSkills` 为 undefined 不回潮 + admin-service 源码在 create/patch/delete 三处含 `assertPlatformConfigPromotion({ kind: 'global-prompts'` 且写入走 `runtimeReplaceGlobalSkills`。复跑 5/5 全绿 |
+
+#### 3. 终局验证证据
+
+- **全量回归（归档 + 修复后）**：**312 个测试文件 / 2433 个测试 / 2155 通过 / 0 失败 / 16 环境依赖内联跳过 / 全部文件退出码 0**（`after-18f.tap`）。基线 43 败 → 批 3 后 40 败 → **#18-F 收口后 0 败**。
+- **glob 等价性**：顶层测试文件 312 个 = 回归覆盖 312 个（package.json 收紧无漏跑）；归档目录 18 个文件不再进入常规回归。
+- **语法/冒烟**：`server.js` `node --check` 通过。
