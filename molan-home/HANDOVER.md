@@ -2966,3 +2966,17 @@ molan-home/
 - **全量回归（归档 + 修复后）**：**312 个测试文件 / 2433 个测试 / 2155 通过 / 0 失败 / 16 环境依赖内联跳过 / 全部文件退出码 0**（`after-18f.tap`）。基线 43 败 → 批 3 后 40 败 → **#18-F 收口后 0 败**。
 - **glob 等价性**：顶层测试文件 312 个 = 回归覆盖 312 个（package.json 收紧无漏跑）；归档目录 18 个文件不再进入常规回归。
 - **语法/冒烟**：`server.js` `node --check` 通过。
+
+#### 4. 批 4：native JSON 服务工厂区死代码清除（2026-10-17 追加）
+
+> **背景**：批 3 删除 6 个原生 JSON 派发块与 `nativeSkillService` 路由展开后，server.js 内约 130 行 JSON 工厂代码失去全部调用者。执行前完成全量可达性分析（server.js / test 顶层 / scripts 三域引用扫描 + exports 区核对）。
+
+| 动作 | 内容 |
+|---|---|
+| 删除规模 | `server.js` 6077 → **5990 行**（11 op，严格降序 + 快照断言 + 重叠自检，备份 `server.js.bak-batch4`） |
+| 死函数集群 | `nativeSkillService` / `nativeProjectService` / `nativeDissectionService` / `nativeCreationService` / `nativeCreationRepository` / `nativeBenchmarkChapterService` / `nativeKnowledgeCatalogService`（let 声明）及其中转变量（`nativeSkills` / `nativeSkillRepository` / `skillRepository` / `nativeProjects` / `nativeDissections` / `nativeCreation` / `nativeCreationHttp` / `nativeBenchmarkChapterHttp`） |
+| 分支坍缩 | `nativeSkillCatalog` 的 JSON else 分支（POSTGRES_MODE 恒真后死分支）删除，PG 分支含批 3 加的禁用态桩守卫 |
+| 解构/导出收紧 | `nativeDomain` 解构 7 符号 → 2（`appRepository`=chat-service 注入+exports；`memoryDomainStore`=memoryRoutes 注入）；exports 删 `nativeAuthService`（三域零引用） |
+| **保留决策 1** | `services/native-*.js` 六个 service 文件**不删**——`test/` 顶层有 7 个测试（creation-scope / native-creation-link-novel / native-knowledge-catalog-http / native-project-http / native-creation-service / project-materials-seven）直接 require 并守护 service 层逻辑；server.js 摘除调用后形成"生产入口零 JSON 仓储、测试仍守护 service 层"的合理状态 |
+| **保留决策 2** | `appRepository` / `memoryDomainStore` / `nativeDomain` 本体保留——分别被 chat-service 注入（L664）、memoryRoutes dispatch（`/api/books/` `/api/runs/` 活跃路由）、`closeStorageStores` 关闭路径（L135）消费 |
+| 验证 | 语法 `node --check` 通过；模块加载 OK（`app.server` / `app.appRepository` 均 function）；structural-originality 16/16；**全量回归 312 文件 / 2433 测试 / 2155 通过 / 0 失败 / 0 非零退出（与 #18-F 后逐位一致，零回归）**；19 个已删符号 server.js + chat-service 零残留（CLEAN） |

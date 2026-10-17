@@ -5248,14 +5248,7 @@ const nativeDomain = require('./services/native-domain-service').createNativeDom
   creditCostForUser, roundCreditValue, toTokenCount, matchesTokenUsageReservation,
   normalizeUserRole, storedAvatar, buildUsageSummary, publicUsageRow, novelListSummary
 });
-const { appRepository, memoryDomainStore, nativeBillingService, nativeAuthService,
-  nativeUsageSummary, nativePublicUser, summarizeNativeNovel } = nativeDomain;
-let nativeSkills;
-let nativeSkillRepository;
-function skillRepository() {
-  if (!nativeSkillRepository) nativeSkillRepository = new (require('./lib/repositories/json-skill-repository').JsonSkillRepository)(appRepository().repository);
-  return nativeSkillRepository;
-}
+const { appRepository, memoryDomainStore } = nativeDomain;
 async function nativeSkillCatalog(user) {
   if (POSTGRES_MODE) {
     const repository = postgresRepository;
@@ -5273,84 +5266,6 @@ async function nativeSkillCatalog(user) {
       globalSkills: global.map(row => postgresRuntimeSkillFromRow(row, 'global'))
     };
   }
-  const [users, global] = await Promise.all([
-    skillRepository().listUser({ actorUserId: user.userId, ownerEmail: user.email }), skillRepository().listGlobal()
-  ]);
-  return { userSkills: users.skills.map(decorateSkillPrompt), globalSkills: global.skills.map(decorateSkillPrompt) };
-}
-let nativeProjects;
-let nativeDissections;
-let nativeCreation;
-let nativeCreationHttp;
-let nativeBenchmarkChapterHttp;
-function nativeBenchmarkChapterService() {
-  if (!nativeBenchmarkChapterHttp) nativeBenchmarkChapterHttp = require('./services/native-benchmark-chapter-service').createNativeBenchmarkChapterService({
-    creationRepository: nativeCreationRepository(), dataDirectory: DATA_DIR, benchmarkPipeline, getAuthUser, readBody, json,
-    callMolanChat, resolveModelForUser, currentDefaultModel, checkForbiddenTerms, creationForbiddenTerms,
-    deterministicContractValidation, evaluateSomaticGate, runGenreNarrativeAudits, computeStructuralSimilarity,
-    creationOriginalityGate, computeRetentionCompliance, logger: console
-  });
-  return nativeBenchmarkChapterHttp;
-}
-function nativeCreationRepository() {
-  if (!nativeCreation) {
-    nativeCreation = new (require('./lib/repositories/json-creation-repository').JsonCreationRepository)(appRepository());
-  }
-  return nativeCreation;
-}
-function nativeCreationService() {
-  if (!nativeCreationHttp) nativeCreationHttp = require('./services/native-creation-service').createNativeCreationService({
-    repository: nativeCreationRepository(), getAuthUser, readBody, json,
-    normalizeCreationPlan, normalizeBiblePayload, creationBibleSeedValidation, creationForbiddenTerms,
-    creationChapterContext, deterministicContractValidation, contractFieldsSubstantive,
-    generateChapterContract: ({ auth, authToken, body, chapterNo, context, previous, debts, attempt, previousEnding, prompt }) => callMolanChat(authToken, auth.user, {
-      thinking: false, reasoningEffort: 'none',
-      system: '你是原创长篇小说章节合同策划器。只使用新书创作圣经，不得引用来源原文、来源人物或来源专属事件。只返回 JSON。字段必须包含 chapterNo,goal,protagonistAction,opposition,informationChange,escalation,irreversibleResult,characterStateChanges,foreshadowActions,continuityInputs,continuityOutputs,mustAvoid。' +
-        (attempt ? '合同字段必须包含具体人物名、具体行动和具体后果，禁止空泛表述。' : '主线优先于副线，副线只能服务主线。'),
-      userPrompt: '新书创作圣经上下文：\n' + JSON.stringify(context) + '\n上一章持久化状态：\n' + JSON.stringify(previous) +
-        '\n因果债务：\n' + String(debts.block || '') + '\n上一章结尾：\n' + previousEnding + '\n用户本章要求：\n' + prompt + '\n请生成第 ' + chapterNo + ' 章合同。',
-      maxTokens: 2400, jsonMode: true, modelId: resolveModelForUser(auth.user, resolveCreationModelId(body)),
-      internalModel: true, temperature: 0.35, stage: 'writing', disableTimeout: true
-    })
-  });
-  return nativeCreationHttp;
-}
-function nativeDissectionService() {
-  if (!nativeDissections) {
-    const repository = new (require('./lib/repositories/json-dissection-repository').JsonDissectionRepository)(appRepository().repository, {
-      inputService: { cleanDissectionText, buildDissectionUnits },
-      resultService: { normalizeDissectionStageResult, mergeDissectionResult, dissectionStageMissingFields },
-      phases: DISSECTION_PHASES_BY_DEPTH.standard
-    });
-    const worker = require('./services/native-dissection-worker').createNativeDissectionWorker({
-      repository, phases: DISSECTION_PHASES_BY_DEPTH.standard, getAccount: id => appRepository().getAccount(id),
-      callStage: ({ record, stageId, user, authToken, requestId, controller }) => callMolanChat(authToken, user, {
-        system: dissectionSkillInstruction(), userPrompt: dissectionStagePrompt(stageId, record,
-          dissectionContextForStage(stageId, chooseDissectionChunks(buildDissectionChunks(record.sourceText), record.depth), record.depth), record.result),
-        modelId: record.selectedModel, stage: 'skill_analysis', requestId, maxTokens: 10000, controller,
-        jsonMode: true, skillAudit: dissectionSkillAuditPayload()
-      })
-    });
-    nativeDissections = require('./services/native-dissection-service').createNativeDissectionService({
-      repository, getAuthUser, readBody, json, respondError, worker, resolveModel: resolveModelForUser
-    });
-  }
-  return nativeDissections;
-}
-function nativeProjectService() {
-  if (!nativeProjects) nativeProjects = require('./services/native-project-service').createNativeProjectService({
-    repository: appRepository(), getAuthUser, readBody, json
-  });
-  return nativeProjects;
-}
-function nativeSkillService() {
-  if (!nativeSkills) nativeSkills = require('./services/native-skill-service').createNativeSkillService({
-    repository: skillRepository(),
-    getAuthUser, readBody, json, respondError, crypto, decorateSkillPrompt, normalizeSkillRuntimeFiles,
-    skillFileNames, skillRuntimeFilesComplete, makeOpenSkill, makeGlobalSkill, loadBuiltinSkills, uniqueSkillsById,
-    openSkillListView, openSkillDetailView, parseOpenSkillListParams, decodePathParam, isAdminUser
-  });
-  return nativeSkills;
 }
 
 let postgresDissectionReadServiceInstance = null;
@@ -5485,7 +5400,6 @@ function getPostgresDissectionMutationService() {
   return postgresDissectionMutationServiceInstance;
 }
 
-let nativeKnowledgeCatalogService = null;
 const server = http.createServer((req, res) => {
   observability.countRequest();
   res.on('finish', () => { if (res.statusCode >= 500) observability.countServerError(); });
@@ -5878,7 +5792,6 @@ if (require.main === module) {
 
 module.exports = {
   appRepository,
-  nativeAuthService,
   normalizeUsage,
   buildUsageSummary,
   creditCostForTokens,
