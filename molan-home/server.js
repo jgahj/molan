@@ -98,37 +98,19 @@ const { createModelSelectionService } = require('./services/model-selection-serv
 const postgresData = require('./lib/postgres-repository');
 const postgresRepository = postgresData.createPostgresRepository();
 const { runGenreNarrativeAudits } = require('./lib/genre-narrative-audit');
-const POSTGRES_MODE = postgresRepository.enabled;
-if (require.main === module && process.env.NODE_ENV === 'production' && !POSTGRES_MODE) {
-  throw Object.assign(new Error('Production mode requires PostgreSQL; local storage is not an allowed fallback.'),
-    { code: 'PRODUCTION_POSTGRES_REQUIRED' });
-}
-const postgresStyleProfileStore = POSTGRES_MODE
-  ? require('./lib/style-profile-store').createPostgresStyleProfileStore(postgresRepository)
-  : null;
-let jsonGenerationStore = null;
-let jsonStyleProfileStore = null;
-function generationRunStore() {
-  if (!POSTGRES_MODE && (process.env.MOLAN_GENERATION_STORE === 'json' || process.env.MOLAN_APP_STORE === 'json')) {
-    if (!jsonGenerationStore) {
-      jsonGenerationStore = require('./lib/generation/json-store').createJsonGenerationStore(path.join(DATA_DIR, 'generation-json'),
-        process.env.MOLAN_APP_STORE === 'json' ? { repository: appRepository().repository } : {});
-    }
-    return jsonGenerationStore;
-  }
-  return POSTGRES_MODE
-    ? require('./lib/generation/postgres-store').createPostgresGenerationStore(postgresRepository)
-    : (() => { throw Object.assign(new Error('生成任务需要 PostgreSQL 或显式原生测试仓储'), { code: 'GENERATION_STORE_REQUIRED' }); })();
-}
+// PG-only 收敛（#18-E）：本地 SQLite 与原生 JSON 双模分支已移除，运行时只服务 PostgreSQL。
+const POSTGRES_MODE = true;
+// 文风仓储惰性创建：createPostgresStyleProfileStore 在仓储禁用时会 throw，
+// 模块级 eager 调用会让无 PG 环境下 require('../server') 直接崩溃（#18-E 实证）。
+let postgresStyleProfileStore = null;
 function styleProfileStore() {
-  if (POSTGRES_MODE) return postgresStyleProfileStore;
-  if (process.env.MOLAN_STYLE_STORE !== 'json' && process.env.MOLAN_APP_STORE !== 'json') return null;
-  if (!jsonStyleProfileStore) {
-    jsonStyleProfileStore = require('./lib/style-profile-store')
-      .createJsonStyleProfileStore(path.join(DATA_DIR, 'style-profiles-json'),
-        process.env.MOLAN_APP_STORE === 'json' ? { repository: appRepository().repository } : {});
+  if (!postgresStyleProfileStore) {
+    postgresStyleProfileStore = require('./lib/style-profile-store').createPostgresStyleProfileStore(postgresRepository);
   }
-  return jsonStyleProfileStore;
+  return postgresStyleProfileStore;
+}
+function generationRunStore() {
+  return require('./lib/generation/postgres-store').createPostgresGenerationStore(postgresRepository);
 }
 async function closeStorageStores() {
   stopCreditReservationReaper();
@@ -141,8 +123,6 @@ async function closeStorageStores() {
   failures.push(...labResults.filter(result => result.status === 'rejected').map(result => result.reason));
   const activeDatabase = db;
   const results = await Promise.allSettled([
-    jsonGenerationStore ? Promise.resolve().then(() => jsonGenerationStore.close()) : Promise.resolve(),
-    jsonStyleProfileStore ? Promise.resolve().then(() => jsonStyleProfileStore.close()) : Promise.resolve(),
     Promise.resolve().then(() => postgresRepository.close()),
     activeDatabase && typeof activeDatabase.close === 'function'
       ? Promise.resolve().then(async () => {
@@ -156,11 +136,8 @@ async function closeStorageStores() {
   failures.push(...nativeResult.filter(result => result.status === 'rejected').map(result => result.reason));
   if (failures.length) throw new AggregateError(failures, 'One or more storage stores failed to close');
 }
-let postgresHealth = POSTGRES_MODE
-  ? { enabled: true, available: false, status: 'starting' }
-  : { enabled: false, available: false, status: 'disabled' };
+let postgresHealth = { enabled: true, available: false, status: 'starting' };
 const postgresRuntimeState = { ready: false };
-const dbEnabled = true;
 const { assertJsonSource } = require('./lib/repositories/assert-json-source');
 
 const PORT = process.env.PORT || 3000;
@@ -619,15 +596,8 @@ const { requestError, decodePathParam, respondError, json, readBody } = require(
 });
 
 function requireSqliteForPublic(req, res) {
-  if (POSTGRES_MODE) {
-    if (!dbReady() || !postgresHealth.available || !postgresRuntimeState.ready) {
-      json(res, 503, { error: 'PostgreSQL 运行时尚未就绪，请稍后重试' });
-      return false;
-    }
-    return true;
-  }
-  if (REQUIRE_SQLITE_FOR_REMOTE && !dbReady()) {
-    json(res, 503, { error: '生产环境存储引擎尚未就绪，请确保数据库或本地存储服务正常启动' });
+  if (!dbReady() || !postgresHealth.available || !postgresRuntimeState.ready) {
+    json(res, 503, { error: 'PostgreSQL 运行时尚未就绪，请稍后重试' });
     return false;
   }
   return true;
@@ -688,7 +658,6 @@ function getChatServiceHandler() {
       getDeepseekKey: () => DEEPSEEK_KEY,
       getDeepseekUrl: () => DEEPSEEK_URL,
       getProxyUrl: () => PROXY_URL,
-      POSTGRES_MODE,
       postgresRepository,
       postgresActor: auth => String(auth && auth.user && (auth.user.userId || projectScope.stableUserId(auth.user.email)) || '').trim(),
       getAuthUser, requireSqliteForPublic, allowChatRate, acquireChatSlot, releaseChatSlot,
@@ -772,24 +741,12 @@ function handleBillingTopup(req, res) {
     const credits = Number(body && body.credits);
     if (!LOCAL_TOPUP_CREDITS.has(credits)) throw requestError(400, '只支持 1000、8000 或 30000 积分档位');
     const email = String(auth.user.email || '').trim().toLowerCase();
-    let user;
-    if (POSTGRES_MODE) {
-      const userId = String(auth.user.userId || projectScope.stableUserId(email));
-      const row = await postgresRepository.runtimeAdjustCredits({
-        actorUserId: userId, userId, delta: credits, spentDelta: 0
-      });
-      user = postgresRuntimeUserFromRow(row);
-    } else if (process.env.MOLAN_APP_STORE === 'json') {
-      user = await appRepository().adjustCredits({ userId: auth.user.userId, delta: credits });
-    } else if (dbReady()) {
-      db.prepare('UPDATE accounts SET credits = credits + ? WHERE email = ? AND role <> \'admin\'').run(credits, email);
-      user = getUserByEmail(email);
-    } else {
-      user = auth.user;
-      user.credits = Math.round(((Number(user.credits) || 0) + credits) * 100) / 100;
-      saveUser(user);
-    }
-    json(res, 200, { ok: true, creditsAdded: credits, user: !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? await nativePublicUser(user) : await publicUser(user) });
+    const userId = String(auth.user.userId || projectScope.stableUserId(email));
+    const row = await postgresRepository.runtimeAdjustCredits({
+      actorUserId: userId, userId, delta: credits, spentDelta: 0
+    });
+    const user = postgresRuntimeUserFromRow(row);
+    json(res, 200, { ok: true, creditsAdded: credits, user: await publicUser(user) });
   }).catch(error => respondError(res, error));
 }
 
@@ -976,9 +933,6 @@ function emptyEditorOnlyCharacterMaterialResult() {
 
 /* ===================== 账号体系（本地 JSON 存储，零依赖） ===================== */
 const DATA_DIR = path.resolve(process.env.MOLAN_DATA_DIR || path.join(__dirname, 'data'));
-if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-  require('./services/native-domain-service').assertNoLegacyAppData({ fs, path, dataDir: DATA_DIR, resetLegacy: true });
-}
 const CHARACTER_MATERIAL_REPORT_FILE = path.join(__dirname, 'lib', 'character-material', 'quality-report.json');
 const CHARACTER_MATERIAL_APPROVAL_FILE = path.join(DATA_DIR, 'character-material-audit.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -1005,22 +959,17 @@ const SKILL_CACHE_TTL_MS = envPositiveInt('MOLAN_SKILL_CACHE_TTL_MS', 30000, 100
 
 function postgresRuntimeUserFromRow(row) {
   if (!row) return null;
-  return userFromDbRow({
+  return {
     email: row.email,
-    userId: row.legacy_user_id,
+    userId: row.legacy_user_id || projectScope.stableUserId(row.email),
     name: row.name,
-    avatar: row.avatar,
-    bio: row.bio,
-    defaultModel: row.default_model,
-    salt: row.salt,
-    pwd: row.pwd,
-    role: row.role,
-    level: row.level,
-    plan: row.plan,
-    credits: row.credits,
-    spent: row.spent,
+    avatar: storedAvatar(row.avatar),
+    bio: String(row.bio || ''),
+    defaultModel: String(row.default_model || ''),
+    salt: row.salt, pwd: row.pwd, role: row.role, level: row.level, plan: row.plan,
+    credits: Number(row.credits) || 0, spent: Number(row.spent) || 0,
     createdAt: row.created_at_text
-  });
+  };
 }
 
 /** 跨实例登录的缓存未命中时，回填当前进程的账号投影，避免等待 NOTIFY 刷新竞态。 */
@@ -1122,21 +1071,10 @@ function appendAdminAudit(adminEmail, action, target, detail) {
     adminEmail: String(adminEmail || ''), action: String(action || ''), target: String(target || ''),
     detail: detail && typeof detail === 'object' ? detail : {}, createdAt: Date.now()
   };
-  if (POSTGRES_MODE) {
-    return postgresRepository.runtimeAccountByEmail(item.adminEmail).then(account => {
-      if (!account) throw requestError(403, '管理员账户不存在');
-      return postgresRepository.runtimeAppendAdminAudit(account.legacy_user_id, item);
-    });
-  }
-  const rows = readJsonFile(ADMIN_AUDIT_FILE, []);
-  if (dbReady()) {
-    db.prepare(`INSERT INTO admin_audit (id, admin_email, action, target, detail_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(item.id, item.adminEmail, item.action, item.target, JSON.stringify(item.detail), item.createdAt);
-    db.exec('DELETE FROM admin_audit WHERE id NOT IN (SELECT id FROM admin_audit ORDER BY created_at DESC LIMIT 200)');
-    return item;
-  }
-  writeJsonFile(ADMIN_AUDIT_FILE, [item, ...(Array.isArray(rows) ? rows : [])].slice(0, 200));
-  return item;
+  return postgresRepository.runtimeAccountByEmail(item.adminEmail).then(account => {
+    if (!account) throw requestError(403, '管理员账户不存在');
+    return postgresRepository.runtimeAppendAdminAudit(account.legacy_user_id, item);
+  });
 }
 
 // 会话只在内存中保存 token 哈希；落盘文件永远不保存可直接使用的明文 token。
@@ -1184,15 +1122,8 @@ function handleUsage(req, res) {
     const value = Number(new URL(req.url, 'http://localhost').searchParams.get('limit'));
     if (Number.isFinite(value)) limit = Math.min(100, Math.max(1, Math.floor(value)));
   } catch (_) {}
-  if (POSTGRES_MODE) {
-    return getPostgresUsageSummary(a.user.userId, limit).then(usage => json(res, 200, { ok: true, usage }))
-      .catch(error => respondError(res, error));
-  }
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-    return nativeUsageSummary(a.user.userId, limit).then(usage => json(res, 200, { ok: true, usage }))
-      .catch(error => respondError(res, error));
-  }
-  json(res, 200, { ok: true, usage: getUsageSummary(a.user.email, limit) });
+  return getPostgresUsageSummary(a.user.userId, limit).then(usage => json(res, 200, { ok: true, usage }))
+    .catch(error => respondError(res, error));
 }
 
 /* ---------- 纠错库：摘要 / 扫描 / 回流 / 命中看板 ---------- */
@@ -1582,94 +1513,17 @@ const ADMIN_DATA_TYPES = new Set(['accounts', 'novels', 'user-skills', 'global-s
 // 安全：user_email 始终从 getAuthUser().user.email 取，绝不信任请求体里的 user 字段。
 let db = null;
 
-function migrateUsersToDb() {
-  if (!dbReady()) return;
-  const count = Number(db.prepare('SELECT COUNT(*) AS n FROM accounts').get().n) || 0;
-  if (count > 0) return;
-  let users = [];
-  try { users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8')); } catch (_) {}
-  if (Array.isArray(users) && users.length) persistUsersToDb(users);
-}
 
 
 
 
-function migrateAdminAuditToDb() {
-  if (!dbReady() || Number(db.prepare('SELECT COUNT(*) AS n FROM admin_audit').get().n) > 0) return;
-  const data = readJsonFile(ADMIN_AUDIT_FILE, []);
-  if (!Array.isArray(data) || !data.length) return;
-  const insert = db.prepare(`INSERT OR IGNORE INTO admin_audit (id, admin_email, action, target, detail_json, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)`);
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    data.slice(0, 200).forEach(item => {
-      if (!item || !item.id) return;
-      insert.run(String(item.id), String(item.adminEmail || ''), String(item.action || ''), String(item.target || ''), JSON.stringify(item.detail && typeof item.detail === 'object' ? item.detail : {}), Number(item.createdAt) || Date.now());
-    });
-    db.exec('COMMIT');
-  } catch (error) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
-    throw error;
-  }
-}
 
-// 本地 SQLite 引导已下沉至 services/local-database-bootstrap.js（函数体逐字节搬迁，
-// 行为不变；模块级 db 经 setDatabase 回调写回）。工厂缺失的显式报错文案保留在本宿主
-// 主导桩：它是 test/sqlite-factory-injection.test.js 的源码断言锚点，不可再下沉。
-let localDatabaseBootstrap = null;
-function ensureLocalDatabaseBootstrap() {
-  if (!localDatabaseBootstrap) {
-    localDatabaseBootstrap = createLocalDatabaseBootstrap({
-      DATA_DIR,
-      dbEnabled,
-      POSTGRES_MODE,
-      projectScope,
-      projectResources,
-      memorySystem,
-      styleSystem,
-      migrateUsersToDb,
-      migrateAdminAuditToDb,
-      releaseStaleCreditReservations,
-      migrateSkillsToDb,
-      migrateGlobalSkillsToDb,
-      migrateOpenSkillsToDb,
-      setDatabase: (instance) => { db = instance; }
-    });
-  }
-  return localDatabaseBootstrap;
-}
 function initDB(options = {}) {
-  if (!dbEnabled) return false;
-  if (POSTGRES_MODE) return true;
-  if (options && typeof options.databaseFactory !== 'function') {
-    // 6d04c8b 起 databaseFactory 由调用方注入；缺失时不再静默失败，
-    // 否则 SQLite 模式下 db 恒为 null，云端写操作全部 503 且无任何日志。
-    console.error('❌ 未注入 databaseFactory，本地 SQLite 引擎未初始化（云端读写将不可用）');
-    return false;
-  }
-  return ensureLocalDatabaseBootstrap()(options);
+  // PG-only 收敛：本地 SQLite 引导已拔除；存储就绪由 initializePostgresRuntime 负责。
+  return true;
 }
 
-/**
- * 解析本地 SQLite 引擎工厂（2026-10-15 修复 P0：独立启动路径工厂注入丢失）。
- * 6d04c8b 将 databaseFactory 改为调用方注入后，require.main 启动分支从未注入，
- * 导致 SQLite 模式下 db 恒为 null：/api/health 报 db:"off"、/api/novels 等
- * 云端写操作全部 503，且无任何错误日志（静默失效）。
- * 优先级：原生 node:sqlite（Node>=22.5，兼容既有二进制库文件）> 纯 JS 引擎。
- * PG 模式下 initDB 提前返回，此解析不会被执行。
- */
-function resolveLocalDatabaseFactory() {
-  try {
-    const { DatabaseSync } = require('node:sqlite');
-    if (typeof DatabaseSync === 'function') return DatabaseSync;
-  } catch (_) {}
-  try {
-    const { PureJsDatabase } = require('./lib/pure-js-database');
-    if (typeof PureJsDatabase === 'function') return PureJsDatabase;
-  } catch (_) {}
-  return null;
-}
-function dbReady() { return POSTGRES_MODE ? postgresHealth.available : dbEnabled && db; }
+function dbReady() { return postgresHealth.available; }
 
 function usageRowsFromJson() {
   try {
@@ -1839,9 +1693,6 @@ function usageDocumentFromRow(row) {
 }
 
 function reserveCredits(user, modelId, providerModel, requestId, reservedCost, skillAudit, messagesHash, scope = null, options = null) {
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-    return nativeBillingService().reserveCredits(user, modelId, providerModel, requestId, reservedCost, skillAudit, messagesHash, scope, options);
-  }
   const isAdmin = isAdminUser(user);
   const reserve = isAdmin ? 0 : roundCreditValue(reservedCost);
   const lookupOnly = !!(options && options.lookupOnly === true);
@@ -1851,290 +1702,85 @@ function reserveCredits(user, modelId, providerModel, requestId, reservedCost, s
   const projectId = String(scope && (scope.projectId || scope.project_id) || '').trim();
   if (!email || !requestId) return { ok: false, reservedCost: reserve };
   const now = Date.now();
-  if (POSTGRES_MODE) {
-    const pending = usageRowFromEvent({
-      requestId, userEmail: email, userId, workspaceId, projectId, modelId, providerModel,
-      usageSource: 'pending', status: 'reserved', createdAt: now, durationMs: 0,
-      skillAudit, messagesHash
-    }, null, reserve);
-    pending.usageSource = 'pending';
-    return postgresRepository.runtimeReserveTokenUsage({
-      actorUserId: userId, userId, requestId, reservedCost: reserve,
-      document: usageDocumentFromRow(pending), cells: [], lookupOnly
-    });
-  }
-  if (dbReady()) {
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      const existing = db.prepare('SELECT * FROM token_usage WHERE request_id = ?').get(requestId);
-      if (existing) {
-        const expected = { requestId, userEmail: email, userId, workspaceId, projectId, modelId, providerModel, messagesHash };
-        db.exec('COMMIT');
-        return matchesTokenUsageReservation(existing, expected)
-          ? { ok: true, existing: true, reservedCost: Number(existing.reserved_cost) || 0 }
-          : { ok: false, conflict: true, reservedCost: reserve };
-      }
-      if (lookupOnly) {
-        db.exec('COMMIT');
-        return { ok: true, existing: false, missing: true, reservedCost: reserve };
-      }
-      if (!isAdmin && reserve > 0) {
-        const result = db.prepare(`UPDATE accounts
-          SET credits = credits - ?
-          WHERE (user_id = ? OR (user_id = '' AND email = ?)) AND role <> 'admin' AND credits >= ?`).run(reserve, userId, email, reserve);
-        if (Number(result.changes || 0) !== 1) {
-          db.exec('ROLLBACK');
-          return { ok: false, reservedCost: reserve };
-        }
-      }
-      db.prepare(`INSERT INTO token_usage
-        (request_id, user_email, user_id, workspace_id, project_id, model_id, provider_model, prompt_tokens, completion_tokens, reasoning_tokens, total_tokens, cached_tokens, cache_write_tokens, usage_source, status, created_at, duration_ms, credit_cost, reserved_cost, skill_ids_json, skill_audit_json, messages_sha256)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, 'pending', 'reserved', ?, 0, 0, ?, ?, ?, ?)`).run(
-        requestId, email, userId, workspaceId, projectId, String(modelId || ''), String(providerModel || ''), now, reserve,
-        JSON.stringify(skillIdsFromAudit(skillAudit)), JSON.stringify(storedSkillAudit(skillAudit)), String(messagesHash || storedSkillAudit(skillAudit).promptHash || '').slice(0, 64)
-      );
-      const balance = db.prepare('SELECT credits FROM accounts WHERE user_id = ? OR (user_id = \'\' AND email = ?)').get(userId, email);
-      db.exec('COMMIT');
-      return { ok: true, reservedCost: reserve, remainingCredits: balance ? roundCreditValue(balance.credits) : 0 };
-    } catch (error) {
-      try { db.exec('ROLLBACK'); } catch (_) {}
-      throw error;
-    }
-  }
-
-  const users = loadUsers();
-  const current = users.find(item => String(item && item.email || '').trim().toLowerCase() === email);
-  if (!current) return { ok: false, reservedCost: reserve };
-  const rows = usageRowsFromJson();
-  const existing = rows.find(item => item && item.requestId === requestId);
-  if (existing) {
-    const expected = { requestId, userEmail: email, userId, workspaceId, projectId, modelId, providerModel, messagesHash };
-    return matchesTokenUsageReservation(existing, expected)
-      ? { ok: true, existing: true, reservedCost: Number(existing.reservedCost) || 0 }
-      : { ok: false, conflict: true, reservedCost: reserve };
-  }
-  if (lookupOnly) return { ok: true, existing: false, missing: true, reservedCost: reserve };
-  if (!isAdmin && reserve > 0 && Number(current.credits) < reserve) return { ok: false, reservedCost: reserve };
-  const previousCredits = Number(current.credits) || 0;
-  if (!isAdmin && reserve > 0) current.credits = roundCreditValue(previousCredits - reserve);
-  const row = usageRowFromEvent({ requestId, userEmail: email, modelId, providerModel, usageSource: 'unavailable', status: 'reserved', createdAt: now, durationMs: 0, skillAudit, messagesHash }, null, reserve);
-  row.usageSource = 'pending';
-  try {
-    saveUsers(users);
-    rows.unshift(row);
-    saveUsageRowsToJson(rows);
-  } catch (error) {
-    current.credits = previousCredits;
-    try { saveUsers(users); } catch (_) {}
-    throw error;
-  }
-  return { ok: true, reservedCost: reserve, remainingCredits: roundCreditValue(current.credits) };
+if (POSTGRES_MODE) {
+  const pending = usageRowFromEvent({
+    requestId, userEmail: email, userId, workspaceId, projectId, modelId, providerModel,
+    usageSource: 'pending', status: 'reserved', createdAt: now, durationMs: 0,
+    skillAudit, messagesHash
+  }, null, reserve);
+  pending.usageSource = 'pending';
+  return postgresRepository.runtimeReserveTokenUsage({
+    actorUserId: userId, userId, requestId, reservedCost: reserve,
+    document: usageDocumentFromRow(pending), cells: [], lookupOnly
+  });
+}
 }
 
-function settleTokenUsage(event) {
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') return nativeBillingService().settleTokenUsage(event);
+async function settleTokenUsage(event) {
   const email = String(event && event.userEmail || '').trim().toLowerCase();
-  const user = getUserByEmail(email) || { email };
+  const user = (await getPostgresRuntimeUserByEmail(email)) || { email, userId: String(event && event.userId || '').trim() };
   const userId = String(user.userId || projectScope.stableUserId(email)).trim();
   const exact = toTokenCount(event && event.totalTokens) !== null && event.providerUsageIncomplete !== true;
   const estimatedCost = roundCreditValue(event && event.estimatedCreditCost);
   const requestedCost = exact ? creditCostForUser(user, event.modelId, event.totalTokens) : estimatedCost;
 
-  if (POSTGRES_MODE) {
-    const holdReservation = !exact && (event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true);
-    const row = usageRowFromEvent(event, holdReservation ? null : (exact ? requestedCost : (event.status === 'credit_exhausted' ? requestedCost : 0)), event.reservedCost);
-    return postgresRepository.runtimeSettleTokenUsage({
-      actorUserId: userId,
-      userId,
-      requestId: row.requestId,
-      actualCost: holdReservation ? null : row.creditCost,
-      reservedCost: row.reservedCost,
-      isAdmin: isAdminUser(user),
-      holdReservation,
-      document: { ...usageDocumentFromRow(row), provider_request_sent: event.providerRequestSent === true,
-        provider_response_received: event.providerResponseReceived === true,
-        provider_usage_incomplete: event.providerUsageIncomplete === true, termination_status: event.terminationStatus || event.status },
-      cells: []
-    }).then(result => ({
-      recorded: !!result.recorded,
-      creditCost: result.billingStatus === 'pending' ? null : (result.creditCost == null ? null : roundCreditValue(result.creditCost)),
-      billingStatus: result.billingStatus || (exact ? 'exact' : (event.status === 'credit_exhausted' ? 'capped_estimate' : 'released'))
-    }));
-  }
-  if (dbReady()) {
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      const existing = db.prepare('SELECT * FROM token_usage WHERE request_id = ?').get(event.requestId);
-      if (existing && ['reserved', 'provider_unknown'].includes(existing.status)) {
-        const reserved = roundCreditValue(existing.reserved_cost);
-        // If the provider did not return usage, keep the reservation held until
-        // reconciliation. This prevents an unmetered response from becoming free.
-        if (!exact && (existing.status === 'provider_unknown' || event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true)) {
-          db.prepare("UPDATE token_usage SET status = 'provider_unknown' WHERE request_id = ? AND status = 'reserved'").run(event.requestId);
-          db.exec('COMMIT');
-          return { recorded: false, creditCost: null, billingStatus: 'pending' };
-        }
-        const actualCost = !exact && event.status === 'upstream_error'
-          ? 0
-          : Math.min(reserved || requestedCost, requestedCost);
-        if (reserved && !isAdminUser(user)) {
-          db.prepare(`UPDATE accounts
-            SET credits = MAX(0, credits + ? - ?), spent = spent + ?
-            WHERE (user_id = ? OR (user_id = '' AND email = ?))`).run(reserved, actualCost, actualCost, userId, email);
-        } else if (reserved) {
-          db.prepare('UPDATE accounts SET credits = credits + ? WHERE user_id = ? OR (user_id = \'\' AND email = ?)').run(reserved, userId, email);
-        }
-        const row = usageRowFromEvent(event, actualCost, reserved);
-        db.prepare(`UPDATE token_usage SET
-          user_id = ?, workspace_id = ?, project_id = ?, model_id = ?, provider_model = ?, prompt_tokens = ?, completion_tokens = ?, reasoning_tokens = ?, total_tokens = ?,
-          cached_tokens = ?, cache_write_tokens = ?, usage_source = ?, status = ?, created_at = ?, duration_ms = ?, credit_cost = ?, reserved_cost = ?,
-          skill_ids_json = ?, skill_audit_json = ?, messages_sha256 = ?
-          WHERE request_id = ? AND status IN ('reserved', 'provider_unknown')`).run(
-          userId, row.workspaceId, row.projectId, row.modelId, row.providerModel, row.promptTokens, row.completionTokens, row.reasoningTokens, row.totalTokens,
-          row.cachedTokens, row.cacheWriteTokens, row.usageSource, row.status, row.createdAt, row.durationMs,
-          row.creditCost, row.reservedCost, JSON.stringify(row.skillIds), JSON.stringify(row.skillAudit), row.messagesHash, row.requestId
-        );
-        db.exec('COMMIT');
-        return { recorded: true, creditCost: row.creditCost, billingStatus: exact ? 'exact' : (event.status === 'credit_exhausted' ? 'capped_estimate' : 'released') };
-      }
-      if (existing) {
-        db.exec('COMMIT');
-        return { recorded: false, creditCost: roundCreditValue(existing.credit_cost), billingStatus: existing.status === 'usage_unavailable' ? 'released' : 'exact' };
-      }
-      const actualCost = exact ? requestedCost : (event.status === 'credit_exhausted' ? requestedCost : 0);
-      const row = usageRowFromEvent(event, actualCost, event.reservedCost);
-      const result = db.prepare(`INSERT OR IGNORE INTO token_usage
-        (request_id, user_email, user_id, workspace_id, project_id, model_id, provider_model, prompt_tokens, completion_tokens, reasoning_tokens, total_tokens, cached_tokens, cache_write_tokens, usage_source, status, created_at, duration_ms, credit_cost, reserved_cost, skill_ids_json, skill_audit_json, messages_sha256)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-        row.requestId, row.userEmail, row.userId, row.workspaceId, row.projectId, row.modelId, row.providerModel, row.promptTokens, row.completionTokens, row.reasoningTokens,
-        row.totalTokens, row.cachedTokens, row.cacheWriteTokens, row.usageSource, row.status, row.createdAt, row.durationMs, row.creditCost, row.reservedCost,
-        JSON.stringify(row.skillIds), JSON.stringify(row.skillAudit), row.messagesHash
-      );
-      db.exec('COMMIT');
-      return { recorded: Number(result.changes || 0) > 0, creditCost: row.creditCost, billingStatus: exact ? 'exact' : 'released' };
-    } catch (error) {
-      try { db.exec('ROLLBACK'); } catch (_) {}
-      throw error;
-    }
-  }
-
-  const rows = usageRowsFromJson();
-  const index = rows.findIndex(item => item && item.requestId === event.requestId);
-  if (index >= 0) {
-    const existing = rows[index];
-    if (!['reserved', 'provider_unknown'].includes(existing.status)) return { recorded: false, creditCost: roundCreditValue(existing.creditCost), billingStatus: existing.status === 'usage_unavailable' ? 'released' : 'exact' };
-    if (!exact && (existing.status === 'provider_unknown' || event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true)) {
-      rows[index] = { ...usageRowFromEvent(event, 0, existing.reservedCost), status: 'provider_unknown', creditCost: null, billingStatus: 'pending' };
-      saveUsageRowsToJson(rows);
-      return { recorded: true, creditCost: null, billingStatus: 'pending' };
-    }
-    const reserved = roundCreditValue(existing.reservedCost);
-    const actualCost = !exact && event.status === 'upstream_error'
-      ? 0
-      : Math.min(reserved || requestedCost, requestedCost);
-    if (reserved) {
-      const currentUsers = loadUsers();
-      const current = currentUsers.find(item => String(item && item.email || '').trim().toLowerCase() === email);
-      if (current && !isAdminUser(current)) {
-        current.credits = roundCreditValue(Math.max(0, (Number(current.credits) || 0) + reserved - actualCost));
-        current.spent = roundCreditValue((Number(current.spent) || 0) + actualCost);
-        saveUsers(currentUsers);
-      } else if (current) {
-        current.credits = roundCreditValue((Number(current.credits) || 0) + reserved);
-        saveUsers(currentUsers);
-      }
-    }
-    rows[index] = usageRowFromEvent(event, actualCost, reserved);
-    saveUsageRowsToJson(rows);
-    return { recorded: true, creditCost: rows[index].creditCost, billingStatus: exact ? 'exact' : (event.status === 'credit_exhausted' ? 'capped_estimate' : 'released') };
-  }
-  const actualCost = exact ? requestedCost : (event.status === 'credit_exhausted' ? requestedCost : 0);
-  const row = usageRowFromEvent(event, actualCost, event.reservedCost);
-  rows.unshift(row);
-  saveUsageRowsToJson(rows);
-  return { recorded: true, creditCost: row.creditCost, billingStatus: exact ? 'exact' : 'released' };
+if (POSTGRES_MODE) {
+  const holdReservation = !exact && (event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true);
+  const row = usageRowFromEvent(event, holdReservation ? null : (exact ? requestedCost : (event.status === 'credit_exhausted' ? requestedCost : 0)), event.reservedCost);
+  return postgresRepository.runtimeSettleTokenUsage({
+    actorUserId: userId,
+    userId,
+    requestId: row.requestId,
+    actualCost: holdReservation ? null : row.creditCost,
+    reservedCost: row.reservedCost,
+    isAdmin: isAdminUser(user),
+    holdReservation,
+    document: { ...usageDocumentFromRow(row), provider_request_sent: event.providerRequestSent === true,
+      provider_response_received: event.providerResponseReceived === true,
+      provider_usage_incomplete: event.providerUsageIncomplete === true, termination_status: event.terminationStatus || event.status },
+    cells: []
+  }).then(result => ({
+    recorded: !!result.recorded,
+    creditCost: result.billingStatus === 'pending' ? null : (result.creditCost == null ? null : roundCreditValue(result.creditCost)),
+    billingStatus: result.billingStatus || (exact ? 'exact' : (event.status === 'credit_exhausted' ? 'capped_estimate' : 'released'))
+  }));
+}
 }
 
 function recordTokenUsage(event) {
-  return settleTokenUsage(event).recorded;
+  const settlement = settleTokenUsage(event);
+  return settlement && typeof settlement.then === 'function'
+    ? settlement.then(result => !!result.recorded)
+    : !!settlement.recorded;
 }
 
 function recordDispatchAttempt(event) {
   const instanceId = String((event && event.instanceId) || SERVER_INSTANCE_ID).trim();
   const leaseMs = Number(event && event.leaseMs) || DISPATCH_LEASE_TTL_MS;
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-    return nativeBillingService().recordDispatchAttempt({
-      ...event,
-      instanceId,
-      leaseMs
-    });
-  }
-  if (POSTGRES_MODE) {
-    const actorId = String(event && (event.actorId || event.actorUserId || event.userId) || '').trim();
-    return postgresRepository.recordDispatchAttempt({
-      ...event,
-      actorUserId: actorId,
-      actorId,
-      userId: actorId,
-      instanceId,
-      leaseMs,
-      requestId: event && event.requestId,
-      projectId: event && event.projectId || '',
-      pass: event && event.pass,
-      stage: event && event.stage
-    });
-  }
-  return Promise.resolve({
-    ok: false,
-    authorized: false,
-    status: 'unsupported',
-    code: 'DISPATCH_PERSISTENCE_UNAVAILABLE',
-    error: '当前存储模式缺少派发审计日志实现，已安全阻断模型外呼'
+if (POSTGRES_MODE) {
+  const actorId = String(event && (event.actorId || event.actorUserId || event.userId) || '').trim();
+  return postgresRepository.recordDispatchAttempt({
+    ...event,
+    actorUserId: actorId,
+    actorId,
+    userId: actorId,
+    instanceId,
+    leaseMs,
+    requestId: event && event.requestId,
+    projectId: event && event.projectId || '',
+    pass: event && event.pass,
+    stage: event && event.stage
   });
+}
 }
 
 async function releaseStaleCreditReservations() {
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-    return appRepository().releaseStaleTokenUsage({ before: Date.now() - CREDIT_RESERVATION_TTL_MS, instanceId: SERVER_INSTANCE_ID }).then(result => result.released);
-  }
   const cutoff = Date.now() - CREDIT_RESERVATION_TTL_MS;
-  if (POSTGRES_MODE) {
-    const actorUserId = await postgresRepository.runtimeMaintenanceActor();
-    if (!actorUserId) return 0;
-    return postgresRepository.runtimeReleaseStaleTokenUsage({ actorUserId, cutoff, instanceId: SERVER_INSTANCE_ID });
-  }
-  if (dbReady()) {
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      const rows = db.prepare(`SELECT request_id AS requestId, user_email AS userEmail, reserved_cost AS reservedCost
-        FROM token_usage WHERE status = 'reserved' AND created_at < ?`).all(cutoff);
-      for (const row of rows) {
-        const reserved = roundCreditValue(row.reservedCost);
-        if (reserved) db.prepare('UPDATE accounts SET credits = credits + ? WHERE email = ?').run(reserved, row.userEmail);
-        db.prepare(`UPDATE token_usage SET status = 'aborted', usage_source = 'unavailable', credit_cost = 0
-          WHERE request_id = ? AND status = 'reserved'`).run(row.requestId);
-      }
-      db.exec('COMMIT');
-      return rows.length;
-    } catch (error) {
-      try { db.exec('ROLLBACK'); } catch (_) {}
-      throw error;
-    }
-  }
-  const rows = usageRowsFromJson();
-  const stale = rows.filter(row => row && row.status === 'reserved' && Number(row.createdAt) < cutoff);
-  if (!stale.length) return 0;
-  const users = loadUsers();
-  stale.forEach(row => {
-    const user = users.find(item => String(item && item.email || '').trim().toLowerCase() === String(row.userEmail || '').toLowerCase());
-    if (user) user.credits = roundCreditValue((Number(user.credits) || 0) + roundCreditValue(row.reservedCost));
-    row.status = 'aborted';
-    row.usageSource = 'unavailable';
-    row.creditCost = 0;
-  });
-  saveUsers(users);
-  saveUsageRowsToJson(rows);
-  return stale.length;
+if (POSTGRES_MODE) {
+  const actorUserId = await postgresRepository.runtimeMaintenanceActor();
+  if (!actorUserId) return 0;
+  return postgresRepository.runtimeReleaseStaleTokenUsage({ actorUserId, cutoff, instanceId: SERVER_INSTANCE_ID });
+}
 }
 
 let creditReservationReaper = null;
@@ -2551,9 +2197,7 @@ async function extractBatchFacts(authToken, user, record, batch, units, skillAud
   const chapterSeq = new Map();
   let cn = 0;
   units.forEach(u => { if (isPipelineFactUnit(u)) { cn += 1; chapterSeq.set(u.unitId, cn); } });
-  const runId = record.pipelineRunId || (POSTGRES_MODE
-    ? await getPostgresDissectionPipelineStore().ensurePipelineRun(record, units)
-    : ensurePipelineRun(record, units));
+  const runId = record.pipelineRunId || await getPostgresDissectionPipelineStore().ensurePipelineRun(record, units);
   const unitList = slice.map(u => u.unitId + (u.title ? '·' + u.title : '')).join('\n');
   const text = slice.map(u => '【单元 ' + u.unitId + (u.title ? ' · ' + u.title : '') + '】\n' + u.text).join('\n\n');
   const userPrompt = '小说：《' + record.title + '》\n\n下面是第 ' + batch.chapter_from + ' 到 ' + batch.chapter_to + ' 单元原文：\n\n' + text + '\n\n输入单元清单（unitId 必须严格取自此处，不得遗漏）：\n' + unitList + '\n\n' + PIPELINE_FACT_USER;
@@ -2587,56 +2231,11 @@ async function extractBatchFacts(authToken, user, record, batch, units, skillAud
   const gotIds = new Set(unitFacts.map(u => normalizeDissectionUnitId(u.unitId)));
   const missing = slice.map(u => u.unitId).filter(id => !gotIds.has(id));
   if (missing.length) throw new Error('批次 ' + batch.batch_no + ' 模型漏返回 ' + missing.length + ' 个单元（' + missing.slice(0, 5).join(', ') + '），已标记失败待重试');
-  if (POSTGRES_MODE) {
-    return getPostgresDissectionPipelineStore().saveBatchFactsAndClaims(
-      record, batch, slice,
-      unitFacts.map(fact => ({ ...fact, unitId: normalizeDissectionUnitId(fact.unitId) })),
-      chapterSeq, runId, out.usage.totalTokens
-    );
-  }
-  const now = Date.now();
-  const insClaim = db.prepare('INSERT OR REPLACE INTO dissection_claims (id,dissection_id,unit_id,claim_type,subject_id,predicate,object_value,evidence_type,source_start,source_end,confidence,status,run_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-  const insFact = db.prepare('INSERT OR REPLACE INTO dissection_chapter_facts (id,dissection_id,chapter_id,chapter_no,fact_json,tokens,created_at) VALUES (?,?,?,?,?,?,?)');
-  const byId = new Map(unitFacts.map(u => [normalizeDissectionUnitId(u.unitId), u]));
-  let saved = 0;
-  let c = 0;
-  slice.forEach(unit => {
-    const uf = byId.get(unit.unitId) || {};
-    const pushClaim = (claimType, subject, predicate, obj, status, confidence) => {
-      c += 1;
-      const conf = Number(confidence) > 0 && Number(confidence) <= 1 ? Number(confidence) : 0.8;
-      const st = String(status || 'confirmed');
-      const subj = String(subject || '').replace(/\(candidate\)/i, '').trim();
-      insClaim.run('cl_' + record.id + '_' + unit.unitId + '_' + c, record.id, unit.unitId, claimType, subj, String(predicate || ''), String(obj || ''), 'direct', Number(unit.sourceStart) || 0, Number(unit.sourceEnd) || 0, conf, /candidate/i.test(st) ? 'candidate' : 'confirmed', runId, now);
-    };
-    (Array.isArray(uf.events) ? uf.events : []).forEach(e => pushClaim('event', (Array.isArray(e.participants) && e.participants[0]) || '', '发生', e.title || e.summary || '', e.status, e.confidence));
-    (Array.isArray(uf.stateChanges) ? uf.stateChanges : []).forEach(s2 => {
-      const aspect = String(s2.aspect || '状态').trim();
-      const isRelationship = aspect === '关系' || /关系/.test(aspect);
-      const predicate = isRelationship
-        ? '关系变化：' + (s2.from || '') + '→' + (s2.to || '')
-        : aspect + '：' + (s2.from || '') + '→' + (s2.to || '');
-      pushClaim(isRelationship ? 'relationship' : 'state_change', s2.entity || '', predicate, isRelationship ? (s2.to || '') : '', s2.status, s2.confidence);
-    });
-    (Array.isArray(uf.worldFacts) ? uf.worldFacts : []).forEach(w => pushClaim('world_fact', w.category || '', '设定', w.desc || '', w.status, w.confidence));
-    (Array.isArray(uf.foreshadowActions) ? uf.foreshadowActions : []).forEach(f => pushClaim('foreshadow_action', f.ref || '', f.action || 'plant', f.desc || '', f.status, f.confidence));
-    (Array.isArray(uf.emotionBeats) ? uf.emotionBeats : []).forEach(e => pushClaim('emotion_beat', e.type || '', '强度', String(e.intensity == null ? 5 : e.intensity) + '·' + (e.desc || ''), e.status, e.confidence));
-    (Array.isArray(uf.entityMentions) ? uf.entityMentions : []).forEach(m => pushClaim('entity_mention', m.name || '', '登场', m.behavior || '', m.status, m.confidence));
-    // 兼容旧聚合：所有可分析事实单元写 chapter_facts；标题类型只影响展示名称
-    if (isPipelineFactUnit(unit)) {
-      const chapterNo = chapterSeq.get(unit.unitId) || 0;
-      const fact = {
-        chapter_events: (Array.isArray(uf.events) ? uf.events.slice(0, 20) : []).map(e => ({ event: e.title || e.summary || '', characters: Array.isArray(e.participants) ? e.participants : [], type: normalizePipelineEventType(e.type), preState: e.preState || '', postState: e.postState || '', result: e.result || '' })),
-        character_appear: (Array.isArray(uf.entityMentions) ? uf.entityMentions.slice(0, 24) : []).map(m => ({ name: m.name || '', behavior: m.behavior || '', emotion: m.emotion || '', is_new: !!m.isNew })),
-        plot_clue: (Array.isArray(uf.foreshadowActions) ? uf.foreshadowActions.slice(0, 16) : []).map(f => ({ desc: f.desc || '', planted: f.action !== 'recover' && f.action !== 'payoff', recovered: f.action === 'recover' || f.action === 'payoff', ref: f.ref || '' })),
-        spot_feeling: (Array.isArray(uf.emotionBeats) ? uf.emotionBeats.slice(0, 16) : []).map(e => ({ type: e.type || '', desc: e.desc || '', intensity: Number(e.intensity) || 5 })),
-        world_info: (Array.isArray(uf.worldFacts) ? uf.worldFacts.slice(0, 12) : []).map(w => ({ category: w.category || '', desc: w.desc || '' }))
-      };
-      insFact.run('dcf_' + record.id + '_' + chapterNo, record.id, unit.unitId, chapterNo, JSON.stringify(fact), Number(out.usage && out.usage.totalTokens) || 0, now);
-    }
-    saved += 1;
-  });
-  return saved;
+  return getPostgresDissectionPipelineStore().saveBatchFactsAndClaims(
+    record, batch, slice,
+    unitFacts.map(fact => ({ ...fact, unitId: normalizeDissectionUnitId(fact.unitId) })),
+    chapterSeq, runId, out.usage.totalTokens
+  );
 }
 
 
@@ -3051,14 +2650,12 @@ async function startPipelineJob(id, userEmail, authToken, options = {}) {
   activeDissections.set(id, active);
   let record = options.initial || null;
   let runSlotHeld = false;
-  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
+  const store = getPostgresDissectionPipelineStore();
   try {
     const initial = options.initial || await loadDissectionRecordAsync(id, userEmail);
     if (!initial || (initial.status === 'completed' && dissectionPublicRecord(initial, false).isComplete) || initial.cancelRequested || initial.status === 'cancelled') return;
     record = initial;
-    const owner = POSTGRES_MODE
-      ? postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(userEmail))
-      : getUserByEmail(userEmail);
+    const owner = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(userEmail));
     if (!owner) throw new Error('拆书任务账户不存在');
     record = { ...initial, selectedModel: resolveModelForUser(owner, initial.selectedModel) };
     await waitForDissectionCapacity(id, userEmail, controller);
@@ -3122,17 +2719,9 @@ async function startPipelineJob(id, userEmail, authToken, options = {}) {
       try {
         if (store) await store.updateBatchStatus(record, batch.batch_no, 'running', 0, '');
         else updateBatchStatus(record, batch.batch_no, 'running', 0, '');
-        // ★ 批次内局部重试（最多 3 次）；仍失败则保留失败批次进入断点续跑，不直接完成全书
-        let saved = 0, lastError = null;
-        for (let attempt = 1; attempt <= 3; attempt += 1) {
-          try { saved = await extractBatchFacts(authToken, owner, record, batch, freshUnits, pipelineSkillAudit); break; }
-          catch (error) {
-            if (POSTGRES_MODE || (error && (error.cancelled || error.name === 'AbortError'))) throw error;
-            lastError = error;
-            if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 800 * attempt));
-          }
-        }
-        if (!saved) throw lastError || new Error('批次抽取失败');
+        // ★ PG 模式不本地重试：批次失败直接抛出，由断点续跑机制接管
+        const saved = await extractBatchFacts(authToken, owner, record, batch, freshUnits, pipelineSkillAudit);
+        if (!saved) throw new Error('批次抽取失败');
         if (store) await store.updateBatchStatus(record, batch.batch_no, 'completed', saved, '');
         else updateBatchStatus(record, batch.batch_no, 'completed', saved, '');
         batch.status = 'completed';
@@ -3169,7 +2758,7 @@ async function startPipelineJob(id, userEmail, authToken, options = {}) {
     try {
       aggregated = await runPipelineAggregation(record, authToken, owner, { unitTotal: totalUnits, unitCompleted: doneUnits, failedBatches: failedBatches.length });
     } catch (error) {
-      if (POSTGRES_MODE) throw error;
+      throw error;
     }
     // ★ 门禁：局部覆盖、分层摘要、证据账本和所有核心结构都完整时才允许 completed。
     // 聚合对象存在但不完整仍保留给用户复核，不能把“有结果”误报成“已完成”。
@@ -3230,37 +2819,30 @@ async function startPipelineJob(id, userEmail, authToken, options = {}) {
  * 异步读取拆书记录，在 PostgreSQL 模式下直接读取 PG 仓储。
  */
 async function loadDissectionRecordAsync(id, userEmail, ownerUserId = '') {
-  if (POSTGRES_MODE) {
-    const account = ownerUserId ? null : await postgresRepository.runtimeAccountByEmail(userEmail);
-    const actorUserId = ownerUserId || account?.legacy_user_id;
-    if (!actorUserId) return null;
-    const row = await postgresRepository.runtimeGetDissection(actorUserId, id);
-    if (!row) return null;
-    const decoded = {};
-    for (const key of ['result_json', 'meta_json']) {
-      const value = typeof row[key] === 'string' ? JSON.parse(row[key]) : row[key];
-      if (!value || typeof value !== 'object' || Array.isArray(value)) throw requestError(500, '拆书持久化文档损坏');
-      decoded[key] = value;
-    }
-    return { ...dissectionRecordFromDb({
-      ...row,
-      created_at: row.created_at_value,
-      updated_at: row.updated_at_value
-    }), result: decoded.result_json, meta: decoded.meta_json, revision: Number(row.revision) };
+  const account = ownerUserId ? null : await postgresRepository.runtimeAccountByEmail(userEmail);
+  const actorUserId = ownerUserId || account?.legacy_user_id;
+  if (!actorUserId) return null;
+  const row = await postgresRepository.runtimeGetDissection(actorUserId, id);
+  if (!row) return null;
+  const decoded = {};
+  for (const key of ['result_json', 'meta_json']) {
+    const value = typeof row[key] === 'string' ? JSON.parse(row[key]) : row[key];
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw requestError(500, '拆书持久化文档损坏');
+    decoded[key] = value;
   }
-  return loadDissectionRecord(id, userEmail);
+  return { ...dissectionRecordFromDb({
+    ...row,
+    created_at: row.created_at_value,
+    updated_at: row.updated_at_value
+  }), result: decoded.result_json, meta: decoded.meta_json, revision: Number(row.revision) };
 }
 
 /**
  * 异步保存拆书记录，在 PostgreSQL 模式下直接调用 PG runtimeUpdateDissection。
  */
 async function saveDissectionRecordAsync(record) {
-  if (POSTGRES_MODE) {
-    const actorUserId = String(record.ownerUserId || projectScope.stableUserId(record.userEmail)).trim();
-    await postgresRepository.runtimeUpdateDissection({ ...record, ownerUserId: actorUserId });
-  } else {
-    updateDissectionRecord(record);
-  }
+  const actorUserId = String(record.ownerUserId || projectScope.stableUserId(record.userEmail)).trim();
+  await postgresRepository.runtimeUpdateDissection({ ...record, ownerUserId: actorUserId });
 }
 
 async function runPostgresDissectionWorker(id, userEmail, authToken) {
@@ -3316,16 +2898,12 @@ async function startDissectionJob(id, userEmail, authToken) {
     const initial = await loadDissectionRecordAsync(id, userEmail);
     if (!initial || (initial.status === 'completed' && dissectionPublicRecord(initial, false).isComplete) || initial.cancelRequested || initial.status === 'cancelled') return;
     record = initial;
-    const usePipeline = POSTGRES_MODE
-      ? await getPostgresDissectionPipelineStore().pipelineEnabled(initial)
-      : pipelineEnabled(initial);
+    const usePipeline = await getPostgresDissectionPipelineStore().pipelineEnabled(initial);
     if (usePipeline) {
       handedToPipeline = true;
       return await startPipelineJob(id, userEmail, authToken, { initial, active });
     }
-    const owner = POSTGRES_MODE
-      ? postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(userEmail))
-      : getUserByEmail(userEmail);
+    const owner = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(userEmail));
     if (!owner) throw new Error('拆书任务账户不存在');
     record = { ...initial, selectedModel: resolveModelForUser(owner, initial.selectedModel) };
     // 非流水线拆书也受全局并发上限保护，避免多账户同时提交长文本打满单实例。
@@ -3355,7 +2933,7 @@ async function startDissectionJob(id, userEmail, authToken) {
         record.meta = Object.assign({}, record.meta, { genreHint: gh });
         await saveDissectionRecordAsync(record);
       }
-    } catch (error) { if (POSTGRES_MODE) throw error; }
+    } catch (error) { throw error; }
     const skill = dissectionSkillRecord();
     const skillPromptFilesForRun = dissectionSkillPromptFiles(skill);
     const skillInstruction = skillPromptInstruction(skill, skillPromptFilesForRun);
@@ -3426,8 +3004,7 @@ async function startDissectionJob(id, userEmail, authToken) {
     record.result = mergeDissectionResult(record.result, { sourceBoundary: { canonExcludedFromPortableStyle: true, note: '原书专属内容不会自动写入新小说' } });
     await saveDissectionRecordAsync(record);
     // F203：拆书完成时自动把人物入库（角色库）
-    if (POSTGRES_MODE) await getPostgresDissectionPipelineStore().syncCharactersToLibrary(record);
-    else syncCharactersToLibrary(record);
+    await getPostgresDissectionPipelineStore().syncCharactersToLibrary(record);
   } catch (error) {
     if (handedToPipeline || !record) throw error;
     const cancelled = error && (error.cancelled || error.name === 'AbortError');
@@ -3497,7 +3074,7 @@ function handleDissectionExtract(req, res) {
   }
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  if (!requireSqliteForPublic(req, res)) return;
   return readBody(req, 25 * 1024 * 1024).then(body => {
     const name = String((body && body.name) || '').slice(0, 200);
     const base64 = String((body && body.base64) || '');
@@ -3638,10 +3215,9 @@ async function handleDissectionApply(req, res, id) {
   }
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  if (!requireSqliteForPublic(req, res)) return;
   let body = {};
-  if (POSTGRES_MODE) body = await readBody(req);
-  else { try { body = await readBody(req).catch(() => ({})); } catch (_) {} }
+  body = await readBody(req);
   const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   if (record.status !== 'completed' || !dissectionResultHasCompleteContent(record.result, record.depth)) return json(res, 409, { error: '拆书结果不完整，请先重新分析' });
@@ -3718,14 +3294,13 @@ async function handleDissectionCreativeBrief(req, res, id) {
   }
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  if (!requireSqliteForPublic(req, res)) return;
   const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   if (!record.result || !dissectionResultHasCompleteContent(record.result, record.depth)) return json(res, 409, { error: '拆书结果不完整，请先重新分析' });
   const result = dissectionResultView(record.result);
   let body = {};
-  if (POSTGRES_MODE) body = await readBody(req);
-  else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+  body = await readBody(req);
   const genre = String(body.genre || '').trim();
   const direction = String(body.direction || '').trim();
   // ★ 创书理念（换皮微创新）：保留骨架（开篇节奏/金手指/架构/节奏结构），替换皮相（人物/地图/地名/势力/物品）
@@ -3749,7 +3324,7 @@ async function handleDissectionCreativeBrief(req, res, id) {
     '【可复用模板】' + dissectionTransferJson(result.reusableTemplates || {}, 1000),
     '【未回收伏笔数】' + (Array.isArray(result.foreshadowing) ? result.foreshadowing.filter(f => ['planned', 'partial', 'abandoned', 'planted'].includes(f.status)).length : 0)
   ].join('\n');
-  const user = POSTGRES_MODE ? auth.user : getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = auth.user;
   const { json: briefJson } = await callMolanChat(String(req.headers.authorization || ''), user, {
     thinking: false, reasoningEffort: 'none',
     system: '你是资深网文新书策划师。基于原书拆书观察，为一部"换皮微创新"新作生成完整创作包，只返回 JSON。严格区分可迁移的作者 DNA/结构功能与原书专属 canon：只迁移写法、节奏、冲突机制和读者回报，不得把原书人物、地点、势力、物品、术语、事件顺序写进新书。硬性要求：1) forbiddenCopy 必须显式列出原书专属禁止复制项；2) 新书世界观、人物、关系、地图、金手指具体机制和剧情节点全部原创；3) 人物必须有目标、缺陷、阻力和弧光；4) 主线、故事树、冲突链、回报链必须能落到章节和场景；5) 所有规则/判断附适用范围、证据引用和置信度，证据不足标 candidate；6) 不输出原文长摘录；7) 各字段内容精炼扼要，数组每项简明扼要，输出紧凑有效 JSON。',
@@ -3850,9 +3425,7 @@ async function handleDissectionCreationContext(req, res, id) {
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   const q = queryParamsFromUrl(req.url);
   const chapterNo = Number(q.chapterNo) || 0;
-  const snapshot = POSTGRES_MODE
-    ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, chapterNo)
-    : dissectionContextForChapter(record, chapterNo);
+  const snapshot = await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, chapterNo);
   json(res, 200, { ok: true, context: snapshot });
 }
 
@@ -3867,12 +3440,9 @@ async function handleDissectionChapterContract(req, res, id) {
   const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   let body = {};
-  if (POSTGRES_MODE) body = await readBody(req);
-  else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+  body = await readBody(req);
   const chapterNo = Math.max(1, Number(body.chapterNo) || 1);
-  const snapshot = POSTGRES_MODE
-    ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo)
-    : dissectionContextForChapter(record, body.upTo || chapterNo);
+  const snapshot = await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo);
   const inputBlock = [
     '本章目标：' + String(body.goal || '推进主线 / 深化冲突').slice(0, 200),
     '创作方向：' + String(body.direction || '与既有节奏一致').slice(0, 200),
@@ -3882,7 +3452,7 @@ async function handleDissectionChapterContract(req, res, id) {
     '未回收伏笔（可埋设/推进/回收）：' + JSON.stringify(snapshot.foreshadows.slice(0, 10)),
     '时间线（近期事件）：' + JSON.stringify(snapshot.timeline.slice(-12))
   ].join('\n');
-  const user = POSTGRES_MODE ? auth.user : getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = auth.user;
   const { json: contract } = await callMolanChat(String(req.headers.authorization || ''), user, {
     thinking: false, reasoningEffort: 'none',
     system: '你是网文章节合同策划师。基于当前故事弧、人物状态、时间线与未回收伏笔，为第 ' + chapterNo + ' 章生成结构化合同。只返回 JSON，字段严格：{chapterNo,goal,protagonistAction,opposition,informationChange,escalation,irreversibleResult,characterStateChanges:[{name,change}],foreshadowActions:[{id,action:"plant|advance|payoff",desc}],continuityInputs:[],continuityOutputs:[],mustAvoid:[]}。mustAvoid 必须包含不能违背的前文事实；未回收伏笔只能选部分在本章推进，不能无证据回收。',
@@ -3906,14 +3476,11 @@ async function handleDissectionAudit(req, res, id) {
   const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   let body = {};
-  if (POSTGRES_MODE) body = await readBody(req);
-  else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+  body = await readBody(req);
   const chapterNo = Math.max(1, Number(body.chapterNo) || 1);
   const content = String(body.content || '');
   const contract = (body.contract && typeof body.contract === 'object') ? body.contract : {};
-  const snapshot = POSTGRES_MODE
-    ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo)
-    : dissectionContextForChapter(record, body.upTo || chapterNo);
+  const snapshot = await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo);
   const auditBudget = Math.max(12000, Math.min(30000, pipelineBatchCharsFor(record)));
   const auditText = content.length <= auditBudget
     ? content
@@ -3929,7 +3496,7 @@ async function handleDissectionAudit(req, res, id) {
     '未回收伏笔台账：' + JSON.stringify(snapshot.foreshadows.slice(0, 15)),
     '时间线（前文事实）：' + JSON.stringify(snapshot.timeline.slice(-15))
   ].join('\n');
-  const user = POSTGRES_MODE ? auth.user : getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = auth.user;
   const { json: audit } = await callMolanChat(String(req.headers.authorization || ''), user, {
     thinking: false, reasoningEffort: 'none',
     system: '你是网文连续性审计师。对照章节合同、人物状态、时间线事实与伏笔台账，检查正文的连续性错误。只返回 JSON：{passed:boolean,issues:[{severity:"blocker|warning|info",category:"continuity|character|timeline|foreshadow|style|other",position:"",description:"",suggestion:""}],summary:"",revisionHint:"若存在 blocker 级问题，给出定向重写建议"}。只有所有 blocker 级问题都为零才允许 passed=true；伏笔只有在正文明确给出回收证据时才算回收。',
@@ -4011,12 +3578,10 @@ const CREATION_CORE_JOB_MAX_MS = 12 * 60 * 1000;
 const { creationCoreJobs, creationCoreJobPublic, creationCoreJobFromDbRow, postgresJobStateForCreation, persistPostgresCreationJob, persistCreationCoreJob, postgresCreationCoreJobView, recoverPostgresCreationJobs, creationCoreRunningJobForBook, sweepCreationCoreJobs, finalizeCreationCoreJob, runCreationCoreJob: runtimeRunCreationCoreJob } = require('./services/creation-core-job-runtime').createCreationCoreJobRuntime({
   CREATION_CORE_JOB_MAX_MS,
   CREATION_CORE_JOB_TTL_MS,
-  POSTGRES_MODE,
   callMolanChat: (...args) => callMolanChat(...args),
   dbReady,
   deleteCreationBookPlaceholder: (...args) => deleteCreationBookPlaceholder(...args),
   fs,
-  getUserByEmail: (...args) => getUserByEmail(...args),
   postgresRepository,
   projectScope,
   saveCreationBookFirstBible: (...args) => saveCreationBookFirstBible(...args),
@@ -4062,16 +3627,9 @@ async function handlePostgresCreationCoreJobCreate(req, res) {
 async function creationSkillForUser(user, skillId) {
   const id = String(skillId || '').trim();
   if (!id) return null;
-  if (POSTGRES_MODE) {
-    const catalog = await nativeSkillCatalog(user);
-    return catalog.userSkills.find(skill => skill && skill.id === id)
-      || catalog.globalSkills.find(skill => skill && skill.id === id)
-      || loadBuiltinSkills().find(skill => skill && skill.id === id)
-      || null;
-  }
-  const email = String(user && user.email || '').trim().toLowerCase();
-  return (email ? loadUserSkills(email) : []).find(skill => skill && skill.id === id)
-    || loadGlobalSkills().find(skill => skill && skill.id === id)
+  const catalog = await nativeSkillCatalog(user);
+  return catalog.userSkills.find(skill => skill && skill.id === id)
+    || catalog.globalSkills.find(skill => skill && skill.id === id)
     || loadBuiltinSkills().find(skill => skill && skill.id === id)
     || null;
 }
@@ -4217,7 +3775,7 @@ async function runCreationBookPlanReview(req, res, id) {
   try { body = await readBody(req).catch(() => ({})); } catch (_) {}
   const current = creationBibleForBook(book.id);
   if (!current || !current.bibleId || !current.payload) return json(res, 404, { error: '创作圣经不存在' });
-  const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = auth.user;
   const modelId = resolveCreationModelId(body);
   const localReview = reviewCreationPlan(current.payload);
   const baseVersion = Number(body.baseVersion) || 0;
@@ -4318,7 +3876,7 @@ async function handleCreationBookChapterContract(req, res, id) {
   const chapterNo = Math.max(1, Number(body.chapterNo) || Number(book.current_chapter_no || 0) + 1);
   const context = creationChapterContext(current.payload, chapterNo);
   const previousEnding = String(body.previousEnding || '').slice(-2400);
-  const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = auth.user;
   const creationModelId = resolveCreationModelId(body);
   const contractOutput = await callMolanChat(String(req.headers.authorization || ''), user, {
     thinking: false, reasoningEffort: 'none',
@@ -4388,7 +3946,7 @@ async function handleCreationBookRegenerateAsset(req, res, id) {
   if (!current || !current.payload) return json(res, 404, { error: '创作圣经不存在' });
   const name = String(body.name || '').trim().slice(0, 60);
   const guidance = String(body.guidance || '').trim().slice(0, 600);
-  const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+  const user = auth.user;
   let userPrompt = '';
   if (asset === 'characters') {
     if (!name) return json(res, 400, { error: '请指定要重生成的角色名' });
@@ -4698,36 +4256,23 @@ async function handleDissectionRebuild(req, res, id) {
   const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   const stage = String((queryParamsFromUrl(req.url).stage) || 'entity_resolution');
-  if (POSTGRES_MODE) {
-    const store = getPostgresDissectionPipelineStore();
-    let rebuilt;
-    if (stage === 'entity_resolution' || stage === 'graph') {
-      rebuilt = {
-        entities: await store.buildDissectionEntities(record),
-        events: await store.buildDissectionEvents(record),
-        states: await store.buildEntityStates(record),
-        edges: await store.buildEventEdges(record)
-      };
-      const result = dissectionResultView(record.result);
-      if (Array.isArray(result.foreshadowing)) await store.storeDissectionForeshadows(record, result.foreshadowing);
-    } else if (stage === 'units') {
-      const units = await store.loadDissectionUnits(record);
-      rebuilt = { units: units.length, batches: await store.createDissectionBatches(record, units) };
-    } else return json(res, 400, { error: '不支持的重建阶段' });
-    const stats = await getPostgresDissectionReadService().computeDissectionStats(auth.user.userId, id, record);
-    return json(res, 200, { ok: true, stage, rebuilt, stats });
-  }
-  let rebuilt = null;
+  const store = getPostgresDissectionPipelineStore();
+  let rebuilt;
   if (stage === 'entity_resolution' || stage === 'graph') {
-    rebuilt = { entities: buildDissectionEntities(record), events: buildDissectionEvents(record), states: buildEntityStates(record), edges: buildEventEdges(record) };
-    // 图谱重建时顺带把已聚合的伏笔台账重新落库
+    rebuilt = {
+      entities: await store.buildDissectionEntities(record),
+      events: await store.buildDissectionEvents(record),
+      states: await store.buildEntityStates(record),
+      edges: await store.buildEventEdges(record)
+    };
     const result = dissectionResultView(record.result);
-    if (Array.isArray(result.foreshadowing)) { try { storeDissectionForeshadows(record, result.foreshadowing); } catch (_) {} }
+    if (Array.isArray(result.foreshadowing)) await store.storeDissectionForeshadows(record, result.foreshadowing);
   } else if (stage === 'units') {
-    const units = loadDissectionUnits(record.id);
-    rebuilt = { units: units.length, batches: createDissectionBatches(record, units) };
-  }
-  json(res, 200, { ok: true, stage, rebuilt, stats: dissectionPipelineStats(record) });
+    const units = await store.loadDissectionUnits(record);
+    rebuilt = { units: units.length, batches: await store.createDissectionBatches(record, units) };
+  } else return json(res, 400, { error: '不支持的重建阶段' });
+  const stats = await getPostgresDissectionReadService().computeDissectionStats(auth.user.userId, id, record);
+  return json(res, 200, { ok: true, stage, rebuilt, stats });
 }
 
 // 通用一次性模型调用：复用 /api/chat 中转；jsonMode 时强制上游 JSON。返回 {text, json, usage}
@@ -4745,11 +4290,9 @@ async function classifyGenreHint(authToken, user, record, context) {
       maxTokens: 300, jsonMode: true, modelId: (record && record.selectedModel) || currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.1, timeoutMs: 15000,
       recordId: record.id, unitId: 'genre-hint'
     });
-    if (POSTGRES_MODE) {
-      await recordPipelineUsageAsync(record, output.usage, 'classify');
-      if (toTokenCount(output.usage?.totalTokens) === null) {
-        throw Object.assign(new Error('题材预分类的上游用量未知，停止后续派发'), { code: 'USAGE_UNAVAILABLE', unknown: true });
-      }
+    await recordPipelineUsageAsync(record, output.usage, 'classify');
+    if (toTokenCount(output.usage?.totalTokens) === null) {
+      throw Object.assign(new Error('题材预分类的上游用量未知，停止后续派发'), { code: 'USAGE_UNAVAILABLE', unknown: true });
     }
     const json = output.json;
     if (json && json.primary) {
@@ -4759,7 +4302,7 @@ async function classifyGenreHint(authToken, user, record, context) {
         tags: Array.isArray(json.tags) ? json.tags.map(String).slice(0, 8) : []
       };
     }
-  } catch (error) { if (POSTGRES_MODE) throw error; }
+  } catch (error) { throw error; }
   return null;
 }
 
@@ -4797,7 +4340,7 @@ async function handleDissectionImitate(req, res, id) {
   }
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  if (!requireSqliteForPublic(req, res)) return;
   const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   if (record.status !== 'completed') return json(res, 409, { error: '请先完成拆书' });
@@ -4833,7 +4376,7 @@ async function handleDissectionDiagnose(req, res, id) {
   }
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  if (!requireSqliteForPublic(req, res)) return;
   const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
   if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
   if (record.status !== 'completed') return json(res, 409, { error: '请先完成拆书' });
@@ -4865,7 +4408,7 @@ function handleDissectionsCompare(req, res) {
   }
   const auth = getAuthUser(req);
   if (!auth) return json(res, 401, { error: '请先登录' });
-  if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
+  if (!requireSqliteForPublic(req, res)) return;
   return readBody(req, 1 * 1024 * 1024).then(async body => {
     const ids = Array.isArray(body.ids) ? [...new Set(body.ids.map(String).filter(Boolean))].slice(0, 6) : [];
     if (ids.length < 2) return json(res, 400, { error: '请至少选择 2 本已完成拆书进行对比' });
@@ -5122,17 +4665,13 @@ async function handleHealth(req, res) {
   const runtime = { uptime: Math.round(process.uptime()), pid: process.pid, activeChatStreams: chatAdmission.activeCount() };
   if (!auth && healthCache && Date.now() - healthCacheAt < 5000) return json(res, 200, { ...healthCache, ...runtime });
   let dbOk = false, novelCount = 0;
-  if (POSTGRES_MODE) {
-    dbOk = postgresHealth.available === true;
-    if (dbOk && auth && isAdminUser(auth.user)) {
-      try {
-        novelCount = (await postgresRepository.runtimeAdminDataRows(auth.user.userId, 'novels')).length;
-      } catch (error) {
-        return respondPostgresError(res, error);
-      }
+  dbOk = postgresHealth.available === true;
+  if (dbOk && auth && isAdminUser(auth.user)) {
+    try {
+      novelCount = (await postgresRepository.runtimeAdminDataRows(auth.user.userId, 'novels')).length;
+    } catch (error) {
+      return respondPostgresError(res, error);
     }
-  } else if (dbReady()) {
-    try { dbOk = true; novelCount = db.prepare('SELECT COUNT(*) AS n FROM novels').get().n; } catch (_) {}
   }
   const health = { ok: true, db: dbOk ? 'ready' : 'off', postgres: postgresHealth, models: PLATFORM_MODELS.length };
   if (auth && isAdminUser(auth.user)) Object.assign(health, { key: DEEPSEEK_KEY ? 'set' : 'missing', novels: novelCount });
@@ -5192,9 +4731,7 @@ process.on('uncaughtException', (err) => {
 function getXuanhuanReadingLab() {
   if (!xuanhuanReadingLab) xuanhuanReadingLab = createReadingLab({
     dataDir: DATA_DIR, sourceDirectory: path.resolve(__dirname, '../资源库/小说原本/玄幻'), readBody, json,
-    repository: POSTGRES_MODE
-      ? new (require('./lib/repositories/postgres-lab-job-repository').PostgresLabJobRepository)(postgresRepository)
-      : process.env.MOLAN_APP_STORE === 'json' ? new (require('./lib/repositories/json-lab-job-repository').JsonLabJobRepository)(appRepository().repository) : undefined,
+    repository: new (require('./lib/repositories/postgres-lab-job-repository').PostgresLabJobRepository)(postgresRepository),
     getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req),
     callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options),
     preflight: async (auth, modelId, tokens) => {
@@ -5381,23 +4918,14 @@ const { loadDissectionChapters, loadAllChapterFacts, loadDissectionBatches, stor
 const { isPublicStaticPath, serveStatic, pickStaticEncoding, compressedStaticBody, sendStatic } = require('./services/static-service').createStaticService({ MIME, PUBLIC_DIR, PUBLIC_ROOT_FILES, STATIC_CACHE_MAX_BYTES, STATIC_COMPRESSIBLE_EXT, STATIC_COMPRESS_MIN_BYTES, fs, path, responseCors, zlib });
 
 const authAccountService = require('./services/auth-account-service').createAuthAccountService({
-  DATA_DIR,
-  POSTGRES_MODE,
-  SESSIONS_FILE,
   SESSION_TTL_MS,
-  USERS_FILE,
-  USER_CACHE_TTL_MS,
   allowAuthAttempt,
   authAttemptLimiter,
   applyAuthSessionInvalidation,
   canChooseModel,
   crypto,
   currentDefaultModel,
-  dbReady,
   findPlatformModel,
-  fs,
-  getPostgresRuntimeUserByEmail,
-  getUsageSummary,
   getPostgresUsageSummary,
   isAdminUser,
   json,
@@ -5409,10 +4937,8 @@ const authAccountService = require('./services/auth-account-service').createAuth
   requestError,
   respondError,
   sessionEventUserId,
-  getDatabase: () => db,
-  nativeAuthService: (...args) => nativeAuthService(...args)
 });
-const { loadUsers,saveUsers,saveUser,insertUserIfAbsent,userFromDbRow,getUserByEmail,getUserById,hashPwd,createPasswordRecord,createPasswordRecordAsync,verifyPassword,verifyPasswordAsync,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,persistSessions,flushSessions,flushSessionsSync,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,persistUsersToDb, sessions } = authAccountService;
+const { insertUserIfAbsent,createPasswordRecord,createPasswordRecordAsync,verifyPassword,verifyPasswordAsync,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,sessions } = authAccountService;
 
 const { normalizeCreationPlan, creationPlanRules, normalizeBiblePayload, creationPlanTargets, creationPlanItemKey, creationNamedCount, creationChapterNumber, creationChapterTitle, creationChapterIsUsable, creationPlanCoverage, creationPlanText, creationPlanCompactList, creationPlanExpansionContext, creationPlanExpansionPrompt, mergeCreationUniqueList, mergeCreationVolumes, normalizeCreationExpansionChapter, normalizeCreationChapterPlanRhythm, mergeCreationChapterPlan, mergeCreationExpansionPayload, creationForbiddenTerms, creationChapterContext, creationPlanProjection, creationPlanHasContent, creationPlanIssue, reviewCreationPlan, normalizeCreationPlanReviewModel, mergeCreationPlanReview, normalizeCreationPlanPatchPath, creationPlanPatchValueKind, creationPlanPatchTypeMismatch, creationPlanPatchWouldShrink, applyCreationPlanPatches, eventChainLcsRatio, functionSetJaccard, computeStructuralSimilarity, evaluateSomaticGate, verifyModelAuditQuotes, creationOriginalityGate, deterministicContractValidation, normalizeForbiddenMatchText, checkForbiddenTerms, characterNameOverlapIssues, creationBibleSeedValidation } = require('./services/creation-plan-service').createCreationPlanService({
   CREATION_LINE_IDS,
@@ -5441,7 +4967,6 @@ const { publicCreationBook, loadCreationBook, creationScopeForActor, loadCreatio
   creationForbiddenTerms,
   dbReady,
   getAuthUser: (...args) => getAuthUser(...args),
-  getUserByEmail: (...args) => getUserByEmail(...args),
   json,
   normalizeBiblePayload,
   normalizeCreationChapterPlanRhythm,
@@ -5461,18 +4986,13 @@ const { callMolanChat, dissectionStreamText } = require('./services/model-call-s
   INTERNAL_MODEL_ROUTE_HEADER,
   INTERNAL_MODEL_ROUTE_KEY,
   PORT,
-  POSTGRES_MODE,
   dissectionSkillRecord: (...args) => dissectionSkillRecord(...args),
   extractJsonFromMixedText: (...args) => extractJsonFromMixedText(...args),
   findPlatformModel: (...args) => findPlatformModel(...args),
   http,
   loadBuiltinSkills: (...args) => loadBuiltinSkills(...args),
-  loadGlobalSkills: (...args) => loadGlobalSkills(...args),
-  loadUserSkills: (...args) => loadUserSkills(...args),
   nativeSkillCatalog: (...args) => nativeSkillCatalog(...args),
-  recordModelUsage: (...args) => POSTGRES_MODE
-    ? postgresRepository.runtimeRecordModelUsage(...args)
-    : recordModelUsage(...args),
+  recordModelUsage: (...args) => postgresRepository.runtimeRecordModelUsage(...args),
   requestError: (...args) => requestError(...args),
   resolveModelForUser: (...args) => resolveModelForUser(...args),
   safeJsonParse: (...args) => safeJsonParse(...args),
@@ -5484,7 +5004,7 @@ const { callMolanChat, dissectionStreamText } = require('./services/model-call-s
 const { loadPostgresCreationContext, savePostgresCreationBible, handlePostgresCreationBookPlanExpand,
   handlePostgresCreationBookPlanReview, handlePostgresCreationBookLinkNovel, handlePostgresCreationBookRegenerateAsset } = require('./services/postgres-creation-plan-service').createPostgresCreationPlanService({
   getAuthUser, json, postgresRepository, postgresActor, readBody,
-  CREATION_PLAN_BATCH_SIZE, creationPlanCoverage, getUserByEmail,
+  CREATION_PLAN_BATCH_SIZE, creationPlanCoverage,
   resolveCreationModelId, creationSkillForUser, dissectionSkillAuditPayload,
   callMolanChat, creationPlanExpansionPrompt, normalizeCreationExpansionChapter,
   creationChapterNumber, creationChapterIsUsable, mergeCreationExpansionPayload,
@@ -5505,15 +5025,14 @@ const { handleCreationBookChapterAudit, handleCreationBookCommit, handleCreation
   computeRetentionCompliance, computeStructuralSimilarity, creationBibleForBook,
   creationForbiddenTerms, creationOriginalityGate, currentDefaultModel,
   dbReady, deterministicContractValidation, evaluateSomaticGate,
-  getAuthUser, getDatabase: () => db, getUserByEmail, json,
+  getAuthUser, getDatabase: () => db, json,
   loadCreationBookForAuth, loadCreationSnapshots, loadCurrentBiblePayload,
   projectScope, readBody, recordChapterCausalDebts, resolveModelForUser,
   runGenreNarrativeAudits, sha256Text, logger: console
 });
 const creationCoreJobHttpService = require('./services/creation-core-job-http-service').createCreationCoreJobHttpService({
-  getAuthUser, json, dbReady, getDatabase: () => db, projectScope, POSTGRES_MODE,
+  getAuthUser, json,
   postgresRepository, postgresActor, creationCoreJobs,
-  creationCoreJobPublic, creationCoreJobFromDbRow,
   postgresCreationCoreJobView, persistCreationCoreJob
 });
 
@@ -5538,7 +5057,6 @@ const { handleNovelPackageExport, handleNovelExport, restoreProjectResourceSnaps
 });
 
 const skillService = require('./services/skill-service').createSkillService({
-  DATA_DIR,
   DEFAULT_WRITING_SKILL_ID,
   EDITOR_ONLY_BUNDLED_SKILL_DIR,
   EDITOR_ONLY_LOCAL_SKILL_DIR,
@@ -5546,13 +5064,9 @@ const skillService = require('./services/skill-service').createSkillService({
   EDITOR_ONLY_SKILL_ID,
   EDITOR_SKILL_BLOCK_PATTERN,
   GENRE_WRITING_SKILL_RULES,
-  GLOBAL_SKILLS_FILE,
-  OPEN_SKILLS_FILE,
-  POSTGRES_MODE,
   SKILL_AUDIT_VERSION,
   SKILL_BINARY_EXT,
   SKILL_BLOCK_PATTERN,
-  SKILL_CACHE_TTL_MS,
   SKILL_DIRS_FALLBACK,
   SKILL_IGNORED_DIRS,
   SKILL_MAX_FILES,
@@ -5562,38 +5076,29 @@ const skillService = require('./services/skill-service').createSkillService({
   SKILL_PROMPT_EXCLUDE_EXACT,
   SKILL_PROMPT_EXCLUDE_NAMES,
   SKILL_TARGETS,
-  USER_SKILLS_FILE,
   appendAdminAudit,
   auditFilesMatch,
   auditManifestMatch,
   copyPromptMessageFlags,
   crypto,
-  dbReady,
   decodePathParam,
   firstExistingEditorSource,
-  fs,
   getAuthUser,
-  getUserByEmail,
   isAdminUser,
   json,
   normalizeAuditManifest,
   postgresRepository,
-  projectScope,
   readBody,
-  readJsonFile,
   requestError,
-  requireSqliteForPublic,
   respondError,
   sha256Text,
   stableMessageHash,
   uniqueAuditStrings,
   validateChatMessages,
-  writeJsonFile,
   assetDirectory: __dirname,
   nativeSkillCatalog,
-  getDatabase: () => db
 });
-const { resolveSkillDirs, readSkillDirectoryFiles, parseSkillMd, isSkillPromptExcluded, skillPromptFiles, skillPromptInstruction, decorateSkillPrompt, composeSkill, resolveEditorOnlySkillDir, loadEditorOnlyWritingSkill, editorOnlySkillAuditRequest, ensureEditorOnlyWritingSkill, stripEditorSkillBlocks, skillPriority, skillIdentityKey, uniqueSkillsById, publicSkillSummary, handleSkills, handleSkillImport, loadAllUserSkillRecords, saveAllUserSkillRecords, loadUserSkills, loadGlobalSkills, saveGlobalSkills, loadBuiltinSkills, normalizeSkillFilePath, normalizeSkillRuntimeFiles, skillFileNames, parseStoredSkillFiles, skillRuntimeFilesComplete, serializeSkillFiles, makeOpenSkill, openSkillFromDbRow, loadOpenSkills, saveOpenSkills, invalidateOpenSkillsCache, findOpenSkill, openSkillAuthorName, openSkillListView, openSkillDetailView, canViewOpenSkill, openSkillRecordValues, insertOpenSkill, updateOpenSkill, deleteOpenSkill, makeDownloadedSkillId, downloadOpenSkillForUser, parseOpenSkillListParams, handleOpenSkillList, handleOpenSkillGet, handleOpenSkillCreate, handleOpenSkillPatch, handleOpenSkillDelete, handleOpenSkillDownload, normalizeSkillTargets, makeGlobalSkill, builtinSkillsForAdmin, migrateSkillsToDb, migrateGlobalSkillsToDb, migrateOpenSkillsToDb, decodeSkillAuditId, skillAuditRequest, extractSkillBlocks, stripSkillBlocks, prepareSkillMessagesForUpstream, wrapSkillBlock, defaultWritingSkillRecord, resolveGenreWritingSkill, resolveHumanizerSkill, ensureDefaultWritingSkill, addDefaultWritingSkillAudit, skillAuditSnapshot, knownSkillForAudit, buildSkillAudit, legacySkillAudit, storedSkillAudit, skillIdsFromAudit } = skillService;
+const { resolveSkillDirs, readSkillDirectoryFiles, parseSkillMd, isSkillPromptExcluded, skillPromptFiles, skillPromptInstruction, decorateSkillPrompt, composeSkill, resolveEditorOnlySkillDir, loadEditorOnlyWritingSkill, editorOnlySkillAuditRequest, ensureEditorOnlyWritingSkill, stripEditorSkillBlocks, skillPriority, skillIdentityKey, uniqueSkillsById, publicSkillSummary, handleSkills, handleSkillImport, loadBuiltinSkills, normalizeSkillFilePath, normalizeSkillRuntimeFiles, skillFileNames, parseStoredSkillFiles, skillRuntimeFilesComplete, serializeSkillFiles, makeOpenSkill, openSkillFromDbRow, openSkillListView, openSkillDetailView, canViewOpenSkill, parseOpenSkillListParams, handleOpenSkillList, handleOpenSkillGet, handleOpenSkillCreate, handleOpenSkillPatch, handleOpenSkillDelete, handleOpenSkillDownload, normalizeSkillTargets, makeGlobalSkill, builtinSkillsForAdmin, decodeSkillAuditId, skillAuditRequest, extractSkillBlocks, stripSkillBlocks, prepareSkillMessagesForUpstream, wrapSkillBlock, defaultWritingSkillRecord, resolveGenreWritingSkill, resolveHumanizerSkill, ensureDefaultWritingSkill, addDefaultWritingSkillAudit, skillAuditSnapshot, knownSkillForAudit, buildSkillAudit, legacySkillAudit, storedSkillAudit, skillIdsFromAudit } = skillService;
 
 // 拆书流水线聚合服务装配（自 server.js 下沉至 services/dissection-pipeline-aggregation-service.js，行为不变）。
 // runPipelineAggregation 委托桩保持同名函数声明：startPipelineJob 经自由变量引用，
@@ -5603,14 +5108,9 @@ const {
   callDissectionPipelineModel,
   recordPipelineUsageAsync
 } = createDissectionPipelineAggregationService({
-  POSTGRES_MODE,
   activeDissections,
   attachPipelineCoverage,
   buildAuthorDnaFromDissectionParts,
-  buildDissectionEntities,
-  buildDissectionEvents,
-  buildEntityStates,
-  buildEventEdges,
   buildPipelineCharacterFallback,
   buildPipelineCharacters,
   buildPipelineClues,
@@ -5622,13 +5122,9 @@ const {
   callMolanChat,
   checkDissectionActiveInPostgres,
   currentDefaultModel,
-  dbReady,
   dissectionFieldHasUsableContent,
   emptyDissectionResult,
   getPostgresDissectionPipelineStore,
-  loadAllChapterFacts,
-  loadDissectionChapters,
-  loadDissectionUnits,
   normalizeAuthorDna,
   normalizeEntityName,
   pipelineAggregationInputChars,
@@ -5639,14 +5135,11 @@ const {
   pipelineTextChunks,
   postgresRepository,
   projectScope,
-  recordPipelineUsage,
   safeJsonParse,
   samplePipelineCharacterAppearances,
   saveDissectionRecordAsync,
   startPipelineJob,
-  storeDissectionForeshadows,
   toTokenCount,
-  getDatabase: () => db
 });
 async function runPipelineAggregation(record, authToken, owner, opts) {
   return runPipelineAggregationImpl(record, authToken, owner, opts);
@@ -5656,8 +5149,6 @@ const adminService = require('./services/admin-service').createAdminService({
   ACCOUNT_ROLES,
   ADMIN_DATA_TYPES,
   CORRECTION_INBOX_FILE,
-  MAX_NOVEL_STATE_BYTES,
-  POSTGRES_MODE,
   SKILL_TARGETS,
   appendAdminAudit,
   builtinSkillsForAdmin,
@@ -5666,58 +5157,33 @@ const adminService = require('./services/admin-service').createAdminService({
   correctionLibraryLib,
   correctionLibrarySummary,
   currentDefaultModel,
-  dbReady,
   decodePathParam,
-  deleteDissectionCascade,
-  deleteOpenSkill,
   dissectionRecordFromDb,
   emptyCorrectionAudit,
-  findOpenSkill,
   findPlatformModel,
   getAuthUser,
   getCorrectionLibrary,
-  getUsageSummariesByUser,
-  getUsageSummary,
-  getUserByEmail,
-  globalUsageSummary,
   isAdminUser,
   isConfiguredAdminEmail,
   json,
-  loadAdminAudit,
-  loadAllUserSkillRecords,
   loadCorrectionHits,
-  loadGlobalSkills,
-  loadUsers,
   makeGlobalSkill,
-  makeOpenSkill,
   normalizeAvatar,
-  normalizeSkillRuntimeFiles,
   normalizeUserRole,
-  parseStoredSkillFiles,
   postgresRepository,
   postgresRuntimeUserFromRow,
   readBody,
   reasoningEffortsForModel,
   requestError,
-  requireSqliteForPublic,
   respondError,
   roundCreditValue,
-  safeJsonParse,
   sanitizeNovelStateForStorage,
-  saveAllUserSkillRecords,
-  saveGlobalSkills,
   saveModelPolicy,
   savePlatformModelRate,
   savePlatformModelRates,
-  saveUser,
-  skillFileNames,
   skillIdsFromAudit,
-  skillRuntimeFilesComplete,
   storedAvatar,
   storedSkillAudit,
-  updateOpenSkill,
-  userFromDbRow,
-  getDatabase: () => db,
   getPlatformModels: () => PLATFORM_MODELS,
   buildUsageSummary,
   getPostgresUsageSummary,
@@ -5731,11 +5197,9 @@ const generationService = require('./services/generation-service').createGenerat
   DATA_DIR,
   GenerationError,
   MAX_NOVEL_STATE_BYTES,
-  POSTGRES_MODE,
   attachResponseDisconnect,
   authenticateXuanhuanCloud,
   benchmarkPipeline,
-  calcWordCount,
   calculateBenchmarkCallTimeoutMs,
   callMolanChat,
   canonicalResolveGenre,
@@ -5744,7 +5208,6 @@ const generationService = require('./services/generation-service').createGenerat
   creationChapterContext,
   crypto,
   currentDefaultModel,
-  dbReady,
   decodePathParam,
   generationManifest,
   generationProviderRequestId,
@@ -5754,23 +5217,15 @@ const generationService = require('./services/generation-service').createGenerat
   generationV2Enabled,
   generationV2Status,
   getAuthUser,
-  getUserByEmail,
   json,
-  loadCreationSnapshots,
-  loadCurrentBiblePayload,
   path,
   postgresActor,
   postgresRepository,
   projectScope,
   readBody,
-  recordChapterCausalDebts: creationDebtService.recordChapterCausalDebts,
-  requireSqliteForPublic,
   resolveModelForUser,
   responseCors,
   sanitizeNovelStateForStorage,
-  getDatabase: () => db,
-  getNativeAppRepository: () => appRepository(),
-  getNativeCreationRepository: () => nativeCreationRepository()
 });
 const { generationRunOrchestrator, generationRequestAuth, generationRunError, generationSseEvent, streamGenerationEvents, generationProjectAccess, generationChatChunk, streamLegacyGenerationChat, handleLegacyGenerationChat, generationChapterNo, generationPreviousEnding, generationFactLedger, loadAuthoritativeGenerationContext, scenePatchError, validateScenePatchBody, handleNovelScenePatch, handleGenerationRuns, handleBenchmark } = generationService;
 
@@ -6034,61 +5489,18 @@ const server = http.createServer((req, res) => {
 async function dispatchRequest(req, res) {
   res.molanCorsHeaders = corsHeadersForOrigin(req.headers.origin);
   if (req.method === 'OPTIONS') { res.writeHead(204, responseCors(res)); return res.end(); }
-  if (POSTGRES_MODE) {
-    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-    if (token && token.length <= 256) {
-      const session = await postgresRepository.requestAuthSession(hashSessionToken(token));
-      if (session) {
-        const user = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByUserId(session.userId));
-        if (user) req.molanPostgresAuth = { token, user, scope: session.scope };
-      }
+  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  if (token && token.length <= 256 && typeof postgresRepository.requestAuthSession === 'function') {
+    const session = await postgresRepository.requestAuthSession(hashSessionToken(token));
+    if (session) {
+      const user = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByUserId(session.userId));
+      if (user) req.molanPostgresAuth = { token, user, scope: session.scope };
     }
-  }
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-    req.molanNativeAuth = await nativeAuthService().resolve(req);
   }
   const u = req.url.split('?')[0];
   // 可观测性端点（先行拦截，不走领域路由）
   if (u === '/api/client-errors' && req.method === 'POST') return handleClientErrors(req, res);
   if (u === '/api/metrics' && req.method === 'GET') return handleMetrics(req, res);
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json') {
-    if (!nativeKnowledgeCatalogService) nativeKnowledgeCatalogService = require('./services/native-knowledge-catalog-service').createNativeKnowledgeCatalogService({ json });
-    if (nativeKnowledgeCatalogService.dispatch(req, res, u)) return;
-  }
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/creation-books')) {
-    const chapterAction = u.match(/^\/api\/creation-books\/([A-Za-z0-9_]+)\/(audit|commit)$/);
-    if (req.method === 'POST' && chapterAction) {
-      const service = nativeBenchmarkChapterService();
-      return chapterAction[2] === 'audit'
-        ? service.handleCreationBookChapterAudit(req, res, chapterAction[1])
-        : service.handleCreationBookCommit(req, res, chapterAction[1]);
-    }
-    if (await nativeCreationService().dispatch(req, res, u)) return;
-    return json(res, 503, { error: '该创作操作尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
-  }
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' &&
-      (u.startsWith('/api/workspaces') || /^\/api\/novels\/[^/]+\/(?:resources|package)(?:\/|$)/.test(u))) {
-    if (await nativeProjectService().dispatch(req, res, u)) return;
-    return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
-  }
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/dissections')) {
-    const native = nativeDissectionService();
-    const match = u.match(/^\/api\/dissections(?:\/([^/]+))?(?:\/(units|cancel|retry))?$/);
-    if (!match) return json(res, 503, { error: '该拆书操作尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
-    if (req.method === 'GET' && !match?.[1]) return native.list(req, res);
-    if (req.method === 'POST' && !match?.[1]) return native.create(req, res);
-    if (match?.[1] && req.method === 'GET' && match[2] === 'units') return native.units(req, res, match[1]);
-    if (match?.[1] && req.method === 'GET' && !match[2]) return native.get(req, res, match[1]);
-    if (match?.[1] && req.method === 'PATCH') return native.patch(req, res, match[1]);
-    if (match?.[1] && req.method === 'DELETE') return native.remove(req, res, match[1]);
-    if (match?.[1] && req.method === 'POST' && /\/cancel$/.test(u)) return native.cancel(req, res, match[1]);
-    if (match?.[1] && req.method === 'POST' && /\/retry$/.test(u)) return native.retry(req, res, match[1]);
-    return json(res, 503, { error: '该拆书操作尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
-  }
-  if (!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && u.startsWith('/api/')) {
-    const supported = /^\/api\/(?:auth\/(?:register|login|me|profile|logout|logout-all)$|admin\/(?:auth\/(?:login|me|logout)|skills(?:\/[^/]+)?)$|skills(?:\/import)?$|open-skills(?:\/[^/]+(?:\/download)?)?$|novels(?:\/[^/]+(?:\/(?:restore|export))?)?$|books\/|runs\/|generation-runs(?:\/|$)|benchmark(?:\/|$)|chat$|models$|health$|usage$|billing\/(?:estimate|topup)$|local-sync\/status$|local-style\/)/.test(u);
-    if (!supported && !u.startsWith('/api/xuanhuan-reading/') && !u.startsWith('/api/xuanhuan-lab/')) return json(res, 503, { error: '该领域尚未迁移到原生 JSON 仓储', code: 'NATIVE_DOMAIN_UNAVAILABLE' });
-  }
   if (req.method === 'GET' && u === '/api/local-sync/status') return handleLocalSyncStatus(req, res);
 
 // ★ 本地文风对齐数据（仅本地服务提供，不随代理转发到云端）：
@@ -6107,11 +5519,7 @@ async function dispatchRequest(req, res) {
     return xuanhuanLab.handle(req, res);
   }
 
-  const nativeNovelHandlers = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json'
-    ? require('./routes/novel-domain-handlers').createNovelDomainHandlers({ repository: appRepository(),
-      getAuthUser, readBody, json, respondError, sanitizeNovelState: sanitizeNovelStateForStorage,
-      summarizeNovel: summarizeNativeNovel, parseNovelExportRange, sendNovelExport }) : null;
-  const novelReadHandlers = nativeNovelHandlers || createNovelReadHandlers({
+  const novelReadHandlers = createNovelReadHandlers({
     getDatabase: () => db,
     getAuthUser,
     requireStorage: requireSqliteForPublic,
@@ -6123,7 +5531,7 @@ async function dispatchRequest(req, res) {
     postgresData,
     projectResources
   });
-  const novelWriteHandlers = nativeNovelHandlers || createNovelWriteHandlers({
+  const novelWriteHandlers = createNovelWriteHandlers({
     getDatabase: () => db,
     getAuthUser,
     requireStorage: requireSqliteForPublic,
@@ -6145,7 +5553,7 @@ async function dispatchRequest(req, res) {
   if (!dissectionHandlers) {
     dissectionHandlers = createDissectionHandlers({
       json, readBody, respondError, requestError, decodePathParam, responseCors,
-      getAuthUser, requireSqliteForPublic, POSTGRES_MODE, dbReady, getUserByEmail,
+      getAuthUser, requireSqliteForPublic, dbReady,
       postgresRepository, loadDissectionRecord, loadDissectionRecordAsync, saveDissectionRecordAsync,
       updateDissectionRecord, insertDissectionRecord, findCachedDissectionRecord,
       acquireDissectionUserSlot, releaseDissectionUserSlot, activeDissections,
@@ -6158,12 +5566,11 @@ async function dispatchRequest(req, res) {
       firstIncompleteDissectionPhase, dissectionPhaseIdsForDepth, pipelineEnabled,
       initializeDissectionPipeline, startDissectionJob, dissectionSkillRecord,
       dissectionSkillPromptFiles, dissectionSkillAuditPayload, SKILL_AUDIT_VERSION,
-      callMolanChat, safeJsonParse, dissectionContextForChapter,
+      callMolanChat, safeJsonParse,
       getPostgresDissectionPipelineStore, deterministicContractValidation,
       pipelineBatchCharsFor, checkForbiddenTerms, dissectionDocx, queryParamsFromUrl,
-      projectScope, buildDissectionEntities, buildDissectionEvents, buildEntityStates,
-      buildEventEdges, storeDissectionForeshadows, loadDissectionUnits, createDissectionBatches,
-      dissectionPipelineStats, getPostgresDissectionReadService, syncCharactersToLibrary,
+      projectScope,
+      getPostgresDissectionReadService, syncCharactersToLibrary,
       dissectionQueryHandlers: {
         handleDissectionCoverage, handleDissectionUnitsPage, handleDissectionEntitiesPage,
         handleDissectionForeshadowsPage, handleDissectionSummariesPage,
@@ -6175,11 +5582,11 @@ async function dispatchRequest(req, res) {
   if (!creationBookHandlers) {
     creationBookHandlers = createCreationBookHandlers({
       json, readBody, respondError, respondPostgresError, requestError,
-      getAuthUser, getUserByEmail, requireSqliteForPublic, dbReady,
-      POSTGRES_MODE, postgresRepository, postgresActor, projectScope,
+      getAuthUser, requireSqliteForPublic, dbReady,
+      postgresRepository, postgresActor, projectScope,
       callMolanChat, creditCostForUser, currentDefaultModel,
       creationCoreJobs, sweepCreationCoreJobs, persistCreationCoreJob, runCreationCoreJob,
-      nativeSkillCatalog, loadBuiltinSkills, loadUserSkills, loadGlobalSkills,
+      nativeSkillCatalog, loadBuiltinSkills,
       dissectionSkillAuditPayload, CREATION_PLAN_BATCH_SIZE: 10,
       getDatabase: () => db,
       creationBookService: {
@@ -6201,7 +5608,7 @@ async function dispatchRequest(req, res) {
   if (!characterHandlers) {
     characterHandlers = createCharacterHandlers({
       json, readBody, respondError, requestError, getAuthUser,
-      requireSqliteForPublic, dbReady, POSTGRES_MODE, postgresRepository,
+      requireSqliteForPublic, dbReady, postgresRepository,
       projectScope, sanitizeNovelStateForStorage, responseCors, crypto,
       getDatabase: () => db
     });
@@ -6239,9 +5646,8 @@ async function dispatchRequest(req, res) {
       json, readBody, respondError, respondPostgresError, requestError,
       getAuthUser, isAdminUser, normalizeUserRole, canChooseModel, currentDefaultModel,
       PLATFORM_MODELS, loadPlatformModels, reasoningEffortsForModel, contextWindowTokensForModel,
-      estimateBillingForUser, PUBLIC_MODE, POSTGRES_MODE, postgresRepository, projectScope,
-      postgresRuntimeUserFromRow, appRepository, dbReady,
-      getDatabase: () => db, getUserByEmail, publicUser, nativePublicUser, saveUser,
+      estimateBillingForUser, PUBLIC_MODE, postgresRepository, projectScope,
+      postgresRuntimeUserFromRow, publicUser,
       chatAdmission, postgresHealth, DEEPSEEK_KEY,
       chatHandler: (req, res, legacy) => getChatServiceHandler()(req, res, legacy),
       benchmarkHandler: handleBenchmark,
@@ -6255,7 +5661,6 @@ async function dispatchRequest(req, res) {
       register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
       me: handleMe, profile: handleProfile, logout: handleLogout, logoutAll: handleLogoutAll,
       adminLogin: handleAdminLogin, adminMe: handleAdminMe, usage: handleUsage,
-      ...(!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? nativeAuthService() : {})
     }),
     admin: createAdminRoutes({
       ...adminHandlers,
@@ -6268,16 +5673,11 @@ async function dispatchRequest(req, res) {
       characterAudit: handleCharacterMaterialAudit, characterAuditPatch: handleCharacterMaterialAuditPatch,
       dataList: adminDataList, dataPatch: adminDataPatch, dataDelete: adminDataDelete,
       userPatch: handleAdminUserPatch, skillPatch: handleAdminSkillPatch, skillDelete: handleAdminSkillDelete
-      , ...(!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? {
-        skills: nativeSkillService().adminSkills, skillCreate: nativeSkillService().adminSkillCreate,
-        skillPatch: nativeSkillService().adminSkillPatch, skillDelete: nativeSkillService().adminSkillDelete
-      } : {})
     }),
     skills: createSkillRoutes({
       list: handleSkills, import: handleSkillImport, openList: handleOpenSkillList, openCreate: handleOpenSkillCreate,
       openGet: handleOpenSkillGet, openPatch: handleOpenSkillPatch, openDelete: handleOpenSkillDelete,
       openDownload: handleOpenSkillDownload
-      , ...(!POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? nativeSkillService() : {})
     }),
     generation: createGenerationRoutes({
       ...generationHandlers,
@@ -6318,7 +5718,7 @@ async function dispatchRequest(req, res) {
       charactersMerge: handleCharactersMerge, charactersPatch: handleCharactersPatch,
       postgresNovelImportCharacters: handlePostgresNovelImportCharacters, respondPostgresError,
       novelImportCharacters: handleNovelImportCharacters, sharedDissectionGet: handleSharedDissectionGet,
-      postgresNovelExport: handlePostgresNovelExport, novelExport: nativeNovelHandlers?.handleNovelExport || handleNovelExport,
+      postgresNovelExport: handlePostgresNovelExport, novelExport: handleNovelExport,
       postgresPackageExport: handlePostgresPackageExport, postgresPackageImport: handlePostgresPackageImport,
       postgresPackageRestore: handlePostgresPackageRestore, postgresResourceHistory: handlePostgresResourceHistory,
       postgresResources: handlePostgresResources, postgresWorkspaceList: handlePostgresWorkspaceList,
@@ -6369,13 +5769,13 @@ async function dispatchRequest(req, res) {
   if (await domainRoutes.auth(req, res, u)) return;
   if (await domainRoutes.admin(req, res, u)) return;
   if (domainRoutes.generation.dispatchWebChat(req, res, u)) return;
-  if (POSTGRES_MODE && await getPostgresDissectionReadService().dispatch(req, res, u)) return;
-  if (POSTGRES_MODE && await getPostgresDissectionMutationService().dispatch(req, res, u)) return;
-  if (POSTGRES_MODE && req.method === 'GET' && u === '/api/dissections/shared') {
+  if (await getPostgresDissectionReadService().dispatch(req, res, u)) return;
+  if (await getPostgresDissectionMutationService().dispatch(req, res, u)) return;
+  if (req.method === 'GET' && u === '/api/dissections/shared') {
     await handleSharedDissectionsList(req, res);
     return;
   }
-  const sharedDissectionMatch = POSTGRES_MODE && req.method === 'GET' && u.match(/^\/api\/shared\/dissection\/([A-Za-z0-9]+)$/);
+  const sharedDissectionMatch = req.method === 'GET' && u.match(/^\/api\/shared\/dissection\/([A-Za-z0-9]+)$/);
   if (sharedDissectionMatch) {
     await handleSharedDissectionGet(req, res, sharedDissectionMatch[1]);
     return;
@@ -6395,12 +5795,11 @@ async function dispatchRequest(req, res) {
   if (await domainRoutes.projects(req, res, u)) return;
   if (u.startsWith('/api/books/') || u.startsWith('/api/runs/')) {
     return memoryRoutes.dispatch(req, res, u, db, getAuthUser, {
-      backend: POSTGRES_MODE ? 'postgres' : process.env.MOLAN_APP_STORE === 'json' ? 'json' : 'sqlite',
+      backend: 'postgres',
       memoryStore: memoryDomainStore(),
       styleProfileStore: styleProfileStore(),
       generate: async (user, params, guard) => {
-        const account = POSTGRES_MODE ? await getPostgresRuntimeUserByEmail(user.email)
-          : process.env.MOLAN_APP_STORE === 'json' ? user : getUserByEmail(user.email);
+        const account = await getPostgresRuntimeUserByEmail(user.email);
         const modelId = resolveModelForUser(account, params.modelId || currentDefaultModel());
         return benchmarkPipeline.generateChapter({
           callModel: (_auth, options) => guard(() => callMolanChat(String(req.headers.authorization || ''), account,
@@ -6431,7 +5830,7 @@ async function initializePostgresRuntime() {
 }
 
 if (require.main === module) {
-  const nativeJsonMode = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json';
+  const nativeJsonMode = false;
   const preparePostgres = async () => {
     const info = await initializePostgresRuntime();
     await postgresRepository.subscribeRuntimeInvalidation(payload => {
@@ -6453,47 +5852,17 @@ if (require.main === module) {
     console.log('🐘 PostgreSQL 目标仓储已就绪 → ' + String(info.database || 'configured'));
   };
   const lifecycle = require('./services/server-lifecycle-service').createServerLifecycleService({
-    server, postgresMode: POSTGRES_MODE, nativeJsonMode, port: PORT, host: HOST,
+    server, postgresMode: POSTGRES_MODE && postgresRepository.enabled, nativeJsonMode, port: PORT, host: HOST,
     maxConnections: envPositiveInt('MOLAN_MAX_CONNECTIONS', 1024, 64, 10000),
     initializeStorage: () => {
-      if (!nativeJsonMode) initDB({ databaseFactory: resolveLocalDatabaseFactory() });
-      if (!POSTGRES_MODE && (process.env.MOLAN_STYLE_STORE === 'json' || nativeJsonMode)) styleProfileStore();
-      if (!POSTGRES_MODE && dbReady()) {
-        server.once('close', require('./lib/memory-projection-worker').start(db));
-        startCreditReservationReaper();
-      }
+      initDB();
     },
     preparePostgres,
     prepareLocal: async () => {
-    if (nativeJsonMode) {
-      const repo = appRepository();
-      if (!repo || typeof repo.recoverInterruptedUsage !== 'function') {
-        throw Object.assign(new Error('JSON 仓储缺少 recoverInterruptedUsage 实现，无法安全恢复中断用量'), { code: 'INTERRUPTED_USAGE_RECOVERY_BLOCKED' });
-      }
-      const leaseTtl = Number(process.env.MOLAN_DISPATCH_LEASE_TTL_MS) || DISPATCH_LEASE_TTL_MS;
-      await repo.recoverInterruptedUsage({
-        instanceId: SERVER_INSTANCE_ID,
-        cutoff: Date.now() - leaseTtl
-      });
-      startCreditReservationReaper();
-    }
-    if (!nativeJsonMode && dbReady()) {
-      recoverDissectionJobs();
-      loadSessions();
-      recoverPostgresCreationJobs();
-    } else if (!nativeJsonMode) {
-      recoverDissectionJobs();
-      loadSessions();
-      recoverPostgresCreationJobs();
-    }
-    if (PUBLIC_MODE && !nativeJsonMode && !dbReady()) {
-      console.error('Production storage is unavailable: PostgreSQL connection or pure-js database engine is required. AI and cloud novel APIs will stay disabled.');
-    }
-    if (process.env.MOLAN_GENERATION_STORE === 'json' || nativeJsonMode) {
-      await generationRunStore().recoverExpiredRuns(null, { now: Date.now() });
-    }
+      throw Object.assign(new Error('PostgreSQL 未配置：PG-only 收敛后不再支持本地 SQLite/JSON 存储，请配置 MOLAN_PG_ENABLED 与连接信息'),
+        { code: 'POSTGRES_NOT_CONFIGURED' });
     },
-    flushSessions: flushSessionsSync, flushWrites: flushPostgresRuntimeWrites,
+    flushSessions: () => {}, flushWrites: flushPostgresRuntimeWrites,
     closeStorage: closeStorageStores, stopLocalWorkers: stopCreditReservationReaper,
     onStartupFailure: error => {
       if (POSTGRES_MODE) postgresHealth = { enabled: true, available: false, status: 'unavailable', error: String(error && error.code || 'pg_unavailable') };
@@ -6537,8 +5906,6 @@ module.exports = {
   issueToken,
   getAuthUser,
   sessions,
-  flushSessionsSync,
-  saveUser,
   getUsageSummary,
   globalUsageSummary,
   getUsageSummariesByUser,

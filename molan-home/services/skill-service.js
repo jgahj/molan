@@ -1,9 +1,9 @@
 'use strict';
+const fs = require('node:fs');
 const path = require('node:path');
 const { assertPlatformConfigPromotion, canonicalGlobalPrompts } = require('../lib/evolution/platform-config-gate');
 
 function createSkillService({
-  DATA_DIR,
   DEFAULT_WRITING_SKILL_ID,
   EDITOR_ONLY_BUNDLED_SKILL_DIR,
   EDITOR_ONLY_LOCAL_SKILL_DIR,
@@ -11,13 +11,9 @@ function createSkillService({
   EDITOR_ONLY_SKILL_ID,
   EDITOR_SKILL_BLOCK_PATTERN,
   GENRE_WRITING_SKILL_RULES,
-  GLOBAL_SKILLS_FILE,
-  OPEN_SKILLS_FILE,
-  POSTGRES_MODE,
   SKILL_AUDIT_VERSION,
   SKILL_BINARY_EXT,
   SKILL_BLOCK_PATTERN,
-  SKILL_CACHE_TTL_MS,
   SKILL_DIRS_FALLBACK,
   SKILL_IGNORED_DIRS,
   SKILL_MAX_FILES,
@@ -27,45 +23,30 @@ function createSkillService({
   SKILL_PROMPT_EXCLUDE_EXACT,
   SKILL_PROMPT_EXCLUDE_NAMES,
   SKILL_TARGETS,
-  USER_SKILLS_FILE,
   appendAdminAudit,
   auditFilesMatch,
   auditManifestMatch,
   copyPromptMessageFlags,
   crypto,
-  dbReady,
   decodePathParam,
   firstExistingEditorSource,
-  fs,
   getAuthUser,
-  getUserByEmail,
   isAdminUser,
   json,
   normalizeAuditManifest,
   nativeSkillCatalog,
   postgresRepository,
-  projectScope,
   readBody,
-  readJsonFile,
   requestError,
-  requireSqliteForPublic,
   respondError,
   sha256Text,
   stableMessageHash,
   uniqueAuditStrings,
   validateChatMessages,
-  writeJsonFile,
-  assetDirectory,
-  getDatabase
+  assetDirectory
 }) {
   const __dirname = assetDirectory;
   let builtinSkillsCache = null;
-  let globalSkillsCache = null;
-  let globalSkillsCacheAt = 0;
-  let openSkillsCache = null;
-  let openSkillsCacheAt = 0;
-  let userSkillRecordsCache = null;
-  let userSkillRecordsCacheAt = 0;
 
   function resolveSkillDirs() {
     const env = (process.env.MOLAN_SKILL_DIRS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -380,24 +361,22 @@ function createSkillService({
   }
   
   async function handleSkills(req, res) {
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const out = loadBuiltinSkills().slice();
     const auth = getAuthUser(req);
     if (auth) {
-      const catalog = POSTGRES_MODE ? await nativeSkillCatalog(auth.user) : null;
-      (catalog ? catalog.globalSkills : loadGlobalSkills()).filter(s => s.enabled !== false).forEach(s => {
+      const catalog = await nativeSkillCatalog(auth.user);
+      catalog.globalSkills.filter(s => s.enabled !== false).forEach(s => {
         out.push({ ...s, source: 'global', editable: false, global: true, autoApply: true });
       });
-      out.push(...(catalog ? catalog.userSkills : loadUserSkills(auth.user.email)).map(s => ({ ...s, source: 'user', global: false, autoApply: false })));
+      out.push(...catalog.userSkills.map(s => ({ ...s, source: 'user', global: false, autoApply: false })));
     }
     // 未登录用户只需要看到可用 Skill 的名称和简介，不能匿名下载完整提示词。
     json(res, 200, uniqueSkillsById(auth ? out : out.map(publicSkillSummary)));
   }
-  
+
   function handleSkillImport(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后保存个人 Skill' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     return readBody(req).then(async body => {
       const name = String(body.name || '').trim();
       const description = String(body.description || '').trim().slice(0, 500);
@@ -415,153 +394,12 @@ function createSkillService({
       const files = skillFileNames(runtimeFiles, body.files);
       const fileManifest = Array.isArray(body.fileManifest) ? body.fileManifest : [];
       const record = decorateSkillPrompt({ id, name: name.slice(0, 120), description, instruction, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest), size: instruction.length, updatedAt: Date.now() });
-      if (POSTGRES_MODE) {
-        await postgresRepository.runtimeUpsertUserSkill({
-          actorUserId: auth.user.userId, ownerEmail: auth.user.email,
-          skill: { ...record, files_json: serializeSkillFiles(record) }
-        });
-        return json(res, 200, { ok: true, id, skill: record });
-      }
-      const skills = loadAllUserSkillRecords();
-      const key = String(auth.user.email).trim().toLowerCase();
-      const existing = Array.isArray(skills[key]) ? skills[key] : [];
-      const index = existing.findIndex(item => item && item.id === id);
-      if (index >= 0) existing[index] = record; else existing.push(record);
-      skills[key] = existing;
-      saveAllUserSkillRecords(skills);
+      await postgresRepository.runtimeUpsertUserSkill({
+        actorUserId: auth.user.userId, ownerEmail: auth.user.email,
+        skill: { ...record, files_json: serializeSkillFiles(record) }
+      });
       json(res, 200, { ok: true, id, skill: record });
     }).catch(e => respondError(res, e));
-  }
-  
-  function loadAllUserSkillRecords() {
-    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存读取');
-    if (userSkillRecordsCache && Date.now() - userSkillRecordsCacheAt < SKILL_CACHE_TTL_MS) return userSkillRecordsCache;
-    if (dbReady()) {
-      const out = {};
-      getDatabase().prepare(`SELECT user_email, id, name, description, instruction, files_json, size, updated_at
-        FROM user_skills ORDER BY updated_at DESC`).all().forEach(row => {
-        const key = String(row.user_email || '').toLowerCase();
-        if (!out[key]) out[key] = [];
-        const storedFiles = parseStoredSkillFiles(row.files_json);
-        out[key].push(decorateSkillPrompt({ id: row.id, name: row.name, description: row.description, instruction: row.instruction, files: storedFiles.files, runtimeFiles: storedFiles.runtimeFiles, fileManifest: storedFiles.fileManifest, complete: storedFiles.complete, size: Number(row.size) || 0, updatedAt: Number(row.updated_at) || 0 }));
-      });
-      userSkillRecordsCache = out;
-      userSkillRecordsCacheAt = Date.now();
-      return userSkillRecordsCache;
-    }
-    try {
-      const data = JSON.parse(fs.readFileSync(USER_SKILLS_FILE, 'utf-8'));
-      userSkillRecordsCache = data && typeof data === 'object' && !Array.isArray(data) ? Object.fromEntries(Object.entries(data).map(([email, list]) => [email, Array.isArray(list) ? list.filter(Boolean).map(item => {
-        const storedFiles = parseStoredSkillFiles(item.files_json || { files: item.files, runtimeFiles: item.runtimeFiles, fileManifest: item.fileManifest });
-        return decorateSkillPrompt({ ...item, files: storedFiles.files, runtimeFiles: storedFiles.runtimeFiles, fileManifest: storedFiles.fileManifest, complete: storedFiles.complete });
-      }) : []])) : {};
-    } catch (_) { return {}; }
-    userSkillRecordsCacheAt = Date.now();
-    return userSkillRecordsCache;
-  }
-  
-  function saveAllUserSkillRecords(data, actorUserId = '') {
-    if (POSTGRES_MODE) {
-      throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
-    }
-    if (dbReady()) {
-      getDatabase().exec('BEGIN IMMEDIATE');
-      try {
-        const upsert = getDatabase().prepare(`INSERT INTO user_skills
-          (user_email, id, name, description, instruction, files_json, size, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(user_email, id) DO UPDATE SET
-            name = excluded.name, description = excluded.description, instruction = excluded.instruction,
-            files_json = excluded.files_json, size = excluded.size, updated_at = excluded.updated_at`);
-        const emails = Object.keys(data && typeof data === 'object' ? data : {});
-        for (const email of emails) {
-          const rows = Array.isArray(data[email]) ? data[email] : [];
-          getDatabase().prepare('DELETE FROM user_skills WHERE user_email = ?').run(email);
-          for (const item of rows) {
-            if (!item || !item.id || !item.instruction) continue;
-            upsert.run(String(email).toLowerCase(), String(item.id), String(item.name || item.id).slice(0, 120), String(item.description || '').slice(0, 500), String(item.instruction).slice(0, 1000000), serializeSkillFiles(item), Math.max(0, Number(item.size) || String(item.instruction).length), Number(item.updatedAt) || Date.now());
-          }
-        }
-        getDatabase().exec('COMMIT');
-      } catch (error) {
-        try { getDatabase().exec('ROLLBACK'); } catch (_) {}
-        throw error;
-      }
-      userSkillRecordsCache = data && typeof data === 'object' ? data : {};
-      userSkillRecordsCacheAt = Date.now();
-      return;
-    }
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    const tmp = USER_SKILLS_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tmp, USER_SKILLS_FILE);
-    userSkillRecordsCache = data;
-    userSkillRecordsCacheAt = Date.now();
-  }
-  
-  function loadUserSkills(email) {
-    const all = loadAllUserSkillRecords();
-    const key = String(email || '').trim().toLowerCase();
-    return Array.isArray(all[key]) ? all[key].filter(item => item && item.id && item.instruction) : [];
-  }
-  
-  function loadGlobalSkills() {
-    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存读取');
-    if (globalSkillsCache && Date.now() - globalSkillsCacheAt < SKILL_CACHE_TTL_MS) return globalSkillsCache;
-    if (dbReady()) {
-      const skills = getDatabase().prepare(`SELECT id, name, description, instruction, files_json, targets_json, enabled, created_at, updated_at
-        FROM global_skills ORDER BY updated_at DESC`).all().map(row => {
-        let targets = [];
-        try { targets = JSON.parse(row.targets_json || '["all"]'); } catch (_) {}
-        const storedFiles = parseStoredSkillFiles(row.files_json);
-        return decorateSkillPrompt({ id: row.id, name: row.name, description: row.description, instruction: row.instruction, files: storedFiles.files, runtimeFiles: storedFiles.runtimeFiles, fileManifest: storedFiles.fileManifest, complete: storedFiles.complete, targets: Array.isArray(targets) ? targets : ['all'], enabled: !!row.enabled, global: true, createdAt: Number(row.created_at) || 0, updatedAt: Number(row.updated_at) || 0 });
-      });
-      globalSkillsCache = skills;
-      globalSkillsCacheAt = Date.now();
-      return skills;
-    }
-    const data = readJsonFile(GLOBAL_SKILLS_FILE, []);
-    globalSkillsCache = Array.isArray(data) ? data.filter(s => s && s.id && s.name && s.instruction).map(s => {
-      const runtimeFiles = normalizeSkillRuntimeFiles(s.runtimeFiles, s.files);
-      const files = skillFileNames(runtimeFiles, s.files);
-      const fileManifest = Array.isArray(s.fileManifest) ? s.fileManifest : [];
-      return decorateSkillPrompt({ ...s, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest) });
-    }) : [];
-    globalSkillsCacheAt = Date.now();
-    return globalSkillsCache;
-  }
-  
-  function saveGlobalSkills(skills, qualityEvidence) {
-    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
-    assertPlatformConfigPromotion({ kind: 'global-prompts', proposed: canonicalGlobalPrompts(skills), evidence: qualityEvidence });
-    return persistGlobalSkills(skills);
-  }
-
-  // Copies an existing local baseline during legacy initialization; never exposed as a rollout writer.
-  function persistGlobalSkills(skills) {
-    if (dbReady()) {
-      getDatabase().exec('BEGIN IMMEDIATE');
-      try {
-        getDatabase().exec('DELETE FROM global_skills');
-        const insert = getDatabase().prepare(`INSERT INTO global_skills
-          (id, name, description, instruction, files_json, targets_json, enabled, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-        (Array.isArray(skills) ? skills : []).forEach(skill => {
-          if (!skill || !skill.id || !skill.name || !skill.instruction) return;
-          insert.run(String(skill.id), String(skill.name).slice(0, 120), String(skill.description || '').slice(0, 500), String(skill.instruction).slice(0, 1000000), serializeSkillFiles(skill), JSON.stringify(Array.isArray(skill.targets) && skill.targets.length ? skill.targets : ['all']), skill.enabled === false ? 0 : 1, Number(skill.createdAt) || Date.now(), Number(skill.updatedAt) || Date.now());
-        });
-        getDatabase().exec('COMMIT');
-      } catch (error) {
-        try { getDatabase().exec('ROLLBACK'); } catch (_) {}
-        throw error;
-      }
-      globalSkillsCache = Array.isArray(skills) ? skills : [];
-      globalSkillsCacheAt = Date.now();
-      return;
-    }
-    writeJsonFile(GLOBAL_SKILLS_FILE, skills);
-    globalSkillsCache = skills;
-    globalSkillsCacheAt = Date.now();
   }
   
   function loadBuiltinSkills() {
@@ -710,87 +548,13 @@ function createSkillService({
     });
   }
   
-  function loadOpenSkills() {
-    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存读取');
-    if (openSkillsCache && Date.now() - openSkillsCacheAt < SKILL_CACHE_TTL_MS) return openSkillsCache;
-    if (dbReady()) {
-      openSkillsCache = getDatabase().prepare(`SELECT id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at
-        FROM open_skills ORDER BY updated_at DESC`).all().map(openSkillFromDbRow);
-      openSkillsCacheAt = Date.now();
-      return openSkillsCache;
-    }
-    const data = readJsonFile(OPEN_SKILLS_FILE, []);
-    openSkillsCache = Array.isArray(data) ? data.filter(skill => skill && skill.id && skill.ownerEmail && skill.name && skill.instruction).map(skill => {
-      const runtimeFiles = normalizeSkillRuntimeFiles(skill.runtimeFiles, skill.files);
-      const files = skillFileNames(runtimeFiles, skill.files);
-      const fileManifest = Array.isArray(skill.fileManifest) ? skill.fileManifest : [];
-      return decorateSkillPrompt({
-        id: String(skill.id), ownerEmail: String(skill.ownerEmail).toLowerCase(), name: String(skill.name), description: String(skill.description || ''), instruction: String(skill.instruction), files, runtimeFiles, fileManifest,
-        complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest), status: skill.status === 'withdrawn' ? 'withdrawn' : 'published', downloads: Math.max(0, Number(skill.downloads) || 0), createdAt: Number(skill.createdAt) || 0, updatedAt: Number(skill.updatedAt) || 0
-      });
-    }) : [];
-    openSkillsCacheAt = Date.now();
-    return openSkillsCache;
-  }
-  
-  function saveOpenSkills(skills) {
-    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
-    const list = Array.isArray(skills) ? skills : [];
-    if (dbReady()) {
-      getDatabase().exec('BEGIN IMMEDIATE');
-      try {
-        getDatabase().exec('DELETE FROM open_skills');
-        const insert = getDatabase().prepare(`INSERT INTO open_skills
-          (id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-        list.forEach(skill => {
-          if (!skill || !skill.id || !skill.ownerEmail || !skill.name || !skill.instruction) return;
-          insert.run(String(skill.id), String(skill.ownerEmail).toLowerCase(), String(skill.name).slice(0, 120), String(skill.description || '').slice(0, 500), String(skill.instruction).slice(0, 1000000), serializeSkillFiles(skill), skill.status === 'withdrawn' ? 'withdrawn' : 'published', Math.max(0, Math.floor(Number(skill.downloads) || 0)), Number(skill.createdAt) || Date.now(), Number(skill.updatedAt) || Date.now());
-        });
-        getDatabase().exec('COMMIT');
-      } catch (error) {
-        try { getDatabase().exec('ROLLBACK'); } catch (_) {}
-        throw error;
-      }
-      openSkillsCache = list;
-      openSkillsCacheAt = Date.now();
-      return;
-    }
-    writeJsonFile(OPEN_SKILLS_FILE, list);
-    openSkillsCache = list;
-    openSkillsCacheAt = Date.now();
-  }
-  
-  function invalidateOpenSkillsCache() {
-    openSkillsCache = null;
-    openSkillsCacheAt = 0;
-  }
-  
-  function findOpenSkill(id) {
-    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存读取');
-    const key = String(id || '');
-    if (!key) return null;
-    if (dbReady()) {
-      const row = getDatabase().prepare(`SELECT id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at
-        FROM open_skills WHERE id = ?`).get(key);
-      return row ? openSkillFromDbRow(row) : null;
-    }
-    return loadOpenSkills().find(skill => skill.id === key) || null;
-  }
-  
-  function openSkillAuthorName(email) {
-    const user = getUserByEmail(email);
-    const name = String(user && user.name || '').trim();
-    return name ? name.slice(0, 24) : '墨阑作者';
-  }
-  
   function openSkillListView(skill, auth) {
     const isOwner = !!(auth && auth.user && String(auth.user.email || '').toLowerCase() === String(skill.ownerEmail || '').toLowerCase());
     return {
       id: skill.id,
       name: skill.name,
       description: skill.description,
-      author: POSTGRES_MODE ? String(skill.authorName || '墨阑作者').slice(0, 24) : openSkillAuthorName(skill.ownerEmail),
+      author: String(skill.authorName || '墨阑作者').slice(0, 24),
       downloads: skill.downloads,
       status: skill.status,
       createdAt: skill.createdAt,
@@ -830,102 +594,6 @@ function createSkillService({
     return !!(auth && auth.user && (String(auth.user.email || '').toLowerCase() === String(skill.ownerEmail || '').toLowerCase() || isAdminUser(auth.user)));
   }
   
-  function openSkillRecordValues(skill) {
-    return [skill.id, skill.ownerEmail, skill.name, skill.description, skill.instruction, serializeSkillFiles(skill), skill.status === 'withdrawn' ? 'withdrawn' : 'published', Math.max(0, Math.floor(Number(skill.downloads) || 0)), Number(skill.createdAt) || Date.now(), Number(skill.updatedAt) || Date.now()];
-  }
-  
-  function insertOpenSkill(skill) {
-    if (dbReady()) {
-      getDatabase().prepare(`INSERT INTO open_skills
-        (id, owner_email, name, description, instruction, files_json, status, downloads, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(...openSkillRecordValues(skill));
-      invalidateOpenSkillsCache();
-      return;
-    }
-    const list = loadOpenSkills();
-    list.unshift(skill);
-    saveOpenSkills(list);
-  }
-  
-  function updateOpenSkill(skill) {
-    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
-    if (dbReady()) {
-      getDatabase().prepare(`UPDATE open_skills SET name = ?, description = ?, instruction = ?, files_json = ?, status = ?, updated_at = ? WHERE id = ?`).run(
-      skill.name, skill.description, skill.instruction, serializeSkillFiles(skill), skill.status, skill.updatedAt, skill.id
-      );
-      invalidateOpenSkillsCache();
-      return;
-    }
-    const list = loadOpenSkills();
-    const index = list.findIndex(item => item.id === skill.id);
-    if (index >= 0) list[index] = skill;
-    saveOpenSkills(list);
-  }
-  
-  function deleteOpenSkill(id) {
-    if (POSTGRES_MODE) throw requestError(500, 'PostgreSQL 模式禁止同步技能缓存写回');
-    if (dbReady()) {
-      const result = getDatabase().prepare('DELETE FROM open_skills WHERE id = ?').run(String(id));
-      invalidateOpenSkillsCache();
-      return Number(result.changes || 0);
-    }
-    const list = loadOpenSkills();
-    const next = list.filter(skill => skill.id !== String(id));
-    if (next.length !== list.length) saveOpenSkills(next);
-    return list.length - next.length;
-  }
-  
-  function makeDownloadedSkillId(email, name, exists) {
-    const userHash = crypto.createHash('sha256').update(String(email).toLowerCase()).digest('hex').slice(0, 12);
-    const slug = String(name || 'skill').trim().replace(/[^A-Za-z0-9_\u4e00-\u9fa5-]/g, '').slice(0, 60) || 'skill';
-    const base = 'user-' + userHash + '-' + slug;
-    let id = base;
-    let index = 0;
-    while (exists(id)) {
-      index += 1;
-      id = base + '-copy-' + index;
-    }
-    return id;
-  }
-  
-  function downloadOpenSkillForUser(skill, email) {
-    const owner = String(email || '').trim().toLowerCase();
-    const now = Date.now();
-    const description = String(skill.description || '').slice(0, 500);
-    const instruction = String(skill.instruction || '').slice(0, 1000000);
-    if (dbReady()) {
-      getDatabase().exec('BEGIN IMMEDIATE');
-      try {
-        const id = makeDownloadedSkillId(owner, skill.name, value => !!getDatabase().prepare('SELECT 1 FROM user_skills WHERE user_email = ? AND id = ?').get(owner, value));
-        getDatabase().prepare(`INSERT INTO user_skills (user_email, id, name, description, instruction, files_json, size, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(owner, id, skill.name, description, instruction, serializeSkillFiles(skill), instruction.length, now);
-        getDatabase().prepare('UPDATE open_skills SET downloads = downloads + 1 WHERE id = ?').run(skill.id);
-        getDatabase().exec('COMMIT');
-        userSkillRecordsCache = null; userSkillRecordsCacheAt = 0; invalidateOpenSkillsCache();
-        const copiedFiles = skillFileNames(skill.runtimeFiles, skill.files);
-        const copiedRuntimeFiles = normalizeSkillRuntimeFiles(skill.runtimeFiles, skill.files);
-        const copiedManifest = skill.fileManifest || [];
-        return decorateSkillPrompt({ id, name: skill.name, description, instruction, files: copiedFiles, runtimeFiles: copiedRuntimeFiles, fileManifest: copiedManifest, complete: skillRuntimeFilesComplete(copiedFiles, copiedRuntimeFiles, copiedManifest), size: instruction.length, updatedAt: now });
-      } catch (error) {
-        try { getDatabase().exec('ROLLBACK'); } catch (_) {}
-        throw error;
-      }
-    }
-    const all = loadAllUserSkillRecords();
-    const list = Array.isArray(all[owner]) ? all[owner] : [];
-    const id = makeDownloadedSkillId(owner, skill.name, value => list.some(item => item && item.id === value));
-    const runtimeFiles = normalizeSkillRuntimeFiles(skill.runtimeFiles, skill.files);
-    const files = skillFileNames(runtimeFiles, skill.files);
-    const fileManifest = skill.fileManifest || [];
-    const record = decorateSkillPrompt({ id, name: skill.name, description, instruction, files, runtimeFiles, fileManifest, complete: skillRuntimeFilesComplete(files, runtimeFiles, fileManifest), size: instruction.length, updatedAt: now });
-    list.push(record); all[owner] = list; saveAllUserSkillRecords(all);
-    const openList = loadOpenSkills();
-    const source = openList.find(item => item.id === skill.id);
-    if (source) source.downloads += 1;
-    saveOpenSkills(openList);
-    return record;
-  }
-  
   function parseOpenSkillListParams(req) {
     const params = new URL(req.url, 'http://localhost').searchParams;
     const page = Math.max(1, Math.floor(Number(params.get('page')) || 1));
@@ -937,146 +605,103 @@ function createSkillService({
   }
   
   async function handleOpenSkillList(req, res) {
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const auth = getAuthUser(req);
     let params;
     try { params = parseOpenSkillListParams(req); } catch (error) { return respondError(res, error); }
     if (params.scope === 'mine' && !auth) return json(res, 401, { error: '请先登录后查看自己的开放 Skill' });
     const owner = auth && auth.user ? String(auth.user.email || '').trim().toLowerCase() : '';
-    if (POSTGRES_MODE) {
-      let list = (await postgresRepository.runtimeListOpenSkills(auth?.user.userId || '')).map(openSkillFromDbRow)
-        .filter(skill => params.scope === 'mine' ? skill.ownerEmail === owner : skill.status === 'published');
-      if (params.query) {
-        const query = params.query.toLowerCase();
-        list = list.filter(skill => (skill.name + ' ' + skill.description + ' ' + skill.id).toLowerCase().includes(query));
-      }
-      list.sort((first, second) => params.sort === 'downloads'
-        ? second.downloads - first.downloads || second.updatedAt - first.updatedAt
-        : second.updatedAt - first.updatedAt);
-      const total = list.length;
-      const start = (params.page - 1) * params.pageSize;
-      return json(res, 200, { ok: true, skills: await Promise.all(list.slice(start, start + params.pageSize).map(skill => postgresOpenSkillView(skill, auth))),
-        pagination: { page: params.page, pageSize: params.pageSize, total, totalPages: Math.max(1, Math.ceil(total / params.pageSize)) } });
-    }
-    if (dbReady()) {
-      const conditions = [params.scope === 'mine' ? 'owner_email = ?' : "status = 'published'"];
-      const args = [ ...(params.scope === 'mine' ? [owner] : []) ];
-      if (params.query) {
-        const like = '%' + params.query.toLowerCase().replace(/[\\%_]/g, '\\$&') + '%';
-        conditions.push("(LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(description) LIKE ? ESCAPE '\\' OR LOWER(id) LIKE ? ESCAPE '\\')");
-        args.push(like, like, like);
-      }
-      const where = 'WHERE ' + conditions.join(' AND ');
-      const total = Number(getDatabase().prepare('SELECT COUNT(*) AS n FROM open_skills ' + where).get(...args).n) || 0;
-      const order = params.sort === 'downloads' ? 'downloads DESC, updated_at DESC' : 'updated_at DESC';
-      const rows = getDatabase().prepare(`SELECT id, owner_email, name, description, status, downloads, created_at, updated_at
-        FROM open_skills ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...args, params.pageSize, (params.page - 1) * params.pageSize);
-      return json(res, 200, { ok: true, skills: rows.map(row => openSkillListView({ id: row.id, ownerEmail: row.owner_email, name: row.name, description: row.description, status: row.status, downloads: Number(row.downloads) || 0, createdAt: Number(row.created_at) || 0, updatedAt: Number(row.updated_at) || 0 }, auth)), pagination: { page: params.page, pageSize: params.pageSize, total, totalPages: Math.max(1, Math.ceil(total / params.pageSize)) } });
-    }
-    let list = loadOpenSkills().filter(skill => params.scope === 'mine' ? skill.ownerEmail === owner : skill.status === 'published');
+    let list = (await postgresRepository.runtimeListOpenSkills(auth?.user.userId || '')).map(openSkillFromDbRow)
+      .filter(skill => params.scope === 'mine' ? skill.ownerEmail === owner : skill.status === 'published');
     if (params.query) {
-      const q = params.query.toLowerCase();
-      list = list.filter(skill => (skill.name + ' ' + skill.description + ' ' + skill.id).toLowerCase().includes(q));
+      const query = params.query.toLowerCase();
+      list = list.filter(skill => (skill.name + ' ' + skill.description + ' ' + skill.id).toLowerCase().includes(query));
     }
-    list.sort((a, b) => params.sort === 'downloads' ? (b.downloads - a.downloads || b.updatedAt - a.updatedAt) : b.updatedAt - a.updatedAt);
+    list.sort((first, second) => params.sort === 'downloads'
+      ? second.downloads - first.downloads || second.updatedAt - first.updatedAt
+      : second.updatedAt - first.updatedAt);
     const total = list.length;
     const start = (params.page - 1) * params.pageSize;
-    json(res, 200, { ok: true, skills: list.slice(start, start + params.pageSize).map(skill => openSkillListView(skill, auth)), pagination: { page: params.page, pageSize: params.pageSize, total, totalPages: Math.max(1, Math.ceil(total / params.pageSize)) } });
+    return json(res, 200, { ok: true, skills: await Promise.all(list.slice(start, start + params.pageSize).map(skill => postgresOpenSkillView(skill, auth))),
+      pagination: { page: params.page, pageSize: params.pageSize, total, totalPages: Math.max(1, Math.ceil(total / params.pageSize)) } });
   }
-  
+
   async function handleOpenSkillGet(req, res, id) {
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const auth = getAuthUser(req);
     let skillId;
     try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-    const row = POSTGRES_MODE ? await postgresRepository.runtimeGetOpenSkill(auth?.user.userId || '', skillId) : null;
-    const skill = POSTGRES_MODE ? row && openSkillFromDbRow(row) : findOpenSkill(skillId);
+    const row = await postgresRepository.runtimeGetOpenSkill(auth?.user.userId || '', skillId);
+    const skill = row && openSkillFromDbRow(row);
     if (!canViewOpenSkill(skill, auth)) return json(res, 404, { error: '开放 Skill 不存在或已撤回' });
-    json(res, 200, { ok: true, skill: POSTGRES_MODE ? await postgresOpenSkillView(skill, auth, true) : openSkillDetailView(skill, auth) });
+    json(res, 200, { ok: true, skill: await postgresOpenSkillView(skill, auth, true) });
   }
-  
+
   function handleOpenSkillCreate(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后发布开放 Skill' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     return readBody(req).then(async body => {
       const skill = makeOpenSkill(body, null, auth.user.email);
-      if (POSTGRES_MODE) await postgresRepository.runtimeUpsertOpenSkill({
+      await postgresRepository.runtimeUpsertOpenSkill({
         actorUserId: auth.user.userId, ownerEmail: auth.user.email,
         skill: { ...skill, files_json: serializeSkillFiles(skill) }
       });
-      else insertOpenSkill(skill);
       if (isAdminUser(auth.user)) await appendAdminAudit(auth.user.email, 'open-skill.create', skill.id, { owner: skill.ownerEmail, name: skill.name });
-      json(res, 200, { ok: true, skill: POSTGRES_MODE ? await postgresOpenSkillView(skill, auth, true) : openSkillDetailView(skill, auth) });
+      json(res, 200, { ok: true, skill: await postgresOpenSkillView(skill, auth, true) });
     }).catch(error => respondError(res, error));
   }
-  
+
   async function handleOpenSkillPatch(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后修改开放 Skill' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     let skillId;
     try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-    const row = POSTGRES_MODE ? await postgresRepository.runtimeGetOpenSkill(auth.user.userId, skillId) : null;
-    const existing = POSTGRES_MODE ? row && openSkillFromDbRow(row) : findOpenSkill(skillId);
+    const row = await postgresRepository.runtimeGetOpenSkill(auth.user.userId, skillId);
+    const existing = row && openSkillFromDbRow(row);
     if (!existing) return json(res, 404, { error: '开放 Skill 不存在' });
     const owner = String(auth.user.email || '').toLowerCase() === String(existing.ownerEmail || '').toLowerCase();
     if (!owner && !isAdminUser(auth.user)) return json(res, 403, { error: '只有 Skill 创建者或管理员可以修改' });
     return readBody(req).then(async body => {
       const skill = makeOpenSkill(body, existing, existing.ownerEmail);
-      if (POSTGRES_MODE) await postgresRepository.runtimeUpsertOpenSkill({
+      await postgresRepository.runtimeUpsertOpenSkill({
         actorUserId: auth.user.userId, ownerUserId: row.owner_user_legacy_id, ownerEmail: existing.ownerEmail,
         expectedUpdatedAt: existing.updatedAt,
         skill: { ...skill, files_json: serializeSkillFiles(skill) }
       });
-      else updateOpenSkill(skill);
-      if (isAdminUser(auth.user)) await appendAdminAudit(auth.user.email, 'open-skill.update', skill.id, { owner: skill.ownerEmail, name: skill.name, status: skill.status });
-      json(res, 200, { ok: true, skill: POSTGRES_MODE ? await postgresOpenSkillView(skill, auth, true) : openSkillDetailView(skill, auth) });
+      if (isAdminUser(auth.user)) await appendAdminAudit(auth.user.email, 'open-skill.update', skill.id, { owner: existing.ownerEmail, name: skill.name, status: skill.status });
+      json(res, 200, { ok: true, skill: await postgresOpenSkillView(skill, auth, true) });
     }).catch(error => respondError(res, error));
   }
-  
+
   async function handleOpenSkillDelete(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后撤回开放 Skill' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     let skillId;
     try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-    const row = POSTGRES_MODE ? await postgresRepository.runtimeGetOpenSkill(auth.user.userId, skillId) : null;
-    const existing = POSTGRES_MODE ? row && openSkillFromDbRow(row) : findOpenSkill(skillId);
+    const row = await postgresRepository.runtimeGetOpenSkill(auth.user.userId, skillId);
+    const existing = row && openSkillFromDbRow(row);
     if (!existing) return json(res, 404, { error: '开放 Skill 不存在' });
     const owner = String(auth.user.email || '').toLowerCase() === String(existing.ownerEmail || '').toLowerCase();
     if (!owner && !isAdminUser(auth.user)) return json(res, 403, { error: '只有 Skill 创建者或管理员可以撤回' });
-    const changes = POSTGRES_MODE ? await postgresRepository.runtimeDeleteOpenSkill(auth.user.userId, skillId) : deleteOpenSkill(skillId);
+    const changes = await postgresRepository.runtimeDeleteOpenSkill(auth.user.userId, skillId);
     if (!changes) return json(res, 404, { error: '开放 Skill 不存在' });
     if (isAdminUser(auth.user)) await appendAdminAudit(auth.user.email, 'open-skill.delete', skillId, { owner: existing.ownerEmail, name: existing.name });
     json(res, 200, { ok: true, id: skillId });
   }
-  
+
   async function handleOpenSkillDownload(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后下载 Skill' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     let skillId;
     try { skillId = decodePathParam(id); } catch (error) { return respondError(res, error); }
-    if (POSTGRES_MODE) {
-      const copiedId = 'user-copy-' + crypto.randomBytes(16).toString('hex');
-      const result = await postgresRepository.runtimeDownloadOpenSkill({
-        actorUserId: auth.user.userId, ownerEmail: auth.user.email, skillId, copiedId
-      });
-      const storedFiles = parseStoredSkillFiles(result.copied.files_json);
-      const skill = decorateSkillPrompt({ ...storedFiles, id: result.copied.id, name: result.copied.name,
-        description: result.copied.description, instruction: result.copied.instruction,
-        size: Number(result.copied.size), updatedAt: Number(result.copied.updated_at_value) });
-      return json(res, 200, { ok: true, skill, source: { id: result.source.id, name: result.source.name, downloads: Number(result.source.downloads) } });
-    }
-    const source = findOpenSkill(skillId);
-    if (!canViewOpenSkill(source, auth)) return json(res, 404, { error: '开放 Skill 不存在或已撤回' });
-    try {
-      const skill = downloadOpenSkillForUser(source, auth.user.email);
-      json(res, 200, { ok: true, skill, source: { id: source.id, name: source.name, downloads: source.downloads + 1 } });
-    } catch (error) { respondError(res, error); }
+    const copiedId = 'user-copy-' + crypto.randomBytes(16).toString('hex');
+    const result = await postgresRepository.runtimeDownloadOpenSkill({
+      actorUserId: auth.user.userId, ownerEmail: auth.user.email, skillId, copiedId
+    });
+    const storedFiles = parseStoredSkillFiles(result.copied.files_json);
+    const skill = decorateSkillPrompt({ ...storedFiles, id: result.copied.id, name: result.copied.name,
+      description: result.copied.description, instruction: result.copied.instruction,
+      size: Number(result.copied.size), updatedAt: Number(result.copied.updated_at_value) });
+    json(res, 200, { ok: true, skill, source: { id: result.source.id, name: result.source.name, downloads: Number(result.source.downloads) } });
   }
-  
   function normalizeSkillTargets(value) {
     const list = Array.isArray(value) ? value.map(v => String(v)) : [];
     if (!list.length || list.includes('all')) return ['all'];
@@ -1107,24 +732,6 @@ function createSkillService({
   
   function builtinSkillsForAdmin() {
     return loadBuiltinSkills().map(skill => ({ ...skill, editable: false, global: false, source: 'builtin' }));
-  }
-  
-  function migrateSkillsToDb() {
-    if (!dbReady() || Number(getDatabase().prepare('SELECT COUNT(*) AS n FROM user_skills').get().n) > 0) return;
-    const data = readJsonFile(USER_SKILLS_FILE, {});
-    if (data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length) saveAllUserSkillRecords(data);
-  }
-  
-  function migrateGlobalSkillsToDb() {
-    if (!dbReady() || Number(getDatabase().prepare('SELECT COUNT(*) AS n FROM global_skills').get().n) > 0) return;
-    const data = readJsonFile(GLOBAL_SKILLS_FILE, []);
-    if (Array.isArray(data) && data.length) persistGlobalSkills(data);
-  }
-  
-  function migrateOpenSkillsToDb() {
-    if (!dbReady() || Number(getDatabase().prepare('SELECT COUNT(*) AS n FROM open_skills').get().n) > 0) return;
-    const data = readJsonFile(OPEN_SKILLS_FILE, []);
-    if (Array.isArray(data) && data.length) saveOpenSkills(data);
   }
   
   function decodeSkillAuditId(value) {
@@ -1385,7 +992,6 @@ function createSkillService({
       const canonical = options.canonicalSkill || loadEditorOnlyWritingSkill();
       return { source: 'editor-canonical', skill: canonical };
     }
-    const email = String(auth && auth.user && auth.user.email || '').trim().toLowerCase();
     if (options.catalog) {
       if (!Array.isArray(options.catalog.userSkills) || !Array.isArray(options.catalog.globalSkills)) throw new Error('原生 Skill 目录未完整加载');
       const userSkill = options.catalog.userSkills.find(skill => skill?.id === id);
@@ -1395,13 +1001,10 @@ function createSkillService({
       const builtin = loadBuiltinSkills().find(skill => skill?.id === id);
       return builtin ? { source: 'builtin', skill: builtin } : null;
     }
-    const userSkill = email ? loadUserSkills(email).find(skill => skill && skill.id === id) : null;
-    if (userSkill) return { source: 'user', skill: userSkill };
-    const globalSkill = loadGlobalSkills().find(skill => skill && skill.id === id);
-    if (globalSkill) return { source: 'global', skill: globalSkill };
+    // PG-only 收敛后：user/global skill 只能来自调用方注入的原生 catalog；
+    // 无 catalog 时（测试与纯内置路径）仅查询内置 Skill。
     const builtinSkill = loadBuiltinSkills().find(skill => skill && skill.id === id);
-    if (builtinSkill) return { source: 'builtin', skill: builtinSkill };
-    return null;
+    return builtinSkill ? { source: 'builtin', skill: builtinSkill } : null;
   }
   
   function buildSkillAudit(auth, messages, requestedValue, options = {}) {
@@ -1509,7 +1112,7 @@ function createSkillService({
     return uniqueAuditStrings(audit.actualSkillIds, 100, 240);
   }
 
-  return { resolveSkillDirs, readSkillDirectoryFiles, parseSkillMd, isSkillPromptExcluded, skillPromptFiles, skillPromptInstruction, decorateSkillPrompt, composeSkill, resolveEditorOnlySkillDir, loadEditorOnlyWritingSkill, editorOnlySkillAuditRequest, ensureEditorOnlyWritingSkill, stripEditorSkillBlocks, skillPriority, skillIdentityKey, uniqueSkillsById, publicSkillSummary, handleSkills, handleSkillImport, loadAllUserSkillRecords, saveAllUserSkillRecords, loadUserSkills, loadGlobalSkills, saveGlobalSkills, loadBuiltinSkills, normalizeSkillFilePath, normalizeSkillRuntimeFiles, skillFileNames, parseStoredSkillFiles, skillRuntimeFilesComplete, serializeSkillFiles, makeOpenSkill, openSkillFromDbRow, loadOpenSkills, saveOpenSkills, invalidateOpenSkillsCache, findOpenSkill, openSkillAuthorName, openSkillListView, openSkillDetailView, canViewOpenSkill, openSkillRecordValues, insertOpenSkill, updateOpenSkill, deleteOpenSkill, makeDownloadedSkillId, downloadOpenSkillForUser, parseOpenSkillListParams, handleOpenSkillList, handleOpenSkillGet, handleOpenSkillCreate, handleOpenSkillPatch, handleOpenSkillDelete, handleOpenSkillDownload, normalizeSkillTargets, makeGlobalSkill, builtinSkillsForAdmin, migrateSkillsToDb, migrateGlobalSkillsToDb, migrateOpenSkillsToDb, decodeSkillAuditId, skillAuditRequest, extractSkillBlocks, stripSkillBlocks, prepareSkillMessagesForUpstream, wrapSkillBlock, defaultWritingSkillRecord, resolveGenreWritingSkill, resolveHumanizerSkill, ensureDefaultWritingSkill, addDefaultWritingSkillAudit, skillAuditSnapshot, knownSkillForAudit, buildSkillAudit, legacySkillAudit, storedSkillAudit, skillIdsFromAudit, resetCaches: () => { userSkillRecordsCache = null; userSkillRecordsCacheAt = 0; globalSkillsCache = null; globalSkillsCacheAt = 0; openSkillsCache = null; openSkillsCacheAt = 0; } };
+  return { resolveSkillDirs, readSkillDirectoryFiles, parseSkillMd, isSkillPromptExcluded, skillPromptFiles, skillPromptInstruction, decorateSkillPrompt, composeSkill, resolveEditorOnlySkillDir, loadEditorOnlyWritingSkill, editorOnlySkillAuditRequest, ensureEditorOnlyWritingSkill, stripEditorSkillBlocks, skillPriority, skillIdentityKey, uniqueSkillsById, publicSkillSummary, handleSkills, handleSkillImport, loadBuiltinSkills, normalizeSkillFilePath, normalizeSkillRuntimeFiles, skillFileNames, parseStoredSkillFiles, skillRuntimeFilesComplete, serializeSkillFiles, makeOpenSkill, openSkillFromDbRow, openSkillListView, openSkillDetailView, canViewOpenSkill, parseOpenSkillListParams, handleOpenSkillList, handleOpenSkillGet, handleOpenSkillCreate, handleOpenSkillPatch, handleOpenSkillDelete, handleOpenSkillDownload, normalizeSkillTargets, makeGlobalSkill, builtinSkillsForAdmin, decodeSkillAuditId, skillAuditRequest, extractSkillBlocks, stripSkillBlocks, prepareSkillMessagesForUpstream, wrapSkillBlock, defaultWritingSkillRecord, resolveGenreWritingSkill, resolveHumanizerSkill, ensureDefaultWritingSkill, addDefaultWritingSkillAudit, skillAuditSnapshot, knownSkillForAudit, buildSkillAudit, legacySkillAudit, storedSkillAudit, skillIdsFromAudit };
 }
 
 module.exports = { createSkillService };

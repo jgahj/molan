@@ -1,51 +1,82 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const crypto = require('node:crypto');
 const { createAuthAccountService } = require('../services/auth-account-service');
 
-function fixture(t, overrides = {}) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'molan-auth-factory-'));
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const service = createAuthAccountService({ DATA_DIR: directory, POSTGRES_MODE: false,
-    USERS_FILE: path.join(directory, 'users.json'), SESSIONS_FILE: path.join(directory, 'sessions.json'),
-    SESSION_TTL_MS: 3600000, USER_CACHE_TTL_MS: 1000, fs, crypto, dbReady: () => false, getDatabase: () => null,
+// PG-only 收敛后（2026-10-16）：本服务不再有 SQLite/JSON 同步账户缓存与会话文件持久化，
+// 原「legacy behavior」「mutable database handle」两个测试的标的（loadUsers/saveUser/
+// getUserByEmail/flushSessionsSync）已随生产死代码删除。保留对无存储依赖纯函数的合同断言。
+function fixture(overrides = {}) {
+  const service = createAuthAccountService({
+    SESSION_TTL_MS: 3600000,
+    allowAuthAttempt: () => true,
+    authAttemptLimiter: null,
+    applyAuthSessionInvalidation: () => false,
+    canChooseModel: () => true,
+    crypto,
+    currentDefaultModel: () => 'default-model',
+    findPlatformModel: () => true,
+    getPostgresUsageSummary: async () => ({ totalTokens: 0 }),
+    isAdminUser: () => false,
+    json: () => {},
+    normalizeUserRole: user => user.role || 'normal',
+    postgresRepository: { enabled: false },
+    postgresRuntimeUserFromRow: row => row,
     projectScope: { stableUserId: email => 'user-' + email, ensureUserWorkspace: () => {} },
-    normalizeUserRole: user => user.role || 'normal', getUsageSummary: () => ({}), requestError: (status, message) => Object.assign(new Error(message), { status }),
-    ...overrides });
-  t.after(() => service.flushSessionsSync());
-  return { service, directory };
+    readBody: () => Promise.resolve({}),
+    requestError: (status, message) => Object.assign(new Error(message), { status }),
+    respondError: () => {},
+    sessionEventUserId: () => '',
+    ...overrides
+  });
+  return service;
 }
 
-test('extracted file accounts, password records and scoped hashed sessions retain legacy behavior', t => {
-  const { service, directory } = fixture(t);
-  service.saveUser({ email: 'alice@example.test', name: 'Alice', role: 'normal', credits: 500, ...service.createPasswordRecord('secret123') });
-  const user = service.getUserByEmail('ALICE@EXAMPLE.TEST');
+test('password records: scrypt 封装、校验与升级标记', () => {
+  const service = fixture();
+  const record = service.createPasswordRecord('secret123');
+  assert.match(record.pwd, /^scrypt\$[a-f0-9]+$/);
+  assert.equal(record.salt.length, 32);
+  const user = { email: 'alice@example.test', ...record };
   assert.equal(service.verifyPassword('secret123', user).ok, true);
+  assert.equal(service.verifyPassword('secret123', user).needsUpgrade, false);
   assert.equal(service.verifyPassword('wrong', user).ok, false);
-  const client = service.issueToken(user.email, 'client');
-  const admin = service.issueToken(user.email, 'admin');
-  assert.ok(service.getAuthUser({ headers: { authorization: 'Bearer ' + client } }));
-  assert.equal(service.getAuthUser({ headers: { authorization: 'Bearer ' + admin } }), null);
-  service.flushSessionsSync();
-  const persisted = fs.readFileSync(path.join(directory, 'sessions.json'), 'utf8');
-  assert.equal(persisted.includes(client), false);
-  assert.equal(persisted.includes(admin), false);
-  service.sessions.clear(); service.loadSessions();
-  assert.ok(service.getAuthUser({ headers: { authorization: 'Bearer ' + admin } }, 'admin'));
-  service.markSessionRevoked(service.hashSessionToken(client));
-  assert.equal(service.getAuthUser({ headers: { authorization: 'Bearer ' + client } }), null);
+  // 旧式 sha256 记录标记 needsUpgrade，供登录链换密
+  const legacy = { email: 'bob@example.test', salt: 's', pwd: crypto.createHash('sha256').update('pw:s').digest('hex') };
+  assert.equal(service.verifyPassword('pw', legacy).ok, true);
+  assert.equal(service.verifyPassword('pw', legacy).needsUpgrade, true);
 });
 
-test('factory resolves mutable database at call time instead of retaining initial handle', t => {
-  let current;
-  const database = name => ({ prepare: () => ({ get: () => ({ email: 'a@example.test', userId: 'a', name, credits: 1 }) }) });
-  const { service } = fixture(t, { dbReady: () => true, getDatabase: () => current });
-  current = database('first');
-  assert.equal(service.getUserByEmail('a@example.test').name, 'first');
-  current = database('second');
-  assert.equal(service.getUserByEmail('a@example.test').name, 'second');
+test('session tokens: 哈希确定、scope 归一与撤销标记', () => {
+  const service = fixture();
+  const token = 'a'.repeat(48);
+  const hash = service.hashSessionToken(token);
+  assert.match(hash, /^[a-f0-9]{64}$/);
+  assert.equal(service.hashSessionToken(token), hash, '同一令牌哈希必须确定');
+  assert.equal(service.normalizeSessionScope('ADMIN'), 'admin');
+  assert.equal(service.normalizeSessionScope('client'), 'client');
+  assert.equal(service.normalizeSessionScope(''), 'client');
+  assert.equal(service.isSessionRevoked(hash), false);
+  service.markSessionRevoked(hash);
+  assert.equal(service.isSessionRevoked(hash), true, '撤销后必须拒绝');
+});
+
+test('PG-only 收敛后不再导出同步账户缓存与会话文件持久化面', () => {
+  const service = fixture();
+  for (const removed of ['loadUsers', 'saveUsers', 'saveUser', 'getUserByEmail', 'getUserById', 'persistUsersToDb', 'persistSessions', 'flushSessions', 'flushSessionsSync']) {
+    assert.equal(service[removed], undefined, removed + ' 应已随 legacy 路径删除');
+  }
+  for (const kept of ['insertUserIfAbsent', 'issueToken', 'getAuthUser', 'publicUser', 'handleLogin', 'handleRegister', 'hydratePostgresSessions', 'loadSessions']) {
+    assert.equal(typeof service[kept], 'function', kept + ' 必须保留');
+  }
+});
+
+test('getAuthUser 仅认 PG 中间件注入的 request-scoped 身份', () => {
+  const service = fixture();
+  const user = { userId: 'u1', email: 'a@example.test', role: 'normal' };
+  assert.equal(service.getAuthUser({ headers: {} }), null, '无注入身份返回 null');
+  assert.equal(service.getAuthUser({ molanPostgresAuth: { scope: 'client', token: 't', user } }, 'admin'), null, 'scope 不匹配返回 null');
+  const ok = service.getAuthUser({ molanPostgresAuth: { scope: 'client', token: 't', user } }, 'client');
+  assert.deepEqual(ok, { token: 't', user });
 });

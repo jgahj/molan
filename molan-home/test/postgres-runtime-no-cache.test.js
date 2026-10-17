@@ -12,18 +12,19 @@ const { createGenerationService } = require('../services/generation-service');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
-test('PG 同步账户入口拒绝缓存读取与未等待的写回', () => {
+test('PG 同步账户入口已整体删除，不保留任何缓存读写面', () => {
   const service = createAuthAccountService({
     POSTGRES_MODE: true,
     requestError: (status, message) => Object.assign(new Error(message), { status })
   });
-  for (const operation of [
-    () => service.loadUsers(),
-    () => service.getUserByEmail('owner@example.test'),
-    () => service.getUserById('owner'),
-    () => service.saveUser({ email: 'owner@example.test' }),
-    () => service.saveUsers([])
-  ]) assert.throws(operation, /禁止同步账户缓存/);
+  for (const entry of [
+    'loadUsers', 'saveUsers', 'saveUser', 'getUserByEmail', 'getUserById', 'persistUsersToDb'
+  ]) {
+    assert.equal(typeof service[entry], 'undefined', `同步账户缓存入口 ${entry} 应已删除`);
+  }
+  assert.equal(typeof service.handleRegister, 'function');
+  assert.equal(typeof service.handleLogin, 'function');
+  assert.equal(typeof service.handleMe, 'function');
 });
 
 test('PG 预占清理由原生维护身份执行，不依赖账户镜像', async () => {
@@ -48,19 +49,20 @@ test('PG 预占清理由原生维护身份执行，不依赖账户镜像', async
   assert.equal(calls.length, 1);
 });
 
-test('PG 同步技能入口拒绝读取空镜像或全量写回', () => {
+test('PG 同步技能入口已整体删除，不保留任何缓存读写面', () => {
   const service = createSkillService({
     POSTGRES_MODE: true,
     requestError: (status, message) => Object.assign(new Error(message), { status })
   });
-  for (const operation of [
-    () => service.loadAllUserSkillRecords(),
-    () => service.saveAllUserSkillRecords({}),
-    () => service.loadGlobalSkills(),
-    () => service.saveGlobalSkills([]),
-    () => service.loadOpenSkills(),
-    () => service.findOpenSkill('skill')
-  ]) assert.throws(operation, /禁止同步技能缓存/);
+  for (const entry of [
+    'loadAllUserSkillRecords', 'saveAllUserSkillRecords', 'loadGlobalSkills',
+    'saveGlobalSkills', 'loadOpenSkills', 'findOpenSkill'
+  ]) {
+    assert.equal(typeof service[entry], 'undefined', `同步技能缓存入口 ${entry} 应已删除`);
+  }
+  assert.equal(typeof service.handleSkills, 'function');
+  assert.equal(typeof service.loadBuiltinSkills, 'function');
+  assert.equal(typeof service.handleOpenSkillList, 'function');
 });
 
 test('PG 健康接口等待原生管理员统计，不访问同步数据库', async () => {

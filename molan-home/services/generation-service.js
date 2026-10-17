@@ -354,11 +354,9 @@ function createGenerationService({
   DATA_DIR,
   GenerationError,
   MAX_NOVEL_STATE_BYTES,
-  POSTGRES_MODE,
   attachResponseDisconnect,
   authenticateXuanhuanCloud,
   benchmarkPipeline,
-  calcWordCount,
   calculateBenchmarkCallTimeoutMs,
   callMolanChat,
   canonicalResolveGenre,
@@ -367,7 +365,6 @@ function createGenerationService({
   creationChapterContext,
   crypto,
   currentDefaultModel,
-  dbReady,
   decodePathParam,
   generationManifest,
   generationProviderRequestId,
@@ -377,27 +374,17 @@ function createGenerationService({
   generationV2Enabled,
   generationV2Status,
   getAuthUser,
-  getUserByEmail,
   json,
-  loadCreationSnapshots,
-  loadCurrentBiblePayload,
   path,
   postgresActor,
   postgresRepository,
   projectScope,
   readBody,
-  recordChapterCausalDebts,
-  requireSqliteForPublic,
   resolveModelForUser,
   responseCors,
-  sanitizeNovelStateForStorage,
-  getDatabase,
-  getNativeCreationRepository = () => null,
-  getNativeAppRepository = () => null
 }) {
   let orchestrator = null;
-  const nativeCreationRepository = () => !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' ? getNativeCreationRepository() : null;
-  const generationDatabase = () => POSTGRES_MODE ? postgresRepository : nativeCreationRepository()?.repository || getDatabase();
+  const generationDatabase = () => postgresRepository;
   function generationRunOrchestrator() {
     if (orchestrator) return orchestrator;
     const store = generationRunStore();
@@ -930,13 +917,7 @@ function createGenerationService({
               };
             }
           },
-          commit: nativeCreationRepository() ? async ({ run, request: runRequest, payload, text }) => {
-            return nativeCreationRepository().commitChapter({
-              userId: actorUserId, projectId: run.projectId, workspaceId: run.workspaceId,
-              bookId: String(runRequest.creationBookId || ''), runId: run.id, run,
-              leaseOwner: run.leaseOwner, fencingToken: run.fencingToken, payload, text
-            });
-          } : POSTGRES_MODE ? async ({ run, request: runRequest, payload, text }) => {
+          commit: async ({ run, request: runRequest, payload, text }) => {
             const bookId = String(runRequest.creationBookId || '').trim();
             if (!bookId) throw new GenerationError('STATE_CONFLICT', '生成请求缺少 creationBookId，不能写入正式章节', { status: 409 });
             const commitInput = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
@@ -991,21 +972,6 @@ function createGenerationService({
               projection
             });
             return { committed: receipt && receipt.ok === true, ...receipt };
-          } : async ({ run, request: runRequest, payload, text }) => {
-            const actorUserId = String(auth.user.userId || projectScope.stableUserId(auth.user.email));
-            const access = projectScope.getNovelAccess(getDatabase(), projectId, actorUserId);
-            if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) {
-              throw new GenerationError('STATE_CONFLICT', '当前账户无权提交此项目章节', { status: 403 });
-            }
-            const memoryWorkflow = require('../lib/memory-workflow');
-            return require('../lib/generation/sqlite-commit').commitSqliteChapter(getDatabase(), {
-              run, request: runRequest, payload, text, projectAccess: access, actorUserId,
-              userEmail: auth.user.email, recordDebts: recordChapterCausalDebts,
-              calcWordCount, sanitizeNovelState: sanitizeNovelStateForStorage,
-              maxNovelStateBytes: MAX_NOVEL_STATE_BYTES,
-              guardNovelWrite: (novelId, revision) => memoryWorkflow.guardNovelWrite(getDatabase(), novelId, revision),
-              invalidateChangedSources: novelId => memoryWorkflow.invalidateChangedSources(getDatabase(), novelId)
-            });
           },
           getManifest: () => pipelineResult && pipelineResult.manifest || null
         };
@@ -1088,11 +1054,7 @@ function createGenerationService({
   }
   
   async function generationProjectAccess(actorUserId, projectId, workspaceId = '') {
-    if (POSTGRES_MODE) return postgresRepository.getProjectAccess(actorUserId, projectId, workspaceId);
-    if (nativeCreationRepository()) return getNativeAppRepository().getAccess({ userId: actorUserId, projectId, workspaceId });
-    const access = projectScope.getNovelAccess(getDatabase(), projectId, actorUserId);
-    if (access && workspaceId && String(access.workspace_id) !== String(workspaceId)) return null;
-    return access;
+    return postgresRepository.getProjectAccess(actorUserId, projectId, workspaceId);
   }
   
   function generationChatChunk(runId, content = '', state = '', metadata = {}) {
@@ -1282,49 +1244,17 @@ function createGenerationService({
     let snapshots;
     let novelState = {};
     let projectRevision = 0;
-    if (nativeCreationRepository()) {
-      const scope = { userId: actorUserId, projectId, workspaceId, bookId };
-      try {
-        book = await nativeCreationRepository().read(scope);
-        bible = await nativeCreationRepository().readBible(scope);
-        snapshots = await nativeCreationRepository().snapshots(scope);
-        const profile = await getNativeAppRepository().read(scope);
-        if (!profile) return { ok: false, reason: 'project_state_missing' };
-        novelState = profile.state;
-        projectRevision = Number(profile.revision) || 0;
-      } catch (error) {
-        if (['BOOK_NOT_FOUND', 'FORBIDDEN'].includes(error.code)) return { ok: false, reason: 'creation_book_missing' };
-        throw error;
-      }
-    } else if (POSTGRES_MODE) {
-      const creation = await postgresRepository.getCreationState(actorUserId, bookId, 0);
-      if (!creation || !creation.book || String(creation.book.projectId) !== projectId || String(creation.book.workspaceId) !== workspaceId) {
-        return { ok: false, reason: 'creation_book_missing' };
-      }
-      const profile = await postgresRepository.getProfile(actorUserId, projectId, workspaceId);
-      if (!profile) return { ok: false, reason: 'project_state_missing' };
-      book = creation.book;
-      bible = creation.bible;
-      snapshots = Array.isArray(creation.snapshots) ? creation.snapshots : [];
-      novelState = profile.state && typeof profile.state === 'object' ? profile.state : {};
-      projectRevision = Number(profile.revision) || Number(access.revision) || 0;
-    } else {
-      const row = getDatabase().prepare(`SELECT * FROM creation_books
-        WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(bookId, workspaceId, projectId);
-      if (!row) return { ok: false, reason: 'creation_book_missing' };
-      const storedBible = loadCurrentBiblePayload(bookId);
-      if (!storedBible) return { ok: false, reason: 'creation_bible_missing' };
-      const novelId = String(request.novelId || projectId);
-      const novel = getDatabase().prepare(`SELECT state_json, revision FROM novels
-        WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(novelId, workspaceId, projectId);
-      if (!novel) return { ok: false, reason: 'project_state_missing' };
-      book = row;
-      bible = { bibleId: storedBible.bibleId, version: storedBible.version, payload: storedBible.payload };
-      snapshots = loadCreationSnapshots(bookId, 0);
-      try { novelState = sanitizeNovelStateForStorage(JSON.parse(String(novel.state_json || '{}'))); }
-      catch (parseError) { return { ok: false, reason: 'project_state_invalid' }; }
-      projectRevision = Number(novel.revision) || 0;
+    const creation = await postgresRepository.getCreationState(actorUserId, bookId, 0);
+    if (!creation || !creation.book || String(creation.book.projectId) !== projectId || String(creation.book.workspaceId) !== workspaceId) {
+      return { ok: false, reason: 'creation_book_missing' };
     }
+    const profile = await postgresRepository.getProfile(actorUserId, projectId, workspaceId);
+    if (!profile) return { ok: false, reason: 'project_state_missing' };
+    book = creation.book;
+    bible = creation.bible;
+    snapshots = Array.isArray(creation.snapshots) ? creation.snapshots : [];
+    novelState = profile.state && typeof profile.state === 'object' ? profile.state : {};
+    projectRevision = Number(profile.revision) || Number(access.revision) || 0;
   
     const stateVersion = Math.max(0, Number(book.currentStateVersion ?? book.current_state_version) || 0);
     const chapterNo = generationChapterNo(request, input.contract, book, novelState);
@@ -1454,7 +1384,6 @@ function createGenerationService({
   async function handleNovelScenePatch(req, res, novelIdValue, sceneIdValue) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { ok: false, error: '未登录', code: 'unauthorized' });
-    if (!requireSqliteForPublic(req, res)) return;
     const novelId = decodePathParam(novelIdValue);
     const sceneId = decodePathParam(sceneIdValue);
     if (!/^n_[A-Za-z0-9]{1,30}$/.test(novelId)) return json(res, 400, { ok: false, error: '小说 id 非法', code: 'invalid_novel_id' });
@@ -1462,90 +1391,12 @@ function createGenerationService({
     try {
       const body = await readBody(req, generationScenePatch.MAX_SCENE_PATCH_BYTES + 8192);
       const patch = validateScenePatchBody(body);
-      let state;
-      let currentRevision;
-      let access;
-  
-      if (POSTGRES_MODE) {
-        const saved = await postgresRepository.patchProfileScene({
-          userId: postgresActor(auth), projectId: novelId, chapterId: patch.chapterId,
-          sceneId, expectedRevision: patch.revision, baseHash: patch.baseHash,
-          operations: patch.operations, maxStateBytes: MAX_NOVEL_STATE_BYTES
-        });
-        return json(res, 200, { ok: true, ...saved, chapterId: patch.chapterId, sceneId });
-      }
-  
-      if (!dbReady()) return json(res, 503, { ok: false, error: '云端存储不可用', code: 'storage_unavailable' });
-      let transaction = false;
-      try {
-        getDatabase().exec('BEGIN IMMEDIATE');
-        transaction = true;
-        access = projectScope.getNovelAccess(getDatabase(), novelId, auth.user.userId);
-        if (!projectScope.canAccess(access, projectScope.WRITE_ROLES)) {
-          getDatabase().exec('ROLLBACK');
-          transaction = false;
-          return json(res, 404, { ok: false, error: '小说不存在或无权访问', code: 'project_not_found' });
-        }
-        const row = getDatabase().prepare(`SELECT state_json, revision FROM novels
-          WHERE id = ? AND workspace_id = ? AND project_id = ?`).get(novelId, access.workspace_id, access.project_id);
-        if (!row) {
-          getDatabase().exec('ROLLBACK');
-          transaction = false;
-          return json(res, 404, { ok: false, error: '小说不存在或无权访问', code: 'project_not_found' });
-        }
-        currentRevision = Number(row.revision) || 0;
-        if (currentRevision !== patch.revision) {
-          getDatabase().exec('ROLLBACK');
-          transaction = false;
-          return json(res, 409, { ok: false, error: '小说 revision 已变化，请重新读取', code: 'revision_conflict', revision: currentRevision });
-        }
-        require('../lib/memory-workflow').guardNovelWrite(getDatabase(), novelId, patch.revision);
-        try { state = sanitizeNovelStateForStorage(JSON.parse(String(row.state_json || '{}'))); }
-        catch (_) { throw Object.assign(new Error('state_json 解析失败'), { code: 'invalid_state', status: 500 }); }
-        const located = generationScenePatch.locateScene(state, patch.chapterId, sceneId);
-        if (!located) {
-          getDatabase().exec('ROLLBACK');
-          transaction = false;
-          return json(res, 404, { ok: false, error: '指定章节或场景不存在', code: 'scene_not_found' });
-        }
-        const currentText = String(located.scene.content == null ? '' : located.scene.content);
-        if (generationScenePatch.hashSceneText(currentText) !== patch.baseHash) {
-          getDatabase().exec('ROLLBACK');
-          transaction = false;
-          return json(res, 409, { ok: false, error: '场景正文已变化，请重新读取后合并', code: 'base_hash_conflict', revision: currentRevision });
-        }
-        located.scene.content = generationScenePatch.applySceneOperations(currentText, patch.operations);
-        state = sanitizeNovelStateForStorage(state);
-        const stateJson = JSON.stringify(state);
-        if (Buffer.byteLength(stateJson, 'utf8') > MAX_NOVEL_STATE_BYTES) {
-          getDatabase().exec('ROLLBACK');
-          transaction = false;
-          return json(res, 413, { ok: false, error: '单本小说数据过大', code: 'state_too_large' });
-        }
-        const now = Date.now();
-        const result = getDatabase().prepare(`UPDATE novels SET state_json = ?, word_count = ?, updated_at = ?,
-          revision = revision + 1, owner_user_id = ?
-          WHERE id = ? AND workspace_id = ? AND project_id = ? AND revision = ?`)
-          .run(stateJson, calcWordCount(state), now, auth.user.userId, novelId,
-            access.workspace_id, access.project_id, patch.revision);
-        if (Number(result.changes || 0) !== 1) {
-          getDatabase().exec('ROLLBACK');
-          transaction = false;
-          return json(res, 409, { ok: false, error: '小说 revision 已变化，请重新读取', code: 'revision_conflict' });
-        }
-        getDatabase().prepare('UPDATE novel_projects SET updated_at = ? WHERE workspace_id = ? AND project_id = ?')
-          .run(now, access.workspace_id, access.project_id);
-        require('../lib/memory-workflow').invalidateChangedSources(getDatabase(), novelId);
-        getDatabase().exec('COMMIT');
-        transaction = false;
-        return json(res, 200, {
-          ok: true, chapterId: patch.chapterId, sceneId, revision: patch.revision + 1,
-          contentHash: generationScenePatch.hashSceneText(located.scene.content)
-        });
-      } catch (error) {
-        if (transaction) { try { getDatabase().exec('ROLLBACK'); } catch (_) {} }
-        throw error;
-      }
+      const saved = await postgresRepository.patchProfileScene({
+        userId: postgresActor(auth), projectId: novelId, chapterId: patch.chapterId,
+        sceneId, expectedRevision: patch.revision, baseHash: patch.baseHash,
+        operations: patch.operations, maxStateBytes: MAX_NOVEL_STATE_BYTES
+      });
+      return json(res, 200, { ok: true, ...saved, chapterId: patch.chapterId, sceneId });
     } catch (error) {
       return scenePatchError(res, error);
     }
@@ -1558,23 +1409,17 @@ function createGenerationService({
     const rootPath = '/api/generation-runs';
     if (req.method === 'GET' && u === `${rootPath}/capabilities`) {
       const selectedStore = generationRunStore();
-      const nativeAppStore = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json';
-      const commit = POSTGRES_MODE
-        ? typeof postgresRepository.commitChapter === 'function'
-        : nativeAppStore ? typeof nativeCreationRepository()?.commitChapter === 'function'
-        : dbReady() && ['creation_books', 'creation_state_snapshots', 'creation_chapter_audits', 'benchmark_commit_receipts', 'project_resources', 'novels']
-          .every(name => Boolean(getDatabase().prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name)));
+      const commit = typeof postgresRepository.commitChapter === 'function';
       const generationStatus = generationV2Status(generationV2Enabled(process.env, actorUserId));
       return json(res, 200, {
         ...generationStatus,
         commit,
         pauseResume: typeof selectedStore.requestPause === 'function' && typeof selectedStore.resumeRun === 'function',
         recovery: typeof selectedStore.recoverExpiredRuns === 'function',
-        storageMode: POSTGRES_MODE ? 'postgres' : nativeAppStore || process.env.MOLAN_GENERATION_STORE === 'json' ? 'json' : 'sqlite'
+        storageMode: 'postgres'
       });
     }
     if (!generationV2Enabled(process.env, actorUserId)) return json(res, 404, { ok: false, error: 'Generation V2 未启用', code: 'generation_v2_disabled' });
-    if (!requireSqliteForPublic(req, res)) return;
     const base = u.match(/^\/api\/generation-runs\/([^/]+)$/);
     const events = u.match(/^\/api\/generation-runs\/([^/]+)\/events$/);
     const cancel = u.match(/^\/api\/generation-runs\/([^/]+)\/cancel$/);
@@ -1865,9 +1710,7 @@ function createGenerationService({
       if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
       if (!['/api/benchmark/audit', '/api/benchmark/revise-loop', '/api/benchmark/generate'].includes(u)) return json(res, 404, { error: 'Not Found' });
       const body = await readBody(req, 160000);
-      const user = POSTGRES_MODE || process.env.MOLAN_APP_STORE === 'json'
-        ? auth.user
-        : getUserByEmail(auth.user.email) || { email: auth.user.email };
+      const user = auth.user;
       const controller = new AbortController();
       res.once('close', () => { if (!res.writableEnded) controller.abort(new Error('本地评测连接已中断')); });
       const deps = { callModel: (_auth, options) => {

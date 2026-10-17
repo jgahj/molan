@@ -7,7 +7,6 @@ function createCreationBookService({
   creationForbiddenTerms,
   dbReady,
   getAuthUser,
-  getUserByEmail,
   json,
   normalizeBiblePayload,
   normalizeCreationChapterPlanRhythm,
@@ -39,8 +38,7 @@ function createCreationBookService({
   
   function creationScopeForActor(email, userId, novelId = '') {
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    const account = getUserByEmail(normalizedEmail);
-    const ownerUserId = String(userId || (account && account.userId) || projectScope.stableUserId(normalizedEmail)).trim();
+    const ownerUserId = String(userId || projectScope.stableUserId(normalizedEmail)).trim();
     const projectId = String(novelId || '').trim();
     const access = projectId ? projectScope.getNovelAccess(getDatabase(), projectId, ownerUserId) : null;
     return {

@@ -133,7 +133,9 @@ test('editor refreshes context on chapter switch and novel load', () => {
 
 // —— 完整性门禁：重建图谱时同步重建状态/边/伏笔 ——
 test('rebuild graph also rebuilds states, edges and foreshadows', () => {
-  assert.match(serverSource, /states: buildEntityStates\(record\), edges: buildEventEdges\(record\)/);
+  // PG-only 收敛（#18-E）：重建统一走 PG 流水线仓储，状态/边/伏笔仍在同一操作内同步重建
+  assert.match(serverSource, /states: await store\.buildEntityStates\(record\)/);
+  assert.match(serverSource, /edges: await store\.buildEventEdges\(record\)/);
   assert.match(serverSource, /storeDissectionForeshadows\(record, result\.foreshadowing\)/);
 });
 
@@ -169,7 +171,8 @@ test('extractBatchFacts normalizes returned unit ids before coverage check', () 
 });
 
 test('layered summaries persist explicit coverage and chapter ranges', () => {
-  assert.match(serverSource, /JSON\.stringify\(\{ covered, expected: 1, completed: covered \? 1 : 0 \}\)/);
+  // PG-only 收敛后：覆盖率经 store.saveSummaries 的 coverage 对象持久化
+  assert.match(serverSource, /coverage: \{ covered: summary\.covered, expected: 1, completed: summary\.covered \? 1 : 0 \}/);
   assert.match(serverSource, /status: covered \? 'ok' : 'needs_review'/);
   assert.match(serverSource, /chapterFrom: band\.chapters\[0\], chapterTo: band\.chapters\[band\.chapters\.length - 1\]/);
   assert.match(serverSource, /volumeDigestComplete/);

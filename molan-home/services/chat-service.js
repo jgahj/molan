@@ -17,16 +17,13 @@ function resolveUpstreamModelForReasoning(pm, eff) {
 }
 
 function createChatService({
-  getDatabase,
   getEnvironment,
   getDeepseekKey,
   getDeepseekUrl,
   getProxyUrl,
-  POSTGRES_MODE,
   postgresRepository,
   postgresActor,
   getAuthUser,
-  requireSqliteForPublic,
   allowChatRate,
   acquireChatSlot,
   releaseChatSlot,
@@ -118,7 +115,6 @@ function createChatService({
     // SaaS：必须登录，积分绑定到具体用户（未登录拒绝）
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录后再使用 AI 功能' });
-    if (!requireSqliteForPublic(req, res)) return;
     if (!allowChatRate(auth.user)) {
       res.setHeader('Retry-After', '60');
       return json(res, 429, { error: 'AI 请求过于频繁，请稍后再试' });
@@ -135,16 +131,14 @@ function createChatService({
     };
 
     return readBody(req, CHAT_MAX_JSON_BODY_BYTES).then(async payload => {
-      const nativeCatalog = POSTGRES_MODE || getEnvironment().MOLAN_APP_STORE === 'json'
-        ? await nativeSkillCatalog(auth.user) : null;
-      const db = getDatabase();
+      const nativeCatalog = await nativeSkillCatalog(auth.user);
       const input = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
       const requestedProjectId = String(input.projectId || input.novelId || '').trim();
       let chatScope = null;
       if (requestedProjectId) {
         const actorUserId = (typeof postgresActor === 'function' ? postgresActor(auth) : (auth.user && auth.user.userId)) || '';
         let access = null;
-        if (POSTGRES_MODE && postgresRepository) {
+        if (postgresRepository) {
           try {
             access = await postgresRepository.getProjectAccess(actorUserId, requestedProjectId);
             if (!access) {
@@ -162,27 +156,6 @@ function createChatService({
               }
             }
           } catch (_) {}
-        } else if (!POSTGRES_MODE && getEnvironment().MOLAN_APP_STORE === 'json') {
-          access = await appRepository().getAccess({ userId: auth.user.userId, projectId: requestedProjectId });
-        } else if (db) {
-          access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
-          if (!access && getEnvironment().MOLAN_APP_STORE !== 'json') {
-            try {
-              const novel = db.prepare('SELECT id, user_email, owner_user_id, title FROM novels WHERE id = ?').get(requestedProjectId);
-              if (novel) {
-                const isOwner = (novel.user_email && String(novel.user_email).toLowerCase() === String(auth.user.email || '').toLowerCase()) ||
-                                (novel.owner_user_id && novel.owner_user_id === auth.user.userId) ||
-                                (!novel.owner_user_id && !novel.user_email);
-                if (isOwner || (typeof isAdminUser === 'function' && isAdminUser(auth.user))) {
-                  projectScope.ensureNovelProject(db, auth.user, requestedProjectId, novel.title || '未命名作品');
-                  access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
-                }
-              } else {
-                projectScope.ensureNovelProject(db, auth.user, requestedProjectId, '未命名作品');
-                access = projectScope.getNovelAccess(db, requestedProjectId, auth.user.userId);
-              }
-            } catch (_) {}
-          }
         }
         if (!projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) {
           releaseSlot();

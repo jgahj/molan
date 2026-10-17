@@ -3,7 +3,7 @@
 function createPostgresCreationPlanService(dependencies) {
   const {
   getAuthUser, json, postgresRepository, postgresActor, readBody,
-  CREATION_PLAN_BATCH_SIZE, creationPlanCoverage, getUserByEmail,
+  CREATION_PLAN_BATCH_SIZE, creationPlanCoverage,
   resolveCreationModelId, creationSkillForUser, dissectionSkillAuditPayload,
   callMolanChat, creationPlanExpansionPrompt, normalizeCreationExpansionChapter,
   creationChapterNumber, creationChapterIsUsable, mergeCreationExpansionPayload,

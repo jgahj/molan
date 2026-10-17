@@ -1,6 +1,6 @@
 'use strict';
 
-function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HEADER, INTERNAL_MODEL_ROUTE_KEY, PORT, POSTGRES_MODE, dissectionSkillRecord, extractJsonFromMixedText, findPlatformModel, http, loadBuiltinSkills, loadGlobalSkills, loadUserSkills, nativeSkillCatalog, recordModelUsage, requestError, resolveModelForUser, safeJsonParse, skillPromptFiles, skillPromptInstruction, wrapSkillBlock, parseChatStream }) {
+function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HEADER, INTERNAL_MODEL_ROUTE_KEY, PORT, dissectionSkillRecord, extractJsonFromMixedText, findPlatformModel, http, loadBuiltinSkills, nativeSkillCatalog, recordModelUsage, requestError, resolveModelForUser, safeJsonParse, skillPromptFiles, skillPromptInstruction, wrapSkillBlock, parseChatStream }) {
   function dissectionStreamText(value) {
     if (typeof value === 'string') return value;
     if (Array.isArray(value)) return value.map(item => dissectionStreamText(item)).join('');
@@ -23,13 +23,13 @@ function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HE
     const model = internalModelId || resolveModelForUser(user, o.modelId);
     let systemPrompt = o.system || '';
     const skillAudit = o.skillAudit && Array.isArray(o.skillAudit.skills) && o.skillAudit.skills.length ? o.skillAudit : null;
-    const nativeCatalog = POSTGRES_MODE || process.env.MOLAN_APP_STORE === 'json' ? await nativeSkillCatalog(user) : null;
+    const nativeCatalog = await nativeSkillCatalog(user);
     if (skillAudit) {
       // skill 注入通道：按 opts.skillId 解析，不再写死拆书 skill（缺省或显式 'dissection' 走拆书 skill 以兼容既有调用）
       const requestedSkillId = String(o.skillId || '').trim();
       const skill = (!requestedSkillId || requestedSkillId === 'dissection') ? dissectionSkillRecord()
-        : (nativeCatalog ? nativeCatalog.userSkills : user && user.email ? loadUserSkills(String(user.email).toLowerCase()) : []).find(item => item && item.id === requestedSkillId)
-          || (nativeCatalog ? nativeCatalog.globalSkills : loadGlobalSkills()).find(item => item && item.id === requestedSkillId)
+        : (nativeCatalog.userSkills || []).find(item => item && item.id === requestedSkillId)
+          || (nativeCatalog.globalSkills || []).find(item => item && item.id === requestedSkillId)
           || loadBuiltinSkills().find(item => item && item.id === requestedSkillId);
       if (!skill) throw new Error('Skill 未完整加载：' + (o.skillId || 'dissection'));
       const declaredSkill = skillAudit && Array.isArray(skillAudit.skills) && (skillAudit.skills.find(s => s && s.id === skill.id) || skillAudit.skills[0]);

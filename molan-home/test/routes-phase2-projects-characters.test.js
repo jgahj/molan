@@ -7,40 +7,34 @@ const { createProjectAssetHandlers } = require('../routes/project-asset-handlers
 const { createProjectRoutes } = require('../routes/projects');
 
 test('createCharacterHandlers: list, patch, merge, export and novel import behave correctly', async () => {
-  const charactersStore = [
+  const pgRows = [
     {
-      id: 'c1', name: '林枫', function: '主角', goal: '复仇', conflict: '弱小',
-      arc: '逆袭', first_appearance: '第1章', notes: '隐忍', dissection_id: 'd1', created_at: 1000
+      row_key: 'c1', dissection_id: 'd1',
+      document: JSON.stringify({ id: 'c1', name: '林枫', function: '主角', goal: '复仇', conflict: '弱小', arc: '逆袭', first_appearance: '第1章', notes: '隐忍', dissection_id: 'd1', created_at: 1000 })
     },
     {
-      id: 'c2', name: '林风', function: '配角', goal: '保命', conflict: '牵连',
-      arc: '牺牲', first_appearance: '第2章', notes: '同宗', dissection_id: 'd1', created_at: 1001
+      row_key: 'c2', dissection_id: 'd1',
+      document: { id: 'c2', name: '林风', function: '配角', goal: '保命', conflict: '牵连', arc: '牺牲', first_appearance: '第2章', notes: '同宗', dissection_id: 'd1', created_at: 1001 }
     }
   ];
 
-  let lastUpdated = null;
+  let patched = null;
+  let mergedArgs = null;
+  const postgresRepository = {
+    runtimeListCharacterLibrary: async () => pgRows,
+    runtimePatchCharacter: async (userId, id, body) => {
+      patched = { userId, id, body };
+      return { row_key: id, document: JSON.stringify({ ...JSON.parse(pgRows[0].document), name: body.name }) };
+    },
+    runtimeMergeCharacters: async (userId, fromNames, intoName) => {
+      mergedArgs = { userId, fromNames, intoName };
+      return 1;
+    }
+  };
+
+  let currentBody = { name: '林枫_新' };
   const mockDb = {
     prepare(sql) {
-      if (sql.includes('SELECT * FROM character_library WHERE user_email = ? ORDER BY created_at DESC')) {
-        return { all: () => charactersStore };
-      }
-      if (sql.includes('SELECT * FROM character_library WHERE id = ? AND user_email = ?')) {
-        return { get: (id) => charactersStore.find(c => c.id === id) };
-      }
-      if (sql.includes('SELECT id FROM character_library WHERE user_email = ? AND name = ? AND id <> ?')) {
-        return { get: (_e, name, id) => charactersStore.find(c => c.name === name && c.id !== id) };
-      }
-      if (sql.includes('SELECT * FROM character_library WHERE user_email = ? AND name = ?')) {
-        return { get: (_e, name) => charactersStore.find(c => c.name === name) };
-      }
-      if (sql.includes('UPDATE character_library')) {
-        return {
-          run: (...args) => { lastUpdated = args; }
-        };
-      }
-      if (sql.includes('DELETE FROM character_library')) {
-        return { run: () => {} };
-      }
       if (sql.includes('SELECT id,user_email,owner_user_id,workspace_id,project_id,state_json,revision FROM novels WHERE id = ?')) {
         return {
           get: (id) => ({
@@ -51,15 +45,12 @@ test('createCharacterHandlers: list, patch, merge, export and novel import behav
         };
       }
       if (sql.includes('UPDATE novels')) {
-        return {
-          run: () => ({ changes: 1 })
-        };
+        return { run: () => ({ changes: 1 }) };
       }
       return { all: () => [], get: () => null, run: () => ({ changes: 1 }) };
     }
   };
 
-  let currentBody = { name: '林枫_新' };
   const deps = {
     json: (_res, status, body) => ({ status, body }),
     readBody: async () => currentBody,
@@ -67,8 +58,8 @@ test('createCharacterHandlers: list, patch, merge, export and novel import behav
     getAuthUser: () => ({ user: { userId: 'u1', email: 'user@test.local' } }),
     requireSqliteForPublic: () => true,
     dbReady: () => true,
-    POSTGRES_MODE: false,
     db: mockDb,
+    postgresRepository,
     projectScope: {
       WRITE_ROLES: new Set(['owner', 'admin', 'editor']),
       getNovelAccess: () => ({ role: 'owner', workspace_id: 'ws1', project_id: 'p1' }),
@@ -85,13 +76,42 @@ test('createCharacterHandlers: list, patch, merge, export and novel import behav
   assert.equal(typeof handlers.charactersExport, 'function');
   assert.equal(typeof handlers.novelImportCharacters, 'function');
 
-  // Test List
+  // Test List (PG)
   const listRes = await handlers.handleCharactersList({}, {});
   assert.equal(listRes.status, 200);
   assert.equal(listRes.body.characters.length, 2);
   assert.equal(listRes.body.characters[0].name, '林枫');
+  assert.equal(listRes.body.characters[0].firstAppearance, '第1章');
+  assert.equal(listRes.body.characters[1].name, '林风');
 
-  // Test Novel Import
+  // Test Patch (PG)
+  const patchRes = await handlers.handleCharactersPatch({}, {}, 'c1');
+  assert.equal(patchRes.status, 200);
+  assert.equal(patchRes.body.character.name, '林枫_新');
+  assert.deepEqual(patched, { userId: 'u1', id: 'c1', body: { name: '林枫_新' } });
+
+  // Test Merge (PG)
+  currentBody = { fromNames: ['林风'], intoName: '林枫' };
+  const mergeRes = await handlers.handleCharactersMerge({}, {});
+  assert.equal(mergeRes.status, 200);
+  assert.equal(mergeRes.body.merged, 1);
+  assert.deepEqual(mergedArgs, { userId: 'u1', fromNames: ['林风'], intoName: '林枫' });
+
+  // Test Export (PG, json format)
+  let exportHead = null;
+  let exportPayload = '';
+  const exportRes = {
+    writeHead: (status, headers) => { exportHead = { status, headers }; },
+    end: (payload) => { exportPayload = payload; }
+  };
+  await handlers.handleCharactersExport({ url: 'http://localhost/api/characters/export?format=json' }, exportRes);
+  assert.equal(exportHead.status, 200);
+  assert.equal(exportHead.headers['Content-Type'], 'application/json; charset=utf-8');
+  const exported = JSON.parse(exportPayload);
+  assert.equal(exported.length, 2);
+  assert.equal(exported[0].name, '林枫');
+
+  // Test Novel Import (legacy sqlite path retained for router fallback)
   currentBody = { characters: [{ name: '叶天', function: '主角' }] };
   const importRes = await handlers.handleNovelImportCharacters({}, {}, 'n_novel1');
   assert.equal(importRes.status, 200);

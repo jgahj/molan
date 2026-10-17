@@ -1,6 +1,6 @@
 'use strict';
 
-function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_JOB_TTL_MS, POSTGRES_MODE, callMolanChat, creationBibleSeedValidation, creationForbiddenTerms, dbReady, deleteCreationBookPlaceholder, fs, getUserByEmail, normalizeBiblePayload, postgresRepository, projectScope, saveCreationBookFirstBible, sha256Text, getDatabase }) {
+function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_JOB_TTL_MS, callMolanChat, creationBibleSeedValidation, creationForbiddenTerms, deleteCreationBookPlaceholder, fs, normalizeBiblePayload, postgresRepository, projectScope, saveCreationBookFirstBible, sha256Text }) {
   const creationCoreJobs = new Map();
   const postgresJobSyncQueues = new Map();
   function creationCoreJobPublic(job) {
@@ -15,17 +15,7 @@ function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_
       creditCost: Number.isFinite(job.creditCost) ? job.creditCost : null
     };
   }
-  function creationCoreJobFromDbRow(row) {
-    if (!row) return null;
-    return creationCoreJobPublic({
-      id: row.id, status: row.status, bookId: row.book_id, modelId: row.model_id,
-      title: row.title, genre: row.genre, receivedChars: row.received_chars,
-      startedAt: row.started_at, updatedAt: row.updated_at, error: row.error, code: row.code,
-      bibleVersion: row.bible_version, creditCost: row.credit_cost
-    });
-  }
-  function postgresJobStateForCreation(job) {
-    const status = String(job && job.status || '').toLowerCase();
+  function postgresJobStateForCreation(job) {    const status = String(job && job.status || '').toLowerCase();
     if (status === 'done' || status === 'succeeded') return 'succeeded';
     if (status === 'cancelling' || status === 'cancel_requested') return 'cancel_requested';
     if (status === 'cancelled') return 'cancelled';
@@ -33,12 +23,14 @@ function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_
     return 'running';
   }
   function persistPostgresCreationJob(job) {
-    if (!POSTGRES_MODE || !postgresRepository.enabled || !job || !job.userId || !job.id) return;
+    if (!postgresRepository.enabled || !job || !job.id) return;
+    const userId = String(job.userId || (job.userEmail ? projectScope.stableUserId(job.userEmail) : ''));
+    if (!userId) return;
     const projectId = String(job.projectId || `n_job_${String(job.bookId || job.id).replace(/[^A-Za-z0-9]/g, '').slice(0, 28)}`);
-    const workspaceId = String(job.workspaceId || projectScope.personalWorkspaceId(job.userId));
+    const workspaceId = String(job.workspaceId || projectScope.personalWorkspaceId(userId));
     const state = postgresJobStateForCreation(job);
     const syncInput = {
-      userId: job.userId,
+      userId,
       workspaceId,
       projectId,
       jobId: job.id,
@@ -66,21 +58,8 @@ function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_
     postgresJobSyncQueues.set(job.id, next);
     void next;
   }
+  // PG-only 收敛后：任务状态统一同步至 postgresRepository（原 SQLite 投影写入已删除）。
   function persistCreationCoreJob(job) {
-    if (!dbReady() || !job) return;
-    getDatabase().prepare(`INSERT INTO creation_core_jobs
-      (id,book_id,user_email,model_id,title,genre,status,received_chars,started_at,updated_at,error,code,bible_version,credit_cost,user_id,workspace_id,project_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(id) DO UPDATE SET
-        status = excluded.status, received_chars = excluded.received_chars,
-        updated_at = excluded.updated_at, error = excluded.error, code = excluded.code,
-        bible_version = excluded.bible_version, credit_cost = excluded.credit_cost,
-        user_id = excluded.user_id, workspace_id = excluded.workspace_id, project_id = excluded.project_id`)
-      .run(job.id, job.bookId || '', job.userEmail || '', job.modelId || '', job.title || '', job.genre || '',
-        job.status || 'running', Number(job.receivedChars) || 0, Number(job.startedAt) || Date.now(),
-        Number(job.updatedAt) || Date.now(), job.error || '', job.code || '', Number(job.bibleVersion) || 0,
-        Number.isFinite(Number(job.creditCost)) ? Number(job.creditCost) : null,
-        job.userId || projectScope.stableUserId(job.userEmail), job.workspaceId || projectScope.personalWorkspaceId(job.userId || projectScope.stableUserId(job.userEmail)), job.projectId || '');
     persistPostgresCreationJob(job);
   }
   function postgresCreationCoreJobView(job) {
@@ -104,42 +83,11 @@ function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_
       creditCost: Number.isFinite(Number(result.creditCost)) ? Number(result.creditCost) : null
     };
   }
-  function recoverPostgresCreationJobs() {
-    if (!POSTGRES_MODE || !postgresRepository.enabled || !dbReady()) return;
-    try {
-      const rows = getDatabase().prepare(`SELECT id, book_id, user_id, workspace_id, project_id, status, error, code,
-        received_chars, started_at, updated_at, bible_version, credit_cost
-        FROM creation_core_jobs WHERE status = 'provider_unknown'`).all();
-      rows.forEach(row => persistPostgresCreationJob({
-        id: row.id,
-        bookId: row.book_id,
-        userId: row.user_id,
-        workspaceId: row.workspace_id,
-        projectId: row.project_id,
-        status: row.status,
-        error: row.error,
-        code: row.code,
-        receivedChars: row.received_chars,
-        startedAt: row.started_at,
-        updatedAt: row.updated_at,
-        bibleVersion: row.bible_version,
-        creditCost: row.credit_cost
-      }));
-    } catch (error) {
-      console.error('[creation-pg] 遗留任务恢复同步失败：' + String(error && error.message || '数据库不可用'));
-    }
-  }
   function creationCoreRunningJobForBook(bookId, email, userId = '') {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const actorUserId = String(userId || projectScope.stableUserId(normalizedEmail)).trim();
     for (const job of creationCoreJobs.values()) {
       if (job.bookId === bookId && (job.userId === actorUserId || (!job.userId && job.userEmail === normalizedEmail)) && job.status === 'running') return job;
-    }
-    if (dbReady()) {
-      const row = getDatabase().prepare(`SELECT * FROM creation_core_jobs
-        WHERE book_id = ? AND (user_id = ? OR (user_id = '' AND user_email = ?)) AND status = 'running'
-        ORDER BY updated_at DESC LIMIT 1`).get(bookId, actorUserId, normalizedEmail);
-      if (row) return creationCoreJobFromDbRow(row);
     }
     return null;
   }
@@ -167,7 +115,8 @@ function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_
   }
   async function runCreationCoreJob(job) {
     try {
-      const user = getUserByEmail(job.userEmail) || { email: job.userEmail };
+      // PG-only 收敛后：账户对象仅需 email/userId 供模型解析与 Skill 目录查询使用
+      const user = { email: job.userEmail, userId: job.userId || projectScope.stableUserId(job.userEmail) };
       const result = await callMolanChat(job.authToken, user, {
         system: job.system,
         userPrompt: job.userPrompt,
@@ -252,7 +201,7 @@ function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_
     }
   }
   const timer = setInterval(sweepCreationCoreJobs, 5 * 60 * 1000); timer.unref();
-  return { creationCoreJobs, creationCoreJobPublic, creationCoreJobFromDbRow, postgresJobStateForCreation, persistPostgresCreationJob, persistCreationCoreJob, postgresCreationCoreJobView, recoverPostgresCreationJobs, creationCoreRunningJobForBook, sweepCreationCoreJobs, finalizeCreationCoreJob, runCreationCoreJob, close: () => clearInterval(timer) };
+  return { creationCoreJobs, creationCoreJobPublic, postgresJobStateForCreation, persistPostgresCreationJob, persistCreationCoreJob, postgresCreationCoreJobView, creationCoreRunningJobForBook, sweepCreationCoreJobs, finalizeCreationCoreJob, runCreationCoreJob, close: () => clearInterval(timer) };
 }
 module.exports = { createCreationCoreJobRuntime };
 

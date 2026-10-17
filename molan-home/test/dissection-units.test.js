@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { __test } = require('../server');
 
-const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-store.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-aggregation-service.js'), 'utf8');
+const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-store.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-aggregation-service.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'services', 'postgres-dissection-pipeline-store.js'), 'utf8');
 const querySource = fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-query-service.js'), 'utf8');
 
 // —— 单元模型：无标题长文本生成 segment，绝不按 0 章丢弃 ——

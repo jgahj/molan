@@ -13,10 +13,8 @@ function createCreationBookHandlers(deps) {
     respondPostgresError,
     requestError,
     getAuthUser,
-    getUserByEmail,
     requireSqliteForPublic,
     dbReady,
-    POSTGRES_MODE,
     postgresRepository,
     postgresActor,
     projectScope,
@@ -29,8 +27,6 @@ function createCreationBookHandlers(deps) {
     runCreationCoreJob,
     nativeSkillCatalog,
     loadBuiltinSkills,
-    loadUserSkills,
-    loadGlobalSkills,
     dissectionSkillAuditPayload,
     CREATION_PLAN_BATCH_SIZE = 10
   } = deps;
@@ -90,16 +86,10 @@ function createCreationBookHandlers(deps) {
     }
     const id = String(skillId || '').trim();
     if (!id) return null;
-    if (POSTGRES_MODE && typeof nativeSkillCatalog === 'function') {
-      const catalog = await nativeSkillCatalog(user);
-      return catalog.userSkills.find(skill => skill && skill.id === id)
-        || catalog.globalSkills.find(skill => skill && skill.id === id)
-        || (typeof loadBuiltinSkills === 'function' ? loadBuiltinSkills().find(skill => skill && skill.id === id) : null)
-        || null;
-    }
-    const email = String(user && user.email || '').trim().toLowerCase();
-    return (email && typeof loadUserSkills === 'function' ? loadUserSkills(email) : []).find(skill => skill && skill.id === id)
-      || (typeof loadGlobalSkills === 'function' ? loadGlobalSkills().find(skill => skill && skill.id === id) : null)
+    if (typeof nativeSkillCatalog !== 'function') return null;
+    const catalog = await nativeSkillCatalog(user);
+    return catalog.userSkills.find(skill => skill && skill.id === id)
+      || catalog.globalSkills.find(skill => skill && skill.id === id)
       || (typeof loadBuiltinSkills === 'function' ? loadBuiltinSkills().find(skill => skill && skill.id === id) : null)
       || null;
   }
@@ -302,7 +292,7 @@ function createCreationBookHandlers(deps) {
     const batchSize = Math.max(8, Math.min(CREATION_PLAN_BATCH_SIZE, Math.floor(Number(body.batchSize) || CREATION_PLAN_BATCH_SIZE)));
     const startChapterNo = phase === 'chapters' ? coverage.nextChapterNo : 0;
     const endChapterNo = phase === 'chapters' ? Math.min(coverage.plan.totalChapters, startChapterNo + batchSize - 1) : 0;
-    const user = (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = { email: auth.user.email };
     const modelId = resolveCreationModelId({ modelId: body.modelId || coverage.plan.modelId });
     const selectedSkill = await creationSkillForUser(user, coverage.plan.skillId);
     if (coverage.plan.skillId && (!selectedSkill || selectedSkill.complete === false || !String(selectedSkill.instruction || '').trim())) {
@@ -468,7 +458,7 @@ function createCreationBookHandlers(deps) {
     try { body = await readBody(req).catch(() => ({})); } catch (_) {}
     const current = creationBibleForBook(book.id);
     if (!current || !current.bibleId || !current.payload) return json(res, 404, { error: '创作圣经不存在' });
-    const user = (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = { email: auth.user.email };
     const modelId = resolveCreationModelId(body);
     const localReview = reviewCreationPlan(current.payload);
     const baseVersion = Number(body.baseVersion) || 0;
@@ -566,7 +556,7 @@ function createCreationBookHandlers(deps) {
     const chapterNo = Math.max(1, Number(body.chapterNo) || Number(book.current_chapter_no || 0) + 1);
     const context = creationChapterContext(current.payload, chapterNo);
     const previousEnding = String(body.previousEnding || '').slice(-2400);
-    const user = (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = { email: auth.user.email };
     const creationModelId = resolveCreationModelId(body);
     const contractOutput = await callMolanChat(String(req?.headers?.authorization || ''), user, {
       thinking: false, reasoningEffort: 'none',
@@ -611,7 +601,7 @@ function createCreationBookHandlers(deps) {
     if (!current || !current.payload) return json(res, 404, { error: '创作圣经不存在' });
     const name = String(body.name || '').trim().slice(0, 60);
     const guidance = String(body.guidance || '').trim().slice(0, 600);
-    const user = (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = { email: auth.user.email };
     let userPrompt = '';
     if (asset === 'characters') {
       if (!name) return json(res, 400, { error: '请指定要重生成的角色名' });

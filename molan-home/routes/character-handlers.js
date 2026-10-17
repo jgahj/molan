@@ -14,7 +14,6 @@ function createCharacterHandlers(deps) {
     getAuthUser,
     requireSqliteForPublic,
     dbReady,
-    POSTGRES_MODE,
     postgresRepository,
     projectScope,
     sanitizeNovelStateForStorage,
@@ -46,100 +45,33 @@ function createCharacterHandlers(deps) {
   async function handleCharactersList(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (POSTGRES_MODE) {
-      const rows = await postgresRepository.runtimeListCharacterLibrary(auth.user.userId);
-      return json(res, 200, { ok: true, characters: rows.map(postgresCharacterView) });
-    }
-    if (typeof requireSqliteForPublic === 'function' && !requireSqliteForPublic(req, res)) return;
-    if (typeof dbReady === 'function' && !dbReady()) return json(res, 503, { error: '云端存储不可用' });
-    const db = getDb();
-    const rows = db.prepare('SELECT * FROM character_library WHERE user_email = ? ORDER BY created_at DESC').all(auth.user.email);
-    return json(res, 200, { ok: true, characters: rows.map(r => ({
-      id: r.id, name: r.name, function: r.function, goal: r.goal, conflict: r.conflict,
-      arc: r.arc, firstAppearance: r.first_appearance, notes: r.notes || '',
-      dissectionId: r.dissection_id, createdAt: r.created_at
-    })) });
+    const rows = await postgresRepository.runtimeListCharacterLibrary(auth.user.userId);
+    return json(res, 200, { ok: true, characters: rows.map(postgresCharacterView) });
   }
 
   async function handleCharactersPatch(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (POSTGRES_MODE) {
-      const body = await readBody(req);
-      const row = await postgresRepository.runtimePatchCharacter(auth.user.userId, id, body);
-      return json(res, 200, { ok: true, character: postgresCharacterView(row) });
-    }
-    if (typeof requireSqliteForPublic === 'function' && !requireSqliteForPublic(req, res)) return;
-    if (typeof dbReady === 'function' && !dbReady()) return json(res, 503, { error: '云端存储不可用' });
-    const db = getDb();
-    const row = db.prepare('SELECT * FROM character_library WHERE id = ? AND user_email = ?').get(id, auth.user.email);
-    if (!row) return json(res, 404, { error: '角色不存在或无权访问' });
-    return readBody(req).then(p => {
-      const next = {};
-      ['function', 'goal', 'conflict', 'arc', 'first_appearance', 'notes'].forEach(k => {
-        if (p[k] !== undefined) next[k] = String(p[k]).slice(0, 2000);
-      });
-      if (p.name !== undefined) next.name = String(p.name).trim().slice(0, 60);
-      if (next.name) {
-        const conflict = db.prepare('SELECT id FROM character_library WHERE user_email = ? AND name = ? AND id <> ?').get(auth.user.email, next.name, id);
-        if (conflict) return json(res, 409, { error: '已存在同名角色「' + next.name + '」' });
-      }
-      const fields = ['name', 'function', 'goal', 'conflict', 'arc', 'first_appearance', 'notes'].filter(k => next[k] !== undefined);
-      if (!fields.length) return json(res, 400, { error: '没有可更新的字段' });
-      const setSql = fields.map(k => k + ' = ?').join(', ');
-      const values = fields.map(k => next[k]);
-      db.prepare('UPDATE character_library SET ' + setSql + ' WHERE id = ? AND user_email = ?').run(...values, id, auth.user.email);
-      const updated = db.prepare('SELECT * FROM character_library WHERE id = ?').get(id);
-      return json(res, 200, { ok: true, character: { id: updated.id, name: updated.name, function: updated.function, goal: updated.goal, conflict: updated.conflict, arc: updated.arc, firstAppearance: updated.first_appearance, notes: updated.notes || '', dissectionId: updated.dissection_id } });
-    }).catch(e => respondError(res, e));
+    const body = await readBody(req);
+    const row = await postgresRepository.runtimePatchCharacter(auth.user.userId, id, body);
+    return json(res, 200, { ok: true, character: postgresCharacterView(row) });
   }
 
   async function handleCharactersMerge(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (POSTGRES_MODE) {
-      const body = await readBody(req);
-      const merged = await postgresRepository.runtimeMergeCharacters(auth.user.userId, body.fromNames, body.intoName);
-      return json(res, 200, { ok: true, merged });
-    }
-    if (typeof requireSqliteForPublic === 'function' && !requireSqliteForPublic(req, res)) return;
-    if (typeof dbReady === 'function' && !dbReady()) return json(res, 503, { error: '云端存储不可用' });
-    const db = getDb();
-    return readBody(req).then(p => {
-      const fromNames = Array.isArray(p.fromNames) ? p.fromNames.map(String).map(s => s.trim()).filter(Boolean) : [];
-      const intoName = String(p.intoName || '').trim();
-      if (!fromNames.length || !intoName) return json(res, 400, { error: '请提供要合并的角色与目标角色' });
-      let merged = 0;
-      const intoRow = db.prepare('SELECT * FROM character_library WHERE user_email = ? AND name = ?').get(auth.user.email, intoName);
-      fromNames.forEach(name => {
-        if (name === intoName) return;
-        const from = db.prepare('SELECT * FROM character_library WHERE user_email = ? AND name = ?').get(auth.user.email, name);
-        if (!from) return;
-        if (intoRow) {
-          const fields = ['function', 'goal', 'conflict', 'arc', 'first_appearance', 'notes'];
-          const values = fields.map(f => (intoRow[f] || '') || (from[f] || ''));
-          db.prepare('UPDATE character_library SET function=?, goal=?, conflict=?, arc=?, first_appearance=?, notes=? WHERE id=?').run(...values, intoRow.id);
-          db.prepare('DELETE FROM character_library WHERE id = ?').run(from.id);
-        } else {
-          db.prepare('UPDATE character_library SET name = ? WHERE id = ?').run(intoName, from.id);
-        }
-        merged += 1;
-      });
-      return json(res, 200, { ok: true, merged });
-    }).catch(e => respondError(res, e));
+    const body = await readBody(req);
+    const merged = await postgresRepository.runtimeMergeCharacters(auth.user.userId, body.fromNames, body.intoName);
+    return json(res, 200, { ok: true, merged });
   }
 
   async function handleCharactersExport(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!POSTGRES_MODE && typeof requireSqliteForPublic === 'function' && !requireSqliteForPublic(req, res)) return;
-    if (!POSTGRES_MODE && typeof dbReady === 'function' && !dbReady()) return json(res, 503, { error: '云端存储不可用' });
     const format = new URL(req.url, 'http://localhost').searchParams.get('format') || 'json';
-    const db = getDb();
-    const rows = POSTGRES_MODE ? await postgresRepository.runtimeListCharacterLibrary(auth.user.userId)
-      : db.prepare('SELECT * FROM character_library WHERE user_email = ? ORDER BY created_at DESC').all(auth.user.email);
+    const rows = await postgresRepository.runtimeListCharacterLibrary(auth.user.userId);
     const chars = rows.map(row => {
-      const character = POSTGRES_MODE ? postgresCharacterView(row) : row;
+    const character = postgresCharacterView(row);
       return {
         name: character.name, function: character.function, goal: character.goal, conflict: character.conflict,
         arc: character.arc, firstAppearance: character.firstAppearance ?? character.first_appearance, notes: character.notes || ''

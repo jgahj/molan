@@ -6,18 +6,13 @@ const { createGenerationHandlers } = require('../routes/generation-handlers');
 const { createGenerationRoutes } = require('../routes/generation');
 
 test('createGenerationHandlers: models, billing, health and webchat behave correctly', async () => {
-  let adjustedCredits = 0;
+  let adjustArgs = null;
   let chatCalled = false;
 
-  const mockDb = {
-    prepare: (sql) => {
-      if (sql.includes('UPDATE accounts SET credits')) {
-        return { run: (credits) => { adjustedCredits += credits; } };
-      }
-      if (sql.includes('SELECT COUNT(*) AS n FROM novels')) {
-        return { get: () => ({ n: 42 }) };
-      }
-      return { run: () => {}, get: () => ({}) };
+  const postgresRepository = {
+    runtimeAdjustCredits: async (input) => {
+      adjustArgs = input;
+      return { id: 'u1', email: 'user@test.local', role: 'user', credits: 1000 };
     }
   };
 
@@ -45,10 +40,8 @@ test('createGenerationHandlers: models, billing, health and webchat behave corre
     contextWindowTokensForModel: () => 128000,
     estimateBillingForUser: (_user, body) => ({ tokens: 2000, credits: 2, model: body.model }),
     PUBLIC_MODE: false,
-    POSTGRES_MODE: false,
-    dbReady: () => true,
-    getDatabase: () => mockDb,
-    getUserByEmail: () => ({ email: 'user@test.local', credits: 1000 }),
+    postgresRepository,
+    postgresRuntimeUserFromRow: row => ({ email: row.email, credits: row.credits }),
     publicUser: u => ({ email: u.email, credits: u.credits }),
     chatAdmission: { activeCount: () => 3 },
     postgresHealth: { available: true },
@@ -87,7 +80,7 @@ test('createGenerationHandlers: models, billing, health and webchat behave corre
   const topupRes = await handlers.handleBillingTopup({}, {});
   assert.equal(topupRes.status, 200);
   assert.equal(topupRes.body.credits, 1000);
-  assert.equal(adjustedCredits, 1000);
+  assert.deepEqual(adjustArgs, { actorUserId: 'u1', userId: 'u1', delta: 1000, spentDelta: 0 });
 
   // 4. Health
   const healthRes = await handlers.handleHealth({}, {});

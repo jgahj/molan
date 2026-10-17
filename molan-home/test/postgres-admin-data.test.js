@@ -10,6 +10,7 @@ function fixture(rowsOrOptions = {}) {
   const calls = [];
   const rows = options.rows || [];
   const repo = {
+    enabled: true,
     runtimeAdminDataRows: async (...args) => { calls.push(args); return rows; },
     runtimeAdminGetNovel: async (...args) => { calls.push(['runtimeAdminGetNovel', ...args]); return options.novel || null; },
     runtimeAdminWriteNovel: async (input) => {
@@ -68,25 +69,11 @@ function fixture(rowsOrOptions = {}) {
   };
 
   const service = createAdminService({
-    POSTGRES_MODE: true,
     ADMIN_DATA_TYPES: new Set(['accounts', 'novels', 'user-skills', 'global-skills', 'open-skills', 'builtin-skills', 'dissections', 'token-usage']),
     ACCOUNT_ROLES: new Set(['normal', 'vip', 'admin']),
     MAX_NOVEL_STATE_BYTES: 10 * 1024 * 1024,
     getAuthUser: () => (options.authUser !== undefined ? options.authUser : { user: { userId: 'admin-id', email: 'admin@test.invalid', role: 'admin' } }),
     isAdminUser: (user) => (options.isAdmin !== undefined ? options.isAdmin(user) : (user && user.role === 'admin')),
-    dbReady: () => true,
-    getDatabase: () => { throw new Error('旧存储不可调用'); },
-    loadUsers: () => { throw new Error('旧存储不可调用'); },
-    saveUser: () => { throw new Error('旧存储不可调用'); },
-    loadAllUserSkillRecords: () => { throw new Error('旧存储不可调用'); },
-    saveAllUserSkillRecords: () => { throw new Error('旧存储不可调用'); },
-    loadGlobalSkills: () => { throw new Error('旧存储不可调用'); },
-    saveGlobalSkills: () => { throw new Error('旧存储不可调用'); },
-    findOpenSkill: () => { throw new Error('旧存储不可调用'); },
-    updateOpenSkill: () => { throw new Error('旧存储不可调用'); },
-    deleteOpenSkill: () => { throw new Error('旧存储不可调用'); },
-    deleteDissectionCascade: () => { throw new Error('旧存储不可调用'); },
-    getUserByEmail: () => { throw new Error('旧存储不可调用'); },
     isConfiguredAdminEmail: () => false,
     normalizeUserRole: (u) => u?.role || 'normal',
     postgresRepository: repo,

@@ -95,9 +95,7 @@ function createDissectionHandlers(deps) {
     responseCors,
     getAuthUser,
     requireSqliteForPublic,
-    POSTGRES_MODE,
     dbReady,
-    getUserByEmail,
     postgresRepository,
     loadDissectionRecord,
     loadDissectionRecordAsync,
@@ -141,7 +139,6 @@ function createDissectionHandlers(deps) {
     SKILL_AUDIT_VERSION,
     callMolanChat,
     safeJsonParse,
-    dissectionContextForChapter,
     getPostgresDissectionPipelineStore,
     deterministicContractValidation,
     pipelineBatchCharsFor,
@@ -149,14 +146,6 @@ function createDissectionHandlers(deps) {
     dissectionDocx,
     queryParamsFromUrl,
     projectScope,
-    buildDissectionEntities,
-    buildDissectionEvents,
-    buildEntityStates,
-    buildEventEdges,
-    storeDissectionForeshadows,
-    loadDissectionUnits,
-    createDissectionBatches,
-    dissectionPipelineStats,
     getPostgresDissectionReadService,
     syncCharactersToLibrary,
     dissectionQueryHandlers = {},
@@ -171,7 +160,6 @@ function createDissectionHandlers(deps) {
   function handleDissectionExtract(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     return readBody(req, 25 * 1024 * 1024).then(body => {
       const name = String((body && body.name) || '').slice(0, 200);
       const base64 = String((body && body.base64) || '');
@@ -410,10 +398,8 @@ function createDissectionHandlers(deps) {
   async function handleDissectionApply(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     let body = {};
-    if (POSTGRES_MODE) body = await readBody(req);
-    else { try { body = await readBody(req).catch(() => ({})); } catch (_) {} }
+    body = await readBody(req);
     const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
     if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
     if (record.status !== 'completed' || !dissectionResultHasCompleteContent(record.result, record.depth)) return json(res, 409, { error: '拆书结果不完整，请先重新分析' });
@@ -453,14 +439,12 @@ function createDissectionHandlers(deps) {
   async function handleDissectionCreativeBrief(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
     if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
     if (!record.result || !dissectionResultHasCompleteContent(record.result, record.depth)) return json(res, 409, { error: '拆书结果不完整，请先重新分析' });
     const result = dissectionResultView(record.result);
     let body = {};
-    if (POSTGRES_MODE) body = await readBody(req);
-    else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+    body = await readBody(req);
     const genre = String(body.genre || '').trim();
     const direction = String(body.direction || '').trim();
     const keepLevel = String(body.keepLevel || 'skin');
@@ -482,7 +466,7 @@ function createDissectionHandlers(deps) {
       '【可复用模板】' + dissectionTransferJson(result.reusableTemplates || {}, 1000),
       '【未回收伏笔数】' + (Array.isArray(result.foreshadowing) ? result.foreshadowing.filter(f => ['planned', 'partial', 'abandoned', 'planted'].includes(f.status)).length : 0)
     ].join('\n');
-    const user = POSTGRES_MODE ? auth.user : (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = auth.user;
     const { json: briefJson } = await callMolanChat(String(req.headers.authorization || ''), user, {
       thinking: false, reasoningEffort: 'none',
       system: '你是资深网文新书策划师。基于原书拆书观察，为一部"换皮微创新"新作生成完整创作包，只返回 JSON。严格区分可迁移的作者 DNA/结构功能与原书专属 canon：只迁移写法、节奏、冲突机制和读者回报，不得把原书人物、地点、势力、物品、术语、事件顺序写进新书。硬性要求：1) forbiddenCopy 必须显式列出原书专属禁止复制项；2) 新书世界观、人物、关系、地图、金手指具体机制和剧情节点全部原创；3) 人物必须有目标、缺陷、阻力和弧光；4) 主线、故事树、冲突链、回报链必须能落到章节和场景；5) 所有规则/判断附适用范围、证据引用和置信度，证据不足标 candidate；6) 不输出原文长摘录；7) 各字段内容精炼扼要，数组每项简明扼要，输出紧凑有效 JSON。',
@@ -503,9 +487,7 @@ function createDissectionHandlers(deps) {
     if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
     const q = queryParamsFromUrl(req.url);
     const chapterNo = Number(q.chapterNo) || 0;
-    const snapshot = POSTGRES_MODE
-      ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, chapterNo)
-      : dissectionContextForChapter(record, chapterNo);
+    const snapshot = await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, chapterNo);
     json(res, 200, { ok: true, context: snapshot });
   }
 
@@ -515,12 +497,9 @@ function createDissectionHandlers(deps) {
     const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
     if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
     let body = {};
-    if (POSTGRES_MODE) body = await readBody(req);
-    else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+    body = await readBody(req);
     const chapterNo = Math.max(1, Number(body.chapterNo) || 1);
-    const snapshot = POSTGRES_MODE
-      ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo)
-      : dissectionContextForChapter(record, body.upTo || chapterNo);
+    const snapshot = await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo);
     const inputBlock = [
       '本章目标：' + String(body.goal || '推进主线 / 深化冲突').slice(0, 200),
       '创作方向：' + String(body.direction || '与既有节奏一致').slice(0, 200),
@@ -530,7 +509,7 @@ function createDissectionHandlers(deps) {
       '未回收伏笔（可埋设/推进/回收）：' + JSON.stringify(snapshot.foreshadows.slice(0, 10)),
       '时间线（近期事件）：' + JSON.stringify(snapshot.timeline.slice(-12))
     ].join('\n');
-    const user = POSTGRES_MODE ? auth.user : (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = auth.user;
     const { json: contract } = await callMolanChat(String(req.headers.authorization || ''), user, {
       thinking: false, reasoningEffort: 'none',
       system: '你是网文章节合同策划师。基于当前故事弧、人物状态、时间线与未回收伏笔，为第 ' + chapterNo + ' 章生成结构化合同。只返回 JSON，字段严格：{chapterNo,goal,protagonistAction,opposition,informationChange,escalation,irreversibleResult,characterStateChanges:[{name,change}],foreshadowActions:[{id,action:"plant|advance|payoff",desc}],continuityInputs:[],continuityOutputs:[],mustAvoid:[]}。mustAvoid 必须包含不能违背的前文事实；未回收伏笔只能选部分在本章推进，不能无证据回收。',
@@ -548,14 +527,11 @@ function createDissectionHandlers(deps) {
     const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
     if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
     let body = {};
-    if (POSTGRES_MODE) body = await readBody(req);
-    else try { body = await readBody(req).catch(() => ({})); } catch (_) {}
+    body = await readBody(req);
     const chapterNo = Math.max(1, Number(body.chapterNo) || 1);
     const content = String(body.content || '');
     const contract = (body.contract && typeof body.contract === 'object') ? body.contract : {};
-    const snapshot = POSTGRES_MODE
-      ? await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo)
-      : dissectionContextForChapter(record, body.upTo || chapterNo);
+    const snapshot = await getPostgresDissectionPipelineStore().dissectionContextForChapter(record, body.upTo || chapterNo);
     const auditBudget = Math.max(12000, Math.min(30000, pipelineBatchCharsFor ? pipelineBatchCharsFor(record) : 12000));
     const auditText = content.length <= auditBudget
       ? content
@@ -571,7 +547,7 @@ function createDissectionHandlers(deps) {
       '未回收伏笔台账：' + JSON.stringify(snapshot.foreshadows.slice(0, 15)),
       '时间线（前文事实）：' + JSON.stringify(snapshot.timeline.slice(-15))
     ].join('\n');
-    const user = POSTGRES_MODE ? auth.user : (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = auth.user;
     const { json: audit } = await callMolanChat(String(req.headers.authorization || ''), user, {
       thinking: false, reasoningEffort: 'none',
       system: '你是网文连续性审计师。对照章节合同、人物状态、时间线事实与伏笔台账，检查正文的连续性错误。只返回 JSON：{passed:boolean,issues:[{severity:"blocker|warning|info",category:"continuity|character|timeline|foreshadow|style|other",position:"",description:"",suggestion:""}],summary:"",revisionHint:"若存在 blocker 级问题，给出定向重写建议"}。只有所有 blocker 级问题都为零才允许 passed=true；伏笔只有在正文明确给出回收证据时才算回收。',
@@ -600,41 +576,28 @@ function createDissectionHandlers(deps) {
     const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
     if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
     const stage = String((queryParamsFromUrl(req.url).stage) || 'entity_resolution');
-    if (POSTGRES_MODE) {
-      const store = getPostgresDissectionPipelineStore();
-      let rebuilt;
-      if (stage === 'entity_resolution' || stage === 'graph') {
-        rebuilt = {
-          entities: await store.buildDissectionEntities(record),
-          events: await store.buildDissectionEvents(record),
-          states: await store.buildEntityStates(record),
-          edges: await store.buildEventEdges(record)
-        };
-        const result = dissectionResultView(record.result);
-        if (Array.isArray(result.foreshadowing)) await store.storeDissectionForeshadows(record, result.foreshadowing);
-      } else if (stage === 'units') {
-        const units = await store.loadDissectionUnits(record);
-        rebuilt = { units: units.length, batches: await store.createDissectionBatches(record, units) };
-      } else return json(res, 400, { error: '不支持的重建阶段' });
-      const stats = await getPostgresDissectionReadService().computeDissectionStats(auth.user.userId, id, record);
-      return json(res, 200, { ok: true, stage, rebuilt, stats });
-    }
-    let rebuilt = null;
+    const store = getPostgresDissectionPipelineStore();
+    let rebuilt;
     if (stage === 'entity_resolution' || stage === 'graph') {
-      rebuilt = { entities: buildDissectionEntities(record), events: buildDissectionEvents(record), states: buildEntityStates(record), edges: buildEventEdges(record) };
+      rebuilt = {
+        entities: await store.buildDissectionEntities(record),
+        events: await store.buildDissectionEvents(record),
+        states: await store.buildEntityStates(record),
+        edges: await store.buildEventEdges(record)
+      };
       const result = dissectionResultView(record.result);
-      if (Array.isArray(result.foreshadowing)) { try { storeDissectionForeshadows(record, result.foreshadowing); } catch (_) {} }
+      if (Array.isArray(result.foreshadowing)) await store.storeDissectionForeshadows(record, result.foreshadowing);
     } else if (stage === 'units') {
-      const units = loadDissectionUnits(record.id);
-      rebuilt = { units: units.length, batches: createDissectionBatches(record, units) };
-    }
-    json(res, 200, { ok: true, stage, rebuilt, stats: dissectionPipelineStats(record) });
+      const units = await store.loadDissectionUnits(record);
+      rebuilt = { units: units.length, batches: await store.createDissectionBatches(record, units) };
+    } else return json(res, 400, { error: '不支持的重建阶段' });
+    const stats = await getPostgresDissectionReadService().computeDissectionStats(auth.user.userId, id, record);
+    return json(res, 200, { ok: true, stage, rebuilt, stats });
   }
 
   async function handleDissectionImitate(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
     if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
     if (record.status !== 'completed') return json(res, 409, { error: '请先完成拆书' });
@@ -649,7 +612,7 @@ function createDissectionHandlers(deps) {
       });
       const system = '你是模仿写作助手。给定一部小说的可迁移文风画像、创作技法与模板，请严格模仿其风格写一段约' + length + '字的中文' + (isOpening ? '开篇' : '场景') + '。只返回 JSON：{passage:"模仿正文（纯文本，不要解释、不要标题）", techniqueNotes:["应用的技法/模板"], appliedTemplates:["使用的模板名"]}。禁止复制原书专有名词与长段落，只迁移文风与技法。';
       const userPrompt = '可迁移素材：\n' + styleJson + '\n\n写作要求：' + (scene || ('一个体现该文风典型节奏的' + (isOpening ? '开篇章节' : '场景'))) + '\n字数约：' + length;
-      const user = POSTGRES_MODE ? auth.user : (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = auth.user;
       return callMolanChat(String(req.headers.authorization || ''), user, {
         system, userPrompt, maxTokens: Math.ceil(length * 2.4), jsonMode: true, modelId: currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.85
       }).then(out => {
@@ -667,7 +630,6 @@ function createDissectionHandlers(deps) {
   async function handleDissectionDiagnose(req, res, id) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     const record = await loadDissectionRecordAsync(id, auth.user.email, auth.user.userId);
     if (!record) return json(res, 404, { error: '拆书任务不存在或无权访问' });
     if (record.status !== 'completed') return json(res, 409, { error: '请先完成拆书' });
@@ -683,7 +645,7 @@ function createDissectionHandlers(deps) {
         logicFlaws: r.logicFlaws, genre: r.genre
       };
       const userPrompt = '作品标题：' + record.title + '\n拆书结果摘要：\n' + JSON.stringify(summary, null, 1).slice(0, 12000) + (benchmark ? '\n\n对标文本：\n' + benchmark : '') + (focus ? '\n\n重点关注：' + focus : '');
-      const user = POSTGRES_MODE ? auth.user : (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = auth.user;
       return callMolanChat(String(req.headers.authorization || ''), user, {
         system, userPrompt, maxTokens: 4000, jsonMode: true, modelId: currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.4
       }).then(out => {
@@ -696,7 +658,6 @@ function createDissectionHandlers(deps) {
   function handleDissectionsCompare(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (!POSTGRES_MODE && !requireSqliteForPublic(req, res)) return;
     return readBody(req, 1 * 1024 * 1024).then(async body => {
       const ids = Array.isArray(body.ids) ? [...new Set(body.ids.map(String).filter(Boolean))].slice(0, 6) : [];
       if (ids.length < 2) return json(res, 400, { error: '请至少选择 2 本已完成拆书进行对比' });
@@ -720,7 +681,7 @@ function createDissectionHandlers(deps) {
       });
       const system = '你是文学对比分析师。对比以下多部作品的拆书结果，输出横向对比报告。只返回 JSON：{summary, matrix:[{id,title,genre,sellingPoints,avgSentenceLen,dialogueRatio,conflictTotal,emotionNote}], byDimension:{题材定位差异,卖点差异,文风量化对比,情绪爽点策略,结构差异}, recommendations:[]}。';
       const userPrompt = '对比重点：' + (focus || '综合差异与各自可借鉴点') + '\n\n作品数据：\n' + JSON.stringify(books, null, 1).slice(0, 14000);
-      const user = POSTGRES_MODE ? auth.user : (getUserByEmail ? getUserByEmail(auth.user.email) : null) || { email: auth.user.email };
+    const user = auth.user;
       return callMolanChat(String(req.headers.authorization || ''), user, {
         system, userPrompt, maxTokens: 4000, jsonMode: true, modelId: currentDefaultModel() || 'gpt-5.6-luna', internalModel: true, temperature: 0.4
       }).then(out => {
@@ -889,59 +850,21 @@ function createDissectionHandlers(deps) {
   async function handleSharedDissectionsList(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '请先登录' });
-    if (POSTGRES_MODE) {
-      const rows = await postgresRepository.runtimeListMemberDissectionShares(auth.user.userId);
-      return json(res, 200, { ok: true, shared: rows.map(row => ({
-        token: row.share.token, role: row.share.role || 'view', sharedAt: row.share.created_at,
-        expiresAt: row.share.expires_at, task: row.task
-      })) });
-    }
-    if (!requireSqliteForPublic(req, res)) return;
-    if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-    const db = getDb();
-    const rows = db.prepare("SELECT token,dissection_id,user_email,role,created_at,expires_at FROM dissection_shares WHERE grantee_email = ? AND (expires_at = 0 OR expires_at > ?) ORDER BY created_at DESC LIMIT 100").all(auth.user.email.toLowerCase(), Date.now());
-    const items = [];
-    rows.forEach(r => {
-      const record = loadDissectionRecord(r.dissection_id, r.user_email);
-      if (!record || record.status !== 'completed') return;
-      items.push({
-        token: r.token, role: r.role || 'view', sharedAt: r.created_at, expiresAt: r.expires_at,
-        task: { id: record.id, title: record.title, depth: record.depth, wordCount: record.meta && record.meta.wordCount || 0, chapterCount: record.meta && record.meta.chapterCount || 0, updatedAt: record.updatedAt }
-      });
-    });
-    json(res, 200, { ok: true, shared: items });
+    const rows = await postgresRepository.runtimeListMemberDissectionShares(auth.user.userId);
+    return json(res, 200, { ok: true, shared: rows.map(row => ({
+      token: row.share.token, role: row.share.role || 'view', sharedAt: row.share.created_at,
+      expiresAt: row.share.expires_at, task: row.task
+    })) });
   }
 
   async function handleSharedDissectionGet(req, res, token) {
-    if (POSTGRES_MODE) {
-      const auth = getAuthUser(req) || getAuthUser(req, 'admin');
-      const row = await postgresRepository.runtimeReadDissectionShare(auth?.user?.userId || '', token);
-      if (!row) return json(res, 404, { error: '分享链接无效或已失效' });
-      if (row.access === 'expired') return json(res, 410, { error: '分享链接已过期' });
-      if (row.access === 'auth_required') return json(res, 401, { error: '请登录后访问该成员分享' });
-      if (row.access !== 'allowed') return json(res, 403, { error: '该分享链接未授权给当前账户' });
-      return json(res, 200, { ok: true, shared: { ...row.task, result: dissectionResultView(row.task.result) } });
-    }
-    if (!dbReady()) return json(res, 503, { error: '云端存储不可用' });
-    const db = getDb();
-    const row = db.prepare('SELECT * FROM dissection_shares WHERE token = ?').get(token);
+    const auth = getAuthUser(req) || getAuthUser(req, 'admin');
+    const row = await postgresRepository.runtimeReadDissectionShare(auth?.user?.userId || '', token);
     if (!row) return json(res, 404, { error: '分享链接无效或已失效' });
-    if (row.expires_at && row.expires_at < Date.now()) return json(res, 410, { error: '分享链接已过期' });
-    if (row.grantee_email) {
-      const auth = getAuthUser(req) || getAuthUser(req, 'admin');
-      const email = auth && auth.user && String(auth.user.email || '').trim().toLowerCase();
-      if (!email || email !== String(row.grantee_email || '').trim().toLowerCase()) {
-        return json(res, auth ? 403 : 401, { error: auth ? '该分享链接未授权给当前账户' : '请登录后访问该成员分享' });
-      }
-    }
-    const record = loadDissectionRecord(row.dissection_id, row.user_email);
-    if (!record) return json(res, 404, { error: '原拆书任务不存在' });
-    const r = dissectionResultView(record.result);
-    json(res, 200, { ok: true, shared: {
-      id: record.id, title: record.title, depth: record.depth,
-      meta: { wordCount: record.meta && record.meta.wordCount, chapterCount: record.meta && record.meta.chapterCount, sampleCount: record.meta && record.meta.sampleCount },
-      result: r, createdAt: record.createdAt
-    } });
+    if (row.access === 'expired') return json(res, 410, { error: '分享链接已过期' });
+    if (row.access === 'auth_required') return json(res, 401, { error: '请登录后访问该成员分享' });
+    if (row.access !== 'allowed') return json(res, 403, { error: '该分享链接未授权给当前账户' });
+    return json(res, 200, { ok: true, shared: { ...row.task, result: dissectionResultView(row.task.result) } });
   }
 
   function handleDissectionVersions(req, res, id) {

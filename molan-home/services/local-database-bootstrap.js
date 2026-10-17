@@ -2,16 +2,16 @@
 
 /**
  * 本地 SQLite 数据库引导（自 server.js 下沉，行为逐字节保持不变）。
- * 职责：打开本地库（原生 node:sqlite 或纯 JS 引擎）、建 90+ 张表与索引、
+ * 职责：打开本地库（调用方注入的引擎工厂，测试设施用）、建 90+ 张表与索引、
  *       执行各域 schema 初始化与历史数据迁移、异常时安全置空。
  * 模块级 db 由调用方经 setDatabase 回调写回（server.js 保留 initDB 委托桩，
  * 其工厂缺失报错文案是 test/sqlite-factory-injection.test.js 的源码断言锚点）。
+ * PG-only 收敛后：生产启动不再调用本引导；保留供测试显式注入本地仓储。
  */
 function createLocalDatabaseBootstrap(deps) {
   const {
     DATA_DIR,
     dbEnabled,
-    POSTGRES_MODE,
     projectScope,
     projectResources,
     memorySystem,
@@ -19,9 +19,6 @@ function createLocalDatabaseBootstrap(deps) {
     migrateUsersToDb,
     migrateAdminAuditToDb,
     releaseStaleCreditReservations,
-    migrateSkillsToDb,
-    migrateGlobalSkillsToDb,
-    migrateOpenSkillsToDb,
     setDatabase
   } = deps || {};
 
@@ -31,7 +28,6 @@ function createLocalDatabaseBootstrap(deps) {
 
   return function initLocalDatabase(options = {}) {
   if (!dbEnabled) return false;
-  if (POSTGRES_MODE) return true;
   const DatabaseSync = options.databaseFactory;
   if (typeof DatabaseSync !== 'function') {
     // 6d04c8b 起 databaseFactory 由调用方注入；缺失时不再静默失败，
@@ -667,9 +663,6 @@ function createLocalDatabaseBootstrap(deps) {
     database.exec('CREATE INDEX IF NOT EXISTS idx_model_usage_scope ON model_usage(workspace_id, project_id, created_at DESC)');
     try { database.exec("ALTER TABLE model_usage ADD COLUMN credit_known INTEGER NOT NULL DEFAULT 0"); } catch (_) {}
     try { database.exec("ALTER TABLE model_usage ADD COLUMN cost_source TEXT NOT NULL DEFAULT 'unknown'"); } catch (_) {}
-      migrateSkillsToDb();
-      migrateGlobalSkillsToDb();
-      migrateOpenSkillsToDb();
       migrateAdminAuditToDb();
       releaseStaleCreditReservations();
       console.log('🗄   本地存储引擎已就绪 → ' + dbPath);

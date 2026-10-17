@@ -3,7 +3,7 @@
 /**
  * 拆书流水线聚合服务（自 server.js 下沉，行为逐字节保持不变）。
  * 职责：四级分层摘要（章节→故事弧→分卷→全书）+ 全局聚合报告，
- *       含 PG/SQLite 双模落库、模型调用与用量记账、失败逐项降级。
+ *       含 PG 落库、模型调用与用量记账，失败严格抛锟（PG-only 收敛后不再吞错降级）。
  * 原实现：server.js buildChapterSummaries/buildVolumeSummaries/buildArcSummaries/
  *         buildPipelineVolumeDigest/buildBookSummary/callDissectionPipelineModel/
  *         recordPipelineUsageAsync/pipelineChat/runPipelineAggregation。
@@ -11,14 +11,9 @@
  */
 function createDissectionPipelineAggregationService(deps) {
   const {
-POSTGRES_MODE,
     activeDissections,
     attachPipelineCoverage,
     buildAuthorDnaFromDissectionParts,
-    buildDissectionEntities,
-    buildDissectionEvents,
-    buildEntityStates,
-    buildEventEdges,
     buildPipelineCharacterFallback,
     buildPipelineCharacters,
     buildPipelineClues,
@@ -30,13 +25,9 @@ POSTGRES_MODE,
     callMolanChat,
     checkDissectionActiveInPostgres,
     currentDefaultModel,
-    dbReady,
     dissectionFieldHasUsableContent,
     emptyDissectionResult,
     getPostgresDissectionPipelineStore,
-    loadAllChapterFacts,
-    loadDissectionChapters,
-    loadDissectionUnits,
     normalizeAuthorDna,
     normalizeEntityName,
     pipelineAggregationInputChars,
@@ -47,22 +38,18 @@ POSTGRES_MODE,
     pipelineTextChunks,
     postgresRepository,
     projectScope,
-    recordPipelineUsage,
     safeJsonParse,
     samplePipelineCharacterAppearances,
     saveDissectionRecordAsync,
     startPipelineJob,
-    storeDissectionForeshadows,
     toTokenCount,
-    getDatabase
   } = deps || {};
 
 async function buildChapterSummaries(record, authToken, owner) {
-  if (!POSTGRES_MODE && !dbReady()) return [];
-  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
-  const chapters = store ? await store.loadDissectionChapters(record) : loadDissectionChapters(record.id);
+  const store = getPostgresDissectionPipelineStore();
+  const chapters = await store.loadDissectionChapters(record);
   if (!chapters.length) return [];
-  const facts = store ? await store.loadAllChapterFacts(record) : loadAllChapterFacts(record.id);
+  const facts = await store.loadAllChapterFacts(record);
   const factByNo = new Map(facts.map(f => [f.chapterNo, f]));
   const out = [];
   const summaryMap = new Map();
@@ -80,16 +67,13 @@ async function buildChapterSummaries(record, authToken, owner) {
         '你是小说章节摘要器。为每章生成一条 ≤40 字的客观摘要，只概括本章实际发生的事，不评价文笔。只返回 JSON：{"summaries":[{"chapterNo":章号,"summary":"摘要"}]}，顺序与输入一致，不得漏章。',
         '请为以下章节生成摘要：\n' + rows, 2500);
       if (json && Array.isArray(json.summaries)) json.summaries.forEach(s => { if (s && s.chapterNo) summaryMap.set(Number(s.chapterNo), String(s.summary || '').slice(0, 90)); });
-    } catch (error) { if (POSTGRES_MODE) throw error; }
+    } catch (error) { throw error; }
   }
-  if (!store) getDatabase().prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'chapter'").run(record.id);
   const now = Date.now();
-  const ins = store ? null : getDatabase().prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   chapters.forEach(c => {
     const summary = String(summaryMap.get(c.chapter_no) || '').trim();
     const covered = !!summary;
     const id = 'cs_' + record.id + '_' + c.chapter_no;
-    if (ins) ins.run(id, record.id, 'chapter', c.chapter_id, JSON.stringify([c.chapter_id]), JSON.stringify({ chapterNo: c.chapter_no, title: c.title, summary }), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0 }), covered ? 'ok' : 'needs_review', 1, now);
     out.push({ chapterNo: c.chapter_no, title: c.title, summary, covered, status: covered ? 'ok' : 'needs_review' });
   });
   if (store) await store.saveSummaries(record, 'chapter', out.map((summary, index) => ({
@@ -103,14 +87,13 @@ async function buildChapterSummaries(record, authToken, owner) {
 
 // ★ 阶段2 · 分层摘要：分卷摘要（优先用单元模型识别出的 volume 边界，否则按章节均分）
 async function buildVolumeSummaries(record, authToken, owner, chapterSummaries) {
-  if (!POSTGRES_MODE && !dbReady()) return [];
-  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
-  const chapters = store ? await store.loadDissectionChapters(record) : loadDissectionChapters(record.id);
+  const store = getPostgresDissectionPipelineStore();
+  const chapters = await store.loadDissectionChapters(record);
   if (!chapters.length) return [];
   const summaryMap = new Map((chapterSummaries || []).map(s => [s.chapterNo, s.summary]));
   // 卷边界：优先 volume 单元；否则每 60 章一卷
   const volumeBands = [];
-  const units = store ? await store.loadDissectionUnits(record) : loadDissectionUnits(record.id);
+  const units = await store.loadDissectionUnits(record);
   const volUnits = units.filter(u => String(u.unitType) === 'volume');
   if (volUnits.length >= 2) {
     // volume 单元的章节由 parentId 分组；此处简化按 volume 单元在 units 中的顺序切章节区间
@@ -132,9 +115,7 @@ async function buildVolumeSummaries(record, authToken, owner, chapterSummaries) 
     }
   }
   const out = [];
-  if (!store) getDatabase().prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'volume'").run(record.id);
   const now = Date.now();
-  const ins = store ? null : getDatabase().prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   for (const band of volumeBands) {
     const rows = band.chapters.map(no => '第' + no + '章：' + (summaryMap.get(no) || '')).join('\n');
     let content = null;
@@ -143,13 +124,12 @@ async function buildVolumeSummaries(record, authToken, owner, chapterSummaries) 
         '你是网文分卷拆书分析师。下面是一卷内各章摘要，请归纳该卷：核心目标、主要冲突、剧情拐点、卷末留白/钩子。只返回 JSON：{volume,chapters,goal,turningPoints,mainConflicts,endingHook}。',
         '卷《' + band.title + '》（第' + band.chapters[0] + '-' + band.chapters[band.chapters.length - 1] + '章）章节摘要：\n' + rows, 2500);
       if (json && (json.goal || (Array.isArray(json.turningPoints) && json.turningPoints.length) || (Array.isArray(json.mainConflicts) && json.mainConflicts.length) || json.endingHook)) content = json;
-    } catch (error) { if (POSTGRES_MODE) throw error; }
+    } catch (error) { throw error; }
     const covered = !!content;
     if (!content) content = { volume: band.title, chapters: band.chapters.length, goal: '', turningPoints: [], mainConflicts: [], endingHook: '' };
     content = { ...content, volume: content.volume || band.title, chapters: content.chapters || band.chapters.length, chapterFrom: band.chapters[0], chapterTo: band.chapters[band.chapters.length - 1] };
     const id = 'vs_' + record.id + '_' + out.length;
     const childIds = chapters.filter(c => band.chapters.includes(c.chapter_no)).map(c => c.chapter_id);
-    if (ins) ins.run(id, record.id, 'volume', 'volume-' + out.length, JSON.stringify(childIds), JSON.stringify(content), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0, chapterCount: band.chapters.length }), covered ? 'ok' : 'needs_review', 1, now);
     out.push({ id, ...content, covered, status: covered ? 'ok' : 'needs_review' });
   }
   if (store) await store.saveSummaries(record, 'volume', out.map((summary, index) => ({
@@ -164,9 +144,8 @@ async function buildVolumeSummaries(record, authToken, owner, chapterSummaries) 
 // ★ 阶段2 · 故事弧摘要：连续章节归并为故事弧（约 30 章/弧），每弧只读章节摘要生成概括，
 // 是"章节 → 故事弧 → 分卷 → 全书"四级分层中的第二级。落 summaries 表 summary_type='arc'。
 async function buildArcSummaries(record, authToken, owner, chapterSummaries) {
-  if (!POSTGRES_MODE && !dbReady()) return [];
-  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
-  const chapters = store ? await store.loadDissectionChapters(record) : loadDissectionChapters(record.id);
+  const store = getPostgresDissectionPipelineStore();
+  const chapters = await store.loadDissectionChapters(record);
   if (!chapters.length) return [];
   const summaryMap = new Map((chapterSummaries || []).map(s => [s.chapterNo, s.summary]));
   const ARCS_PER = 30;
@@ -177,9 +156,7 @@ async function buildArcSummaries(record, authToken, owner, chapterSummaries) {
     bands.push({ from: slice[0].chapter_no, to: slice[slice.length - 1].chapter_no, nos: slice.map(c => c.chapter_no) });
   }
   const out = [];
-  if (!store) getDatabase().prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'arc'").run(record.id);
   const now = Date.now();
-  const ins = store ? null : getDatabase().prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   for (let i = 0; i < bands.length; i += 1) {
     const band = bands[i];
     const rows = band.nos.map(no => '第' + no + '章：' + (summaryMap.get(no) || '')).join('\n');
@@ -190,13 +167,12 @@ async function buildArcSummaries(record, authToken, owner, chapterSummaries) {
         '你是网文故事弧拆书分析师。下面是一段连续章节的摘要（第 ' + (i + 1) + ' 个故事弧），请归纳：该弧核心冲突、主角目标、关键转折、弧末留白/悬念、与前后弧的衔接。只返回 JSON：{arc,range,coreConflict,protagonistGoal,turningPoints,endingHook,nextHook}。',
         '故事弧（第' + band.from + '-' + band.to + '章）章节摘要：\n' + rows, 2500);
       if (json && (json.coreConflict || json.protagonistGoal || (Array.isArray(json.turningPoints) && json.turningPoints.length) || json.endingHook)) content = json;
-    } catch (error) { if (POSTGRES_MODE) throw error; }
+    } catch (error) { throw error; }
     const covered = !!content;
     if (!content) content = { arc: '故事弧 ' + (i + 1), range: band.from + '-' + band.to, coreConflict: '', protagonistGoal: '', turningPoints: [], endingHook: '', nextHook: '' };
     content = { ...content, arc: content.arc || ('故事弧 ' + (i + 1)), range: content.range || (band.from + '-' + band.to), chapterFrom: band.from, chapterTo: band.to };
     const id = 'as_' + record.id + '_' + i;
     const childIds = chapters.filter(c => band.nos.includes(c.chapter_no)).map(c => c.chapter_id);
-    if (ins) ins.run(id, record.id, 'arc', 'arc-' + i, JSON.stringify(childIds), JSON.stringify(content), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0, chapterCount: band.nos.length }), covered ? 'ok' : 'needs_review', 1, now);
     out.push({ id, ...content, covered, status: covered ? 'ok' : 'needs_review' });
   }
   if (store) await store.saveSummaries(record, 'arc', out.map((summary, index) => ({
@@ -227,7 +203,6 @@ async function buildPipelineVolumeDigest(record, authToken, owner, volumeSummari
 }
 
 async function buildBookSummary(record, authToken, owner, volumeSummaries, extra) {
-  if (!POSTGRES_MODE && !dbReady()) return null;
   const volBrief = extra && extra.volumeDigest && typeof extra.volumeDigest.text === 'string'
     ? extra.volumeDigest.text
     : (volumeSummaries || []).map(v => '【' + (v.volume || v.id) + '】第' + v.chapterFrom + '-' + v.chapterTo + '章：目标 ' + (v.goal || '') + '；拐点 ' + (Array.isArray(v.turningPoints) ? v.turningPoints.join('、') : '') + '；钩子 ' + (v.endingHook || '')).join('\n');
@@ -240,24 +215,16 @@ async function buildBookSummary(record, authToken, owner, volumeSummaries, extra
       '你是资深网文全书拆书分析师。基于全书分卷摘要与统计，生成全书地图与总结（聚合层，允许全局总结）。只返回 JSON：{bookMap:{overallArc,mainTheme,threeActStructure,themeLine,charArcSummary},bookSummary:"全书一句话总结",majorTurningPoints:[{chapter,event,impact}],openThreads:[{desc,status}],unsolvedMysteries:[],nextBookHook}。openThreads 与 unsolvedMysteries 必须基于伏笔台账如实填写，严禁默认全部回收。',
       '《' + record.title + '》全书（' + (extra && extra.chapterCount || '') + ' 章）。\n冲突统计：' + conflictBrief + '\n伏笔状态：' + foreshadowBrief + '\n分卷摘要：\n' + (volBrief || '（无分卷摘要）'), 4000);
     if (json && json.bookMap && json.bookSummary) content = json;
-  } catch (error) { if (POSTGRES_MODE) throw error; }
+  } catch (error) { throw error; }
   const covered = !!content;
   if (!content) content = { bookMap: { overallArc: '', mainTheme: '', threeActStructure: '', themeLine: '', charArcSummary: '' }, bookSummary: '', majorTurningPoints: [], openThreads: [], unsolvedMysteries: [], nextBookHook: '' };
   content = { ...content, coverage: { expected: 1, completed: covered ? 1 : 0, complete: covered } };
-  if (POSTGRES_MODE) {
-    await getPostgresDissectionPipelineStore().saveSummaries(record, 'book', [{
-      id: 'bs_' + record.id, ownerId: record.id, content,
-      childIds: (volumeSummaries || []).map(volume => volume.id || ''),
-      coverage: { covered, expected: 1, completed: covered ? 1 : 0 },
-      status: covered ? 'ok' : 'needs_review'
-    }]);
-    return content;
-  }
-  try {
-    getDatabase().prepare("DELETE FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'book'").run(record.id);
-    getDatabase().prepare('INSERT OR REPLACE INTO dissection_summaries (id,dissection_id,summary_type,owner_id,child_ids_json,content_json,evidence_ids_json,coverage_json,status,version,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-       .run('bs_' + record.id, record.id, 'book', record.id, JSON.stringify((volumeSummaries || []).map(v => v.id || '')), JSON.stringify(content), '[]', JSON.stringify({ covered, expected: 1, completed: covered ? 1 : 0 }), covered ? 'ok' : 'needs_review', 1, Date.now());
-  } catch (_) {}
+  await getPostgresDissectionPipelineStore().saveSummaries(record, 'book', [{
+    id: 'bs_' + record.id, ownerId: record.id, content,
+    childIds: (volumeSummaries || []).map(volume => volume.id || ''),
+    coverage: { covered, expected: 1, completed: covered ? 1 : 0 },
+    status: covered ? 'ok' : 'needs_review'
+  }]);
   return content;
 }
 
@@ -271,7 +238,6 @@ async function buildBookSummary(record, authToken, owner, volumeSummaries, extra
 
 // —— 全局聚合：基于事实库生成报告（模型调用，失败逐项降级为本地规则） ——
 async function callDissectionPipelineModel(authToken, owner, record, options) {
-  if (!POSTGRES_MODE) return callMolanChat(authToken, owner, options);
   const actor = String(record.ownerUserId || projectScope.stableUserId(record.userEmail));
   const controller = activeDissections.get(record.id)?.controller || new AbortController();
   let stopped = false;
@@ -309,7 +275,6 @@ async function callDissectionPipelineModel(authToken, owner, record, options) {
 }
 
 async function recordPipelineUsageAsync(record, usage, stage) {
-  if (!POSTGRES_MODE) return recordPipelineUsage(record, usage, stage);
   const prior = record.meta?.stageUsage?.[stage] || {};
   const costKnown = usage?.creditCost !== null && usage?.creditCost !== undefined &&
     Number.isFinite(Number(usage.creditCost)) && Number(usage.creditCost) >= 0;
@@ -345,35 +310,26 @@ async function pipelineChat(record, authToken, owner, system, userPrompt, maxTok
     });
     await recordPipelineUsageAsync(record, out.usage, 'aggregate');
     if (!out.usage || toTokenCount(out.usage.totalTokens) === null) {
-      if (POSTGRES_MODE) throw Object.assign(new Error('上游模型用量未知，停止聚合'), { code: 'USAGE_UNAVAILABLE', unknown: true });
-      return null;
+      throw Object.assign(new Error('上游模型用量未知，停止聚合'), { code: 'USAGE_UNAVAILABLE', unknown: true });
     }
     return out.json || safeJsonParse(out.text) || null;
   } catch (error) {
-    if (POSTGRES_MODE) throw error;
-    return null;
+    throw error;
   }
 }
 
 
 
 async function runPipelineAggregation(record, authToken, owner, opts) {
-  const store = POSTGRES_MODE ? getPostgresDissectionPipelineStore() : null;
-  const chapters = store ? await store.loadDissectionChapters(record) : loadDissectionChapters(record.id);
-  const facts = store ? await store.loadAllChapterFacts(record) : loadAllChapterFacts(record.id);
+  const store = getPostgresDissectionPipelineStore();
+  const chapters = await store.loadDissectionChapters(record);
+  const facts = await store.loadAllChapterFacts(record);
   if (!facts.length) return null;
   // ★ 阶段1 · 实体消歧与事件图谱落地（本地规则，零成本）
-  if (store) {
-    await store.buildDissectionEntities(record);
-    await store.buildDissectionEvents(record);
-    await store.buildEntityStates(record);
-    await store.buildEventEdges(record);
-  } else {
-    buildDissectionEntities(record);
-    buildDissectionEvents(record);
-    buildEntityStates(record);
-    buildEventEdges(record);
-  }
+  await store.buildDissectionEntities(record);
+  await store.buildDissectionEvents(record);
+  await store.buildEntityStates(record);
+  await store.buildEventEdges(record);
   // ★ 阶段2 · 人物状态快照 + 事件关系图落库
 
   const result = emptyDissectionResult();
@@ -389,13 +345,11 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
       evidenceRefs: f.chapterId ? [f.chapterId] : []
     })));
   result.outline = buildPipelineOutline(facts);
-  const claims = store
-    ? (await postgresRepository.runtimeListDissectionRows(record.ownerUserId, record.id, 'dissection_claims')).map(row => {
-      const document = typeof row.document === 'string' ? JSON.parse(row.document) : row.document;
-      if (!document || typeof document !== 'object' || Array.isArray(document)) throw new Error('拆书证据文档损坏');
-      return document;
-    })
-    : undefined;
+  const claims = (await postgresRepository.runtimeListDissectionRows(record.ownerUserId, record.id, 'dissection_claims')).map(row => {
+    const document = typeof row.document === 'string' ? JSON.parse(row.document) : row.document;
+    if (!document || typeof document !== 'object' || Array.isArray(document)) throw new Error('拆书证据文档损坏');
+    return document;
+  });
   result.evidenceLedger = buildPipelineEvidenceLedger(record, facts, claims);
   result.dissectionMap = {
     unitCount: Number((record.meta && record.meta.pipeline && record.meta.pipeline.unitTotal) || 0),
@@ -465,7 +419,7 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
         charBatchesCompleted += 1;
       }
       if (charJson && Array.isArray(charJson.relationships)) rels.push(...charJson.relationships);
-    } catch (error) { if (POSTGRES_MODE) throw error; }
+    } catch (error) { throw error; }
   }
   const generatedByName = new Map();
   allArchives.forEach(archive => {
@@ -506,7 +460,7 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
         '你是伏笔台账合并专家。下面是一批伏笔线索（同一伏笔可能被多章提到、描述近似）。请归并合并，区分状态：recovered(已回收，必须有回收章证据) / partial(部分回收) / planned(埋设未回收) / abandoned(疑似烂尾)。只返回 JSON：{foreshadowing:[{id,setupChapter,expectedPayoff,status,strength}]}。',
          '伏笔线索（' + batch.length + ' 条）：\n' + summary, 5000);
       if (clueJson && Array.isArray(clueJson.foreshadowing)) foreshadowing.push(...clueJson.foreshadowing);
-    } catch (error) { if (POSTGRES_MODE) throw error; }
+    } catch (error) { throw error; }
   }
   if (!foreshadowing.length) {
     // 降级：本地按描述前缀 + 埋设章接近归并
@@ -519,15 +473,13 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
   }
   result.foreshadowing = foreshadowing;
   // ★ 阶段2 · 伏笔生命周期落库（含埋设/回收章、相关实体、证据与置信度）
-  if (store) await store.storeDissectionForeshadows(record, result.foreshadowing);
-  else storeDissectionForeshadows(record, result.foreshadowing);
+  await store.storeDissectionForeshadows(record, result.foreshadowing);
 
   // —— 分卷 / 框架 / 概览 / 题材 / 结构：输入 = 分卷摘要（覆盖全书）+ 统计 + 曲线 ——
   const curveSample = emotionCurve.filter((_, i) => i % 5 === 0);
   const openingFacts = facts.slice(0, 40).map(f => '第' + f.chapterNo + '章:' + (Array.isArray(f.fact.chapter_events) ? f.fact.chapter_events.slice(0, 3).map(e => e.event).join('，') : '')).join('\n');
   let volumeDigest = { text: '', complete: false, sourceCount: volumeSummaries.length, digestCount: 0 };
-  try { volumeDigest = await buildPipelineVolumeDigest(record, authToken, owner, volumeSummaries); }
-  catch (error) { if (POSTGRES_MODE) throw error; }
+  volumeDigest = await buildPipelineVolumeDigest(record, authToken, owner, volumeSummaries);
   const volumeBrief = volumeDigest.text || '（分卷归并失败）';
   result.summaryCoverage.volumeDigestComplete = volumeDigest.complete === true;
   const profileJson = await pipelineChat(record, authToken, owner,
@@ -577,12 +529,10 @@ async function runPipelineAggregation(record, authToken, owner, opts) {
   result.worldbuilding = [...worldSeen.entries()].map(([cat, list]) => ({ category: cat.toLowerCase(), name: list[0], detail: list.join('；'), significance: '全书累计' }));
 
   // ★ 阶段2 · 全书摘要（四级分层的顶层，只读分卷摘要+统计+伏笔台账，不回读原文）
-  try {
-     result.bookSummary = await buildBookSummary(record, authToken, owner, volumeSummaries, { conflictStats, foreshadowing: result.foreshadowing, chapterCount: chapters.length, volumeDigest });
-    result.summaryCoverage.book = result.bookSummary && result.bookSummary.coverage
-      ? result.bookSummary.coverage
-      : { expected: 1, completed: 0, complete: false };
-  } catch (error) { if (POSTGRES_MODE) throw error; }
+  result.bookSummary = await buildBookSummary(record, authToken, owner, volumeSummaries, { conflictStats, foreshadowing: result.foreshadowing, chapterCount: chapters.length, volumeDigest });
+  result.summaryCoverage.book = result.bookSummary && result.bookSummary.coverage
+    ? result.bookSummary.coverage
+    : { expected: 1, completed: 0, complete: false };
 
   // ★ 校验结论：不再硬编码 passed，基于覆盖与缺失项真实计算（门禁由 startPipelineJob 二次把关）
   const unitTotal = (opts && opts.unitTotal) || 0;

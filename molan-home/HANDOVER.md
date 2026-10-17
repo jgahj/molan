@@ -2893,3 +2893,50 @@ molan-home/
 2. **本地 .git 膨胀**：60MB→198MB（LFS 存未压缩版本）；如需回收可 `git lfs prune`（已执行，2637 对象全保留）。
 3. **后台任务 cwd 陷阱**（新沉淀纪律）：后台 Bash 从会话主 cwd（=主仓根）启动，不继承前台 cd——后台 git 命令必须显式 cd 目标仓库；执行 checkout 类破坏性操作前先确认无陈旧 `.git/index.lock`（0 字节 + 无 git.exe 进程 = 可删）。
 4. **下一遗留**：Postgres/SQLite 双模收敛 287 处/15 文件（见阶段二十七第 3 条，用户已于 2026-10-02 在 `docs/postgres-only-checkpoint-20261002.md` 授权 PG-only 终态，收敛策略细节待本轮范围决策）。
+
+## 阶段二十九：PG-only 收敛——server.js 三模坍缩与死代码清除（2026-10-17）
+
+> **执行周期**：2026-10-16 ~ 2026-10-17
+> **核心目标**：执行用户在 `docs/postgres-only-checkpoint-20261002.md` 的 PG-only 终态授权，把 `server.js` 的 PostgreSQL / 原生 JSON / 本地 SQLite 三模代码坍缩为 PG-only 单模态，删除死代码与死注入，修复坍缩暴露的运行时缺陷，测试基面与 43 败基线做三方 diff 收敛。
+> **结论**：server.js 6703 → 6068 行（-635）；全量回归失败数 43（基线）→ 44（批 2，含 1 项新增+1 项消失的 flaky）→ **40（批 3，零新增失败）**；批 3 目标测试 13 个文件全绿。
+
+### 一、改动范围与核心逻辑
+
+| 对象 | 改动类型 | 核心改动点 |
+|---|---|---|
+| `server.js` 批 1（早前会话） | 坍缩 | 6703 → 6349 行。`POSTGRES_MODE` 硬编码 `true`（L102）；`initDB` 坍缩为 no-op（L1521-1524）；删除 `resolveLocalDatabaseFactory` 定义、SQLite 引导、`createPostgresStyleProfileStore` 改惰性创建 |
+| `server.js` 批 2 | 坍缩 | 6349 → 6240 行，39 op + 3 补充 op（L3866/3967/4037 `const user = auth.user;`）。拆书管线 PG 体去缩进（extractBatchFacts 删 45 行 SQLite 写库）、重试循环坍缩、守卫坍缩（`if (!POSTGRES_MODE && !requireSqliteForPublic(...))` → `if (!requireSqliteForPublic(...))`）、creation-core-job-runtime 死注入删除 |
+| `server.js` 批 3 | 坍缩 | 6240 → 6068 行，112 op（严格降序 + 快照断言 + 重叠自检）。服务注入区删死注入 **140+ 处**（auth-account 11、model-call 3、plan-service 1、chapter-service 1、core-job-http 7、skill-service 注入区 14 + 解构行 19、admin-service 27、generation-service 12、aggregation 12、creationBookHandlers 3）；请求管线删 6 个原生 JSON 派发块 + nativeAuth resolve；路由接线删 `nativeNovelHandlers` 三态、拆书 dispatch 去 `POSTGRES_MODE &&`、`backend: 'postgres'`；启动区删 `prepareLocal` 整块、`initializeStorage` 坍缩为 `initDB()`、`nativeJsonMode = false`；导出区删 `flushSessionsSync`/`saveUser` |
+| `services/creation-book-service.js` | 修复 | 删 `getUserByEmail` 解构；`creationScopeForActor` 去 account 兜底（PG 模式 userId 必传，原链会 TypeError） |
+| `services/creation-chapter-service.js` | 修复 | 删 `getUserByEmail` 解构；L116 `const user = auth.user;`（原 `getUserByEmail(...)` 在 PG 模式必炸） |
+| `services/postgres-creation-plan-service.js` | 修复 | 删解构中死符号 `getUserByEmail` |
+| `routes/creation-book-handlers.js` | 修复 | 删 `getUserByEmail` 解构；4 处 `(getUserByEmail ? ... : null) || { email }` → `{ email: auth.user.email }`（运行时行为不变，注入本就是 undefined） |
+| `server.js` 启动区 | **缺陷修复** | lifecycle `postgresMode: POSTGRES_MODE && postgresRepository.enabled`——硬编码 `POSTGRES_MODE=true` 曾使生产缺 PG 配置时绕过 `PRODUCTION_POSTGRES_REQUIRED` 安全闸；补 `prepareLocal` 明确错误（`POSTGRES_NOT_CONFIGURED`）替代已删函数的 TypeError |
+| `test/sqlite-factory-injection.test.js` | 锚点反转 | 原守护"本地 SQLite 接线存在"反转为"守住接线已拔除"（5 条 doesNotMatch + initDB no-op 形态断言）；保留 node:sqlite 运行时契约测试 |
+
+### 二、设计决策与权衡
+
+1. **分三波次执行而非一次性重写**：每波次后跑目标测试 + 语法/模块加载冒烟，任一波失败可单波回滚（备份 `server.js.bak-batch1/2/3`）。批间发现记录方案缺口（skill-service 实际坏 19 符号 vs 方案 10；admin-service 实际 27 vs 方案 12）——先只读核对修正再落编辑，未按错方案执行。
+2. **保留 `POSTGRES_MODE` 常量而非删光**：批 3 后仍有 6 处消费（`knowledge/projects/creationBooks` 路由的 `postgresMode:` 参数、native-domain-service 的 `postgresqlMode:`、dissection dispatch、exports）。常量保留使命中这些语义参数可读；`if (POSTGRES_MODE)` 恒真守卫全部坍缩为无条件体。
+3. **lifecycle `postgresMode` 语义修正为"PG 实际启用"**：`POSTGRES_MODE && postgresRepository.enabled` 恢复生产安全闸语义（NODE_ENV=production + MOLAN_PG_ENABLED=0 → 拒绝启动且不落任何文件，由 server-lifecycle 测试守护），比在启动区写特判更根本。
+4. **native JSON 服务工厂区（约 230 行）暂留**：`nativeAuthService/nativeSkillService/nativeCreationService` 等工厂在批 3 后成为死代码（唯一调用点已删），但 `appRepository` 等仍被 exports 与 nativeDomain 装配引用，删除需独立可达性分析——列为批 4 候选，避免本波爆炸半径失控。
+5. **测试反转哲学**：守护已删功能的测试（sqlite-factory-injection）不删除，反转为"防回潮"锚点；JSON 模式测试家族失败是 PG-only 收敛的**预期后果**（被测模式已不存在），全部登记 #18-F 而非强行修复。
+
+### 三、真实验证证据
+
+- **全量回归三方 diff**（逐文件循环聚合 TAP，`baseline-tests.tap` / `after-batch2.tap` / `after-batch3.tap`）：43 / 44 / **40**。批 3 零新增失败；修复 4（sqlite-factory×2 锚点反转、server-lifecycle 生产闸恢复、cloud-sync-proxy 随 JSON 派发块删除恢复）。比基线少的 3 项（ADV-M2-ORCH-01、ADV-TEST-01、M1-04）为批 2 后顺带恢复，复跑 3 个测试文件确认**稳定全绿**（5+16+11 pass）。
+- **批 3 目标测试 13 个文件**：server-lifecycle 7/7、routes-creation-books 3/3、creation-core-job-http 1/1、postgres-creation-core-http 4/4、native-generation-service 7/7、postgres-admin-data-http 1/1、postgres-runtime-no-cache 6/6、postgres-dissection-tools 5/5、dissection-graph 39/39、dissection-units 18/18、routes-dissection 3/3、postgres-dissection-worker 5/5、routes-phase1-adversarial 14/14。
+- **语法与加载**：5 个改动文件 `node --check` 全过；`require('./server')` 模块加载 OK。
+- **零残留**：32 个已删符号在 5 个文件中 grep 零裸引用（仅存 3 处对象字面量键名：postgres-project-service 的 `getUserByEmail/getUserById` 注入键、lifecycle 的 `flushSessions` 键——均非标识符引用）。
+- **门禁脚本**：`production-import-audit.mjs` PASS（233 文件无反向引入）；`audit-golden-suite.mjs` PASS（8 题材×10）。
+- **坍缩暴露并修复的 3 个真实缺陷**（均有测试佐证）：① `server.js:5994` `resolveLocalDatabaseFactory is not defined`（批 1 删定义漏删调用，生产启动即炸）；② `flushSessions: flushSessionsSync` 注入 undefined（优雅退出时 TypeError）；③ `creationScopeForActor`/`creation-chapter-service L116` 的 `getUserByEmail` 调用链（auth-account-service 坍缩后导出已不存在）。
+
+### 四、已知限制与后续（#18-F：剩余 40 败基面收口清单）
+
+剩余 40 个失败**全部为基线既有或 PG-only 收敛预期后果**，按族分：
+
+1. **native JSON 模式测试家族**（约 22 项，最大族）：native-app-http / native-chat-* / native-creation-contract-http / native-dispatch-integration / native-startup / project-scope / style-profile-store-http / token-usage / auth-persistence-and-latency / open-skills / internal-chat-utf8 / cloud-sync-proxy / novel-write-handlers-http / generation-legacy-chat-http / benchmark-http——全部跑 `MOLAN_APP_STORE=json` 模式（该模式已被收敛删除）。收口方式：整族移交 PG 模式等价测试或归档。
+2. **批 3 唯一新增于基线的失败**：`native-chat-cancel-http`（`disconnect cancels upstream...`）——同属 JSON 模式家族，根因 = 注册链路调用禁用态 PG 桩的 `runtimeAccountByEmail`（`postgresRepository.runtimeAccountByEmail is not a function` → 400）。
+3. **其余基线既有**：story-workbench-browser / structural-originality / platform-config-gate / chapter-outline 系等（失败模式与基线逐一致，未受坍缩影响）。
+4. **批 4 候选**：native JSON 服务工厂区死代码清除（约 230 行，需 appRepository 可达性分析）；`test/*.test.mjs` 中 production-import-audit 断言同步 PG-only 化。
+5. **部署动作**：本次改动需同步部署 ECS（`/opt/molan`，systemd molan；前端静态文件上传即生效，server.js 改动必须 `systemctl restart molan`）。

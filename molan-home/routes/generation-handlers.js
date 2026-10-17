@@ -23,15 +23,10 @@ function createGenerationHandlers(deps) {
     contextWindowTokensForModel,
     estimateBillingForUser,
     PUBLIC_MODE,
-    POSTGRES_MODE,
     postgresRepository,
     projectScope,
     postgresRuntimeUserFromRow,
     appRepository,
-    dbReady,
-    getDatabase,
-    getUserByEmail,
-    publicUser,
     chatAdmission,
     postgresHealth,
     DEEPSEEK_KEY,
@@ -102,27 +97,12 @@ function createGenerationHandlers(deps) {
         throw (typeof requestError === 'function' ? requestError(400, '只支持 1000、8000 或 30000 积分档位') : new Error('只支持 1000、8000 或 30000 积分档位'));
       }
       const email = String(auth.user.email || '').trim().toLowerCase();
-      let user;
-      if (POSTGRES_MODE) {
-        const userId = String(auth.user.userId || (projectScope && projectScope.stableUserId ? projectScope.stableUserId(email) : email));
-        const row = await postgresRepository.runtimeAdjustCredits({
-          actorUserId: userId, userId, delta: credits, spentDelta: 0
-        });
-        user = typeof postgresRuntimeUserFromRow === 'function' ? postgresRuntimeUserFromRow(row) : row;
-      } else if (process.env.MOLAN_APP_STORE === 'json' && typeof appRepository === 'function') {
-        user = await appRepository().adjustCredits({ userId: auth.user.userId, delta: credits });
-      } else if (typeof dbReady === 'function' && dbReady()) {
-        const db = typeof getDatabase === 'function' ? getDatabase() : deps.db;
-        db.prepare('UPDATE accounts SET credits = credits + ? WHERE email = ? AND role <> \'admin\'').run(credits, email);
-        user = typeof getUserByEmail === 'function' ? getUserByEmail(email) : null;
-      } else {
-        user = auth.user;
-        user.credits = Math.round(((Number(user.credits) || 0) + credits) * 100) / 100;
-        if (typeof deps.saveUser === 'function') deps.saveUser(user);
-      }
-      const pubUser = !POSTGRES_MODE && process.env.MOLAN_APP_STORE === 'json' && typeof deps.nativePublicUser === 'function'
-        ? await deps.nativePublicUser(user)
-        : (typeof publicUser === 'function' ? await publicUser(user) : user);
+      const userId = String(auth.user.userId || (projectScope && projectScope.stableUserId ? projectScope.stableUserId(email) : email));
+      const row = await postgresRepository.runtimeAdjustCredits({
+        actorUserId: userId, userId, delta: credits, spentDelta: 0
+      });
+      const user = typeof postgresRuntimeUserFromRow === 'function' ? postgresRuntimeUserFromRow(row) : row;
+      const pubUser = typeof publicUser === 'function' ? await publicUser(user) : user;
       return json(res, 200, { ok: true, creditsAdded: credits, user: pubUser, credits: user ? user.credits : 0 });
     }).catch(error => respondError(res, error));
   }
@@ -135,21 +115,13 @@ function createGenerationHandlers(deps) {
     let dbOk = false;
     let novelCount = 0;
     const isUserAdmin = auth && typeof isAdminUser === 'function' && isAdminUser(auth.user);
-    if (POSTGRES_MODE) {
-      dbOk = postgresHealth && postgresHealth.available === true;
-      if (dbOk && isUserAdmin) {
-        try {
-          novelCount = (await postgresRepository.runtimeAdminDataRows(auth.user.userId, 'novels')).length;
-        } catch (error) {
-          return respondPostgresError(res, error);
-        }
-      }
-    } else if (typeof dbReady === 'function' && dbReady()) {
+    dbOk = postgresHealth && postgresHealth.available === true;
+    if (dbOk && isUserAdmin) {
       try {
-        const db = typeof getDatabase === 'function' ? getDatabase() : deps.db;
-        dbOk = true;
-        novelCount = db.prepare('SELECT COUNT(*) AS n FROM novels').get().n;
-      } catch (_) {}
+        novelCount = (await postgresRepository.runtimeAdminDataRows(auth.user.userId, 'novels')).length;
+      } catch (error) {
+        return respondPostgresError(res, error);
+      }
     }
     const health = {
       ok: true,

@@ -22,7 +22,6 @@ function createCreationChapterService(dependencies) {
     evaluateSomaticGate,
     getAuthUser,
     getDatabase,
-    getUserByEmail,
     json,
     loadCreationBookForAuth,
     loadCreationSnapshots,
@@ -113,7 +112,7 @@ function createCreationChapterService(dependencies) {
     if (genreAudits.issues && genreAudits.issues.length) {
       issues.push(...genreAudits.issues.map(item => ({ ...item, heuristicOnly: true })));
     }
-    const user = getUserByEmail(auth.user.email) || { email: auth.user.email };
+    const user = auth.user;
     const creationModelId = resolveModelForUser(user, body.modelId || currentDefaultModel());
     const factLedger = body.factLedger && typeof body.factLedger === 'object' && !Array.isArray(body.factLedger) ? body.factLedger : null;
     const semanticAudit = await benchmarkPipeline.evidenceAudit({

@@ -37,7 +37,9 @@ function fixture(overrides = {}) {
     json: (_res, status, body) => { calls.responses.push({ status, body }); },
     respondError: (_res, error) => { calls.responses.push({ status: error.status || 500, error }); },
     loadDissectionRecord: forbidden, updateDissectionRecord: forbidden, getUserByEmail: forbidden,
-    requireSqliteForPublic: forbidden, dissectionContextForChapter: forbidden,
+    // PG-only 收敛（#18-E）：守卫已坍缩为 if (!requireSqliteForPublic(req, res)) return;，
+    // PG 模式下就绪门禁必然被求值——桩返回 true 放行，其余 legacy 路径仍保持 forbidden 断言。
+    requireSqliteForPublic: () => true, dissectionContextForChapter: forbidden,
     dissectionResultHasCompleteContent: () => true,
     dissectionResultView: value => value,
     dissectionTransferJson: value => JSON.stringify(value),
