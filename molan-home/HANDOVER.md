@@ -2980,3 +2980,70 @@ molan-home/
 | **保留决策 1** | `services/native-*.js` 六个 service 文件**不删**——`test/` 顶层有 7 个测试（creation-scope / native-creation-link-novel / native-knowledge-catalog-http / native-project-http / native-creation-service / project-materials-seven）直接 require 并守护 service 层逻辑；server.js 摘除调用后形成"生产入口零 JSON 仓储、测试仍守护 service 层"的合理状态 |
 | **保留决策 2** | `appRepository` / `memoryDomainStore` / `nativeDomain` 本体保留——分别被 chat-service 注入（L664）、memoryRoutes dispatch（`/api/books/` `/api/runs/` 活跃路由）、`closeStorageStores` 关闭路径（L135）消费 |
 | 验证 | 语法 `node --check` 通过；模块加载 OK（`app.server` / `app.appRepository` 均 function）；structural-originality 16/16；**全量回归 312 文件 / 2433 测试 / 2155 通过 / 0 失败 / 0 非零退出（与 #18-F 后逐位一致，零回归）**；19 个已删符号 server.js + chat-service 零残留（CLEAN） |
+
+## 阶段三十：深度审查修复——CI 门禁重建、创书端点接线、IDOR 修复与前端安全加固（2026-10-19/20）
+
+> **执行周期**：2026-10-19 深度审查 → 2026-10-20 实施修复
+> **背景**：依据《深度审查报告-2026-10-19.md》（3 P0 + 4 P1 + 12 P2，关键项均经运行时复现 / GitHub Actions 记录 / 生产探测验证）。用户裁决：除 P1-2（ECS:10809 开放代理链）暂缓外全部修复。
+> **结论**：修复项全部落地。直接相关测试 144+ 通过、浏览器级验证 8/8、全量回归 0 失败（见第五节）。
+
+### 一、改动范围与核心逻辑
+
+| # | 文件 | 改动类型 | 核心改动点 |
+|---|---|---|---|
+| P0-1 | `.github/workflows/ci.yml` | 门禁重建 | ① 测试 glob `test/**/*` → `test/*`（排除 18 个已归档 legacy-json-mode 测试——CI 必红根因之一）；② checkout 后补 LFS cache + `git lfs pull`（corpus 测试依赖真实语料；防 LFS 带宽配额耗尽）；③ timeout 25→45min（run #73 实测 25m36s 超时）。CI 自 10-08 起 25 次运行全红/超时，本次修复后首次具备转绿条件 |
+| P0-1 | `test/adversarial-m1-discover-patterns.test.js` | 环境修复 | 硬编码 `tools/node22_runtime/node.exe`（被 gitignore，CI checkout 不存在 → spawnSync ENOENT 瞬败）→ existsSync 回退 `process.execPath` / PATH npm。本地复跑 13/13 |
+| P0-2 | `server.js` createCreationBookRoutes 注入表 | 缺陷修复 | 补注入 6 个已解构但漏接线的 PG handler（postgresBiblePut/PlanExpand/PlanReview/LinkNovel/ChapterContract/RegenerateAsset）——生产 fallthrough 到 legacy handler，db=null 必现 TypeError 500（PUT bible、plan-expand 章纲分批补全等 6 端点全挂） |
+| P0-2 | `test/creation-book-pg-wiring.test.js` | 新建测试 | 源码级「handlePostgresCreation* 符号不得只出现一次」+ 装配级「postgresMode=true 时 6 端点必须走 postgres handler」双防再发（3/3） |
+| P0-3 | `lib/postgres-repository.js` | 缺陷修复 | getJob/getJobBudget 补 `project_members` 活跃成员 JOIN——修复任意登录用户凭 jobId 越权读/取消他人任务的 IDOR（自家 postgres-job-smoke.mjs:32-33 契约此前即断言隔离，属收敛回归） |
+| P2-1 | `lib/postgres-repository.js` + `services/creation-core-job-http-service.js` | 竞态修复 | upsertJob 新增 `expectedStates` 乐观状态机守卫（FOR UPDATE 锁内比对，陈旧快照拒绝覆盖并返回真实行 + staleStateGuard 标记）；取消端点限定 queued/claimed/running，杜绝把 worker 刚写入的终态覆盖回 cancel_requested |
+| P2-1 | `test/postgres-job-ownership-guard.test.js` | 新建测试 | 4 项源码锚点防回潮（归属 JOIN ×2、expectedStates 守卫、取消端点契约） |
+| P1-1 | `completion-admin.js` + `app-boot.js` | 功能修复 | ① completion-admin 补与 completion-import 同模式的模块尾部自装（懒加载后 install() 无人调用 → renderers.admin 永远是 app-boot 占位页，72KB 真实管理台成死代码）；② LAZY_ROUTE_SCRIPTS 补 'admin-login'（此前该路由脚本根本不加载） |
+| P1-4 | `completion-editor.js` + `app-boot.js` + `pages/story-workbench.js` + `pages/project-docs.js` | 安全修复 | ① MolanEditorApplyExternalDraft 含 `<p>` 文本原样入 scene.content（绕过 sanitizeHtml 的存储型注入源）→ 统一消毒；② `window.MolanSanitizeHtml` 暴露给 app-boot，applyNovelState 回灌与 postMessage fallback 分支补消毒（消毒器缺失时退化为全转义）；③ message 监听加同源校验；④ 8 处 postMessage 发送端 `'*'` → `window.location.origin` |
+| P2-7 | `completion-import.js` + `app-boot.js` | 资源泄漏 | ① creationReconcileTimer 补清理（molan:page-changed 离开创作页 + pagehide）；② 错误上报节流 Map 有界化（>200 淘汰最旧） |
+| P1-3 | `routes/admin-handlers.js` | 安全修复 | handleCorrectionLibraryMerge 补 requireAdmin（此前任意登录用户可触发服务器子进程重编译纠错库；相邻 character-material 端点本就有闸） |
+| P2-12 | `routes/debt-knowledge-handlers.js` | 安全修复 | styleDetect/chapterHealthCheck/postgresDebtsExtract 补登录校验（此前匿名可达且无限流） |
+| P2-2 | `server.js` legacy 记录层 | 兜底修复 | loadDissectionRecord/insert/update/deleteDissectionCascade 于 `dbReady() && !db` 时 throw 410（`legacyStorageRemovedError`，外层 respondError 按 error.status 映射）；pipelineEnabled/dissectionContextForChapter 优雅降级；recoverDissectionJobs/getUsageSummary/getUsageSummariesByUser 改 `dbReady() && db` 走 JSON 兜底。novel/character legacy handler 经核查 id 强校验 n_ 前缀 + routes/projects.js PG dispatch 全方法覆盖 → 生产不可达，不改（防再读结论） |
+| P2-12 | `server.js` xuanhuan-lab 装配 | 死代码 | POSTGRES_MODE 恒真后 JSON/undefined 分支坍缩为 PG-only |
+| P2-3 | `package.json` | 测试纪律 | test/ci 脚本补 `--test-concurrency=4`（阶段二十七遗留：默认并发下 orchestrator 系时序测试假失败，与 CI 口径对齐） |
+| P2-4 | `app.js`（删除）+ `server.js` PUBLIC_ROOT_FILES + `scripts/check-frontend-stamp.mjs` + 4 个测试 | 死代码治理 | 旧版单页应用 app.js（2123 行/103KB）生产零引用：git rm；摘出 PUBLIC_ROOT_FILES 与 STAMPED_ASSETS；correction-policy/creation-flow/local-material-import/merge-upload 四测试的 app.js 断言语义迁移（「主页不得有旧分支」改对 app-boot.js 断言，方向不变） |
+| P2-5 | `test/e2e/*.spec.js`（删除） | 死代码治理 | 两个 spec 无任何运行入口且内容腐烂（引用已删的 MOLAN_APP_STORE=json、硬编码本机浏览器路径） |
+| P2-6 | `routes/generation-handlers.js` + `ops/systemd/*` | 可观测性/运维 | ① /api/health 增加 `build` 字段（server.js 内容 sha256 前 12 位）——与本地 sha256sum 对比即可无鉴权确认 ECS 部署版本；② 补 molan-backup.service/.timer（此前备份脚本存在但**无任何调度**）+ ops/systemd/README（安装与恢复演练步骤；molan.service 主单元本体仍只在 ECS 本机，重建时需先导出留档） |
+| P2-8 | `test/local-wal.test.js` + `stability-guardrails` + `generation-caches` | 稳定性 | 5ms/10ms 窄 margin 放宽（60ms/200ms），降低 CI 并发假失败噪声 |
+| P2-9 | `scripts/` 12 个运维脚本 | 可移植性 | 13 处硬编码 `c:/Users/lyh/...` 全部改为 import.meta.url 自解析（换机/CI/云端可跑；CI 实际执行的 4 个脚本本无此问题） |
+| P2-10 | `data/config.example.json` | 配置对齐 | pricing 补 5 个实际存在的键（defaultCredits 等，占位示例值），防新环境缺计费参数 |
+| P2-11 | `test/editor-only-sources.test.js` | 测试诚实化 | 本机源目录缺失时由「bundled 自比恒真通过（镜像漂移检测静默失效）」改为显式 skip |
+| 全局 | `boot-scripts.js` + `index.html` + `boot-head.js` + `pages/*.html`（16 文件） | 缓存戳 | `20261014_opt_v2` → `20261020_fix_v1`（6 个受保护前端资产变更联动升戳；check-frontend-stamp 门禁实跑通过） |
+
+### 二、设计决策与权衡
+
+1. **P0-3 用 project_members 而非 workspace_members**：ensureScope/listProjects 均以项目成员为授权边界（工作区管理员不自动发现私有项目），job 挂在 workspace+project 下，按项目成员过滤与既有授权模型一致，且与 job-smoke 隔离断言精确对齐。
+2. **expectedStates 守卫放 upsertJob 锁内而非独立 SQL/新方法**：current 行已 FOR UPDATE，锁内比对等价且复用既有事件/预算流水线；拒绝时返回真实行（非报错），取消端点语义自然化为「返回当前状态」。**不引入 fencing_token CAS**——upsertJob 允许 succeeded 后记录 provider_unknown 的既有语义会被误伤。
+3. **P2-2 写路径 throw 410、读路径优雅降级**：写入 JSON 兜底会造成 PG-only 数据分叉（禁止）；只读返回空可接受。
+4. **completion-admin 模块尾部自装而非 app-boot onload 回调**：completion-import.js 已是该模式，保持一致、最小改动、依赖方向不变。
+5. **LFS 用官方 cache 模式而非 checkout lfs:true**：166MB/次的下载在缓存命中后只发生一次，否则 GitHub LFS 免费带宽（1GB/月）约 6 次运行耗尽。
+6. **删 app.js 而非仅停服**：零引用文件留着只会被 4 个测试继续守护死代码（假信心）；测试按语义迁移而非删除守护意图。
+
+### 三、真实验证证据
+
+- **运行时复现（修复前）**：生产同构参数（getDatabase:()=>null + dbReady:()=>true）实测 `loadCreationBookForAuth` / `saveCreationBibleVersion` 抛 `TypeError: Cannot read properties of null (reading 'prepare'/'exec')`——与审查报告 P0-2 一致；修复后由接线测试封死。
+- **直接相关测试**（node22 `--test-concurrency=4` 实跑）：creation-book-pg-wiring 3/3、postgres-job-ownership-guard 4/4（均新建）；adversarial-m1-discover-patterns 13/13（路径回退修复后）；受影响存量两批 52/52 + 74 通过/1 环境跳过（dissection 系 + job 系 + routes-creation-books + sqlite-factory-injection + server-lifecycle + routes-phase4-generation + postgres-runtime-no-cache）。
+- **浏览器级验证**（playwright-core + 系统 Edge，本地静态服务，**8/8 PASS**）：#admin-login 懒加载自装后渲染真实表单（`#completionAdminEmail` 出现、占位消失）；无 token #admin 重定向真实表单；postMessage 同源写入生效、`<script>` 被消毒且未执行、安全文本保留；零未预期 JS 错误。临时验证脚本已删除。
+- **缓存戳门禁**：`node scripts/check-frontend-stamp.mjs HEAD` 实跑通过。
+- **ECS 部署后必做**：`systemctl restart molan` 后跑 `npm run db:pg:job-smoke`（其 :32-33 未授权隔离断言即 P0-3 行为级验证）；`curl /api/health` 应含 `build` 字段且等于本地 `sha256sum server.js | cut -c1-12`。
+
+### 四、已知限制与后续
+
+1. **P1-2 未修（用户裁决暂缓）**：ECS:10809 公网可达的开放代理链。后续至少应：不跑隧道时回收安全组 10809；direct_gpt_proxy.js 加 token + 目标白名单；reverse_tunnel.ps1 恢复 host key 校验。
+2. **CI 首绿待观察**：本次修复全部已知必败项（glob/Windows 路径/LFS/超时/窄 margin），但本地绿 ≠ CI 绿，push 后需在 GitHub Actions 实际观察，可能暴露残余环境差异。
+3. **e2e 覆盖为零**：腐烂 spec 已删，重建 playwright e2e 门禁为后续工作。
+4. **molan.service 主单元未入库**：重建时先从 ECS `systemctl cat molan.service` 导出（ops/systemd/README 已记录）。
+
+### 五、全量回归证据（第二轮，修复 health 沙箱断言后）
+
+```text
+命令：node --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"
+第一轮：2440 tests / 2423 pass / 1 fail（postgres-runtime-no-cache 的 handleHealth 沙箱缺 SERVER_BUILD_ID——回退 server.js 兜底实现的 build 字段，build 只保留在实际服务的 generation-handlers 中）/ 16 skipped，exit=1
+第二轮（终局）：2440 tests / 2424 pass / 0 fail / 16 skipped（全部为既有环境依赖守卫跳过）/ exit=0
+基线对照：修复前 #18-F 后为 2433 tests / 0 fail；本轮净增 7 测试（新建 wiring 3 + ownership-guard 4），删除腐烂 e2e 2 文件，0 回归。
+```

@@ -5,6 +5,13 @@
     { "id": "deepseek-chat", "name": "通用写作", "group": "通用", "provider": "deepseek", "model": "deepseek-chat", "supportsThinking": false, "baseURL": "https://api.deepseek.com", "apiKey": "sk-可选，缺省用 deepseekApiKey", "creditsPer1k": 1 }
   ],
   "modelPolicy": { "defaultModel": "deepseek-chat" },
-  "pricing": {},
+  "pricing": {
+    "defaultCredits": 1,
+    "fallbackCreditsPer1k": 1,
+    "creditPriceRmbPer1000": 10,
+    "targetGrossMargin": 0.5,
+    "usdToRmb": 7.2,
+    "_note": "2026-10-19 P2-10：与实际 config.json 的 pricing 键对齐（此前缺失 5 个计费字段，新环境按 example 配置会缺计费参数）。以上均为占位示例值，请按实际定价填写。"
+  },
   "note": "复制本文件为 config.json 并填入真实 key 后重启服务。环境变量 DEEPSEEK_API_KEY 优先级高于本文件；MOLAN_EDITOR_LOCAL_CORRECTION_FILE / MOLAN_EDITOR_LOCAL_SKILL_DIR 可覆盖编辑器本地纠错库与技能目录（默认取仓库上级目录）。"
 }

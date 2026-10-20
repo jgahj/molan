@@ -8720,7 +8720,12 @@ ${userInstruction || '请基于上述工作台设定与人物认知，紧承上�
     const state = editorState(false);
     const current = activeRefs(state);
     if (current && current.scene) {
-      current.scene.content = draftText.indexOf('<p>') >= 0 ? draftText : draftText.split(/\n+/).map(p => `<p>${esc(p)}</p>`).join('');
+      // 2026-10-19 深度审查 P1-4：外部正文（工作台同步/postMessage/localStorage 回流）
+      // 必须过 sanitizeHtml——此前含 <p> 的文本原样写入 scene.content 并持久化，
+      // 构成绕过编辑器消毒约定的存储型注入源。
+      current.scene.content = draftText.indexOf('<p>') >= 0
+        ? sanitizeHtml(draftText)
+        : draftText.split(/\n+/).map(p => `<p>${esc(p)}</p>`).join('');
       markEditorDirty(true);
       renderEditorPaper();
       toast('已成功接收并应用来自工作台的最新正文稿！');
@@ -8728,6 +8733,10 @@ ${userInstruction || '请基于上述工作台设定与人物认知，紧承上�
       toast('正文已接收，请打开对应场景应用');
     }
   };
+
+  // 2026-10-19 P1-4：向 app-boot 暴露同一消毒器，供旧编辑器路径
+  // （applyNovelState / postMessage fallback）回灌 innerHTML 前统一消毒。
+  window.MolanSanitizeHtml = sanitizeHtml;
 
   window.MolanEditorCiteToPrompt = function (text, title) {
     citeTextToPrompt(text, title);

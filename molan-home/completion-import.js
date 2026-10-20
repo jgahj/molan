@@ -282,6 +282,23 @@
     return tasks;
   }
 
+  // 2026-10-19 深度审查 P2-7：离开创作相关页面后停止 15s 心跳对账轮询。
+  // 此前 creationReconcileTimer 一旦创建便无任何 clearInterval，切离页面后
+  // 仍持续读 localStorage 直至关闭标签页。
+  function stopCreationReconcileTimer() {
+    if (creationReconcileTimer && typeof window !== 'undefined') {
+      window.clearInterval(creationReconcileTimer);
+      creationReconcileTimer = null;
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('molan:page-changed', (event) => {
+      const page = event && event.detail && event.detail.page;
+      if (!['resources', 'dissect', 'creation'].includes(String(page || ''))) stopCreationReconcileTimer();
+    });
+    window.addEventListener('pagehide', stopCreationReconcileTimer, { once: false });
+  }
+
   /** 持久化当前账户的创书任务历史，供任务页跨页面查看。写入失败必须让用户
    * 感知：断点信息只存在这里，丢失后刷新页面就无法继续，只能整单重跑。 */
   let creationTasksSaveWarned = false;

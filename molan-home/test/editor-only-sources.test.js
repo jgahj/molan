@@ -18,9 +18,12 @@ const sourceCorrectionFile = 'C:/Users/lyh/Desktop/小说专属网页/纠错库.
 const bundledSkillDir = path.join(projectRoot, 'editor-sources', 'write-high-tension-fiction');
 const bundledCorrectionFile = path.join(projectRoot, 'editor-sources', '纠错库.md');
 
-test('editor source bundle mirrors the requested Skill and correction library', () => {
+test('editor source bundle mirrors the requested Skill and correction library', (testContext) => {
   const sourceExists = fs.existsSync(sourceSkillDir) && fs.existsSync(sourceCorrectionFile);
-  const source = server.loadEditorOnlyWritingSkill({ skillDir: sourceExists ? sourceSkillDir : bundledSkillDir });
+  // 2026-10-19 P2-11：本机源目录缺失（CI/其他机器）时此前会回退为
+  // 「bundled 与 bundled 自比」，镜像漂移检测恒真通过、静默失效；改为显式跳过。
+  if (!sourceExists) return testContext.skip('仅在本机开发环境运行（源目录不存在，跳过镜像漂移检测）');
+  const source = server.loadEditorOnlyWritingSkill({ skillDir: sourceSkillDir });
   const bundled = server.loadEditorOnlyWritingSkill({ skillDir: bundledSkillDir });
   assert.equal(source.id, server.EDITOR_ONLY_SKILL_ID);
   assert.equal(source.complete, true);

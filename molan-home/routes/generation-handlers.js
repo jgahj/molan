@@ -5,6 +5,23 @@
  * @param {object} deps - 显式依赖注入表
  * @returns {object} 包含生成领域核心处理函数的工厂实例
  */
+
+// 2026-10-19 深度审查 P2-6：部署构建指纹。启动时计算本模块宿主 server.js 的内容
+// sha256 前 12 位，经 /api/health 暴露——与本地 `sha256sum server.js` 对比即可
+// 无鉴权确认 ECS 正在运行哪个版本的代码（此前无法验证线上版本）。
+const { createHash } = require('node:crypto');
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
+const SERVER_BUILD_ID = (() => {
+  try {
+    const candidates = [path.join(__dirname, '..', 'server.js')];
+    for (const candidate of candidates) {
+      try { return createHash('sha256').update(readFileSync(candidate)).digest('hex').slice(0, 12); } catch (_) {}
+    }
+  } catch (_) {}
+  return 'unknown';
+})();
+
 function createGenerationHandlers(deps) {
   const {
     json,
@@ -127,7 +144,10 @@ function createGenerationHandlers(deps) {
       ok: true,
       db: dbOk ? 'ready' : 'off',
       postgres: postgresHealth || { available: false },
-      models: PLATFORM_MODELS.length
+      models: PLATFORM_MODELS.length,
+      // 2026-10-19 深度审查 P2-6：部署构建指纹（server.js 内容 sha256 前 12 位）。
+      // 与本地 `sha256sum server.js` 对比即可无鉴权确认 ECS 正在运行哪个版本的代码。
+      build: SERVER_BUILD_ID
     };
     if (isUserAdmin) {
       Object.assign(health, { key: DEEPSEEK_KEY ? 'set' : 'missing', novels: novelCount });

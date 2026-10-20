@@ -36,8 +36,16 @@ const { spawnSync, fork } = require('node:child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const WORKSPACE_ROOT = path.resolve(REPO_ROOT, '..');
-const NODE_BIN = path.resolve(WORKSPACE_ROOT, 'tools/node22_runtime/node.exe');
-const NPM_CLI = path.resolve(WORKSPACE_ROOT, 'tools/node22_runtime/node_modules/npm/bin/npm-cli.js');
+// 2026-10-19 深度审查 P0-1 修复：此前硬编码 Windows 工具链路径，CI（Ubuntu）与
+// 其他机器上 spawnSync 必现 ENOENT → status=null → 断言瞬败（CI 自 2026-10-08 全红的根因之一）。
+// 现优先本机 tools/node22_runtime（保持原行为），缺失时回退 process.execPath / PATH 中的 npm。
+const WORKSPACE_NODE_BIN = path.resolve(WORKSPACE_ROOT, 'tools/node22_runtime/node.exe');
+const WORKSPACE_NPM_CLI = path.resolve(WORKSPACE_ROOT, 'tools/node22_runtime/node_modules/npm/bin/npm-cli.js');
+const NODE_BIN = fs.existsSync(WORKSPACE_NODE_BIN) ? WORKSPACE_NODE_BIN : process.execPath;
+const NPM_CLI = fs.existsSync(WORKSPACE_NPM_CLI)
+  ? WORKSPACE_NPM_CLI
+  : (process.platform === 'win32' ? 'npm.cmd' : 'npm');
+const NPM_CLI_NEEDS_NODE = fs.existsSync(WORKSPACE_NPM_CLI);
 const CORPUS_CLI = path.resolve(REPO_ROOT, 'scripts/corpus-cli.js');
 
 function computeHash(content) {
@@ -109,10 +117,19 @@ function createTestDataset(runDir, count = 6, chapterOverrides = []) {
 }
 
 function runNpmCli(args, cwd = REPO_ROOT) {
-  return spawnSync(NODE_BIN, [NPM_CLI, 'run', 'corpus:discover-patterns', '--', ...args], {
+  if (NPM_CLI_NEEDS_NODE) {
+    return spawnSync(NODE_BIN, [NPM_CLI, 'run', 'corpus:discover-patterns', '--', ...args], {
+      cwd,
+      encoding: 'utf8',
+      timeout: 30000
+    });
+  }
+  // 回退：CI/其他环境直接调用 PATH 中的 npm（Windows 需 shell 解析 .cmd）
+  return spawnSync(NPM_CLI, ['run', 'corpus:discover-patterns', '--', ...args], {
     cwd,
     encoding: 'utf8',
-    timeout: 30000
+    timeout: 30000,
+    shell: process.platform === 'win32'
   });
 }
 

@@ -22,6 +22,9 @@ function createDebtKnowledgeHandlers(deps) {
   } = deps;
 
   function handleStyleDetect(req, res) {
+    // 2026-10-19 深度审查 P2-12：纯计算端点此前匿名可达且无限流，补登录校验防匿名滥用。
+    const auth = getAuthUser(req);
+    if (!auth) return json(res, 401, { error: '请先登录' });
     return readBody(req).then(body => {
       const input = body && typeof body === 'object' ? body : {};
       const text = String(input.text || '');
@@ -34,6 +37,9 @@ function createDebtKnowledgeHandlers(deps) {
   }
 
   function handleChapterHealthCheck(req, res) {
+    // 2026-10-19 深度审查 P2-12：补登录校验（同 handleStyleDetect）。
+    const auth = getAuthUser(req);
+    if (!auth) return json(res, 401, { error: '请先登录' });
     return readBody(req).then(body => {
       const input = body && typeof body === 'object' ? body : {};
       const text = String(input.text || '');
@@ -100,6 +106,10 @@ function createDebtKnowledgeHandlers(deps) {
   }
 
   async function handlePostgresCausalDebtsExtract(req, res, bookId) {
+    // 2026-10-19 深度审查 P2-12：PG 模式下该端点匿名可达（同族 DebtsGet/Create/Settle
+    // 均有登录校验，仅此处遗漏），补齐。
+    const auth = getAuthUser(req);
+    if (!auth) return json(res, 401, { error: '请先登录' });
     const input = await readBody(req);
     const chapterNo = Math.max(1, Number(input.chapterNo) || 1);
     const extractor = typeof extractPotentialDebts === 'function'

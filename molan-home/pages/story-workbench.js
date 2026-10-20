@@ -419,7 +419,7 @@
   element('editorLink').addEventListener('click', (event) => {
     if (window.parent && window.parent !== window) {
       event.preventDefault();
-      window.parent.postMessage({ type: 'molan:navigate', page: 'editor', novelId: projectId }, '*');
+      window.parent.postMessage({ type: 'molan:navigate', page: 'editor', novelId: projectId }, window.location.origin);
     }
   });
   const syncBtn = element('syncToEditor');
@@ -436,7 +436,7 @@
           text: textToSync,
           novelId: projectId,
           chapterId: element('chapter')?.value
-        }, '*');
+        }, window.location.origin);
         status('已将正文成功同步至主 AI 编辑器！');
       } else if (window.opener && window.opener !== window) {
         window.opener.postMessage({
@@ -444,7 +444,7 @@
           text: textToSync,
           novelId: projectId,
           chapterId: element('chapter')?.value
-        }, '*');
+        }, window.location.origin);
         status('已通过跨窗口直传同步至主 AI 编辑器！');
       } else {
         localStorage.setItem('molan_external_draft_' + projectId, textToSync);
@@ -468,14 +468,14 @@
           type: 'molan:cite-to-prompt',
           text: '【工作台候选正文】\n' + draftText,
           title: '候选正文'
-        }, '*');
+        }, window.location.origin);
         status('已将候选稿带入 AI 创作助手提示词！');
       } else if (window.opener && window.opener !== window) {
         window.opener.postMessage({
           type: 'molan:cite-to-prompt',
           text: '【工作台候选正文】\n' + draftText,
           title: '候选正文'
-        }, '*');
+        }, window.location.origin);
         status('已通过跨窗口直传将候选稿带入 AI 创作助手！');
       } else {
         localStorage.setItem('molan_external_cite', JSON.stringify({

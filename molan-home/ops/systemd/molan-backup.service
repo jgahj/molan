@@ -1,0 +1,22 @@
+[Unit]
+Description=Molan PostgreSQL Backup (pg_dump via lib/postgres-backup.js)
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=molan
+Group=molan
+WorkingDirectory=/opt/molan
+Environment=NODE_ENV=production
+Environment=MOLAN_PG_ENABLED=1
+Environment=MOLAN_PG_HOST=127.0.0.1
+Environment=MOLAN_PG_PORT=5432
+Environment=MOLAN_PG_DATABASE=molan
+Environment=MOLAN_PG_USER=novel_runtime
+Environment=MOLAN_PG_PASSWORD_FILE=/etc/molan/pg-runtime.pass
+# 备份输出目录（manifest + sha256 校验随份生成；恢复演练库名强制 molan_restore_drill_ 前缀）
+Environment=MOLAN_PG_BACKUP_DIR=/var/backups/molan
+ExecStart=/usr/local/bin/node --no-warnings scripts/postgres-backup.mjs backup
+# 2026-10-19 P2-6：备份脚本此前存在但无任何调度，本单元 + molan-backup.timer 使其自动执行
+TimeoutStartSec=1800

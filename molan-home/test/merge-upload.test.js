@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const read = name => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
-const app = read('app.js');
+// 2026-10-19 P2-4：app.js 已摘除，「主页脚本」口径改为当前入口 app-boot.js
+const app = read('app-boot.js');
 const home = read('index.html') + '\n/* == app-boot.js == */\n' + read('app-boot.js');
 const server = read('server.js');
 const generationRoutes = read('routes/generation.js');

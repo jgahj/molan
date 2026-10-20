@@ -209,7 +209,7 @@ test('IndexedDB WAL detects cross-tab version conflicts and conditionally clears
   assert.equal(firstWrite.conflict, false);
   const staleWrite = await second.put(record('tab-b:scene-1', 'tab-b', projectId, docKey, { type: 'splice', index: 0, deleteCount: 0, text: 'B' }), initialHead.version);
   assert.equal(staleWrite.conflict, true);
-  await new Promise(resolve => setTimeout(resolve, 5));
+  await new Promise(resolve => setTimeout(resolve, 60)); // 2026-10-19 P2-8：5ms 在 CI 并发负载下易抖，放宽到 60ms
   assert.ok(observed.some(message => message.type === 'changed' && message.tabId === 'tab-a'));
   const records = await first.readProject(projectId);
   assert.equal(records.length, 2);

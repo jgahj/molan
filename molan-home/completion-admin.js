@@ -1037,4 +1037,10 @@
   }
 
   window.MolanCompletionAdmin = { install };
+  // 2026-10-19 深度审查 P1-1 修复：本脚本自 2026-10-14 起改为按路由懒加载，
+  // 但 install() 唯一调用点在 workspace-completion.js 的 DOMContentLoaded 遍历——
+  // 彼时本模块尚未加载，导致 renderers.admin/admin-login 永远停留在 app-boot 占位页。
+  // 与 completion-import.js 尾部同模式：脚本就绪即自装（readyState 已过 loading 时立即执行）。
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
+  else install();
 }());

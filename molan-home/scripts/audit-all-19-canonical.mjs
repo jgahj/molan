@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const molanHome = 'c:/Users/lyh/Desktop/小说专属网页/molan-home';
+const molanHome = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); // 2026-10-19 P2-9：原硬编码本机绝对路径，改为脚本位置自解析
 const { computeAiFlavorScore } = require(path.join(molanHome, 'lib/ai-flavor-detector'));
 const { checkSourceOverlap, loadCorpusForFamily } = require(path.join(molanHome, 'lib/genre-engine'));
 

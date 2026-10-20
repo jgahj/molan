@@ -55,7 +55,7 @@ test('P1 Guardrails - CircuitBreaker transitions and fast-fails', async () => {
   );
 
   // 等待冷却时间后转入 HALF_OPEN
-  await new Promise(resolve => setTimeout(resolve, 60));
+  await new Promise(resolve => setTimeout(resolve, 200)); // 2026-10-19 P2-8：resetTimeoutMs=50 仅留 10ms 余量在 CI 下易抖，放宽到 4 倍
   assert.equal(breaker.getState(provider).state, CIRCUIT_STATES.HALF_OPEN);
   assert.equal(breaker.canExecute(provider), true);
 

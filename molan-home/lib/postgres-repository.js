@@ -1957,6 +1957,15 @@ function createPostgresRepository(options = {}) {
       if (current.rows.length && current.rows[0].state === 'provider_unknown' && ['queued', 'claimed', 'running'].includes(jobState)) {
         throw repositoryError('provider_unknown', '任务结果未知，必须人工核对后才能创建新尝试', 409);
       }
+      // 2026-10-19 深度审查 P2-1：乐观状态机守卫。调用方可声明 expectedStates，
+      // 仅当锁定行状态仍在期望集合内才允许覆盖；否则视为陈旧快照写入（例如取消路径
+      // 快照早于 worker 完成），直接返回数据库当前真实行，杜绝丢更新。
+      const expectedStates = Array.isArray(input.expectedStates) && input.expectedStates.length
+        ? input.expectedStates.map(state => String(state))
+        : null;
+      if (expectedStates && current.rows.length && !expectedStates.includes(String(current.rows[0].state))) {
+        return { ...publicJob(current.rows[0]), budgetReservation: null, staleStateGuard: true };
+      }
       const leaseUntil = ['claimed', 'running'].includes(jobState) ? new Date(Date.now() + leaseMs) : null;
       const resultJson = input.result === undefined || input.result === null ? null : JSON.stringify(input.result);
       let row;
@@ -2044,28 +2053,34 @@ function createPostgresRepository(options = {}) {
     });
   }
 
-  /** 读取当前用户可见的持久任务，结果未知状态不会被隐藏或自动改写。 */
+  /** 读取当前用户可见的持久任务，结果未知状态不会被隐藏或自动改写。
+   * 2026-10-19 深度审查 P0-3：补属主过滤（project_members 活跃成员），
+   * 修复任意登录用户可凭 jobId 越权读取/取消他人任务的 IDOR。
+   * 契约与 scripts/postgres-job-smoke.mjs「未授权用户必须拿到 null」一致。 */
   async function getJob(userId, jobId) {
     return withTransaction(userId, async client => {
-      await ensureActor(client, userId);
+      const actorUuid = await ensureActor(client, userId);
       const result = await client.query(
         `SELECT j.*, p.legacy_id AS project_legacy_id, w.legacy_id AS workspace_legacy_id
          FROM luna.jobs j
          JOIN luna.projects p ON p.workspace_id = j.workspace_id AND p.id = j.project_id
          JOIN luna.workspaces w ON w.id = j.workspace_id
+         JOIN luna.project_members pm
+           ON pm.workspace_id = j.workspace_id AND pm.project_id = j.project_id
+          AND pm.user_id = $2::uuid AND pm.active
          WHERE j.legacy_id = $1::text
          ORDER BY j.updated_at DESC
          LIMIT 1`,
-        [normalizeLegacyId(jobId, 'jobId')]
+        [normalizeLegacyId(jobId, 'jobId'), actorUuid]
       );
       return result.rows[0] ? publicJob(result.rows[0]) : null;
     });
   }
 
-  /** 读取任务预算预占和追加账本，供后台对账与 worker 验收使用。 */
+  /** 读取任务预算预占和追加账本，供后台对账与 worker 验收使用。（含与 getJob 一致的属主过滤） */
   async function getJobBudget(userId, jobId) {
     return withTransaction(userId, async client => {
-      await ensureActor(client, userId);
+      const actorUuid = await ensureActor(client, userId);
       const result = await client.query(
         `SELECT br.id, br.amount_minor, br.state, br.period_start,
                 coalesce(jsonb_agg(jsonb_build_object(
@@ -2077,10 +2092,13 @@ function createPostgresRepository(options = {}) {
            ON br.workspace_id = j.workspace_id AND br.project_id = j.project_id AND br.job_id = j.id
          LEFT JOIN luna.billing_ledger bl
            ON bl.workspace_id = br.workspace_id AND bl.project_id = br.project_id AND bl.reservation_id = br.id
+         JOIN luna.project_members pm
+           ON pm.workspace_id = j.workspace_id AND pm.project_id = j.project_id
+          AND pm.user_id = $2::uuid AND pm.active
          WHERE j.legacy_id = $1::text
          GROUP BY br.id, br.amount_minor, br.state, br.period_start
          LIMIT 1`,
-        [normalizeLegacyId(jobId, 'jobId')]
+        [normalizeLegacyId(jobId, 'jobId'), actorUuid]
       );
       if (!result.rows[0]) return null;
       return {

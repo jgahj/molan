@@ -566,7 +566,8 @@ const PUBLIC_ROOT_FILES = new Set([
   '/index.html',
   '/favicon.ico',
   '/favicon.svg',
-  '/app.js',
+  // 2026-10-19 P2-4：app.js（旧版单页应用，2123 行）生产零引用已摘除；
+  // 当前入口为 index.html → app-boot.js + boot-scripts.js 动态清单。
   '/app-boot.js',
   '/boot-head.js',
   '/boot-scripts.js',
@@ -1525,6 +1526,13 @@ function initDB(options = {}) {
 
 function dbReady() { return postgresHealth.available; }
 
+/** 2026-10-19 深度审查 P2-2：PG-only 收敛后 `db` 恒为 null（initDB 已 no-op）。
+ * 到达 legacy SQLite 记录层说明请求绕过了 PG dispatch（历史非 d_ id 或未覆盖的组合）。
+ * 必须显式 410 拒绝，而不是让 `db.prepare` 抛 TypeError 变成 500。 */
+function legacyStorageRemovedError() {
+  return Object.assign(new Error('该记录属于已下线的本地存储模式，请改用新的拆书任务'), { status: 410, code: 'legacy_storage_removed' });
+}
+
 function usageRowsFromJson() {
   try {
     const rows = JSON.parse(fs.readFileSync(TOKEN_USAGE_FILE, 'utf-8'));
@@ -1841,7 +1849,9 @@ function publicUsageRow(row) {
 }
 
 function getUsageSummary(email, includeRecent) {
-  if (dbReady()) {
+  // 2026-10-19 P2-2：PG-only 后 db 恒 null，此处为只读聚合——缺 db 时优雅走
+  // legacy JSON 读取（返回空聚合），不再 TypeError。
+  if (dbReady() && db) {
     const aggregate = db.prepare(`SELECT
       COUNT(*) AS request_count,
       COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
@@ -1916,7 +1926,7 @@ function usageSummaryFromAggregate(row) {
 
 function getUsageSummariesByUser() {
   const out = new Map();
-  if (dbReady()) {
+  if (dbReady() && db) {
     db.prepare(`SELECT user_email,
       COUNT(*) AS request_count,
       COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
@@ -2129,7 +2139,7 @@ const PIPELINE_FACT_UNIT_TYPES = new Set(['preface', 'chapter', 'scene', 'segmen
 // —— 章节库 / 事实库 / 批次库 的读写辅助 ——
 function pipelineEnabled(record) {
   if (!record || record.depth !== 'deep') return false;
-  if (!dbReady()) return false;
+  if (!dbReady() || !db) return false;
   const n = db.prepare("SELECT COUNT(*) AS n FROM dissection_units WHERE dissection_id = ? AND unit_type IN ('preface','chapter','scene','segment')").get(record.id).n || 0;
   return n >= PIPELINE_MIN_CHAPTERS;
 }
@@ -2436,6 +2446,7 @@ function dissectionRecordsFromJson() {
 function loadDissectionRecord(id, email, userId = '') {
   const key = String(email || '').trim().toLowerCase();
   const actorUserId = String(userId || projectScope.stableUserId(key)).trim();
+  if (dbReady() && !db) throw legacyStorageRemovedError();
   if (dbReady()) {
     const row = db.prepare(`SELECT * FROM dissections
       WHERE id = ? AND (owner_user_id = ? OR (owner_user_id = '' AND user_email = ?))`)
@@ -2515,6 +2526,7 @@ function dissectionPublicRecord(record, includeResult = true, pipelineStats) {
 }
 
 function insertDissectionRecord(record) {
+  if (dbReady() && !db) throw legacyStorageRemovedError();
   if (dbReady()) {
     db.prepare(`INSERT INTO dissections
       (id, user_email, owner_user_id, title, source_type, source_name, source_text, depth, purpose, selected_model, status, phase, phase_index, progress, estimated_credits, actual_credits, result_json, meta_json, error, cancel_requested, created_at, updated_at)
@@ -2533,6 +2545,7 @@ function insertDissectionRecord(record) {
 
 function updateDissectionRecord(record) {
   record.updatedAt = Date.now();
+  if (dbReady() && !db) throw legacyStorageRemovedError();
   if (dbReady()) {
     db.prepare(`UPDATE dissections SET status = ?, phase = ?, phase_index = ?, progress = ?, estimated_credits = ?, actual_credits = ?, result_json = ?, meta_json = ?, error = ?, cancel_requested = ?, owner_user_id = ?, updated_at = ? WHERE id = ? AND user_email = ?`).run(
       record.status, record.phase, record.phaseIndex, record.progress, record.estimatedCredits, record.actualCredits,
@@ -3045,7 +3058,7 @@ async function startDissectionJob(id, userEmail, authToken) {
 // it after logging in again, without silently starting a second job.
 function recoverDissectionJobs() {
   let rows = [];
-  if (dbReady()) {
+  if (dbReady() && db) {
     rows = db.prepare("SELECT * FROM dissections WHERE status IN ('queued', 'running')").all().map(dissectionRecordFromDb);
   } else {
     rows = dissectionRecordsFromJson().filter(item => item && ['queued', 'running'].includes(item.status));
@@ -3128,6 +3141,7 @@ const DISSECTION_CHILD_TABLES = [
 ];
 
 function deleteDissectionCascade(id, ownerEmail) {
+  if (dbReady() && !db) throw legacyStorageRemovedError();
   if (!dbReady()) return 0;
   const dissectionId = String(id || '').trim();
   if (!dissectionId) return 0;
@@ -3343,7 +3357,7 @@ async function handleDissectionCreativeBrief(req, res, id) {
 function dissectionContextForChapter(record, chapterNo) {
   const upTo = Math.max(0, Number(chapterNo) || 0);
   const snapshot = { upTo, arcs: [], characterStates: [], timeline: [], foreshadows: [], volume: null, bookMap: null };
-  if (!dbReady()) return snapshot;
+  if (!dbReady() || !db) return snapshot;
   // 故事弧摘要（含当前弧）
   const arcs = db.prepare("SELECT id, owner_id, content_json, child_ids_json FROM dissection_summaries WHERE dissection_id = ? AND summary_type = 'arc' ORDER BY rowid ASC").all(record.id).map(r => {
     let c = {}; try { c = JSON.parse(r.content_json || '{}'); } catch (_) {}
@@ -4656,7 +4670,8 @@ const { handlePostgresCreationBooksList, handlePostgresCreationBooksCreate, hand
 
 let healthCache = null;
 let healthCacheAt = 0;
-/** GET /api/health —— 增加 db 字段；附带 uptime/pid/activeChatStreams，供看护脚本区分“挂了”与“忙”。 */
+/** GET /api/health —— 增加 db 字段；附带 uptime/pid/activeChatStreams，供看护脚本区分“挂了”与“忙”。
+ *  build 构建指纹由实际服务的 routes/generation-handlers.js#handleHealth 返回。 */
 async function handleHealth(req, res) {
   if (typeof generationHandlers !== 'undefined' && generationHandlers && generationHandlers.handleHealth) {
     return generationHandlers.handleHealth(req, res);
@@ -4673,6 +4688,8 @@ async function handleHealth(req, res) {
       return respondPostgresError(res, error);
     }
   }
+  // build 字段由实际服务的 routes/generation-handlers.js#handleHealth 返回（含 SERVER_BUILD_ID）；
+  // 本函数仅为 generationHandlers 未装配时的兜底，维持原字段避免测试沙箱依赖外部常量。
   const health = { ok: true, db: dbOk ? 'ready' : 'off', postgres: postgresHealth, models: PLATFORM_MODELS.length };
   if (auth && isAdminUser(auth.user)) Object.assign(health, { key: DEEPSEEK_KEY ? 'set' : 'missing', novels: novelCount });
   else { healthCache = health; healthCacheAt = Date.now(); }
@@ -5430,9 +5447,8 @@ async function dispatchRequest(req, res) {
   }
   if (u.startsWith('/api/xuanhuan-lab/')) {
     if (!xuanhuanLab) xuanhuanLab = createXuanhuanLab({ dataDir: DATA_DIR, readBody,
-      repository: POSTGRES_MODE
-        ? new (require('./lib/repositories/postgres-lab-job-repository').PostgresLabJobRepository)(postgresRepository)
-        : process.env.MOLAN_APP_STORE === 'json' ? new (require('./lib/repositories/json-lab-job-repository').JsonLabJobRepository)(appRepository().repository) : undefined,
+      // 2026-10-19 P2-12：POSTGRES_MODE 恒真后 JSON/undefined 分支为死代码，坍缩为 PG-only。
+      repository: new (require('./lib/repositories/postgres-lab-job-repository').PostgresLabJobRepository)(postgresRepository),
       getAuthUser: req => CLOUD_API_BASE ? authenticateXuanhuanCloud(req, CLOUD_API_BASE) : getAuthUser(req), json,
       callModel: (auth, options) => callMolanChat('Bearer ' + auth.token, auth.user, options) });
     return xuanhuanLab.handle(req, res);
@@ -5662,6 +5678,14 @@ async function dispatchRequest(req, res) {
         create: handleCreationBooksCreate, postgresCreate: handlePostgresCreationBooksCreate,
         coreJobGet: creationCoreJobHttpService?.get, coreJobCancel: creationCoreJobHttpService?.cancel,
         bibleGet: handleCreationBookBibleGet, postgresBibleGet: handlePostgresCreationBookBibleGet,
+        // 2026-10-19 深度审查 P0-2 修复：以下 6 个 PG handler 此前已解构但漏注入，
+        // 导致生产（POSTGRES_MODE 恒真）fallthrough 到 legacy handler，db=null 必现 TypeError 500。
+        postgresBiblePut: handlePostgresCreationBookBiblePut,
+        postgresPlanExpand: handlePostgresCreationBookPlanExpand,
+        postgresPlanReview: handlePostgresCreationBookPlanReview,
+        postgresLinkNovel: handlePostgresCreationBookLinkNovel,
+        postgresChapterContract: handlePostgresCreationBookChapterContract,
+        postgresRegenerateAsset: handlePostgresCreationBookRegenerateAsset,
         state: handleCreationBookState, postgresState: handlePostgresCreationBookState,
         chapterAudit: handleCreationBookChapterAudit, postgresAudit: handlePostgresCreationBookAudit,
         commit: handleCreationBookCommit, postgresCommit: handlePostgresCreationBookCommit,

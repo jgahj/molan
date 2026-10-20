@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const baseDir = 'c:/Users/lyh/Desktop/小说专属网页/资源库/小说原本';
-const outDir = 'c:/Users/lyh/Desktop/小说专属网页/molan-home/lib';
+const baseDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '资源库', '小说原本');
+const outDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'lib');
 
 // 48 个分类的标准物理阻力、行业切口与器物手感映射字典
 // 结合对 1,117 部实体原著的微观考据与高频词萃取

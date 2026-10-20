@@ -28,7 +28,10 @@ function createCreationCoreJobHttpService({ creationCoreJobs, getAuthUser, json,
         fencingToken: job.fencingToken,
         inputHash: job.inputHash,
         result: job.result,
-        errorCode: 'cancel_requested'
+        errorCode: 'cancel_requested',
+        // 2026-10-19 P2-1：仅当任务仍处于未终止状态才允许写入取消；
+        // 若 worker 在快照读取后已完成，这里返回其真实终态而不覆盖。
+        expectedStates: ['queued', 'claimed', 'running']
       });
       const activeJob = creationCoreJobs.get(String(jobId || ''));
       if (next.state === 'cancel_requested' && activeJob && activeJob.userId === postgresActor(auth)) {

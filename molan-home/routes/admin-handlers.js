@@ -150,8 +150,12 @@ function createAdminHandlers(deps) {
     });
   }
 
-  /** POST /api/correction-library/merge：合并回流并重新编译。 */
+  /** POST /api/correction-library/merge：合并回流并重新编译。
+   * 2026-10-19 深度审查 P1-3：此前仅校验登录，任意用户可触发服务器子进程
+   * 重编译纠错库（越权管理操作 + 可重复消耗 CPU/IO）。补 requireAdmin，
+   * 与同文件 character-material audit 端点对齐。 */
   function handleCorrectionLibraryMerge(req, res) {
+    if (typeof requireAdmin === 'function' && !requireAdmin(req, res)) return;
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '未登录' });
     const scriptPath = buildCorrectionScriptPath || path.join(__dirname, '..', 'scripts', 'build-correction-library.mjs');

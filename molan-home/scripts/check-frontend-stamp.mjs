@@ -25,10 +25,10 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 // index.html 仅保留 ?v= 引用；两者都纳入探测范围。
 const STAMP_DECL_FILES = ['boot-scripts.js', 'index.html'];
 
-/** 受版本戳保护的前端资产（与 index.html 动态加载清单 + tokens.css 保持一致） */
+/** 受版本戳保护的前端资产（与 index.html 动态加载清单 + tokens.css 保持一致）
+ *  2026-10-19 P2-4：app.js（旧版单页应用）已摘除，不再受版本戳保护。 */
 const STAMPED_ASSETS = [
   'index.html',
-  'app.js',
   'app-boot.js',
   'boot-head.js',
   'boot-scripts.js',

@@ -108,8 +108,9 @@ test('automatically applies and audits the default writing Skill', () => {
 
 test('all browser writing pipelines enable the universal correction pass', () => {
   const editor = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.js'), 'utf8');
-  const home = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-  for (const source of [editor, home]) {
+  // 2026-10-19 P2-4：app.js（旧版单页应用）已摘除。主 SPA 的纠错注入由服务端
+  // injectUniversalCorrectionPolicy 承担（本文件上方用例已覆盖），此处保留独立编辑器页断言。
+  for (const source of [editor]) {
     assert.match(source, /const shouldCorrection = mode === 'write'/);
     assert.match(source, /!shouldAnalyzeSkill && !shouldHumanize && !shouldCorrection/);
     assert.match(source, /correction: true,[\s\S]{0,80}skillMode: 'humanize'/);

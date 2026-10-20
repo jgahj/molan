@@ -293,7 +293,7 @@
       $('backEditor').addEventListener('click', function (event) {
         if (window.parent && window.parent !== window) {
           event.preventDefault();
-          window.parent.postMessage({ type: 'molan:navigate', page: 'editor', novelId: projectId }, '*');
+          window.parent.postMessage({ type: 'molan:navigate', page: 'editor', novelId: projectId }, window.location.origin);
         }
       });
     }
@@ -574,14 +574,14 @@
           type: 'molan:cite-to-prompt',
           text: citeText,
           title: '资料 ' + resId
-        }, '*');
+        }, window.location.origin);
         toast('已引用至 AI 编辑器提示词！');
       } else if (window.opener && window.opener !== window) {
         window.opener.postMessage({
           type: 'molan:cite-to-prompt',
           text: citeText,
           title: '资料 ' + resId
-        }, '*');
+        }, window.location.origin);
         toast('已直传至 AI 编辑器提示词！');
       } else {
         localStorage.setItem('molan_external_cite', JSON.stringify({

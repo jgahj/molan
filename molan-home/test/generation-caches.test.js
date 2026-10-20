@@ -36,7 +36,7 @@ test('P1 Caches - CanonCache handles TTL, LRU eviction, and deterministic keys',
   assert.ok(stats.hits >= 1);
 
   // 验证 TTL 过期
-  await new Promise(resolve => setTimeout(resolve, 60));
+  await new Promise(resolve => setTimeout(resolve, 200)); // 2026-10-19 P2-8：TTL=50ms 仅留 10ms 余量，放宽断言等待
   assert.equal(cache.get(key1), null);
   assert.equal(cache.has(key1), false);
 });
@@ -51,7 +51,7 @@ test('P1 Caches - StyleProfileCache handles profile storage and metrics', async 
   assert.deepEqual(cache.get(key), { archetype: 'cold_irony', pace: 'compact' });
 
   // 等待 TTL 过期
-  await new Promise(resolve => setTimeout(resolve, 60));
+  await new Promise(resolve => setTimeout(resolve, 200)); // 2026-10-19 P2-8：TTL=50ms 仅留 10ms 余量，放宽断言等待
   assert.equal(cache.get(key), null);
 });
 

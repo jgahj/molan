@@ -22,6 +22,8 @@
           const now = Date.now();
           if (lastSent.has(key) && now - lastSent.get(key) < THROTTLE_MS) return;
           lastSent.set(key, now);
+          // 2026-10-19 P2-7：节流表有界（key 随错误消息变化而单调增长），超限淘汰最旧条目
+          if (lastSent.size > 200) lastSent.delete(lastSent.keys().next().value);
           const body = JSON.stringify({ ...payload, href: String(location.href).slice(0, 300) });
           if (navigator.sendBeacon) navigator.sendBeacon('/api/client-errors', new Blob([body], { type: 'application/json' }));
           else fetch('/api/client-errors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
@@ -53,7 +55,8 @@
     })();
     const LAZY_ROUTE_SCRIPTS = {
       './completion-import.js': ['resources', 'dissect', 'creation'],
-      './completion-admin.js': ['admin']
+      // 2026-10-19 P1-1：admin-login 此前不在清单内，进入管理员登录页时脚本根本不加载
+      './completion-admin.js': ['admin', 'admin-login']
     };
     const loadedLazyScripts = new Set();
     function loadLazyScript(src) {
@@ -2570,7 +2573,13 @@
       if (!previewState.editorBody && previewState.novelState) previewState.editorBody = editorBodyFromNovelState(previewState.novelState);
       stage.querySelectorAll('.editor-nav-head strong').forEach((node) => { node.textContent = previewState.novel.title; });
       const paper = stage.querySelector('.editor-paper');
-      if (paper && previewState.editorBody) paper.innerHTML = previewState.editorBody;
+      // 2026-10-19 深度审查 P1-4：guest state 中可能残留历史未消毒内容（如旧版外部同步
+      // 写入的原始 HTML），回灌 innerHTML 前统一消毒；消毒器随 completion-editor 提供。
+      if (paper && previewState.editorBody) {
+        paper.innerHTML = typeof window.MolanSanitizeHtml === 'function'
+          ? window.MolanSanitizeHtml(previewState.editorBody)
+          : escapeBackendHtml(previewState.editorBody).replace(/\n/g, '<br>');
+      }
       const title = stage.querySelector('.editor-paper h2');
       if (title && !previewState.editorBody) title.textContent = previewState.novel.title === '逆天重生：从废物到至尊' ? '雨夜试锋' : '第一章';
       const paperMeta = stage.querySelector('.editor-paper-meta span');
@@ -4121,6 +4130,9 @@
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && document.getElementById('modalBackdrop').classList.contains('open')) closeModal(); });
     window.addEventListener('message', (event) => {
       if (!event || !event.data) return;
+      // 2026-10-19 深度审查 P1-4：只接受同源消息。此前无 origin 校验，任意可引用
+      // 本窗口的页面（第三方 iframe / window.open 句柄）均可注入导航与正文写入指令。
+      if (event.origin !== window.location.origin) return;
       const data = event.data;
       if (data.type === 'molan:navigate') {
         if (data.novelId && window.previewState) {
@@ -4135,7 +4147,11 @@
         } else if (window.previewState) {
           window.previewState.editorBody = data.text;
           const paper = document.querySelector('[data-completion-paper] .completion-editor-content') || document.querySelector('.editor-paper');
-          if (paper) paper.innerHTML = data.text.replace(/\n/g, '<br>');
+          // 2026-10-19 P1-4：回灌前消毒（消毒器随 completion-editor 提供；缺失时退化为全转义）
+          const safeDraft = typeof window.MolanSanitizeHtml === 'function'
+            ? window.MolanSanitizeHtml(String(data.text || ''))
+            : escapeBackendHtml(String(data.text || '')).replace(/\n/g, '<br>');
+          if (paper) paper.innerHTML = safeDraft;
           showToast('已将正文从工作台同步至编辑器！');
         }
       } else if (data.type === 'molan:cite-to-prompt') {

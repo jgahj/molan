@@ -38,7 +38,8 @@ test('每次打开操作弹窗都会清理上一次请求遗留的禁用状态',
 });
 
 test('编辑器入口统一使用新版 index.html#editor 并保留旧链接兼容跳转', () => {
-  const rootSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  // 2026-10-19 P2-4：app.js 已摘除，根脚本口径改为当前入口 app-boot.js
+  const rootSource = fs.readFileSync(path.join(__dirname, '..', 'app-boot.js'), 'utf8');
   const dashboardSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'home-dashboard.js'), 'utf8');
   const novelsSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'novels.js'), 'utf8');
   const dissectSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'dissect.js'), 'utf8');

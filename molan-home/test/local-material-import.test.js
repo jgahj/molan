@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 
-const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+// 2026-10-19 P2-4：app.js（旧版单页应用）已摘除，超限截断逻辑的存活实现为 pages/editor.js
 const editorHtml = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.html'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.js'), 'utf8');
 
@@ -26,11 +26,12 @@ test('direct text-file imports reuse the same Skill/material ingestion path', ()
 });
 
 test('oversized text files keep a UTF-8-safe prefix instead of being skipped', () => {
-  for (const source of [appSource, editorSource]) {
+  // 2026-10-19 P2-4：app.js 已摘除；LOCAL_MATERIAL_PROMPT_LIMIT_BYTES 为旧主页常量，
+  // 其存活语义由 pages/editor.js 的 EDITOR_LOCAL_MATERIAL_PROMPT_LIMIT_BYTES 承接。
+  for (const source of [editorSource]) {
     assert.match(source, /file\.slice\(0, readSize\)\.arrayBuffer\(\)/);
     assert.match(source, /已保留前部内容/);
     assert.doesNotMatch(source, /file\.size > 5 \* 1024 \* 1024\) continue/);
   }
-  assert.match(appSource, /LOCAL_MATERIAL_PROMPT_LIMIT_BYTES/);
   assert.match(editorSource, /EDITOR_LOCAL_MATERIAL_PROMPT_LIMIT_BYTES/);
 });
