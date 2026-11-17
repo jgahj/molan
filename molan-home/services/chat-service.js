@@ -1113,12 +1113,25 @@ function createChatService({
         }
       }
       /**
-       * 构造第二遍（humanize 遍）的上游请求体：改写消息集 + 收敛后的改写预算。
-       * max_tokens 压到初稿长度上限（下限 768），控制两遍总成本。
+       * 构造第二遍（humanize 遍）的上游请求体：改写消息集 + 适配推理模型的改写预算。
        */
       function buildSecondPassBody(draft) {
-        const secondMessages = buildHumanizePassMessages(draft);
-        const secondMaxTokens = Math.min(max_tokens, Math.max(768, estimateTextTokenUpperBound(draft)));
+        const humanizeGenre = String(
+          (characterMaterialRequest && characterMaterialRequest.genre)
+          || (materialHint && materialHint.genre)
+          || (input && input.genre)
+          || effectiveGenre
+          || ''
+        ).trim();
+        const secondMessages = buildHumanizePassMessages(draft, {
+          genre: humanizeGenre,
+          targetChars: Number(input.targetChars || input.targetWords) || 0
+        });
+        const baseEstimate = Math.max(768, estimateTextTokenUpperBound(draft));
+        const hasReasoningBudget = Boolean(pm.supportsReasoning && reasoningEffort && reasoningEffort !== 'none');
+        const secondMaxTokens = hasReasoningBudget
+          ? Math.min(max_tokens, Math.max(4096, Math.round(baseEstimate * 1.4) + 3072))
+          : Math.min(max_tokens, baseEstimate);
         if (isOpenAI) {
           const officialMessages = addPromptCacheBreakpoint(secondMessages, pm);
           const obj = { model, messages: officialMessages, stream: true, stream_options: { include_usage: true } };
@@ -1145,7 +1158,7 @@ function createChatService({
       }
 
       /**
-       * 第一遍（生成遍）流结束：AI 味检测达标则直接下发初稿；超标则触发第二遍改写。
+       * 第一遍（生成遍）流结束：AI 味检测、结构风险或黑名单命中均触发第二遍精修；完全自然纯净则直接下发。
        * 第二遍失败或无输出时回退初稿，保证用户始终拿到完整正文。
        */
       function handleFirstPassEnd() {
@@ -1154,19 +1167,33 @@ function createChatService({
         firstPassUsage = lastUsage;
         aiFlavorFirstPass = computeAiFlavorScore(firstPassText, twoPassProfile);
         const forceHumanize = Boolean(input.forceHumanizePass === true || input.alwaysHumanize === true);
-        if (!firstPassText.trim() || (aiFlavorFirstPass && aiFlavorFirstPass.passed && !forceHumanize)) {
-          rewriteMeta = { applied: false, reason: aiFlavorFirstPass && aiFlavorFirstPass.passed ? 'first_pass_passed' : 'empty_draft' };
+        const firstScore = aiFlavorFirstPass && typeof aiFlavorFirstPass.score === 'number' ? aiFlavorFirstPass.score : 0;
+        const firstStructuralRisks = Number(aiFlavorFirstPass && aiFlavorFirstPass.metrics && aiFlavorFirstPass.metrics.structuralRiskTotal) || 0;
+        const firstBlockHits = Array.isArray(aiFlavorFirstPass && aiFlavorFirstPass.details && aiFlavorFirstPass.details.blockHits) ? aiFlavorFirstPass.details.blockHits.length : 0;
+        const needsHumanizePolish = Boolean(
+          forceHumanize
+          || !(aiFlavorFirstPass && aiFlavorFirstPass.passed)
+          || firstScore >= 28
+          || firstStructuralRisks > 0
+          || firstBlockHits > 0
+        );
+        if (!firstPassText.trim() || !needsHumanizePolish) {
+          rewriteMeta = {
+            applied: false,
+            reason: !firstPassText.trim() ? 'empty_draft' : 'first_pass_clean',
+            firstPassScore: firstScore,
+            structuralRiskTotal: firstStructuralRisks,
+            blockHits: firstBlockHits
+          };
           flushDraftAsSSE(firstPassText);
           finalizeUsage('completed');
           return;
         }
-        // AI 味超标 → 通知前端进入改写遍（信息性事件，未识别该事件的前端可安全忽略），再发起第二遍。
+        // AI 味或结构节奏需精修 → 通知前端进入改写遍（信息性事件，未识别该事件的前端可安全忽略），再发起第二遍。
         secondPassActive = true;
         lastUsage = null;
-        if (canWriteResponse()) {
-          try {
-            res.write('data: ' + JSON.stringify({ molan_rewrite: { phase: 'begin', firstPassScore: aiFlavorFirstPass.score } }) + '\n\n');
-          } catch (_) { closeClientResponse(); return; }
+        if (isStreamWritable() && res.headersSent) {
+          writeSseControlEvent('data: ' + JSON.stringify({ molan_rewrite: { phase: 'begin', firstPassScore: firstScore, structuralRiskTotal: firstStructuralRisks, blockHits: firstBlockHits } }) + '\n\n');
         }
         streamedContentText = '';
         streamedOutputText = '';

@@ -549,6 +549,8 @@ function createGenerationService({
                 ...(resolvedReasoningEffort ? { reasoningEffort: resolvedReasoningEffort } : {}),
                 characterMaterial: resolvedCharacterMaterial,
                 precompiledPrompt: true,
+                ...(typeof runRequest.useCompositionV3 === 'boolean' ? { useCompositionV3: runRequest.useCompositionV3 } : {}),
+                ...(typeof runRequest.twoPassHumanize === 'boolean' ? { twoPassHumanize: runRequest.twoPassHumanize } : {}),
                 ...(runRequest.modelParams && runRequest.modelParams.topP != null ? { topP: runRequest.modelParams.topP } : {}),
                 ...(runRequest.modelParams && runRequest.modelParams.presencePenalty != null ? { presencePenalty: runRequest.modelParams.presencePenalty } : {}),
                 ...(runRequest.modelParams && runRequest.modelParams.frequencyPenalty != null ? { frequencyPenalty: runRequest.modelParams.frequencyPenalty } : {}),
@@ -715,9 +717,9 @@ function createGenerationService({
                 return createJudgeEvaluationRecord(req.mockJudgeB, 'judge_b');
               }
 
-              const promptVersion = 'judge_prompt_v2.1';
+              const promptVersion = 'judge_prompt_v2.2';
               const inputPayload = {
-                draftExcerpt: buildJudgeEvidencePacket(draft, 4000),
+                draftExcerpt: buildJudgeEvidencePacket(draft, 12000),
                 genre: effectiveGenre,
                 style: (passedStyle && typeof passedStyle === 'object') ? (passedStyle.style || passedStyle.prompt || '') : String(passedStyle || req.style || ''),
                 chapterGoal: activeContract.chapterGoal || activeContract.goal || req.userInstruction || '',
@@ -736,6 +738,9 @@ function createGenerationService({
 
               if (isModelJudgeConfigured) {
                 try {
+                  const dimSchemaExample = criticalDimensions
+                    .map(dim => `"${dim}":{"score":0.85,"confidence":0.90,"quote":"从正文逐字摘录的原句(8-40字)","evidence":"结合本章目标与文本细节的客观评价"}`)
+                    .join(',');
                   const evalCall = await callMolanChat(String(executionContext.authorization || ''), user, {
                     modelId: modelId || req.judgeModelId || req.modelId,
                     projectId, workspaceId, recordId: runId, workflowId: runId,
@@ -745,9 +750,10 @@ function createGenerationService({
                     onProviderStart: executionContext.onProviderStart,
                     onProviderComplete: executionContext.onProviderComplete,
                     jsonMode: true, requireComplete: true,
-                    temperature: 0.2, maxTokens: 2000,
-                    system: `你是专业小说评审专家（${judgeSlot === 'judge_b' ? 'Judge B 复核评委' : 'Judge A 首席评委'}）。请对所提供小说正文进行客观文学质量评审。只输出 JSON：{"score": 0.85, "passed": true, "confidence": 0.90, "qualityVector": {"language": {"score": 0.85, "confidence": 0.90, "quote": "正文中的真实原句", "evidence": "具体评价"}}}`,
-                    userPrompt: JSON.stringify({ draftExcerpt: inputPayload.draftExcerpt, contract: activeContract })
+                    reasoningEffort: req.judgeReasoningEffort || 'medium',
+                    temperature: 0.2, maxTokens: 4000,
+                    system: `你是资深中文小说文学主编与质量评审专家（${judgeSlot === 'judge_b' ? 'Judge B 复核评委' : 'Judge A 首席评委'}）。请依据正文文本、章节目标与题材标准进行客观严格评审（切忌虚高放水）：75分以下代表及格边缘，85分以上需人物立体、感官落地、无AI腔套话、剧情因果成立。quote 字段必须从 draftExcerpt 逐字摘录真实连续原文。只输出严格 JSON：{"score":0.85,"passed":true,"confidence":0.90,"qualityVector":{${dimSchemaExample}}}`,
+                    userPrompt: JSON.stringify({ draftExcerpt: inputPayload.draftExcerpt, genre: inputPayload.genre, style: inputPayload.style, chapterGoal: inputPayload.chapterGoal, contract: activeContract })
                   });
                   if (evalCall && evalCall.json && typeof evalCall.json === 'object') {
                     modelJudgeOutput = evalCall.json;
@@ -810,9 +816,21 @@ function createGenerationService({
                 : baseConfidence;
 
               const vector = {};
+              const fullDraftStr = String(draft || '');
               for (const dim of criticalDimensions) {
-                if (modelJudgeOutput && modelJudgeOutput.qualityVector && modelJudgeOutput.qualityVector[dim]) {
-                  vector[dim] = modelJudgeOutput.qualityVector[dim];
+                const rawDimEntry = modelJudgeOutput && modelJudgeOutput.qualityVector && modelJudgeOutput.qualityVector[dim];
+                if (rawDimEntry && typeof rawDimEntry === 'object') {
+                  const rawQuote = typeof rawDimEntry.quote === 'string' ? rawDimEntry.quote.trim() : '';
+                  const safeQuote = (rawQuote.length >= 4 && fullDraftStr.includes(rawQuote)) ? rawQuote : sampleQuote;
+                  vector[dim] = {
+                    ...rawDimEntry,
+                    score: Number.isFinite(Number(rawDimEntry.score)) ? Number(rawDimEntry.score) : resolvedScore,
+                    confidence: Number.isFinite(Number(rawDimEntry.confidence)) ? Number(rawDimEntry.confidence) : resolvedConfidence,
+                    status: rawDimEntry.status || 'MEASURED',
+                    source: rawDimEntry.source || 'literary_evaluator',
+                    quote: safeQuote,
+                    evidence: rawDimEntry.evidence || `独立文学评估证据（${dim} - ${judgeSlot}）`
+                  };
                 } else {
                   vector[dim] = {
                     score: resolvedScore,
@@ -1169,6 +1187,9 @@ function createGenerationService({
       const normalized = generationRunContext.normalizeGenerationRequest({
         ...input, projectId, novelId: input.novelId || projectId, modelId, prompt, userInstruction: input.userInstruction || prompt,
         ...(providerContextLimit ? { providerContextLimit } : {}),
+        useCompositionV3: input.useCompositionV3 !== undefined ? input.useCompositionV3 : true,
+        twoPassHumanize: input.twoPassHumanize !== undefined ? input.twoPassHumanize : true,
+        enableQualityJudge: input.enableQualityJudge !== undefined ? input.enableQualityJudge : true,
         idempotencyKey: key
       });
       const request = normalized.request;
@@ -1479,6 +1500,9 @@ function createGenerationService({
           ...body,
           modelId,
           ...(providerContextLimit ? { providerContextLimit } : {}),
+          useCompositionV3: body.useCompositionV3 !== undefined ? body.useCompositionV3 : true,
+          twoPassHumanize: body.twoPassHumanize !== undefined ? body.twoPassHumanize : true,
+          enableQualityJudge: body.enableQualityJudge !== undefined ? body.enableQualityJudge : true,
           idempotencyKey: key
         });
         const request = normalized.request;

@@ -433,6 +433,7 @@ function compileDraftPrompt(options = {}) {
   const effectiveFocus = req.chapterFocus || activeContract.chapterFocus || options.chapterFocus || 'balanced';
   const effectiveWritingStyle = req.writingStyle || activeContract.writingStyle || req.styleArchetype || activeContract.styleArchetype || options.styleArchetype || (typeof style === 'string' ? style : (style && (style.style || style.prompt))) || '';
   const effectiveChapterFunction = req.chapterFunction || activeContract.chapterFunction || options.chapterFunction || '';
+  const effectiveEndingHook = req.endingHook || activeContract.endingHook || options.endingHook || '';
 
   let structuredDirectives = '';
   if (scenePlan) {
@@ -440,6 +441,13 @@ function compileDraftPrompt(options = {}) {
   } else if (Array.isArray(scenes) && scenes.length >= 1) {
     structuredDirectives = scenes.map((s, idx) => `场景 ${idx + 1}: ${s.goal || s.purpose || s.summary || ''}`).join('\n');
   }
+
+  const resolvedProviderLimit = Number(options.providerContextLimit ?? req.providerContextLimit ?? req.modelParams?.contextWindow ?? 0) || 0;
+  const writerReserve = Number(req.modelParams?.maxTokens ?? req.maxTokens ?? options.maxTokens ?? 0) || Math.max(8192, Math.min(16000, Math.ceil((Number(wordBudget?.target) || 2400) * 3.5)));
+  const scaledDefaultTotalTokens = resolvedProviderLimit >= 32000
+    ? Math.max(6000, Math.min(32000, resolvedProviderLimit - writerReserve - 2048))
+    : 12000;
+  const effectiveMaxTotalTokens = options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? scaledDefaultTotalTokens;
 
   // 1. 创作策略中间表示直接挂载 (Direct StrategyIR Mount Hook)
   const strategyIRInput = req.strategyIR || activeContract.strategyIR || options.strategyIR;
@@ -453,12 +461,7 @@ function compileDraftPrompt(options = {}) {
       userInstruction: userInstructionText
     });
 
-    const resolvedProviderLimit = Number(options.providerContextLimit ?? req.providerContextLimit ?? req.modelParams?.contextWindow ?? 0) || 0;
-    const writerReserve = Number(req.modelParams?.maxTokens ?? req.maxTokens ?? options.maxTokens ?? 0) || Math.max(8192, Math.min(16000, Math.ceil((Number(lowered.wordBudget?.target) || 2400) * 3.5)));
-    const scaledDefaultTotalTokens = resolvedProviderLimit >= 32000
-      ? Math.max(6000, Math.min(32000, resolvedProviderLimit - writerReserve - 2048))
-      : 12000;
-    const maxTotalTokens = options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? scaledDefaultTotalTokens;
+    const maxTotalTokens = effectiveMaxTotalTokens;
     const attention = tierAttention({
       permanentContext: lowered.priorityCascade?.P2_CREATION_BIBLE || '',
       chapterStrategy: lowered.systemPrompt,
@@ -505,20 +508,118 @@ function compileDraftPrompt(options = {}) {
   }
 
   // 2. 创作策略编译器挂载点 (V3 Composition Strategy Compiler Hook)
-  const compSpecInput = req.compositionSpec || activeContract.compositionSpec || options.compositionSpec;
-  if (compSpecInput) {
+  const rawCompSpecInput = req.compositionSpec || activeContract.compositionSpec || options.compositionSpec;
+  const autoV3Enabled = !rawCompSpecInput && (req.useCompositionV3 === true || options.useCompositionV3 === true);
+  if (rawCompSpecInput || autoV3Enabled) {
     const { defaultProfileRegistry } = require('../composition/profiles/profile-registry');
+    const { createGenreProfile } = require('../composition/profiles/genre-profile');
+    const { createStyleProfile } = require('../composition/profiles/style-profile');
+    const { createChapterGoalProfile } = require('../composition/profiles/chapter-goal-profile');
+    const { createFocusProfile } = require('../composition/profiles/focus-profile');
+    const { createHookProfile } = require('../composition/profiles/hook-profile');
     const { compileChapterStrategy } = require('../composition/compiler/strategy-compiler');
     const { defaultEvidenceCatalog } = require('../composition/corpus/evidence-catalog');
 
-    const spec = (compSpecInput && compSpecInput.schemaVersion === 'composition-spec-v1')
-      ? compSpecInput
-      : defaultProfileRegistry.resolveCompositionSpec(compSpecInput);
+    let spec;
+    if (rawCompSpecInput) {
+      spec = (rawCompSpecInput && rawCompSpecInput.schemaVersion === 'composition-spec-v1')
+        ? rawCompSpecInput
+        : defaultProfileRegistry.resolveCompositionSpec(rawCompSpecInput);
+    } else {
+      const genreHint = String(effectiveNovelGenre || '通用文学').trim();
+      const matchedGenreSeed = defaultProfileRegistry.getGenre(genreHint)
+        || (genreHint.includes('玄') || genreHint.includes('仙') ? defaultProfileRegistry.getGenre('xuanhuan_cautious')
+          : genreHint.includes('科幻') || genreHint.includes('末世') ? defaultProfileRegistry.getGenre('scifi_hardcore')
+          : genreHint.includes('历史') || genreHint.includes('古言') ? defaultProfileRegistry.getGenre('ancient_court')
+          : genreHint.includes('悬疑') || genreHint.includes('都市') ? defaultProfileRegistry.getGenre('urban_investigation')
+          : null);
+      const genreDirectiveText = compileGenreDirective(genreHint);
+      const genreProfile = createGenreProfile({
+        id: matchedGenreSeed ? `${matchedGenreSeed.id}_${genreHint.replace(/\W+/g, '').slice(0, 12) || 'auto'}` : 'auto_genre',
+        name: genreHint || '通用文学',
+        family: matchedGenreSeed?.family || 'universal',
+        background: matchedGenreSeed?.background || [genreHint],
+        coreConflicts: matchedGenreSeed?.coreConflicts || ['核心目标受阻', '多方利益博弈'],
+        readerPromises: matchedGenreSeed?.readerPromises || ['因果自洽', '细节落地', '张力推进'],
+        commonStoryEngines: matchedGenreSeed?.commonStoryEngines || ['growth_clash'],
+        description: genreDirectiveText || ''
+      });
+      const styleHint = String(effectiveWritingStyle || '沉稳克制').trim();
+      const matchedStyleSeed = defaultProfileRegistry.getStyle(styleHint)
+        || (/快|爽|干脆|利落/.test(styleHint) ? defaultProfileRegistry.getStyle('fast_paced_cool')
+          : /清冷|留白|写意|细腻|古韵/.test(styleHint) ? defaultProfileRegistry.getStyle('lyrical_minimalist')
+          : defaultProfileRegistry.getStyle('laobai_restrained'));
+      const styleDirectiveText = compileStyleDirective(styleHint);
+      const styleProfile = createStyleProfile({
+        id: 'auto_style',
+        name: styleHint,
+        baseVector: matchedStyleSeed?.baseVector,
+        positiveRules: [
+          ...(matchedStyleSeed?.positiveRules || []),
+          ...(styleDirectiveText ? [styleDirectiveText] : [])
+        ].slice(0, 6),
+        negativeRules: matchedStyleSeed?.negativeRules || ['严禁模板化肢体套话与空洞抒情']
+      });
+      const goalHint = String(effectiveChapterFunction || '冲突推进').trim();
+      const matchedGoalSeed = /揭|悬|查|线/.test(goalHint) ? defaultProfileRegistry.getGoal('info_reveal')
+        : /突|破|升|境/.test(goalHint) ? defaultProfileRegistry.getGoal('breakthrough_upgrade')
+        : defaultProfileRegistry.getGoal('conflict_push');
+      const chapterGoalProfile = createChapterGoalProfile({
+        id: matchedGoalSeed?.id || 'auto_goal',
+        name: goalHint || matchedGoalSeed?.name || '冲突推进',
+        readerEffect: matchedGoalSeed?.readerEffect || ['张力升级', '线索兑现'],
+        defaultStateDelta: {
+          stateBefore: '当前局面处于临界压迫点',
+          events: [String(activeContract.chapterGoal || userInstructionText || goalHint).slice(0, 140)],
+          stateAfter: '局面发生不可逆转折，留下新隐患',
+          invalidIfRemoved: String(activeContract.chapterGoal || '本章因果链与人物关系推进').slice(0, 100)
+        },
+        mustHave: matchedGoalSeed?.mustHave || ['行动阻力', '具体物理/局势回报'],
+        mustNot: matchedGoalSeed?.mustNot || ['无意义水字数与空洞口号']
+      });
+      const focusHint = String(effectiveFocus || 'balanced').trim();
+      const matchedFocusSeed = /对话|博弈|言辞/.test(focusHint) ? defaultProfileRegistry.getFocus('dialogue_game')
+        : /动作|搏杀|战斗|打/.test(focusHint) ? defaultProfileRegistry.getFocus('action_combat')
+        : defaultProfileRegistry.getFocus('balanced');
+      const focusProfile = createFocusProfile({
+        id: matchedFocusSeed?.id || 'auto_focus',
+        name: focusHint || matchedFocusSeed?.name || '剧情均衡推进',
+        budgetWeights: matchedFocusSeed?.budgetWeights,
+        directives: matchedFocusSeed?.directives
+      });
+      const hookHint = String(effectiveEndingHook || '悬念钩').trim();
+      const matchedHookSeed = /危机|倒计时|死生/.test(hookHint) ? defaultProfileRegistry.getHook('crisis_imminent')
+        : /期待|决战|大比/.test(hookHint) ? defaultProfileRegistry.getHook('anticipation_duel')
+        : defaultProfileRegistry.getHook('suspense_clue');
+      const hookProfile = createHookProfile({
+        id: matchedHookSeed?.id || 'auto_hook',
+        name: hookHint || matchedHookSeed?.name || '悬念钩',
+        type: matchedHookSeed?.type || 'suspense',
+        placement: 'ending',
+        gapType: matchedHookSeed?.gapType || 'information_gap',
+        payoffHorizon: matchedHookSeed?.payoffHorizon || 'short',
+        directiveTemplate: matchedHookSeed?.directiveTemplate || ''
+      });
+      spec = defaultProfileRegistry.resolveCompositionSpec({
+        genre: genreProfile,
+        style: styleProfile,
+        chapterGoal: chapterGoalProfile,
+        focus: focusProfile,
+        hook: hookProfile,
+        narrativePov: activeContract.pov || 'third_limited',
+        targetChars: wordBudget.target,
+        userInstruction: userInstructionText
+      });
+    }
 
-    const evidenceCards = defaultEvidenceCatalog.findRelevantCards({
-      dimensions: [spec.focus?.id, spec.style?.id, spec.chapterGoal?.id].filter(Boolean),
-      minStrength: 'B'
+    let evidenceCards = defaultEvidenceCatalog.findRelevantCards({
+      dimensions: [spec.focus?.id, spec.style?.id, spec.chapterGoal?.id, spec.genre?.id].filter(Boolean),
+      minStrength: 'B',
+      limit: 3
     });
+    if (!evidenceCards || evidenceCards.length === 0) {
+      evidenceCards = defaultEvidenceCatalog.findRelevantCards({ minStrength: 'A', limit: 3 });
+    }
 
     const compiledStrategy = compileChapterStrategy({
       spec,
@@ -529,11 +630,21 @@ function compileDraftPrompt(options = {}) {
       debtContext: options.debtContext || req.debtContext || activeContract.debtContext || null,
       debtProjection: options.debtProjection || req.debtProjection || activeContract.debtProjection || null,
       storyDebtLedger: options.storyDebtLedger || req.storyDebtLedger || activeContract.storyDebtLedger || null,
-      options
+      options: {
+        ...options,
+        userInstruction: (spec && spec.userInstruction) || userInstructionText,
+        targetModelFamily: options.targetModelFamily || req.targetModelFamily || req.modelId || options.modelId,
+        maxTotalTokens: effectiveMaxTotalTokens
+      }
     });
 
+    const baseSys = String(compiledStrategy.systemPrompt || '');
+    const withScenesSys = (structuredDirectives && !baseSys.includes(structuredDirectives))
+      ? `${baseSys}\n\n【场景规划执行卡】\n${structuredDirectives}`
+      : baseSys;
+
     return {
-      systemPrompt: compiledStrategy.systemPrompt,
+      systemPrompt: withScenesSys,
       userPrompt: compiledStrategy.userPrompt,
       wordBudget: compiledStrategy.wordBudget,
       sceneDirectives: structuredDirectives,
@@ -569,19 +680,13 @@ function compileDraftPrompt(options = {}) {
     `目标篇幅：${wordBudget.summary}。请严格按该篇幅要求撰写，请直接输出正文。`
   ].join('\n\n');
 
-  const resolvedProviderLimit = Number(options.providerContextLimit ?? req.providerContextLimit ?? req.modelParams?.contextWindow ?? 0) || 0;
-  const writerReserve = Number(req.modelParams?.maxTokens ?? req.maxTokens ?? options.maxTokens ?? 0) || Math.max(8192, Math.min(16000, Math.ceil((Number(wordBudget?.target) || 2400) * 3.5)));
-  const scaledDefaultTotalTokens = resolvedProviderLimit >= 32000
-    ? Math.max(6000, Math.min(32000, resolvedProviderLimit - writerReserve - 2048))
-    : 12000;
-
   const { tierAttention } = require('../composition/compiler/attention-tiering');
   const fallbackAttention = tierAttention({
     permanentContext: '',
     chapterStrategy: systemPrompt,
     evidenceCards: [],
     immediateContext: userPrompt,
-    maxTotalTokens: options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? scaledDefaultTotalTokens
+    maxTotalTokens: effectiveMaxTotalTokens
   });
 
   const fallbackPayload = fallbackAttention.attention || {
@@ -863,7 +968,8 @@ async function generateDraft(options = {}) {
       ...(draftRequest.presencePenalty != null ? { presencePenalty: draftRequest.presencePenalty } : {}),
       ...(draftRequest.frequencyPenalty != null ? { frequencyPenalty: draftRequest.frequencyPenalty } : {}),
       ...(options.twoPassHumanize !== undefined ? { twoPassHumanize: options.twoPassHumanize } : (request.twoPassHumanize !== undefined ? { twoPassHumanize: request.twoPassHumanize } : {})),
-      ...(options.forceHumanizePass !== undefined ? { forceHumanizePass: options.forceHumanizePass } : {})
+      ...(options.forceHumanizePass !== undefined ? { forceHumanizePass: options.forceHumanizePass } : {}),
+      ...(draftRequest.wordBudget?.target ? { targetChars: draftRequest.wordBudget.target } : {})
     };
     if (draftRequest.attention) {
       modelPayload.attention = draftRequest.attention;
