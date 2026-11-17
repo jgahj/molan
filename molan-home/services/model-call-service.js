@@ -58,6 +58,14 @@ function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HE
     if (o.requestId) body.requestId = String(o.requestId);
     if (o.thinking != null) body.thinking = o.thinking === true;
     if (o.reasoningEffort != null && o.reasoningEffort !== '') body.reasoningEffort = o.reasoningEffort;
+    if (typeof o.topP === 'number' && Number.isFinite(o.topP)) body.top_p = o.topP;
+    if (typeof o.presencePenalty === 'number' && Number.isFinite(o.presencePenalty)) body.presence_penalty = o.presencePenalty;
+    if (typeof o.frequencyPenalty === 'number' && Number.isFinite(o.frequencyPenalty)) body.frequency_penalty = o.frequencyPenalty;
+    if (o.genre) body.genre = String(o.genre);
+    if (o.characterMaterial && typeof o.characterMaterial === 'object') body.characterMaterial = o.characterMaterial;
+    if (typeof o.twoPassHumanize === 'boolean') body.twoPassHumanize = o.twoPassHumanize;
+    if (typeof o.forceHumanizePass === 'boolean') body.forceHumanizePass = o.forceHumanizePass;
+    if (o.precompiledPrompt === true) body.precompiledPrompt = true;
     if (o.projectId) body.projectId = String(o.projectId);
     if (o.workspaceId) body.workspaceId = String(o.workspaceId);
     if (o.jsonMode) body.jsonMode = true;

@@ -23,17 +23,33 @@ function parseChatStream(rawStream) {
   let finishReason = '';
   let done = false;
   for (const event of String(rawStream || '').split(/\r?\n\r?\n/)) {
-    const data = event.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n').trim();
-    if (!data) continue;
-    if (data === '[DONE]') { done = true; continue; }
-    let packet;
-    try { packet = JSON.parse(data); } catch (_) { throw Object.assign(new Error('流事件JSON损坏，结果未知，不自动重试'), { code: 'stream_invalid' }); }
-    if (packet.error || packet.molan_error) throw Object.assign(new Error('生成流返回错误，结果未知，不自动重试'), { code: 'stream_error' });
-    if (packet.molan_usage) usage = packet.molan_usage;
-    correctionAudit = packet.molan_correction_audit || packet.molan_usage?.correctionAudit || correctionAudit;
-    const choice = Array.isArray(packet.choices) ? packet.choices[0] : null;
-    if (choice?.finish_reason) finishReason = String(choice.finish_reason);
-    text += sseTextOf(packet);
+    const dataLines = event.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart().trim()).filter(Boolean);
+    if (!dataLines.length) continue;
+    // 若同一 SSE 事件块内合并了多条 data 行（例如 data: [DONE]\ndata: {"molan_usage":...}），先尝试按块解析，否则逐行解析
+    const candidates = [];
+    const joined = dataLines.join('\n').trim();
+    if (dataLines.length === 1) {
+      candidates.push(joined);
+    } else {
+      let joinedOk = false;
+      if (joined !== '[DONE]') {
+        try { JSON.parse(joined); joinedOk = true; } catch (_) {}
+      }
+      if (joinedOk) candidates.push(joined);
+      else candidates.push(...dataLines);
+    }
+    for (const data of candidates) {
+      if (!data) continue;
+      if (data === '[DONE]') { done = true; continue; }
+      let packet;
+      try { packet = JSON.parse(data); } catch (_) { throw Object.assign(new Error('流事件JSON损坏，结果未知，不自动重试'), { code: 'stream_invalid' }); }
+      if (packet.error || packet.molan_error) throw Object.assign(new Error('生成流返回错误，结果未知，不自动重试'), { code: 'stream_error' });
+      if (packet.molan_usage) usage = packet.molan_usage;
+      correctionAudit = packet.molan_correction_audit || packet.molan_usage?.correctionAudit || correctionAudit;
+      const choice = Array.isArray(packet.choices) ? packet.choices[0] : null;
+      if (choice?.finish_reason) finishReason = String(choice.finish_reason);
+      text += sseTextOf(packet);
+    }
   }
   if (!text.trim() || !done || ['content_filter', 'error'].includes(finishReason)) throw Object.assign(new Error('正文为空、流不完整或被截断，结果未知'), { code: 'stream_incomplete' });
   if (finishReason === 'length' && text.trim().length < 500) throw Object.assign(new Error('正文过短且被截断，结果未知'), { code: 'stream_incomplete' });

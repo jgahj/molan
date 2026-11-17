@@ -366,6 +366,7 @@ function createGenerationService({
   crypto,
   currentDefaultModel,
   decodePathParam,
+  findPlatformModel = null,
   generationManifest,
   generationProviderRequestId,
   generationRunContext,
@@ -385,6 +386,16 @@ function createGenerationService({
 }) {
   let orchestrator = null;
   const generationDatabase = () => postgresRepository;
+  function resolveProviderContextLimit(modelId, explicitLimit) {
+    const parsedExplicit = Number(explicitLimit);
+    if (Number.isFinite(parsedExplicit) && parsedExplicit > 0) return Math.floor(parsedExplicit);
+    if (typeof findPlatformModel === 'function') {
+      const pm = findPlatformModel(modelId);
+      const tokens = Number(pm && (pm.contextWindowTokens ?? pm.contextWindow));
+      if (Number.isFinite(tokens) && tokens > 0) return Math.floor(tokens);
+    }
+    return null;
+  }
   function generationRunOrchestrator() {
     if (orchestrator) return orchestrator;
     const store = generationRunStore();
@@ -481,6 +492,21 @@ function createGenerationService({
             const contract = runRequest.chapterContract || runRequest.contract || passedContract || {
               chapterId: runRequest.chapterId, goal: runRequest.userInstruction || runRequest.prompt
             };
+            const effectiveGenre = (passedGenre && typeof passedGenre === 'object' ? (passedGenre.genre || passedGenre.id) : passedGenre) || runRequest.genre || 'universal';
+            const resolvedProviderContextLimit = resolveProviderContextLimit(runRequest.modelId, runRequest.providerContextLimit);
+            const resolvedReasoningEffort = String(
+              (runRequest.modelParams && runRequest.modelParams.reasoningEffort)
+              || runRequest.reasoningEffort
+              || ''
+            ).trim().toLowerCase();
+            const resolvedCharacterMaterial = (runRequest.characterMaterial && typeof runRequest.characterMaterial === 'object')
+              ? runRequest.characterMaterial
+              : {
+                  proseTask: true,
+                  genre: effectiveGenre,
+                  novelId: runRequest.novelId || projectId,
+                  query: String(runRequest.userInstruction || runRequest.prompt || (contract && (contract.chapterGoal || contract.goal)) || '').slice(0, 800)
+                };
             if (typeof onProgress === 'function') onProgress({ stage: 'writing', message: '正在调用生成与审计管线' });
             try {
               pipelineResult = await contentEngine.generateDraft({
@@ -504,6 +530,7 @@ function createGenerationService({
                 auth,
                 request: {
                   ...runRequest,
+                  ...(resolvedProviderContextLimit ? { providerContextLimit: resolvedProviderContextLimit } : {}),
                   generationId: runId,
                   runId,
                   projectId,
@@ -516,8 +543,15 @@ function createGenerationService({
                 scenes: scenes || [],
                 context: typeof passedContext === 'string' && passedContext ? passedContext : (runRequest.storyContext && runRequest.storyContext.planText) || '',
                 contextPlan: passedContextPlan || null,
-                genre: passedGenre || runRequest.genre || 'universal',
+                genre: effectiveGenre,
                 style: (passedStyle && typeof passedStyle === 'object') ? (passedStyle.style || passedStyle.prompt || '') : (passedStyle || runRequest.style || story.styleDNA || story.styleProfile || ''),
+                ...(resolvedProviderContextLimit ? { providerContextLimit: resolvedProviderContextLimit } : {}),
+                ...(resolvedReasoningEffort ? { reasoningEffort: resolvedReasoningEffort } : {}),
+                characterMaterial: resolvedCharacterMaterial,
+                precompiledPrompt: true,
+                ...(runRequest.modelParams && runRequest.modelParams.topP != null ? { topP: runRequest.modelParams.topP } : {}),
+                ...(runRequest.modelParams && runRequest.modelParams.presencePenalty != null ? { presencePenalty: runRequest.modelParams.presencePenalty } : {}),
+                ...(runRequest.modelParams && runRequest.modelParams.frequencyPenalty != null ? { frequencyPenalty: runRequest.modelParams.frequencyPenalty } : {}),
                 signal,
                 onProgress
               });
@@ -555,7 +589,7 @@ function createGenerationService({
                   promptTokens: Number(call.usage.promptTokens ?? call.usage.prompt_tokens) || 0,
                   completionTokens: Number(call.usage.completionTokens ?? call.usage.completion_tokens) || 0,
                   reasoningTokens: Number(call.usage.reasoningTokens ?? call.usage.reasoning_tokens) || 0,
-                  cachedTokens: Number(call.usage.cachedTokens ?? call.usage.cached_tokens ?? call.usage.cachedInputTokens) || 0,
+                  cachedTokens: Number(call.usage.cachedTokens ?? call.usage.cached_tokens ?? call.usage.cachedInputTokens ?? call.usage.prompt_cache_hit_tokens ?? call.usage.promptCacheHitTokens) || 0,
                   totalTokens: Number(call.usage.totalTokens ?? call.usage.total_tokens) || 0,
                   creditCost: call.usage.creditCost == null ? null : Number(call.usage.creditCost),
                   reservedCost: Number(call.usage.reservedCost) || 0,
@@ -1131,8 +1165,10 @@ function createGenerationService({
       const userMessages = Array.isArray(input.messages) ? input.messages.filter(message => message && message.role === 'user') : [];
       const prompt = String(input.prompt || input.userInstruction || userMessages.map(message => String(message.content || '')).join('\n')).slice(0, 30000);
       const modelId = resolveModelForUser(auth.user, input.modelId || input.model || currentDefaultModel());
+      const providerContextLimit = resolveProviderContextLimit(modelId, input.providerContextLimit);
       const normalized = generationRunContext.normalizeGenerationRequest({
         ...input, projectId, novelId: input.novelId || projectId, modelId, prompt, userInstruction: input.userInstruction || prompt,
+        ...(providerContextLimit ? { providerContextLimit } : {}),
         idempotencyKey: key
       });
       const request = normalized.request;
@@ -1438,7 +1474,13 @@ function createGenerationService({
         const requestedModel = String(body.modelId || body.model || '').trim();
         const modelId = resolveModelForUser(auth.user, requestedModel || currentDefaultModel());
         if (requestedModel === 'gpt-6-luna' && modelId !== requestedModel) return json(res, 503, { ok: false, error: '平台模型目录未配置 gpt-6-luna，已停止请求以避免回退到其他模型', code: 'model_unavailable' });
-        const normalized = generationRunContext.normalizeGenerationRequest({ ...body, modelId, idempotencyKey: key });
+        const providerContextLimit = resolveProviderContextLimit(modelId, body.providerContextLimit);
+        const normalized = generationRunContext.normalizeGenerationRequest({
+          ...body,
+          modelId,
+          ...(providerContextLimit ? { providerContextLimit } : {}),
+          idempotencyKey: key
+        });
         const request = normalized.request;
         const access = await generationProjectAccess(actorUserId, request.projectId, String(body.workspaceId || ''));
         if (!projectScope.canAccess(access, projectScope.WRITE_ROLES, 'spend')) return json(res, 403, { ok: false, error: '当前账户无权在该项目生成正文', code: 'forbidden' });

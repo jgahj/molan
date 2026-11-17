@@ -225,9 +225,17 @@ function createChatService({
         /生成.*?章节|生成.*?小说|创作第.*?节|续写.*?章|写一章|写完整章节|正文（约\d+.*?字）|正文撰写任务|剧情节点|主要人物|世界观/i.test(userText);
 
       const requestedStage = String(input.stage || '').trim().toLowerCase();
-      const stage = ['skill_analysis', 'writing', 'humanizer', 'single'].includes(requestedStage)
-        ? requestedStage
+      const normalizedRequestedStage = requestedStage === 'writer' ? 'writing' : requestedStage;
+      const stage = ['skill_analysis', 'writing', 'humanizer', 'single'].includes(normalizedRequestedStage)
+        ? normalizedRequestedStage
         : (isCreationTask ? 'writing' : 'single');
+      const isPrecompiledInternalPrompt = Boolean(
+        internalRouteAuthorized
+        && input.precompiledPrompt === true
+        && stage === 'writing'
+        && !editorOnly
+        && input.jsonMode !== true
+      );
 
       function inferGenreFromInput(inputObj, msgs) {
         const explicit = String(inputObj && inputObj.genre || '').trim();
@@ -264,7 +272,7 @@ function createChatService({
       }
       const effectiveGenre = inferGenreFromInput(input, validatedMessages) || 'universal';
 
-      if (isCreationTask || stage === 'writing') {
+      if ((isCreationTask || stage === 'writing') && !isPrecompiledInternalPrompt) {
         const hasSystem = validatedMessages.some(m => m && m.role === 'system');
         if (!hasSystem) {
           if (input.system && typeof input.system === 'string' && input.system.trim()) {
@@ -314,7 +322,7 @@ function createChatService({
           }
         }
       }
-      const defaultSkillApplied = !editorOnly && (stage === 'writing' || stage === 'humanizer');
+      const defaultSkillApplied = !editorOnly && !isPrecompiledInternalPrompt && (stage === 'writing' || stage === 'humanizer');
       let skillAuditRequestValue = input.skillAudit;
       let editorSkill = null;
       let appliedDefaultSkillId = DEFAULT_WRITING_SKILL_ID;
@@ -375,13 +383,14 @@ function createChatService({
       let messages = validateChatMessages(editorOnly
         ? injectEditorOnlyCorrectionLibrary(preparedMessages.messages, editorCorrectionLibrary, correctionEnabled, { requestText: correctionRequestText, onRender: render => { editorCorrectionRender = render; } })
         : injectUniversalCorrectionPolicy(preparedMessages.messages, correctionEnabled));
+      const hasProtectionGuard = messages.some(m => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes('【系统安全防御铁律'));
       const sysMsgIndex = messages.findIndex(m => m && m.role === 'system');
-      if (sysMsgIndex >= 0) {
-        if (!messages[sysMsgIndex].content.includes('【系统安全防御铁律')) {
+      if (!hasProtectionGuard) {
+        if (sysMsgIndex >= 0) {
           messages[sysMsgIndex].content += '\n\n' + PROMPT_PROTECTION_GUARD;
+        } else {
+          messages.unshift({ role: 'system', content: PROMPT_PROTECTION_GUARD });
         }
-      } else {
-        messages.unshift({ role: 'system', content: PROMPT_PROTECTION_GUARD });
       }
       skillAudit = preparedMessages.skillAudit;
       skillAudit = {
@@ -421,12 +430,15 @@ function createChatService({
       const characterMaterialRequest = characterMaterialEligible
         ? { ...materialHint, query: materialHint.query || generationContextText, proseTask: materialHint.proseTask !== false }
         : { enabled: false, proseTask: false };
+      const characterMaterialMatureAllowed = characterMaterialEligible
+        ? await Promise.resolve(isMatureCharacterMaterialEnabledForNovel(auth.user, materialHint.novelId))
+        : false;
       const characterMaterialResult = editorOnly
         ? emptyEditorOnlyCharacterMaterialResult()
         : buildCharacterMaterialBlock({
           ...auth,
           characterMaterialAdmin: isAdminUser(auth.user),
-          characterMaterialMatureAllowed: isMatureCharacterMaterialEnabledForNovel(auth.user, materialHint.novelId)
+          characterMaterialMatureAllowed
         }, characterMaterialRequest);
       skillAudit = {
         ...skillAudit,
@@ -491,7 +503,7 @@ function createChatService({
         const reviewedMaterial = buildCharacterMaterialBlock({
           ...auth,
           characterMaterialAdmin: isAdminUser(auth.user),
-          characterMaterialMatureAllowed: isMatureCharacterMaterialEnabledForNovel(auth.user, materialHint.novelId)
+          characterMaterialMatureAllowed: await Promise.resolve(isMatureCharacterMaterialEnabledForNovel(auth.user, materialHint.novelId))
         }, characterMaterialRequest, { sampleIds: [...approvedSampleIds] });
         reviewedMaterial.audit = { ...reviewedMaterial.audit, sampleReview: characterMaterialReview.audit };
         Object.assign(characterMaterialResult, reviewedMaterial);
@@ -506,13 +518,14 @@ function createChatService({
         ]);
       }
       messages = injectPromptInjectionGuard(messages, stage, input.jsonMode === true);
-      // 两遍生成：生成遍注入正面节奏目标（来自资源库题材指纹统计基线），替代负面纠错约束。
+      // 正面节奏目标（来自资源库题材指纹统计基线）：writing 阶段与两遍生成均默认注入，替代空洞风格口号。
       let twoPassProfile = null;
-      if (twoPassHumanize && !editorOnly) {
+      if ((twoPassHumanize || stage === 'writing') && !editorOnly && input.jsonMode !== true) {
         const twoPassGenre = String(
           (characterMaterialRequest && characterMaterialRequest.genre)
           || (materialHint && materialHint.genre)
           || (input && input.genre)
+          || effectiveGenre
           || ''
         ).trim();
         const fingerprintMatched = resolveFingerprintProfile(twoPassGenre);
@@ -593,11 +606,21 @@ function createChatService({
       // ★ JSON 输出模式：拆书等结构化任务通过 input.jsonMode 开启，让上游强制返回合法 JSON
       if (input.jsonMode) {
         bodyObj.response_format = { type: 'json_object' };
-        // DeepSeek JSON 模式要求提示中包含 "json" 字样，此处补一个系统提示片段
-        const firstSystem = bodyObj.messages.findIndex(m => m && m.role === 'system' && typeof m.content === 'string');
+        // DeepSeek JSON 模式要求提示中包含 "json" 字样，此处补一个系统提示片段（兼容字符串或缓存分片数组）
         const jsonHint = '你必须在回复中输出一个合法的 JSON 对象（不要 Markdown 围栏，不要额外解释）。';
-        if (firstSystem >= 0) bodyObj.messages[firstSystem] = { ...bodyObj.messages[firstSystem], content: String(bodyObj.messages[firstSystem].content || '') + '\n\n' + jsonHint };
-        else bodyObj.messages.unshift({ role: 'system', content: jsonHint });
+        const firstSystem = bodyObj.messages.findIndex(m => m && m.role === 'system');
+        if (firstSystem >= 0) {
+          const sysMsg = bodyObj.messages[firstSystem];
+          if (typeof sysMsg.content === 'string') {
+            bodyObj.messages[firstSystem] = { ...sysMsg, content: sysMsg.content + '\n\n' + jsonHint };
+          } else if (Array.isArray(sysMsg.content)) {
+            bodyObj.messages[firstSystem] = { ...sysMsg, content: [...sysMsg.content, { type: 'text', text: '\n\n' + jsonHint }] };
+          } else {
+            bodyObj.messages.unshift({ role: 'system', content: jsonHint });
+          }
+        } else {
+          bodyObj.messages.unshift({ role: 'system', content: jsonHint });
+        }
       }
       const requestedRequestId = internalRouteAuthorized
         ? String(input.requestId || req.headers['idempotency-key'] || '').trim()
@@ -922,7 +945,7 @@ function createChatService({
         }
         const finishResponse = () => {
           if (!responseClosed && res.headersSent && !res.writableEnded && !res.destroyed) {
-            try { res.write('data: ' + JSON.stringify({ molan_usage: event }) + '\n\n'); } catch (_) {}
+            try { res.write('\n\ndata: ' + JSON.stringify({ molan_usage: event }) + '\n\n'); } catch (_) {}
             try { res.end(); } catch (_) {}
           }
         };

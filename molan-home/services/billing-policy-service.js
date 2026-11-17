@@ -31,7 +31,12 @@ function createBillingPolicyService({ findPlatformModel, PRICING, creditMultipli
       raw.reasoningTokens
     );
     const promptDetails = raw.prompt_tokens_details || raw.input_tokens_details || {};
-    const cachedTokens = firstTokenCount(promptDetails.cached_tokens, promptDetails.cachedTokens);
+    const cachedTokens = firstTokenCount(
+      promptDetails.cached_tokens,
+      promptDetails.cachedTokens,
+      raw.prompt_cache_hit_tokens,
+      raw.promptCacheHitTokens
+    );
     const cacheWriteTokens = firstTokenCount(promptDetails.cache_write_tokens, promptDetails.cacheWriteTokens);
     let totalTokens = firstTokenCount(raw.total_tokens, raw.totalTokens);
     if (totalTokens === null && promptTokens !== null && completionTokens !== null) totalTokens = promptTokens + completionTokens;

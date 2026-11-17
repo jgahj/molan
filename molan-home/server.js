@@ -489,13 +489,22 @@ function isAdminUser(userOrEmail) {
 }
 
 /** Check the server-persisted per-novel switch before allowing the mature material index. */
-function isMatureCharacterMaterialEnabledForNovel(user, novelId) {
-  if (!isAdminUser(user) || !String(novelId || '').trim() || !dbReady()) return false;
+async function isMatureCharacterMaterialEnabledForNovel(user, novelId) {
+  const id = String(novelId || '').trim();
+  if (!isAdminUser(user) || !id) return false;
   try {
-    const row = db.prepare('SELECT state_json FROM novels WHERE id = ?').get(String(novelId).trim());
-    if (!row) return false;
-    const state = safeJsonParse(row.state_json);
-    return !!(state && state.settings && state.settings.characterMaterialMatureEnabled === true);
+    if (postgresRepository && typeof postgresRepository.getProfile === 'function' && dbReady()) {
+      const profile = await postgresRepository.getProfile(postgresActor({ user }), id);
+      const pgState = profile && profile.state;
+      if (pgState && pgState.settings && pgState.settings.characterMaterialMatureEnabled === true) return true;
+    }
+    if (typeof db !== 'undefined' && db && typeof db.prepare === 'function' && dbReady()) {
+      const row = db.prepare('SELECT state_json FROM novels WHERE id = ?').get(id);
+      if (!row) return false;
+      const state = safeJsonParse(row.state_json);
+      return !!(state && state.settings && state.settings.characterMaterialMatureEnabled === true);
+    }
+    return false;
   } catch (_) {
     return false;
   }
@@ -5226,6 +5235,7 @@ const generationService = require('./services/generation-service').createGenerat
   crypto,
   currentDefaultModel,
   decodePathParam,
+  findPlatformModel,
   generationManifest,
   generationProviderRequestId,
   generationRunContext,

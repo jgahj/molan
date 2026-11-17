@@ -13,7 +13,7 @@ const CONTEXT_LAYERS = Object.freeze([
 ]);
 
 const BLOCK_TO_LAYER = Object.freeze({
-  sceneContract: 'L0_current', immediateTimeline: 'L0_current', instruction: 'L0_current',
+  sceneContract: 'L0_current', currentBody: 'L0_current', immediateTimeline: 'L0_current', instruction: 'L0_current',
   currentTask: 'L0_current', requiredPayoff: 'L0_current', requiredCausalPayoff: 'L0_current',
   scenes: 'L1_scene', scenePlan: 'L1_scene', currentScenePlan: 'L1_scene', sceneDirectives: 'L1_scene', location: 'L1_scene',
   outlineContext: 'L2_chapter',
@@ -25,10 +25,11 @@ const BLOCK_TO_LAYER = Object.freeze({
   volumeState: 'L4_volume', arcGoals: 'L4_volume', volumeOutline: 'L4_volume', currentVolumeOutline: 'L4_volume',
   bookOutlineSummary: 'L4_volume', distantPlot: 'L4_volume',
   characters: 'L5_facts', relationships: 'L5_facts', hardState: 'L5_facts',
-  factLedger: 'L5_facts', historicalFacts: 'L5_facts',
+  factLedger: 'L5_facts', historicalFacts: 'L5_facts', dossier: 'L5_facts', worldEntities: 'L5_facts',
   worldRules: 'L6_world_axioms', worldProhibitions: 'L6_world_axioms',
   povKnowledge: 'L6_world_axioms', forbiddenKnowledge: 'L6_world_axioms',
-  axioms: 'L6_world_axioms', styleSamples: 'L6_world_axioms', genreMechanisms: 'L6_world_axioms',
+  axioms: 'L6_world_axioms', creationBible: 'L6_world_axioms', styleKit: 'L6_world_axioms', globalLedger: 'L6_world_axioms',
+  styleSamples: 'L6_world_axioms', genreMechanisms: 'L6_world_axioms', boostContext: 'L6_world_axioms',
   activeCausalDebt: 'L7_causal_debt', causalDebt: 'L7_causal_debt',
   distantCausalDebtSummary: 'L7_causal_debt', foreshadows: 'L7_causal_debt', promises: 'L7_causal_debt'
 });
@@ -39,12 +40,12 @@ const PRIORITY = Object.freeze({
   worldRules: 0, axioms: 0, immediateTimeline: 0, chapterContract: 0,
   outlineContext: 0,
   currentChapterOutline: 0, chapterOutline: 0, currentScenePlan: 0, sceneDirectives: 0,
-  characters: 1, location: 1, relationships: 1, volumeState: 1, scenes: 1, scenePlan: 1,
+  currentBody: 1, characters: 1, location: 1, relationships: 1, volumeState: 1, scenes: 1, scenePlan: 1,
   chapterContext: 1, chapterPlan: 1, outline: 1, outlineDependencies: 1, volumeOutline: 1, currentVolumeOutline: 1, arcGoals: 1,
-  storyPlans: 1,
+  storyPlans: 1, creationBible: 1, dossier: 1, worldEntities: 1,
   activeCausalDebt: 1, causalDebt: 1,
   recentChapters: 2, previousEnding: 2, nextChapterOutline: 2, adjacentChapterSummaries: 2, bookOutlineSummary: 2,
-  planText: 2, foreshadows: 2, styleSamples: 2, genreMechanisms: 2,
+  planText: 2, foreshadows: 2, styleSamples: 2, genreMechanisms: 2, styleKit: 2, globalLedger: 2, boostContext: 2,
   distantPlot: 3, distantCausalDebtSummary: 3, historicalFacts: 3
 });
 const BLOCK_ORDER = Object.freeze([
@@ -52,11 +53,13 @@ const BLOCK_ORDER = Object.freeze([
   'outlineContext',
   'currentChapterOutline', 'chapterOutline', 'outline', 'requiredPayoff', 'requiredCausalPayoff',
   'hardState', 'povKnowledge', 'forbiddenKnowledge', 'worldProhibitions', 'worldRules', 'axioms',
-  'immediateTimeline', 'currentScenePlan', 'sceneDirectives', 'scenes', 'scenePlan', 'location',
+  'immediateTimeline', 'currentBody', 'currentScenePlan', 'sceneDirectives', 'scenes', 'scenePlan', 'location',
   'chapterContext', 'chapterPlan', 'storyPlans', 'outlineDependencies', 'characters', 'relationships',
+  'creationBible', 'dossier', 'worldEntities',
   'volumeOutline', 'currentVolumeOutline', 'volumeState', 'arcGoals', 'activeCausalDebt', 'causalDebt',
   'recentChapters', 'previousEnding', 'nextChapterOutline', 'adjacentChapterSummaries',
   'bookOutlineSummary', 'planText', 'foreshadows', 'styleSamples', 'genreMechanisms',
+  'styleKit', 'globalLedger', 'boostContext',
   'distantPlot', 'distantCausalDebtSummary', 'historicalFacts'
 ]);
 
@@ -627,7 +630,7 @@ function assembleContext(input = {}, options = {}) {
     delete prepared.outlineDependencies;
     delete prepared.nextChapterOutline;
 
-    // 3. 现场 continuity 净化：剥离已编译入模的 outline 与 nextChapter，杜绝 raw JSON 泄露
+    // 3. 现场 continuity 净化与拆解：剥离大纲别名并将长文本现场块提升为独立可裁剪纯文本块
     if (prepared.continuity && typeof prepared.continuity === 'object') {
       const sanitizedContinuity = { ...prepared.continuity };
       delete sanitizedContinuity.outline;
@@ -636,12 +639,53 @@ function assembleContext(input = {}, options = {}) {
       delete sanitizedContinuity.chapterPlan;
       delete sanitizedContinuity.nextChapter;
       delete sanitizedContinuity.nextChapterOutline;
+      delete sanitizedContinuity.boostEnabled;
+      delete sanitizedContinuity.memoryEnabled;
+      delete sanitizedContinuity.docsEnabled;
+
+      if (typeof sanitizedContinuity.currentBody === 'string' && sanitizedContinuity.currentBody.trim()) {
+        if (!prepared.currentBody) {
+          prepared.currentBody = `【当前章节已写正文（必须紧承续写，严禁重复或推翻已写段落）】\n${sanitizedContinuity.currentBody.trim()}`;
+        }
+        delete sanitizedContinuity.currentBody;
+      }
+      if (typeof sanitizedContinuity.creationBible === 'string' && sanitizedContinuity.creationBible.trim()) {
+        if (!prepared.creationBible) prepared.creationBible = sanitizedContinuity.creationBible.trim();
+        delete sanitizedContinuity.creationBible;
+      }
+      if (typeof sanitizedContinuity.dossier === 'string' && sanitizedContinuity.dossier.trim()) {
+        if (!prepared.dossier) prepared.dossier = sanitizedContinuity.dossier.trim();
+        delete sanitizedContinuity.dossier;
+      }
+      if (typeof sanitizedContinuity.entities === 'string' && sanitizedContinuity.entities.trim()) {
+        if (!prepared.worldEntities) prepared.worldEntities = sanitizedContinuity.entities.trim();
+        delete sanitizedContinuity.entities;
+      }
+      if (typeof sanitizedContinuity.styleKit === 'string' && sanitizedContinuity.styleKit.trim()) {
+        if (!prepared.styleKit) prepared.styleKit = sanitizedContinuity.styleKit.trim();
+        delete sanitizedContinuity.styleKit;
+      }
+      if (typeof sanitizedContinuity.globalLedger === 'string' && sanitizedContinuity.globalLedger.trim() && sanitizedContinuity.globalLedger.trim() !== String(prepared.creationBible || '').trim()) {
+        if (!prepared.globalLedger) prepared.globalLedger = sanitizedContinuity.globalLedger.trim();
+        delete sanitizedContinuity.globalLedger;
+      } else if (sanitizedContinuity.globalLedger) {
+        delete sanitizedContinuity.globalLedger;
+      }
+      if (typeof sanitizedContinuity.boostContext === 'string' && sanitizedContinuity.boostContext.trim()) {
+        if (!prepared.boostContext) prepared.boostContext = sanitizedContinuity.boostContext.trim();
+        delete sanitizedContinuity.boostContext;
+      }
+      if (sanitizedContinuity.openForeshadows && prepared.foreshadows) {
+        delete sanitizedContinuity.openForeshadows;
+      }
       if (Object.keys(sanitizedContinuity).length === 0) {
         delete prepared.continuity;
       } else {
         prepared.continuity = sanitizedContinuity;
       }
     }
+  } else if (prepared.currentBody && typeof prepared.currentBody === 'string' && !prepared.currentBody.startsWith('【当前章节已写正文')) {
+    prepared.currentBody = `【当前章节已写正文（必须紧承续写，严禁重复或推翻已写段落）】\n${prepared.currentBody.trim()}`;
   }
 
   if (prepared.chapterContext && prepared.chapterPlan) {
@@ -676,7 +720,8 @@ function assembleContext(input = {}, options = {}) {
       'impact', 'revision', 'planRevision',
       'chapterId', 'chapterNo', 'chapterNumber', 'currentChapterNo', 'currentChapterId',
       'currentVolumeId', 'volumeId', 'volumeNo',
-      'requiredOutlineIncluded', 'outlineBlockTokens'
+      'requiredOutlineIncluded', 'outlineBlockTokens',
+      'baseHash', 'baseRevision', 'baseStateVersion', 'bibleVersion', 'contentHash', 'planHash', 'stateVersion', 'storyBibleVersion'
     ].includes(key)) continue;
     const priority = PRIORITY[key] !== undefined ? PRIORITY[key] : 2;
     const isOutlineContext = key === 'outlineContext';

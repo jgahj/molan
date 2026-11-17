@@ -76,7 +76,7 @@ function usageForProviderCall(call) {
     promptTokens: Number(usage.promptTokens ?? usage.prompt_tokens) || 0,
     completionTokens: Number(usage.completionTokens ?? usage.completion_tokens) || 0,
     reasoningTokens: Number(usage.reasoningTokens ?? usage.reasoning_tokens) || 0,
-    cachedTokens: Number(usage.cachedTokens ?? usage.cached_tokens ?? usage.cachedInputTokens) || 0,
+    cachedTokens: Number(usage.cachedTokens ?? usage.cached_tokens ?? usage.cachedInputTokens ?? usage.prompt_cache_hit_tokens ?? usage.promptCacheHitTokens) || 0,
     reservedCostMinor: creditsToMinor(usage.reservedCost),
     actualCostMinor: creditsToMinor(usage.creditCost),
     costStatus: usage.creditCost != null && Number.isFinite(Number(usage.creditCost)) && Number(usage.creditCost) >= 0 &&

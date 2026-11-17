@@ -8,6 +8,7 @@ const { assertContextBudget } = require('./context-budget');
 const { CRITICAL_QUALITY_DIMENSIONS } = require('./audit-evidence');
 const { detectAiFlavorFindings } = require('../genre-engine');
 const { computeAiFlavorScore } = require('../ai-flavor-detector');
+const { resolveFingerprintProfile } = require('../style-fingerprint');
 const { DYNAMIC_PROMPT_MARKER } = require('./prompt-markers');
 const scenePlanner = require('../scene-planner');
 const { sanitizeInPlace } = require('./inplace-sanitizer');
@@ -41,15 +42,26 @@ const STATUS_TYPES = Object.freeze([
   'HUMAN_REVIEWED'
 ]);
 
+const ANCHOR_STOPWORDS_2 = new Set([
+  '当前', '章节', '目标', '人物', '故事', '进行', '需要', '可以', '因为', '所以', '然后', '开始',
+  '出现', '自己', '他们', '她们', '它们', '我们', '你们', '这个', '那个', '没有', '已经', '一些',
+  '什么', '怎么', '如何', '如果', '时候', '地方', '东西', '事情', '问题', '可能', '应该', '必须',
+  '以及', '或者', '但是', '不过', '虽然', '而且', '同时', '于是', '接着', '随后', '之前', '之后',
+  '之间', '其中', '这里', '那里', '一个', '一种', '这些', '那些', '所有', '一切', '方面', '情况',
+  '过程', '结果', '原因', '关系', '行动', '反应', '心理', '情绪', '画面', '场景', '正文', '大纲',
+  '完成', '推进', '实现', '发生', '产生', '引起', '导致', '保持', '维持', '继续', '准备', '决定'
+]);
+
 function extractAnchorKeywords(text) {
   const clean = String(text || '').trim();
   const rawParts = clean.split(/[^\u4e00-\u9fa5a-zA-Z0-9]+/);
   const keywords = new Set();
   for (const part of rawParts) {
-    if (part.length >= 2 && part.length <= 4) keywords.add(part);
+    if (!part) continue;
+    if (part.length >= 2 && part.length <= 4 && !ANCHOR_STOPWORDS_2.has(part)) keywords.add(part);
     for (let i = 0; i <= part.length - 2; i++) {
       const sub = part.slice(i, i + 2);
-      if (/[\u4e00-\u9fa5]{2}/.test(sub)) keywords.add(sub);
+      if (/[\u4e00-\u9fa5]{2}/.test(sub) && !ANCHOR_STOPWORDS_2.has(sub)) keywords.add(sub);
     }
   }
   return Array.from(keywords);
@@ -83,10 +95,15 @@ function evaluateQualityVector(text, { genre = 'universal', contract = {}, targe
   const unverifiedCount = Number(audit.unverifiedCount) || 0;
 
   // 1. 独立 AI Flavor Risk（禁止将 AI 套路直接换算为文学分）
+  let matchedProfile = null;
+  try {
+    const fp = resolveFingerprintProfile(rawGenre || 'universal');
+    matchedProfile = (fp && fp.profile) || null;
+  } catch (_) {}
   const aiFindings = detectAiFlavorFindings(content);
   let aiScore = 0;
   try {
-    const verdict = computeAiFlavorScore(content);
+    const verdict = computeAiFlavorScore(content, matchedProfile);
     aiScore = verdict && typeof verdict.score === 'number' ? verdict.score : (aiFindings.length * 12);
   } catch (_) {
     aiScore = aiFindings.length * 12;
@@ -104,10 +121,33 @@ function evaluateQualityVector(text, { genre = 'universal', contract = {}, targe
 
   // 2. 真实测量 Language 维度
   if (charCount > 0) {
-    const sentences = content.split(/[。！？!?\n]+/).filter(s => s.trim().length > 0);
+    const sentences = content.split(/[。！？!?\n]+/).map(s => s.trim()).filter(s => s.length > 0);
     const avgLen = sentences.length ? Math.round(charCount / sentences.length) : 0;
+    const lengths = sentences.map(s => s.length);
+    const meanLen = lengths.length ? lengths.reduce((a, b) => a + b, 0) / lengths.length : 0;
+    const variance = lengths.length ? lengths.reduce((a, l) => a + (l - meanLen) ** 2, 0) / lengths.length : 0;
+    const stdRatio = meanLen > 0 ? Number((Math.sqrt(variance) / meanLen).toFixed(3)) : 0;
+    let maxShortRun = 0;
+    let curShortRun = 0;
+    let consecutiveSameOpener = 0;
+    let prevOpener = '';
+    for (const s of sentences) {
+      if (s.length <= 10) {
+        curShortRun += 1;
+        if (curShortRun > maxShortRun) maxShortRun = curShortRun;
+      } else {
+        curShortRun = 0;
+      }
+      const opener = s.slice(0, 2);
+      if (opener.length === 2 && opener === prevOpener && /[\u4e00-\u9fa5]{2}/.test(opener)) {
+        consecutiveSameOpener += 1;
+      }
+      prevOpener = opener;
+    }
     const lengthRatio = charCount / Math.max(targetChars, 1);
-    const penalty = blockerCount * 0.3 + unverifiedCount * 0.1;
+    const fragmentPenalty = maxShortRun >= 5 ? 0.05 : 0;
+    const openerPenalty = consecutiveSameOpener >= 3 ? 0.05 : 0;
+    const penalty = blockerCount * 0.3 + unverifiedCount * 0.1 + fragmentPenalty + openerPenalty;
     const langValue = Number(Math.max(0.4, Math.min(0.95, (lengthRatio >= 0.7 ? 0.88 : 0.65) - penalty)).toFixed(3));
 
     qualityVector.language = {
@@ -119,7 +159,10 @@ function evaluateQualityVector(text, { genre = 'universal', contract = {}, targe
         `字符数=${charCount}`,
         `目标字数=${targetChars}`,
         `句子数=${sentences.length}`,
-        `平均句长=${avgLen}字`
+        `平均句长=${avgLen}字`,
+        `句长变异系数=${stdRatio}`,
+        ...(maxShortRun >= 5 ? [`连续短碎句=${maxShortRun}句`] : []),
+        ...(consecutiveSameOpener >= 3 ? [`连续重复句首=${consecutiveSameOpener}次`] : [])
       ]
     };
   } else {
@@ -410,7 +453,12 @@ function compileDraftPrompt(options = {}) {
       userInstruction: userInstructionText
     });
 
-    const maxTotalTokens = options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? 6000;
+    const resolvedProviderLimit = Number(options.providerContextLimit ?? req.providerContextLimit ?? req.modelParams?.contextWindow ?? 0) || 0;
+    const writerReserve = Number(req.modelParams?.maxTokens ?? req.maxTokens ?? options.maxTokens ?? 0) || Math.max(8192, Math.min(16000, Math.ceil((Number(lowered.wordBudget?.target) || 2400) * 3.5)));
+    const scaledDefaultTotalTokens = resolvedProviderLimit >= 32000
+      ? Math.max(6000, Math.min(32000, resolvedProviderLimit - writerReserve - 2048))
+      : 12000;
+    const maxTotalTokens = options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? scaledDefaultTotalTokens;
     const attention = tierAttention({
       permanentContext: lowered.priorityCascade?.P2_CREATION_BIBLE || '',
       chapterStrategy: lowered.systemPrompt,
@@ -521,13 +569,19 @@ function compileDraftPrompt(options = {}) {
     `目标篇幅：${wordBudget.summary}。请严格按该篇幅要求撰写，请直接输出正文。`
   ].join('\n\n');
 
+  const resolvedProviderLimit = Number(options.providerContextLimit ?? req.providerContextLimit ?? req.modelParams?.contextWindow ?? 0) || 0;
+  const writerReserve = Number(req.modelParams?.maxTokens ?? req.maxTokens ?? options.maxTokens ?? 0) || Math.max(8192, Math.min(16000, Math.ceil((Number(wordBudget?.target) || 2400) * 3.5)));
+  const scaledDefaultTotalTokens = resolvedProviderLimit >= 32000
+    ? Math.max(6000, Math.min(32000, resolvedProviderLimit - writerReserve - 2048))
+    : 12000;
+
   const { tierAttention } = require('../composition/compiler/attention-tiering');
   const fallbackAttention = tierAttention({
     permanentContext: '',
     chapterStrategy: systemPrompt,
     evidenceCards: [],
     immediateContext: userPrompt,
-    maxTotalTokens: options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? 6000
+    maxTotalTokens: options.maxTotalTokens ?? options.maxTokens ?? req.maxTotalTokens ?? req.maxTokens ?? scaledDefaultTotalTokens
   });
 
   const fallbackPayload = fallbackAttention.attention || {
@@ -689,16 +743,32 @@ function buildDraftRequest(options = {}) {
     promptBudget
   };
 
+  const resolvedReasoningEffort = String(options.reasoningEffort ?? req.modelParams?.reasoningEffort ?? req.reasoningEffort ?? '').trim().toLowerCase();
+  const resolvedGenre = typeof options.genre === 'object' && options.genre !== null
+    ? (options.genre.genre || options.genre.id || '')
+    : String(options.genre || req.genre || compiled.effectiveGenre || '').trim();
+  const resolvedCharacterMaterial = (options.characterMaterial && typeof options.characterMaterial === 'object')
+    ? options.characterMaterial
+    : (req.characterMaterial && typeof req.characterMaterial === 'object' ? req.characterMaterial : undefined);
+  const resolvedPresencePenalty = options.presencePenalty ?? req.modelParams?.presencePenalty ?? req.presencePenalty;
+  const resolvedFrequencyPenalty = options.frequencyPenalty ?? req.modelParams?.frequencyPenalty ?? req.frequencyPenalty;
+
   return {
     stage: 'writer',
     system: effectiveSystem,
     userPrompt: effectiveUser,
     modelId: req.modelId || options.modelId,
-    temperature: req.modelParams?.temperature ?? options.temperature ?? 0.75,
+    temperature: req.modelParams?.temperature ?? options.temperature ?? 0.72,
     topP: req.modelParams?.topP ?? options.topP ?? null,
     seed: req.modelParams?.seed ?? options.seed ?? null,
     maxTokens: writerMaxTokens,
     jsonMode: false,
+    ...(resolvedReasoningEffort ? { reasoningEffort: resolvedReasoningEffort } : {}),
+    ...(resolvedGenre ? { genre: resolvedGenre } : {}),
+    ...(resolvedCharacterMaterial ? { characterMaterial: resolvedCharacterMaterial } : {}),
+    ...(options.precompiledPrompt !== undefined ? { precompiledPrompt: Boolean(options.precompiledPrompt) } : (req.precompiledPrompt !== undefined ? { precompiledPrompt: Boolean(req.precompiledPrompt) } : {})),
+    ...(resolvedPresencePenalty != null ? { presencePenalty: resolvedPresencePenalty } : {}),
+    ...(resolvedFrequencyPenalty != null ? { frequencyPenalty: resolvedFrequencyPenalty } : {}),
     contextPlan,
     promptBudget,
     wordBudget: compiled.wordBudget,
@@ -785,7 +855,15 @@ async function generateDraft(options = {}) {
       topP: draftRequest.topP,
       seed: draftRequest.seed,
       maxTokens: draftRequest.maxTokens,
-      jsonMode: false
+      jsonMode: false,
+      ...(draftRequest.reasoningEffort ? { reasoningEffort: draftRequest.reasoningEffort } : {}),
+      ...(draftRequest.genre ? { genre: draftRequest.genre } : {}),
+      ...(draftRequest.characterMaterial ? { characterMaterial: draftRequest.characterMaterial } : {}),
+      ...(draftRequest.precompiledPrompt !== undefined ? { precompiledPrompt: draftRequest.precompiledPrompt } : {}),
+      ...(draftRequest.presencePenalty != null ? { presencePenalty: draftRequest.presencePenalty } : {}),
+      ...(draftRequest.frequencyPenalty != null ? { frequencyPenalty: draftRequest.frequencyPenalty } : {}),
+      ...(options.twoPassHumanize !== undefined ? { twoPassHumanize: options.twoPassHumanize } : (request.twoPassHumanize !== undefined ? { twoPassHumanize: request.twoPassHumanize } : {})),
+      ...(options.forceHumanizePass !== undefined ? { forceHumanizePass: options.forceHumanizePass } : {})
     };
     if (draftRequest.attention) {
       modelPayload.attention = draftRequest.attention;
