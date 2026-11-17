@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { StringDecoder } = require('node:string_decoder');
 const { createChatStreamRuntime } = require('./chat-stream-runtime');
 const { sanitizeUserPrompt } = require('../lib/ip-continuation-adapter');
 
@@ -733,6 +734,60 @@ function createChatService({
         return !responseClosed && !finalized && !res.writableEnded && !res.destroyed;
       }
 
+      let sseEndedWithBlankLine = true;
+      let passthroughLineBuffer = '';
+      let passthroughDecoder = new StringDecoder('utf8');
+
+      function writePassthroughSseChunk(chunk) {
+        if (!canWriteResponse()) return false;
+        const text = Buffer.isBuffer(chunk) ? passthroughDecoder.write(chunk) : String(chunk || '');
+        if (!text) return true;
+        passthroughLineBuffer += text;
+        const lastNewline = passthroughLineBuffer.lastIndexOf('\n');
+        if (lastNewline < 0) return true;
+        const completeSlice = passthroughLineBuffer.slice(0, lastNewline + 1);
+        passthroughLineBuffer = passthroughLineBuffer.slice(lastNewline + 1);
+        if (!completeSlice) return true;
+        try {
+          res.write(completeSlice);
+          sseEndedWithBlankLine = completeSlice.endsWith('\n\n') || completeSlice.endsWith('\r\n\r\n') || completeSlice.endsWith('\n\r\n');
+        } catch (_) {
+          closeClientResponse();
+          return false;
+        }
+        return true;
+      }
+
+      function flushPassthroughSseTail() {
+        const trailing = passthroughLineBuffer + passthroughDecoder.end();
+        passthroughLineBuffer = '';
+        passthroughDecoder = new StringDecoder('utf8');
+        if (!trailing) return;
+        const normalized = trailing.endsWith('\n\n') || trailing.endsWith('\r\n\r\n')
+          ? trailing
+          : (trailing.endsWith('\n') ? trailing + '\n' : trailing + '\n\n');
+        if (canWriteResponse() && res.headersSent) {
+          try {
+            res.write(normalized);
+            sseEndedWithBlankLine = true;
+          } catch (_) {
+            closeClientResponse();
+          }
+        }
+      }
+
+      function writeSseControlEvent(payload) {
+        if (!canWriteResponse() || !res.headersSent) return false;
+        const prefix = sseEndedWithBlankLine ? '' : '\n\n';
+        try {
+          res.write(prefix + payload);
+          sseEndedWithBlankLine = payload.endsWith('\n\n') || payload.endsWith('\r\n\r\n');
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+
       /** 标记客户端连接已关闭并释放上游请求与计费占用。 */
       function closeClientResponse() {
         cleanupKeepAlive();
@@ -802,8 +857,7 @@ function createChatService({
         const forwardedFileCount = Array.isArray(forwarding.skills)
           ? forwarding.skills.reduce((total, skill) => total + (Array.isArray(skill && skill.forwardedTextFiles) ? skill.forwardedTextFiles.length : 0), 0)
           : 0;
-        try {
-          res.write('data: ' + JSON.stringify({ molan_billing: {
+        writeSseControlEvent('data: ' + JSON.stringify({ molan_billing: {
             requestId,
             status: status || 'streaming',
             modelId,
@@ -839,7 +893,6 @@ function createChatService({
             twoPassHumanize: !!twoPassHumanize,
             editorOnly
           } }) + '\n\n');
-        } catch (_) {}
       }
 
       function finalizeUsage(status) {
@@ -944,8 +997,9 @@ function createChatService({
           };
         }
         const finishResponse = () => {
+          flushPassthroughSseTail();
           if (!responseClosed && res.headersSent && !res.writableEnded && !res.destroyed) {
-            try { res.write('\n\ndata: ' + JSON.stringify({ molan_usage: event }) + '\n\n'); } catch (_) {}
+            writeSseControlEvent('data: ' + JSON.stringify({ molan_usage: event }) + '\n\n');
             try { res.end(); } catch (_) {}
           }
         };
@@ -1160,11 +1214,7 @@ function createChatService({
       const chatStreamRuntime = createChatStreamRuntime({
         maxResponseBytes: UPSTREAM_MAX_RESPONSE_BYTES, maxBufferBytes: UPSTREAM_SSE_BUFFER_BYTES,
         onLimit: (code, message) => abortUpstreamRequest(code, code, message, 502),
-        onChunk: chunk => {
-          if (canWriteResponse()) {
-            try { res.write(chunk); } catch (_) { closeClientResponse(); return false; }
-          }
-        },
+        onChunk: chunk => writePassthroughSseChunk(chunk),
         onLine: (line, tail) => { parseStreamLine(line); if (!tail) sendBilling('streaming', false); }
       });
       async function sendUpstream(requestBody, opts) {
@@ -1371,7 +1421,7 @@ function createChatService({
               if (!keepAliveTimer) {
                 keepAliveTimer = setInterval(() => {
                   if (canWriteResponse() && res.headersSent) {
-                    try { res.write(': ping\n\n'); } catch (_) { cleanupKeepAlive(); }
+                    if (!writeSseControlEvent(': ping\n\n')) cleanupKeepAlive();
                   } else {
                     cleanupKeepAlive();
                   }
@@ -1384,6 +1434,7 @@ function createChatService({
             });
             upRes.on('end', () => {
               if (finalized || responseClosed) return;
+              flushPassthroughSseTail();
               chatStreamRuntime.finish();
               onStreamEnd();
             });
