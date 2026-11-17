@@ -729,9 +729,14 @@ function createChatService({
       // Do not stop from a text-length estimate: CJK tokenization varies by
       // provider, and that estimate can cut a sentence before finish_reason.
 
+      /** 判断底层 HTTP 响应流是否仍处于可写未关闭状态（不检查 finalized）。 */
+      function isStreamWritable() {
+        return !responseClosed && !res.writableEnded && !res.destroyed;
+      }
+
       /** 判断当前 HTTP 响应是否仍可安全写入流式数据。 */
       function canWriteResponse() {
-        return !responseClosed && !finalized && !res.writableEnded && !res.destroyed;
+        return !finalized && isStreamWritable();
       }
 
       let sseEndedWithBlankLine = true;
@@ -766,7 +771,7 @@ function createChatService({
         const normalized = trailing.endsWith('\n\n') || trailing.endsWith('\r\n\r\n')
           ? trailing
           : (trailing.endsWith('\n') ? trailing + '\n' : trailing + '\n\n');
-        if (canWriteResponse() && res.headersSent) {
+        if (isStreamWritable() && res.headersSent) {
           try {
             res.write(normalized);
             sseEndedWithBlankLine = true;
@@ -776,8 +781,9 @@ function createChatService({
         }
       }
 
-      function writeSseControlEvent(payload) {
-        if (!canWriteResponse() || !res.headersSent) return false;
+      function writeSseControlEvent(payload, { allowFinalized = false } = {}) {
+        const writable = allowFinalized ? isStreamWritable() : canWriteResponse();
+        if (!writable || !res.headersSent) return false;
         const prefix = sseEndedWithBlankLine ? '' : '\n\n';
         try {
           res.write(prefix + payload);
@@ -998,8 +1004,8 @@ function createChatService({
         }
         const finishResponse = () => {
           flushPassthroughSseTail();
-          if (!responseClosed && res.headersSent && !res.writableEnded && !res.destroyed) {
-            writeSseControlEvent('data: ' + JSON.stringify({ molan_usage: event }) + '\n\n');
+          if (isStreamWritable() && res.headersSent) {
+            writeSseControlEvent('data: ' + JSON.stringify({ molan_usage: event }) + '\n\n', { allowFinalized: true });
             try { res.end(); } catch (_) {}
           }
         };
