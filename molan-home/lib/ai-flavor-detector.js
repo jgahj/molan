@@ -289,14 +289,21 @@ function computeAiFlavorScore(text, profile) {
     const count = countOccurrences(compact, term);
     if (count > 0) llmGlueHits.push({ term, count });
   }
+  const densityDenominator = Math.max(compact.length, 1000);
   const llmGlueTotal = llmGlueHits.reduce((sum, hit) => sum + hit.count, 0);
-  const llmGluePerKilo = roundTo((llmGlueTotal * 1000) / Math.max(compact.length, 1000)) || 0;
+  const llmGluePerKilo = roundTo((llmGlueTotal * 1000) / densityDenominator) || 0;
   // 定语修饰过载（“……的+名词”高密度串联与缺乏极短平实直述句，朱雀极高敏特征）
   const deModifiers = compact.match(/[\u4e00-\u9fff]{2,5}的(?=[\u4e00-\u9fff]{1,4})/gu) || [];
-  const deModifierPerKilo = roundTo((deModifiers.length * 1000) / Math.max(compact.length, 1000)) || 0;
+  const deModifierPerKilo = roundTo((deModifiers.length * 1000) / densityDenominator) || 0;
   const plainShortSentenceCount = sentenceLengths.filter(len => len <= 16).length;
   const plainShortRatio = sentenceLengths.length > 0 ? roundTo(plainShortSentenceCount / sentenceLengths.length, 4) : 0;
   const overPolishedSensoryRisk = Boolean(deModifierPerKilo >= 26 || (deModifierPerKilo >= 20 && plainShortRatio < 0.35));
+  // 感叹号与破折号密布（朱雀高频模型情绪标点指纹）
+  const exclamationCount = (compact.match(/[！!]/g) || []).length;
+  const dashCount = (compact.match(/——/g) || []).length;
+  const exclamationPerKilo = roundTo((exclamationCount * 1000) / densityDenominator) || 0;
+  const dashPerKilo = roundTo((dashCount * 1000) / densityDenominator) || 0;
+  const punctuationOverloadRisk = Boolean(exclamationPerKilo > 3 || dashPerKilo > 1.5);
 
   // 字符 bigram TTR：去停用标点后统计。
   const letters = compact.replace(STOP_PUNCTUATION_PATTERN, '');
@@ -318,7 +325,6 @@ function computeAiFlavorScore(text, profile) {
   }
   const blockHitTotal = blockHits.reduce((sum, hit) => sum + hit.count, 0);
   const watchHitTotal = watchHits.reduce((sum, hit) => sum + hit.count, 0);
-  const densityDenominator = Math.max(compact.length, 1000);
   const lexiconBlockPerKilo = roundTo((blockHitTotal * 1000) / densityDenominator) || 0;
   const lexiconWatchPerKilo = roundTo((watchHitTotal * 1000) / densityDenominator) || 0;
 
@@ -348,6 +354,8 @@ function computeAiFlavorScore(text, profile) {
   if (llmGluePerKilo >= 2) score += Math.min(12, Math.round(llmGluePerKilo * 2.5));
   if (sentenceBurstiness.flatClusterCount > 0) score += Math.min(8, sentenceBurstiness.flatClusterCount * 4);
   if (singleNarrativeCount >= 5) score += Math.min(8, (singleNarrativeCount - 4) * 3);
+  if (exclamationPerKilo > 4.5) score += 4;
+  if (dashPerKilo > 3) score += 4;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   const byCountDesc = (a, b) => b.count - a.count || (a.term < b.term ? -1 : a.term > b.term ? 1 : 0);
@@ -372,6 +380,11 @@ function computeAiFlavorScore(text, profile) {
         deModifierPerKilo,
         plainShortRatio,
         overPolishedSensoryRisk,
+        exclamationCount,
+        dashCount,
+        exclamationPerKilo,
+        dashPerKilo,
+        punctuationOverloadRisk,
         singleNarrativeCount,
         uniformCadenceRisk: Boolean(sentenceBurstiness.flatClusterCount > 0 || (sentenceBurstiness.cv > 0 && sentenceBurstiness.cv < 0.48))
       }

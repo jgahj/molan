@@ -801,3 +801,226 @@ test('chat-service 两遍模式下 >=200字初稿即使浅层分不高也不跳�
   assert.ok(pass2Sys.includes('困惑度') && pass2Sys.includes('剧烈落差'), 'Pass 2 system prompt must include anti-AI statistical guidance');
   assert.ok(pass2Sys.includes('《纠错库》'), 'Pass 2 system prompt must inject 《纠错库》 guidance');
 });
+
+test('方案B：低修饰语范本筛选、感叹号/破折号诊断与跨家族异构第二遍路由及失败回退', async () => {
+  const { createChatService } = require('../services/chat-service');
+  const { createHumanizePolicyService } = require('../services/humanize-policy-service');
+  const { resolveFingerprintProfile } = require('../lib/style-fingerprint');
+  const EventEmitter = require('node:events');
+
+  const ex = buildLivingProseExemplarBlock(
+    { genre: '都市', query: '小店深夜收摊讨价还价' },
+    { limit: 2, maxExcerptChars: 360, maxDeModifierPerKilo: 15 }
+  );
+  assert.ok(ex && ex.samples.length >= 1, 'low-modifier exemplar lookup should return samples');
+
+  const noisy = [
+    '门被推开了！',
+    '他站在风口——浑身湿透！',
+    '声音突然拔高了八度——你到底拿没拿那个铁盒子！',
+    '所有人都屏住了呼吸——仿佛空气都要炸开！'
+  ].join('\n\n');
+  const flavor = computeAiFlavorScore(noisy, null);
+  assert.ok(flavor.metrics.zhuqueSignals.exclamationCount >= 4);
+  assert.ok(flavor.metrics.zhuqueSignals.dashCount >= 3);
+  assert.equal(flavor.metrics.zhuqueSignals.punctuationOverloadRisk, true);
+  const guided = correctionPolicy.buildTargetedCorrectionGuidance(noisy, { genre: '都市' });
+  assert.ok(guided.block.includes('标点指纹'), 'targeted guidance should warn on exclamation/dash overload');
+
+  const humanizeService = createHumanizePolicyService({
+    buildHumanizeLexiconBlock,
+    UNIVERSAL_CORRECTION_MARKER: '<!-- molan-universal-correction-policy-v1 -->',
+    UNIVERSAL_CORRECTION_POLICY_PROMPT: correctionPolicy.UNIVERSAL_CORRECTION_POLICY_PROMPT
+  });
+
+  function runChatScenario({ failHeteroFirst }) {
+    const acpBodies = [];
+    const httpCalls = [];
+    const ssePayloads = [];
+    const settledEvents = [];
+    const geminiPm = { id: 'gemini-3.8-flash-acp', group: 'antigravity', provider: 'antigravity-acp', model: 'gemini-3.8-flash', supportsReasoning: true, defaultReasoningEffort: 'high', promptCaching: false };
+    const lunaPm = { id: 'gpt-5.6-luna', group: 'gpt', provider: 'openai-compat', model: 'gpt-5.6-luna', supportsReasoning: true, baseURL: 'https://codex.xiaoguo.work/v1', apiKey: 'sk-test-luna', promptCaching: false };
+
+    const service = createChatService({
+      getDatabase: () => null,
+      getEnvironment: () => ({ MOLAN_TWO_PASS_HUMANIZE: '1' }),
+      getDeepseekKey: () => '',
+      getDeepseekUrl: () => '',
+      getProxyUrl: () => '',
+      postgresRepository: { enabled: false },
+      postgresActor: () => 'u_1',
+      getAuthUser: () => ({ user: { userId: 'u_1', email: 'test@local' } }),
+      allowChatRate: () => true,
+      acquireChatSlot: () => true,
+      releaseChatSlot: () => {},
+      json: (res, code, data) => { res.statusCode = code; res.body = data; },
+      readBody: async () => ({
+        model: 'gemini-3.8-flash-acp',
+        stage: 'writing',
+        twoPassHumanize: true,
+        genre: '都市',
+        precompiledPrompt: true,
+        targetChars: 400,
+        messages: [
+          { role: 'system', content: '你是网文写作助手。' },
+          { role: 'user', content: '写一段发廊雨夜催债。' }
+        ]
+      }),
+      respondError: (_res, err) => { throw err; },
+      CHAT_MAX_JSON_BODY_BYTES: 1024 * 1024,
+      nativeSkillCatalog: async () => null,
+      appRepository: () => ({ recordDispatchAttempt: async () => ({ ok: true, authorized: true }) }),
+      projectScope: { stableUserId: x => x },
+      isAdminUser: () => true,
+      INTERNAL_MODEL_ROUTE_KEY: 'internal-secret',
+      INTERNAL_MODEL_ROUTE_HEADER: 'x-molan-internal-route',
+      generationV2Enabled: () => true,
+      validateChatMessages: m => m,
+      splitDynamicPrompt: m => m,
+      detectNovelStyle: () => '',
+      adaptIpContinuationMessages: m => m,
+      DEFAULT_WRITING_SKILL_ID: 'writing',
+      loadEditorOnlyWritingSkill: () => null,
+      ensureEditorOnlyWritingSkill: m => ({ messages: m, injected: false }),
+      editorOnlySkillAuditRequest: () => ({}),
+      ensureDefaultWritingSkill: m => ({ messages: m, injected: false }),
+      addDefaultWritingSkillAudit: () => ({}),
+      buildSkillAudit: () => ({ skills: [] }),
+      prepareSkillMessagesForUpstream: (_auth, m, skillAudit) => ({ messages: m, skillAudit }),
+      correctionPolicyEnabled: () => true,
+      isTwoPassHumanizeEnabled: humanizeService.isTwoPassHumanizeEnabled,
+      loadEditorOnlyCorrectionLibrary: () => null,
+      CORRECTION_PRIOR_TEXT_MAX_CHARS: 1000,
+      lastUserMessageText: () => '写一段发廊雨夜催债。',
+      injectEditorOnlyCorrectionLibrary: m => m,
+      EDITOR_ONLY_CORRECTION_VERSION: '1.0',
+      EDITOR_ONLY_CORRECTION_FILE_DEFAULT: '',
+      UNIVERSAL_CORRECTION_POLICY_VERSION: 'v3',
+      UNIVERSAL_CORRECTION_STAGES: ['writing'],
+      injectUniversalCorrectionPolicy: m => m,
+      emptyEditorOnlyCharacterMaterialResult: () => ({ messages: [], audit: {} }),
+      buildCharacterMaterialBlock: () => ({ messages: [], audit: { enabled: false }, samples: [] }),
+      isMatureCharacterMaterialEnabledForNovel: () => false,
+      reviewCharacterMaterialSamples: async () => ({ approvedIds: [], audit: { required: false } }),
+      calculateCharacterMaterialRhythmDeviation: () => 0,
+      scanCharacterMaterialOverlap: () => ({ blocked: false, overlapFragments: [], leakedTerms: [] }),
+      injectPromptInjectionGuard: m => m,
+      resolveFingerprintProfile,
+      buildRhythmTargetBlock: () => '',
+      appendSystemBlock: humanizeService.appendSystemBlock,
+      planContextWindow: (_pm, msgs, reqMax) => ({ ok: true, messages: msgs, promptTokens: 100, contextWindowTokens: 1000000, availableCompletionTokens: reqMax || 8192, dynamicPromptTruncated: false }),
+      sanitizeSystemForUpstream: s => s,
+      internalModelIdFromRequest: () => '',
+      resolveModelForUser: () => 'gemini-3.8-flash-acp',
+      findPlatformModel: id => (id === 'gpt-5.6-luna' ? lunaPm : (id === 'gemini-3.8-flash-acp' ? geminiPm : null)),
+      currentDefaultModel: () => 'gemini-3.8-flash-acp',
+      buildHumanizePassMessages: humanizeService.buildHumanizePassMessages,
+      mergeUsageSum: humanizeService.mergeUsageSum,
+      computeAiFlavorScore,
+      summarizeAiFlavorVerdict: humanizeService.summarizeAiFlavorVerdict,
+      addPromptCacheBreakpoint: m => m,
+      normalizeReasoningEffort: (_pm, v) => v || '',
+      stablePromptCacheKey: () => 'k',
+      reserveCredits: async () => ({ ok: true }),
+      planCreditReservation: () => ({ ok: true, maxTokens: 8192, reservedCost: 0 }),
+      normalizeUsage: u => ({ promptTokens: u?.prompt_tokens || 0, completionTokens: u?.completion_tokens || 0, totalTokens: u?.total_tokens || 0 }),
+      estimateTextTokenUpperBound: () => 500,
+      creditCostForUser: () => 0,
+      roundCreditValue: v => v,
+      emptyCorrectionAudit: () => ({}),
+      scanUniversalCorrectionRisks: correctionPolicy.scanUniversalCorrectionRisks,
+      recordCorrectionHits: () => {},
+      settleTokenUsage: async ev => { settledEvents.push(ev); return { ok: true, creditCost: 0, billingStatus: 'ok' }; },
+      openUpstream: (url, _proxy, reqOpts, cb) => {
+        const req = new EventEmitter();
+        let buf = '';
+        req.write = c => { buf += c; };
+        req.destroy = () => {};
+        req.end = () => {
+          httpCalls.push({ url, headers: reqOpts.headers, body: JSON.parse(buf) });
+          const upRes = new EventEmitter();
+          upRes.setEncoding = () => {};
+          upRes.resume = () => {};
+          if (failHeteroFirst) {
+            upRes.statusCode = 502;
+            reqOpts.onResponse(upRes);
+            upRes.emit('data', '{"error":"upstream overloaded"}');
+            upRes.emit('end');
+            return;
+          }
+          upRes.statusCode = 200;
+          reqOpts.onResponse(upRes);
+          upRes.emit('data', 'data: {"choices":[{"delta":{"content":"十一点暴雨砸得门响，疤哥甩着湿裤腿坐下要五百茶水钱。陈阿明赔笑说月底才能从琴姐账上拿，心里却掂量着抽屉里那把剪刀。"}}]}\n\n');
+          upRes.emit('data', 'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":15,"total_tokens":35}}\n\n');
+          upRes.emit('data', 'data: [DONE]\n\n');
+          upRes.emit('end');
+        };
+        cb(null, req);
+        return req;
+      },
+      openAcpUpstream: (reqOpts, cb) => {
+        const req = new EventEmitter();
+        let buf = '';
+        req.write = c => { buf += c; };
+        req.destroy = () => {};
+        req.end = () => {
+          acpBodies.push(JSON.parse(buf));
+          const callNo = acpBodies.length;
+          const upRes = new EventEmitter();
+          upRes.statusCode = 200;
+          upRes.setEncoding = () => {};
+          upRes.resume = () => {};
+          reqOpts.onResponse(upRes);
+          const content = callNo === 1
+            ? '外头雨水敲打着生锈的铁皮卷帘门！疤哥嘴角勾起一抹冷笑——陈阿明盯着镜子里年轻而疲惫的自己。'.repeat(4)
+            : '门响了几下。陈阿明把抹布扔回盆里，说月底结完账一定把五百块凑齐送过去。';
+          upRes.emit('data', `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+          upRes.emit('data', 'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}\n\n');
+          upRes.emit('data', 'data: [DONE]\n\n');
+          upRes.emit('end');
+        };
+        cb(null, req);
+        return req;
+      },
+      responseCors: () => ({}),
+      UPSTREAM_MAX_RESPONSE_BYTES: 1024 * 1024,
+      UPSTREAM_SSE_BUFFER_BYTES: 65536,
+      UPSTREAM_QUALITY_SCAN_MAX_CHARS: 10000,
+      UPSTREAM_TOTAL_TIMEOUT_MS: 30000,
+      LIVE_BILLING_EVENT_INTERVAL_MS: 5000
+    });
+
+    let finishRes;
+    const donePromise = new Promise(resolve => { finishRes = resolve; });
+    const res = {
+      headersSent: false, writableEnded: false, destroyed: false,
+      on: () => {}, once: () => {}, setHeader: () => {},
+      writeHead: () => { res.headersSent = true; },
+      write: chunk => { ssePayloads.push(String(chunk)); },
+      end: () => { res.writableEnded = true; finishRes(); }
+    };
+    return service.handleChat({ headers: { 'x-molan-internal-route': 'internal-secret' }, on: () => {}, once: () => {} }, res)
+      .then(async () => {
+        if (!res.writableEnded) await donePromise;
+        return { acpBodies, httpCalls, ssePayloads, settledEvents };
+      });
+  }
+
+  const heteroOk = await runChatScenario({ failHeteroFirst: false });
+  assert.equal(heteroOk.acpBodies.length, 1, 'Pass 1 should use Gemini ACP');
+  assert.equal(heteroOk.httpCalls.length, 1, 'Pass 2 should auto-route to heterogeneous gpt-5.6-luna over HTTP');
+  assert.equal(heteroOk.httpCalls[0].url, 'https://codex.xiaoguo.work/v1/chat/completions');
+  assert.equal(heteroOk.httpCalls[0].body.model, 'gpt-5.6-luna');
+  assert.equal(heteroOk.httpCalls[0].body.reasoning_effort, 'low');
+  assert.ok(heteroOk.httpCalls[0].body.temperature >= 0.9, 'heterogeneous Pass 2 should send elevated temperature');
+  assert.ok(heteroOk.httpCalls[0].body.presence_penalty >= 0.25);
+  assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.secondPassModelId, 'gpt-5.6-luna');
+  assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.heterogeneous, true);
+  assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.heteroFallbackUsed, false);
+
+  const heteroFallback = await runChatScenario({ failHeteroFirst: true });
+  assert.equal(heteroFallback.httpCalls.length, 1, 'failed heterogeneous Pass 2 attempt should run once');
+  assert.equal(heteroFallback.acpBodies.length, 2, 'Pass 2 must fall back to Pass-1 ACP model after heterogeneous HTTP error');
+  assert.equal(heteroFallback.settledEvents[0].aiFlavor.rewrite.heteroFallbackUsed, true);
+  assert.equal(heteroFallback.settledEvents[0].aiFlavor.rewrite.secondPassModelId, 'gemini-3.8-flash-acp');
+});

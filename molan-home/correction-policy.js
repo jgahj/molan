@@ -414,6 +414,12 @@ function buildTargetedCorrectionGuidance(draft, options = {}) {
   if (singleNarrativeParas.length >= 4) {
     findingLines.push(`· [C07-02] 单句独立叙述段共 ${singleNarrativeParas.length} 处（如“${singleNarrativeParas[0].slice(0, 18)}”），请保留<=3处关键停顿，其余揉进邻近动作或心理长段，拉开段落长短波峰波谷。`);
   }
+  const exclamationCount = (source.match(/[！!]/g) || []).length;
+  const dashCount = (source.match(/——/g) || []).length;
+  const sourceLenKilo = Math.max(1, source.replace(/\s+/g, '').length / 1000);
+  if (exclamationCount / sourceLenKilo > 2.5 || dashCount / sourceLenKilo > 1.5 || exclamationCount >= 4 || dashCount >= 2) {
+    findingLines.push(`· [标点指纹] 初稿含感叹号（！）${exclamationCount} 个、破折号（——）${dashCount} 处；高密感叹号与破折号是朱雀检测红灯特征，改写时全章感叹号压至<=2个、破折号<=1处（改用逗号、句号或问号）。`);
+  }
 
   // 若初稿命中的对应案例不足 3 条，补充《纠错库.md》高价值通用修辞示范（去 AI 感核心对照）
   if (matchedExamples.length < 3 && library && Array.isArray(library.cases)) {

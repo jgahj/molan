@@ -1589,6 +1589,13 @@ function clipExemplarExcerpt(text, maxChars = 480) {
   return cut.trim();
 }
 
+function countExemplarDeModifiers(sample) {
+  const txt = String((sample && (sample.text || sample.anonymizedText)) || '').trim();
+  if (!txt) return 999;
+  const mods = txt.match(/[\u4e00-\u9fff]{2,5}的(?=[\u4e00-\u9fff]{1,4})/gu) || [];
+  return Math.round((mods.length * 1000) / Math.max(txt.length, 300));
+}
+
 function buildLivingProseExemplarBlock(request = {}, options = {}) {
   const library = loadParagraphSampleLibrary(options);
   if (!library) return null;
@@ -1599,8 +1606,11 @@ function buildLivingProseExemplarBlock(request = {}, options = {}) {
   if (!pool.samples.length) return null;
 
   const zeroFlavor = pool.samples.filter(sample => isCleanExemplarSample(sample) && sample.flavorScore === 0);
-  const cleanPool = zeroFlavor.length >= limit ? zeroFlavor : pool.samples.filter(isCleanExemplarSample);
-  if (!cleanPool.length) return null;
+  const baseCleanPool = zeroFlavor.length >= limit ? zeroFlavor : pool.samples.filter(isCleanExemplarSample);
+  if (!baseCleanPool.length) return null;
+  const maxDeMod = Number(options.maxDeModifierPerKilo) > 0 ? Number(options.maxDeModifierPerKilo) : 16;
+  const lowModifierPool = baseCleanPool.filter(sample => countExemplarDeModifiers(sample) <= maxDeMod);
+  const cleanPool = lowModifierPool.length >= Math.max(limit * 2, 4) ? lowModifierPool : baseCleanPool;
 
   const queryText = String(normalized.query || normalized.userInstruction || normalized.focus || '').trim();
   const wantsConfrontation = /对峙|交锋|博弈|质问|谈判|吵架|打脸|试探|威胁|反击|拆穿/.test(queryText);

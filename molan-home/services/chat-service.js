@@ -512,6 +512,105 @@ function createChatService({
       const model = resolveUpstreamModelForReasoning(pm, reasoningEffort);
       const isLocalOrHostTarget = /^(https?:\/\/)?(127\.0\.0\.1|localhost|8\.138\.128\.184|::1)(:\d+)?(\/|$)/i.test(targetURL);
       const effectiveProxy = isOpenAI && getProxyUrl() && !isLocalOrHostTarget ? getProxyUrl() : '';
+      const primaryRoute = {
+        pm,
+        modelId,
+        upstreamModel: model,
+        isAcp,
+        isOpenAI,
+        usesOpenAiPayload,
+        apiKey,
+        targetURL,
+        effectiveProxy,
+        isGemini,
+        reasoningEffort
+      };
+      function safeNormalizeReasoningEffort(targetPm, effortValue) {
+        try {
+          return normalizeReasoningEffort(targetPm, effortValue);
+        } catch (_) {
+          return null;
+        }
+      }
+      function resolveRouteForModel(targetPm, isSecondPass = false) {
+        const rPm = targetPm || pm;
+        const rModelId = rPm.id || modelId;
+        if (rModelId === modelId) return primaryRoute;
+        const rIsAcp = rPm.provider === 'antigravity-acp';
+        const rIsOpenAI = rPm.provider === 'openai-compat';
+        const rUsesOpenAiPayload = rIsOpenAI || rIsAcp;
+        const rApiKey = rIsAcp ? 'local-acp-oauth' : (rIsOpenAI ? (rPm.apiKey || '') : getDeepseekKey());
+        const rTargetURL = rIsAcp
+          ? 'acp://antigravity-acp'
+          : (rIsOpenAI ? (String(rPm.baseURL || '').replace(/\/+$/, '') + '/chat/completions') : getDeepseekUrl());
+        const rIsLocalOrHost = /^(https?:\/\/)?(127\.0\.0\.1|localhost|8\.138\.128\.184|::1)(:\d+)?(\/|$)/i.test(rTargetURL);
+        const rProxy = rIsOpenAI && getProxyUrl() && !rIsLocalOrHost ? getProxyUrl() : '';
+        const rIsGemini = rPm.group === 'gemini' || /gemini/i.test(String(rPm.model || rPm.id || ''));
+        let rReasoning = null;
+        if (rPm.supportsReasoning) {
+          if (isSecondPass && !rIsAcp && !rIsGemini) {
+            rReasoning = safeNormalizeReasoningEffort(rPm, input.humanizeReasoningEffort || 'low')
+              || safeNormalizeReasoningEffort(rPm, rPm.defaultReasoningEffort)
+              || safeNormalizeReasoningEffort(rPm, reasoningEffort);
+          } else {
+            rReasoning = safeNormalizeReasoningEffort(rPm, reasoningEffort)
+              || safeNormalizeReasoningEffort(rPm, rPm.defaultReasoningEffort)
+              || safeNormalizeReasoningEffort(rPm, rIsAcp ? 'high' : 'medium');
+          }
+        }
+        return {
+          pm: rPm,
+          modelId: rModelId,
+          upstreamModel: resolveUpstreamModelForReasoning(rPm, rReasoning),
+          isAcp: rIsAcp,
+          isOpenAI: rIsOpenAI,
+          usesOpenAiPayload: rUsesOpenAiPayload,
+          apiKey: rApiKey,
+          targetURL: rTargetURL,
+          effectiveProxy: rProxy,
+          isGemini: rIsGemini,
+          reasoningEffort: rReasoning
+        };
+      }
+      function resolveSecondPassRoute(excludeIds = null) {
+        const excluded = excludeIds instanceof Set ? excludeIds : new Set();
+        const envObj = (typeof getEnvironment === 'function' ? getEnvironment() : process.env) || {};
+        const hasConfiguredKey = cand => {
+          if (!cand || !cand.id) return false;
+          if (cand.provider === 'antigravity-acp') return true;
+          if (cand.provider === 'openai-compat') return Boolean(cand.apiKey);
+          return Boolean(getDeepseekKey && getDeepseekKey());
+        };
+        const explicitId = String((input && input.reviseModelId) || envObj.MOLAN_HUMANIZE_MODEL_ID || '').trim();
+        if (explicitId && explicitId.toLowerCase() !== String(modelId || '').toLowerCase() && !excluded.has(explicitId.toLowerCase())) {
+          const explicitPm = typeof findPlatformModel === 'function' ? findPlatformModel(explicitId) : null;
+          if (explicitPm && String(explicitPm.id || '').toLowerCase() === explicitId.toLowerCase() && hasConfiguredKey(explicitPm)) {
+            return resolveRouteForModel(explicitPm, true);
+          }
+        }
+        const autoHeteroEnabled = input.heteroHumanize !== false
+          && envObj.MOLAN_AUTO_HETERO_HUMANIZE !== '0'
+          && !benchmarkProtocol
+          && !editorOnly
+          && String(pm.group || '').toLowerCase() !== 'mock'
+          && !/^mock/i.test(String(modelId || ''));
+        if (autoHeteroEnabled && isGemini) {
+          const priorityList = String(envObj.MOLAN_HUMANIZE_MODEL_PRIORITY || 'gpt-5.6-luna,deepseek-v4-flash,gpt-5.5,gpt-5.4')
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean);
+          for (const candId of priorityList) {
+            const lowerCand = candId.toLowerCase();
+            if (lowerCand === String(modelId || '').toLowerCase() || excluded.has(lowerCand)) continue;
+            const candPm = typeof findPlatformModel === 'function' ? findPlatformModel(candId) : null;
+            if (!candPm || String(candPm.id || '').toLowerCase() !== lowerCand) continue;
+            if (String(candPm.group || '').toLowerCase() === 'mock' || /^mock/i.test(String(candPm.id || ''))) continue;
+            if (!hasConfiguredKey(candPm)) continue;
+            return resolveRouteForModel(candPm, true);
+          }
+        }
+        return primaryRoute;
+      }
       const characterMaterialReview = editorOnly
         ? { approvedIds: [], audit: { required: false, status: 'disabled_for_editor_only', checkedCount: 0, passedCount: 0, rejectedCount: 0, calls: [] } }
         : await reviewCharacterMaterialSamples(String(req.headers.authorization || ''), auth.user, characterMaterialResult, messages, modelId);
@@ -741,6 +840,8 @@ function createChatService({
       let firstPassText = '';
       let firstPassUsage = null;
       let secondPassActive = false;
+      let secondPassRoute = primaryRoute;
+      let heteroFallbackAttempted = false;
       let aiFlavorFirstPass = null;
       let aiFlavorSecondPass = null;
       let firstPassCorrectionHits = 0;
@@ -1092,8 +1193,8 @@ function createChatService({
         closeClientResponse();
       });
       let cacheFallbackAttempted = false;
-      function isUnsupportedCacheError(statusCode, text) {
-        if (statusCode !== 400 || !cacheFallbackBodyObj) return false;
+      function isUnsupportedCacheError(statusCode, text, fbBody = cacheFallbackBodyObj) {
+        if (statusCode !== 400 || !fbBody) return false;
         return /prompt[ _-]?cache|cache[ _-]?(breakpoint|options|key)/i.test(String(text || ''));
       }
       function upstreamErrorMessage(statusCode, text) {
@@ -1136,7 +1237,9 @@ function createChatService({
       /**
        * 构造第二遍（humanize 遍）的上游请求体：改写消息集 + 适配推理模型的改写预算。
        */
-      function buildSecondPassBody(draft, diagnostics = null) {
+      function buildSecondPassBody(draft, diagnostics = null, route = secondPassRoute || primaryRoute) {
+        const targetRoute = route || primaryRoute;
+        const tPm = targetRoute.pm || pm;
         const humanizeGenre = String(
           (characterMaterialRequest && characterMaterialRequest.genre)
           || (materialHint && materialHint.genre)
@@ -1153,32 +1256,43 @@ function createChatService({
           textureReport: diag.textureReport || null
         });
         const baseEstimate = Math.max(768, estimateTextTokenUpperBound(draft));
-        const hasReasoningBudget = Boolean(pm.supportsReasoning && reasoningEffort && reasoningEffort !== 'none');
+        const tEffort = targetRoute.reasoningEffort;
+        const hasReasoningBudget = Boolean(tPm.supportsReasoning && tEffort && tEffort !== 'none');
+        const maxBudget = Math.max(max_tokens, 8192);
         const secondMaxTokens = hasReasoningBudget
-          ? Math.min(max_tokens, Math.max(6144, Math.round(baseEstimate * 1.6) + 3584))
-          : Math.min(max_tokens, Math.max(2048, Math.round(baseEstimate * 1.35)));
-        if (usesOpenAiPayload) {
-          const officialMessages = addPromptCacheBreakpoint(secondMessages, pm);
-          const obj = { model, messages: officialMessages, stream: true, stream_options: { include_usage: true } };
-          if (pm.supportsReasoning) {
-            if (reasoningEffort) obj.reasoning_effort = reasoningEffort;
+          ? Math.min(maxBudget, Math.max(6144, Math.round(baseEstimate * 1.6) + 3584))
+          : Math.min(maxBudget, Math.max(2048, Math.round(baseEstimate * 1.35)));
+        const secondTemp = typeof input.humanizeTemperature === 'number' && Number.isFinite(input.humanizeTemperature)
+          ? input.humanizeTemperature
+          : Math.max(typeof temperature === 'number' ? temperature : 0.85, 0.93);
+        const secondPresence = presencePenalty !== undefined ? Math.max(presencePenalty, 0.25) : 0.25;
+        const secondFrequency = frequencyPenalty !== undefined ? Math.max(frequencyPenalty, 0.25) : 0.25;
+        if (targetRoute.usesOpenAiPayload) {
+          const isHeteroRoute = targetRoute.modelId !== primaryRoute.modelId;
+          const officialMessages = isHeteroRoute ? secondMessages : addPromptCacheBreakpoint(secondMessages, tPm);
+          const obj = { model: targetRoute.upstreamModel, messages: officialMessages, stream: true, stream_options: { include_usage: true } };
+          if (tPm.supportsReasoning) {
+            if (tEffort) obj.reasoning_effort = tEffort;
             obj.max_completion_tokens = secondMaxTokens;
+            if (!targetRoute.isAcp && typeof secondTemp === 'number' && (!/^gpt-6-luna$/i.test(String(tPm.model || tPm.id)) || tEffort === 'none')) {
+              obj.temperature = secondTemp;
+            }
           } else {
-            if (!isAcp) obj.temperature = temperature;
+            if (!targetRoute.isAcp) obj.temperature = secondTemp;
             obj.max_tokens = secondMaxTokens;
           }
-          if (pm.promptCaching) {
-            obj.prompt_cache_key = stablePromptCacheKey(auth.user.email, modelId, secondMessages);
-            if (pm.promptCacheMode === 'explicit') obj.prompt_cache_options = { mode: 'explicit' };
+          if (tPm.promptCaching && !isHeteroRoute) {
+            obj.prompt_cache_key = stablePromptCacheKey(auth.user.email, targetRoute.modelId, secondMessages);
+            if (tPm.promptCacheMode === 'explicit') obj.prompt_cache_options = { mode: 'explicit' };
           }
-          if (presencePenalty !== undefined) obj.presence_penalty = presencePenalty;
-          if (frequencyPenalty !== undefined) obj.frequency_penalty = frequencyPenalty;
+          obj.presence_penalty = secondPresence;
+          obj.frequency_penalty = secondFrequency;
           return obj;
         }
-        const obj = { model, messages: secondMessages, stream: true, temperature, max_tokens: secondMaxTokens, stream_options: { include_usage: true } };
-        if (pm.supportsThinking) obj.thinking = { type: input.thinking === true ? 'enabled' : 'disabled' };
-        if (presencePenalty !== undefined) obj.presence_penalty = presencePenalty;
-        if (frequencyPenalty !== undefined) obj.frequency_penalty = frequencyPenalty;
+        const obj = { model: targetRoute.upstreamModel, messages: secondMessages, stream: true, temperature: secondTemp, max_tokens: secondMaxTokens, stream_options: { include_usage: true } };
+        if (tPm.supportsThinking) obj.thinking = { type: input.thinking === true ? 'enabled' : 'disabled' };
+        obj.presence_penalty = secondPresence;
+        obj.frequency_penalty = secondFrequency;
         return obj;
       }
 
@@ -1256,9 +1370,11 @@ function createChatService({
           finalizeUsage('completed');
           return;
         }
-        // AI 味、纠错库命中或结构节奏需精修 → 通知前端进入改写遍（携带本篇诊断），再发起第二遍。
+        // AI 味、纠错库命中或结构节奏需精修 → 解析异构第二遍路由，通知前端进入改写遍，再发起第二遍。
         secondPassActive = true;
+        secondPassRoute = resolveSecondPassRoute();
         lastUsage = null;
+        upstreamFinishReason = null;
         if (isStreamWritable() && res.headersSent) {
           writeSseControlEvent('data: ' + JSON.stringify({
             molan_rewrite: {
@@ -1266,34 +1382,71 @@ function createChatService({
               firstPassScore: firstScore,
               structuralRiskTotal: firstStructuralRisks,
               blockHits: firstBlockHits,
-              correctionHits: firstCorrectionHits
+              correctionHits: firstCorrectionHits,
+              secondPassModelId: secondPassRoute.modelId,
+              heterogeneous: secondPassRoute.modelId !== modelId
             }
           }) + '\n\n');
         }
         streamedContentText = '';
         streamedOutputText = '';
-        const secondBodyObj = buildSecondPassBody(firstPassText, {
+        const diagSnapshot = {
           aiFlavorReport: aiFlavorFirstPass,
           correctionScan,
           textureReport
-        });
-        sendUpstream(JSON.stringify(secondBodyObj), {
-          pass: 2,
-          stage: 'second_pass',
-          attemptId: `${requestId}_att_p2_1_${Date.now()}`,
-          passthrough: true,
-          fallbackBody: null,
-          onStreamEnd: handleSecondPassEnd,
-          onError: errReason => {
-            if (!streamedContentText.trim()) {
-              streamedContentText = firstPassText;
-              streamedOutputText = firstPassText;
-              flushDraftAsSSE(firstPassText);
-              rewriteMeta = { applied: 'failed', reason: errReason || 'upstream_error', fallback: 'first_pass', firstPassScore: aiFlavorFirstPass.score };
+        };
+        const failedHeteroIds = new Set();
+        const launchSecondPass = (routeToUse, fallbackDepth = 0) => {
+          const isFallbackRetry = fallbackDepth > 0;
+          const bodyForPass2 = buildSecondPassBody(firstPassText, diagSnapshot, routeToUse);
+          const secondFallbackBody = routeToUse.isOpenAI && routeToUse.pm && routeToUse.pm.promptCaching && routeToUse.pm.promptCacheMode === 'explicit'
+            ? (() => {
+              const copy = { ...bodyForPass2, messages: buildHumanizePassMessages(firstPassText, { genre: humanizeGenreForScan, targetChars: Number(input.targetChars || input.targetWords) || 0, ...diagSnapshot }) };
+              delete copy.prompt_cache_key;
+              delete copy.prompt_cache_options;
+              return copy;
+            })()
+            : null;
+          sendUpstream(JSON.stringify(bodyForPass2), {
+            pass: 2,
+            stage: isFallbackRetry ? 'second_pass_fallback' : 'second_pass',
+            route: routeToUse,
+            attemptId: `${requestId}_att_p2_${isFallbackRetry ? 'fb' + fallbackDepth : '1'}_${Date.now()}`,
+            passthrough: true,
+            fallbackBody: secondFallbackBody,
+            onStreamEnd: handleSecondPassEnd,
+            onError: (errReason, errDetail) => {
+              if (fallbackDepth < 2 && routeToUse.modelId !== primaryRoute.modelId && !streamedContentText.trim()) {
+                failedHeteroIds.add(String(routeToUse.modelId || '').toLowerCase());
+                heteroFallbackAttempted = true;
+                const nextRoute = resolveSecondPassRoute(failedHeteroIds);
+                secondPassRoute = nextRoute;
+                lastUsage = null;
+                upstreamFinishReason = null;
+                console.warn(`[chat] heterogeneous second pass (${routeToUse.modelId}) failed (${errReason}${errDetail ? ': ' + errDetail : ''}), falling back to ${nextRoute.modelId}`);
+                launchSecondPass(nextRoute, fallbackDepth + 1);
+                return;
+              }
+              console.warn(`[chat] second pass (${routeToUse.modelId}) failed (${errReason}${errDetail ? ': ' + errDetail : ''}), streamedChars=${streamedContentText.trim().length}`);
+              if (!streamedContentText.trim()) {
+                streamedContentText = firstPassText;
+                streamedOutputText = firstPassText;
+                flushDraftAsSSE(firstPassText);
+                rewriteMeta = {
+                  applied: 'failed',
+                  reason: errReason || 'upstream_error',
+                  detail: errDetail || '',
+                  fallback: 'first_pass',
+                  secondPassModelId: routeToUse.modelId,
+                  heterogeneous: routeToUse.modelId !== modelId,
+                  firstPassScore: aiFlavorFirstPass.score
+                };
+              }
+              finalizeUsage('completed');
             }
-            finalizeUsage('upstream_error');
-          }
-        });
+          });
+        };
+        launchSecondPass(secondPassRoute, 0);
       }
 
       /**
@@ -1314,16 +1467,28 @@ function createChatService({
           streamedContentText = firstPassText;
           streamedOutputText = firstPassText;
           flushDraftAsSSE(firstPassText);
-          rewriteMeta = { applied: 'fallback', reason: 'empty_rewrite', fallback: 'first_pass', firstPassScore: aiFlavorFirstPass.score, correctionHitsBefore: firstPassCorrectionHits };
+          rewriteMeta = {
+            applied: 'fallback',
+            reason: 'empty_rewrite',
+            fallback: 'first_pass',
+            secondPassModelId: secondPassRoute.modelId,
+            heterogeneous: secondPassRoute.modelId !== modelId,
+            firstPassScore: aiFlavorFirstPass.score,
+            correctionHitsBefore: firstPassCorrectionHits
+          };
         } else {
           rewriteMeta = {
             applied: true,
+            secondPassModelId: secondPassRoute.modelId,
+            heterogeneous: secondPassRoute.modelId !== modelId,
+            heteroFallbackUsed: heteroFallbackAttempted,
             firstPassScore: aiFlavorFirstPass ? aiFlavorFirstPass.score : null,
             secondPassScore: aiFlavorSecondPass ? aiFlavorSecondPass.score : null,
             passedAfter: !!(aiFlavorSecondPass && aiFlavorSecondPass.passed),
             correctionHitsBefore: firstPassCorrectionHits,
             ...(secondCorrectionHits != null ? { correctionHitsAfter: secondCorrectionHits } : {})
           };
+          console.log(`[chat] two-pass completed first=${modelId} second=${secondPassRoute.modelId} hetero=${secondPassRoute.modelId !== modelId} score=${aiFlavorFirstPass ? aiFlavorFirstPass.score : '?'}->${aiFlavorSecondPass ? aiFlavorSecondPass.score : '?'} chars=${streamedContentText.length}`);
         }
         finalizeUsage('completed');
       }
@@ -1340,6 +1505,7 @@ function createChatService({
       });
       async function sendUpstream(requestBody, opts) {
         const options = opts || {};
+        const route = options.route || primaryRoute;
         const pass = options.pass || (secondPassActive ? 2 : 1);
         const isRetry = Boolean(options.isRetry);
         const retryCount = Number(options.retryCount || 0);
@@ -1381,8 +1547,8 @@ function createChatService({
             workspaceId: chatScope && chatScope.workspaceId || '',
             requestId,
             attemptId,
-            modelId,
-            providerModel: model,
+            modelId: route.modelId,
+            providerModel: route.upstreamModel,
             pass,
             stage,
             reservedCost,
@@ -1454,21 +1620,21 @@ function createChatService({
 
         if (finalized || responseClosed) return;
         const dispatchUpstream = (reqOpts, cb) => {
-          if (isAcp) {
+          if (route.isAcp) {
             if (typeof openAcpUpstream !== 'function') {
               cb(new Error('Antigravity ACP 传输服务未启用'));
               return;
             }
-            return openAcpUpstream({ ...reqOpts, modelConfig: pm, reasoningEffort }, cb);
+            return openAcpUpstream({ ...reqOpts, modelConfig: route.pm, reasoningEffort: route.reasoningEffort }, cb);
           }
-          return openUpstream(targetURL, effectiveProxy, reqOpts, cb);
+          return openUpstream(route.targetURL, route.effectiveProxy, reqOpts, cb);
         };
         try {
           dispatchUpstream({
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey,
-            'Accept': 'text/event-stream', 'Idempotency-Key': requestId, 'X-Molan-Request-Id': requestId
+            'Content-Type': 'application/json', 'Authorization': 'Bearer ' + route.apiKey,
+            'Accept': 'text/event-stream', 'Idempotency-Key': (pass === 2 && route.modelId !== modelId ? attemptId : requestId), 'X-Molan-Request-Id': requestId
           },
           onResponse: upRes => {
             providerResponseReceived = true;
@@ -1479,7 +1645,7 @@ function createChatService({
               upRes.setEncoding('utf8');
               upRes.on('data', chunk => { errorText += chunk; });
               upRes.on('end', () => {
-                if (!cacheFallbackAttempted && fallbackBody && isUnsupportedCacheError(upRes.statusCode, errorText)) {
+                if (!cacheFallbackAttempted && fallbackBody && isUnsupportedCacheError(upRes.statusCode, errorText, fallbackBody)) {
                   cacheFallbackAttempted = true;
                   sendUpstream(JSON.stringify(fallbackBody), {
                     ...options,
@@ -1493,7 +1659,7 @@ function createChatService({
                 const upstreamMessage = upstreamErrorMessage(upRes.statusCode, errorText);
                 const contextError = isContextWindowError(upstreamMessage) || isContextWindowError(errorText);
                 if (onUpstreamError) {
-                  onUpstreamError(contextError ? 'context_window_exceeded' : 'upstream_error');
+                  onUpstreamError(contextError ? 'context_window_exceeded' : 'upstream_error', `HTTP ${upRes.statusCode}: ${upstreamMessage}`);
                   return;
                 }
                 finalizeUsage(contextError ? 'context_window_exceeded' : 'upstream_error');
@@ -1524,7 +1690,7 @@ function createChatService({
               });
               upRes.on('error', e => {
                 if (finalized || responseClosed) return;
-                if (onUpstreamError) { onUpstreamError('upstream_error'); return; }
+                if (onUpstreamError) { onUpstreamError('upstream_error', `upRes error: ${e && e.message || e}`); return; }
                 finalizeUsage('upstream_error');
                 if (!res.headersSent && !res.writableEnded && !res.destroyed) json(res, 502, { error: '上游模型调用失败：' + e.message });
               });
@@ -1569,16 +1735,16 @@ function createChatService({
               chatStreamRuntime.finish();
               onStreamEnd();
             });
-            upRes.on('error', () => {
+            upRes.on('error', e => {
               if (finalized || responseClosed) return;
-              if (onUpstreamError) { onUpstreamError('upstream_error'); return; }
+              if (onUpstreamError) { onUpstreamError('upstream_error', `stream error: ${e && e.message || e}`); return; }
               finalizeUsage('upstream_error');
             });
           }
         }, (err, upstream) => {
           if (err) {
             if (finalized || responseClosed) return;
-            if (onUpstreamError) { onUpstreamError('upstream_error'); return; }
+            if (onUpstreamError) { onUpstreamError('upstream_error', `connect error: ${err && err.message || err}`); return; }
             finalizeUsage('upstream_error');
             if (!res.headersSent && !res.writableEnded && !res.destroyed) json(res, 502, { error: '代理连接失败：' + err.message });
             return;
@@ -1587,7 +1753,7 @@ function createChatService({
           if (finalized || responseClosed) { try { upstream.destroy(); } catch (_) {} return; }
           upstream.on('error', e => {
             if (finalized || responseClosed) return;
-            if (onUpstreamError) { onUpstreamError('upstream_error'); return; }
+            if (onUpstreamError) { onUpstreamError('upstream_error', `socket error: ${e && e.message || e}`); return; }
             finalizeUsage('upstream_error');
             if (!res.headersSent && !res.writableEnded && !res.destroyed) json(res, 502, { error: '上游模型调用失败：' + e.message });
           });

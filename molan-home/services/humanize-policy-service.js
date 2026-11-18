@@ -115,6 +115,9 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       if (zq && (zq.overPolishedSensoryRisk || Number(zq.deModifierPerKilo) >= 22)) {
         diagnosticLines.push(`- 定语与感官雕琢过载（“……的+名词”达 ${zq.deModifierPerKilo}/千字，平实短直句仅 ${Math.round((Number(zq.plainShortRatio) || 0) * 100)}%）：这是朱雀判定 AI 的第一大诱因！请大刀阔斧扒掉日常物品前硬贴的视觉/触觉形容词（如“褪色的”“生锈的”“廉价的”“发稠的”），至少一半叙述句改用不带修饰的大白话直说`);
       }
+      if (zq && (zq.punctuationOverloadRisk || Number(zq.exclamationCount) >= 3 || Number(zq.dashCount) >= 2)) {
+        diagnosticLines.push(`- 情绪标点过载（感叹号 ${zq.exclamationCount || 0} 个、破折号 ${zq.dashCount || 0} 处）：高密感叹号与破折号极易被朱雀标红！全章感叹号必须压到 <=2 个，破折号压到 <=1 处（优先改用逗号、句号、问号）。`);
+      }
     }
     if (textureReport && typeof textureReport === 'object') {
       const rawCliches = Array.isArray(textureReport.cliches)
@@ -140,7 +143,7 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
           const ex = buildLivingProseExemplarBlock({
             genre: genreLabel,
             query: draftText.slice(0, 500)
-          }, { limit: 2, maxExcerptChars: 380 });
+          }, { limit: 2, maxExcerptChars: 380, maxDeModifierPerKilo: 15 });
           livingExemplarBlock = ex && ex.block ? ex.block : '';
         }
       } catch (_) {
@@ -148,8 +151,12 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       }
     }
 
+    const effectiveLengthTarget = targetChars > 0 ? targetChars : Math.max(300, draftText.replace(/\s+/g, '').length);
+    const lengthLow = Math.max(200, Math.round(effectiveLengthTarget * 0.88));
+    const lengthHigh = Math.max(lengthLow + 150, Math.round(effectiveLengthTarget * 1.15));
+
     const systemParts = [
-      '你是资深商业连载小说改稿主编，只做有文本依据的活人化润色与病灶修复，保留已经成立的人物声音、题材氛围、叙事节奏与全部剧情事实。',
+      '你是帮商业连载网文作者做“跨模型句法重构 + 真人大白话定稿（专破朱雀 AI 概率峰值）”的资深老编辑。你的工作不是做同义词微调，而是在 100% 忠实保留原稿事实与人物口吻的前提下，换用真人作者敲键盘的语序与节奏重新把这场戏讲一遍。',
       UNIVERSAL_CORRECTION_MARKER,
       UNIVERSAL_CORRECTION_POLICY_PROMPT
     ];
@@ -163,24 +170,28 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
     if (livingExemplarBlock) {
       systemParts.push(livingExemplarBlock);
     }
+    const zqMeta = aiFlavorReport && aiFlavorReport.metrics && aiFlavorReport.metrics.zhuqueSignals
+      ? aiFlavorReport.metrics.zhuqueSignals
+      : null;
+    const quickAlert = zqMeta
+      ? `【初稿实时警报】单句独立旁白=${zqMeta.singleNarrativeCount || 0}处（目标<=3处）、连续均长句簇=${(zqMeta.sentenceBurstiness && zqMeta.sentenceBurstiness.flatClusterCount) || 0}组（目标0组）、“的+名词”=${zqMeta.deModifierPerKilo || 0}/千字（目标<=14）、感叹号=${zqMeta.exclamationCount || 0}/破折号=${zqMeta.dashCount || 0}。`
+      : '';
+
     systemParts.push([
       '【改写边界（必须遵守）】',
-      '1. 保持剧情主干、核心情境与人物立场：修补初稿中的叙事断层与前后矛盾，修正违背基本生活常识与物理常识的悬浮动作；修补需顺理成章、行云流水，杜绝刻意跳出故事解释道具台账的打卡感。',
-      '2. 道具与状态时空自洽：文牒、信物、兵刃、仪器、伤势等关键要素前后连贯，严禁引入与当前题材时代背景不符的器物，严禁前文收起后文凭空复现的穿帮；生死关头动机合理。',
-      '3. 保留人物自己的情绪与判断。直接心理、必要背景说明和明确转场都可使用；只澄清缺失的知识来源，不给每个角色强加算计、冷幽默或额外经历。',
-      '4. 彻底剔除假文青与修辞通胀（核心去AI味）：坚决删掉无病呻吟的做作通感比喻，换为干净利落、画面感极强的直接白描与动作推进。',
-      '5. 删除重复而无效的情绪解释，不把普通词语出现当作错误，也不把所有情绪替换成咬牙、手抖或握紧某物的单一动作套路。',
-      '6. 让读者知道人物看到了什么、据此判断了什么；判断证据不足时保留不确定，不由旁白把怀疑认证为事实。',
-      '7. 保留对白中的关心、误会、尴尬、玩笑和直接请求，不强制每句话都有机锋或配微动作。人物反应应影响关系或下一步行动；对白要像真人平时开口，少用书面朗诵腔。',
-      '8. 打破方块匀段（真实《小说原本》节奏），不强制每段句数：放开 10~45 字的直白短段与口语对话独立行，和 90~170 字夹杂心里盘算的连续长段毫无规律地交替，让段落长短形成剧烈落差（变异系数>=0.55）；只合并<=8字无意义装逼断语碎段（C07-02），绝不把短小自然的说话/叙事段强行揉成均长方块。',
-      '9. 狠删“AI 精致感官定语”与“三逗号句子模板”（破除朱雀标红核心，提困惑度）：删掉普通器物前硬凑的视觉/质感形容词，删掉动作后硬拖的“……出……一声响 / ……得让人……”工整补语；至少一半叙述句用不加雕琢的大白话直接推进（如“他把门锁上。”“店里没别人。”），允许融入“说白了、其实、反正、倒也没、按理说”等真人作者讲故事口吻，绝不制造错别字或乱码。',
-      '10. 不能靠添加新工具、异常规则、伤势或收费补因果。保留已经兑现的阶段结果，不强制升级危机；无法从初稿确认的事实不擅自补定。',
-      `11. 严守原稿体量与口吻${genreLabel ? `（当前题材：${genreLabel}）` : ''}：不得缩水删节核心剧情与细节${targetChars > 0 ? `（维持约 ${targetChars} 字完整篇幅）` : ''}，保留全部专有名词、数据参数与人物台词个性；章末禁止“跨进雨幕/捏出指印/陷入沉思”等 AI 电影镜头收尾模板，落在具体动作或当面言语交锋上。`,
-      '12. 直接输出完整修订后的正文，不要任何解释、前言或 Markdown 围栏。'
+      '1. 重构句法语序，但严守事实与因果：100% 保留原稿人物、物品、数字、秘密、前情承接与剧情顺序；修补悬浮动作或常识漏洞，但不能顺着原句逐字微调，要像记清剧情后用真人自己的话重讲一遍，换掉大部分原句结构。',
+      '2. 感叹号与破折号严格限流（朱雀核心标点红灯）：整章感叹号（！）最多 2 个，破折号（——）最多 1 处（能不用就不用）；95% 以上正常使用逗号、句号、问号。',
+      '3. 合并单句旁白碎行，打散均长句簇（拉高困惑度与 Burstiness）：严禁“一句话一段”刷屏或把一个动作和紧接解释敲成两段（例如不能写成“他站在台后。\\n\\n抽屉里有把剪刀。”或“可后屋睡着姑妈。\\n\\n姑妈眼睛瞎。”，必须合并在同段里）。单句独立叙述行全章最多留 3 处关键停顿，同时不强制每段句数；把连续 15~28 字的匀称句用逗号顺进 45~85 字带市井算计的宽松长句，再紧接一句 3~9 字极短口语切开，让句长和段长形成剧烈落差，绝不连续 4 句落在同一长度带！',
+      '4. 对白松弛去标签（口语活人感）：砍掉一半以上“人名+动作+：”的整齐前置标签，多用裸对话或把小动作插在话尾、话中间；口语保留真人的“嘛、呢、呗、啥、没”等自然省略与带刺反问（放宽书面“没→没有”硬规，但绝不制造错别字、乱码或无意义口癖）。',
+      '5. 狠删“……的+名词”AI精致定语（每千字 <= 14 处）：扒掉日常物品前硬贴的视觉/触觉形容词（如“褪色的/生锈的/发稠的/粗糙发黄的/湿了边的”），删掉“发出一声闷响/透出一阵阴凉/随后”等工整补语与书面转折；至少一半叙述句用直白大白话交代（“门没锁紧”“茶凉了一半”），彻底剔除假文青通感比喻与 AI 套路。',
+      '6. 道具与状态时空自洽：兵刃、文牒、仪器、伤势等关键要素前后连贯，不引入违和器物，不靠平白塞入新工具或异常规则补因果。',
+      '7. 保留人物自己的情绪、尴尬、试探与小市民算计，不用生理痉挛（咬牙/发凉/手抖）或单一旁白判决替代具体行动与立场；判断证据不足时保留不确定。',
+      `8. 严守原稿体量与自然结尾${genreLabel ? `（当前题材：${genreLabel}）` : ''}：篇幅严格控制在 ${lengthLow}~${lengthHigh} 字之间，禁止偷工减料或擅自扩写翻倍；结尾严禁“看着镜子/手握器物特写/迈入夜色/陷入沉思”等 AI 电影镜头模板，落在具体日常动作或一句干脆口语收束。`,
+      '9. 直接输出完整修订后的正文，不要任何解释、前言或 Markdown 围栏。'
     ].join('\n'));
     return [
       { role: 'system', content: systemParts.join('\n\n') },
-      { role: 'user', content: '以下是初稿。请对照上述实测诊断、纠错示例与同题材原著手感，逐一清掉生硬AI套话、翻译腔与重复动作模板，让人物说话行事更有活人气，同时严守原有事实、体量、开篇承接与剧情走向；直接输出完整修订正文：\n\n' + draftText }
+      { role: 'user', content: `${quickAlert ? quickAlert + '\n' : ''}以下是初稿（约 ${effectiveLengthTarget} 字）。请按上面 9 条规则重写：千万合并单句独立旁白（全章最多留<=3处，其余动作和心理顺进同段）、用逗号把匀称中短句揉成 45~85 字宽松长句并穿插 3~9 字极短口语消灭均长句簇、扒掉多余“的+名词”定语并控死感叹号<=2/破折号<=1；严守原有事实并将字数控制在 ${lengthLow}~${lengthHigh} 字，直接输出完整修订正文：\n\n` + draftText }
     ];
   }
 

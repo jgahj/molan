@@ -122,6 +122,34 @@ molan-home/
 
 ---
 
+## 阶段记录：方案 B「跨模型异构高温 Pass 2 + 低修饰《小说原本》大白话重构」(2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/chat-service.js` | 跨家族异构 Pass-2 路由与缓存回退修复 | 1. 新增 `resolveRouteForModel` 与 `resolveSecondPassRoute(excludeIds)`：在 Pass 1 属于 Gemini 模型且开启两遍模式时（排除 `benchmarkProtocol`/`editorOnly`/`mock` 占位与 unit-test 单模型桩），按优先级（`gpt-5.6-luna → deepseek-v4-flash → gpt-5.5 → gpt-5.4` 或 `input.reviseModelId`/`MOLAN_HUMANIZE_MODEL_ID`）自动切换至非 Gemini 异构模型执行 Pass 2，发送高温（`>=0.93`）与 `presence_penalty`/`frequency_penalty`（`>=0.25`），非 ACP 推理模型 Pass 2 默认使用 `low` 推理强度以兼顾耗时；<br>2. 修复 `isUnsupportedCacheError(statusCode, text, fbBody)` 检查 `fallbackBody` 而非仅检查 Pass-1 闭包 `cacheFallbackBodyObj`，并在异构 Pass-2 请求中跳过 `prompt_cache_options: { mode: 'explicit' }`，根除 `HTTP 400: prompt_cache_options is not supported on this model`；<br>3. 增加 `failedHeteroIds` 多级回退与错误诊断透传（先尝试下一顺位异构模型，若仍未输出则回退 Pass-1 原模型或初稿），并在 `molan_rewrite` 与 `molan_usage.aiFlavor.rewrite` 记录 `secondPassModelId`/`heterogeneous`/`heteroFallbackUsed`。 |
+| `molan-home/services/humanize-policy-service.js`<br>`molan-home/lib/ai-flavor-detector.js`<br>`molan-home/correction-policy.js` | 抗朱雀标点限流、碎行合并与 Pass-2 结构重构 | 1. `ai-flavor-detector.js` 在 `zhuqueSignals` 新增 `exclamationCount`、`dashCount`、`exclamationPerKilo`、`dashPerKilo`、`punctuationOverloadRisk`（感叹号 >4.5/k 或破折号 >3/k 计罚）；<br>2. `correction-policy.js` `buildTargetedCorrectionGuidance` 扫描并注入 `[标点指纹]` 告警（限制整章感叹号 <=2、破折号 <=1）；<br>3. `humanize-policy-service.js` `buildHumanizePassMessages` 将实时统计警报（单句独立旁白数、连续均长句簇数、“的+名词”千字密度、感叹号/破折号数）置于 `user` 消息首行，并在改写边界 1~9 强化“重讲句法语序、合并单句旁白碎行（最多留 <=3 处，同时不强制每段句数）、45~85 字长复句穿插 3~9 字极短口语、感叹号<=2/破折号<=1、放宽口语省略但严禁错别字乱码”及 `maxDeModifierPerKilo: 15` 范本约束。 |
+| `molan-home/lib/character-material.js` | 低修饰语《小说原本》示范优选 | 新增 `countExemplarDeModifiers`，在 `buildLivingProseExemplarBlock` 优先筛选“……的+名词”低密度（默认 `<=16`/千字，支持 `options.maxDeModifierPerKilo`）的零 AI 味原著大白话样本，候选不足时回退完整 `zeroFlavor` 池。 |
+| `molan-home/test/living-prose-optimization.test.js` | 方案 B 回归与异构路由测试 | 新增方案 B 综合测试（第 18 项）：校验 `maxDeModifierPerKilo` 范本筛选、`punctuationOverloadRisk`/`[标点指纹]` 检测、`Gemini ACP Pass 1 → gpt-5.6-luna HTTP Pass 2` 跨家族自动路由，以及异构 HTTP 502 时无损回退原 ACP 模型的闭环。 |
+| `molan-home/index.html`<br>`boot-head.js`/`boot-scripts.js`/`pages/*.html` | 版本戳同步递增 | 因 `correction-policy.js` 与 `character-material.js` 属受保护前端资产，版本戳由 `20261118_living_v3` 同步递增至 `20261118_living_v4`。 |
+
+### 二、设计决策与权衡
+
+- **选用方案 B（非 Gemini 异构 Pass 2 + 低修饰《小说原本》重写）而非继续纯 Gemini 单家族调参**：实测朱雀 AI 检测对单家族 Gemini ACP 固定解码路径下的分布平滑度与情绪标点（感叹号/破折号）极度敏感；通过 Pass 1 Gemini 生成剧情底稿、Pass 2 跨家族由 `gpt-5.6-luna`（高温 `0.93`、`reasoning_effort: 'low'`）结合实测指标警报重讲句法，可显着打散原家族概率峰并保留 100% 事实，且异构上游失败时自动回退保障不中断创作。
+
+### 三、真实验证证据
+
+- **Live 端到端跨模型实测**（`http://127.0.0.1:3000`，`pid: 43108`，Generation V2 `urban_martial`）：
+  - 服务日志确认执行路径：`[chat] two-pass completed first=gemini-3.8-flash-acp second=gpt-5.6-luna hetero=true score=19->16 chars=1387`；
+  - 产出 `1387` 字实测样章指标：**`flavorScore = 16`（`passed = true`）**、`sentenceStdRatio = 0.8603`、`paragraphUniformity = 0.7224`、`sentenceBurstiness.cv = 0.6333`（`4~66` 字、`flatClusterCount = 1`）、`deModifierPerKilo = 11.2697`、`plainShortRatio = 0.4211`、`llmGluePerKilo = 0`、`exclamationCount = 0`、`dashCount = 0`、`correctionFindings = 0`。
+- **全量回归与审计（最终编辑后执行）**：
+  - `..\tools\node22_runtime\node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"`：**`2469 tests | 73 suites | 2453 pass | 0 fail | 16 skipped`**（耗时 `37504.4ms`）；
+  - `production-import-audit.mjs`（234 文件）、`audit-golden-suite.mjs`（80 tasks）、`check-frontend-stamp.mjs`（`20261118_living_v4`）全部退出码 `0`。
+  - Live 服务清理后健康检查：`ok: true, db: "ready", postgres.serverVersion: "18.6", novels: 1, activeChatStreams: 0`。
+
+---
+
 ## 阶段记录：破除 Gemini 过度精雕定语腔与恢复《小说原本》自然段长错落 (2026-11-18)
 
 ### 一、改动范围与核心逻辑
