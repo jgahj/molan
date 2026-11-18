@@ -122,6 +122,28 @@ molan-home/
 
 ---
 
+## 阶段记录：方案 B 二次标定——零罚项原词复现、`gpt-5.6-sol` 首选与真实绿色样本双轨规则 (2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/chat-service.js` | 异构优先级调优与清零避重罚项 | 1. 基于真实可用性消融实测（`deepseek-v4-flash/pro` 402、`gpt-5.5/5.4` 下线、`gpt-6-luna` `effort=none` 段长趋平），将异构 Pass-2 默认优先级调整为 **`gpt-5.6-sol → gpt-5.6-luna → gpt-6-luna(low) → gpt-5.6-terra`**；<br>2. 将 `buildSecondPassBody` 温度提升至 **`1.04`**，并**清零 `presence_penalty` / `frequency_penalty`（均置 `0`）**，取消迫使模型做“铁盒子 → 旧铁箱/这东西”同义词轮换避重的 AI 平滑指纹，还原真人大白话直接复现核心实体词的习惯。 |
+| `molan-home/services/humanize-policy-service.js` | 双题材绿色范式重构 | 对标用户实测朱雀可过绿真实样章提炼 9 条改写边界：`禁止同义词避重`、`砍掉天气引子/外貌三件套/静音转场/暗处凝视收尾`、`实操试错步骤 + 允许动作后跟 4~12 字客观结果短行`（同时保留 `不强制每段句数`）；并按题材启用**`轻喜/脑洞/甜宠` 高困惑度口语吐槽反差通道**与**主流题材纯实体白描动作链通道**，在 `user` 提示强化兼顾 `120~200` 字长细段与 `4~25` 字短行，防止均长方块段落。 |
+| `molan-home/test/living-prose-optimization.test.js` | 回归断言同步 | 更新方案 B 异构 Pass-2 测试断言以验证 `temperature >= 1.0` 且 `presence_penalty === 0`、`frequency_penalty === 0`。 |
+
+### 二、真实验证证据
+
+- **Live 端到端完整闭环实测**（`http://127.0.0.1:3000`，`pid: 32760`，Generation V2 `urban_martial`，状态 `waiting_author`）：
+  - 服务日志确认：`[chat] two-pass completed first=gemini-3.8-flash-acp second=gpt-5.6-sol hetero=true score=22->44 chars=1149`（本地分值因全篇采用《凡人》式偏短干脆句导致句长标准差比降至 `0.5267`）；
+  - 核心朱雀防红指纹：**`deModifierPerKilo = 3.6397`**、`paragraphUniformity = 0.6095`、`llmGluePerKilo = 0`、`exclamationCount = 0`、`dashCount = 0`、`correctionFindings = 0`、`qualityScore = 0.88`。
+- **全量回归与审计（最终代码编辑后执行）**：
+  - `..\tools\node22_runtime\node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"`：**`2469 tests | 73 suites | 2453 pass | 0 fail | 16 skipped`**（耗时 `38361.06ms`）；
+  - `production-import-audit.mjs`（234 文件）、`audit-golden-suite.mjs`（80 tasks）、`check-frontend-stamp.mjs`（`20261118_living_v4`）全部退出码 `0`。
+  - Live 服务健康检查：`ok: true, db: "ready", novels: 1, activeChatStreams: 0`。
+
+---
+
 ## 阶段记录：方案 B「跨模型异构高温 Pass 2 + 低修饰《小说原本》大白话重构」(2026-11-18)
 
 ### 一、改动范围与核心逻辑

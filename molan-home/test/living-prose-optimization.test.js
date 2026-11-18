@@ -1012,8 +1012,9 @@ test('方案B：低修饰语范本筛选、感叹号/破折号诊断与跨家族
   assert.equal(heteroOk.httpCalls[0].url, 'https://codex.xiaoguo.work/v1/chat/completions');
   assert.equal(heteroOk.httpCalls[0].body.model, 'gpt-5.6-luna');
   assert.equal(heteroOk.httpCalls[0].body.reasoning_effort, 'low');
-  assert.ok(heteroOk.httpCalls[0].body.temperature >= 0.9, 'heterogeneous Pass 2 should send elevated temperature');
-  assert.ok(heteroOk.httpCalls[0].body.presence_penalty >= 0.25);
+  assert.ok(heteroOk.httpCalls[0].body.temperature >= 1.0, 'heterogeneous Pass 2 should send elevated temperature');
+  assert.equal(heteroOk.httpCalls[0].body.presence_penalty, 0);
+  assert.equal(heteroOk.httpCalls[0].body.frequency_penalty, 0);
   assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.secondPassModelId, 'gpt-5.6-luna');
   assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.heterogeneous, true);
   assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.heteroFallbackUsed, false);

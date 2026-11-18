@@ -595,7 +595,7 @@ function createChatService({
           && String(pm.group || '').toLowerCase() !== 'mock'
           && !/^mock/i.test(String(modelId || ''));
         if (autoHeteroEnabled && isGemini) {
-          const priorityList = String(envObj.MOLAN_HUMANIZE_MODEL_PRIORITY || 'gpt-5.6-luna,deepseek-v4-flash,gpt-5.5,gpt-5.4')
+          const priorityList = String(envObj.MOLAN_HUMANIZE_MODEL_PRIORITY || 'gpt-5.6-sol,gpt-5.6-luna,gpt-6-luna,gpt-5.6-terra')
             .split(',')
             .map(s => s.trim())
             .filter(Boolean);
@@ -1264,9 +1264,15 @@ function createChatService({
           : Math.min(maxBudget, Math.max(2048, Math.round(baseEstimate * 1.35)));
         const secondTemp = typeof input.humanizeTemperature === 'number' && Number.isFinite(input.humanizeTemperature)
           ? input.humanizeTemperature
-          : Math.max(typeof temperature === 'number' ? temperature : 0.85, 0.93);
-        const secondPresence = presencePenalty !== undefined ? Math.max(presencePenalty, 0.25) : 0.25;
-        const secondFrequency = frequencyPenalty !== undefined ? Math.max(frequencyPenalty, 0.25) : 0.25;
+          : Math.max(typeof temperature === 'number' ? temperature : 0.85, 1.04);
+        // 实证发现 presence/frequency penalty 会逼迫模型做同义词避重（例如把“铁盒子”轮换为“旧铁箱/这东西”），
+        // 反而暴露 AI 概率平滑指纹；清零罚项才能写出真人原著直白复现原词的自然节奏。
+        const secondPresence = typeof input.humanizePresencePenalty === 'number' && Number.isFinite(input.humanizePresencePenalty)
+          ? input.humanizePresencePenalty
+          : 0;
+        const secondFrequency = typeof input.humanizeFrequencyPenalty === 'number' && Number.isFinite(input.humanizeFrequencyPenalty)
+          ? input.humanizeFrequencyPenalty
+          : 0;
         if (targetRoute.usesOpenAiPayload) {
           const isHeteroRoute = targetRoute.modelId !== primaryRoute.modelId;
           const officialMessages = isHeteroRoute ? secondMessages : addPromptCacheBreakpoint(secondMessages, tPm);
