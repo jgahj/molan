@@ -323,7 +323,7 @@ const MODEL_REGISTRY = new Map([
     contextWindow: 1000000,
     maxOutputTokens: 16000,
     supportsReasoning: true,
-    reasoningModes: ['low', 'medium', 'high', 'xhigh'],
+    reasoningModes: ['low', 'medium', 'high'],
     supportsJson: true,
     supportsSeed: false,
     supportsCaching: false,

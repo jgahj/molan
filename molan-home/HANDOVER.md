@@ -127,13 +127,13 @@ molan-home/
 | `main` (`exp/plan-b` 合入) | 分支合并 (`b304798`) | 经 Original (`main`) / Plan A (`exp/plan-a`) / Plan B (`exp/plan-b`) 30 篇十题材全量实测对比后，确认 **Plan B** 合并进 `main`：启用 `CompositionV3` 自动 StrategyIR 降阶与 `evidence-catalog` 注入、解耦两遍去 AI 味精修、题材中立 `inplace-sanitizer.js`、真实双裁判文学质量评估及 SSE 行缓冲对齐修复。 |
 | `molan-home/services/acp-transport-service.js` | 新增传输服务 | 实现官方 Antigravity ACP (`tools/antigravity-acp/agy_acp_server.exe` v1.5.0，SHA-256 校验通过) JSON-RPC 2.0 over stdio 持久化进程管理器：<br>1. 隔离空目录 `data/acp-sandbox` 作为会话 `cwd`，并在 `initialize` 禁用文件读写与终端能力、自动拒绝 `session/request_permission`，确保纯文本写作不碰工作区文件；<br>2. 动态对齐 `session/new` 返回的 `configOptions`（`model` 与 `thought_level`/`reasoning_effort`）并调用 `session/set_config_option`；<br>3. 将 `session/update` 的 `agent_thought_chunk` / `agent_message_chunk` 与最终用量实时转为 OpenAI 兼容 SSE 流，无缝复用 `chat-service.js` 全套两遍精修、计费与中止链；<br>4. 未登录时精确映射 `-32000` 为 `503 ACP_AUTH_REQUIRED`，提示运行 `acp-login.bat`。 |
 | `molan-home/services/chat-service.js` | 路由兼容拓展 | 新增 `openAcpUpstream` 注入与 `isAcp` (`pm.provider === 'antigravity-acp'`) 分支：不要求外部 HTTP `apiKey`/`baseURL`，透传 `modelConfig` 与 `reasoningEffort`（默认支持 `pm.defaultReasoningEffort` / `'high'`），保持 `resolveUpstreamModelForReasoning` 不篡改 ACP 模型名。 |
-| `molan-home/lib/model/model-registry.js` | 注册表扩展 | 新增官方 Antigravity 主力模型能力条目：`gemini-4-hydrogen`（1M 上下文、`xhigh`）、`gemini-4-argon`、`claude-opus-5-5`、`claude-sonnet-5-5`、`claude-opus-4-6-thinking`、`claude-sonnet-4-6`、`gpt-oss-120b-medium`，并在 `TOKENIZER_RATIOS` 补充 `gemini` 分词比率。 |
-| `molan-home/services/model-selection-service.js` | 推理档位收敛 | `reasoningEffortsForModel` 优先尊重平台配置中显式声明的 `pm.reasoningEfforts`（如 `gemini-4-hydrogen` 的 4 档 `low/medium/high/xhigh`），同时完全兼容现有 Gemini 3.x 测试契约。 |
+| `molan-home/lib/model/model-registry.js` | 注册表扩展 | 新增官方 Antigravity 主力模型能力条目：`gemini-4-hydrogen`（1M 上下文、`low/medium/high`）、`gemini-4-argon`、`claude-opus-5-5`、`claude-sonnet-5-5`、`claude-opus-4-6-thinking`、`claude-sonnet-4-6`、`gpt-oss-120b-medium`，并在 `TOKENIZER_RATIOS` 补充 `gemini` 分词比率。 |
+| `molan-home/services/model-selection-service.js` | 推理档位收敛 | `reasoningEffortsForModel` 优先尊重平台配置中显式声明的 `pm.reasoningEfforts`（如 `gemini-4-hydrogen` 的 3 档 `low/medium/high`），同时完全兼容现有 Gemini 3.x 测试契约。 |
 | `molan-home/server.js` | 服务接线与清理 | `loadPlatformModels` 透传 `defaultReasoningEffort` / `acpCommand` / `acpProxy`；初始化 `acpTransportService` 并将 `openAcpUpstream` 注入 `createChatService`；在 `stopLocalWorkers` 优雅退出时调用 `acpTransportService.close()`。 |
 | `molan-home/completion-editor.js` | 前端默认适配 | `completionModelMeta` 与 `renderCompletionThinkingSelector` 识别 `gemini-4-*`、`claude-opus/sonnet-5-5` 并默认偏好 `'high'` 思考强度。 |
 | `molan-home/start-node22.bat` | 本地启动环境 | 默认设置 `MOLAN_ALLOW_LOCAL_MODELS=1` 适配纯本机运行环境。 |
 | `molan-home/scripts/acp-login.js` & `acp-login.bat` | 登录引导工具 | 提供一键触发官方 `oauth-personal` 浏览器 OAuth 认证并回显在线 `configOptions` 模型清单的工具。 |
-| `molan-home/data/config.json` *(不入库)* | 本地运行配置 | 新增 5 个官方 ACP 模型条目（`gemini-4-hydrogen`、`claude-opus-5-5`、`claude-sonnet-5-5`、`gemini-4-argon`、`gemini-3.8-flash-acp`），默认模型切为 `gemini-4-hydrogen`（`high`）；完整保留原有 GPT-6-Luna 等中转模型作为备用。 |
+| `molan-home/data/config.json` *(不入库)* | 本地运行配置 | 依据官方 `agy_acp_server.exe` 登录后实测返回的 `configOptions` 精准收敛为 3 个实际可用 ACP 模型（`gemini-4-hydrogen`、`gemini-4-argon`、`gemini-3.8-flash-acp`，3 档 `low/medium/high`），默认模型切为 `gemini-4-hydrogen`（`high`）；完整保留原有 GPT-6-Luna 等中转模型作为备用。 |
 | `molan-home/test/acp-transport.test.js` | 自动化测试 | 新增 5 项测试（模型能力边界、配置档位映射、Mock stdio ACP 流式/权限拒止/用量、未认证 `ACP_AUTH_REQUIRED`、`chat-service` 路由端到端验证）。 |
 
 ---
@@ -160,10 +160,13 @@ molan-home/
   2. 全量测试套件（最后一次代码改动后）：
      ```powershell
      .\tools\node22_runtime\node.exe --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"
-     # tests 2445 | suites 73 | pass 2429 | fail 0 | skipped 16 (duration_ms 36412)
+     # tests 2445 | suites 73 | pass 2429 | fail 0 | skipped 16 (duration_ms 35958)
      ```
      *(注：16 项跳过为无 live PostgreSQL 时的 11 项 PG 集成测试及需 `MOLAN_SLOW_TESTS=1` 的慢测试等默认跳过项)*
-  3. CI 架构与黄金用例审计：
+  3. 官方 ACP 实机联网联调（OAuth 登录后）：
+     - `scripts/acp-login.js` 实测 `session/new` 返回可用模型 `gemini-4-argon`、`gemini-4-hydrogen`、`gemini-3.8-flash` 与思考档位 `low / medium / high`；
+     - `acpTransportService.openUpstream` 实测 `gemini-4-hydrogen (high)` 正文流式生成（`status=200`、`119` 字、`prompt_tokens=12961, completion_tokens=1561, reasoning_tokens=1443`）及 `response_format: { type: 'json_object' }` 纯净 JSON 评审返回（`status=200`、`score=0.88`、`reasoning_tokens=239`）。
+  4. CI 架构与黄金用例审计：
      - `scripts/production-import-audit.mjs`：PASS（234 个生产文件合规，exit 0）
      - `scripts/audit-golden-suite.mjs`：PASS（80 项任务全部通过，exit 0）
   4. 服务装配校验：`server.js` 实载验证 `currentDefaultModel() === 'gemini-4-hydrogen'`、`provider === 'antigravity-acp'`、`defaultReasoningEffort === 'high'`、`contextWindowTokens === 1000000`。

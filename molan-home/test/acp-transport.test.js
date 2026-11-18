@@ -83,7 +83,7 @@ test('Model registry & context budget recognize official Antigravity ACP flagshi
   const h4 = getModelCapability('gemini-4-hydrogen');
   assert.equal(h4.contextWindow, 1000000);
   assert.equal(h4.supportsReasoning, true);
-  assert.deepEqual(h4.reasoningModes, ['low', 'medium', 'high', 'xhigh']);
+  assert.deepEqual(h4.reasoningModes, ['low', 'medium', 'high']);
 
   const opus55 = getModelCapability('claude-opus-5-5-high');
   assert.equal(opus55.contextWindow, 200000);

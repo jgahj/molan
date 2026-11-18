@@ -2890,8 +2890,7 @@
     if (/gpt-6-luna/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: COMPLETION_OFFICIAL_REASONING.slice() };
     if (/gpt-5\.6/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: COMPLETION_OFFICIAL_REASONING.slice() };
     if (/gpt-5\.(2|4|5)/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh'] };
-    if (/gemini-4-hydrogen/i.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['low', 'medium', 'high', 'xhigh'] };
-    if (/gemini-4-argon|claude-(opus|sonnet)-5-5/i.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['low', 'medium', 'high'] };
+    if (/gemini-4-(hydrogen|argon)|claude-(opus|sonnet)-5-5/i.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['low', 'medium', 'high'] };
     if (/gemini.*(3\.[1678]|pro|flash)|3\.[1678]f|3\.1pro/i.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] };
     if (/deepseek.*(v4|r1|reason|think)/.test(normalized)) return { id: modelId, model: modelId, supportsThinking: true };
     return null;
