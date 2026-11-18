@@ -42,6 +42,24 @@ function createPostgresCreationHttpService({
     const actorId = postgresActor(auth);
     const linkedProfile = novelId ? await postgresRepository.getProfile(actorId, novelId) : null;
     if (novelId && !linkedProfile) return json(res, 404, { error: '关联小说不存在或无权写入' });
+    const isEditorBootstrap = body.editorBootstrap === true && Boolean(novelId && linkedProfile) && !body.sourceDissectionId && !body.sourceBriefId;
+    if (isEditorBootstrap && typeof postgresRepository.listCreationBooks === 'function') {
+      const existingBooks = await postgresRepository.listCreationBooks(actorId);
+      const matched = (Array.isArray(existingBooks) ? existingBooks : []).find(item => item && String(item.novelId || item.projectId || '') === novelId);
+      if (matched && matched.id) {
+        const existingBibleData = typeof postgresRepository.getCreationBible === 'function'
+          ? await postgresRepository.getCreationBible(actorId, matched.id)
+          : null;
+        if (existingBibleData && existingBibleData.bible) {
+          return json(res, 200, {
+            ok: true,
+            reused: true,
+            book: { ...matched, bibleVersion: existingBibleData.bible.version || 1, stateVersion: matched.currentStateVersion },
+            bible: existingBibleData.bible.payload || {}
+          });
+        }
+      }
+    }
     let payload = body.bible && typeof body.bible === 'object' && !Array.isArray(body.bible)
       ? body.bible
       : body.payload && typeof body.payload === 'object' && !Array.isArray(body.payload)
@@ -49,10 +67,11 @@ function createPostgresCreationHttpService({
         : normalizeBiblePayload(body);
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json(res, 422, { error: '创作圣经负载非法', code: 'invalid_bible_payload' });
     const seedGate = creationBibleSeedValidation(payload, creationForbiddenTerms(payload));
-    if (!seedGate.ok) {
+    const hasSeedViolations = seedGate.hits.length > 0 || (Array.isArray(seedGate.nameOverlaps) && seedGate.nameOverlaps.length > 0);
+    if (!seedGate.ok && (!isEditorBootstrap || hasSeedViolations)) {
       return json(res, 422, {
-        error: seedGate.hits.length ? '生成内容命中了禁止复制项' : '创作圣经结构不完整',
-        code: seedGate.hits.length ? 'forbidden_entity_hit' : 'incomplete_generation',
+        error: seedGate.hits.length ? '生成内容命中了禁止复制项' : (seedGate.nameOverlaps && seedGate.nameOverlaps.length ? '人物姓名共享汉字，请重命名其中之一' : '创作圣经结构不完整'),
+        code: seedGate.hits.length ? 'forbidden_entity_hit' : (seedGate.nameOverlaps && seedGate.nameOverlaps.length ? 'character_name_overlap' : 'incomplete_generation'),
         hits: seedGate.hits, missing: seedGate.missing
       });
     }

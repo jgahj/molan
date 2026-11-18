@@ -5421,11 +5421,13 @@
             genre: bookGenre,
             plan: bookPlan,
             novelId: String(state.id),
-            generated: true
+            editorBootstrap: true,
+            bible: buildEditorSeedBible(state, prompt)
           }
         });
-        if (creationData && (creationData.creationBookId || (creationData.creationBook && creationData.creationBook.id))) {
-          state.creationBookId = creationData.creationBookId || creationData.creationBook.id;
+        const resolvedBookId = text(creationData && (creationData.creationBookId || (creationData.creationBook && creationData.creationBook.id) || (creationData.book && creationData.book.id)));
+        if (resolvedBookId) {
+          state.creationBookId = resolvedBookId;
           state.creationBookLinked = true;
           scheduleSave({ snapshot: false });
         }
@@ -5679,13 +5681,51 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
     };
   }
 
+  /** 从当前小说已有人物与设定中抽取轻量化创作圣经种子（不虚构占位角色）。 */
+  function buildEditorSeedBible(state, prompt) {
+    const entities = Array.isArray(state && state.knowledge && state.knowledge.entities) ? state.knowledge.entities : [];
+    const characters = [];
+    const worldbuilding = [];
+    const mapNodes = [];
+    entities.forEach(item => {
+      if (!item || typeof item !== 'object') return;
+      const name = text(item.name || item.title).trim();
+      if (!name) return;
+      const kind = text(item.type).trim();
+      const detail = text(item.intro || item.description || item.notes || item.detail).trim();
+      if (/(人物|角色)/.test(kind)) {
+        characters.push({ name, role: text(item.role || item.identity || '角色'), goal: text(item.goal || ''), detail });
+      } else if (/(地点|场景|地图)/.test(kind)) {
+        mapNodes.push({ name, type: kind || '地点', detail });
+      } else {
+        worldbuilding.push({ name, category: kind || '设定', detail });
+      }
+    });
+    const outline = state && state.outline || {};
+    return {
+      title: text(state && state.title || '未命名小说'),
+      genre: text(state && (state.projectProfile && state.projectProfile.primaryGenre || state.genre || state.type || state.genreRoute) || '通用'),
+      oneLine: text(outline.oneLine || prompt || '').slice(0, 500),
+      characters,
+      worldbuilding,
+      map: { nodes: mapNodes, edges: [] },
+      goldenFinger: { type: text(outline.goldenFinger || state && state.goldenFinger || '') }
+    };
+  }
+
   /** 新建或补齐 Generation V2 所需的创作书，并先持久化小说关联。 */
   async function ensureGenerationV2CreationBook(state, prompt) {
-    const preview = getPreview();
+    let preview = getPreview();
     const backend = getBackend();
-    const novelId = String(preview.novelId || state.id || '');
+    if (!backend.token) throw new Error('Generation V2 正式提交需要有效会话凭证');
+    let novelId = String(preview.novelId || state.id || '');
+    if (!isServerNovelId(novelId)) {
+      await persistAppliedNovel({ snapshot: false });
+      preview = getPreview();
+      novelId = String(preview.novelId || state.id || '');
+    }
     if (!state.creationBookId) {
-      if (!novelId || !backend.token) throw new Error('Generation V2 正式提交需要已登录的服务器作品和创作书');
+      if (!novelId) throw new Error('Generation V2 正式提交需要有效的服务器作品和创作书');
       const creationData = await creationRequest('/api/creation-books', {
         method: 'POST',
         body: {
@@ -5693,10 +5733,11 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
           genre: text(state.projectProfile && state.projectProfile.primaryGenre || state.genre || state.type || state.genreRoute || ''),
           plan: text(state.outline && state.outline.oneLine || prompt || ''),
           novelId,
-          generated: true
+          editorBootstrap: true,
+          bible: buildEditorSeedBible(state, prompt)
         }
       });
-      state.creationBookId = text(creationData && (creationData.creationBookId || creationData.creationBook && creationData.creationBook.id));
+      state.creationBookId = text(creationData && (creationData.creationBookId || (creationData.creationBook && creationData.creationBook.id) || (creationData.book && creationData.book.id)));
       if (!state.creationBookId) throw new Error(creationData && creationData.error || '创作书创建未确认，已停止 Generation V2');
       state.creationBookLinked = true;
       await persistAppliedNovel({ snapshot: false });

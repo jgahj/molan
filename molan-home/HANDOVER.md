@@ -84,6 +84,7 @@ molan-home/
 ├── scripts/acp-login.js & acp-login.bat # 官方 ACP OAuth 一次登录与模型能力探测脚本
 ├── pages/local-open-auth.js            # 独立子页本地免登录会话共享引导模块 (`MolanLocalOpenAuth`)
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
+    ├── editor-bootstrap-creation-book.test.js # 编辑器直连 Generation V2 伴生创作书自动引导与圣经校验隔离测试 (4 项)
     ├── local-open-access.test.js              # 本地免登录开放模式 (`MOLAN_LOCAL_OPEN_ACCESS=1`) 与生产安全隔离测试 (2 项)
     ├── acp-transport.test.js                  # 官方 Antigravity ACP 传输、权限拒绝、OAuth未登录拦截与 chat-service 集成测试 (5 项)
     ├── package-publisher-lru.test.js          # 发布器路径隔离、LRU 滚动保留与激活保护测试 (3 项)
@@ -117,6 +118,24 @@ molan-home/
     ├── phase2-engine-enhancements.test.js     # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
     └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
+
+---
+
+## 阶段记录：编辑器作品直连 Generation V2 伴生创作书自动引导修复 (2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/completion-editor.js` | 前端引导与ID解析修复 | 1. 新增 `buildEditorSeedBible(state, prompt)`：从作品 `state.knowledge.entities` 与 `state.outline` 提取真实已有角色、地点和世界观设定（不虚构占位人物）；<br>2. 修复 `ensureGenerationV2CreationBook` 与 `runChapterWorkflow`：未保存草稿先持久化获取服务端 `novelId`/`revision`，传入 `editorBootstrap: true` 与真实提取的 `bible`（替代原先错误传递的布尔值 `generated: true`），并补齐读取 `creationData.book && creationData.book.id`。 |
+| `molan-home/services/postgres-creation-http-service.js` | 后端安全放行与幂等复用 | `handlePostgresCreationBooksCreate` 对携带 `editorBootstrap: true` 且绑定了已验证自有 `novelId`（无 `sourceDissectionId`）的请求：<br>1. 若该 `novelId` 已有关联创作书，直接幂等复用（`reused: true`）；<br>2. 保留禁止复制项（`forbidden_entity_hit`）与人物重字（`character_name_overlap`）拦截门禁，仅豁免 3 角色 / 3 地图节点 / 金手指必填项缺失拦截，标准创书流程门禁保持不变。 |
+| `molan-home/test/editor-bootstrap-creation-book.test.js` | 自动化测试 | 新增 4 项测试覆盖标准创书门禁、编辑器引导豁免与重字拦截、同 `novelId` 复用及 `completion-editor.js` 契约。 |
+
+### 二、验证证据与测试数据
+
+- **全量测试套件**（`tools/node22_runtime/node.exe`）：`2451 tests | 73 suites | 2435 pass | 0 fail | 16 skipped`
+- **架构审计**：`scripts/production-import-audit.mjs` 通过（234 个生产文件合规）
+- **本机 PG 18.6 实机 HTTP 端到端校验**：`POST /api/novels` → `POST /api/creation-books`（`editorBootstrap: true` 空圣经）→ `GET /api/creation-books/:id/state`（`bibleVersion: 1`, `stateVersion: 0`）→ 二次引导自动复用（`reused: true`）全部通过。
 
 ---
 
