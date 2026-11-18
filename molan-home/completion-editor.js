@@ -2890,6 +2890,8 @@
     if (/gpt-6-luna/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: COMPLETION_OFFICIAL_REASONING.slice() };
     if (/gpt-5\.6/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: COMPLETION_OFFICIAL_REASONING.slice() };
     if (/gpt-5\.(2|4|5)/.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh'] };
+    if (/gemini-4-hydrogen/i.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['low', 'medium', 'high', 'xhigh'] };
+    if (/gemini-4-argon|claude-(opus|sonnet)-5-5/i.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['low', 'medium', 'high'] };
     if (/gemini.*(3\.[1678]|pro|flash)|3\.[1678]f|3\.1pro/i.test(normalized)) return { id: modelId, model: modelId, supportsReasoning: true, reasoningEfforts: ['none', 'low', 'medium', 'high'] };
     if (/deepseek.*(v4|r1|reason|think)/.test(normalized)) return { id: modelId, model: modelId, supportsThinking: true };
     return null;
@@ -2920,7 +2922,10 @@
     if (model && model.supportsReasoning) {
       const options = completionReasoningOptions(model);
       const saved = text(state.settings.reasoningEffort || '').toLowerCase();
-      const preferred = /gpt-6-luna/.test(text(model.model || model.id).toLowerCase()) ? 'max' : 'medium';
+      const lowerModelName = text(model.model || model.id).toLowerCase();
+      const preferred = /gpt-6-luna/.test(lowerModelName)
+        ? 'max'
+        : ((model.provider === 'antigravity-acp' || /gemini-4-|claude-(opus|sonnet)-5-5/.test(lowerModelName)) ? 'high' : 'medium');
       const current = options.includes(saved) ? saved : (options.includes(preferred) ? preferred : options[0] || 'none');
       state.settings.reasoningEffort = current;
       selector.dataset.mode = 'reasoning';

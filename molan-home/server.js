@@ -270,6 +270,9 @@ function loadPlatformModels() {
           promptCaching: m.promptCaching !== false && (m.provider === 'openai-compat'),
           promptCacheMode: m.promptCacheMode === 'implicit' ? 'implicit' : (/gpt-5\.6/i.test(String(m.model || m.id)) ? 'explicit' : 'implicit'),
           reasoningEfforts: isGpt6Luna ? ['none', 'low', 'medium', 'high', 'xhigh', 'max'] : (Array.isArray(m.reasoningEfforts) ? m.reasoningEfforts.map(v => String(v)) : null),
+          defaultReasoningEffort: m.defaultReasoningEffort ? String(m.defaultReasoningEffort).trim().toLowerCase() : '',
+          acpCommand: m.acpCommand ? String(m.acpCommand) : '',
+          acpProxy: m.acpProxy ? String(m.acpProxy) : '',
           creditsPer1k: (typeof m.creditsPer1k === 'number') ? m.creditsPer1k : 1,
           contextWindowTokens: normalizeContextWindowTokens(
             m.contextWindowTokens ?? m.context_window ?? m.max_context_tokens,
@@ -659,6 +662,11 @@ const { characterMaterialReviewContext, parseCharacterMaterialSampleReview, revi
 });
 
 
+const { estimatePromptTokens: estimateModelPromptTokens } = require('./lib/model/model-registry');
+const acpTransportService = require('./services/acp-transport-service').createAcpTransportService({
+  estimatePromptTokens: estimateModelPromptTokens
+});
+
 let chatServiceHandler = null;
 function getChatServiceHandler() {
   if (!chatServiceHandler) {
@@ -686,7 +694,7 @@ function getChatServiceHandler() {
       buildHumanizePassMessages, mergeUsageSum, computeAiFlavorScore, summarizeAiFlavorVerdict, addPromptCacheBreakpoint,
       normalizeReasoningEffort, stablePromptCacheKey, reserveCredits, planCreditReservation, normalizeUsage,
       estimateTextTokenUpperBound, creditCostForUser, roundCreditValue, emptyCorrectionAudit, scanUniversalCorrectionRisks,
-      recordCorrectionHits, settleTokenUsage, openUpstream, responseCors, UPSTREAM_MAX_RESPONSE_BYTES, UPSTREAM_SSE_BUFFER_BYTES,
+      recordCorrectionHits, settleTokenUsage, openUpstream, openAcpUpstream: acpTransportService.openUpstream, responseCors, UPSTREAM_MAX_RESPONSE_BYTES, UPSTREAM_SSE_BUFFER_BYTES,
       UPSTREAM_QUALITY_SCAN_MAX_CHARS, UPSTREAM_TOTAL_TIMEOUT_MS, LIVE_BILLING_EVENT_INTERVAL_MS,
       recordDispatchAttempt
     }).handleChat;
@@ -5816,7 +5824,7 @@ if (require.main === module) {
         { code: 'POSTGRES_NOT_CONFIGURED' });
     },
     flushSessions: () => {}, flushWrites: flushPostgresRuntimeWrites,
-    closeStorage: closeStorageStores, stopLocalWorkers: stopCreditReservationReaper,
+    closeStorage: closeStorageStores, stopLocalWorkers: () => { stopCreditReservationReaper(); acpTransportService.close(); },
     onStartupFailure: error => {
       if (POSTGRES_MODE) postgresHealth = { enabled: true, available: false, status: 'unavailable', error: String(error && error.code || 'pg_unavailable') };
     }

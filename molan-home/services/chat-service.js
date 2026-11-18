@@ -4,6 +4,7 @@ const { createChatStreamRuntime } = require('./chat-stream-runtime');
 const { sanitizeUserPrompt } = require('../lib/ip-continuation-adapter');
 
 function resolveUpstreamModelForReasoning(pm, eff) {
+  if (pm && pm.provider === 'antigravity-acp') return (pm && (pm.model || pm.id)) || '';
   const isGemini = pm && (pm.group === 'gemini' || /gemini/i.test(String(pm.model || pm.id)));
   if (!isGemini) return (pm && (pm.model || pm.id)) || '';
   const base = String(pm.model || pm.id || '').replace(/-(low|medium|high)$/i, '');
@@ -96,6 +97,7 @@ function createChatService({
   recordCorrectionHits,
   settleTokenUsage,
   openUpstream,
+  openAcpUpstream,
   responseCors,
   UPSTREAM_MAX_RESPONSE_BYTES,
   UPSTREAM_SSE_BUFFER_BYTES,
@@ -477,17 +479,23 @@ function createChatService({
       const isModelDowngraded = Boolean(requestedModel && requestedModel !== modelId && !internalModelId);
       const pm = findPlatformModel(modelId) || findPlatformModel(currentDefaultModel());
       if (!pm) { releaseSlot(); json(res, 500, { error: '服务端未配置平台模型' }); return; }
+      const isAcp = pm.provider === 'antigravity-acp';
       const isOpenAI = pm.provider === 'openai-compat';
-      const apiKey = isOpenAI ? (pm.apiKey || '') : getDeepseekKey();
+      const usesOpenAiPayload = isOpenAI || isAcp;
+      const apiKey = isAcp ? 'local-acp-oauth' : (isOpenAI ? (pm.apiKey || '') : getDeepseekKey());
       if (!apiKey) { releaseSlot(); json(res, 500, { error: '平台模型「' + pm.name + '」尚未配置密钥，请联系管理员' }); return; }
-      const targetURL = isOpenAI
-        ? (pm.baseURL.replace(/\/+$/, '') + '/chat/completions')
-        : getDeepseekUrl();
+      const targetURL = isAcp
+        ? 'acp://antigravity-acp'
+        : (isOpenAI ? (pm.baseURL.replace(/\/+$/, '') + '/chat/completions') : getDeepseekUrl());
       const isGemini = pm.group === 'gemini' || /gemini/i.test(String(pm.model || pm.id));
       let reasoningEffort = null;
       if (pm.supportsReasoning) {
         reasoningEffort = normalizeReasoningEffort(pm, input.reasoningEffort);
-        if (!reasoningEffort && /^gpt-6-luna$/i.test(String(pm.model || pm.id))) {
+        if (!reasoningEffort && pm.defaultReasoningEffort) {
+          reasoningEffort = normalizeReasoningEffort(pm, pm.defaultReasoningEffort);
+        } else if (!reasoningEffort && isAcp) {
+          reasoningEffort = normalizeReasoningEffort(pm, 'high');
+        } else if (!reasoningEffort && /^gpt-6-luna$/i.test(String(pm.model || pm.id))) {
           reasoningEffort = (input.stage === 'skill_analysis' || input.stage === 'planning') ? 'max' : 'medium';
         } else if (!reasoningEffort && isGemini) {
           reasoningEffort = (input.stage === 'skill_analysis' || input.stage === 'planning') ? 'high' : 'medium';
@@ -583,15 +591,15 @@ function createChatService({
 
       // 请求体统一带 stream_options.include_usage，便于服务端按 token 扣减积分
       let bodyObj;
-      if (isOpenAI) {
+      if (usesOpenAiPayload) {
         const officialMessages = addPromptCacheBreakpoint(messages, pm);
         bodyObj = { model, messages: officialMessages, stream: true, stream_options: { include_usage: true } };
         if (pm.supportsReasoning) {
           if (reasoningEffort) bodyObj.reasoning_effort = reasoningEffort;
           bodyObj.max_completion_tokens = max_tokens;
-          if (typeof temperature === 'number' && (!/^gpt-6-luna$/i.test(String(pm.model || pm.id)) || reasoningEffort === 'none')) bodyObj.temperature = temperature;
+          if (!isAcp && typeof temperature === 'number' && (!/^gpt-6-luna$/i.test(String(pm.model || pm.id)) || reasoningEffort === 'none')) bodyObj.temperature = temperature;
         } else {
-          bodyObj.temperature = temperature;
+          if (!isAcp) bodyObj.temperature = temperature;
           bodyObj.max_tokens = max_tokens;
         }
         if (pm.promptCaching) {
@@ -1132,14 +1140,14 @@ function createChatService({
         const secondMaxTokens = hasReasoningBudget
           ? Math.min(max_tokens, Math.max(4096, Math.round(baseEstimate * 1.4) + 3072))
           : Math.min(max_tokens, baseEstimate);
-        if (isOpenAI) {
+        if (usesOpenAiPayload) {
           const officialMessages = addPromptCacheBreakpoint(secondMessages, pm);
           const obj = { model, messages: officialMessages, stream: true, stream_options: { include_usage: true } };
           if (pm.supportsReasoning) {
             if (reasoningEffort) obj.reasoning_effort = reasoningEffort;
             obj.max_completion_tokens = secondMaxTokens;
           } else {
-            obj.temperature = temperature;
+            if (!isAcp) obj.temperature = temperature;
             obj.max_tokens = secondMaxTokens;
           }
           if (pm.promptCaching) {
@@ -1365,8 +1373,18 @@ function createChatService({
         }
 
         if (finalized || responseClosed) return;
+        const dispatchUpstream = (reqOpts, cb) => {
+          if (isAcp) {
+            if (typeof openAcpUpstream !== 'function') {
+              cb(new Error('Antigravity ACP 传输服务未启用'));
+              return;
+            }
+            return openAcpUpstream({ ...reqOpts, modelConfig: pm, reasoningEffort }, cb);
+          }
+          return openUpstream(targetURL, effectiveProxy, reqOpts, cb);
+        };
         try {
-          openUpstream(targetURL, effectiveProxy, {
+          dispatchUpstream({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey,

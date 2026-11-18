@@ -41,13 +41,17 @@ molan-home/
 │   │       ├── hook-profile.js         # 钩子规范与确定性 Debt ID 生成 (SHA-256)
 │   │       └── compatibility-matrix.js # 5 维协同矩阵与局部文风调制
 │   ├── generation/                     # 正文生成引擎 (M1~M5 核心)
-│   │   ├── content-engine.js           # 草稿请求装配 (buildDraftRequest 幂等去重入模)、生成调度与单一模型调用
+│   │   ├── content-engine.js           # 草稿请求装配 (buildDraftRequest 幂等去重入模、CompositionV3 自动合成与 evidence-catalog 注入)、生成调度
 │   │   ├── context-budget.js           # 供应商上下文窗口预算断言 (assertContextBudget)
 │   │   ├── context.js                  # 八层上下文编译器 (assembleContext)、8维大纲审计指标闭环、提示词防污染黑名单
+│   │   ├── inplace-sanitizer.js        # 题材中立的体感反应规整与句法净味后处理
 │   │   ├── manifest.js                 # 回放清单生成器 (buildGenerationManifest)、WeakSet 循环引用免疫保护
 │   │   ├── orchestrator.js             # 正文生成编排器、生命周期流转、getReplay 显式跨层透传 outlineAudit 与双重持久化
 │   │   ├── quality-assessment.js       # 质量评测与 fail-closed 门禁
-│   │   └── quality-gate.js             # 质量门禁判定引擎
+│   │   ├── quality-gate.js             # 质量门禁判定引擎
+│   │   └── run-context.js              # 生成运行态参数规范化 (useCompositionV3 / judgeReasoningEffort / targetChars)
+│   ├── model/
+│   │   └── model-registry.js           # 统一大模型能力注册表 (GPT / DeepSeek / Claude / Gemini 3.x-4 / ACP 模型上下文与分词比率)
 │   ├── memory-context.js               # 长篇记忆上下文 (selectRelevantPlans 多维打分提炼、数值0/空串防假值坍塌、writingPackage 提升入模)
 │   ├── scene-planner.js                # 细纲场景规划器 (三态完备度识别、事件链推导、因果硬围栏阻断与自愈剪枝)
 │   ├── security-guard.js               # 端到端防套取提示词检测与系统安全硬围栏 (Fail-Fast探针拦截, 硬围栏注入)
@@ -69,11 +73,17 @@ molan-home/
 │   ├── knowledge.js                    # 知识与因果债务路由器
 │   └── projects.js                     # 项目与角色路由器
 ├── services/                           # 业务服务层
-│   ├── generation-service.js           # 生成服务 (buildCanonicalOutlineContext 权威规范化大纲装配与章节物理定位)
+│   ├── acp-transport-service.js        # 官方 Antigravity ACP (JSON-RPC over stdio) 本地传输适配器与会话池
+│   ├── chat-service.js                 # 对话与两遍去 AI 味精修总控 (SSE 行缓冲、OpenAI/DeepSeek/ACP 统一分发)
+│   ├── generation-service.js           # 生成服务 (buildCanonicalOutlineContext、两遍精修与真实文学盲评串联)
+│   ├── humanize-policy-service.js      # 第二遍去 AI 味精修提示词与题材/目标字数约束构建
 │   ├── model-call-service.js           # 全站通用模型调用客户端 (内部 HTTP 路由与流解析)
+│   ├── model-selection-service.js      # 用户模型解析与思考强度归一化
 │   ├── creation-chapter-service.js     # 章节生成编排入口
 │   └── creation-plan-service.js        # 创作计划与大纲服务
+├── scripts/acp-login.js & acp-login.bat # 官方 ACP OAuth 一次登录与模型能力探测脚本
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
+    ├── acp-transport.test.js                  # 官方 Antigravity ACP 传输、权限拒绝、OAuth未登录拦截与 chat-service 集成测试 (5 项)
     ├── package-publisher-lru.test.js          # 发布器路径隔离、LRU 滚动保留与激活保护测试 (3 项)
     ├── workbench-editor-fusion.test.js        # 创作坞站、AI增强开关、防提示词套取与双向联动测试 (29 项全量通过)
     ├── reviewer-m3-m4-adversarial.test.js     # M3/M4 对抗审查加固专测 (20 项)
@@ -105,6 +115,58 @@ molan-home/
     ├── phase2-engine-enhancements.test.js     # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
     └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
+
+---
+
+## 阶段记录：Plan B 创作链路并入主线与本机官方 Antigravity ACP 协议接入 (2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `main` (`exp/plan-b` 合入) | 分支合并 (`b304798`) | 经 Original (`main`) / Plan A (`exp/plan-a`) / Plan B (`exp/plan-b`) 30 篇十题材全量实测对比后，确认 **Plan B** 合并进 `main`：启用 `CompositionV3` 自动 StrategyIR 降阶与 `evidence-catalog` 注入、解耦两遍去 AI 味精修、题材中立 `inplace-sanitizer.js`、真实双裁判文学质量评估及 SSE 行缓冲对齐修复。 |
+| `molan-home/services/acp-transport-service.js` | 新增传输服务 | 实现官方 Antigravity ACP (`tools/antigravity-acp/agy_acp_server.exe` v1.5.0，SHA-256 校验通过) JSON-RPC 2.0 over stdio 持久化进程管理器：<br>1. 隔离空目录 `data/acp-sandbox` 作为会话 `cwd`，并在 `initialize` 禁用文件读写与终端能力、自动拒绝 `session/request_permission`，确保纯文本写作不碰工作区文件；<br>2. 动态对齐 `session/new` 返回的 `configOptions`（`model` 与 `thought_level`/`reasoning_effort`）并调用 `session/set_config_option`；<br>3. 将 `session/update` 的 `agent_thought_chunk` / `agent_message_chunk` 与最终用量实时转为 OpenAI 兼容 SSE 流，无缝复用 `chat-service.js` 全套两遍精修、计费与中止链；<br>4. 未登录时精确映射 `-32000` 为 `503 ACP_AUTH_REQUIRED`，提示运行 `acp-login.bat`。 |
+| `molan-home/services/chat-service.js` | 路由兼容拓展 | 新增 `openAcpUpstream` 注入与 `isAcp` (`pm.provider === 'antigravity-acp'`) 分支：不要求外部 HTTP `apiKey`/`baseURL`，透传 `modelConfig` 与 `reasoningEffort`（默认支持 `pm.defaultReasoningEffort` / `'high'`），保持 `resolveUpstreamModelForReasoning` 不篡改 ACP 模型名。 |
+| `molan-home/lib/model/model-registry.js` | 注册表扩展 | 新增官方 Antigravity 主力模型能力条目：`gemini-4-hydrogen`（1M 上下文、`xhigh`）、`gemini-4-argon`、`claude-opus-5-5`、`claude-sonnet-5-5`、`claude-opus-4-6-thinking`、`claude-sonnet-4-6`、`gpt-oss-120b-medium`，并在 `TOKENIZER_RATIOS` 补充 `gemini` 分词比率。 |
+| `molan-home/services/model-selection-service.js` | 推理档位收敛 | `reasoningEffortsForModel` 优先尊重平台配置中显式声明的 `pm.reasoningEfforts`（如 `gemini-4-hydrogen` 的 4 档 `low/medium/high/xhigh`），同时完全兼容现有 Gemini 3.x 测试契约。 |
+| `molan-home/server.js` | 服务接线与清理 | `loadPlatformModels` 透传 `defaultReasoningEffort` / `acpCommand` / `acpProxy`；初始化 `acpTransportService` 并将 `openAcpUpstream` 注入 `createChatService`；在 `stopLocalWorkers` 优雅退出时调用 `acpTransportService.close()`。 |
+| `molan-home/completion-editor.js` | 前端默认适配 | `completionModelMeta` 与 `renderCompletionThinkingSelector` 识别 `gemini-4-*`、`claude-opus/sonnet-5-5` 并默认偏好 `'high'` 思考强度。 |
+| `molan-home/start-node22.bat` | 本地启动环境 | 默认设置 `MOLAN_ALLOW_LOCAL_MODELS=1` 适配纯本机运行环境。 |
+| `molan-home/scripts/acp-login.js` & `acp-login.bat` | 登录引导工具 | 提供一键触发官方 `oauth-personal` 浏览器 OAuth 认证并回显在线 `configOptions` 模型清单的工具。 |
+| `molan-home/data/config.json` *(不入库)* | 本地运行配置 | 新增 5 个官方 ACP 模型条目（`gemini-4-hydrogen`、`claude-opus-5-5`、`claude-sonnet-5-5`、`gemini-4-argon`、`gemini-3.8-flash-acp`），默认模型切为 `gemini-4-hydrogen`（`high`）；完整保留原有 GPT-6-Luna 等中转模型作为备用。 |
+| `molan-home/test/acp-transport.test.js` | 自动化测试 | 新增 5 项测试（模型能力边界、配置档位映射、Mock stdio ACP 流式/权限拒止/用量、未认证 `ACP_AUTH_REQUIRED`、`chat-service` 路由端到端验证）。 |
+
+---
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **采用官方 ACP Binary (`agy_acp_server.exe`) + 适配层复用 `chat-service` SSE 通道**：
+   - *方案选择*：未侵入修改 `chat-service.js` 的两遍精修、计费或流式状态机，而是让 `acp-transport-service.js` 在本地持久化管理 `agy_acp_server.exe` 子进程并将 ACP `session/update` 翻译为标准 SSE 流，从而使 Plan B 的 Pass 1 / Pass 2 / DualJudge / Dissection 全链路零重复实现地工作于官方 ACP 协议上。
+   - *风险阻断与防范*：官方 ACP 底层是带工作区感知的 Agent 运行时。为此强制传入隔离空目录 `data/acp-sandbox` 作为 `cwd`、关闭 `fs/terminal` 能力、自动拒绝 `session/request_permission`、并在系统消息前附带纯文本写作帧，防止代理读取源码或触发工具调用；同时保留现有 `gpt-6-luna` 等 HTTP 中转模型，避免单一配额受限时无回退渠道。
+2. **保留 `exp/plan-a` 分支且不删除实验记录**：`main` 仅快进合并 `exp/plan-b` 后叠加 ACP 接入，`exp/plan-a` 继续留在本地分支持仓以便回溯。
+3. **本机首次 OAuth 前置说明**：`agy_acp_server.exe` 独立校验 `C:\Users\lyh\.gemini\antigravity-acp` 下的官方凭据；严禁绕过或复制其他目录凭据，未完成初次登录时由 `503 ACP_AUTH_REQUIRED` 明确指引用户执行一次 `molan-home\acp-login.bat`。
+
+---
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **执行命令与真实结果**：
+  1. ACP 专项测试（最后一次代码改动后）：
+     ```powershell
+     .\tools\node22_runtime\node.exe --test molan-home/test/acp-transport.test.js
+     # 5 tests, 5 passed, 0 failed
+     ```
+  2. 全量测试套件（最后一次代码改动后）：
+     ```powershell
+     .\tools\node22_runtime\node.exe --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"
+     # tests 2445 | suites 73 | pass 2429 | fail 0 | skipped 16 (duration_ms 36412)
+     ```
+     *(注：16 项跳过为无 live PostgreSQL 时的 11 项 PG 集成测试及需 `MOLAN_SLOW_TESTS=1` 的慢测试等默认跳过项)*
+  3. CI 架构与黄金用例审计：
+     - `scripts/production-import-audit.mjs`：PASS（234 个生产文件合规，exit 0）
+     - `scripts/audit-golden-suite.mjs`：PASS（80 项任务全部通过，exit 0）
+  4. 服务装配校验：`server.js` 实载验证 `currentDefaultModel() === 'gemini-4-hydrogen'`、`provider === 'antigravity-acp'`、`defaultReasoningEffort === 'high'`、`contextWindowTokens === 1000000`。
 
 ---
 

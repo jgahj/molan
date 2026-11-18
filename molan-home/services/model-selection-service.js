@@ -21,12 +21,12 @@ function createModelSelectionService({ findPlatformModel, normalizeUserRole, cur
     const model = String(pm.model || pm.id || '').toLowerCase();
     if (/^gpt-6-luna$/.test(model)) return ['none', 'low', 'medium', 'high', 'xhigh', 'max'];
     if (!pm.supportsReasoning) return [];
-    if (/gemini/i.test(model) || pm.group === 'gemini') return ['low', 'medium', 'high'];
-    if (/grok-4\.6/i.test(model)) return ['low', 'medium', 'high', 'xhigh'];
-    if (/grok/i.test(model) || pm.group === 'grok') return ['low', 'medium', 'high'];
     if (Array.isArray(pm.reasoningEfforts) && pm.reasoningEfforts.length) {
       return pm.reasoningEfforts.filter(value => OFFICIAL_REASONING_EFFORTS.has(value));
     }
+    if (/gemini/i.test(model) || pm.group === 'gemini') return ['low', 'medium', 'high'];
+    if (/grok-4\.6/i.test(model)) return ['low', 'medium', 'high', 'xhigh'];
+    if (/grok/i.test(model) || pm.group === 'grok') return ['low', 'medium', 'high'];
     if (/gpt-5\.6/.test(model)) return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
     if (/gpt-5\.(2|4|5)/.test(model)) return ['none', 'low', 'medium', 'high', 'xhigh'];
     return ['none', 'low', 'medium', 'high'];
