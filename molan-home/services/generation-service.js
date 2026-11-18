@@ -420,6 +420,10 @@ function createGenerationService({
             if (value && value.genre && value.genre !== 'auto') {
               return { status: 'resolved', confidence: 1, genre: value.genre, subgenre: value.subgenre || '' };
             }
+            const altGenre = value && (value.novelGenre || value.genreFamily);
+            if (altGenre && altGenre !== 'auto' && altGenre !== 'all') {
+              return { status: 'resolved', confidence: 1, genre: altGenre, subgenre: value.subgenre || '' };
+            }
             return canonicalResolveGenre({
               genre: value && value.genre,
               subgenre: value && value.subgenre,
@@ -500,14 +504,27 @@ function createGenerationService({
               || ''
             ).trim().toLowerCase();
             const resolvedCharacterMaterial = (runRequest.characterMaterial && typeof runRequest.characterMaterial === 'object')
-              ? runRequest.characterMaterial
+              ? {
+                  mode: 'raw',
+                  includeParagraphExemplars: runRequest.characterMaterial.mode !== 'off',
+                  ...runRequest.characterMaterial,
+                  proseTask: runRequest.characterMaterial.proseTask !== false && runRequest.characterMaterial.mode !== 'off',
+                  genre: runRequest.characterMaterial.genre || effectiveGenre,
+                  novelId: runRequest.characterMaterial.novelId || runRequest.novelId || projectId
+                }
               : {
+                  mode: 'raw',
+                  includeParagraphExemplars: true,
                   proseTask: true,
                   genre: effectiveGenre,
                   novelId: runRequest.novelId || projectId,
                   query: String(runRequest.userInstruction || runRequest.prompt || (contract && (contract.chapterGoal || contract.goal)) || '').slice(0, 800)
                 };
             if (typeof onProgress === 'function') onProgress({ stage: 'writing', message: '正在调用生成与审计管线' });
+            const passedStyleText = (passedStyle && typeof passedStyle === 'object')
+              ? (passedStyle.source === 'neutral_default' ? '' : (passedStyle.style || passedStyle.prompt || ''))
+              : String(passedStyle || '');
+            const resolvedStyleInput = passedStyleText || runRequest.writingStyle || runRequest.styleArchetype || runRequest.style || story.styleDNA || story.styleProfile || '';
             try {
               pipelineResult = await contentEngine.generateDraft({
                 callModel: (_auth, options) => {
@@ -544,7 +561,13 @@ function createGenerationService({
                 context: typeof passedContext === 'string' && passedContext ? passedContext : (runRequest.storyContext && runRequest.storyContext.planText) || '',
                 contextPlan: passedContextPlan || null,
                 genre: effectiveGenre,
-                style: (passedStyle && typeof passedStyle === 'object') ? (passedStyle.style || passedStyle.prompt || '') : (passedStyle || runRequest.style || story.styleDNA || story.styleProfile || ''),
+                style: resolvedStyleInput,
+                ...(runRequest.novelGenre ? { novelGenre: runRequest.novelGenre } : {}),
+                ...(runRequest.writingStyle ? { writingStyle: runRequest.writingStyle } : {}),
+                ...(runRequest.styleArchetype ? { styleArchetype: runRequest.styleArchetype } : {}),
+                ...(runRequest.chapterFunction ? { chapterFunction: runRequest.chapterFunction } : {}),
+                ...(runRequest.chapterFocus ? { chapterFocus: runRequest.chapterFocus } : {}),
+                ...(runRequest.endingHook ? { endingHook: runRequest.endingHook } : {}),
                 ...(resolvedProviderContextLimit ? { providerContextLimit: resolvedProviderContextLimit } : {}),
                 ...(resolvedReasoningEffort ? { reasoningEffort: resolvedReasoningEffort } : {}),
                 characterMaterial: resolvedCharacterMaterial,

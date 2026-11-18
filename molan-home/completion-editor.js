@@ -5829,6 +5829,18 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       state.creationContext.bible.payload && state.creationContext.bible.payload.taskConstraints &&
       state.creationContext.bible.payload.taskConstraints.chapterWordTarget) ||
       Number(contract && (contract.targetWords || contract.wordTarget)) || 0;
+    const uiStage = stageNode || getStage();
+    const uiGenreFamily = text(uiStage && (uiStage.querySelector('[data-completion-genre-family]') || {}).value);
+    const uiWritingStyle = text(uiStage && (uiStage.querySelector('[data-completion-archetype-override]') || {}).value);
+    const uiChapterFunction = text(uiStage && (uiStage.querySelector('[data-completion-chapter-function]') || {}).value);
+    const uiChapterFocus = text(uiStage && (uiStage.querySelector('[data-completion-chapter-focus]') || {}).value);
+    const uiEndingHook = text(uiStage && (uiStage.querySelector('[data-completion-ending-hook]') || {}).value);
+    const stateRoute = text(state.genreRoute || '');
+    const stateGenre = text(state.projectProfile && state.projectProfile.primaryGenre || state.genre || state.type || (stateRoute && stateRoute !== 'auto' ? stateRoute : '') || '');
+    const resolvedGenre = (uiGenreFamily && uiGenreFamily !== 'all') ? uiGenreFamily : (stateGenre && stateGenre !== 'auto' ? stateGenre : '');
+    const resolvedStyle = text(uiWritingStyle || state.stylePreset || state.settings && (state.settings.stylePreset || state.settings.style) || '');
+    const thinkingControl = uiStage && uiStage.querySelector('[data-completion-thinking-control]');
+    const uiReasoningEffort = (thinkingControl && thinkingControl.dataset.mode === 'reasoning' && thinkingControl.value) ? thinkingControl.value : undefined;
     const requestPayload = {
       projectId,
       novelId: projectId,
@@ -5837,8 +5849,20 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
       chapterNo: creationChapterNo(state, chapter.id),
       sceneId: String(scene.id),
       modelId: modelId || undefined,
-      genre: text(state.projectProfile && state.projectProfile.primaryGenre || state.genre || state.type || state.genreRoute || ''),
-      style: text(state.stylePreset || state.settings && (state.settings.stylePreset || state.settings.style) || ''),
+      ...(uiReasoningEffort ? { reasoningEffort: uiReasoningEffort } : {}),
+      genre: resolvedGenre,
+      novelGenre: (uiGenreFamily && uiGenreFamily !== 'all') ? uiGenreFamily : (resolvedGenre || undefined),
+      genreFamily: (uiGenreFamily && uiGenreFamily !== 'all') ? uiGenreFamily : undefined,
+      style: resolvedStyle,
+      writingStyle: resolvedStyle || undefined,
+      styleArchetype: resolvedStyle || undefined,
+      chapterFunction: uiChapterFunction || undefined,
+      chapterFocus: uiChapterFocus || undefined,
+      endingHook: uiEndingHook || undefined,
+      characterMaterial: {
+        ...buildCharacterMaterialRequest(state, context, prompt, { proseTask: true }),
+        includeParagraphExemplars: true
+      },
       userInstruction: prompt,
       prompt,
       messages: [{ role: 'user', content: prompt }],

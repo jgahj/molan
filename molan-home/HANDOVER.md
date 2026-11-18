@@ -116,8 +116,54 @@ molan-home/
     ├── e2e-phase2-engine.test.js              # Phase 2 引擎 4 梯队 60 项 E2E 验收用例
     ├── adversarial-attention-tiering.test.js  # 注意力裁剪对抗性极限压力测试 (35 项)
     ├── phase2-engine-enhancements.test.js     # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
+    ├── living-prose-optimization.test.js      # 《小说原本》零AI味范本注入、《纠错库》靶向诊断与全题材去AI味优化 (10 项)
     └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
+
+---
+
+## 阶段记录：全题材「活人感」生成管线深度优化——打通《小说原本》范本与《纠错库》靶向精修闭环 (2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/lib/character-material.js` | 原著活人示范与匿名化纠偏 | 1. 修复 `isParagraphNameCandidate` / `ANON_NAME_TAIL_BLOCK` / `ANON_FALSE_POSITIVE_PHRASES` 与 `isBrokenAnonymizedText`，阻止将“那是/于是/那个/全区频/鱼竿/马上走”等误伤成破碎 `【人X】` 占位符；`normalizeCharacterMaterialRequest` 显式保留 `includeParagraphExemplars`；<br>2. 新增 `PARAGRAPH_GENRE_ALIASES`（覆盖全部中文子类及 `modern_romance` / `scifi_apocalypse` / `suspense` 等界面英语 ID）、`EXEMPLAR_AI_CLICHE_GUARD`、`EXEMPLAR_NOISE_GUARD`（过滤作者求票/寄存脑子等非正文噪音）、`isCleanExemplarSample` 与 **`buildLivingProseExemplarBlock`**：从源自《资源库/小说原本》的 48 类 `paragraph-samples.json` 中抽选 `flavorScore === 0`（零 AI 味）的干净真人原著片段（直接采用纯净原文而非破损 `【人X】` 替换，并继续接入 12 字防抄袭重叠扫描）；<br>3. `buildCharacterMaterialBlock` 在 `raw` 与 `auto` 模式下均支持按 `includeParagraphExemplars: true` 直接注入原著活人笔触参照。 |
+| `molan-home/lib/generation/corpus-archetypes.js` | 46 题材语料经验打通 | 升级 `compileGenreDirective` 与 `compileStyleDirective`：新增 `EMPIRICAL_GENRE_ALIASES`（含界面 `GENRE_FAMILY_MAP` 英文键映射）、`STYLE_NAME_ALIASES` 与中文子题材精确/包含匹配，解决此前传入中文题材名或界面家族 ID 无法命中 `corpus-empirical-rules.json` 46 类 1276 部小说经验规则的问题。 |
+| `molan-home/lib/composition/ir/ir-lowering.js` | Gemini 家族专属下沉渲染 & P4 渲染补齐 | 1. `resolveModelFamily` 新增识别 `gemini`，新增 `renderForGemini` 专属渲染器（强调活人对话、感官细节与长短句呼吸）；<br>2. 修复 `cascade.P4_GENRE_POLICY` 遗漏 `genre.description` 导致 46 类语料经验法则在 V3 编译链路静默丢失的断层。 |
+| `molan-home/lib/composition/compiler/strategy-compiler.js`<br>`molan-home/lib/composition/corpus/evidence-catalog.js` | 通用活人策略卡补全 & 家族透传 | `compileChapterStrategy` 显式透传 `modelFamily`；`evidence-catalog.js` 新增 3 张跨题材 A 级策略卡（`card_living_dialogue_subtext` 活人口语潜台词、`card_sensory_living_detail` 日常感官anchors、`card_sentence_cadence_breathing` 句式呼吸参差律）。 |
+| `molan-home/lib/generation/content-engine.js`<br>`molan-home/lib/generation/run-context.js` | 题材自适应风格、原著示范与 V2 入参透传 | 1. `run-context.js` `normalizeGenerationRequest` 透传 `novelGenre`/`genreFamily`/`writingStyle`/`styleArchetype`/`chapterFunction`/`chapterFocus`/`endingHook` 并将默认 `modelParams.temperature` 统一为 `0.85`；<br>2. `compileDraftPrompt` 过滤 `neutral_default` 兜底风格包，取消非冷硬题材被锁死 `laobai_restrained`（“老白冷硬克制”），按题材自动匹配风格与 `genre.family`、去除 `defaultStateDelta` 模板套话并在 V3 与非 V3 回退分支均注入 `buildLivingProseExemplarBlock`；`buildDraftRequest` 默认起草 `temperature` 设为 `0.85`。 |
+| `molan-home/lib/generation/inplace-sanitizer.js` | 上下文保真纠偏 | 将 `template_smile` 拆分为敌意冷笑与温和/日常笑意两组替换，避免把言情/日常笑容改写为“冷冷吐出半句话”；修复 `dead_silence` 替换为中性安静描写，绝不凭空编造“雨水滴落声”。 |
+| `molan-home/correction-policy.js`<br>`molan-home/lib/correction-library.js` | 《纠错库》去玄幻硬编码 & 靶向诊断对齐 | 1. 通用化 `R-47`/`R-50`，移除“功德簿墙/圣王/符箓/道法破绽”等单一题材预设词，全面适配言情、都市、悬疑、历史、科幻、玄幻等全题材；<br>2. 修复 `RULE_TYPE_HINTS` 错配（如 `R-14-template-smile` 对齐 `搭配不当`、`R-20-contrast-cliche` 对齐 `对比句式`）与 `scanRepetition` 的 `currentCount` 读取；扩充 `sanitizeCorrectionCaseName` 脱敏范围；<br>3. 新增导出 **`buildTargetedCorrectionGuidance`**：结合 `scanUniversalCorrectionRisks` 实测命中与 `cases.json` 217 条《纠错库.md》人工案例，输出脱敏后的逐项病灶定位与「原句 → 修正句」对照示范。 |
+| `molan-home/services/humanize-policy-service.js`<br>`molan-home/services/chat-service.js` | Pass-2 靶向诊断与原著示范闭环 | 1. `buildHumanizePassMessages` 修复 `structuralRisks`（对象计数）、`sentenceStdRatio`/`paragraphUniformity` 与 `analyzeHumanTexture().cliches` 读取，传参对齐 `maxExcerptChars`，确保实测诊断、《纠错库》对照与《小说原本》范本完整送入 Pass 2；<br>2. `chat-service.js` 为 `writing` 写作请求开启 `includeParagraphExemplars` 且在 `precompiledPrompt` 已含范本时不重复双份注入；在 `handleFirstPassEnd` 联跑 `scanUniversalCorrectionRisks` 与 `analyzeHumanTexture` 触发 Pass 2，在 `handleSecondPassEnd` 记录 `correctionHitsBefore`/`After`，并为推理模型留足 `secondMaxTokens`（`>= 6144`）。 |
+| `molan-home/services/generation-service.js`<br>`molan-home/completion-editor.js`<br>`molan-home/start-node22*.bat` | V2 入口参数补全、语法修复 & 缓存戳升级 | `generation-service.js` 在 `passedStyle.source === 'neutral_default'` 时不覆盖自适应题材风格，并默认构造 `characterMaterial`（`mode: 'raw'`, `includeParagraphExemplars: true`）；修复 `completion-editor.js` `runChapterWorkflowV2` 重复声明 `stageNode` 导致的语法报错，透传 `characterMaterial`、思考强度与界面题材/风格/功能/侧重点/钩子；`start-node22.bat` / `start-node22-pg.bat` 默认启用 `MOLAN_TWO_PASS_HUMANIZE=1`；前端版本戳升级至 `20261118_living_v1`。 |
+| `molan-home/test/living-prose-optimization.test.js` | 新增自动化验证 | 新增 15 项全链路单测、语法校验与 `chat-service` Pass-1/Pass-2 集成测试，覆盖零 AI 味原著样本筛选、噪音与破碎占位符过滤、防抄袭、46 题材与英文 ID 命中、Gemini 渲染、`run-context` 透传、自适应文风、纠错库靶向诊断对齐、Pass-2 诊断透传及单份范本去重。 |
+
+### 二、设计决策与权衡
+
+1. **优先复用零 AI 味《小说原本》整段范本（`buildLivingProseExemplarBlock`），不额外叠加耗时审校模型调用**：
+   - 原 `strong` 模式在每次写章前会触发最多 3 次外部 `character-material-review` 审校模型请求，延迟高且受外部分片审批门禁限制（`profilesPublished: false` 时直接无样本可用）。
+   - 本次改为从 `data/paragraph-samples.json`（源自《资源库/小说原本》48 个题材分类）直接按题材与场景过滤出 `flavorScore === 0` 且语法未破损的真人名作片段（每章 2 段），同时保留 `scanCharacterMaterialOverlap` 12 字重叠防抄袭扫描，零额外网络延迟即可向模型提供真实活人语感参照。
+2. **保持 `isTwoPassHumanizeEnabled` 单元默认行为契约，通过启动脚本与 Generation V2 入参默认开启**：
+   - `test/two-pass-humanize.test.js` 显式断言未传标志且未设环境变量时 `isTwoPassHumanizeEnabled('writing', {}) === false`。因此保留函数默认签名不变，由 `generation-service.js`（已显式 `twoPassHumanize: true`）及 `start-node22.bat` / `start-node22-pg.bat`（默认 `MOLAN_TWO_PASS_HUMANIZE=1`）在真实运行态开启两遍精修，兼顾向后兼容性与实效。
+3. **Pass 2 精修由“全量否定规则堆砌”改为“逐篇实测病灶 + 纠错库原句对照 + 原著活人示范”**：
+   - 仅堆砌几十条“禁止 XX”容易让模型缩手缩脚、把对白压干；改为把本篇初稿真实命中的《纠错库》条文/套词、`cases.json` 中的具体「原句 → 修正句」改法以及同题材零 AI 味原著示范一并交给 Pass 2 编辑，既精准切除 AI 腔又保留各题材应有的人物温度与节奏。
+
+### 三、真实验证证据与测试数据
+
+- **全量测试套件**（`..\tools\node22_runtime\node.exe --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"`）：`2466 tests | 73 suites | 2450 pass | 0 fail | 16 skipped`。
+- **专项测试**（`.\tools\node22_runtime\node.exe --test molan-home/test/living-prose-optimization.test.js`）：`15 tests | 15 pass | 0 fail`。
+- **全量 JS 语法检查**：813 个 `.js/.mjs/.cjs` 文件 `node -c` 校验 0 错误（已修复 `completion-editor.js` 重复声明 `stageNode` 问题）。
+- **架构与门禁审计**：
+  - `.\tools\node22_runtime\node.exe molan-home\scripts\check-frontend-stamp.mjs`：通过（`20261118_living_v1` 放行，exit 0）。
+  - `.\tools\node22_runtime\node.exe molan-home\scripts\production-import-audit.mjs`：通过（扫描 234 个生产核心文件，零违规，exit 0）。
+  - `.\tools\node22_runtime\node.exe molan-home\scripts\audit-golden-suite.mjs`：通过（`GOLDEN INPUT SUITE PASS tasks=80`，exit 0）。
+  - `.\tools\node22_runtime\node.exe molan-home\scripts\audit-features.mjs`：8 个核心功能合约 `contracts=8, failed_contracts=0, unknown_markers=0`（因历史已有 `unmapped_controls=49` 导航/外围 UI 控件基线返回 exit 1）。
+- **本机 PG 18.6 + Live 服务重启与跨题材端到端生成实测**（`http://127.0.0.1:3000`，`pid: 29172`，`MOLAN_TWO_PASS_HUMANIZE=1`、`gemini-3.8-flash-acp`）：
+  - **青春甜宠 (`modern_romance`)**：任务 `c8e14f07-6d04-4245-a18e-47f4438d5fc9`，生成 `1310` 字，`quality.score = 0.88`、`passed = true`、`errorCode: ""`，未回落为冷硬风格，`【人X】` 破损占位符 `0` 处，对白与细节自然生动；
+  - **悬疑探案 (`suspense`)**：任务 `0e99b9c8-0926-4077-aa5a-0037ae5a1735`，耗时 `195.0s` 进入 `needs_human`，生成 `1150` 字，`errorCode: ""`、`【人X】` 占位符 `0` 处（氛围克制、试探对话自然）；
+  - **东方仙侠 (`xuanhuan`)**：任务 `b63d2946-435a-42d5-9210-c346b11221b7`，耗时 `115.1s` 进入 `waiting_author`，生成 `1462` 字，`quality.score = 0.88`、`passed = true`、`errorCode: ""`、`【人X】` 占位符 `0` 处；
+  - 测试临时作品已全部 `DELETE` 清理，数据库保持 `novels: 1`。
 
 ---
 

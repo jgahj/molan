@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const { StringDecoder } = require('node:string_decoder');
 const { createChatStreamRuntime } = require('./chat-stream-runtime');
 const { sanitizeUserPrompt } = require('../lib/ip-continuation-adapter');
+const { analyzeHumanTexture } = require('../lib/style/human-texture');
 
 function resolveUpstreamModelForReasoning(pm, eff) {
   if (pm && pm.provider === 'antigravity-acp') return (pm && (pm.model || pm.id)) || '';
@@ -431,7 +432,14 @@ function createChatService({
         .join('\n')
         .slice(-1600);
       const characterMaterialRequest = characterMaterialEligible
-        ? { ...materialHint, query: materialHint.query || generationContextText, proseTask: materialHint.proseTask !== false }
+        ? {
+            ...materialHint,
+            includeParagraphExemplars: materialHint.includeParagraphExemplars !== undefined
+              ? materialHint.includeParagraphExemplars
+              : (!editorOnly && stage === 'writing'),
+            query: materialHint.query || generationContextText,
+            proseTask: materialHint.proseTask !== false
+          }
         : { enabled: false, proseTask: false };
       const characterMaterialMatureAllowed = characterMaterialEligible
         ? await Promise.resolve(isMatureCharacterMaterialEnabledForNovel(auth.user, materialHint.novelId))
@@ -517,12 +525,16 @@ function createChatService({
         reviewedMaterial.audit = { ...reviewedMaterial.audit, sampleReview: characterMaterialReview.audit };
         Object.assign(characterMaterialResult, reviewedMaterial);
       }
-      if (characterMaterialResult.messages.length) {
+      const alreadyHasLivingExemplars = messages.some(m => m && typeof m.content === 'string' && m.content.includes('molan-living-prose-exemplars-v1'));
+      const materialMessagesToInject = alreadyHasLivingExemplars
+        ? characterMaterialResult.messages.filter(m => !(m && typeof m.content === 'string' && m.content.includes('molan-living-prose-exemplars-v1')))
+        : characterMaterialResult.messages;
+      if (materialMessagesToInject.length) {
         const firstUserIndex = messages.findIndex(message => message && message.role === 'user');
         const insertAt = firstUserIndex >= 0 ? firstUserIndex : messages.length;
         messages = validateChatMessages([
           ...messages.slice(0, insertAt),
-          ...characterMaterialResult.messages,
+          ...materialMessagesToInject,
           ...messages.slice(insertAt)
         ]);
       }
@@ -731,6 +743,7 @@ function createChatService({
       let secondPassActive = false;
       let aiFlavorFirstPass = null;
       let aiFlavorSecondPass = null;
+      let firstPassCorrectionHits = 0;
       let rewriteMeta = null;
       // The reservation already holds the full cost of the safe output budget,
       // and max_tokens/max_completion_tokens is sent upstream as the hard cap.
@@ -1123,7 +1136,7 @@ function createChatService({
       /**
        * 构造第二遍（humanize 遍）的上游请求体：改写消息集 + 适配推理模型的改写预算。
        */
-      function buildSecondPassBody(draft) {
+      function buildSecondPassBody(draft, diagnostics = null) {
         const humanizeGenre = String(
           (characterMaterialRequest && characterMaterialRequest.genre)
           || (materialHint && materialHint.genre)
@@ -1131,15 +1144,19 @@ function createChatService({
           || effectiveGenre
           || ''
         ).trim();
+        const diag = diagnostics && typeof diagnostics === 'object' ? diagnostics : {};
         const secondMessages = buildHumanizePassMessages(draft, {
           genre: humanizeGenre,
-          targetChars: Number(input.targetChars || input.targetWords) || 0
+          targetChars: Number(input.targetChars || input.targetWords) || 0,
+          aiFlavorReport: diag.aiFlavorReport || aiFlavorFirstPass || null,
+          correctionScan: diag.correctionScan || null,
+          textureReport: diag.textureReport || null
         });
         const baseEstimate = Math.max(768, estimateTextTokenUpperBound(draft));
         const hasReasoningBudget = Boolean(pm.supportsReasoning && reasoningEffort && reasoningEffort !== 'none');
         const secondMaxTokens = hasReasoningBudget
-          ? Math.min(max_tokens, Math.max(4096, Math.round(baseEstimate * 1.4) + 3072))
-          : Math.min(max_tokens, baseEstimate);
+          ? Math.min(max_tokens, Math.max(6144, Math.round(baseEstimate * 1.6) + 3584))
+          : Math.min(max_tokens, Math.max(2048, Math.round(baseEstimate * 1.35)));
         if (usesOpenAiPayload) {
           const officialMessages = addPromptCacheBreakpoint(secondMessages, pm);
           const obj = { model, messages: officialMessages, stream: true, stream_options: { include_usage: true } };
@@ -1166,24 +1183,54 @@ function createChatService({
       }
 
       /**
-       * 第一遍（生成遍）流结束：AI 味检测、结构风险或黑名单命中均触发第二遍精修；完全自然纯净则直接下发。
-       * 第二遍失败或无输出时回退初稿，保证用户始终拿到完整正文。
+       * 第一遍（生成遍）流结束：结合 AI 味检测、纠错库实测扫描与人味质感诊断决定是否进入第二遍靶向精修；
+       * 完全自然纯净则直接下发。第二遍失败或无输出时回退初稿，保证用户始终拿到完整正文。
        */
       function handleFirstPassEnd() {
         if (finalized || responseClosed) return;
         firstPassText = streamedContentText;
         firstPassUsage = lastUsage;
         aiFlavorFirstPass = computeAiFlavorScore(firstPassText, twoPassProfile);
+        const humanizeGenreForScan = String(
+          (characterMaterialRequest && characterMaterialRequest.genre)
+          || (materialHint && materialHint.genre)
+          || (input && input.genre)
+          || effectiveGenre
+          || ''
+        ).trim();
+        let correctionScan = null;
+        try {
+          if (firstPassText.trim() && typeof scanUniversalCorrectionRisks === 'function') {
+            correctionScan = scanUniversalCorrectionRisks(firstPassText, { genre: humanizeGenreForScan, includeLibrary: true });
+          }
+        } catch (_) {
+          correctionScan = null;
+        }
+        let textureReport = null;
+        try {
+          if (firstPassText.trim() && typeof analyzeHumanTexture === 'function') {
+            textureReport = analyzeHumanTexture(firstPassText, { genre: humanizeGenreForScan });
+          }
+        } catch (_) {
+          textureReport = null;
+        }
         const forceHumanize = Boolean(input.forceHumanizePass === true || input.alwaysHumanize === true);
         const firstScore = aiFlavorFirstPass && typeof aiFlavorFirstPass.score === 'number' ? aiFlavorFirstPass.score : 0;
         const firstStructuralRisks = Number(aiFlavorFirstPass && aiFlavorFirstPass.metrics && aiFlavorFirstPass.metrics.structuralRiskTotal) || 0;
         const firstBlockHits = Array.isArray(aiFlavorFirstPass && aiFlavorFirstPass.details && aiFlavorFirstPass.details.blockHits) ? aiFlavorFirstPass.details.blockHits.length : 0;
+        const firstCorrectionHits = Number(correctionScan && correctionScan.findingCount) || 0;
+        firstPassCorrectionHits = firstCorrectionHits;
+        const firstTextureCliches = Number(textureReport && textureReport.clicheCount) || 0;
+        const firstTextureIssues = Array.isArray(textureReport && textureReport.structuralIssues) ? textureReport.structuralIssues.length : 0;
         const needsHumanizePolish = Boolean(
           forceHumanize
           || !(aiFlavorFirstPass && aiFlavorFirstPass.passed)
-          || firstScore >= 28
+          || firstScore >= 20
           || firstStructuralRisks > 0
           || firstBlockHits > 0
+          || firstCorrectionHits > 0
+          || firstTextureCliches > 0
+          || firstTextureIssues > 0
         );
         if (!firstPassText.trim() || !needsHumanizePolish) {
           rewriteMeta = {
@@ -1191,21 +1238,34 @@ function createChatService({
             reason: !firstPassText.trim() ? 'empty_draft' : 'first_pass_clean',
             firstPassScore: firstScore,
             structuralRiskTotal: firstStructuralRisks,
-            blockHits: firstBlockHits
+            blockHits: firstBlockHits,
+            correctionHits: firstCorrectionHits
           };
           flushDraftAsSSE(firstPassText);
           finalizeUsage('completed');
           return;
         }
-        // AI 味或结构节奏需精修 → 通知前端进入改写遍（信息性事件，未识别该事件的前端可安全忽略），再发起第二遍。
+        // AI 味、纠错库命中或结构节奏需精修 → 通知前端进入改写遍（携带本篇诊断），再发起第二遍。
         secondPassActive = true;
         lastUsage = null;
         if (isStreamWritable() && res.headersSent) {
-          writeSseControlEvent('data: ' + JSON.stringify({ molan_rewrite: { phase: 'begin', firstPassScore: firstScore, structuralRiskTotal: firstStructuralRisks, blockHits: firstBlockHits } }) + '\n\n');
+          writeSseControlEvent('data: ' + JSON.stringify({
+            molan_rewrite: {
+              phase: 'begin',
+              firstPassScore: firstScore,
+              structuralRiskTotal: firstStructuralRisks,
+              blockHits: firstBlockHits,
+              correctionHits: firstCorrectionHits
+            }
+          }) + '\n\n');
         }
         streamedContentText = '';
         streamedOutputText = '';
-        const secondBodyObj = buildSecondPassBody(firstPassText);
+        const secondBodyObj = buildSecondPassBody(firstPassText, {
+          aiFlavorReport: aiFlavorFirstPass,
+          correctionScan,
+          textureReport
+        });
         sendUpstream(JSON.stringify(secondBodyObj), {
           pass: 2,
           stage: 'second_pass',
@@ -1231,18 +1291,27 @@ function createChatService({
       function handleSecondPassEnd() {
         if (finalized || responseClosed) return;
         aiFlavorSecondPass = computeAiFlavorScore(streamedContentText, twoPassProfile);
+        let secondCorrectionHits = null;
+        try {
+          if (streamedContentText.trim() && typeof scanUniversalCorrectionRisks === 'function') {
+            const secondGenre = String((characterMaterialRequest && characterMaterialRequest.genre) || (materialHint && materialHint.genre) || (input && input.genre) || effectiveGenre || '').trim();
+            secondCorrectionHits = Number(scanUniversalCorrectionRisks(streamedContentText, { genre: secondGenre, includeLibrary: true })?.findingCount) || 0;
+          }
+        } catch (_) {}
         if (!streamedContentText.trim()) {
           // 改写遍空输出：回退初稿，避免 empty_output。
           streamedContentText = firstPassText;
           streamedOutputText = firstPassText;
           flushDraftAsSSE(firstPassText);
-          rewriteMeta = { applied: 'fallback', reason: 'empty_rewrite', fallback: 'first_pass', firstPassScore: aiFlavorFirstPass.score };
+          rewriteMeta = { applied: 'fallback', reason: 'empty_rewrite', fallback: 'first_pass', firstPassScore: aiFlavorFirstPass.score, correctionHitsBefore: firstPassCorrectionHits };
         } else {
           rewriteMeta = {
             applied: true,
             firstPassScore: aiFlavorFirstPass ? aiFlavorFirstPass.score : null,
             secondPassScore: aiFlavorSecondPass ? aiFlavorSecondPass.score : null,
-            passedAfter: !!(aiFlavorSecondPass && aiFlavorSecondPass.passed)
+            passedAfter: !!(aiFlavorSecondPass && aiFlavorSecondPass.passed),
+            correctionHitsBefore: firstPassCorrectionHits,
+            ...(secondCorrectionHits != null ? { correctionHitsAfter: secondCorrectionHits } : {})
           };
         }
         finalizeUsage('completed');

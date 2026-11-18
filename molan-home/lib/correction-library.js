@@ -598,16 +598,23 @@ function buildLibraryScanRules(library) {
 }
 
 const RULE_TYPE_HINTS = [
-  [/formulaic-metaphor|dead-simile|blacklist/, /烂俗比喻|套话比喻|比喻/],
-  [/template-smile|lip-corner/, /AI套话|不自然用词|烂俗比喻/],
+  [/formulaic-metaphor|dead-simile|blacklist/, /烂俗比喻|套话比喻|精致比喻/],
+  [/template-smile/, /搭配不当|笑意/],
+  [/lip-corner/, /不自然用词/],
   [/decorative-quantity/, /数量词/],
-  [/formulaic-crowd/, /群像|群体/],
-  [/sensory-personification|sound-personification/, /实体化|通感|感官/],
+  [/formulaic-crowd/, /群像|群体|禁用套路句/],
+  [/sensory-personification|sound-personification/, /实体化|通感|感官|重复修饰/],
   [/postposed-state/, /状语后置|语序/],
-  [/fragmented-verb|incomplete-phrase/, /单字动词|不完整|缩写|谓语/],
-  [/narrator|evidence-overclaim|contrast-cliche/, /旁白|越界|证据|对比句/],
-  [/redundant-emotion|redundant-transition/, /冗余|情绪|转场/],
-  [/wound|reflex|impact/, /伤势|震颤|物理/]
+  [/fragmented-verb|incomplete-phrase/, /单字动词|语句节奏不完整|缩写不自然|谓语不完整/],
+  [/contrast-cliche/, /对比句式/],
+  [/evidence-overclaim/, /越界判断|证据/],
+  [/narrator-value-judgment/, /旁白越权|旁白情绪|旁白剧透/],
+  [/micro-timing-cliche/, /微反应/],
+  [/stacked-explanation/, /说明文|侦查解释/],
+  [/redundant-emotion/, /冗余情绪|告知情绪/],
+  [/redundant-transition/, /冗余|转场/],
+  [/abstract-wound-cliche/, /伤势抽象/],
+  [/dialogue|banter|slogan/, /对白|台词|语气不贴合|口号/]
 ];
 
 function suggestionForFinding(library, finding) {

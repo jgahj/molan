@@ -35,20 +35,115 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
   }
 
   /**
-   * 构造第二遍（humanize 遍）的完整消息集：纠错库 + 数据驱动 AI 词表 + 改写指令 + 初稿。
-   * 初稿全文作为 user 消息携带，要求模型只做语言层改写，保留全部事实、剧情顺序与人物关系。
+   * 构造第二遍（humanize 遍）的完整消息集：
+   * 纠错库总则 + 针对本初稿的实测诊断（AI味指标 / 纠错库逐句定位）+ 纠错库原句→修正句示范
+   * + 数据驱动 AI 词表 + 同题材零AI味原著活人笔触范本 + 改写边界 + 初稿全文。
    */
   function buildHumanizePassMessages(draft, meta = null) {
     const lexiconBlock = buildHumanizeLexiconBlock();
     const metaInfo = meta && typeof meta === 'object' ? meta : {};
     const genreLabel = String(metaInfo.genre || '').trim();
     const targetChars = Number(metaInfo.targetChars) || 0;
+    const draftText = String(draft || '');
+
+    let targetedCorrectionBlock = '';
+    try {
+      const correctionPolicy = require('../correction-policy');
+      if (typeof correctionPolicy.buildTargetedCorrectionGuidance === 'function') {
+        const guided = correctionPolicy.buildTargetedCorrectionGuidance(draftText, {
+          genre: genreLabel,
+          scan: metaInfo.correctionScan || null
+        });
+        targetedCorrectionBlock = guided && guided.block ? guided.block : '';
+      }
+    } catch (_) {
+      targetedCorrectionBlock = '';
+    }
+
+    const aiFlavorReport = metaInfo.aiFlavorReport || null;
+    const textureReport = metaInfo.textureReport || null;
+    const diagnosticLines = [];
+    if (aiFlavorReport && typeof aiFlavorReport === 'object') {
+      const score = Number(aiFlavorReport.score) || 0;
+      const metrics = aiFlavorReport.metrics || {};
+      const blockHits = Array.isArray(aiFlavorReport.details?.blockHits)
+        ? aiFlavorReport.details.blockHits.map(item => (typeof item === 'string' ? item : item?.term || item?.phrase || '')).filter(Boolean).slice(0, 8)
+        : [];
+      const rawStructural = aiFlavorReport.details?.structuralRisks;
+      let structuralRisks = [];
+      if (Array.isArray(rawStructural)) {
+        structuralRisks = rawStructural.map(item => (typeof item === 'string' ? item : item?.label || item?.id || '')).filter(Boolean).slice(0, 5);
+      } else if (rawStructural && typeof rawStructural === 'object') {
+        const riskLabels = {
+          pseudoFragCount: '拟声/断语孤立碎段',
+          turnTakingCount: '回合制点名排队打斗',
+          binarySymmetryCount: '机械二元对称句式',
+          isolatedExplanatoryCount: '视听分镜式孤立说明行',
+          somaticOverreactionCount: '植物神经痉挛生理套话'
+        };
+        structuralRisks = Object.entries(riskLabels)
+          .filter(([k]) => Number(rawStructural[k]) > 0)
+          .map(([k, label]) => `${label}(${rawStructural[k]}处)`);
+      }
+      if (score > 0 || blockHits.length || structuralRisks.length) {
+        diagnosticLines.push(`- AI 腔综合风险分：${score}（目标压低至 15 以下）`);
+      }
+      if (blockHits.length) diagnosticLines.push(`- 初稿实测高频 AI 套词：${blockHits.join('、')}（逐处替换为具体感官、口语或物理动作）`);
+      if (structuralRisks.length) diagnosticLines.push(`- 初稿实测 AI 句式病灶：${structuralRisks.join('；')}`);
+      if (metrics.sentenceStdRatio != null && Number.isFinite(Number(metrics.sentenceStdRatio)) && Number(metrics.sentenceStdRatio) < 0.75) {
+        diagnosticLines.push(`- 句长起伏偏平（方差比基线仅 ${Number(metrics.sentenceStdRatio).toFixed(2)}）：请拉开长短句呼吸，重要转折或抢白处用短句，日常铺叙可留流畅复句`);
+      }
+      if (metrics.paragraphUniformity > 0 && Number(metrics.paragraphUniformity) < 0.45) {
+        diagnosticLines.push(`- 段落长度过于均匀（变异系数 ${Number(metrics.paragraphUniformity).toFixed(2)}）：避免每段字数像模具压出来一样齐整，按动作与情绪自然分段`);
+      }
+    }
+    if (textureReport && typeof textureReport === 'object') {
+      const rawCliches = Array.isArray(textureReport.cliches)
+        ? textureReport.cliches
+        : (Array.isArray(textureReport.clicheHits) ? textureReport.clicheHits : []);
+      const cliches = rawCliches.slice(0, 5)
+        .map(c => {
+          const q = c && (c.quote || c.phrase || '');
+          const n = c && (c.name || c.label || '');
+          return q && n ? `${n}“${q}”` : (q || n);
+        })
+        .filter(Boolean);
+      const issues = Array.isArray(textureReport.structuralIssues) ? textureReport.structuralIssues.slice(0, 4).map(i => i.message || i.type).filter(Boolean) : [];
+      if (cliches.length) diagnosticLines.push(`- 人味质感命中套话：${cliches.join('、')}`);
+      if (issues.length) diagnosticLines.push(`- 文本结构单调提示：${issues.join('；')}`);
+    }
+
+    let livingExemplarBlock = '';
+    if (metaInfo.includeLivingExemplars !== false) {
+      try {
+        const { buildLivingProseExemplarBlock } = require('../lib/character-material');
+        if (typeof buildLivingProseExemplarBlock === 'function') {
+          const ex = buildLivingProseExemplarBlock({
+            genre: genreLabel,
+            query: draftText.slice(0, 500)
+          }, { limit: 2, maxExcerptChars: 380 });
+          livingExemplarBlock = ex && ex.block ? ex.block : '';
+        }
+      } catch (_) {
+        livingExemplarBlock = '';
+      }
+    }
+
     const systemParts = [
-      '你是小说编辑，只做有文本依据的必要修订，保留已经成立的人物声音、叙事节奏和剧情事实。',
+      '你是资深商业连载小说改稿主编，只做有文本依据的活人化润色与病灶修复，保留已经成立的人物声音、题材氛围、叙事节奏与全部剧情事实。',
       UNIVERSAL_CORRECTION_MARKER,
       UNIVERSAL_CORRECTION_POLICY_PROMPT
     ];
     if (lexiconBlock) systemParts.push(lexiconBlock);
+    if (diagnosticLines.length) {
+      systemParts.push(`【本篇初稿实测 AI 味诊断（优先逐项修复）】\n${diagnosticLines.join('\n')}`);
+    }
+    if (targetedCorrectionBlock) {
+      systemParts.push(targetedCorrectionBlock);
+    }
+    if (livingExemplarBlock) {
+      systemParts.push(livingExemplarBlock);
+    }
     systemParts.push([
       '【改写边界（必须遵守）】',
       '1. 保持剧情主干、核心情境与人物立场：修补初稿中的叙事断层与前后矛盾，修正违背基本生活常识与物理常识的悬浮动作；修补需顺理成章、行云流水，杜绝刻意跳出故事解释道具台账的打卡感。',
@@ -57,7 +152,7 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       '4. 彻底剔除假文青与修辞通胀（核心去AI味）：坚决删掉无病呻吟的做作通感比喻，换为干净利落、画面感极强的直接白描与动作推进。',
       '5. 删除重复而无效的情绪解释，不把普通词语出现当作错误，也不把所有情绪替换成咬牙、手抖或握紧某物的单一动作套路。',
       '6. 让读者知道人物看到了什么、据此判断了什么；判断证据不足时保留不确定，不由旁白把怀疑认证为事实。',
-      '7. 保留对白中的关心、误会、尴尬、玩笑和直接请求，不强制每句话都有机锋或配微动作。人物反应应影响关系或下一步行动。',
+      '7. 保留对白中的关心、误会、尴尬、玩笑和直接请求，不强制每句话都有机锋或配微动作。人物反应应影响关系或下一步行动；对白要像真人平时开口，少用书面朗诵腔。',
       '8. 短段和单句成段本身不是缺陷。按完整的动作、感受或思考分段，不强制每段句数，不为降低检测分机械合并或扩写。',
       '9. 打破匀速平推，拉开句长波峰波谷：复杂因果/动作交锋可用较长复句拉足张力，关键转折或落锤瞬间用干脆短句收束，避免通篇十来字均匀碎句。',
       '10. 不能靠添加新工具、异常规则、伤势或收费补因果。保留已经兑现的阶段结果，不强制升级危机；无法从初稿确认的事实不擅自补定。',
@@ -65,8 +160,8 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       '12. 直接输出完整修订后的正文，不要任何解释、前言或 Markdown 围栏。'
     ].join('\n'));
     return [
-      { role: 'system', content: systemParts.join('\n') },
-      { role: 'user', content: '以下是初稿。只修复有依据的语言套路与节奏僵化问题，严守原有事实、体量、开篇承接与人物表达；直接输出完整修订正文：\n\n' + String(draft || '') }
+      { role: 'system', content: systemParts.join('\n\n') },
+      { role: 'user', content: '以下是初稿。请对照上述实测诊断、纠错示例与同题材原著手感，逐一清掉生硬AI套话、翻译腔与重复动作模板，让人物说话行事更有活人气，同时严守原有事实、体量、开篇承接与剧情走向；直接输出完整修订正文：\n\n' + draftText }
     ];
   }
 

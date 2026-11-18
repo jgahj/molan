@@ -429,9 +429,13 @@ function compileDraftPrompt(options = {}) {
     wordTarget: activeContract.wordBudget && activeContract.wordBudget.targetChars
   });
 
-  const effectiveNovelGenre = req.novelGenre || activeContract.novelGenre || options.novelGenre || (typeof genre === 'string' ? genre : (genre && (genre.genre || genre.id))) || '';
+  const rawStyleInput = (typeof style === 'object' && style !== null && style.source === 'neutral_default')
+    ? ''
+    : (typeof style === 'string' ? style : (style && (style.style || style.prompt))) || '';
+  const sanitizedStyleInput = /^【基调风格】：中性现实/.test(String(rawStyleInput).trim()) ? '' : rawStyleInput;
+  const effectiveNovelGenre = req.novelGenre || req.genreFamily || activeContract.novelGenre || options.novelGenre || (typeof genre === 'string' ? genre : (genre && (genre.genre || genre.id))) || '';
   const effectiveFocus = req.chapterFocus || activeContract.chapterFocus || options.chapterFocus || 'balanced';
-  const effectiveWritingStyle = req.writingStyle || activeContract.writingStyle || req.styleArchetype || activeContract.styleArchetype || options.styleArchetype || (typeof style === 'string' ? style : (style && (style.style || style.prompt))) || '';
+  const effectiveWritingStyle = req.writingStyle || activeContract.writingStyle || req.styleArchetype || activeContract.styleArchetype || options.writingStyle || options.styleArchetype || sanitizedStyleInput || '';
   const effectiveChapterFunction = req.chapterFunction || activeContract.chapterFunction || options.chapterFunction || '';
   const effectiveEndingHook = req.endingHook || activeContract.endingHook || options.endingHook || '';
 
@@ -528,54 +532,81 @@ function compileDraftPrompt(options = {}) {
     } else {
       const genreHint = String(effectiveNovelGenre || '通用文学').trim();
       const matchedGenreSeed = defaultProfileRegistry.getGenre(genreHint)
-        || (genreHint.includes('玄') || genreHint.includes('仙') ? defaultProfileRegistry.getGenre('xuanhuan_cautious')
-          : genreHint.includes('科幻') || genreHint.includes('末世') ? defaultProfileRegistry.getGenre('scifi_hardcore')
-          : genreHint.includes('历史') || genreHint.includes('古言') ? defaultProfileRegistry.getGenre('ancient_court')
-          : genreHint.includes('悬疑') || genreHint.includes('都市') ? defaultProfileRegistry.getGenre('urban_investigation')
+        || (/玄|仙|xuanhuan/i.test(genreHint) ? defaultProfileRegistry.getGenre('xuanhuan_cautious')
+          : /科幻|末世|末日|scifi/i.test(genreHint) ? defaultProfileRegistry.getGenre('scifi_hardcore')
+          : /历史|古言|宫斗|history|ancient_romance/i.test(genreHint) ? defaultProfileRegistry.getGenre('ancient_court')
+          : /悬疑|惊悚|规则|suspense/i.test(genreHint) ? defaultProfileRegistry.getGenre('urban_investigation')
           : null);
+      const resolvedFamily = matchedGenreSeed?.family
+        || (/言情|甜宠|校园|豪门|古风世情|民国|modern_romance|ancient_romance/i.test(genreHint) ? 'romance'
+          : /日常|生活|年代|种田|职场|文娱/i.test(genreHint) ? 'daily'
+          : /都市|urban/i.test(genreHint) ? 'urban'
+          : /搞笑|吐槽|轻小说|衍生|快穿|light_novel/i.test(genreHint) ? 'comedy'
+          : 'universal');
       const genreDirectiveText = compileGenreDirective(genreHint);
       const genreProfile = createGenreProfile({
         id: matchedGenreSeed ? `${matchedGenreSeed.id}_${genreHint.replace(/\W+/g, '').slice(0, 12) || 'auto'}` : 'auto_genre',
         name: genreHint || '通用文学',
-        family: matchedGenreSeed?.family || 'universal',
+        family: resolvedFamily,
         background: matchedGenreSeed?.background || [genreHint],
-        coreConflicts: matchedGenreSeed?.coreConflicts || ['核心目标受阻', '多方利益博弈'],
-        readerPromises: matchedGenreSeed?.readerPromises || ['因果自洽', '细节落地', '张力推进'],
+        coreConflicts: matchedGenreSeed?.coreConflicts || ['人物诉求受阻', '真实利害与情感拉扯'],
+        readerPromises: matchedGenreSeed?.readerPromises || ['因果自洽', '活人对话与感官实感', '节奏起伏自然'],
         commonStoryEngines: matchedGenreSeed?.commonStoryEngines || ['growth_clash'],
         description: genreDirectiveText || ''
       });
-      const styleHint = String(effectiveWritingStyle || '沉稳克制').trim();
+      const defaultStyleForGenre = /言情|甜宠|校园|日常|生活|年代|种田|古风世情|诗意|modern_romance|ancient_romance/i.test(genreHint)
+        ? '缱绻细腻'
+        : /搞笑|吐槽|轻小说|玩梗|light_novel/i.test(genreHint)
+          ? '幽默诙谐'
+          : /爽文|无敌|战神|快穿|系统|高武|玄幻脑洞|urban_martial/i.test(genreHint)
+            ? '爽文节奏'
+            : /历史|权谋|宫斗|悬疑|谍战|凡人|history|suspense/i.test(genreHint)
+              ? '沉稳克制'
+              : '写实自然';
+      const styleHint = String(effectiveWritingStyle || defaultStyleForGenre).trim();
+      const isColdHardStyle = /老白|冷硬|沉稳克制|veteran_composed|dark_oppressive|cold_minimalist/i.test(styleHint);
       const matchedStyleSeed = defaultProfileRegistry.getStyle(styleHint)
-        || (/快|爽|干脆|利落/.test(styleHint) ? defaultProfileRegistry.getStyle('fast_paced_cool')
-          : /清冷|留白|写意|细腻|古韵/.test(styleHint) ? defaultProfileRegistry.getStyle('lyrical_minimalist')
+        || (/快|爽|干脆|利落|无敌|cool_paced|幽默|诙谐|humorous|light_novel/i.test(styleHint) ? defaultProfileRegistry.getStyle('fast_paced_cool')
+          : /清冷|留白|写意|细腻|古韵|缱绻|言情|诗意|delicate|poetic/i.test(styleHint) ? defaultProfileRegistry.getStyle('lyrical_minimalist')
           : defaultProfileRegistry.getStyle('laobai_restrained'));
       const styleDirectiveText = compileStyleDirective(styleHint);
+      const basePositive = isColdHardStyle
+        ? (matchedStyleSeed?.positiveRules || [])
+        : [
+            '动作与细节落在日常器物、五官感官与真实反应上，拒绝空洞标签',
+            '关键台词符合人物身份与当下诉求，保留停顿、顾左右而言他或口语温度'
+          ];
       const styleProfile = createStyleProfile({
-        id: 'auto_style',
+        id: matchedStyleSeed?.id || 'auto_style',
         name: styleHint,
         baseVector: matchedStyleSeed?.baseVector,
         positiveRules: [
-          ...(matchedStyleSeed?.positiveRules || []),
-          ...(styleDirectiveText ? [styleDirectiveText] : [])
+          ...basePositive,
+          ...(styleDirectiveText ? [styleDirectiveText] : []),
+          '人物开口带各自性子与潜台词，允许口语停顿、玩笑走神或日常闲笔，严禁全员冷脸端着说话'
         ].slice(0, 6),
-        negativeRules: matchedStyleSeed?.negativeRules || ['严禁模板化肢体套话与空洞抒情']
+        negativeRules: [
+          ...(matchedStyleSeed?.negativeRules || []),
+          '严禁“嘴角勾起一抹弧度/骨节泛白/死一般的寂静”等AI生理套话与段末升华空话'
+        ].slice(0, 4)
       });
       const goalHint = String(effectiveChapterFunction || '冲突推进').trim();
       const matchedGoalSeed = /揭|悬|查|线/.test(goalHint) ? defaultProfileRegistry.getGoal('info_reveal')
         : /突|破|升|境/.test(goalHint) ? defaultProfileRegistry.getGoal('breakthrough_upgrade')
         : defaultProfileRegistry.getGoal('conflict_push');
+      const goalActionSummary = String(activeContract.chapterGoal || userInstructionText || goalHint).replace(/\s+/g, ' ').trim();
       const chapterGoalProfile = createChapterGoalProfile({
         id: matchedGoalSeed?.id || 'auto_goal',
         name: goalHint || matchedGoalSeed?.name || '冲突推进',
-        readerEffect: matchedGoalSeed?.readerEffect || ['张力升级', '线索兑现'],
+        readerEffect: matchedGoalSeed?.readerEffect || ['场景推进落地', '人物关系或处境产生实感变化'],
         defaultStateDelta: {
-          stateBefore: '当前局面处于临界压迫点',
-          events: [String(activeContract.chapterGoal || userInstructionText || goalHint).slice(0, 140)],
-          stateAfter: '局面发生不可逆转折，留下新隐患',
-          invalidIfRemoved: String(activeContract.chapterGoal || '本章因果链与人物关系推进').slice(0, 100)
+          stateBefore: `${genreHint}当前承接前情：人物带着原有顾虑或未决之事入场`,
+          events: [goalActionSummary.slice(0, 140)],
+          stateAfter: `围绕“${goalActionSummary.slice(0, 48)}”完成实质互动、选择或线索推进，并牵出下一步动作`,
+          invalidIfRemoved: String(activeContract.chapterGoal || goalActionSummary || '本章事件链与人物反应').slice(0, 100)
         },
-        mustHave: matchedGoalSeed?.mustHave || ['行动阻力', '具体物理/局势回报'],
-        mustNot: matchedGoalSeed?.mustNot || ['无意义水字数与空洞口号']
+        mustHave: matchedGoalSeed?.mustHave || ['行动阻力或人情摩擦', '具体感官与行为落地'],
+        mustNot: matchedGoalSeed?.mustNot || ['无意义水字数与空洞总结旁白']
       });
       const focusHint = String(effectiveFocus || 'balanced').trim();
       const matchedFocusSeed = /对话|博弈|言辞/.test(focusHint) ? defaultProfileRegistry.getFocus('dialogue_game')
@@ -613,12 +644,26 @@ function compileDraftPrompt(options = {}) {
     }
 
     let evidenceCards = defaultEvidenceCatalog.findRelevantCards({
-      dimensions: [spec.focus?.id, spec.style?.id, spec.chapterGoal?.id, spec.genre?.id].filter(Boolean),
+      dimensions: [spec.focus?.id, spec.style?.id, spec.chapterGoal?.id, spec.genre?.family, spec.genre?.id, 'universal'].filter(Boolean),
       minStrength: 'B',
       limit: 3
     });
     if (!evidenceCards || evidenceCards.length === 0) {
       evidenceCards = defaultEvidenceCatalog.findRelevantCards({ minStrength: 'A', limit: 3 });
+    }
+
+    let livingExemplarBlock = '';
+    if (!options.disableLivingExemplars && !req.disableLivingExemplars) {
+      try {
+        const { buildLivingProseExemplarBlock } = require('../character-material');
+        const exemplarResult = buildLivingProseExemplarBlock({
+          genre: effectiveNovelGenre || spec.genre?.name || '',
+          query: `${userInstructionText} ${context ? String(context).slice(-400) : ''}`.trim()
+        }, { limit: 2, maxChars: 900 });
+        livingExemplarBlock = exemplarResult && exemplarResult.block ? exemplarResult.block : '';
+      } catch (_) {
+        livingExemplarBlock = '';
+      }
     }
 
     const compiledStrategy = compileChapterStrategy({
@@ -642,10 +687,14 @@ function compileDraftPrompt(options = {}) {
     const withScenesSys = (structuredDirectives && !baseSys.includes(structuredDirectives))
       ? `${baseSys}\n\n【场景规划执行卡】\n${structuredDirectives}`
       : baseSys;
+    const baseUser = String(compiledStrategy.userPrompt || '');
+    const enrichedUser = (livingExemplarBlock && !baseUser.includes('同题材真人名作活人感参照'))
+      ? `${baseUser}\n\n${livingExemplarBlock}`
+      : baseUser;
 
     return {
       systemPrompt: withScenesSys,
-      userPrompt: compiledStrategy.userPrompt,
+      userPrompt: enrichedUser,
       wordBudget: compiledStrategy.wordBudget,
       sceneDirectives: structuredDirectives,
       effectiveGenre: spec.genre?.name || (typeof genre === 'string' ? genre : (genre && (genre.genre || genre.id)) || '通用文学'),
@@ -674,11 +723,26 @@ function compileDraftPrompt(options = {}) {
     structuredDirectives ? `【场景规划执行卡】\n${structuredDirectives}` : ''
   ].filter(Boolean).join('\n\n');
 
+  let fallbackLivingExemplar = '';
+  if (!options.disableLivingExemplars && !req.disableLivingExemplars) {
+    try {
+      const { buildLivingProseExemplarBlock } = require('../character-material');
+      const exemplarResult = buildLivingProseExemplarBlock({
+        genre: effectiveNovelGenre || genreTitle || '',
+        query: `${userInstructionText} ${context ? String(context).slice(-400) : ''}`.trim()
+      }, { limit: 2, maxExcerptChars: 440 });
+      fallbackLivingExemplar = exemplarResult && exemplarResult.block ? exemplarResult.block : '';
+    } catch (_) {
+      fallbackLivingExemplar = '';
+    }
+  }
+
   const userPrompt = [
     '【只读故事上下文】\n' + (context || ''),
     '【本章创作任务】\n' + (userInstructionText || '推进当前章节核心目标'),
+    fallbackLivingExemplar,
     `目标篇幅：${wordBudget.summary}。请严格按该篇幅要求撰写，请直接输出正文。`
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
 
   const { tierAttention } = require('../composition/compiler/attention-tiering');
   const fallbackAttention = tierAttention({
@@ -863,7 +927,7 @@ function buildDraftRequest(options = {}) {
     system: effectiveSystem,
     userPrompt: effectiveUser,
     modelId: req.modelId || options.modelId,
-    temperature: req.modelParams?.temperature ?? options.temperature ?? 0.72,
+    temperature: req.modelParams?.temperature ?? options.temperature ?? 0.85,
     topP: req.modelParams?.topP ?? options.topP ?? null,
     seed: req.modelParams?.seed ?? options.seed ?? null,
     maxTokens: writerMaxTokens,

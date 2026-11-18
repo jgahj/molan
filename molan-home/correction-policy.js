@@ -67,10 +67,10 @@ const UNIVERSAL_CORRECTION_POLICY_PROMPT = `【墨阑通用纠错库｜${UNIVERS
 32. 严禁变种指骨/骨节泛白套路（R-42）：严禁指节/指骨/骨节/关节/指尖/手背“泛白/变白/毫无血色/硌得发白/捏得发白/攥得发白”，改为具体处置外物动作或面部冷定神态。
 33. 严禁机械节律脉动与抽动套路（R-43）：严禁“一下一下地收紧/抽痛/跳动/刺痛”、“顺着/随着脉搏跳动/抽搐”，回归连贯物理感受或环境压迫。
 34. 严禁网游任务惩罚弹窗式四字通告（R-44）：严肃小说禁止突兀出现“违约者抽取生魂/当为矿奴/抹杀/炼入煞矿”等四字排比机械通告。
-35. 严禁现代网剧相声式嘴炮互怼与乒乓球接梗（R-47）：严禁角色之间像现代都市恋爱喜剧或美剧相声一样一人一句互怼、接梗、抖机灵、打嘴炮（如“那你还不感动？”“我只担心你杀得不够快”等）；角色对白必须严格服从其身份门阀、阵营利害与真实城府，主角面对示好或挑衅应保持定力与利益算计，克制沉稳（如仅道“多谢”），智囊与巨头的机锋是道法破绽与眼神微变的高维审视，绝非小市民口舌之争。
+35. 严禁现代网剧相声式嘴炮互怼与乒乓球接梗（R-47）：严禁角色之间像现代脱口秀或美剧相声一样一人一句互怼、接梗、抖机灵、打嘴炮（如“那你还不感动？”“我只担心你杀得不够快”等）；角色对白必须严格服从其身份处境、阵营利害与真实性格（言情/日常允许生活化温情或俏皮玩笑，权谋/正剧注重身位差距与言外机锋，绝不写成千篇一律的小市民耍嘴皮）。
 36. 商业网文呼吸分段与反砖石大段规范（R-48）：严禁两个极端——既不可全篇单句单行（发报机碎片感）、亦不可超过 200 字未换行的大块实心砖石段；必须遵循“动作发起 - 碰撞爆发 - 场面与生理反馈”的三拍子呼吸律，单段以 2~4 个自然分句（60~120 汉字）为基准，重要宣言、惊天转折或新势力入场可独立成段呼吸，兼顾节奏感与移动阅读舒适度。
-37. 战局立体因果闭环与反打卡空降援军（R-49）：严禁将大纲剧情节点写成流水账打卡（严禁上一幕同伴全成木头人挂件，下一幕主角开车突然偶遇火海强援）；任何强援入场与局势翻转前，必须完成“正面毁灭绝境 + 在场同伴分工截杀侧翼 + 强援从敌后战阵薄弱处突袭背刺”的战术因果闭环，形成环环相扣的立体战场。
-38. 叙事纵深：老作者战力标尺与生存代价盘点（R-50）：严禁冷眼摄像机旁白与段末假深沉断言（如“裂口很小却改变战局”）；叙述者必须融入传统商业玄幻老作者从容深厚的大局观旁白，主动交代战力天花板对比（“连圣王都顶不住”）、同伴战损与生存依据（“抢到大量符箓才挺下来”）、关键利益底牌防备（“功德簿墙在手，随时可能倒戈”）以及高智商角色的微眼神心计破绽。
+37. 战局立体因果闭环与反打卡空降援军（R-49）：严禁将大纲剧情节点写成流水账打卡（严禁上一幕同伴全成木头人挂件，下一幕主角突然偶遇强援空降）；任何局势翻转或救场前，必须完成前期伏笔、在场人物各自行动与因果链推演的立体闭环。
+38. 叙事纵深：成熟作者的大局标尺与代价盘点（R-50）：严禁冷眼摄像机旁白与段末假深沉断言（如“裂口很小却改变战局”）；叙述者须具备贴合当前题材（仙侠/都市/言情/悬疑/历史等）的成熟作者局势眼光，自然交代实力/地位差距、消耗与代价依据、角色利益底牌防备以及细微神色心思破绽，绝不写成空洞装腔的假金句。
 
 二、硬性质量规则
 1. 物理与感官：声音、光线、动作、空间符合现场逻辑，不把声音、目光或情绪无故实体化。
@@ -311,6 +311,119 @@ function renderCorrectionPolicyPrompt(requestText, options = {}) {
   return correctionLibrary.renderCorrectionPrompt(library, UNIVERSAL_CORRECTION_POLICY_PROMPT, requestText, options);
 }
 
+function sanitizeCorrectionCaseName(text) {
+  return String(text || '')
+    .replace(/佳云泽|顾凝欣|叶辰|叶灵儿|叶天|叶宁|叶苍|叶宏|慕容天|慕容风|慕容博|陈青玄|苏清荷|周烈|萧澈|云澈|夏倾月|烈千洪|赵管事/g, '某人')
+    .replace(/叶家|慕容家/g, '某家族')
+    .replace(/玄天宗|轮回神玉|青云宗|千嶂山脉/g, '某处')
+    .trim();
+}
+
+/**
+ * 面向 Pass-2 改写与质检的靶向纠错指导块：
+ * 1) 基于初稿真实命中的 R-01~R-50 / 黑名单 / 指标越界给出逐项修复清单；
+ * 2) 从《纠错库.md》217 条真实改稿案例中抽取匹配的「原句 → 修正句（原则）」示范。
+ */
+function buildTargetedCorrectionGuidance(draft, options = {}) {
+  const source = String(draft || '');
+  const scan = options.scan && Array.isArray(options.scan.findings)
+    ? options.scan
+    : scanUniversalCorrectionRisks(source, { genre: options.genre || '', includeLibrary: true, limit: 24 });
+  const library = options.library === false ? null : (options.library || getCorrectionLibrary());
+
+  const findingLines = [];
+  const seenRuleIds = new Set();
+  const matchedExamples = [];
+  const seenCaseIds = new Set();
+
+  for (const finding of (scan.findings || [])) {
+    const rid = String(finding.ruleId || '');
+    if (!seenRuleIds.has(rid) && findingLines.length < 7) {
+      seenRuleIds.add(rid);
+      const snippet = sanitizeCorrectionCaseName(String(finding.text || '').replace(/\s+/g, ' ').slice(0, 36));
+      const principle = finding.suggestion && (finding.suggestion.principle || finding.suggestion.must)
+        ? `（${sanitizeCorrectionCaseName(String(finding.suggestion.principle || finding.suggestion.must).slice(0, 48))}）`
+        : '';
+      findingLines.push(`· [${rid}] ${finding.label}${snippet ? `：如“${snippet}”` : ''}${principle}`);
+    }
+    const sug = finding.suggestion;
+    if (sug && sug.before && sug.after && sug.after !== '删除' && !seenCaseIds.has(sug.caseId || sug.before)) {
+      seenCaseIds.add(sug.caseId || sug.before);
+      matchedExamples.push({
+        type: finding.label,
+        before: sanitizeCorrectionCaseName(sug.before),
+        after: sanitizeCorrectionCaseName(sug.after),
+        principle: sanitizeCorrectionCaseName(sug.principle || '')
+      });
+    }
+    if (matchedExamples.length >= 4 && findingLines.length >= 7) break;
+  }
+
+  // 若初稿命中的对应案例不足 3 条，补充《纠错库.md》高价值通用修辞示范（去 AI 感核心对照）
+  if (matchedExamples.length < 3 && library && Array.isArray(library.cases)) {
+    const fallbackTypes = /烂俗比喻|冗余|通感|AI套话|单字动词|语序|旁白|对比句/;
+    const preferredPool = library.cases.filter(c =>
+      c && c.before && c.after && c.after !== '删除'
+      && c.before.length >= 5 && c.before.length <= 42
+      && c.after.length <= 48
+      && fallbackTypes.test(String(c.type || ''))
+    );
+    for (const item of preferredPool) {
+      const key = item.id || item.before;
+      if (seenCaseIds.has(key)) continue;
+      seenCaseIds.add(key);
+      matchedExamples.push({
+        type: item.type || '修辞改写',
+        before: sanitizeCorrectionCaseName(item.before),
+        after: sanitizeCorrectionCaseName(item.after),
+        principle: sanitizeCorrectionCaseName(item.principle || '')
+      });
+      if (matchedExamples.length >= 3) break;
+    }
+  }
+
+  const metricWarnings = [];
+  if (scan.metrics) {
+    if (scan.metrics.metaphorWords > scan.metrics.metaphorLimit) {
+      metricWarnings.push(`比喻词（仿佛/宛如/像/般等）出现 ${scan.metrics.metaphorWords} 次，超出建议上限 ${scan.metrics.metaphorLimit}，请删去装饰性比喻，改用直白动作与感官描写。`);
+    }
+    if (scan.metrics.decorativeQuantity > scan.metrics.decorativeQuantityLimit) {
+      metricWarnings.push(`“一丝/一股/一种/一缕”虚化修饰出现 ${scan.metrics.decorativeQuantity} 次，超出上限 ${scan.metrics.decorativeQuantityLimit}，请删去虚词，直写具体神态或反应。`);
+    }
+    if (scan.metrics.shortParagraphs > scan.metrics.shortParagraphLimit + 2) {
+      metricWarnings.push(`过短独立段（≤8字）共 ${scan.metrics.shortParagraphs} 处，建议只保留关键停顿，其余自然并入动作流。`);
+    }
+  }
+  if (Array.isArray(scan.repetition) && scan.repetition.length > 0) {
+    const repTerms = scan.repetition.slice(0, 5).map(r => `${r.phrase || r.term || r}(${r.currentCount ?? r.count ?? ''}次)`).filter(Boolean);
+    if (repTerms.length) metricWarnings.push(`重复高频习惯词：${repTerms.join('、')}，请按人物和场景拆换自然动作。`);
+  }
+
+  const parts = [];
+  if (findingLines.length || metricWarnings.length) {
+    parts.push([
+      '【本篇初稿《纠错库》逐项病灶定位（必须定向修正）】',
+      ...findingLines,
+      ...metricWarnings.map(w => `· [指标提醒] ${w}`)
+    ].join('\n'));
+  }
+  if (matchedExamples.length) {
+    parts.push([
+      '【《纠错库》原句 → 修正句示范（仅学习语感改法，严禁照抄例句内容）】',
+      ...matchedExamples.slice(0, 4).map((ex, idx) =>
+        `${idx + 1}. 原句：“${ex.before}” → 改写：“${ex.after}”${ex.principle ? `（${ex.principle}）` : ''}`
+      )
+    ].join('\n'));
+  }
+
+  return {
+    findingCount: scan.findingCount || 0,
+    matchedRuleIds: scan.matchedRuleIds || [],
+    examples: matchedExamples.slice(0, 4),
+    block: parts.join('\n\n')
+  };
+}
+
 module.exports = {
   UNIVERSAL_CORRECTION_POLICY_VERSION,
   UNIVERSAL_CORRECTION_POLICY_PROMPT,
@@ -322,5 +435,6 @@ module.exports = {
   libraryScanRules,
   renderCorrectionPolicyPrompt,
   scanUniversalCorrectionRisks,
+  buildTargetedCorrectionGuidance,
   emptyCorrectionAudit
 };

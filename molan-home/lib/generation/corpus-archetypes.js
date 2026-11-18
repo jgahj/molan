@@ -1251,25 +1251,214 @@ function getArchetype(archetypeId) {
   return ARCHETYPES_CATALOG[resolved] || null;
 }
 
+const EMPIRICAL_GENRE_ALIASES = Object.freeze({
+  'xuanhuan_xianxia': 'xuanhuan',
+  '玄幻修真': 'xuanhuan',
+  '玄幻': 'xuanhuan',
+  '东方玄幻': 'xuanhuan',
+  '东方仙侠': 'eastern_xianxia',
+  '修仙': 'eastern_xianxia',
+  '古典仙侠': 'eastern_xianxia',
+  '仙侠': 'xianxia',
+  '奇幻': 'qihuan',
+  '西方奇幻': 'western_fantasy',
+  'western_fantasy': 'western_fantasy',
+  '西幻': 'western_fantasy',
+  '科幻': 'scifi',
+  'scifi_apocalypse': 'apocalypse',
+  '科幻末世': 'apocalypse',
+  '末世': 'apocalypse',
+  '末日': 'apocalypse',
+  '末世/末日': 'apocalypse',
+  '无限流': 'infinite',
+  '无限': 'infinite',
+  '灵异': 'folk_ghost',
+  '灵异/惊悚': 'folk_ghost',
+  '惊悚': 'folk_ghost',
+  '民俗': 'folk_ghost',
+  '悬疑惊悚': 'suspense_brain',
+  'suspense_mystery': 'suspense_brain',
+  'suspense': 'suspense_brain',
+  '规则怪谈': 'suspense_brain',
+  '悬疑脑洞': 'suspense_brain',
+  '悬疑': 'suspense_brain',
+  '女频悬疑': 'female_suspense',
+  'urban_life': 'urban_daily',
+  '都市现实': 'urban_daily',
+  '都市': 'urban_daily',
+  '都市日常': 'urban_daily',
+  '都市生活': 'urban_life',
+  '都市修真': 'urban_cultivation',
+  '都市高武': 'urban_martial',
+  'urban_martial': 'urban_martial',
+  '国术': 'urban_martial',
+  '都市脑洞': 'urban_brain',
+  '都市种田': 'urban_farming',
+  'history': 'ancient_history',
+  'history_military': 'ancient_history',
+  '历史军事': 'ancient_history',
+  '历史': 'ancient_history',
+  '历史古代': 'ancient_history',
+  '架空历史': 'history_brain',
+  '正统历史': 'orthodox_history',
+  '军事': 'military',
+  '军事战争': 'military',
+  '谍战': 'spy_war',
+  '抗战谍战': 'spy_war',
+  '武侠': 'traditional_wuxia',
+  '传统武侠': 'traditional_wuxia',
+  'ancient_romance': 'ancient_world',
+  '古言世情': 'ancient_world',
+  '古言': 'ancient_world',
+  '古风世情': 'ancient_world',
+  '古言脑洞': 'ancient_brain',
+  '古风种田': 'ancient_farming',
+  '种田': 'ancient_farming',
+  '宫斗': 'palace_mansion',
+  '宅斗': 'palace_mansion',
+  '宫斗宅斗': 'palace_mansion',
+  '年代': 'era_novel',
+  '年代文': 'era_novel',
+  'modern_romance': 'youth_sweet',
+  'urban_romance': 'youth_sweet',
+  '现言职场': 'workplace',
+  '言情': 'youth_sweet',
+  '现代言情': 'youth_sweet',
+  '现代甜宠': 'youth_sweet',
+  '青春甜宠': 'youth_sweet',
+  '青春校园': 'youth_sweet',
+  '校园': 'youth_sweet',
+  '甜宠': 'youth_sweet',
+  '现言脑洞': 'modern_brain',
+  '豪门': 'rich_ceo',
+  '豪门总裁': 'rich_ceo',
+  '豪门虐恋': 'rich_ceo',
+  '先婚后爱': 'rich_ceo',
+  '职场': 'workplace',
+  '职场婚恋': 'workplace',
+  '商战': 'workplace',
+  '职场商战': 'workplace',
+  '民国': 'republic_romance',
+  '民国言情': 'republic_romance',
+  '轻小说衍生': 'light_novel',
+  '轻小说': 'light_novel',
+  '二次元': 'light_novel',
+  '衍生': 'male_fanfic',
+  '动漫衍生': 'anime_fanfic',
+  '快穿': 'quick_transmigration',
+  '文娱': 'entertainment',
+  '娱乐圈': 'entertainment',
+  '网游': 'game_virtual',
+  '电竞': 'esports',
+  '体育': 'sports',
+  '现实主义': 'realism',
+  '现实': 'realism',
+  '现实百态': 'realism',
+  '玄幻脑洞': 'xuanhuan_brain',
+  '玄幻言情': 'xuanhuan_romance',
+  '战神赘婿': 'god_of_war_son_in_law'
+});
+
+const STYLE_NAME_ALIASES = Object.freeze({
+  '沉稳克制': 'veteran_composed',
+  '老白': 'veteran_composed',
+  '老白稳重': 'veteran_composed',
+  '老白克制': 'veteran_composed',
+  '爽文': 'cool_paced',
+  '快节奏': 'cool_paced',
+  '爽感节奏': 'cool_paced',
+  '小白': 'accessible_direct',
+  '直白通俗': 'accessible_direct',
+  '轻小说': 'light_novel',
+  '轻松日常': 'light_novel',
+  '写实': 'realistic_restrained',
+  '克制写实': 'realistic_restrained',
+  '质朴': 'rustic_folk',
+  '乡土': 'rustic_folk',
+  '市井烟火': 'rustic_folk',
+  '华丽': 'gorgeous_rhetoric',
+  '古风': 'gorgeous_rhetoric',
+  '唯美': 'gorgeous_rhetoric',
+  '清冷': 'cold_minimalist',
+  '极简': 'cold_minimalist',
+  '留白': 'cold_minimalist',
+  '史诗': 'heavy_epic',
+  '厚重': 'heavy_epic',
+  '幽默': 'humorous_roast',
+  '诙谐': 'humorous_roast',
+  '搞笑': 'humorous_roast',
+  '吐槽': 'humorous_roast',
+  '暗黑': 'dark_oppressive',
+  '压抑': 'dark_oppressive',
+  '散文': 'poetic_prose',
+  '诗意': 'poetic_prose',
+  '强冲突': 'dramatic_high_conflict',
+  '戏剧': 'dramatic_high_conflict',
+  '装逼': 'badass_reversal',
+  '短句': 'fragmented_short',
+  '细腻': 'delicate_lingering',
+  '缱绻': 'delicate_lingering',
+  '硬核': 'hardcore_verified',
+  '干货': 'hardcore_verified',
+  '玩梗': 'parody_meme'
+});
+
 /**
  * 编译题材指令 (Genre Directive)
  */
 function compileGenreDirective(genreId) {
   if (!genreId) return '';
+  const query = String(genreId).trim();
+  const normalized = query.toLowerCase();
   let handbookRule = '';
   let foundName = '';
+  let matchedSubgenreId = '';
+
   for (const cat of Object.values(GENRE_TAXONOMY)) {
-    if (cat.subgenres && cat.subgenres[genreId]) {
-      const g = cat.subgenres[genreId];
+    if (cat.subgenres && cat.subgenres[query]) {
+      const g = cat.subgenres[query];
       foundName = g.name;
+      matchedSubgenreId = g.id || query;
       handbookRule = `【小说题材约束·${g.name}（${cat.name}）】\n- 核心冲突：${g.coreConflict}\n- 创作原则：${g.rules}`;
       break;
     }
   }
 
+  if (!handbookRule) {
+    for (const cat of Object.values(GENRE_TAXONOMY)) {
+      if (!cat.subgenres) continue;
+      const g = Object.values(cat.subgenres).find((item) => {
+        const gName = String(item.name || '').trim();
+        const gId = String(item.id || '').trim().toLowerCase();
+        return gId === normalized
+          || gName === query
+          || (gName && (query.includes(gName) || gName.includes(query)));
+      });
+      if (g) {
+        foundName = g.name;
+        matchedSubgenreId = g.id || '';
+        handbookRule = `【小说题材约束·${g.name}（${cat.name}）】\n- 核心冲突：${g.coreConflict}\n- 创作原则：${g.rules}`;
+        break;
+      }
+    }
+  }
+
   // 融合语料库 1276 部小说前三章实战提炼的经验法则
-  const empirical = EMPIRICAL_RULES[genreId]
-    || Object.values(EMPIRICAL_RULES).find(r => r.subgenre === genreId || r.name === foundName || r.major === genreId);
+  const aliasKey = EMPIRICAL_GENRE_ALIASES[query]
+    || Object.entries(EMPIRICAL_GENRE_ALIASES).find(([k]) => query.includes(k))?.[1]
+    || '';
+
+  const empirical = EMPIRICAL_RULES[query]
+    || (aliasKey && EMPIRICAL_RULES[aliasKey])
+    || (matchedSubgenreId && EMPIRICAL_RULES[matchedSubgenreId])
+    || Object.values(EMPIRICAL_RULES).find((r) => {
+      const rName = String(r.name || '').trim();
+      const rSub = String(r.subgenre || '').trim();
+      return rSub === query
+        || rName === query
+        || (foundName && rName === foundName)
+        || (rName && (rName.includes(query) || query.includes(rName)));
+    });
 
   const empiricalRule = (empirical && empirical.empiricalUniversalPrompt)
     ? `\n\n${empirical.empiricalUniversalPrompt}`
@@ -1283,14 +1472,35 @@ function compileGenreDirective(genreId) {
  */
 function compileStyleDirective(styleId) {
   if (!styleId) return '';
-  // 1. 查找 STYLE_TAXONOMY
+  const query = String(styleId).trim();
+  const normalized = query.toLowerCase();
+
+  // 1. 查找 STYLE_TAXONOMY（ID、中文名与常见别名）
   for (const group of Object.values(STYLE_TAXONOMY)) {
-    if (group.styles && group.styles[styleId]) {
-      return group.styles[styleId].directive;
+    if (group.styles && group.styles[query]) {
+      return group.styles[query].directive;
     }
   }
+  const aliasId = STYLE_NAME_ALIASES[query]
+    || Object.entries(STYLE_NAME_ALIASES).find(([k]) => query.includes(k))?.[1]
+    || '';
+  for (const group of Object.values(STYLE_TAXONOMY)) {
+    if (!group.styles) continue;
+    if (aliasId && group.styles[aliasId]) {
+      return group.styles[aliasId].directive;
+    }
+    const matched = Object.values(group.styles).find((s) => {
+      const sName = String(s.name || '').trim();
+      const sId = String(s.id || '').trim().toLowerCase();
+      return sId === normalized
+        || sName === query
+        || (sName && (query.includes(sName) || sName.includes(query)));
+    });
+    if (matched) return matched.directive;
+  }
+
   // 2. 查找 ARCHETYPES_CATALOG
-  const arch = getArchetype(styleId);
+  const arch = getArchetype(query);
   if (arch && arch.prompt) return arch.prompt;
   return '';
 }

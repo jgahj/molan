@@ -241,6 +241,7 @@ function compileChapterStrategy(params = {}) {
     systemPrompt: (attention.tier2Strategy !== undefined && attention.tier2Strategy !== '') ? attention.tier2Strategy : lowered.systemPrompt,
     userPrompt: (attention.tier4Immediate !== undefined && attention.tier4Immediate !== '') ? attention.tier4Immediate : lowered.userPrompt,
     wordBudget: lowered.wordBudget,
+    modelFamily: lowered.modelFamily,
     priorityCascade: lowered.priorityCascade,
     compatibility,
     attention: attentionPayload,

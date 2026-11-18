@@ -148,6 +148,45 @@ const SEED_STRATEGY_CARDS = [
     evidenceStrength: 'A',
     applicableDimensions: ['suspense_clue', 'info_reveal', 'urban_investigation'],
     tags: ['悬念', '钩子', '物证']
+  }),
+  createStrategyCard({
+    id: 'card_living_dialogue_subtext',
+    name: '活人口语与潜台词交锋律',
+    type: 'style',
+    rule: '角色开口必须带出各自立场、年龄、身份与盘算，多用日常人情客套、话里有话或半截话留白，严禁两人像做辩论题一样字正腔圆复述主线设定。',
+    abstractPattern: '先说闲话或切入细琐借口 -> 借停顿/动作泄露真实意图 -> 对方顺水推舟或装糊涂化解。',
+    microExample: '“顺路买的，别放凉了。”他把油纸包往桌上搁，人却没坐下，只顺手替对方扶正了歪掉的门栓。',
+    counterExample: '“因为我们之间存在深厚的信任与合作关系，所以我才特意给你带来早餐。”',
+    failureMode: '人物说话像AI客服或朗诵台词本，直白讲出心理动机，失去烟火气与留白张力。',
+    evidenceStrength: 'A',
+    applicableDimensions: ['romance', 'daily', 'comedy', 'urban', 'history', 'balanced', 'universal'],
+    tags: ['活人感', '口语', '潜台词']
+  }),
+  createStrategyCard({
+    id: 'card_sensory_living_detail',
+    name: '日常感官实感锚定律',
+    type: 'style',
+    rule: '任何情绪与处境转折都先落在可感知的衣食住行、气味温差、器物磨损或习惯性小动作上，严禁“一抹弧度/骨节泛白/死一般的寂静”等抽象套话代偿。',
+    abstractPattern: '具体温度/声音/气味触达 -> 触发身体本能反应 -> 自然引出念头或下一句对话。',
+    microExample: '楼道声控灯坏了半个月，他摸黑踩上第三级台阶时听见塑料袋窸窣一响，刚想开口，鞋尖就踢到个冰凉的罐头盒。',
+    counterExample: '走廊里陷入了死一般的寂静，一股凉气顺着他的脊背爬上来，他的嘴角勾起一抹苦笑。',
+    failureMode: '脱离具体生活场景，通篇依赖“瞳孔微缩/呼吸一滞/冷笑弧度”等模板词汇充数。',
+    evidenceStrength: 'A',
+    applicableDimensions: ['daily', 'urban', 'romance', 'balanced', 'universal', 'history'],
+    tags: ['感官', '烟火气', '去套话']
+  }),
+  createStrategyCard({
+    id: 'card_sentence_cadence_breathing',
+    name: '句式呼吸参差律',
+    type: 'style',
+    rule: '长短句随动作与心绪自然起伏：日常铺垫允许顺滑长句带出语境，骤变或抢话处用三五字短句截断；严禁机械“每段两句”，也严禁全篇堆砌“不是……而是……/仿佛……一般”。',
+    abstractPattern: '流畅长句铺设现场质感 -> 突发变故或心里一咯噔用短句切口 -> 动作落定后再展开。',
+    microExample: '窗外晒了一下午的被褥还带着皂角味，她正伸手去够最里头那件旧衬衫，指尖刚碰到布料，楼下突然传来了锁芯拧动的咔哒声。',
+    counterExample: '风轻轻吹过。他站在窗前。他的心中十分复杂。那不是普通的风，而是改变命运的风。',
+    failureMode: '句式高度均质、频繁出现排比假深沉句型，读起来像机器按节拍器吐字。',
+    evidenceStrength: 'A',
+    applicableDimensions: ['universal', 'balanced', 'comedy', 'romance', 'daily', 'history', 'urban'],
+    tags: ['节奏', '句式', '活人感']
   })
 ];
 

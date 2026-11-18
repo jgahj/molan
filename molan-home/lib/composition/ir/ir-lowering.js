@@ -40,10 +40,53 @@ function resolveModelFamily(options = {}, strategyIR = {}) {
   ).toLowerCase().trim();
 
   if (raw.includes('claude')) return 'claude';
+  if (raw.includes('gemini')) return 'gemini';
   if (raw.includes('gpt') || raw.includes('openai') || raw.includes('o1') || raw.includes('o3')) return 'gpt';
   if (raw.includes('deepseek')) return 'deepseek';
   if (raw.includes('qwen') || raw.includes('llama') || raw.includes('mistral') || raw.includes('local')) return 'local';
   return 'generic';
+}
+
+/**
+ * Gemini 架构定制渲染器 (原生中文流畅叙事与活人质感优先，避免模板八股与过度说教)
+ */
+function renderForGemini(cascade, strategyIR, contextText, userInstructionText, targetWordRange) {
+  const { min, max, target } = targetWordRange;
+  const hard = strategyIR.hardConstraints || {};
+  const pov = hard.narrativePov || '第三人称限制视角';
+  const vpChar = hard.viewpointCharacter ? `（当前聚焦：${hard.viewpointCharacter}）` : '';
+
+  const systemPrompt = [
+    '<creative_identity>',
+    '你是长期写连载小说的成熟人类作者，下笔重在“活人感”：人物说话带着各自性子与潜台词，情绪落进日常器物、五官触感与真实反应里，句式随节奏长短参差。严禁AI总结腔、套话生理模板与说明书式旁白。',
+    '</creative_identity>',
+    '<hard_constraints>',
+    cascade.P0_HARD_CONSTRAINTS,
+    '</hard_constraints>',
+    cascade.P2_CREATION_BIBLE ? `<creation_bible>\n${cascade.P2_CREATION_BIBLE}\n</creation_bible>` : '',
+    '<genre_and_style>',
+    cascade.P4_GENRE_POLICY,
+    cascade.P5_STYLE_POLICY,
+    '</genre_and_style>',
+    '<focus_and_hook>',
+    cascade.P6_FOCUS_BUDGET,
+    cascade.P7_HOOK_POLICY,
+    '</focus_and_hook>'
+  ].filter(Boolean).join('\n\n');
+
+  const userPrompt = [
+    '<story_context>',
+    contextText,
+    '</story_context>',
+    '<chapter_task>',
+    cascade.P1_USER_DIRECTIVE,
+    cascade.P3_CHAPTER_OBJECTIVE,
+    '</chapter_task>',
+    cascade.P8_EVIDENCE ? `<living_prose_reference>\n${cascade.P8_EVIDENCE}\n</living_prose_reference>` : '',
+    `<execution_check>\n- 字数区间：${min} ~ ${max} 字（基准 ${target} 字）\n- 视点范围：${pov}${vpChar}\n- 输出要求：直接写小说正文第一句，严禁标题以外的前言、提纲、作者感言或段末空洞升华。\n</execution_check>`
+  ].filter(Boolean).join('\n\n');
+
+  return { systemPrompt, userPrompt };
 }
 
 /**
@@ -308,6 +351,7 @@ function lowerToPrompt(strategyIR, options = {}) {
   const genreName = genre.name || genre.id || '通用文学';
   const genreLines = [
     `【题材策略·${genreName}】`,
+    genre.description ? String(genre.description).trim() : '',
     Array.isArray(genre.background) && genre.background.length ? `世界观底层基石：${genre.background.join('、')}` : '',
     Array.isArray(genre.coreConflicts) && genre.coreConflicts.length ? `核心矛盾类型：${genre.coreConflicts.join('、')}` : '',
     Array.isArray(genre.readerPromises) && genre.readerPromises.length ? `读者阅读契约与反馈：${genre.readerPromises.join('、')}` : '',
@@ -411,6 +455,8 @@ function lowerToPrompt(strategyIR, options = {}) {
   let rendered;
   if (resolvedFamily === 'claude') {
     rendered = renderForClaude(cascade, strategyIR, contextText, userInstruction, targetWordRange);
+  } else if (resolvedFamily === 'gemini') {
+    rendered = renderForGemini(cascade, strategyIR, contextText, userInstruction, targetWordRange);
   } else if (resolvedFamily === 'gpt') {
     rendered = renderForGpt(cascade, strategyIR, contextText, userInstruction, targetWordRange);
   } else if (resolvedFamily === 'deepseek') {

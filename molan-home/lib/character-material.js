@@ -54,7 +54,24 @@ const DEFAULT_INDEX_VERSION = 'corpus-v3';
 // 段落样本匿名化使用的常见姓氏与语境停词，避免把普通词误替换为占位符。
 const ANON_SURNAME_CHARS = '赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜戚谢邹喻柏窦章云苏潘葛奚范彭郎鲁韦昌马苗凤花方俞任袁柳鲍史唐费薛雷贺倪汤滕殷罗毕郝邬安常乐于时傅皮卞齐康伍余元顾孟平黄穆萧尹姚邵湛汪祁毛禹狄米贝明臧计伏成戴谈宋茅庞熊纪舒屈项祝董梁杜阮蓝闵席季麻强贾路娄危江童颜郭梅盛林钟徐邱骆高夏蔡田樊胡凌霍虞万柯管卢莫经房裘缪解应宗丁宣邓郁单杭洪包诸左石崔吉龚程嵇邢滑裴陆荣翁荀羊惠甄封芮羿储靳汲松井段富巫乌焦巴弓牧车侯全郗班仰秋仲伊宫宁仇栾暴甘厉戎祖武符刘景詹束龙叶幸司韶郜黎蓟印宿白怀蒲从鄂索咸赖卓蔺屠蒙池乔胥能苍双党翟谭贡姬申扶堵冉宰桑桂濮牛寿通边扈燕冀浦尚农温庄晏柴瞿阎充慕连茹习宦艾鱼容向古易慎戈廖庾终暨居衡步都耿满弘匡国文寇广禄阙东欧殳沃利蔚越隆师巩聂晁勾敖融冷辛那简饶空曾毋养鞠须丰巢关蒯相查荆红游竺权逯盖益桓公';
 const ANON_NAME_STOP_WORDS = new Set('人物人形人影人手人群人声人脸人身人心男人女人男子女子少年少女老人孩子朋友敌人亲人家人师兄师姐师父老师先生小姐公子姑娘众人所有人时候事情问题应付东西石子周围成功简单解释厉害相互经历明白周边天地方向身形身影'.split(''));
-const ANON_NAME_TAIL_BLOCK = /[的地得着了过在会将被很还也又就便而把让从向对跟为与和心手头脸身口形影物群声色气体边里外前后上下第一于以]/u;
+const ANON_NAME_TAIL_BLOCK = /[的地得着了过在会将被很还也又就便而把让从向对跟为与和心手头脸身口形影物群声色气体边里外前后上下第一于以是个些么样吗啊呢吧他她它们我你您己走吃喝去来开关看听说问答买]/u;
+const ANON_FALSE_POSITIVE_PHRASES = new Set([
+  '那是', '那个', '那些', '那里', '那儿', '那么', '那样', '那时', '那年', '那会儿', '那叫',
+  '于是', '于此', '有时', '有人', '有些', '安好', '安静', '安心', '安全', '常说', '常用', '常有',
+  '真是', '真的', '真正', '真相', '其实', '方才', '方面', '方式', '原来', '原本', '原因',
+  '万一', '万分', '万里', '千里', '一时', '一阵', '一面', '一度', '一生', '一世', '一旁', '一边',
+  '甚至', '而且', '或者', '难道', '哪怕', '空洞', '空白', '空中', '白白', '白日', '全凭', '全都',
+  '高大', '高空', '高端', '高深', '高冷', '正经', '正好', '正常', '正式', '正如', '好在', '好多',
+  '好像', '好处', '都是', '都有', '都能', '就是', '就算', '就有', '可是', '可能', '可以', '可怜',
+  '却是', '却说', '简单', '简称', '连同', '连忙', '连续', '单单', '单纯', '单独', '双手', '双方',
+  '双眼', '满脸', '满手', '满屋', '温热', '温柔', '温暖', '冷冷', '冷笑', '冷风', '冷汗', '辛酸',
+  '辛苦', '严密', '严肃', '严重', '严谨', '明摆', '明显', '明白', '明天', '平白', '平常', '平静',
+  '平时', '平坦', '平衡', '齐齐', '齐声', '鲁莽', '庞大', '雷声', '雷电', '暴怒', '暴雨', '狂风',
+  '武者', '文人', '游走', '宿命', '经脉', '气海', '大声', '小声', '老人', '老实', '老道', '师兄',
+  '师姐', '师弟', '师妹', '师尊', '师父', '少爷', '小姐', '姑娘', '公子', '陛下', '殿下', '大人',
+  '鱼竿', '全区', '能走', '马上', '马车', '白衣', '高山', '高处', '公道', '公会', '公司', '叶落',
+  '方丈', '常理', '常人', '安稳', '安生', '平安', '高台', '方正', '白眼', '黑衣', '青衣', '红衣'
+]);
 const ANON_LOCATION_PATTERN = /(?:来到|前往|赶往|走进|回到|位于|离开|进入|穿过|守在|退到|奔向|赶到|驻扎在|落在)([\u4e00-\u9fff]{2,8}(?:城|镇|村|山|谷|峰|殿|宫|府|关|岛|州|域|门|楼|寺|院|阁|堂|街))/gu;
 
 function normalizeContextLabel(value, allowed, maxLength = 120) {
@@ -133,6 +150,8 @@ function paragraphAnonymizationState(sourceKey) {
 function isParagraphNameCandidate(source, start, token) {
   const value = String(token || '');
   if (value.length < 2 || value.length > 3 || !ANON_SURNAME_CHARS.includes(value[0])) return false;
+  if (ANON_FALSE_POSITIVE_PHRASES.has(value)) return false;
+  if (value.length === 3 && (ANON_FALSE_POSITIVE_PHRASES.has(value.slice(0, 2)) || ANON_FALSE_POSITIVE_PHRASES.has(value.slice(1)))) return false;
   if (ANON_NAME_TAIL_BLOCK.test(value[value.length - 1])) return false;
   if ([...value].some(char => ANON_NAME_STOP_WORDS.has(char))) return false;
   if (/^(.)\1+$/u.test(value)) return false;
@@ -511,6 +530,7 @@ function normalizeCharacterMaterialRequest(value) {
     intent: normalizeMaterialText(context.intent, 160),
     humanTextureSignals: normalizeContextLabels(context.humanTextureSignals, HUMAN_TEXTURE_SIGNALS, 80, 12),
     recentHistory: normalizeMaterialHistory(source.recentHistory),
+    ...(source.includeParagraphExemplars !== undefined ? { includeParagraphExemplars: source.includeParagraphExemplars === true } : {}),
     contextFallback: context.fallback === true,
     contextSource: context.source
   };
@@ -1330,7 +1350,8 @@ function loadParagraphSampleLibrary(options = {}) {
         const sample = item && typeof item === 'object' ? item : {};
         const text = normalizeMaterialText(sample.text, 2000);
         const sourceKey = sample.filePath || `${bucket}/${sample.sourceTitle || sample.id || samples.length + 1}`;
-        const anonymizedText = normalizeMaterialText(sample.anonymizedText, 2000) || anonymizeSampleText(text, sourceKey);
+        const rawAnon = normalizeMaterialText(sample.anonymizedText, 2000);
+        const anonymizedText = (rawAnon && !isBrokenAnonymizedText(rawAnon)) ? rawAnon : anonymizeSampleText(text, sourceKey);
         const dimension = Object.prototype.hasOwnProperty.call(PARAGRAPH_DIMENSION_LABELS, sample.dimension) ? sample.dimension : 'action';
         // 只保留 300-800 字且不含显性敏感内容的段落组，保证注入样本形态一致（双重防线，构建脚本已过滤过一次）。
         if (text.length < 300 || text.length > 800 || SENSITIVE_PATTERN.test(text) || !anonymizedText) continue;
@@ -1338,6 +1359,8 @@ function loadParagraphSampleLibrary(options = {}) {
           id: normalizeMaterialText(sample.id, 160) || `${bucket}-${samples.length + 1}`,
           bucket,
           dimension,
+          sceneType: normalizeMaterialText(sample.sceneType, 40) || '日常',
+          flavorScore: sample.flavorScore == null ? null : Number(sample.flavorScore),
           dialogueRatio: Number(sample.dialogueRatio) || 0,
           charCount: text.length,
           sourceTitle: normalizeMaterialText(sample.sourceTitle, 160),
@@ -1354,6 +1377,67 @@ function loadParagraphSampleLibrary(options = {}) {
   } catch (_) {
     return null;
   }
+}
+
+const PARAGRAPH_GENRE_ALIASES = Object.freeze({
+  'xuanhuan': ['玄幻', '传统玄幻', '东方仙侠', '玄幻脑洞'],
+  'xuanhuan_xianxia': ['东方仙侠', '仙侠', '传统玄幻', '玄幻'],
+  '玄幻修真': ['东方仙侠', '仙侠', '传统玄幻', '玄幻'],
+  '玄幻': ['玄幻', '传统玄幻', '东方仙侠', '玄幻脑洞'],
+  'xianxia': ['仙侠', '东方仙侠', '都市修真'],
+  '仙侠': ['仙侠', '东方仙侠', '都市修真'],
+  'urban_martial': ['都市高武', '都市修真', '都市脑洞', '武侠'],
+  'urban_life': ['都市日常', '都市', '都市种田', '年代', '现实'],
+  '都市现实': ['都市日常', '都市', '都市种田', '年代', '现实'],
+  '都市': ['都市', '都市日常', '都市高武', '都市脑洞', '都市种田', '都市修真', '职场婚恋'],
+  'modern_romance': ['青春甜宠', '豪门总裁', '现言脑洞', '职场婚恋'],
+  'ancient_romance': ['古言脑洞', '古风世情', '宫斗宅斗', '民国言情'],
+  '古言世情': ['古言脑洞', '古风世情', '宫斗宅斗', '民国言情'],
+  '现言职场': ['青春甜宠', '豪门总裁', '现言脑洞', '职场婚恋'],
+  '言情': ['青春甜宠', '豪门总裁', '现言脑洞', '古言脑洞', '古风世情', '民国言情', '职场婚恋', '玄幻言情', '宫斗宅斗'],
+  '现代言情': ['青春甜宠', '豪门总裁', '现言脑洞', '职场婚恋'],
+  '古代言情': ['古言脑洞', '古风世情', '宫斗宅斗'],
+  '古言': ['古言脑洞', '古风世情', '宫斗宅斗'],
+  'suspense': ['悬疑灵异', '悬疑脑洞', '女频悬疑'],
+  '悬疑惊悚': ['悬疑灵异', '悬疑脑洞', '女频悬疑'],
+  '悬疑': ['悬疑灵异', '悬疑脑洞', '女频悬疑'],
+  '灵异': ['悬疑灵异', '悬疑脑洞'],
+  'history': ['历史', '历史古代', '历史脑洞'],
+  '历史军事': ['历史', '历史古代', '历史脑洞', '军事', '抗战谍战'],
+  '历史': ['历史', '历史古代', '历史脑洞'],
+  'scifi_apocalypse': ['科幻末世', '科幻', '诸天无限'],
+  '科幻': ['科幻', '科幻末世'],
+  '末世': ['科幻末世'],
+  'western_fantasy': ['西方奇幻', '奇幻'],
+  '西幻': ['西方奇幻', '奇幻'],
+  '游戏': ['游戏', '游戏体育'],
+  'light_novel': ['轻小说', '动漫衍生', '女频衍生', '男频衍生'],
+  '轻小说衍生': ['轻小说', '动漫衍生', '女频衍生', '男频衍生'],
+  '轻小说': ['轻小说', '动漫衍生', '女频衍生', '男频衍生'],
+  'universal': ['都市日常', '古风世情', '悬疑脑洞', '历史古代', '东方仙侠'],
+  '通用': ['都市日常', '古风世情', '悬疑脑洞', '历史古代', '东方仙侠'],
+  '通用文学': ['都市日常', '古风世情', '悬疑脑洞', '历史古代', '东方仙侠']
+});
+
+const EXEMPLAR_AI_CLICHE_GUARD = /(?:死一般的寂静|嘴角[^。！？\n]{0,8}勾起[^。！？\n]{0,8}(?:弧度|笑意)|瞳孔(?:骤然|猛然)?(?:收缩|骤缩)|骨节泛白|指节(?:捏得)?泛白|喉头一甜|气血翻涌|脸色铁青|面色铁青|倒吸一口凉气|心中涌起(?:了)?一股)/;
+const EXEMPLAR_NOISE_GUARD = /(?:【(?:脑子寄存|提前声明|作者|求收藏|求推荐|求月票|求订阅|加更|本章完|未完待续|想看|图放|这对我嗑|坐等)[^】]*】|求收藏|求推荐|求月票|求订阅|作者有话说|本章完|未完待续|搜笔趣阁|笔趣阁|https?:\/\/|www\.|\.com)/i;
+
+function isBrokenAnonymizedText(text) {
+  const value = String(text || '');
+  if (!value) return true;
+  if (/(?:^|[“「\n，、。！？])【人[^】]+】[？，。！]/u.test(value)) return true;
+  if (/【人[^】]+】(?:道|和|多|个|些|样|年|天|次|下|声|了|着|过|的|地|得|是)/u.test(value)) return true;
+  return false;
+}
+
+function isCleanExemplarSample(sample) {
+  if (!sample || typeof sample !== 'object') return false;
+  const text = String(sample.text || sample.anonymizedText || '');
+  if (!text || text.length < 180) return false;
+  if (isBrokenAnonymizedText(text)) return false;
+  if (SENSITIVE_PATTERN.test(text) || EXEMPLAR_AI_CLICHE_GUARD.test(text) || EXEMPLAR_NOISE_GUARD.test(text)) return false;
+  if (sample.flavorScore != null && Number.isFinite(Number(sample.flavorScore)) && Number(sample.flavorScore) > 10) return false;
+  return true;
 }
 
 /**
@@ -1375,16 +1459,26 @@ function matchesParagraphBucket(request, target) {
  * 返回值：{ samples, buckets }，samples 为候选段落数组，buckets 为命中的桶名列表。
  */
 function resolveParagraphSamplePool(library, request) {
-  const tokens = [request.genre, ...(request.genres || [])]
+  const rawTokens = [request.genre, ...(request.genres || [])]
     .flatMap(value => String(value || '').split(/[、,，/／|\s]+/u))
     .map(value => normalizeMaterialText(value, 80))
     .filter(Boolean);
-  const matchedBuckets = [];
+  const expandedTokens = new Set(rawTokens);
+  for (const token of rawTokens) {
+    const aliases = PARAGRAPH_GENRE_ALIASES[token];
+    if (aliases) aliases.forEach(alias => expandedTokens.add(alias));
+  }
+  const tokens = [...expandedTokens];
+  const exactBuckets = [];
+  const aliasBuckets = [];
   for (const bucket of library.buckets) {
-    if (tokens.some(token => matchesParagraphBucket(token, bucket.bucket))) {
-      matchedBuckets.push(bucket);
+    if (rawTokens.some(token => bucket.bucket === token)) {
+      exactBuckets.push(bucket);
+    } else if (tokens.some(token => matchesParagraphBucket(token, bucket.bucket))) {
+      aliasBuckets.push(bucket);
     }
   }
+  const matchedBuckets = exactBuckets.length > 0 ? exactBuckets : aliasBuckets;
   const useMatched = matchedBuckets.length > 0;
   const buckets = useMatched ? matchedBuckets : library.buckets;
   return {
@@ -1429,8 +1523,11 @@ function buildParagraphSampleBlock(request, options = {}) {
   const pool = resolveParagraphSamplePool(library, normalized);
   if (!pool.samples.length) return null;
   const allowList = Array.isArray(options.sampleIds) ? new Set(options.sampleIds.map(String)) : null;
-  const candidates = allowList ? pool.samples.filter(sample => allowList.has(String(sample.id))) : pool.samples;
-  if (!candidates.length) return null;
+  const rawCandidates = allowList ? pool.samples.filter(sample => allowList.has(String(sample.id))) : pool.samples;
+  if (!rawCandidates.length) return null;
+  const zeroFlavorCandidates = rawCandidates.filter(sample => isCleanExemplarSample(sample) && (sample.flavorScore === 0 || sample.flavorScore == null));
+  const cleanCandidates = zeroFlavorCandidates.length >= 2 ? zeroFlavorCandidates : rawCandidates.filter(isCleanExemplarSample);
+  const candidates = cleanCandidates.length >= 2 ? cleanCandidates : rawCandidates;
   let seed = 0;
   try {
     const seedSource = [normalized.genre || '', (normalized.genres || []).join('、'), normalized.query || '', normalized.novelId || ''].join('|');
@@ -1455,6 +1552,7 @@ function buildParagraphSampleBlock(request, options = {}) {
     '原创性边界：不得复制样本连续片段，不得输出样本中可能残留的专名；段落样本只作为机制示范，不是答案。'
   ].join('\n');
   return {
+    block: text,
     text,
     samples: picked.map(sample => ({
       id: sample.id,
@@ -1477,6 +1575,123 @@ function buildParagraphSampleBlock(request, options = {}) {
   };
 }
 
+/**
+ * 为起草与精修通道按题材/场景挑选干净的真人原著段落参照（源自《资源库/小说原本》）：
+ * 仅挑选 flavorScore === 0（零 AI 味）、语法未破损、来自不同作品的 300-520 字高活人感片段，
+ * 不走耗时易超时的二次审校模型调用，同时接入 12 字重叠检测防抄袭。
+ */
+function clipExemplarExcerpt(text, maxChars = 480) {
+  const clean = String(text || '').trim();
+  if (clean.length <= maxChars) return clean;
+  const cut = clean.slice(0, maxChars);
+  const lastEnd = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('。'), cut.lastIndexOf('”'), cut.lastIndexOf('！'), cut.lastIndexOf('？'));
+  if (lastEnd >= Math.floor(maxChars * 0.55)) return cut.slice(0, lastEnd + 1).trim();
+  return cut.trim();
+}
+
+function buildLivingProseExemplarBlock(request = {}, options = {}) {
+  const library = loadParagraphSampleLibrary(options);
+  if (!library) return null;
+  const normalized = request && typeof request === 'object' ? request : {};
+  const limit = Math.max(1, Math.min(3, Number(options.limit) || 2));
+  const maxExcerptChars = Math.max(220, Math.min(600, Number(options.maxExcerptChars) || 460));
+  const pool = resolveParagraphSamplePool(library, normalized);
+  if (!pool.samples.length) return null;
+
+  const zeroFlavor = pool.samples.filter(sample => isCleanExemplarSample(sample) && sample.flavorScore === 0);
+  const cleanPool = zeroFlavor.length >= limit ? zeroFlavor : pool.samples.filter(isCleanExemplarSample);
+  if (!cleanPool.length) return null;
+
+  const queryText = String(normalized.query || normalized.userInstruction || normalized.focus || '').trim();
+  const wantsConfrontation = /对峙|交锋|博弈|质问|谈判|吵架|打脸|试探|威胁|反击|拆穿/.test(queryText);
+  const wantsAction = /打斗|搏杀|追杀|逃亡|破阵|交手|动手|刺杀|战斗/.test(queryText);
+
+  let seed = 0;
+  try {
+    const seedSource = [
+      normalized.genre || '',
+      (normalized.genres || []).join('、'),
+      queryText.slice(0, 200),
+      normalized.novelId || '',
+      String(options.seedSalt || '')
+    ].join('|');
+    seed = parseInt(crypto.createHash('md5').update(seedSource).digest('hex').slice(0, 8), 16) || 0;
+  } catch (_) {
+    seed = 0;
+  }
+
+  const primaryPool = wantsConfrontation
+    ? cleanPool.filter(s => s.sceneType === '对峙' || s.dimension === 'dialogue')
+    : (wantsAction
+      ? cleanPool.filter(s => s.dimension === 'action')
+      : cleanPool.filter(s => s.dimension === 'dialogue'));
+  const secondaryPool = cleanPool.filter(s => s.dimension !== 'dialogue');
+
+  const picked = [];
+  const usedTitles = new Set();
+  const usedIds = new Set();
+  const pickFrom = (subPool, offsetSeed) => {
+    const list = subPool.length ? subPool : cleanPool;
+    const stride = Math.max(1, Math.floor(list.length / 5));
+    let idx = Math.abs(offsetSeed) % list.length;
+    for (let step = 0; step < list.length; step++) {
+      const candidate = list[(idx + step * stride) % list.length];
+      if (!candidate || usedIds.has(candidate.id)) continue;
+      if (candidate.sourceTitle && usedTitles.has(candidate.sourceTitle) && list.length > limit * 2) continue;
+      usedIds.add(candidate.id);
+      if (candidate.sourceTitle) usedTitles.add(candidate.sourceTitle);
+      picked.push(candidate);
+      return true;
+    }
+    return false;
+  };
+
+  pickFrom(primaryPool, seed);
+  if (picked.length < limit) pickFrom(secondaryPool, seed + 7);
+  while (picked.length < limit && picked.length < cleanPool.length) {
+    if (!pickFrom(cleanPool, seed + picked.length * 13)) break;
+  }
+  if (!picked.length) return null;
+
+  const formatted = picked.map((sample, index) => {
+    const rawExcerpt = sample.text || sample.anonymizedText;
+    const excerpt = clipExemplarExcerpt(rawExcerpt, maxExcerptChars);
+    const dimLabel = PARAGRAPH_DIMENSION_LABELS[sample.dimension] || sample.dimension;
+    const sceneLabel = sample.sceneType ? `·${sample.sceneType}` : '';
+    return `【参照 ${index + 1}（${sample.bucket}·${dimLabel}${sceneLabel}）】\n${excerpt}`;
+  });
+
+  const text = [
+    '<!-- molan-living-prose-exemplars-v1 -->',
+    '【同题材真人名作活人感参照（源自真实网文语料，仅体悟句长起伏、说话口吻、烟火细节与动作-对白穿插节奏；严禁复用任何情节、人名或连续 12 字以上片段）】：',
+    ...formatted,
+    '学习要点：注意真人作家如何把情绪、立场和信息藏在日常小动作与带刺口吻里，用长短句错落拉出呼吸感，而不是写工整的 AI 说明文。'
+  ].join('\n\n');
+
+  return {
+    block: text,
+    text,
+    samples: picked.map(sample => ({
+      id: sample.id,
+      bucket: sample.bucket,
+      dimension: sample.dimension,
+      sceneType: sample.sceneType,
+      dialogueRatio: sample.dialogueRatio,
+      charCount: sample.charCount,
+      sourceTitle: sample.sourceTitle,
+      text: clipExemplarExcerpt(sample.text || sample.anonymizedText, maxExcerptChars),
+      forbiddenTerms: []
+    })),
+    audit: {
+      enabled: true,
+      sampleCount: picked.length,
+      dimensions: picked.map(s => s.dimension),
+      buckets: pool.buckets,
+      mode: 'living-prose-exemplar'
+    }
+  };
+}
+
 /** Build the two-level prompt block used by auto and strong writing modes. */
 function buildCharacterMaterialBlock(auth, requestValue, options = {}) {
   // 把请求题材透传给索引加载，使分片模式能按题材只加载命中分片，避免全量 OOM。
@@ -1485,7 +1700,37 @@ function buildCharacterMaterialBlock(auth, requestValue, options = {}) {
   const { request, audit, profile, rules, samples } = retrieval;
   if (!audit.enabled) return { messages: [], retrieval, request, rules: [], samples: [], audit };
   const voiceBlock = buildCharacterVoiceDirectiveBlock(request.characters);
+  const wantParagraphExemplars = Boolean(
+    (requestValue && requestValue.includeParagraphExemplars === true)
+    || options.includeParagraphExemplars === true
+  );
   if (request.mode === 'raw') {
+    if (wantParagraphExemplars) {
+      const exemplar = buildLivingProseExemplarBlock(request, { ...options, limit: 2, maxExcerptChars: 440 });
+      if (exemplar && exemplar.samples.length) {
+        const outMessages = [];
+        if (voiceBlock) outMessages.push(markCharacterMaterialMessage({ role: 'system', content: voiceBlock }, 'rules'));
+        outMessages.push(markCharacterMaterialMessage({ role: 'system', content: exemplar.text }, 'sample'));
+        return {
+          messages: outMessages,
+          retrieval,
+          request,
+          rules: [],
+          samples: exemplar.samples,
+          audit: {
+            ...audit,
+            ruleCount: 0,
+            sampleCount: exemplar.samples.length,
+            profileInjected: false,
+            rawSamplesInjected: true,
+            paragraphSamples: true,
+            paragraphBuckets: exemplar.audit.buckets,
+            paragraphDimensions: exemplar.audit.dimensions,
+            voiceInjected: !!voiceBlock
+          }
+        };
+      }
+    }
     if (!samples.length) {
       if (voiceBlock) {
         return {
@@ -1518,13 +1763,27 @@ function buildCharacterMaterialBlock(auth, requestValue, options = {}) {
   if (request.mode === 'auto' && profile) {
     const profileText = renderCharacterMaterialProfile(profile, request.primaryArchetype, audit.profileBucket, audit.profileKey);
     const content = voiceBlock ? (profileText + '\n\n' + voiceBlock) : profileText;
+    const autoMessages = [markCharacterMaterialMessage({ role: 'system', content }, 'rules')];
+    let autoSamples = samples;
+    const autoAudit = { ...audit, ruleCount: 0, profileInjected: true };
+    if (request.includeParagraphExemplars === true) {
+      const exemplar = buildLivingProseExemplarBlock(request, options);
+      if (exemplar && exemplar.samples.length) {
+        autoMessages.push(markCharacterMaterialMessage({ role: 'system', content: exemplar.text }, 'sample'));
+        autoSamples = exemplar.samples;
+        autoAudit.sampleCount = exemplar.samples.length;
+        autoAudit.paragraphSamples = true;
+        autoAudit.paragraphBuckets = exemplar.audit.buckets;
+        autoAudit.paragraphDimensions = exemplar.audit.dimensions;
+      }
+    }
     return {
-      messages: [markCharacterMaterialMessage({ role: 'system', content }, 'rules')],
+      messages: autoMessages,
       retrieval,
       request,
       rules: [],
-      samples,
-      audit: { ...audit, ruleCount: 0, profileInjected: true }
+      samples: autoSamples,
+      audit: autoAudit
     };
   }
   const typeLabel = audit.archetype || '未指定标准人物类型，使用通用描写规则';
@@ -1579,6 +1838,26 @@ function buildCharacterMaterialBlock(auth, requestValue, options = {}) {
         '原创性边界：不得复制样本连续片段，不得输出样本中可能残留的专名；样本只作为少量机制示范，不是答案。'
       ].join('\n');
       messages.push(markCharacterMaterialMessage({ role: 'system', content: sampleText }, 'sample'));
+    }
+  }
+  if (request.mode !== 'strong' && request.mode !== 'raw' && wantParagraphExemplars) {
+    const exemplar = buildLivingProseExemplarBlock(request, { ...options, limit: 2, maxExcerptChars: 440 });
+    if (exemplar && exemplar.samples.length) {
+      messages.push(markCharacterMaterialMessage({ role: 'system', content: exemplar.text }, 'sample'));
+      return {
+        messages,
+        retrieval,
+        request,
+        rules,
+        samples: exemplar.samples,
+        audit: {
+          ...audit,
+          sampleCount: exemplar.samples.length,
+          paragraphSamples: true,
+          paragraphBuckets: exemplar.audit.buckets,
+          paragraphDimensions: exemplar.audit.dimensions
+        }
+      };
     }
   }
   return { messages, retrieval, request, rules, samples, audit };
@@ -1651,6 +1930,9 @@ module.exports = {
   retrieveCharacterMaterial,
   buildCharacterMaterialBlock,
   buildParagraphSampleBlock,
+  buildLivingProseExemplarBlock,
+  isCleanExemplarSample,
+  isBrokenAnonymizedText,
   anonymizeParagraphSample,
   anonymizeSampleText,
   resetParagraphAnonymizationCache,
