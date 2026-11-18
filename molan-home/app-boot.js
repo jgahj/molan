@@ -303,6 +303,7 @@
       adminModels: [],
       adminDefaultModel: '',
       dataSource: 'local',
+      localOpenAccess: false,
       sessionVersion: 0
     };
     let backendTaskPollTimer = 0;
@@ -484,6 +485,27 @@
       backendState.user = data && data.user ? data.user : null;
       persistBackendAuth();
     }
+
+    async function ensureLocalOpenSession(forceClient = false) {
+      if (!backendState.localOpenAccess) return null;
+      try {
+        const data = await backendRequest('/api/auth/local-session', { method: 'POST', body: {} });
+        if (data && data.ok && data.token && data.user) {
+          if (forceClient || !backendState.token) {
+            setBackendAuth(data);
+            window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }));
+          }
+          if (!backendState.adminToken && (data.adminToken || data.token)) {
+            backendState.adminToken = String(data.adminToken || data.token);
+            backendState.adminUser = data.user;
+            persistAdminAuth();
+          }
+          return data;
+        }
+      } catch (_) {}
+      return null;
+    }
+    window.ensureMolanLocalSession = ensureLocalOpenSession;
 
     function captureBackendSession() {
       return { token: backendState.token, version: backendState.sessionVersion };
@@ -776,8 +798,12 @@
       try {
         const syncStatus = await backendRequest('/api/local-sync/status');
         backendState.dataSource = syncStatus && syncStatus.dataSource === 'cloud' ? 'cloud' : 'local';
-      } catch (_) { backendState.dataSource = 'local'; }
+        backendState.localOpenAccess = !!(syncStatus && syncStatus.localOpenAccess);
+      } catch (_) { backendState.dataSource = 'local'; backendState.localOpenAccess = false; }
       await refreshBackendUser();
+      if (backendState.localOpenAccess && (!backendState.token || !backendState.adminToken)) {
+        await ensureLocalOpenSession(!backendState.token);
+      }
       await Promise.all([loadBackendModels(), loadBackendSkills()]);
       await Promise.all([loadBackendNovels(), loadBackendTasks(), loadBackendUsage()]);
       startBackendTaskPolling();
@@ -2521,7 +2547,15 @@
         return;
       }
       const previousPage = currentPage;
-      if (page === 'admin' && !backendState.adminToken) page = 'admin-login';
+      if (page === 'admin' && !backendState.adminToken) {
+        if (backendState.localOpenAccess) {
+          void ensureLocalOpenSession(false).then(() => {
+            if (currentPage === 'admin' && backendState.adminToken) renderPage('admin', { fromHistory: true });
+          });
+        } else {
+          page = 'admin-login';
+        }
+      }
       currentPage = renderers[page] ? page : 'overview';
       if (!options.fromHistory && window.location.hash.slice(1) !== currentPage) {
         const method = options.replace ? 'replaceState' : 'pushState';

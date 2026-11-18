@@ -494,6 +494,14 @@
     window.addEventListener('storage', function (event) { if (event.key === 'ml_token' || event.key === 'ml_user') refreshAuth(); });
   }
 
-  function init() { bind(); renderIcons(); refreshAuth(); }
+  function init() {
+    bind();
+    renderIcons();
+    if (!getToken() && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+      window.MolanLocalOpenAuth.ensureLocalSession().then(function () { refreshAuth(); });
+    } else {
+      refreshAuth();
+    }
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 }());

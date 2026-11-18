@@ -235,6 +235,9 @@ element('export').addEventListener('click', async () => {
 });
 
 async function initialize() {
+  if (!localStorage.getItem('ml_token') && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+    await window.MolanLocalOpenAuth.ensureLocalSession();
+  }
   estimate();
   const status = await api('/status'); dimensions = status.dimensions;
   const corpusStatus = status.corpusStatus || { available: Boolean(status.corpus), generationAvailable: Boolean(status.corpus) };

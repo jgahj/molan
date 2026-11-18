@@ -80,15 +80,22 @@
     var name = document.querySelector('.side-profile .profile-name');
     var meta = document.querySelector('.side-profile .profile-meta');
     if (name) name.textContent = user ? (user.name || user.email) : '未登录';
-    if (meta) meta.textContent = user ? ((user.role === 'admin' ? '管理员' : user.role === 'vip' ? 'VIP 用户' : '普通用户') + ' · ' + (user.credits == null ? '无限积分' : Number(user.credits).toLocaleString() + ' 积分')) : '登录后保存作品';
+    if (meta) {
+      if (user && backendState.localOpenAccess) {
+        meta.textContent = '本地免登录 · 全功能开放 · ' + (user.credits == null ? '无限积分' : Number(user.credits).toLocaleString() + ' 积分');
+      } else {
+        meta.textContent = user ? ((user.role === 'admin' ? '管理员' : user.role === 'vip' ? 'VIP 用户' : '普通用户') + ' · ' + (user.credits == null ? '无限积分' : Number(user.credits).toLocaleString() + ' 积分')) : '登录后保存作品';
+      }
+    }
     var loginEntry = document.querySelector('[data-user-login-entry]');
     if (loginEntry) {
       var loginIcon = loginEntry.querySelector('.icon');
       if (loginIcon) loginEntry.replaceChildren(loginIcon);
       else loginEntry.replaceChildren();
-      loginEntry.appendChild(document.createTextNode(user ? '已登录账户' : '普通用户登录'));
-      loginEntry.setAttribute('aria-label', user ? '已登录账户，打开账户设置' : '普通用户登录');
-      loginEntry.title = user ? '已登录 · 打开账户设置' : '普通用户登录';
+      var entryLabel = user ? (backendState.localOpenAccess ? '本地全权模式' : '已登录账户') : '普通用户登录';
+      loginEntry.appendChild(document.createTextNode(entryLabel));
+      loginEntry.setAttribute('aria-label', user ? (backendState.localOpenAccess ? '本地全权模式，打开账户设置' : '已登录账户，打开账户设置') : '普通用户登录');
+      loginEntry.title = user ? (backendState.localOpenAccess ? '本地免登录开放 · 打开账户设置' : '已登录 · 打开账户设置') : '普通用户登录';
     }
   }
 
@@ -459,7 +466,7 @@
     if (file.size > 5 * 1024 * 1024) throw new Error('图片不能超过 5 MB');
     return new Promise(function (resolve, reject) { var r = new FileReader(), image = new Image(); r.onerror = function () { reject(new Error('图片读取失败')); }; image.onerror = function () { reject(new Error('图片读取失败')); }; image.onload = function () { var c = document.createElement('canvas'); c.width = c.height = 256; var x = c.getContext('2d'), scale = Math.max(256 / image.width, 256 / image.height); x.drawImage(image, (256 - image.width * scale) / 2, (256 - image.height * scale) / 2, image.width * scale, image.height * scale); resolve(c.toDataURL('image/jpeg', .8)); }; r.onload = function () { image.src = r.result; }; r.readAsDataURL(file); });
   }
-  async function logout(all) { try { if (backendState.token) await backendRequest(all ? '/api/auth/logout-all' : '/api/auth/logout', { method: 'POST', body: {} }); } catch (_) {} clearBackendAuth(); window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null })); refreshChrome(); say(all ? '已退出所有设备' : '已退出登录'); go('overview'); }
+  async function logout(all) { try { if (backendState.token) await backendRequest(all ? '/api/auth/logout-all' : '/api/auth/logout', { method: 'POST', body: {} }); } catch (_) {} clearBackendAuth(); if (backendState.localOpenAccess && typeof window.ensureMolanLocalSession === 'function') { await window.ensureMolanLocalSession(true); refreshChrome(); say('已重置为本地免登录默认模式'); return go('overview'); } window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null })); refreshChrome(); say(all ? '已退出所有设备' : '已退出登录'); go('overview'); }
 
   /* Login */
   function loginPage() { return shell('login', '<div class="user-login c-page" data-c-page="login"><section class="user-login-copy"><div><div style="display:flex;align-items:center;gap:9px"><span class="brand-mark">墨</span><strong style="font-family:var(--serif);font-size:16px">墨阑</strong></div><h2>让每一个故事，都有自己的工作台。</h2><p>保存你的作品、设定和 Skill，在任意设备继续创作。</p><div class="login-signal"><span></span>你的作品数据按账户独立保存</div></div></section><section class="user-login-form"><form class="user-login-inner" data-c-login><div class="login-tabs"><button type="button" class="login-tab active" data-c-auth-mode="login">登录</button><button type="button" class="login-tab" data-c-auth-mode="register">注册</button></div><h1 data-c-auth-title>欢迎回来</h1><p data-c-auth-copy>登录后继续最近编辑的小说和 AI 任务。</p><div class="form-grid"><div class="field"><label>邮箱</label><input id="c-login-email" type="email" required placeholder="you@example.com"></div><div class="field"><label>密码</label><div style="display:flex;gap:6px"><input id="c-login-password" type="password" required placeholder="请输入密码" style="flex:1"><button type="button" class="button" data-c-action="auth-password">显示</button></div></div><div class="field" data-c-code-field hidden><label>验证码</label><div style="display:flex;gap:6px"><input id="c-login-code" maxlength="6" style="flex:1"><button type="button" class="button" data-c-action="auth-code">获取验证码</button></div></div></div><div class="login-links"><label class="check"><input type="checkbox" id="c-login-remember" checked>记住我</label><button type="button" class="button" data-c-action="auth-forgot">忘记密码？</button></div><button class="button primary" type="submit" data-c-auth-submit style="width:100%;margin-top:20px">登录并进入工作台</button><div class="notice" style="margin-top:16px"><span data-c-auth-notice>本地服务模式：登录或注册后，作品和任务会保存到当前本地后端。</span></div><div style="display:flex;gap:8px;margin-top:12px"><button type="button" class="button" data-c-action="auth-terms">服务条款</button><button type="button" class="button" data-c-action="auth-privacy">隐私政策</button></div></form></section></div>', 'login-page'); }

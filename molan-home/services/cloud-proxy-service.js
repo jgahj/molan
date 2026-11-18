@@ -2,7 +2,7 @@
 const http = require('node:http');
 const https = require('node:https');
 
-function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECTION_MAX_BODY_BYTES, MAX_JSON_BODY_BYTES, UPSTREAM_IDLE_TIMEOUT_MS, json, readBody, responseCors }) {
+function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECTION_MAX_BODY_BYTES, MAX_JSON_BODY_BYTES, UPSTREAM_IDLE_TIMEOUT_MS, isLocalOpenAccess, json, readBody, responseCors }) {
   /** 判断请求是否应由本地服务代理到云端，保留本地同步状态接口不经过代理。 */
   function shouldProxyCloudRequest(req) {
     if (!CLOUD_API_BASE || !req) return false;
@@ -29,6 +29,7 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
       cloudApiBase: configured ? CLOUD_API_BASE : '',
       cloudConfigError: CLOUD_API_BASE_ERROR || '',
       codeSync: false,
+      localOpenAccess: typeof isLocalOpenAccess === 'function' ? !!isLocalOpenAccess() : false,
       message: configured ? '本地页面和账户数据使用云端 API，项目代码仍来自本地工作区' : '当前使用本地数据，未连接云端'
     });
   }

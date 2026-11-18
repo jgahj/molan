@@ -855,7 +855,19 @@
 
   function boot() {
     token = getToken();
+    if (!token && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+      window.MolanLocalOpenAuth.ensureLocalSession().then(function (data) {
+        token = getToken();
+        if (!token && !(data && data.adminToken)) { location.href = './admin-login.html'; return; }
+        if (!token && data && data.adminToken) token = data.adminToken;
+        startAdminBoot();
+      });
+      return;
+    }
     if (!token) { location.href = './admin-login.html'; return; }
+    startAdminBoot();
+  }
+  function startAdminBoot() {
     api('/api/admin/auth/me').then(function (data) {
       if (!data.user || !data.user.isAdmin) throw Object.assign(new Error('当前账户不是管理员'), { status: 403 });
       currentUser = data.user; persistAdminUser(currentUser); renderHeader();

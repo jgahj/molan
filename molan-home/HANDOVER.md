@@ -82,7 +82,9 @@ molan-home/
 │   ├── creation-chapter-service.js     # 章节生成编排入口
 │   └── creation-plan-service.js        # 创作计划与大纲服务
 ├── scripts/acp-login.js & acp-login.bat # 官方 ACP OAuth 一次登录与模型能力探测脚本
+├── pages/local-open-auth.js            # 独立子页本地免登录会话共享引导模块 (`MolanLocalOpenAuth`)
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
+    ├── local-open-access.test.js              # 本地免登录开放模式 (`MOLAN_LOCAL_OPEN_ACCESS=1`) 与生产安全隔离测试 (2 项)
     ├── acp-transport.test.js                  # 官方 Antigravity ACP 传输、权限拒绝、OAuth未登录拦截与 chat-service 集成测试 (5 项)
     ├── package-publisher-lru.test.js          # 发布器路径隔离、LRU 滚动保留与激活保护测试 (3 项)
     ├── workbench-editor-fusion.test.js        # 创作坞站、AI增强开关、防提示词套取与双向联动测试 (29 项全量通过)
@@ -115,6 +117,50 @@ molan-home/
     ├── phase2-engine-enhancements.test.js     # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
     └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
+
+---
+
+## 阶段记录：本地免登录自由开放模式落地 (`MOLAN_LOCAL_OPEN_ACCESS=1`) (2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/server.js` | 开关与自动会话 | 新增 `isLocalOpenAccessEnabled()`（仅当 `!PUBLIC_MODE && NODE_ENV !== 'production' && MOLAN_LOCAL_OPEN_ACCESS === '1'` 时生效）：<br>1. 新增 `ensureLocalOpenAccount()`：PG 就绪时自动幂等创建/读取全权管理员账号（默认 `local@molan.local`，可用 `MOLAN_LOCAL_ACCOUNT_EMAIL` 覆盖），无 PG 时返回内存全权账号与 `localMemoryOnly` 标记；<br>2. 新增 `POST /api/auth/local-session`（`handleLocalSession`）：返回 `localOpenAccess: true`、`token`、`adminToken` 与 `user`；<br>3. `dispatchRequest` 为未带有效 Token 的请求自动挂载 `req.molanLocalOpenAuth`；为无 PG 本地运行态兜底 `reserveCredits` / `settleTokenUsage` / `recordDispatchAttempt` / `getPostgresUsageSummary` / `nativeSkillCatalog`。 |
+| `molan-home/services/auth-account-service.js` | 鉴权回退扩展 | `createAuthAccountService` 新增可选 `resolveFallbackAuth`，使 `getAuthUser(req, expectedScope)` 在未持有效会话时回退至本地全权账号（且允许全权账号跨 `client`/`admin` 域访问）；`handleProfile` 在 `localMemoryOnly` 下安全更新内存资料。 |
+| `molan-home/services/model-selection-service.js` | 全模型解锁 | `createModelSelectionService` 新增可选 `allowAllModels`，开启本地开放模式后 `canChooseModel(user)` 对所有身份均放行全部模型选择。 |
+| `molan-home/routes/auth.js` & `services/cloud-proxy-service.js` | 路由与状态 | `routes/auth.js` 注册 `POST /api/auth/local-session`；`handleLocalSyncStatus` 暴露 `localOpenAccess` 标志供前端自动识别。 |
+| `molan-home/app-boot.js` & `completion-platform.js` | SPA 免登录自动装配 | `bootstrapBackend()` 检测到 `localOpenAccess` 且缺少 `token`/`adminToken` 时自动调用 `ensureLocalOpenSession()` 写入凭证并触发 `molan:auth-changed`；`renderPage` 不再把 `/admin` 重定向到 `admin-login`；侧栏显示“本地全权模式”与无限积分。 |
+| `molan-home/pages/local-open-auth.js` 及各独立子页 | 独立页面免登录 | 新增共享引导模块 `MolanLocalOpenAuth.ensureLocalSession`，接入 `account.js`、`site.js`、`dissect.js`、`skills.js`、`admin.js`、`story-workbench.js`、`project-docs.js`、`xuanhuan-blind.js`、`xuanhuan-reading.js` 及对应 `pages/*.html`（`tools/dissect/skills/novels/editor/admin/story-workbench/project-docs/xuanhuan-blind/xuanhuan-reading`），打开任意独立子页均可直接自由使用全功能。 |
+| `molan-home/start-node22.bat` & `start-node22-pg.bat` | 本地启动默认开启 | 默认注入 `MOLAN_LOCAL_OPEN_ACCESS=1`（允许外部环境变量覆盖为 `0`）。 |
+| `molan-home/test/local-open-access.test.js` | 自动化测试 | 新增 2 项端到端测试：验证 `MOLAN_LOCAL_OPEN_ACCESS=1` 下免登录直通 `/api/models`、`/api/auth/local-session`、`/api/auth/me`、`/api/admin/auth/me`、`/api/metrics`、`/api/chat` 与全模型选择；同时验证关闭开关或 `PUBLIC_MODE=1` 时仍严格执行 `401/403`。 |
+
+---
+
+### 二、设计决策与权衡 (Decisions & Trade-offs)
+
+1. **采用环境开关 + 自动签发本地全权会话（方案 A）而非硬编码删除所有鉴权**：
+   - *决策依据*：后端为 PG-only 架构，PostgreSQL RLS 与表外键要求 `actorUserId` 对应真实账户记录，且全库 2400+ 测试与 10 余个独立页面深度依赖 `ml_token` 与 `canChooseModel`。通过 `MOLAN_LOCAL_OPEN_ACCESS=1`（且受 `!PUBLIC_MODE && NODE_ENV !== 'production'` 护栏约束）在启动时自动注入全权本地会话，既让全站 SPA 与所有独立子页 100% 免登录自由开放，又完整保留既有安全测试契约和一键恢复登录态的能力。
+
+---
+
+### 三、验证证据与测试数据
+
+- **测试运行时**：`tools/node22_runtime/node.exe` (Node.js v22.23.2)
+- **执行命令与真实结果**：
+  1. 专项测试：
+     ```powershell
+     .\tools\node22_runtime\node.exe --no-warnings --test molan-home/test/local-open-access.test.js
+     # 2 tests, 2 passed, 0 failed
+     ```
+  2. 全量测试套件（最后一次代码改动后）：
+     ```powershell
+     .\tools\node22_runtime\node.exe --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"
+     # tests 2447 | suites 73 | pass 2431 | fail 0 | skipped 16 (duration_ms 34540)
+     ```
+  3. 架构与黄金用例审计：
+     - `scripts/production-import-audit.mjs`：PASS（234 个生产文件合规，exit 0）
+     - `scripts/audit-golden-suite.mjs`：PASS（80 项任务全部通过，exit 0）
 
 ---
 

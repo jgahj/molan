@@ -2,8 +2,9 @@
 
 const OFFICIAL_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
-function createModelSelectionService({ findPlatformModel, normalizeUserRole, currentDefaultModel }) {
+function createModelSelectionService({ findPlatformModel, normalizeUserRole, currentDefaultModel, allowAllModels }) {
   function canChooseModel(user) {
+    if (typeof allowAllModels === 'function' && allowAllModels(user)) return true;
     const role = normalizeUserRole(user);
     return role === 'vip' || role === 'admin';
   }

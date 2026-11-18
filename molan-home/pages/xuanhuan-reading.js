@@ -99,6 +99,9 @@ element('activate').addEventListener('click', async () => {
 });
 element('export').addEventListener('click', async () => { try { const data = await api(`/jobs/${currentJob.id}/export`); const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); const anchor = node('a'); anchor.href = url; anchor.download = `dual-reading-${currentJob.id}.json`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); } catch (error) { showError(error); } });
 async function initialize() {
+  if (!localStorage.getItem('ml_token') && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+    await window.MolanLocalOpenAuth.ensureLocalSession();
+  }
   const status = await api('/status'); element('sources').replaceChildren(...status.books.map(book => { const output = node('div'); output.append(node('strong', `《${book.title}》`), node('p', `${book.chapters.map(chapter => chapter.title).join(' / ')}\n${book.excludedPreamble}`)); return output; }));
   const response = await fetch('/api/models', { headers: { Authorization: 'Bearer ' + localStorage.getItem('ml_token') } }); if (!response.ok) throw new Error('模型列表读取失败'); const data = await response.json();
   const models = (data.models || []).filter(model => model.contextWindowTokens >= 100000); element('model').replaceChildren(...models.map(model => option(model.id, model.name))); if (models.some(model => model.id === data.access?.defaultModel)) element('model').value = data.access.defaultModel;

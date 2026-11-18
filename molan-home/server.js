@@ -192,6 +192,16 @@ let pipelineRunningCount = 0;
 const DISSECTION_CHUNK_CHARS = envPositiveInt('MOLAN_DISSECTION_CHUNK_CHARS', 12000, 10000, 200000);
 const PUBLIC_MODE = process.env.MOLAN_PUBLIC_MODE === '1' || process.env.NODE_ENV === 'production';
 const REQUIRE_SQLITE_FOR_REMOTE = process.env.MOLAN_REQUIRE_SQLITE !== '0' && PUBLIC_MODE;
+const LOCAL_OPEN_TOKEN_FALLBACK = 'molan-local-open-access';
+function isLocalOpenAccessEnabled() {
+  return !PUBLIC_MODE && process.env.NODE_ENV !== 'production' && process.env.MOLAN_LOCAL_OPEN_ACCESS === '1';
+}
+function localOpenAccountEmail() {
+  return String(process.env.MOLAN_LOCAL_ACCOUNT_EMAIL || 'local@molan.local').trim().toLowerCase() || 'local@molan.local';
+}
+function localOpenAccountName() {
+  return String(process.env.MOLAN_LOCAL_ACCOUNT_NAME || '本地创作者').trim() || '本地创作者';
+}
 
 // API key 加载优先级：环境变量 > data/config.json > 空字符串
 // 这样本地桌面使用无需每次设置环境变量，只需在 data/config.json 中填写 deepseekApiKey
@@ -341,7 +351,8 @@ const { saveModelPolicy, savePlatformModelRates, savePlatformModelRate } = requi
 });
 
 const { canChooseModel, resolveModelForUser, reasoningEffortsForModel, normalizeReasoningEffort } = createModelSelectionService({
-  findPlatformModel, normalizeUserRole, currentDefaultModel
+  findPlatformModel, normalizeUserRole, currentDefaultModel,
+  allowAllModels: () => isLocalOpenAccessEnabled()
 });
 
 const INTERNAL_MODEL_ROUTE_HEADER = 'x-molan-internal-model-route';
@@ -632,7 +643,7 @@ const STATIC_COMPRESSIBLE_EXT = new Set(['.html', '.htm', '.css', '.js', '.json'
 
 const { shouldProxyCloudRequest, cloudProxyBodyLimit, handleLocalSyncStatus, handleCloudProxy } = require('./services/cloud-proxy-service').createCloudProxyService({
   CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECTION_MAX_BODY_BYTES, MAX_JSON_BODY_BYTES, UPSTREAM_IDLE_TIMEOUT_MS,
-  json, readBody, responseCors
+  isLocalOpenAccess: isLocalOpenAccessEnabled, json, readBody, responseCors
 });
 
 // 模型别名：前端用 v4-flash / v4-pro，服务端映射到 DeepSeek 真实模型
@@ -1727,6 +1738,9 @@ function reserveCredits(user, modelId, providerModel, requestId, reservedCost, s
   const projectId = String(scope && (scope.projectId || scope.project_id) || '').trim();
   if (!email || !requestId) return { ok: false, reservedCost: reserve };
   const now = Date.now();
+  if (isLocalOpenAccessEnabled() && (!postgresRepository.enabled || !dbReady())) {
+    return lookupOnly ? { ok: false, reservedCost: 0 } : { ok: true, reservedCost: 0, billingStatus: 'local_open' };
+  }
 if (POSTGRES_MODE) {
   const pending = usageRowFromEvent({
     requestId, userEmail: email, userId, workspaceId, projectId, modelId, providerModel,
@@ -1748,6 +1762,9 @@ async function settleTokenUsage(event) {
   const exact = toTokenCount(event && event.totalTokens) !== null && event.providerUsageIncomplete !== true;
   const estimatedCost = roundCreditValue(event && event.estimatedCreditCost);
   const requestedCost = exact ? creditCostForUser(user, event.modelId, event.totalTokens) : estimatedCost;
+  if (isLocalOpenAccessEnabled() && (!postgresRepository.enabled || !dbReady())) {
+    return Promise.resolve({ recorded: false, creditCost: 0, billingStatus: 'local_open' });
+  }
 
 if (POSTGRES_MODE) {
   const holdReservation = !exact && (event.providerUsageIncomplete === true || event.status === 'usage_unavailable' || event.providerRequestSent === true || event.providerResponseReceived === true);
@@ -1782,6 +1799,9 @@ function recordTokenUsage(event) {
 function recordDispatchAttempt(event) {
   const instanceId = String((event && event.instanceId) || SERVER_INSTANCE_ID).trim();
   const leaseMs = Number(event && event.leaseMs) || DISPATCH_LEASE_TTL_MS;
+  if (isLocalOpenAccessEnabled() && (!postgresRepository.enabled || !dbReady())) {
+    return Promise.resolve({ ok: true, recorded: false });
+  }
 if (POSTGRES_MODE) {
   const actorId = String(event && (event.actorId || event.actorUserId || event.userId) || '').trim();
   return postgresRepository.recordDispatchAttempt({
@@ -1911,6 +1931,9 @@ function getUsageSummary(email, includeRecent) {
 }
 
 async function getPostgresUsageSummary(userId, includeRecent) {
+  if (isLocalOpenAccessEnabled() && (!postgresRepository.enabled || !dbReady())) {
+    return buildUsageSummary([]);
+  }
   const documents = await postgresRepository.runtimeListTokenUsage(userId);
   const rows = documents.map(document => {
     const row = { ...document };
@@ -4969,10 +4992,110 @@ const authAccountService = require('./services/auth-account-service').createAuth
   projectScope,
   readBody,
   requestError,
+  resolveFallbackAuth: (req, expectedScope) => {
+    if (!isLocalOpenAccessEnabled()) return null;
+    const verified = req && req.molanPostgresAuth;
+    if (verified && isAdminUser(verified.user)) {
+      return { token: verified.token, user: verified.user };
+    }
+    return (req && req.molanLocalOpenAuth) || null;
+  },
   respondError,
   sessionEventUserId,
 });
 const { insertUserIfAbsent,createPasswordRecord,createPasswordRecordAsync,verifyPassword,verifyPasswordAsync,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,sessions } = authAccountService;
+
+let localOpenUserPromise = null;
+let localOpenUserCacheKey = '';
+function buildMemoryLocalOpenUser() {
+  const email = localOpenAccountEmail();
+  return {
+    userId: projectScope.stableUserId(email),
+    email,
+    name: localOpenAccountName(),
+    avatar: '',
+    bio: '本地免登录创作模式',
+    defaultModel: currentDefaultModel(),
+    role: 'admin',
+    level: 'admin',
+    plan: 'admin',
+    credits: 0,
+    spent: 0,
+    createdAt: '2026-01-01T00:00:00.000Z'
+  };
+}
+async function ensureLocalOpenAccount() {
+  const pgReady = Boolean(postgresRepository.enabled && dbReady() && postgresRuntimeState.ready);
+  const email = localOpenAccountEmail();
+  const cacheKey = `${pgReady ? 'pg' : 'mem'}:${email}`;
+  if (!pgReady) return { user: buildMemoryLocalOpenUser(), localMemoryOnly: true };
+  if (localOpenUserPromise && localOpenUserCacheKey === cacheKey) {
+    return localOpenUserPromise;
+  }
+  localOpenUserCacheKey = cacheKey;
+  localOpenUserPromise = (async () => {
+    let user = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(email));
+    if (!user) {
+      const passwordRecord = await createPasswordRecordAsync(crypto.randomBytes(24).toString('hex'));
+      const draft = {
+        email,
+        userId: projectScope.stableUserId(email),
+        name: localOpenAccountName(),
+        avatar: '',
+        bio: '本地免登录创作模式',
+        defaultModel: currentDefaultModel(),
+        salt: passwordRecord.salt,
+        pwd: passwordRecord.pwd,
+        role: 'admin',
+        level: 'admin',
+        plan: 'admin',
+        credits: 0,
+        spent: 0,
+        createdAt: new Date().toISOString()
+      };
+      try {
+        await insertUserIfAbsent(draft);
+        user = draft;
+      } catch (err) {
+        user = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(email));
+        if (!user) throw err;
+      }
+    }
+    return { user, localMemoryOnly: false };
+  })().catch(err => {
+    if (localOpenUserCacheKey === cacheKey) {
+      localOpenUserPromise = null;
+      localOpenUserCacheKey = '';
+    }
+    throw err;
+  });
+  return localOpenUserPromise;
+}
+async function handleLocalSession(req, res) {
+  if (!isLocalOpenAccessEnabled()) {
+    return json(res, 404, { error: '本地免登录模式未启用' });
+  }
+  try {
+    const ensured = await ensureLocalOpenAccount();
+    const user = ensured.user;
+    if (!ensured.localMemoryOnly && postgresRepository.enabled && dbReady() && postgresRuntimeState.ready) {
+      const [token, adminToken] = await Promise.all([
+        issueToken(user.email, 'client'),
+        issueToken(user.email, 'admin')
+      ]);
+      return json(res, 200, { ok: true, localOpenAccess: true, token, adminToken, user: await publicUser(user) });
+    }
+    return json(res, 200, {
+      ok: true,
+      localOpenAccess: true,
+      token: LOCAL_OPEN_TOKEN_FALLBACK,
+      adminToken: LOCAL_OPEN_TOKEN_FALLBACK,
+      user: await publicUser(user)
+    });
+  } catch (error) {
+    return respondError(res, error);
+  }
+}
 
 const { normalizeCreationPlan, creationPlanRules, normalizeBiblePayload, creationPlanTargets, creationPlanItemKey, creationNamedCount, creationChapterNumber, creationChapterTitle, creationChapterIsUsable, creationPlanCoverage, creationPlanText, creationPlanCompactList, creationPlanExpansionContext, creationPlanExpansionPrompt, mergeCreationUniqueList, mergeCreationVolumes, normalizeCreationExpansionChapter, normalizeCreationChapterPlanRhythm, mergeCreationChapterPlan, mergeCreationExpansionPayload, creationForbiddenTerms, creationChapterContext, creationPlanProjection, creationPlanHasContent, creationPlanIssue, reviewCreationPlan, normalizeCreationPlanReviewModel, mergeCreationPlanReview, normalizeCreationPlanPatchPath, creationPlanPatchValueKind, creationPlanPatchTypeMismatch, creationPlanPatchWouldShrink, applyCreationPlanPatches, eventChainLcsRatio, functionSetJaccard, computeStructuralSimilarity, evaluateSomaticGate, verifyModelAuditQuotes, creationOriginalityGate, deterministicContractValidation, normalizeForbiddenMatchText, checkForbiddenTerms, characterNameOverlapIssues, creationBibleSeedValidation } = require('./services/creation-plan-service').createCreationPlanService({
   CREATION_LINE_IDS,
@@ -5289,7 +5412,7 @@ async function nativeSkillCatalog(user) {
     const repository = postgresRepository;
     // PG-only 收敛：禁用态桩（PG 未配置或测试环境）没有 runtime* 方法时降级为空目录——
     // skill 目录缺失不应中断写作主链（fail-open：无 skill 不阻止生成）。生产 PG 启用时方法必然存在。
-    if (typeof repository.runtimeListUserSkills !== 'function' || typeof repository.runtimeListGlobalSkills !== 'function') {
+    if (!repository.enabled || !dbReady() || typeof repository.runtimeListUserSkills !== 'function' || typeof repository.runtimeListGlobalSkills !== 'function') {
       return { userSkills: [], globalSkills: [] };
     }
     const [users, global] = await Promise.all([
@@ -5449,6 +5572,16 @@ async function dispatchRequest(req, res) {
     if (session) {
       const user = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByUserId(session.userId));
       if (user) req.molanPostgresAuth = { token, user, scope: session.scope };
+    }
+  }
+  if (isLocalOpenAccessEnabled() && !req.molanPostgresAuth) {
+    const ensured = await ensureLocalOpenAccount();
+    if (ensured && ensured.user) {
+      req.molanLocalOpenAuth = {
+        token: LOCAL_OPEN_TOKEN_FALLBACK,
+        user: ensured.user,
+        localMemoryOnly: ensured.localMemoryOnly === true
+      };
     }
   }
   const u = req.url.split('?')[0];
@@ -5612,6 +5745,7 @@ async function dispatchRequest(req, res) {
   const domainRoutes = {
     auth: createAuthRoutes({
       register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
+      localSession: handleLocalSession,
       me: handleMe, profile: handleProfile, logout: handleLogout, logoutAll: handleLogoutAll,
       adminLogin: handleAdminLogin, adminMe: handleAdminMe, usage: handleUsage,
     }),
@@ -5820,6 +5954,7 @@ if (require.main === module) {
     },
     preparePostgres,
     prepareLocal: async () => {
+      if (process.env.MOLAN_LOCAL_ONLY === '1') return;
       throw Object.assign(new Error('PostgreSQL 未配置：PG-only 收敛后不再支持本地 SQLite/JSON 存储，请配置 MOLAN_PG_ENABLED 与连接信息'),
         { code: 'POSTGRES_NOT_CONFIGURED' });
     },

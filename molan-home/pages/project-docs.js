@@ -538,11 +538,15 @@
       toast('资料包已恢复');
     } catch (error) { toast(error.message || '恢复失败'); }
   }
-  function bind() {
+  async function bind() {
     var params = new URLSearchParams(location.search);
     projectId = String(params.get('nid') || '').trim();
     creationBookId = String(params.get('bookId') || '').trim();
     token = localStorage.getItem('ml_token') || '';
+    if (!token && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+      var data = await window.MolanLocalOpenAuth.ensureLocalSession(API_BASE);
+      if (data && data.token) token = data.token;
+    }
     $('storyWorkbench').href = './story-workbench.html?nid=' + encodeURIComponent(projectId) +
       (creationBookId ? '&bookId=' + encodeURIComponent(creationBookId) : '');
     if (!projectId || !token) { document.body.innerHTML = '<main class="docs-shell"><section class="docs-panel"><h2>请从已登录的作品编辑器进入资料中心</h2></section></main>'; return; }

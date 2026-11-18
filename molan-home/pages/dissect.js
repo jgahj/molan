@@ -568,5 +568,14 @@
   $('rewriteBtn').addEventListener('click', openRewrite);
   $('closeRewriteBtn').addEventListener('click', () => { $('rewriteModal').hidden = true; });
 
-  Promise.all([loadModels(), loadTasks()]).catch(error => { if (error.message !== '请先登录') notify(error.message, true); });
+  async function ensureDissectAuth() {
+    if (token()) return true;
+    if (window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+      const data = await window.MolanLocalOpenAuth.ensureLocalSession(API);
+      return Boolean(data && data.token);
+    }
+    return false;
+  }
+
+  ensureDissectAuth().then(() => Promise.all([loadModels(), loadTasks()])).catch(error => { if (error.message !== '请先登录') notify(error.message, true); });
 })();

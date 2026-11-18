@@ -7,6 +7,7 @@ function createAuthRoutes(handlers) {
     if (method === 'POST' && url === '/api/auth/login') { await handlers.login(req, res); return true; }
     if (method === 'POST' && url === '/api/auth/code') { await handlers.sendCode(req, res); return true; }
     if (method === 'POST' && url === '/api/auth/login-code') { await handlers.loginByCode(req, res); return true; }
+    if (method === 'POST' && url === '/api/auth/local-session' && typeof handlers.localSession === 'function') { await handlers.localSession(req, res); return true; }
     if (method === 'GET' && url === '/api/auth/me') { await handlers.me(req, res); return true; }
     if (method === 'PATCH' && url === '/api/auth/profile') { await handlers.profile(req, res); return true; }
     if (method === 'POST' && url === '/api/auth/logout') { await handlers.logout(req, res); return true; }

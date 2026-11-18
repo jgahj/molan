@@ -28,6 +28,7 @@ function createAuthAccountService({
   projectScope,
   readBody,
   requestError,
+  resolveFallbackAuth,
   respondError,
   sessionEventUserId
 }) {
@@ -183,11 +184,16 @@ function createAuthAccountService({
 
   function getAuthUser(req, expectedScope = 'client') {
     const targetScope = normalizeSessionScope(expectedScope);
-    const verified = req.molanPostgresAuth;
-    if (!verified) return null;
-    const verifiedScope = normalizeSessionScope(verified.scope);
-    if (targetScope !== verifiedScope) return null;
-    return { token: verified.token, user: verified.user };
+    const verified = req && req.molanPostgresAuth;
+    if (verified) {
+      const verifiedScope = normalizeSessionScope(verified.scope);
+      if (targetScope === verifiedScope) return { token: verified.token, user: verified.user };
+    }
+    if (typeof resolveFallbackAuth === 'function') {
+      const fallback = resolveFallbackAuth(req, targetScope);
+      if (fallback && fallback.user) return fallback;
+    }
+    return null;
   }
 
   function publicUser(u) {
@@ -357,16 +363,18 @@ function createAuthAccountService({
         if (requestedModel && !findPlatformModel(requestedModel)) throw requestError(400, '默认模型不存在或未配置');
         user.defaultModel = canChooseModel(user) ? (requestedModel || currentDefaultModel()) : currentDefaultModel();
       }
-      const row = await postgresRepository.runtimeUpdateAccountProfile({
-        actorUserId: auth.user.userId,
-        userId: auth.user.userId,
-        name: user.name,
-        avatar: user.avatar,
-        bio: user.bio,
-        defaultModel: user.defaultModel
-      });
-      const saved = postgresRuntimeUserFromRow(row);
-      if (saved && saved !== user) Object.assign(user, saved);
+      if (postgresRepository && postgresRepository.enabled && !auth.localMemoryOnly) {
+        const row = await postgresRepository.runtimeUpdateAccountProfile({
+          actorUserId: auth.user.userId,
+          userId: auth.user.userId,
+          name: user.name,
+          avatar: user.avatar,
+          bio: user.bio,
+          defaultModel: user.defaultModel
+        });
+        const saved = postgresRuntimeUserFromRow(row);
+        if (saved && saved !== user) Object.assign(user, saved);
+      }
       json(res, 200, { ok: true, user: await publicUser(user) });
     }).catch(e => respondError(res, e));
   }

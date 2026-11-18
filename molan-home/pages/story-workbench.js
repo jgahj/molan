@@ -3,7 +3,7 @@
   const params = new URLSearchParams(location.search);
   const projectId = params.get('nid');
   const memoryBookId = params.get('bookId') || projectId;
-  const token = localStorage.getItem('ml_token') || '';
+  let token = localStorage.getItem('ml_token') || '';
   const base = '/api/books/' + encodeURIComponent(memoryBookId || '');
   let state;
   let manuscript;
@@ -492,6 +492,12 @@
   }
   element('materialsLink').href = './project-docs.html?nid=' + encodeURIComponent(projectId || '') +
     (memoryBookId && memoryBookId !== projectId ? '&bookId=' + encodeURIComponent(memoryBookId) : '');
-  if (!projectId || !token) status('请登录后从已保存的作品进入工作台。', true);
-  else task(() => refresh(false))();
+  (async () => {
+    if (!token && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+      const data = await window.MolanLocalOpenAuth.ensureLocalSession();
+      if (data && data.token) token = data.token;
+    }
+    if (!projectId || !token) status('请登录后从已保存的作品进入工作台。', true);
+    else await task(() => refresh(false))();
+  })();
 })();

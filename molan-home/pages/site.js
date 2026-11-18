@@ -611,25 +611,47 @@
       }
       if (!toolKey || !TOOL_DEFS[toolKey]) return;
       e.preventDefault();
-      if (!auth.token) {
-        toast('请先登录后使用 AI 工具');
-        setTimeout(function () {
-          location.href = ROUTES.login + '?redirect=' + encodeURIComponent(ROUTES.tools + '?tool=' + toolKey);
-        }, 400);
+      var launchTool = function () {
+        if (!auth.token) {
+          toast('请先登录后使用 AI 工具');
+          setTimeout(function () {
+            location.href = ROUTES.login + '?redirect=' + encodeURIComponent(ROUTES.tools + '?tool=' + toolKey);
+          }, 400);
+          return;
+        }
+        openWorkbench(toolKey);
+      };
+      if (!auth.token && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+        window.MolanLocalOpenAuth.ensureLocalSession(API).then(function () {
+          auth.load();
+          renderAuthNav();
+          launchTool();
+        });
         return;
       }
-      openWorkbench(toolKey);
+      launchTool();
     });
     /* ?tool= 直达（需登录） */
     var q = new URLSearchParams(location.search).get('tool');
     if (q && TOOL_DEFS[q]) {
-      if (!auth.token) {
-        toast('请先登录后使用 AI 工具');
-        setTimeout(function () {
-          location.href = ROUTES.login + '?redirect=' + encodeURIComponent(ROUTES.tools + '?tool=' + q);
-        }, 400);
+      var launchQueryTool = function () {
+        if (!auth.token) {
+          toast('请先登录后使用 AI 工具');
+          setTimeout(function () {
+            location.href = ROUTES.login + '?redirect=' + encodeURIComponent(ROUTES.tools + '?tool=' + q);
+          }, 400);
+        } else {
+          setTimeout(function () { openWorkbench(q); }, 300);
+        }
+      };
+      if (!auth.token && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+        window.MolanLocalOpenAuth.ensureLocalSession(API).then(function () {
+          auth.load();
+          renderAuthNav();
+          launchQueryTool();
+        });
       } else {
-        setTimeout(function () { openWorkbench(q); }, 300);
+        launchQueryTool();
       }
     }
   }
@@ -965,6 +987,16 @@
     patchLinks();
     initTheme();
     renderAuthNav();
+    if (!auth.token && window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+      window.MolanLocalOpenAuth.ensureLocalSession(API).then(function () {
+        auth.load();
+        renderAuthNav();
+      });
+    }
+    window.addEventListener('molan:auth-changed', function () {
+      auth.load();
+      renderAuthNav();
+    });
     initLoginPage();
     initBlogPage();
     initDocsPage();

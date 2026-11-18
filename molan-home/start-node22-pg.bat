@@ -9,4 +9,5 @@ set MOLAN_PG_DATABASE=molan
 set MOLAN_PG_USER=novel_runtime
 set MOLAN_PG_PASSWORD_FILE=%LOCALAPPDATA%\molan-postgresql\cloud-runtime-password.txt
 set MOLAN_PG_RUNTIME_ROLE=novel_app
+if "%MOLAN_LOCAL_OPEN_ACCESS%"=="" set MOLAN_LOCAL_OPEN_ACCESS=1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-node22-pg.ps1"

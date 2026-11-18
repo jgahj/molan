@@ -179,6 +179,20 @@
     readState();
     renderAccounts();
     if (!state.token) {
+      if (window.MolanLocalOpenAuth && typeof window.MolanLocalOpenAuth.ensureLocalSession === 'function') {
+        return window.MolanLocalOpenAuth.ensureLocalSession().then(function (data) {
+          if (data && data.token && data.user) {
+            state.token = data.token;
+            state.user = data.user;
+            renderAccounts();
+            return state.user;
+          }
+          if (prevToken || prevUser) {
+            window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
+          }
+          return null;
+        });
+      }
       if (prevToken || prevUser) {
         window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
       }
