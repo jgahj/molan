@@ -303,7 +303,7 @@
       adminModels: [],
       adminDefaultModel: '',
       dataSource: 'local',
-      localOpenAccess: false,
+      localOpenAccess: null,
       sessionVersion: 0
     };
     let backendTaskPollTimer = 0;
@@ -447,7 +447,15 @@
       }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (response.status === 401 && backendState.token && !preserveAuthOn401 && backendState.token === requestSession.token && backendState.sessionVersion === requestSession.version) clearBackendAuth();
+        if (response.status === 401 && backendState.token && !preserveAuthOn401 && backendState.token === requestSession.token && backendState.sessionVersion === requestSession.version) {
+          clearBackendAuth();
+          if (backendState.localOpenAccess !== false && !options._retriedLocalSession) {
+            const refreshed = await ensureLocalOpenSession(true);
+            if (refreshed && refreshed.token) {
+              return backendRequest(path, { ...options, _retriedLocalSession: true });
+            }
+          }
+        }
         const error = new Error(data.error || `请求失败（${response.status}）`);
         error.status = response.status;
         if (data && typeof data === 'object') {
@@ -486,24 +494,42 @@
       persistBackendAuth();
     }
 
+    let localOpenSessionPromise = null;
     async function ensureLocalOpenSession(forceClient = false) {
-      if (!backendState.localOpenAccess) return null;
-      try {
-        const data = await backendRequest('/api/auth/local-session', { method: 'POST', body: {} });
-        if (data && data.ok && data.token && data.user) {
-          if (forceClient || !backendState.token) {
-            setBackendAuth(data);
-            window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }));
+      if (backendState.localOpenAccess === false) return null;
+      if (localOpenSessionPromise) return localOpenSessionPromise;
+      localOpenSessionPromise = (async () => {
+        try {
+          const response = await fetch(BACKEND_BASE + '/api/auth/local-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+            cache: 'no-store'
+          });
+          if (!response.ok) {
+            if (response.status === 404) backendState.localOpenAccess = false;
+            return null;
           }
-          if (!backendState.adminToken && (data.adminToken || data.token)) {
-            backendState.adminToken = String(data.adminToken || data.token);
-            backendState.adminUser = data.user;
-            persistAdminAuth();
+          const data = await response.json().catch(() => null);
+          if (data && data.ok && data.localOpenAccess && data.token && data.user) {
+            backendState.localOpenAccess = true;
+            if (forceClient || !backendState.token) {
+              setBackendAuth(data);
+              window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: backendState.user }));
+            }
+            if (!backendState.adminToken && (data.adminToken || data.token)) {
+              backendState.adminToken = String(data.adminToken || data.token);
+              backendState.adminUser = data.user;
+              persistAdminAuth();
+            }
+            return data;
           }
-          return data;
-        }
-      } catch (_) {}
-      return null;
+        } catch (_) {}
+        return null;
+      })().finally(() => {
+        localOpenSessionPromise = null;
+      });
+      return localOpenSessionPromise;
     }
     window.ensureMolanLocalSession = ensureLocalOpenSession;
 
@@ -2182,6 +2208,7 @@
     }
 
     async function requestChatText(messages, options = {}) {
+      if (!backendState.token) await ensureLocalOpenSession(true);
       if (!backendState.token) throw new Error('请先登录后使用 AI 功能');
       const requestSession = captureBackendSession();
       const controller = new AbortController();

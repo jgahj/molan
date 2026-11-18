@@ -121,6 +121,35 @@ molan-home/
 
 ---
 
+## 阶段记录：前端永久缓存破除与本地会话自动补齐自查交付 (2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/app-boot.js` | 会话异步补齐与 401 自愈 | 1. `backendState.localOpenAccess` 初始值改为 `null`（未知待探测），并通过 `localOpenSessionPromise` 去重并发 `ensureLocalOpenSession` 调用，探测 `POST /api/auth/local-session`（404 置 `false`，200 置 `true` 并写入凭证）；<br>2. `backendRequest` 在 `backendState.localOpenAccess !== false` 下遇 `401` 自动尝试一次本地开放会话自愈重试；<br>3. `requestChatText` 在 `!backendState.token` 时先异步执行 `await ensureLocalOpenSession(true)` 再判定凭证。 |
+| `molan-home/completion-editor.js` | 创作书/保存/V2 引导凭证自愈 | 将 `creationRequest` 转为 `async`，并与 `persistNovelScenePatch`、`persistNovel`、`ensureGenerationV2CreationBook` 统一接入：若 `!backend.token` 则先调用 `await window.ensureMolanLocalSession(true)` 并重新读取 `getBackend()`，彻底消除“当前账户未连接创作书服务”的初始化竞态与误报。 |
+| `molan-home/index.html`<br>`molan-home/boot-head.js`<br>`molan-home/boot-scripts.js`<br>`molan-home/pages/*.html` (13 页) | 前端版本戳全量递增 | 因 `services/static-service.js` 对带 `?v=...` 的静态脚本统一返回 `Cache-Control: public, max-age=31536000, immutable`，将版本戳由 `20261020_fix_v1` 全量升级至 `20261118_open_v1`，确保浏览器普通刷新即可加载最新免登录与 V2 代码。 |
+
+### 二、设计决策与权衡
+
+1. **升级 `?v=` 版本戳而非削弱 `immutable` 缓存头**：保留 `static-service.js` 对静态资源的长期不可变缓存性能优势，仅通过更新版本戳 `20261118_open_v1` 精确穿透旧版浏览器缓存，同步满足 `scripts/check-frontend-stamp.mjs` 发布门禁要求。
+2. **异步按需补齐而非盲目屏蔽报错**：当用户点击时机早于 `bootstrapBackend()` 异步完成或本地 Token 过期时，`creationRequest` / `persistNovel` / `ensureGenerationV2CreationBook` / `requestChatText` 与 `backendRequest` 自动尝试 `ensureLocalOpenSession(true)` 一次；若服务端未开启免登录（404）仍会严格抛出提示，不削弱生产隔离。
+
+### 三、真实验证证据与测试数据
+
+- **全量测试套件**（`..\tools\node22_runtime\node.exe --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"`）：`2451 tests | 73 suites | 2435 pass | 0 fail | 16 skipped`（耗时 `35347.1158ms`）。
+- **架构与基准审计**：
+  - `..\tools\node22_runtime\node.exe scripts/production-import-audit.mjs`：扫描 234 个生产核心文件，退出码 `0`（零反向依赖）。
+  - `..\tools\node22_runtime\node.exe scripts/audit-golden-suite.mjs`：通过（`GOLDEN INPUT SUITE PASS tasks=80`，8 大题材各 10 项，退出码 `0`）。
+  - `..\tools\node22_runtime\node.exe scripts/check-frontend-stamp.mjs`：版本戳随提交校验通过。
+- **本机 PG 18.6 + Live 服务端端到端自查**（`http://127.0.0.1:3000`）：
+  - `/api/health`：`db: "ready"`、`postgres.status: "ready"`、`database: "molan"`、`serverVersion: "18.6"`、`tableCount: 84`、`models: 20`、`novels: 1`。
+  - `/api/generation-runs/capabilities`：`{"generationV2":true,"code":null,"commit":true,"pauseResume":true,"recovery":true,"storageMode":"postgres"}`。
+  - **Generation V2 实跑生成**：任务 `d2ec9483-5a50-4fb1-9c22-cc581e6b49c3` 经真实模型调用完成 `created -> generating -> quality_audit -> waiting_author` 全状态流转，`errorCode: ""`、`errorDetail: ""`，并在 `luna.generation_runs` 落地 344 字正文草稿（测试临时作品已软删除清理，当前作品库保持干净）。
+
+---
+
 ## 阶段记录：编辑器作品直连 Generation V2 伴生创作书自动引导修复 (2026-11-18)
 
 ### 一、改动范围与核心逻辑

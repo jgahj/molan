@@ -1327,10 +1327,14 @@
     return state;
   }
 
-  function creationRequest(path, options) {
+  async function creationRequest(path, options) {
     const request = refFunction('backendRequest');
-    const backend = getBackend();
-    if (!request || !backend.token) return Promise.reject(new Error('当前账户未连接创作书服务'));
+    let backend = getBackend();
+    if (!backend.token && typeof window.ensureMolanLocalSession === 'function') {
+      await window.ensureMolanLocalSession(true);
+      backend = getBackend();
+    }
+    if (!request || !backend.token) throw new Error('当前账户未连接创作书服务');
     const requestOptions = { ...(options || {}) };
     const onStart = requestOptions.onStart;
     const onFinish = requestOptions.onFinish;
@@ -2037,8 +2041,12 @@
   async function persistNovelScenePatch(options) {
     const state = editorState(false);
     const preview = getPreview();
-    const backend = getBackend();
+    let backend = getBackend();
     const request = refFunction('backendRequest');
+    if (!backend.token && typeof window.ensureMolanLocalSession === 'function') {
+      await window.ensureMolanLocalSession(true);
+      backend = getBackend();
+    }
     if (!state || !isServerNovelId(preview.novelId) || !backend.token || !request) return null;
     if (runtime.editorSavePromise) {
       runtime.editorSaveQueued = true;
@@ -2161,7 +2169,7 @@
     const state = editorState(false);
     if (!state) return null;
     const preview = getPreview();
-    const backend = getBackend();
+    let backend = getBackend();
     const request = refFunction('backendRequest');
     if (options && options.patchSave && !options.snapshot && backend.token && request && isServerNovelId(preview.novelId)) {
       return persistNovelScenePatch(options);
@@ -2189,6 +2197,10 @@
     runtime.editorSavePromise = (async () => {
       setSaveStatus('正在保存…');
       try {
+        if (!backend.token && typeof window.ensureMolanLocalSession === 'function') {
+          await window.ensureMolanLocalSession(true);
+          backend = getBackend();
+        }
         if (backend.token && request) {
           const serverNovelId = isServerNovelId(preview.novelId) ? String(preview.novelId) : '';
           if (serverNovelId && (editorWalProjectHasConflict(state) || await editorWalHasUnrepresentedDraft(state, sceneSnapshot))) {
@@ -5716,7 +5728,11 @@ ${contextText}${budgeted.genreRules ? '\n\n' + budgeted.genreRules : ''}${budget
   /** 新建或补齐 Generation V2 所需的创作书，并先持久化小说关联。 */
   async function ensureGenerationV2CreationBook(state, prompt) {
     let preview = getPreview();
-    const backend = getBackend();
+    let backend = getBackend();
+    if (!backend.token && typeof window.ensureMolanLocalSession === 'function') {
+      await window.ensureMolanLocalSession(true);
+      backend = getBackend();
+    }
     if (!backend.token) throw new Error('Generation V2 正式提交需要有效会话凭证');
     let novelId = String(preview.novelId || state.id || '');
     if (!isServerNovelId(novelId)) {
