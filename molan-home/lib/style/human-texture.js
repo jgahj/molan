@@ -65,6 +65,21 @@ const AI_CLICHE_RULES = Object.freeze([
     regex: /倒吸了一口(?:凉|冷)气/g,
     name: '倒吸凉气套路',
     suggestion: '删除旁观者无意义惊叹，聚焦当下核心冲突'
+  },
+  {
+    regex: /(?:吸了口气|吐了口气|闭了闭眼)[^。！？\n]{0,18}(?:压回|按回|咽回|藏回|收了回去)/g,
+    name: '冗余压回情绪套路(C14-03)',
+    suggestion: '动作或眼神已经交代情绪，删去“又压回去/硬生生压回”等二次解释'
+  },
+  {
+    regex: /(?:某种(?:类似|难以言喻|说不清)[^，。\n]{0,12}感|悄无声息地|平静得有些|硬生生(?=[压咽憋吞忍])|正顺着[^，。\n]{1,10}往[^，。\n]{1,8}涌)/g,
+    name: '隐形翻译腔与可预测修饰链(R-41)',
+    suggestion: '删掉“悄无声息地/硬生生/某种类似”等大模型修饰链，改为直接具体的物理动作或口语判断'
+  },
+  {
+    regex: /(?:发出|压出)[^。！？\n]{0,6}(?:一记|一声)?[^。！？\n]{1,12}的(?:钝响|闷响|脆响|轻响|声响)/g,
+    name: '声音修饰模板堆砌(R-01)',
+    suggestion: '直接写出声响本身或动作结果（如“门卡了一声”“椅背往下一沉”），避免反复用“发出一记……的闷响”模板'
   }
 ]);
 
@@ -159,6 +174,21 @@ function analyzeHumanTexture(text, options = {}) {
       });
       break;
     }
+  }
+
+  // 2.3 单句独立叙述段过多（《纠错库》C07-02~06：破坏段长波峰波谷，拉低朱雀突发性）
+  const singleNarrativeParas = paragraphs.filter(p => {
+    if (!p || p.startsWith('“') || p.startsWith('"') || p.startsWith('「') || p.startsWith('#')) return false;
+    const sents = p.split(/[。！？!?]/).filter(s => s.trim().length > 0);
+    return sents.length <= 1;
+  });
+  if (singleNarrativeParas.length >= 4) {
+    structuralIssues.push({
+      type: 'single_sentence_paragraph_overflow',
+      count: singleNarrativeParas.length,
+      message: `单句独立叙述段偏多（${singleNarrativeParas.length}处），按《纠错库》C07-02 建议只留<=3处关键停顿，其余并入上下文长段以拉开段长起伏`,
+      suggestion: '将不构成重大转折的孤立动作/环境短句并入邻近叙述段，避免段段一两句整齐切镜'
+    });
   }
 
   // 3. 计算肌理健康分 (基准 100 分)

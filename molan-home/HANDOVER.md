@@ -122,6 +122,29 @@ molan-home/
 
 ---
 
+## 阶段记录：《纠错库》全链路接通与抗 AI 检测统计学特征（高困惑度+高突发性）强化 (2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/generation-service.js`<br>`molan-home/services/model-call-service.js`<br>`molan-home/services/chat-service.js` | 修复 V2 两遍《纠错库》断层 | 1. 定位并修复核心断层：此前 `content-engine.js` 传递 `stage: 'writer'`（非 `'writing'`）且 `model-call-service.js` 对 `requireComplete: true` 自动附加 `benchmarkProtocol = 'benchmark-local-v2'`，导致 `chat-service.js` 中 `correctionEnabled` 与 `twoPassHumanize` 双双失效（《纠错库》与 Pass 2 均未实际运行）；<br>2. `generation-service.js` 将内部 `writer` 调用规范映射为 `stage: 'writing'` 并传入 `disableBenchmarkProtocol: true`（保留 `requireComplete: true` 完整性校验，不干扰独立 `benchmark` 对照路由）；<br>3. `chat-service.js` 在 `twoPassHumanize` 已剥离第一遍纠错的前提下，对 `>=200` 字初稿默认强制进入 Pass 2《纠错库》靶向改写（除非显式 `allowSkipHumanize: true`），同时接入 `zhuqueSignals` 风险判定。 |
+| `molan-home/correction-policy.js` | 泛化《纠错库》规则与靶向对照 | 1. 扩充 `UNIVERSAL_CORRECTION_RULES` 泛化捕获《逆天重生》以外任意新书中的同类病灶：`R-01` 声音装饰模板（`发出……的钝响/闷响/脆响`）、`R-04` 情绪压回二次解释（`吸了口气把……压回`）、`R-13` `视线落在/转向`、`R-14` `嘴角扯起/翘起/挑起`、`R-41` 隐形翻译腔修饰链（`某种类似……般`、`悄无声息地`、`硬生生`、`平静得有些`、`正顺着……往……涌`）；<br>2. 优化 `UNIVERSAL_CORRECTION_POLICY_PROMPT` 解除“每段固定 60~120 字”的机械分镜引导；`buildTargetedCorrectionGuidance` 新增一般“盯”字超限（`R-46`）与单句独立段超标（`C07-02`）定位及 `EXTRA_CORRECTION_PAIR_BY_RULE` 原句→改写示例。 |
+| `molan-home/lib/ai-flavor-detector.js`<br>`molan-home/lib/style/human-texture.js`<br>`molan-home/lib/style-fingerprint.js` | 朱雀统计维度与题材指纹对齐 | 1. `style-fingerprint.js` 新增 `GENRE_FINGERPRINT_ALIASES`，打通 `modern_romance`、`urban_martial`、`xuanhuan`、`suspense` 等英文 UI 题材 ID 与 `style-fingerprints.json` 真实语料桶匹配；<br>2. `ai-flavor-detector.js` 新增 `LLM_GLUE_TERMS`（大模型高概率平滑连接/修饰词）与 `analyzeSentenceBurstiness`（句长极差、变异系数与连续均长句簇），输出 `metrics.zhuqueSignals`；<br>3. `human-texture.js` 新增泛化情绪压回、翻译腔与 `single_sentence_paragraph_overflow` 检测（保留干净物理音 `发出一声脆响` 不误伤）。 |
+| `molan-home/services/humanize-policy-service.js` | Pass-2 困惑度/突发性重构 | `buildHumanizePassMessages` 将 `zhuqueSignals`（`llmGlueHits`、句长突发性 CV、连续均长句簇、`C07-02` 孤立单句数）注入实测诊断，并在改写边界 8/9/11 条要求拉开长段（130~240 字）与短句（3~12 字）落差、清零模型连接词与“电影镜头收尾模板”，严禁靠错别字/乱码凑分。 |
+| `molan-home/test/living-prose-optimization.test.js` | 新增端到端回归用例 | 新增 2 项测试（累计 17 项），覆盖英文题材指纹桶命中、泛化《纠错库》与朱雀维度命中，以及 `chat-service` `>=200` 字初稿不跳过第二遍《纠错库》改写。 |
+
+### 二、真实验证证据与前后对比数据
+
+- **同一提示词基线 vs 优化后端到端对比**（`http://127.0.0.1:3000`，`pid: 39528`，`gemini-3.8-flash-acp`，`urban_martial`）：
+  - **优化前基线**（`1035` 字）：《纠错库》命中 `11` 处（`R-01`/`R-04`/`R-13`/`R-14`/`R-41`）、肌理分 `18`（9 条套路 + 单句段溢出 `6` 处）、LLM 高频胶水词 `5.994/千字`（6 处）、连续均长句簇 `2` 组、`uniformCadenceRisk = true`。
+  - **优化后实跑**（`1396` 字，`waiting_author`，`quality.score = 0.88`，`passed = true`）：《纠错库》命中降至 **`0` 处**、肌理分升至 **`100` 分**（0 条套路）、LLM 高频胶水词降至 **`0/千字`**、连续均长句簇降至 **`0` 组**、句长极差 `71 → 94`（`7~101` 字，CV `0.5503 → 0.5966`）、孤立单句叙述段 `6 → 3` 处、`uniformCadenceRisk = false`。
+  - **外部网站验证边界说明**：已通过内置浏览器在 `https://matrix.tencent.com/ai-detect/ai_gen` 核实游客模式可免费检测 `>350` 字文本（无需账号登录），但点击 `立即检测` 后弹出腾讯人机验证码（`captcha.gtimg.com`）；遵循安全规则不绕过验证码，未直接代点提交外部检测。
+- **全量回归与审计（最终编辑后执行）**：
+  - `..\tools\node22_runtime\node.exe --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"`：`2468 tests | 73 suites | 2452 pass | 0 fail | 16 skipped`（耗时 `37855.5ms`）；`test/living-prose-optimization.test.js`（17 项）、`test/human-texture.test.js`、`test/correction-policy.test.js`（共 30 项）全通过；`production-import-audit.mjs`、`audit-golden-suite.mjs`、`check-frontend-stamp.mjs` 均通过。
+
+---
+
 ## 阶段记录：全题材「活人感」生成管线深度优化——打通《小说原本》范本与《纠错库》靶向精修闭环 (2026-11-18)
 
 ### 一、改动范围与核心逻辑

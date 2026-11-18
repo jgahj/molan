@@ -532,6 +532,9 @@ function createGenerationService({
                   const stage = String(options.stage || 'writer');
                   return callMolanChat(String(executionContext.authorization || ''), user, {
                     ...options,
+                    stage: stage === 'writer' ? 'writing' : stage,
+                    disableBenchmarkProtocol: true,
+                    ...(runRequest.reviseModelId ? { reviseModelId: runRequest.reviseModelId } : {}),
                     requestId: generationProviderRequestId(runId, 'writer', stage, ++writerCallNo),
                     modelId: runRequest.modelId,
                     projectId,

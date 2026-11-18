@@ -37,6 +37,35 @@ const STRUCTURAL_AI_PATTERNS = Object.freeze({
   somaticOverreaction: /(?:(?:指腹|指肚|拇指|手指)反复?摩挲|食指轻叩(?:桌面|桌案)|指尖(?:骤然)?(?:一顿|悬在半空|僵在半空)|掐(?:进|入)掌心|骨节捏得泛白|指节泛白|指骨泛白|喉咙发紧|咽喉发紧|喉头发干|喉头一哽|呼吸骤然一窒|按揉发胀的太阳穴|后槽牙咬得咯咯作响|喉结上下滚动)/gu
 });
 
+// 朱雀高敏感统计指纹：大模型高概率平滑连接词与可预测修饰词（用于提困惑度诊断）
+const LLM_GLUE_TERMS = Object.freeze([
+  '悄无声息', '硬生生', '下意识', '不由得', '微不可察', '某种类似',
+  '立时', '随即', '旋即', '见状', '与此同时', '话音刚落',
+  '值得一提的是', '不知为何', '正顺着', '带着一种', '平静得有些'
+]);
+
+function analyzeSentenceBurstiness(sentenceLengths) {
+  if (!Array.isArray(sentenceLengths) || sentenceLengths.length === 0) {
+    return { min: 0, max: 0, range: 0, cv: 0, flatClusterCount: 0 };
+  }
+  const min = Math.min(...sentenceLengths);
+  const max = Math.max(...sentenceLengths);
+  const mean = meanOf(sentenceLengths) || 0;
+  const std = populationStdOf(sentenceLengths);
+  const cv = mean > 0 ? roundTo(std / mean, 4) : 0;
+  let flatClusterCount = 0;
+  for (let i = 0; i <= sentenceLengths.length - 4; i += 1) {
+    const win = sentenceLengths.slice(i, i + 4);
+    const wMin = Math.min(...win);
+    const wMax = Math.max(...win);
+    if (wMin >= 12 && wMax <= 34 && (wMax - wMin) <= 10) {
+      flatClusterCount += 1;
+      i += 3;
+    }
+  }
+  return { min, max, range: max - min, cv, flatClusterCount };
+}
+
 // 句终符切句（后行断言，保留句终符计入句长，与指纹构建端口径一致）。
 const SENTENCE_SPLIT_PATTERN = /(?<=[。！？])/u;
 // 换行切段（单换行亦分段）：模型输出与编辑器正文用单换行分段，不能只认空行。
@@ -246,12 +275,22 @@ function computeAiFlavorScore(text, profile) {
   const somaticOverreactionCount = somaticMatches.length;
   const structuralRiskTotal = pseudoFragCount + turnTakingCount + binarySymmetryCount + isolatedExplanatoryCount + somaticOverreactionCount;
 
-  // 句长：按。！？切句（句终符计入句长），求总体标准差。
+  // 句长：按。！？切句（句终符计入句长），求总体标准差与突发性（Burstiness）。
   const sentenceLengths = compact
     .split(SENTENCE_SPLIT_PATTERN)
     .map(sentence => sentence.length)
     .filter(length => length > 0);
   const sentenceStd = populationStdOf(sentenceLengths);
+  const sentenceBurstiness = analyzeSentenceBurstiness(sentenceLengths);
+
+  // LLM 高频连接词/翻译腔修饰词密度（用于困惑度风险识别）
+  const llmGlueHits = [];
+  for (const term of LLM_GLUE_TERMS) {
+    const count = countOccurrences(compact, term);
+    if (count > 0) llmGlueHits.push({ term, count });
+  }
+  const llmGlueTotal = llmGlueHits.reduce((sum, hit) => sum + hit.count, 0);
+  const llmGluePerKilo = roundTo((llmGlueTotal * 1000) / Math.max(compact.length, 1000)) || 0;
 
   // 字符 bigram TTR：去停用标点后统计。
   const letters = compact.replace(STOP_PUNCTUATION_PATTERN, '');
@@ -300,11 +339,15 @@ function computeAiFlavorScore(text, profile) {
   }
   if (paragraphCv < SCORE_RULES.paragraphCvThreshold) score += SCORE_RULES.paragraphCvPoints;
   score += linearBandPoints(lexiconBlockPerKilo, SCORE_RULES.blockPerKilo.low, SCORE_RULES.blockPerKilo.high, SCORE_RULES.blockPerKilo.points);
+  if (llmGluePerKilo >= 2) score += Math.min(12, Math.round(llmGluePerKilo * 2.5));
+  if (sentenceBurstiness.flatClusterCount > 0) score += Math.min(8, sentenceBurstiness.flatClusterCount * 4);
+  if (singleNarrativeCount >= 5) score += Math.min(8, (singleNarrativeCount - 4) * 3);
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   const byCountDesc = (a, b) => b.count - a.count || (a.term < b.term ? -1 : a.term > b.term ? 1 : 0);
   blockHits.sort(byCountDesc);
   watchHits.sort(byCountDesc);
+  llmGlueHits.sort(byCountDesc);
 
   return {
     score,
@@ -316,9 +359,15 @@ function computeAiFlavorScore(text, profile) {
       structuralRiskTotal,
       structuralSignalsAdvisory: true,
       lexiconBlockPerKilo,
-      lexiconWatchPerKilo
+      lexiconWatchPerKilo,
+      zhuqueSignals: {
+        sentenceBurstiness,
+        llmGluePerKilo,
+        singleNarrativeCount,
+        uniformCadenceRisk: Boolean(sentenceBurstiness.flatClusterCount > 0 || (sentenceBurstiness.cv > 0 && sentenceBurstiness.cv < 0.48))
+      }
     },
-    details: { blockHits, watchHits, structuralRisks: { pseudoFragCount, turnTakingCount, binarySymmetryCount, isolatedExplanatoryCount, singleNarrativeCount, somaticOverreactionCount } }
+    details: { blockHits, watchHits, llmGlueHits, structuralRisks: { pseudoFragCount, turnTakingCount, binarySymmetryCount, isolatedExplanatoryCount, singleNarrativeCount, somaticOverreactionCount } }
   };
 }
 

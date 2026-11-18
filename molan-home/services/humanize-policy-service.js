@@ -93,8 +93,24 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       if (metrics.sentenceStdRatio != null && Number.isFinite(Number(metrics.sentenceStdRatio)) && Number(metrics.sentenceStdRatio) < 0.75) {
         diagnosticLines.push(`- 句长起伏偏平（方差比基线仅 ${Number(metrics.sentenceStdRatio).toFixed(2)}）：请拉开长短句呼吸，重要转折或抢白处用短句，日常铺叙可留流畅复句`);
       }
-      if (metrics.paragraphUniformity > 0 && Number(metrics.paragraphUniformity) < 0.45) {
-        diagnosticLines.push(`- 段落长度过于均匀（变异系数 ${Number(metrics.paragraphUniformity).toFixed(2)}）：避免每段字数像模具压出来一样齐整，按动作与情绪自然分段`);
+      if (metrics.paragraphUniformity > 0 && Number(metrics.paragraphUniformity) < 0.48) {
+        diagnosticLines.push(`- 段落长度过于均匀（变异系数 ${Number(metrics.paragraphUniformity).toFixed(2)}）：避免每段字数像模具压出来一样齐整，按动作与情绪自然分段，揉合 140~240 字饱满长段与短促口语断句`);
+      }
+      const zq = metrics.zhuqueSignals && typeof metrics.zhuqueSignals === 'object' ? metrics.zhuqueSignals : null;
+      const llmGlueTerms = Array.isArray(aiFlavorReport.details?.llmGlueHits)
+        ? aiFlavorReport.details.llmGlueHits.slice(0, 6).map(h => h && h.term ? `${h.term}(${h.count}次)` : '').filter(Boolean)
+        : [];
+      if (llmGlueTerms.length) {
+        diagnosticLines.push(`- 朱雀高危模型高频连接/修饰词（必须打散重写）：${llmGlueTerms.join('、')}`);
+      }
+      if (zq && zq.sentenceBurstiness) {
+        const sb = zq.sentenceBurstiness;
+        if (Number(sb.flatClusterCount) > 0 || (Number(sb.cv) > 0 && Number(sb.cv) < 0.52)) {
+          diagnosticLines.push(`- 句长突发性（Burstiness）偏平（变异系数 ${Number(sb.cv || 0).toFixed(2)}，连续均长句簇 ${sb.flatClusterCount || 0} 组）：必须打破“每句15~28字齐步走”，把连贯动作与思绪合并成流畅长复句，并在冲突或抢白处突然切出 3~8 字极短句`);
+        }
+      }
+      if (zq && Number(zq.singleNarrativeCount) >= 4) {
+        diagnosticLines.push(`- 孤立单句叙述段过多（${zq.singleNarrativeCount} 处）：按《纠错库》C07-02 保留 <=3 处关键转折停顿，其余并入上下文长段`);
       }
     }
     if (textureReport && typeof textureReport === 'object') {
@@ -153,10 +169,10 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       '5. 删除重复而无效的情绪解释，不把普通词语出现当作错误，也不把所有情绪替换成咬牙、手抖或握紧某物的单一动作套路。',
       '6. 让读者知道人物看到了什么、据此判断了什么；判断证据不足时保留不确定，不由旁白把怀疑认证为事实。',
       '7. 保留对白中的关心、误会、尴尬、玩笑和直接请求，不强制每句话都有机锋或配微动作。人物反应应影响关系或下一步行动；对白要像真人平时开口，少用书面朗诵腔。',
-      '8. 短段和单句成段本身不是缺陷。按完整的动作、感受或思考分段，不强制每段句数，不为降低检测分机械合并或扩写。',
-      '9. 打破匀速平推，拉开句长波峰波谷：复杂因果/动作交锋可用较长复句拉足张力，关键转折或落锤瞬间用干脆短句收束，避免通篇十来字均匀碎句。',
+      '8. 短段和单句成段本身不是缺陷，不强制每段句数；但不要每段一两句话就机械换行切镜——按完整动作、感受或思考揉出 130~240 字饱满长段与 3~12 字口语短句的剧烈落差，全章无功能孤立单句（<=8字）不超 3 处。',
+      '9. 打破可预测句序与连接词指纹（提困惑度）：清掉“立时、随即、旋即、见状、下意识、不由得、悄无声息地、硬生生、某种类似、平静得有些、发出……一记……闷响、视线落在……”等大模型高频衔接；允许自然倒装、半截口语、省去过渡词直接硬切动作与说话，绝不通过制造错别字或乱码敷衍。',
       '10. 不能靠添加新工具、异常规则、伤势或收费补因果。保留已经兑现的阶段结果，不强制升级危机；无法从初稿确认的事实不擅自补定。',
-      `11. 严守原稿体量与口吻${genreLabel ? `（当前题材：${genreLabel}）` : ''}：不得缩水删节核心剧情与细节${targetChars > 0 ? `（维持约 ${targetChars} 字完整篇幅）` : ''}，保留全部专有名词、数据参数与人物台词个性。`,
+      `11. 严守原稿体量与口吻${genreLabel ? `（当前题材：${genreLabel}）` : ''}：不得缩水删节核心剧情与细节${targetChars > 0 ? `（维持约 ${targetChars} 字完整篇幅）` : ''}，保留全部专有名词、数据参数与人物台词个性；章末禁止“跨进雨幕/捏出指印/陷入沉思”等 AI 电影镜头收尾模板，落在具体动作或当面言语交锋上。`,
       '12. 直接输出完整修订后的正文，不要任何解释、前言或 Markdown 围栏。'
     ].join('\n'));
     return [

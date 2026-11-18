@@ -618,3 +618,186 @@ test('chat-service 当 precompiledPrompt 已含《小说原本》范本时不重
   const markerHits = fullPrompt.match(/molan-living-prose-exemplars-v1/g) || [];
   assert.equal(markerHits.length, 1, 'living exemplar block must be injected exactly once');
 });
+
+test('纠错库泛化规则与朱雀统计维度可真实命中“压回/视线落在/嘴角扯起/翻译腔/单句段/盯视”', () => {
+  const { resolveFingerprintProfile } = require('../lib/style-fingerprint');
+  const { analyzeHumanTexture } = require('../lib/style/human-texture');
+  assert.ok(resolveFingerprintProfile('modern_romance').matchedBucket, 'modern_romance 应命中真实语料指纹桶');
+  assert.ok(resolveFingerprintProfile('urban_martial').matchedBucket, 'urban_martial 应命中真实语料指纹桶');
+
+  const sample = [
+    '铁门卡簧发出嘎啦一声酸涩的钝响。',
+    '陈阿明站在原地。',
+    '他的视线落在对方球鞋上，嘴角扯起一点冷肉。',
+    '皮肤底下某种类似水银般的微温感正顺着腕骨悄无声息地往指尖涌，但他只是吸了口气，把那股温热硬生生压回掌纹深处。',
+    '陈阿明盯着镜子里的自己。',
+    '他又盯着门缝看了一阵。',
+    '夜风刮了进来。',
+    '外头的路灯灭了。'
+  ].join('\n\n');
+
+  const scan = correctionPolicy.scanUniversalCorrectionRisks(sample, { genre: 'urban_martial', includeLibrary: true });
+  assert.ok(scan.findingCount >= 4, '应真实扫出泛化纠错库病灶');
+  assert.ok(scan.matchedRuleIds.includes('R-01-sensory-personification'));
+  assert.ok(scan.matchedRuleIds.includes('R-04-redundant-emotion'));
+  assert.ok(scan.matchedRuleIds.includes('R-13-artificial-body-subject'));
+  assert.ok(scan.matchedRuleIds.includes('R-14-template-smile'));
+  assert.ok(scan.matchedRuleIds.includes('R-41-hidden-translationese'));
+
+  const guidance = correctionPolicy.buildTargetedCorrectionGuidance(sample, { genre: 'urban_martial', scan });
+  assert.ok(guidance.block.includes('R-46'));
+  assert.ok(guidance.block.includes('C07-02'));
+  assert.ok(guidance.examples.length >= 3);
+
+  const ai = computeAiFlavorScore(sample, resolveFingerprintProfile('urban_martial').profile);
+  assert.ok(ai.metrics.zhuqueSignals.llmGluePerKilo > 0);
+  assert.ok(ai.metrics.zhuqueSignals.singleNarrativeCount >= 4);
+  const tx = analyzeHumanTexture(sample);
+  assert.ok(tx.structuralIssues.some(i => i.type === 'single_sentence_paragraph_overflow'));
+});
+
+test('chat-service 两遍模式下 >=200字初稿即使浅层分不高也不跳过第二遍《纠错库》改写', async () => {
+  const { createChatService } = require('../services/chat-service');
+  const { createHumanizePolicyService } = require('../services/humanize-policy-service');
+  const { buildCharacterMaterialBlock } = require('../lib/character-material');
+  const { resolveFingerprintProfile, buildRhythmTargetBlock } = require('../lib/style-fingerprint');
+  const { buildHumanizeLexiconBlock } = require('../lib/ai-flavor-detector');
+  const { EventEmitter } = require('node:events');
+  const humanizeService = createHumanizePolicyService({
+    buildHumanizeLexiconBlock,
+    UNIVERSAL_CORRECTION_MARKER: '<!-- m -->',
+    UNIVERSAL_CORRECTION_POLICY_PROMPT: correctionPolicy.UNIVERSAL_CORRECTION_POLICY_PROMPT
+  });
+  const upstreamRequests = [];
+  const longFirstPass = '陈阿明把扫帚倚在镜台边，满地的细碎发茬刚聚成小堆，门底下的铁皮猛地被人往上一掀。'.repeat(5);
+  const service = createChatService({
+    getDatabase: () => null,
+    getEnvironment: () => ({}),
+    getDeepseekKey: () => '',
+    getDeepseekUrl: () => '',
+    getProxyUrl: () => '',
+    postgresRepository: { enabled: false },
+    postgresActor: () => 'u_1',
+    getAuthUser: () => ({ user: { userId: 'u_1', email: 'test@local' } }),
+    allowChatRate: () => true,
+    acquireChatSlot: () => true,
+    releaseChatSlot: () => {},
+    json: (res, code, data) => { res.statusCode = code; res.body = data; },
+    readBody: async () => ({
+      stage: 'writing',
+      twoPassHumanize: true,
+      genre: 'urban_martial',
+      model: 'gemini-3.8-flash-acp',
+      messages: [{ role: 'user', content: '写一段发廊夜雨戏' }]
+    }),
+    respondError: (_res, err) => { throw err; },
+    CHAT_MAX_JSON_BODY_BYTES: 1024 * 1024,
+    nativeSkillCatalog: async () => null,
+    appRepository: () => ({ recordDispatchAttempt: async () => ({ ok: true, authorized: true }) }),
+    projectScope: { stableUserId: x => x },
+    isAdminUser: () => true,
+    INTERNAL_MODEL_ROUTE_KEY: 'internal-secret',
+    INTERNAL_MODEL_ROUTE_HEADER: 'x-molan-internal-route',
+    generationV2Enabled: () => true,
+    validateChatMessages: m => m,
+    splitDynamicPrompt: m => m,
+    detectNovelStyle: () => '都市',
+    adaptIpContinuationMessages: m => m,
+    DEFAULT_WRITING_SKILL_ID: 'writing',
+    loadEditorOnlyWritingSkill: () => null,
+    ensureEditorOnlyWritingSkill: m => ({ messages: m, injected: false }),
+    editorOnlySkillAuditRequest: () => ({}),
+    ensureDefaultWritingSkill: m => ({ messages: m, injected: false }),
+    addDefaultWritingSkillAudit: () => ({}),
+    buildSkillAudit: () => ({ skills: [] }),
+    prepareSkillMessagesForUpstream: (_auth, m, skillAudit) => ({ messages: m, skillAudit }),
+    correctionPolicyEnabled: () => true,
+    isTwoPassHumanizeEnabled: humanizeService.isTwoPassHumanizeEnabled,
+    loadEditorOnlyCorrectionLibrary: () => null,
+    CORRECTION_PRIOR_TEXT_MAX_CHARS: 2000,
+    lastUserMessageText: m => m[m.length - 1]?.content || '',
+    injectEditorOnlyCorrectionLibrary: m => m,
+    EDITOR_ONLY_CORRECTION_VERSION: 'v2',
+    EDITOR_ONLY_CORRECTION_FILE_DEFAULT: '',
+    UNIVERSAL_CORRECTION_POLICY_VERSION: 'v3',
+    UNIVERSAL_CORRECTION_STAGES: ['writing'],
+    injectUniversalCorrectionPolicy: m => m,
+    emptyEditorOnlyCharacterMaterialResult: () => ({ messages: [], audit: {} }),
+    buildCharacterMaterialBlock,
+    isMatureCharacterMaterialEnabledForNovel: () => false,
+    reviewCharacterMaterialSamples: async () => ({ approvedIds: [], audit: { required: false } }),
+    calculateCharacterMaterialRhythmDeviation: () => 0,
+    scanCharacterMaterialOverlap: () => ({ blocked: false, overlapFragments: [], leakedTerms: [] }),
+    injectPromptInjectionGuard: m => m,
+    resolveFingerprintProfile,
+    buildRhythmTargetBlock,
+    appendSystemBlock: humanizeService.appendSystemBlock,
+    planContextWindow: (_pm, msgs, reqMax) => ({ ok: true, messages: msgs, promptTokens: 100, contextWindowTokens: 1000000, availableCompletionTokens: reqMax || 8192, dynamicPromptTruncated: false }),
+    sanitizeSystemForUpstream: s => s,
+    internalModelIdFromRequest: () => '',
+    resolveModelForUser: () => 'gemini-3.8-flash-acp',
+    findPlatformModel: () => ({ id: 'gemini-3.8-flash-acp', provider: 'antigravity-acp', model: 'gemini-3.8-flash-acp', supportsReasoning: false, promptCaching: false }),
+    currentDefaultModel: () => 'gemini-3.8-flash-acp',
+    buildHumanizePassMessages: humanizeService.buildHumanizePassMessages,
+    mergeUsageSum: humanizeService.mergeUsageSum,
+    computeAiFlavorScore: () => ({ score: 0, passed: true, metrics: { structuralRiskTotal: 0 }, details: { blockHits: [] } }),
+    summarizeAiFlavorVerdict: humanizeService.summarizeAiFlavorVerdict,
+    addPromptCacheBreakpoint: m => m,
+    normalizeReasoningEffort: () => '',
+    stablePromptCacheKey: () => 'k',
+    reserveCredits: async () => ({ ok: true }),
+    planCreditReservation: () => ({ ok: true, maxTokens: 8192, reservedCost: 0 }),
+    normalizeUsage: u => ({ promptTokens: u?.prompt_tokens || 0, completionTokens: u?.completion_tokens || 0, totalTokens: u?.total_tokens || 0 }),
+    estimateTextTokenUpperBound: () => 500,
+    creditCostForUser: () => 0,
+    roundCreditValue: v => v,
+    emptyCorrectionAudit: () => ({}),
+    scanUniversalCorrectionRisks: correctionPolicy.scanUniversalCorrectionRisks,
+    recordCorrectionHits: () => {},
+    settleTokenUsage: async () => ({ ok: true }),
+    openUpstream: () => { throw new Error('unexpected'); },
+    openAcpUpstream: (reqOpts, cb) => {
+      const req = new EventEmitter();
+      let buf = '';
+      req.write = c => { buf += c; };
+      req.destroy = () => {};
+      req.end = () => {
+        upstreamRequests.push(JSON.parse(buf));
+        const callIndex = upstreamRequests.length;
+        const upRes = new EventEmitter();
+        upRes.statusCode = 200;
+        upRes.setEncoding = () => {};
+        upRes.resume = () => {};
+        reqOpts.onResponse(upRes);
+        const content = callIndex === 1 ? longFirstPass : '陈阿明把扫帚靠在桌腿边，外头雨点敲在铁皮上噼啪响，他搓了搓手上的洗发水沫去拉卷帘门。';
+        upRes.emit('data', `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+        upRes.emit('data', 'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n');
+        upRes.emit('data', 'data: [DONE]\n\n');
+        upRes.emit('end');
+      };
+      cb(null, req);
+      return req;
+    },
+    responseCors: () => ({}),
+    UPSTREAM_MAX_RESPONSE_BYTES: 1024 * 1024,
+    UPSTREAM_SSE_BUFFER_BYTES: 65536,
+    UPSTREAM_QUALITY_SCAN_MAX_CHARS: 10000,
+    UPSTREAM_TOTAL_TIMEOUT_MS: 30000,
+    LIVE_BILLING_EVENT_INTERVAL_MS: 5000
+  });
+  let finishRes;
+  const donePromise = new Promise(resolve => { finishRes = resolve; });
+  const res = {
+    headersSent: false, writableEnded: false, destroyed: false,
+    on: () => {}, once: () => {}, setHeader: () => {},
+    writeHead: () => { res.headersSent = true; },
+    write: () => {},
+    end: () => { res.writableEnded = true; finishRes(); }
+  };
+  await service.handleChat({ headers: { 'x-molan-internal-route': 'internal-secret' }, on: () => {}, once: () => {} }, res);
+  if (!res.writableEnded) await donePromise;
+  assert.equal(upstreamRequests.length, 2, 'two-pass writing >=200 chars must execute Pass 2 with 纠错库');
+  const pass2Sys = upstreamRequests[1].messages[0].content;
+  assert.ok(pass2Sys.includes('困惑度') && pass2Sys.includes('剧烈落差'), 'Pass 2 system prompt must include anti-AI statistical guidance');
+  assert.ok(pass2Sys.includes('《纠错库》'), 'Pass 2 system prompt must inject 《纠错库》 guidance');
+});

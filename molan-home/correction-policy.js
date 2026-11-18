@@ -23,8 +23,8 @@ const UNIVERSAL_CORRECTION_POLICY_PROMPT = `【墨阑通用纠错库｜${UNIVERS
 
 【名家级文学质感正向核心指南（最高执行优先）】：
 1. 具象物理锚点与受力反馈（拒绝虚浮平顺）：冲突必须落在可感触的物理现实上（外部环境受力形变、冷铁与皮肉的粘连触感、粗糙木屑刺掌、风卷炭灰落在衣襟的沙沙声）。主角行动绝非无痛平推，必须面临可感的物理摩擦与环境限制。
-2. 对白潜台词与利益暗流（拒绝直抒胸臆与剧情解说）：角色对话绝不直陈真实意图，严禁将对白沦为交代设定或推进大纲的工具。每轮言语交锋必须暗含【表面试探/假意退让 + 筹码博弈/隐秘底线 + 微动作节拍打断】，话里藏刀、各怀心思。
-3. 文流呼吸与长短句节奏（拒绝匀质平铺）：破局斩截处用 4~8 字短句顿挫有力（如“刀停了。”“水漫了上来。”）；博弈推挤与环境压迫处用中长句层层蓄势。单段以 2~4 个自然分句（60~120 汉字）为基准，重要惊变独立成段呼吸，让文字充满叙事张力与乐感。
+2. 对白自然带情绪与算计（拒绝套模与台词解说）：角色说话符合当下身份、脾气和急缓，允许打断、抢话、半截句、日常口癖或随口敷衍，严禁把每轮对话机械套进同一套公式或变成交代设定的解说词。
+3. 文流呼吸与真实长短错落（拒绝匀质切段与均匀句长）：打破模型习惯的“一两句一小段、句句十来字”的均质节奏——既要有连续铺陈动作、算计与环境的 120~240 字饱满长段，也要在抢话、卡顿或突转处落 4~10 字短句，形成强烈的句长波峰波谷；非关键停顿的孤立单句（C07-02）并入上下文，单章无功能单句独立段不超过 3 处。
 4. 商业不可逆推进与章末强钩子：单章正文篇幅严格控制在 2,200 ~ 2,800 汉字之间。每章必须固定至少一项不可逆战局或信息变动，章末落在具体的即时危险、信物变动或迫近抉择上，严禁虚空拔高。
 
 一、最高指示（默认禁止，除非用户当场明确放行）
@@ -101,10 +101,10 @@ const UNIVERSAL_CORRECTION_POLICY_PROMPT = `【墨阑通用纠错库｜${UNIVERS
 保留事实、设定、剧情顺序、人物关系、有效术语、用户指定文风。只做已确认规则支持的最小修改；有效比喻、完整战术分析、有场景功能的群体反应或情绪直述可保留。完成后只返回最终正文。`;
 
 const UNIVERSAL_CORRECTION_RULES = [
-  { id: 'R-01-sensory-personification', label: '感官传播不准确/实体化', severity: 'high', manual: false, pattern: /(?:声音|低笑|冷笑|话音|叹息)(?:从|自)[^。！？\n]{0,24}(?:漏(?:出|来)?|飘(?:出|来)?|渗(?:入|出)?|飘忽不定|挤出)/g },
+  { id: 'R-01-sensory-personification', label: '感官传播不准确/声音修辞模板化', severity: 'high', manual: false, pattern: /(?:声音|低笑|冷笑|话音|叹息)(?:从|自)[^。！？\n]{0,24}(?:漏(?:出|来)?|飘(?:出|来)?|渗(?:入|出)?|飘忽不定|挤出)|(?:发出|压出)[^。！？\n]{0,6}(?:一记|一声)?[^。！？\n]{1,12}的(?:钝响|闷响|脆响|轻响|声响)/g },
   { id: 'R-02-fragmented-verb', label: '动词缩写生硬', severity: 'medium', manual: false, pattern: /(?:颤|抖|顿|颤栗|抽搐)一下/g },
   { id: 'R-03-incomplete-phrase', label: '语句可能不完整', severity: 'medium', manual: false, pattern: /(?:哄笑一片|力量是真实的|是哥最大牵挂|在回应着他决心|喘得说不出整句)/g },
-  { id: 'R-04-redundant-emotion', label: '动作后的情绪重复说明', severity: 'medium', manual: false, pattern: /[^。！？\n]{0,28}(?:满是|充满了|带着|写满)(?:心疼|无奈|紧张|忐忑|恐惧|愤怒|悲伤|担忧|决然|柔情)[^。！？\n]{0,18}/g },
+  { id: 'R-04-redundant-emotion', label: '动作后的情绪重复说明或强行压回', severity: 'medium', manual: false, pattern: /[^。！？\n]{0,28}(?:满是|充满了|带着|写满)(?:心疼|无奈|紧张|忐忑|恐惧|愤怒|悲伤|担忧|决然|柔情)[^。！？\n]{0,18}|(?:吸了口气|吐了口气|闭了闭眼)[^。！？\n]{0,18}(?:压回|按回|咽回|藏回|收了回去)|脸色一沉[^。！？\n]{0,8}(?:又|还是)?(?:压|收)了回去/g },
   { id: 'R-05-formulaic-metaphor', label: '高风险套话比喻', severity: 'high', manual: false, pattern: /(?:如刀|如水|如渊|如纸|如雷|如电|如风|如雨|如林|如熊|如死灰|如重锤|如野火|如鬼魅|如断线风筝|如惊雷|如雷霆|如暴雨|如鸿毛|如泰山|如长河|如钉子钉进心头|如散落的棋子|如萤火|一柄出鞘的刀|月光如水|声淡如水|面沉如水|目光如刀|目光锐利如刀|冷硬如刀削|目光沉静如渊|深邃如渊|声音平静如水|泪如断线的珠子|像一潭死水|像谈天气|眉如刀削|目若寒星|寒星般的眸子|像一阵风|声音淡得像一阵风|像一头被逼到绝境的疯狗|像一条受了惊的丧家之犬|语气平得像在谈天气|如铁箍|如牛皮糖|凝练如铁|线条如铁|身形如风|快如风|如同鬼魅般|如鬼魅般|如断线风筝般|落在耳中如重锤|宛如重锤|如暴雨倾泻|如野火般蔓延|苍白如纸|惨白如纸|细密如砂|声音低沉如砂|声音低沉如鼓|像一柄钉子钉进心头|像一根钉子钉进心头|像一盘散落的棋子)/g },
   { id: 'R-06-postposed-state', label: '状态后置表达不自然', severity: 'medium', manual: false, pattern: /(?:笑|说|声音|语气|问)[^。！？\n]{0,8}得很(?:轻|淡|平静|冷)/g },
   { id: 'R-07-formulaic-crowd', label: '同步群体反应模板', severity: 'high', manual: false, pattern: /(?:所有人|全场|众人|整个大厅)[^。！？\n]{0,10}(?:都)?(?:愣住|沉默|哑然|死寂|倒吸一口凉气|惊呆)/g },
@@ -113,8 +113,8 @@ const UNIVERSAL_CORRECTION_RULES = [
   { id: 'R-10-empty-adverb', label: '高风险空泛修饰', severity: 'low', manual: false, pattern: /淡淡地|平静地|轻轻地|猛然间|骤然间|竟然发现|幽深的|深邃的/g },
   { id: 'R-11-evidence-overclaim', label: '结论超过证据', severity: 'high', manual: false, pattern: /(?:已经证明|事实证明|显然就是|必然是|一定是|绝对是|无疑是|唯一真相|铁证如山|太恐怖了)/g },
   { id: 'R-12-decorative-quantity', label: '装饰性数量词', severity: 'medium', manual: false, pattern: /(?:一丝|一股|一种|一缕)(?:[^。！？\n]{0,8})(?:杀意|冷意|寒意|阴鸷|复杂|贪婪|深沉|威压|疲惫|玩味|挣扎|狠厉|心疼|无奈|疯狂|精芒|茫然|释然|温文尔雅|颤抖|惊惶|慌乱)/g },
-  { id: 'R-13-artificial-body-subject', label: '局部替代人物主体', severity: 'low', manual: false, pattern: /(?:笔尖|目光|声音|指尖|唇角)[^。！？\n]{0,12}(?:停在|顿在|扫过|落在|做出|决定|勾起)/g },
-  { id: 'R-14-template-smile', label: '模板化笑意动作', severity: 'high', manual: false, pattern: /(?:嘴角|唇角)[^。！？\n]{0,14}(?:勾起|微微勾起|缓缓勾起)[^。！？\n]{0,12}(?:一抹)?[^。！？\n]{0,10}(?:弧度|笑意|笑容|冷笑|阴狠|自得|意味难明)/g },
+  { id: 'R-13-artificial-body-subject', label: '局部替代人物主体', severity: 'low', manual: false, pattern: /(?:笔尖|目光|视线|眼神|声音|指尖|唇角)[^。！？\n]{0,12}(?:停在|顿在|扫过|落在|转向|挪向|移开|做出|决定|勾起)/g },
+  { id: 'R-14-template-smile', label: '模板化笑意动作', severity: 'high', manual: false, pattern: /(?:嘴角|唇角)[^。！？\n]{0,14}(?:勾起|微微勾起|缓缓勾起|扯起|翘起|挑起|牵动)[^。！？\n]{0,12}(?:一抹|一丝|一点|半分)?[^。！？\n]{0,10}(?:弧度|笑意|笑容|冷笑|冷肉|嘲弄|阴狠|自得|意味难明)/g },
   { id: 'R-15-redundant-transition', label: '无功能转场或能力复述', severity: 'low', manual: false, pattern: /(?:双腿还能用|赶在[^。！？\n]{0,24}(?:之前|前)离开|终于明白|没有人敢说话|心里已经有了决定|脸上早已没了[^。！？\n]{0,10}不耐)/g },
   { id: 'R-16-lip-corner', label: '不自然用词“唇角”应改“嘴角”', severity: 'low', manual: false, pattern: /唇角/g },
   { id: 'R-17-dead-simile', label: '“死一般的”套话', severity: 'medium', manual: false, pattern: /死一般的|死一般/g },
@@ -141,7 +141,7 @@ const UNIVERSAL_CORRECTION_RULES = [
   { id: 'R-38-game-meter-ticking', label: '战斗中机械数值打卡/跳字', severity: 'high', manual: false, pattern: /(?:气血|战力|力量|敏捷|体质)(?:测试仪|测试器|数值|读数|指标)?(?:连续)?(?:跳动|暴涨|飙升|停在|从|在)[^。！？\n]{0,20}[0-9\d一二三四五六七八九十百]+(?:卡|点|%)?(?:[，、\s]{0,5}(?:跳到|跳至|升到|达到|破了|飙到)\s*[0-9\d一二三四五六七八九十百]+(?:卡|点|%)?)?/g },
   { id: 'R-39-staccato-subject-monotony', label: '主角名连续主语发报机句式', severity: 'medium', manual: false, pattern: /(?:^|\n)\s*([^\s，。！？\n]{2,4})[^\n。！？]{1,20}[。！？]\s*\1[^\n。！？]{1,20}[。！？]\s*\1[^\n。！？]{1,20}[。！？]/g },
   { id: 'R-40-somatic-reflex-cliche', label: '植物神经/微小肌群痉挛套路（喉咙发紧/指节泛白/心跳漏拍）', severity: 'high', manual: false, pattern: /(?:喉咙|喉头)(?:发紧|一阵发紧)|指节(?:泛白|捏得发白|发白)|呼吸(?:骤然|猛然|不由得)?一滞|心跳(?:猛然|骤然)?漏了一拍|心跳漏了半拍|下颌(?:线)?(?:骤然)?(?:绷紧|收紧)|后颈(?:发凉|汗毛倒竖)|手心(?:沁出|全是)?(?:黏腻的)?冷汗|牙关紧咬|牙关咬得咯咯作响/g },
-  { id: 'R-41-hidden-translationese', label: '隐形翻译腔与假深沉修饰链', severity: 'high', manual: false, pattern: /在这一刻显得(?:格外|尤为)|无不在昭示着|带着一种不容置疑的|仿佛只要轻轻一碰(?:，)?就会|与其说是[^，。\n]{1,15}(?:，)?倒不如说是/g },
+  { id: 'R-41-hidden-translationese', label: '隐形翻译腔与可预测修饰链', severity: 'high', manual: false, pattern: /在这一刻显得(?:格外|尤为)|无不在昭示着|带着一种不容置疑的|仿佛只要轻轻一碰(?:，)?就会|与其说是[^，。\n]{1,15}(?:，)?倒不如说是|某种(?:类似|难以言喻|说不清)[^，。\n]{0,14}感|悄无声息地|无声地(?=[捏压涌滑落退])|硬生生(?=[压咽憋吞忍])|(?:平静|冷淡|柔和|沙哑)得有些|正顺着[^，。\n]{1,12}往[^，。\n]{1,10}涌/g },
   { id: 'R-42-bone-whitening-mutation', label: '变种指骨/骨节/关节泛白套路', severity: 'high', manual: false, pattern: /(?:指节|指骨|骨节|关节|指尖|指头|手指|手背|手面)[^，。\n]{0,8}(?:泛白|发白|变白|毫无血色|失去血色|硌得发白|捏得发白|攥得发白)/g },
   { id: 'R-43-rhythmic-pulsing-cliche', label: '机械节律脉动与抽动套路', severity: 'high', manual: false, pattern: /(?:一下一下地?)(?:收紧|抽痛|跳动|刺痛|挤压)|(?:顺着|随着)脉搏[^，。\n]{0,10}(?:收紧|跳动|抽搐|缩紧)/g },
   { id: 'R-44-quest-penalty-staccato', label: '网游任务惩罚弹窗式四字通告', severity: 'high', manual: false, pattern: /(?:若违约|违约者|如若违背|违契者)[，,]?(?:抽取生魂|当为矿奴|抹杀|扣除|炼入煞矿)/g },
@@ -319,10 +319,43 @@ function sanitizeCorrectionCaseName(text) {
     .trim();
 }
 
+const EXTRA_CORRECTION_PAIR_BY_RULE = Object.freeze({
+  'R-01-sensory-personification': {
+    type: '声音与感官修辞模板',
+    before: '铁门卡簧发出嘎啦一声酸涩的钝响，人造革靠背压出一记滞涩的闷响',
+    after: '铁门拉到一半卡住了，他一屁股坐下，椅背往后陷了半寸',
+    principle: '少用“发出一记……钝响/闷响”的修饰模板，改写物体受力结果与动作推进'
+  },
+  'R-04-redundant-emotion': {
+    type: '冗余情绪压回(C14-03)',
+    before: '但他只是吸了口气，把那股温热硬生生压回掌纹深处',
+    after: '他没接茬，低头拎起抹布擦桌面',
+    principle: '克制或忍耐通过手头动作自然交代，删去“吸口气把情绪压回去”的二手解释'
+  },
+  'R-13-artificial-body-subject': {
+    type: '局部主体替代(C01-U18)',
+    before: '他的视线落在对方那双沾满黄泥的球鞋上',
+    after: '他低头扫了眼对方球鞋上的黄泥',
+    principle: '由人物直接看、扫、瞄，不用“视线落在/目光停在”替代人物主语'
+  },
+  'R-41-hidden-translationese': {
+    type: '隐形翻译腔修饰链',
+    before: '某种类似水银般的微温感正顺着腕骨悄无声息地往指尖涌，平静得有些渗人',
+    after: '手心热得像发烧，指节有点发胀，他面无表情地把袖口往下拽了拽',
+    principle: '删掉“某种类似/悄无声息地/……得有些”等低困惑度翻译腔，用直观体感与动作白描'
+  },
+  'R-46-excessive-staring-cliche': {
+    type: '滥用盯视(R-46)',
+    before: '他盯着镜子里那张脸，又盯着账本发呆',
+    after: '他在镜子里瞥了自己一眼，合上账本塞进抽屉',
+    principle: '日常看人看物用看、瞥、扫、打量，单章“盯”不超过一处'
+  }
+});
+
 /**
  * 面向 Pass-2 改写与质检的靶向纠错指导块：
  * 1) 基于初稿真实命中的 R-01~R-50 / 黑名单 / 指标越界给出逐项修复清单；
- * 2) 从《纠错库.md》217 条真实改稿案例中抽取匹配的「原句 → 修正句（原则）」示范。
+ * 2) 从《纠错库.md》217 条真实改稿案例与泛化原则中抽取匹配的「原句 → 修正句（原则）」示范。
  */
 function buildTargetedCorrectionGuidance(draft, options = {}) {
   const source = String(draft || '');
@@ -338,13 +371,21 @@ function buildTargetedCorrectionGuidance(draft, options = {}) {
 
   for (const finding of (scan.findings || [])) {
     const rid = String(finding.ruleId || '');
-    if (!seenRuleIds.has(rid) && findingLines.length < 7) {
+    if (!seenRuleIds.has(rid) && findingLines.length < 8) {
       seenRuleIds.add(rid);
       const snippet = sanitizeCorrectionCaseName(String(finding.text || '').replace(/\s+/g, ' ').slice(0, 36));
-      const principle = finding.suggestion && (finding.suggestion.principle || finding.suggestion.must)
-        ? `（${sanitizeCorrectionCaseName(String(finding.suggestion.principle || finding.suggestion.must).slice(0, 48))}）`
+      const extraPair = EXTRA_CORRECTION_PAIR_BY_RULE[rid];
+      const principleText = (finding.suggestion && (finding.suggestion.principle || finding.suggestion.must))
+        || (extraPair && extraPair.principle)
+        || '';
+      const principle = principleText
+        ? `（${sanitizeCorrectionCaseName(String(principleText).slice(0, 48))}）`
         : '';
       findingLines.push(`· [${rid}] ${finding.label}${snippet ? `：如“${snippet}”` : ''}${principle}`);
+      if (extraPair && !seenCaseIds.has(rid) && matchedExamples.length < 4) {
+        seenCaseIds.add(rid);
+        matchedExamples.push(extraPair);
+      }
     }
     const sug = finding.suggestion;
     if (sug && sug.before && sug.after && sug.after !== '删除' && !seenCaseIds.has(sug.caseId || sug.before)) {
@@ -356,7 +397,22 @@ function buildTargetedCorrectionGuidance(draft, options = {}) {
         principle: sanitizeCorrectionCaseName(sug.principle || '')
       });
     }
-    if (matchedExamples.length >= 4 && findingLines.length >= 7) break;
+    if (matchedExamples.length >= 5 && findingLines.length >= 8) break;
+  }
+
+  // 检查单章“盯”字滥用与《纠错库》C07-02 单句独立段过密（拉平朱雀突发性）
+  const staringHits = source.match(/盯[着住]/g) || [];
+  if (staringHits.length > 1 && !seenRuleIds.has('R-46-excessive-staring-cliche')) {
+    findingLines.push(`· [R-46] 本章出现 ${staringHits.length} 处“盯着/盯住”（上限 <=1 处），请将非生死对峙改用“看/瞥/打量/扫了眼”。`);
+    if (matchedExamples.length < 5 && !seenCaseIds.has('R-46-excessive-staring-cliche')) {
+      seenCaseIds.add('R-46-excessive-staring-cliche');
+      matchedExamples.push(EXTRA_CORRECTION_PAIR_BY_RULE['R-46-excessive-staring-cliche']);
+    }
+  }
+  const paragraphs = source.split(/\r?\n+/).map(p => p.trim()).filter(Boolean);
+  const singleNarrativeParas = paragraphs.filter(p => !p.startsWith('“') && !p.startsWith('"') && !p.startsWith('「') && !p.startsWith('#') && p.split(/[。！？!?]/).filter(s => s.trim()).length <= 1);
+  if (singleNarrativeParas.length >= 4) {
+    findingLines.push(`· [C07-02] 单句独立叙述段共 ${singleNarrativeParas.length} 处（如“${singleNarrativeParas[0].slice(0, 18)}”），请保留<=3处关键停顿，其余揉进邻近动作或心理长段，拉开段落长短波峰波谷。`);
   }
 
   // 若初稿命中的对应案例不足 3 条，补充《纠错库.md》高价值通用修辞示范（去 AI 感核心对照）
@@ -410,7 +466,7 @@ function buildTargetedCorrectionGuidance(draft, options = {}) {
   if (matchedExamples.length) {
     parts.push([
       '【《纠错库》原句 → 修正句示范（仅学习语感改法，严禁照抄例句内容）】',
-      ...matchedExamples.slice(0, 4).map((ex, idx) =>
+      ...matchedExamples.slice(0, 5).map((ex, idx) =>
         `${idx + 1}. 原句：“${ex.before}” → 改写：“${ex.after}”${ex.principle ? `（${ex.principle}）` : ''}`
       )
     ].join('\n'));
@@ -419,7 +475,7 @@ function buildTargetedCorrectionGuidance(draft, options = {}) {
   return {
     findingCount: scan.findingCount || 0,
     matchedRuleIds: scan.matchedRuleIds || [],
-    examples: matchedExamples.slice(0, 4),
+    examples: matchedExamples.slice(0, 5),
     block: parts.join('\n\n')
   };
 }

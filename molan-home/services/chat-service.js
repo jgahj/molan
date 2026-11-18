@@ -1222,15 +1222,26 @@ function createChatService({
         firstPassCorrectionHits = firstCorrectionHits;
         const firstTextureCliches = Number(textureReport && textureReport.clicheCount) || 0;
         const firstTextureIssues = Array.isArray(textureReport && textureReport.structuralIssues) ? textureReport.structuralIssues.length : 0;
+        const zq = aiFlavorFirstPass && aiFlavorFirstPass.metrics && aiFlavorFirstPass.metrics.zhuqueSignals;
+        const firstZhuqueRisk = Boolean(
+          (zq && zq.uniformCadenceRisk)
+          || (zq && Number(zq.singleNarrativeCount) >= 4)
+          || (zq && Number(zq.llmGluePerKilo) >= 1.5)
+          || (Array.isArray(aiFlavorFirstPass && aiFlavorFirstPass.details && aiFlavorFirstPass.details.llmGlueHits) && aiFlavorFirstPass.details.llmGlueHits.length >= 2)
+        );
+        // 两遍生成模式下第一遍故意关闭了纠错库注入；正文>=200字时默认必须进入第二遍《纠错库》靶向改写，不再被浅层0命中跳过。
+        const requireCorrectionSecondPass = Boolean(twoPassHumanize && !editorOnly && input.jsonMode !== true && firstPassText.trim().length >= 200 && input.allowSkipHumanize !== true);
         const needsHumanizePolish = Boolean(
           forceHumanize
+          || requireCorrectionSecondPass
           || !(aiFlavorFirstPass && aiFlavorFirstPass.passed)
-          || firstScore >= 20
+          || firstScore >= 10
           || firstStructuralRisks > 0
           || firstBlockHits > 0
           || firstCorrectionHits > 0
           || firstTextureCliches > 0
           || firstTextureIssues > 0
+          || firstZhuqueRisk
         );
         if (!firstPassText.trim() || !needsHumanizePolish) {
           rewriteMeta = {

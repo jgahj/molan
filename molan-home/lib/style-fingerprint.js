@@ -51,13 +51,31 @@ function loadStyleFingerprints() {
   }
 }
 
+const GENRE_FINGERPRINT_ALIASES = Object.freeze({
+  modern_romance: '青春甜宠',
+  ancient_romance: '古风世情',
+  urban_martial: '都市高武',
+  xuanhuan: '东方仙侠',
+  xianxia: '仙侠',
+  western_fantasy: '西方奇幻',
+  scifi_apocalypse: '科幻末世',
+  suspense: '悬疑灵异',
+  history: '历史古代',
+  light_novel: '轻小说',
+  urban: '都市',
+  romance: '青春甜宠',
+  military: '军事',
+  sports: '游戏体育'
+});
+
 /**
- * 归一化题材词：转小写并去掉全部空白，用于忽略大小写与空格的匹配。
- * @param {string} genre 题材字符串（如 '仙侠'、'都市'）
+ * 归一化题材词：转小写并去掉全部空白，支持英文 UI ID 映射至语料桶名。
+ * @param {string} genre 题材字符串（如 '仙侠'、'都市'、'modern_romance'）
  * @returns {string} 归一化后的键（空输入返回空字符串）
  */
 function normalizeGenreKey(genre) {
-  return String(genre == null ? '' : genre).toLowerCase().replace(/\s+/g, '');
+  const raw = String(genre == null ? '' : genre).toLowerCase().replace(/\s+/g, '');
+  return GENRE_FINGERPRINT_ALIASES[raw] || raw;
 }
 
 /**
@@ -180,10 +198,10 @@ function buildRhythmTargetBlock(genre) {
     lines.push(`对话占比约 ${Math.round(dialogueRatio * 100)}%${turnText}，对白与叙述穿插推进。`);
   }
   if (Number.isFinite(paragraphMean) && paragraphMean > 0 && Number.isFinite(sentenceMean) && sentenceMean > 0) {
-    lines.push(`段落平均约 ${(paragraphMean / sentenceMean).toFixed(1)} 句，允许长短段错落，不写等长段。`);
+    lines.push(`段落平均约 ${(paragraphMean / sentenceMean).toFixed(1)} 句，长段可连写 120~240 字，短段可仅数语，忌段段等长。`);
   }
   if (Number.isFinite(commaPeriodRatio) && commaPeriodRatio > 0) {
-    lines.push(`逗号句号比约 ${commaPeriodRatio.toFixed(1)}，善用逗号调节气息。`);
+    lines.push(`逗号句号比约 ${commaPeriodRatio.toFixed(1)}，用连贯复句与极短口语切分句长峰谷。`);
   }
   if (Number.isFinite(similePerKilo) && similePerKilo > 0) {
     lines.push(`每千字比喻词不超过 ${similePerKilo.toFixed(1)} 次。`);
