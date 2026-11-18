@@ -6,6 +6,28 @@ if "%MOLAN_PORT%"=="" set MOLAN_PORT=3000
 if "%MOLAN_ALLOW_LOCAL_MODELS%"=="" set MOLAN_ALLOW_LOCAL_MODELS=1
 if "%MOLAN_LOCAL_ONLY%"=="" set MOLAN_LOCAL_ONLY=1
 if "%MOLAN_LOCAL_OPEN_ACCESS%"=="" set MOLAN_LOCAL_OPEN_ACCESS=1
+if "%MOLAN_GENERATION_V2%"=="" set MOLAN_GENERATION_V2=1
+
+set "LOCAL_PG_BIN=%LOCALAPPDATA%\molan-postgresql\pgsql-18.6\pgsql\bin"
+set "LOCAL_PG_DATA=%LOCALAPPDATA%\molan-postgresql\data-18.6"
+set "LOCAL_PG_LOG=%LOCALAPPDATA%\molan-postgresql\postgres-55432.log"
+set "LOCAL_PG_PASS=%LOCALAPPDATA%\molan-postgresql\novel-runtime-password.txt"
+
+if exist "%LOCAL_PG_BIN%\pg_ctl.exe" if exist "%LOCAL_PG_DATA%\PG_VERSION" (
+  netstat -ano | findstr /R /C:":55432 .*LISTENING" >nul 2>&1
+  if errorlevel 1 (
+    "%LOCAL_PG_BIN%\pg_ctl.exe" -D "%LOCAL_PG_DATA%" -l "%LOCAL_PG_LOG%" -o "-p 55432" start >nul 2>&1
+  )
+  if "%MOLAN_DB_BACKEND%"=="" set MOLAN_DB_BACKEND=postgres
+  if "%MOLAN_PG_ENABLED%"=="" set MOLAN_PG_ENABLED=1
+  if "%MOLAN_PG_HOST%"=="" set MOLAN_PG_HOST=127.0.0.1
+  if "%MOLAN_PG_PORT%"=="" set MOLAN_PG_PORT=55432
+  if "%MOLAN_PG_DATABASE%"=="" set MOLAN_PG_DATABASE=molan
+  if "%MOLAN_PG_USER%"=="" set MOLAN_PG_USER=novel_runtime
+  if "%MOLAN_PG_PASSWORD_FILE%"=="" if exist "%LOCAL_PG_PASS%" set "MOLAN_PG_PASSWORD_FILE=%LOCAL_PG_PASS%"
+  if "%MOLAN_PG_RUNTIME_ROLE%"=="" set MOLAN_PG_RUNTIME_ROLE=novel_app
+)
+
 netstat -ano | findstr /R /C:":%MOLAN_PORT% .*LISTENING" >nul 2>&1
 if not errorlevel 1 (
   echo [%date% %time%] port %MOLAN_PORT% already in use, skip start >> "%~dp0watchdog.log"

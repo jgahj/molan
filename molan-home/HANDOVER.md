@@ -132,7 +132,7 @@ molan-home/
 | `molan-home/routes/auth.js` & `services/cloud-proxy-service.js` | 路由与状态 | `routes/auth.js` 注册 `POST /api/auth/local-session`；`handleLocalSyncStatus` 暴露 `localOpenAccess` 标志供前端自动识别。 |
 | `molan-home/app-boot.js` & `completion-platform.js` | SPA 免登录自动装配 | `bootstrapBackend()` 检测到 `localOpenAccess` 且缺少 `token`/`adminToken` 时自动调用 `ensureLocalOpenSession()` 写入凭证并触发 `molan:auth-changed`；`renderPage` 不再把 `/admin` 重定向到 `admin-login`；侧栏显示“本地全权模式”与无限积分。 |
 | `molan-home/pages/local-open-auth.js` 及各独立子页 | 独立页面免登录 | 新增共享引导模块 `MolanLocalOpenAuth.ensureLocalSession`，接入 `account.js`、`site.js`、`dissect.js`、`skills.js`、`admin.js`、`story-workbench.js`、`project-docs.js`、`xuanhuan-blind.js`、`xuanhuan-reading.js` 及对应 `pages/*.html`（`tools/dissect/skills/novels/editor/admin/story-workbench/project-docs/xuanhuan-blind/xuanhuan-reading`），打开任意独立子页均可直接自由使用全功能。 |
-| `molan-home/start-node22.bat` & `start-node22-pg.bat` | 本地启动默认开启 | 默认注入 `MOLAN_LOCAL_OPEN_ACCESS=1`（允许外部环境变量覆盖为 `0`）。 |
+| `molan-home/start-node22.bat` & `start-node22-pg.bat` | 本地启动默认开启 | `start-node22.bat` 自动拉起本机 PostgreSQL 18.6（`%LOCALAPPDATA%\molan-postgresql` 端口 `55432`、`molan` 库 84 张表）并默认开启 `MOLAN_LOCAL_OPEN_ACCESS=1`、`MOLAN_GENERATION_V2=1`、`MOLAN_LOCAL_ONLY=1`、`MOLAN_ALLOW_LOCAL_MODELS=1`；`start-node22-pg.bat` 同步补充相同本地开放与 V2 参数（均支持外部变量覆盖）。 |
 | `molan-home/test/local-open-access.test.js` | 自动化测试 | 新增 2 项端到端测试：验证 `MOLAN_LOCAL_OPEN_ACCESS=1` 下免登录直通 `/api/models`、`/api/auth/local-session`、`/api/auth/me`、`/api/admin/auth/me`、`/api/metrics`、`/api/chat` 与全模型选择；同时验证关闭开关或 `PUBLIC_MODE=1` 时仍严格执行 `401/403`。 |
 
 ---
@@ -161,6 +161,10 @@ molan-home/
   3. 架构与黄金用例审计：
      - `scripts/production-import-audit.mjs`：PASS（234 个生产文件合规，exit 0）
      - `scripts/audit-golden-suite.mjs`：PASS（80 项任务全部通过，exit 0）
+  4. 本机 PostgreSQL 18.6 实机联调（`127.0.0.1:55432` -> `molan` 库，51 项迁移全部应用，84 张表）：
+     - `/api/health`：`db: "ready"`、`pgAvailable: true`、`tableCount: 84`
+     - `/api/generation-runs/capabilities`：`generationV2: true`、`commit: true`、`pauseResume: true`、`recovery: true`、`storageMode: "postgres"`
+     - `/api/local-sync/status` & `/api/models` & `/api/novels` & `/api/admin/overview`：`localOpenAccess: true`、`role: "admin"`、`canChooseModel: true`、`defaultModel: "gemini-4-hydrogen"`、`novelsOk: true`、`adminOk: true`
 
 ---
 
