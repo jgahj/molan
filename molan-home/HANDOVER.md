@@ -122,6 +122,26 @@ molan-home/
 
 ---
 
+## 阶段记录：破除 Gemini 过度精雕定语腔与恢复《小说原本》自然段长错落 (2026-11-18)
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/lib/composition/ir/ir-lowering.js`<br>`molan-home/lib/composition/corpus/evidence-catalog.js`<br>`molan-home/correction-policy.js` | 去过度感官精雕提示 | 解除多层提示中强制“每句感官锚点 + 物理修饰定语 + 三逗号动作结果”的雕琢导向：修改 `renderForGemini`、`evidence-catalog.js`（`card_sensory_living_detail`、`card_sentence_cadence_breathing`、`card_suspense_physical_clue`）及 `UNIVERSAL_CORRECTION_POLICY_PROMPT` 核心指南，改为主张“至少一半以上叙述句直白说事、一页只留 1~2 处核心锚点、允许 10~45 字口语短段与长段自然错落”。 |
+| `molan-home/lib/ai-flavor-detector.js`<br>`molan-home/services/humanize-policy-service.js` | 定语过载诊断与 Pass-2 降雕琢 | `ai-flavor-detector.js` 在 `metrics.zhuqueSignals` 新增 `deModifierPerKilo`（“……的+名词”千字密度）、`plainShortRatio`（<=16字平实短直句占比）与 `overPolishedSensoryRisk`；`humanize-policy-service.js` 在命中过载时注入实测告警，并在改写边界 8/9 要求删掉日常器物冗余视觉定语、放开真人网文长短段差与讲故事口吻，严禁以错别字/乱码凑分。 |
+| `molan-home/lib/character-material.js` | 范本过滤加严 | `EXEMPLAR_AI_CLICHE_GUARD` 新增过滤强煽情套话（如 `空气里弥漫`/`若有若无`/`如在吞咽`/`火烧火燎`/`鲜花着锦`/`十八层地狱`），使抽选的《小说原本》参照更贴近真实网文口吻。 |
+| `molan-home/index.html`<br>`boot-head.js`/`boot-scripts.js`/`pages/*.html` | 版本戳同步递增 | 因 `correction-policy.js` 与 `character-material.js` 属受保护前端资产，版本戳由 `20261118_living_v2` 同步递增至 `20261118_living_v3`。 |
+
+### 二、真实验证证据
+
+- **Live 对照实测**（`http://127.0.0.1:3000`，`pid: 35304`，`gemini-3.8-flash-acp`，同提示词 `urban_martial`）：
+  - 与上一版（`1396` 字、`paragraphCV = 0.426`、`deModifierPerKilo = 35.77`、`aiScore = 27`）相比，新样本（`946` 字，`waiting_author`，`quality.score = 0.88`，`passed = true`）将 **`deModifierPerKilo` 降至 `26`（降幅 ~27%）**、`paragraphCV` 提升至 **`0.5471`**、`aiScore` 降至 **`8`**、`scanCount = 0`、`textureScore = 100`。
+- **全量回归与审计（最终编辑后执行）**：
+  - `..\tools\node22_runtime\node.exe --no-warnings --test --test-reporter=spec --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"`：`2468 tests | 73 suites | 2452 pass | 0 fail | 16 skipped`（耗时 `37871.8ms`）；`production-import-audit.mjs`（234 文件）、`audit-golden-suite.mjs`（80 tasks）、`check-frontend-stamp.mjs`（`20261118_living_v3`）均退出码 `0`。
+
+---
+
 ## 阶段记录：《纠错库》全链路接通与抗 AI 检测统计学特征（高困惑度+高突发性）强化 (2026-11-18)
 
 ### 一、改动范围与核心逻辑

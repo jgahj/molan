@@ -291,6 +291,12 @@ function computeAiFlavorScore(text, profile) {
   }
   const llmGlueTotal = llmGlueHits.reduce((sum, hit) => sum + hit.count, 0);
   const llmGluePerKilo = roundTo((llmGlueTotal * 1000) / Math.max(compact.length, 1000)) || 0;
+  // 定语修饰过载（“……的+名词”高密度串联与缺乏极短平实直述句，朱雀极高敏特征）
+  const deModifiers = compact.match(/[\u4e00-\u9fff]{2,5}的(?=[\u4e00-\u9fff]{1,4})/gu) || [];
+  const deModifierPerKilo = roundTo((deModifiers.length * 1000) / Math.max(compact.length, 1000)) || 0;
+  const plainShortSentenceCount = sentenceLengths.filter(len => len <= 16).length;
+  const plainShortRatio = sentenceLengths.length > 0 ? roundTo(plainShortSentenceCount / sentenceLengths.length, 4) : 0;
+  const overPolishedSensoryRisk = Boolean(deModifierPerKilo >= 26 || (deModifierPerKilo >= 20 && plainShortRatio < 0.35));
 
   // 字符 bigram TTR：去停用标点后统计。
   const letters = compact.replace(STOP_PUNCTUATION_PATTERN, '');
@@ -363,6 +369,9 @@ function computeAiFlavorScore(text, profile) {
       zhuqueSignals: {
         sentenceBurstiness,
         llmGluePerKilo,
+        deModifierPerKilo,
+        plainShortRatio,
+        overPolishedSensoryRisk,
         singleNarrativeCount,
         uniformCadenceRisk: Boolean(sentenceBurstiness.flatClusterCount > 0 || (sentenceBurstiness.cv > 0 && sentenceBurstiness.cv < 0.48))
       }

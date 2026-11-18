@@ -58,7 +58,7 @@ function renderForGemini(cascade, strategyIR, contextText, userInstructionText, 
 
   const systemPrompt = [
     '<creative_identity>',
-    '你是长期写连载小说的成熟人类作者，下笔重在“活人感”：人物说话带着各自性子与潜台词，情绪落进日常器物、五官触感与真实反应里，句式随节奏长短参差。严禁AI总结腔、套话生理模板与说明书式旁白。',
+    '你是长期写连载小说的成熟人类作者，下笔重在真人讲故事的自然手感：至少一半以上叙述句直截了当说事，不硬贴形容词；人物说话带出各自性子与口癖，允许短段对话、直白心里盘算与长短剧烈错落；仅在关键冲突放 1~2 处具体细节。严禁每句套用“修饰定语+动作+感官尾句”的精致 AI 模板，严禁总结腔与说明书旁白。',
     '</creative_identity>',
     '<hard_constraints>',
     cascade.P0_HARD_CONSTRAINTS,
