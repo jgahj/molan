@@ -4,6 +4,6 @@
  * 代码为逐字迁移（行为不变），加载位置与原内联位置一致。
  */
     if (location.protocol !== 'file:') {
-      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = './pages/tokens.css?v=20261118_living_v4';
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = './pages/tokens.css?v=20261119_human1279_v1';
       document.head.appendChild(l);
     }

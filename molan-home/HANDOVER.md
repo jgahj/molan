@@ -122,6 +122,37 @@ molan-home/
 
 ---
 
+## 阶段记录：全量 1,279 本真人小说语料 60 维对比与 `gpt-6-luna` / `gemini-3.8-flash` 专属校准 (2026-11-19)
+
+### 一、全量语料实测发现（`资源库/小说原本` 1,279 本 / 3,821 切片 / 49 题材）
+
+| 维度 | 1,279 本真人小说（P25..中位..P75） | 此前 AI 样本 | 根因修正方向 |
+| :--- | :---: | :---: | :--- |
+| **平均段长 `paraMean`** | `22.5 .. 27.6 .. 35.0` 字（76% ≤40 字，81~150 字段中位数 `0%`） | `42.3 ~ 55.6` 字 | 停止强行合并为 90~180 字散文大方块，恢复手机网文 1~2 句（24~38 字）轻快分段 |
+| **每段句数 `sentsPerPara`** | `1.06 .. 1.14 .. 1.27` 句（`97%` 纯叙述段为 1 句多逗号顺完） | `1.78 ~ 2.33` 句 | 取消对正常 1 句叙述段的负分误杀，仅对 `<=14` 字空泛碎断语保留 `C07-02` 告警 |
+| **词汇密度 `bigramTTR`** | **`0.780 .. 0.810 .. 0.830`**（49 题材全部 `<=0.822`） | **`0.860 ~ 0.900`** | 放开高频日常词自然复现（`什么/自己/没有/这个/知道/已经/怎么/时候/还是/不过/他她我你`），打破 AI 过度浓缩感 |
+| **“的”字与标点分布** | `的=30.4/k`、`句号=29.0/k`、`逗句比=1.94`、`感叹号=2.8/k`、`省略号=1.3/k`、`破折号=0.0` | `的=3.6~10.5`、`句号=38~50`、`感叹号=0` | 恢复日常“的”字（20~32/k）、多逗号流畅长句（>45 字占 10~19%）与自然感叹/省略号，保持破折号清零 |
+
+### 二、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/chat-service.js` | 严格模型约束 | 移除 `gpt-5.6-sol`/`gpt-5.6-luna`/`gpt-5.6-terra` 自动路由，默认异构 Pass-2 仅使用 **`gpt-6-luna`**（`reasoning_effort: 'low'`、`presence_penalty: 0`、`frequency_penalty: 0`），失败时回退原 Pass-1 模型（`gemini-3.8-flash-acp` / `gemini-3.8-flash`）。 |
+| `molan-home/lib/ai-flavor-detector.js`<br>`molan-home/correction-policy.js`<br>`molan-home/lib/character-material.js` | 1,279 本语料基线校准 | 1. `ai-flavor-detector.js` 在 `zhuqueSignals` 新增 `bigramTtr`、`overCompressedVocabRisk`（`>=0.855`）、`paraMean`，取消正常单句叙述段扣分并将 `overPolishedSensoryRisk` 阈值对齐真人 `deMod` 分布（`>=38`）；<br>2. `correction-policy.js` 将 `C07-02` 收敛至 `<=14` 字过短碎段，`[标点指纹]` 改为破折号清零 + 感叹号合理区间；<br>3. `character-material.js` `maxDeMod` 默认放宽至 `34`（匹配真人 P75=`31.6`），避免过滤掉 80% 真实网文范本。 |
+| `molan-home/services/humanize-policy-service.js` | Pass-2 改写边界全面对齐真人共性 | 重写 `buildHumanizePassMessages` 诊断与 9 条改写边界：对齐段均 `25~38` 字、多逗号顺口长句、放开大白话高频词复现（目标 `bigramTTR 0.78~0.83`）、正常用“的”字、清零破折号与去 AI 套路四件套；保留 `不强制每段句数`。 |
+| `molan-home/test/living-prose-optimization.test.js`<br>`index.html` / `boot-*.js` / `pages/*.html` | 测试同步与版本戳递增 | 方案 B 单测切换为 `gemini-3.8-flash-acp → gpt-6-luna` 异构路由与 502 回退校验；前端受保护资产版本戳同步递增至 `20261119_human1279_v1`。 |
+
+### 三、真实验证证据
+
+- **1,279 本基线对比实测（仅用允许模型）**：
+  - `gpt-6-luna(low)` 直接按 1,279 本真人共性生成（`1449` 字，`30.1s`）：`paraMean = 30.8`、`sentsPerPara = 1.06`、`maxConsecNarr = 11`、`periodsPerK = 30.4`、`commaPeriodRatio = 2.50`、`pronounsPerK = 21.4`、**`bigramTTR = 0.814`**（全指标落入 1,279 本真人 P25~P75 核心带）。
+  - Live Generation V2 端到端闭环（`http://127.0.0.1:3000`，`pid: 47964`，`waiting_author`，`121.5s`）：日志 `[chat] two-pass completed first=gemini-3.8-flash-acp second=gpt-6-luna hetero=true score=19->23 chars=1564`，`flavorScore = 23`（`passed = true`）、`flatClusterCount = 0`、`llmGluePerKilo = 0`、`correctionFindings = 0`、`deModifierPerKilo = 23.78`。
+- **全量回归与审计（最终代码编辑后执行）**：
+  - `..\tools\node22_runtime\node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"`：**`2469 tests | 73 suites | 2453 pass | 0 fail | 16 skipped`**（耗时 `37166.68ms`）；
+  - `production-import-audit.mjs`（234 文件）、`audit-golden-suite.mjs`（80 tasks）、`check-frontend-stamp.mjs`（`20261119_human1279_v1`）全部退出码 `0`。
+
+---
+
 ## 阶段记录：方案 B 二次标定——零罚项原词复现、`gpt-5.6-sol` 首选与真实绿色样本双轨规则 (2026-11-18)
 
 ### 一、改动范围与核心逻辑

@@ -1608,7 +1608,7 @@ function buildLivingProseExemplarBlock(request = {}, options = {}) {
   const zeroFlavor = pool.samples.filter(sample => isCleanExemplarSample(sample) && sample.flavorScore === 0);
   const baseCleanPool = zeroFlavor.length >= limit ? zeroFlavor : pool.samples.filter(isCleanExemplarSample);
   if (!baseCleanPool.length) return null;
-  const maxDeMod = Number(options.maxDeModifierPerKilo) > 0 ? Number(options.maxDeModifierPerKilo) : 16;
+  const maxDeMod = Number(options.maxDeModifierPerKilo) > 0 ? Number(options.maxDeModifierPerKilo) : 34;
   const lowModifierPool = baseCleanPool.filter(sample => countExemplarDeModifiers(sample) <= maxDeMod);
   const cleanPool = lowModifierPool.length >= Math.max(limit * 2, 4) ? lowModifierPool : baseCleanPool;
 

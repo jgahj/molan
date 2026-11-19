@@ -595,7 +595,8 @@ function createChatService({
           && String(pm.group || '').toLowerCase() !== 'mock'
           && !/^mock/i.test(String(modelId || ''));
         if (autoHeteroEnabled && isGemini) {
-          const priorityList = String(envObj.MOLAN_HUMANIZE_MODEL_PRIORITY || 'gpt-5.6-sol,gpt-5.6-luna,gpt-6-luna,gpt-5.6-terra')
+          // 仅允许用户指定的 GPT-6 Luna 作为非 Gemini 异构第二遍默认目标（禁止自动切换到 gpt-5.6-sol 等旧模型）
+          const priorityList = String(envObj.MOLAN_HUMANIZE_MODEL_PRIORITY || 'gpt-6-luna')
             .split(',')
             .map(s => s.trim())
             .filter(Boolean);

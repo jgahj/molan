@@ -297,17 +297,20 @@ function computeAiFlavorScore(text, profile) {
   const deModifierPerKilo = roundTo((deModifiers.length * 1000) / densityDenominator) || 0;
   const plainShortSentenceCount = sentenceLengths.filter(len => len <= 16).length;
   const plainShortRatio = sentenceLengths.length > 0 ? roundTo(plainShortSentenceCount / sentenceLengths.length, 4) : 0;
-  const overPolishedSensoryRisk = Boolean(deModifierPerKilo >= 26 || (deModifierPerKilo >= 20 && plainShortRatio < 0.35));
-  // 感叹号与破折号密布（朱雀高频模型情绪标点指纹）
+  // 基于 1,279 本真人小说实测统计（“的+名词”中位数 26.2/千字、P75=31.6/千字），仅在明显过载时告警，避免误杀正常“的”字
+  const overPolishedSensoryRisk = Boolean(deModifierPerKilo >= 38 || (deModifierPerKilo >= 34 && plainShortRatio < 0.25));
+  // 感叹号与破折号密布（1,279 本真人破折号中位数 0.00，感叹号中位数 2.81 / P75 6.05）
   const exclamationCount = (compact.match(/[！!]/g) || []).length;
   const dashCount = (compact.match(/——/g) || []).length;
   const exclamationPerKilo = roundTo((exclamationCount * 1000) / densityDenominator) || 0;
   const dashPerKilo = roundTo((dashCount * 1000) / densityDenominator) || 0;
-  const punctuationOverloadRisk = Boolean(exclamationPerKilo > 3 || dashPerKilo > 1.5);
+  const punctuationOverloadRisk = Boolean(exclamationPerKilo > 6.5 || exclamationCount >= 4 || dashPerKilo > 1.5 || dashCount >= 2);
 
-  // 字符 bigram TTR：去停用标点后统计。
+  // 字符 bigram TTR：去停用标点后统计（1,279 本真人稳定落在 0.78~0.83，AI 样本普遍 >= 0.86）。
   const letters = compact.replace(STOP_PUNCTUATION_PATTERN, '');
   const ttr = computeBigramTtr(letters);
+  const bigramTtr = roundTo(ttr, 4) || 0;
+  const overCompressedVocabRisk = Boolean(compact.length >= 400 && bigramTtr >= 0.855);
 
   // 词表命中：block 词与 watch 词分别累计出现次数（term 按字面子串计数）。
   const lexicon = loadAiFlavorLexicon();
@@ -353,9 +356,8 @@ function computeAiFlavorScore(text, profile) {
   score += linearBandPoints(lexiconBlockPerKilo, SCORE_RULES.blockPerKilo.low, SCORE_RULES.blockPerKilo.high, SCORE_RULES.blockPerKilo.points);
   if (llmGluePerKilo >= 2) score += Math.min(12, Math.round(llmGluePerKilo * 2.5));
   if (sentenceBurstiness.flatClusterCount > 0) score += Math.min(8, sentenceBurstiness.flatClusterCount * 4);
-  if (singleNarrativeCount >= 5) score += Math.min(8, (singleNarrativeCount - 4) * 3);
-  if (exclamationPerKilo > 4.5) score += 4;
-  if (dashPerKilo > 3) score += 4;
+  if (exclamationPerKilo > 6.5) score += 4;
+  if (dashPerKilo > 2) score += 4;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   const byCountDesc = (a, b) => b.count - a.count || (a.term < b.term ? -1 : a.term > b.term ? 1 : 0);
@@ -380,6 +382,9 @@ function computeAiFlavorScore(text, profile) {
         deModifierPerKilo,
         plainShortRatio,
         overPolishedSensoryRisk,
+        bigramTtr,
+        overCompressedVocabRisk,
+        paraMean: roundTo(paragraphMean, 1) || 0,
         exclamationCount,
         dashCount,
         exclamationPerKilo,

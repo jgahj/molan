@@ -109,14 +109,14 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
           diagnosticLines.push(`- 句长突发性（Burstiness）偏平（变异系数 ${Number(sb.cv || 0).toFixed(2)}，连续均长句簇 ${sb.flatClusterCount || 0} 组）：必须打破“每句15~28字齐步走”，把连贯动作与思绪合并成流畅长复句，并在冲突或抢白处突然切出 3~8 字极短句`);
         }
       }
-      if (zq && Number(zq.singleNarrativeCount) >= 4) {
-        diagnosticLines.push(`- 孤立单句叙述段过多（${zq.singleNarrativeCount} 处）：按《纠错库》C07-02 保留 <=3 处关键转折停顿，其余并入上下文长段`);
+      if (zq && zq.overCompressedVocabRisk) {
+        diagnosticLines.push(`- 词汇过度浓缩不重复（bigramTTR 达 ${zq.bigramTtr}，1,279 本真人网文普遍落在 0.78~0.83）：AI 味重灾区！请放松用词，自然高频复现“自己、什么、没有、这个、那个、知道、已经、怎么、现在、时候、还是、不过、一下”等日常汉语词，并直接重复核心物件原名，不要刻意轮换同义词`);
       }
-      if (zq && (zq.overPolishedSensoryRisk || Number(zq.deModifierPerKilo) >= 22)) {
-        diagnosticLines.push(`- 定语与感官雕琢过载（“……的+名词”达 ${zq.deModifierPerKilo}/千字，平实短直句仅 ${Math.round((Number(zq.plainShortRatio) || 0) * 100)}%）：这是朱雀判定 AI 的第一大诱因！请大刀阔斧扒掉日常物品前硬贴的视觉/触觉形容词（如“褪色的”“生锈的”“廉价的”“发稠的”），至少一半叙述句改用不带修饰的大白话直说`);
+      if (zq && zq.overPolishedSensoryRisk) {
+        diagnosticLines.push(`- 抽象雕琢定语偏多（“……的+名词”达 ${zq.deModifierPerKilo}/千字）：请删掉硬贴的假文青形容词与四字套话，保留日常自然“的”字表达`);
       }
-      if (zq && (zq.punctuationOverloadRisk || Number(zq.exclamationCount) >= 3 || Number(zq.dashCount) >= 2)) {
-        diagnosticLines.push(`- 情绪标点过载（感叹号 ${zq.exclamationCount || 0} 个、破折号 ${zq.dashCount || 0} 处）：高密感叹号与破折号极易被朱雀标红！全章感叹号必须压到 <=2 个，破折号压到 <=1 处（优先改用逗号、句号、问号）。`);
+      if (zq && (zq.punctuationOverloadRisk || Number(zq.dashCount) >= 2)) {
+        diagnosticLines.push(`- 标点异常（感叹号 ${zq.exclamationCount || 0} 个、破折号 ${zq.dashCount || 0} 处）：1,279 本真人语料破折号中位数为 0，请清掉破折号并将感叹号控制在自然合理范围（1~4 个）。`);
       }
     }
     if (textureReport && typeof textureReport === 'object') {
@@ -143,7 +143,7 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
           const ex = buildLivingProseExemplarBlock({
             genre: genreLabel,
             query: draftText.slice(0, 500)
-          }, { limit: 2, maxExcerptChars: 380, maxDeModifierPerKilo: 15 });
+          }, { limit: 2, maxExcerptChars: 380, maxDeModifierPerKilo: 32 });
           livingExemplarBlock = ex && ex.block ? ex.block : '';
         }
       } catch (_) {
@@ -174,28 +174,28 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       ? aiFlavorReport.metrics.zhuqueSignals
       : null;
     const quickAlert = zqMeta
-      ? `【初稿实时警报】连续均长句簇=${(zqMeta.sentenceBurstiness && zqMeta.sentenceBurstiness.flatClusterCount) || 0}组（目标0组）、“的+名词”=${zqMeta.deModifierPerKilo || 0}/千字（目标<=12）、感叹号=${zqMeta.exclamationCount || 0}/破折号=${zqMeta.dashCount || 0}。`
+      ? `【初稿对照 1,279 本真人语料警报】段均=${zqMeta.paraMean || 0}字（真人 23~35 字）、bigramTTR=${zqMeta.bigramTtr || 0}（真人 0.78~0.83）、均长句簇=${(zqMeta.sentenceBurstiness && zqMeta.sentenceBurstiness.flatClusterCount) || 0}组、破折号=${zqMeta.dashCount || 0}处。`
       : '';
     const isLightComedyGenre = /轻小说|搞笑|沙雕|吐槽|甜宠|轻松|脑洞|日常|系统/i.test(genreLabel);
     const toneRule = isLightComedyGenre
-      ? '7. 高困惑度口语吐槽与反差意象（轻喜/脑洞/甜宠题材专属）：保留人物鲜活情绪与带刺吐槽，允许把法门/场面反差类比成日常俗物、斤两、价钱或市井俗话来打破 AI 书面平顺感，同时不制造错别字或乱码。'
-      : '7. 纯实体白描动作链与账目实操（正剧/仙侠/都市/悬疑主流）：用“试一次不行换个法子或工具再试”的具体步骤与实在花费/斤两替代抽象心理议论，动作后面只接物理结果，不用生理痉挛套话替代立场。';
+      ? '7. 高困惑度口语吐槽与反差意象（轻喜/脑洞/甜宠题材专属）：保留人物鲜活情绪与带刺吐槽，允许把场面或招式反差类比成日常俗物、斤两、价钱或市井俗话，绝不制造错别字或乱码。'
+      : '7. 实操生活感与顺口推进（正剧/仙侠/都市/悬疑主流）：用具体生活账目、顺手动作与真实权衡推进，不用生理痉挛套话（咬牙/发凉/手抖）或空洞心理议论凑数。';
 
     systemParts.push([
-      '【改写边界（必须遵守）】',
-      '1. 重构句法语序，但严守事实与因果：100% 保留原稿人物、物品、数字、秘密、前情承接与剧情顺序；像记清剧情后用十年老作者自己的大白话重讲一遍，不要顺着原句逐字微调。',
-      '2. 禁止同义词刻意避重（破除 AI 高敏特征）：同一个核心物品、人名或钱数在全章保持同一个朴素叫法（例如反复写“铁盒子/陈阿明/小瓶”），严禁为了“文采”轮换写成“这东西/旧铁箱/那物件/青年”。',
-      '3. 砍掉 AI 开场三件套、静音转场与黑镜头结尾：删掉“雨下得很大/水沟满溢/烂菜叶铁锈”这类环境感官引子，第一句直接从人物正在干的具体活儿或推门动作写起；删掉反派“衣服+湿发+刀疤+破鞋”全套外貌清单；删掉“店里只剩这阵闷响”；结尾禁止“把笑收起抬头望向暗楼梯”，只写关灯闩门与一句实在的下一步打算（如明早去找谁）。',
-      '4. 拆出“实操试错步骤 + 短客观结果”，打散均长句簇：翻包数零钱、撬箱子、查门窗等动作一步步按顺序写实，动作后允许跟一句 4~12 字极短客观结果单行（如“抽屉锁着。”“盖子没动。”），同时不强制每段句数；把连续 15~28 字的匀称句用逗号顺进 45~85 字宽松长句或口语短行交错，让句长和段长形成剧烈落差，拉高困惑度与 Burstiness（绝不连续 4 句落在同一长度带）。',
-      '5. 感叹号与破折号严格限流，对白去标签：整章感叹号（！）最多 1~2 个，破折号（——）最多 0~1 处；砍掉一半以上“人名+动作+：”整齐前置标签，多用裸对话或把动作插在话尾，口语保留真实省略（嘛、呢、呗、啥、没）。',
-      '6. 狠删“……的+名词”AI精致定语（每千字 <= 12 处）：扒掉日常物品前硬贴的视觉/触觉形容词（如“褪色的/粗糙发黄的/湿了边的”），多用最普通的日常动词（拿、摸、放、看、数、推、拉），彻底剔除假文青通感比喻与 AI 胶水词。',
+      '【改写边界（基于 1,279 本真人连载小说实测共性，必须遵守）】',
+      '1. 重构句法语序，严守原稿事实与因果：100% 保留原稿人物、物品、数字、前情与剧情顺序；像十年连载老作者记下剧情后用最松弛的手机网文手感重讲一遍，不要顺着原句逐字微调。',
+      '2. 手机网文轻快自然分段（1,279 本真人段均 27.6 字、76% 段落 <=40 字）：大多数段落写完 1 句话（20~55 字）就自然换行，绝不强行揉成 100 字以上密密麻麻的散文方块，同时不强制每段句数；可以连续铺 6~12 段动作、观察与心理细节再切进对话，不必每两三段硬切对话。',
+      '3. 少打电报碎句号，多用逗号顺完一个念头（拉高困惑度与句长剧烈落差）：不要写“他走过去。他拉开抽屉。抽屉开了。”这类密句号电报体！正常网文习惯一句话里用 2~4 个逗号顺完连贯动作与思绪（全章保留 10%~20% 的 45~75 字多逗号顺口长句），再与 5~15 字短句自然交替，消灭连续 4 句均长平句簇。',
+      '4. 放开高频日常“大水词”自然复现（把 bigramTTR 压回真人 0.78~0.83 区间）：真人码字松弛不炫技，会自然、反复用到“自己、什么、没有、这个、那个、知道、已经、怎么、现在、时候、还是、不过、一下、就是、不是”以及人称代词（他/她/我/你）；同一个核心物品/人名直接重复原名，严禁刻意轮换花哨同义词避重。',
+      '5. 正常用“的”字与自然标点，清零破折号：每千字自然保留 20~32 个日常“的”字（只删假文青抽象修辞与 AI 套话，不删成电报体）；全章尽量不用破折号（——），可自然带 1~4 个感叹号与 1~2 处省略号（……）；对话混用裸对话、前置动作与后置尾标（如“那下次？”他问了一句。）。',
+      '6. 砍掉 AI 套路四件套：不写天气水沟感官排比开场，不写反派“衣着+头发+刀疤+破鞋”全套外貌体检表，不写“屋里安静下来只剩……声”转场，结尾严禁“收起笑抬头望向黑楼梯/握紧器物特写”电影镜头，落在关灯、收拾或一句实在打算上。',
       toneRule,
       `8. 严守原稿体量与时空自洽${genreLabel ? `（当前题材：${genreLabel}）` : ''}：篇幅控制在 ${lengthLow}~${lengthHigh} 字之间，禁止偷工减料或擅自扩写翻倍，道具与伤势前后连贯，不平白新增违和工具或章节标题。`,
       '9. 直接输出完整修订后的正文，不要任何解释、前言或 Markdown 围栏。'
     ].join('\n'));
     return [
       { role: 'system', content: systemParts.join('\n\n') },
-      { role: 'user', content: `${quickAlert ? quickAlert + '\n' : ''}以下是初稿（约 ${effectiveLengthTarget} 字）。请对照上面 9 条规则重写：砍掉天气开场/外貌拼盘/静音转场/凝视结尾，同一个物件绝不轮换同义词避重，拆出笨拙实在的动作试错步骤与客观短结果，段落兼顾 120~200 字长细段与 4~25 字短口语/短结果（绝不全篇写成40~60字均匀方块），压低“的+名词”到 <=12/千字并控死感叹号<=2/破折号<=1；严守原有事实并将字数控制在 ${lengthLow}~${lengthHigh} 字，直接输出完整修订正文：\n\n` + draftText }
+      { role: 'user', content: `${quickAlert ? quickAlert + '\n' : ''}以下是初稿（约 ${effectiveLengthTarget} 字）。请按 1,279 本真人手机网文连载手感重写：每段多为 1 句（平均 25~38 字，不写百字大方块）、少打碎句号多用 2~4 个逗号把动作思绪一口气顺下来、自然高频用“什么/自己/没有/这个/知道/已经/怎么/时候/还是/不过”放松词汇密度、核心物件不轮换同义词、正常用“的”字、清零破折号并砍掉 AI 套路四件套；严守原有事实并将字数控制在 ${lengthLow}~${lengthHigh} 字，直接输出完整修订正文：\n\n` + draftText }
     ];
   }
 

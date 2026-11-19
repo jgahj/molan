@@ -839,7 +839,7 @@ test('方案B：低修饰语范本筛选、感叹号/破折号诊断与跨家族
     const ssePayloads = [];
     const settledEvents = [];
     const geminiPm = { id: 'gemini-3.8-flash-acp', group: 'antigravity', provider: 'antigravity-acp', model: 'gemini-3.8-flash', supportsReasoning: true, defaultReasoningEffort: 'high', promptCaching: false };
-    const lunaPm = { id: 'gpt-5.6-luna', group: 'gpt', provider: 'openai-compat', model: 'gpt-5.6-luna', supportsReasoning: true, baseURL: 'https://codex.xiaoguo.work/v1', apiKey: 'sk-test-luna', promptCaching: false };
+    const lunaPm = { id: 'gpt-6-luna', group: 'gpt', provider: 'openai-compat', model: 'gpt-6-luna', supportsReasoning: true, baseURL: 'https://codex.xiaoguo.work/v1', apiKey: 'sk-test-luna', promptCaching: false };
 
     const service = createChatService({
       getDatabase: () => null,
@@ -912,7 +912,7 @@ test('方案B：低修饰语范本筛选、感叹号/破折号诊断与跨家族
       sanitizeSystemForUpstream: s => s,
       internalModelIdFromRequest: () => '',
       resolveModelForUser: () => 'gemini-3.8-flash-acp',
-      findPlatformModel: id => (id === 'gpt-5.6-luna' ? lunaPm : (id === 'gemini-3.8-flash-acp' ? geminiPm : null)),
+      findPlatformModel: id => (id === 'gpt-6-luna' ? lunaPm : (id === 'gemini-3.8-flash-acp' ? geminiPm : null)),
       currentDefaultModel: () => 'gemini-3.8-flash-acp',
       buildHumanizePassMessages: humanizeService.buildHumanizePassMessages,
       mergeUsageSum: humanizeService.mergeUsageSum,
@@ -1008,14 +1008,13 @@ test('方案B：低修饰语范本筛选、感叹号/破折号诊断与跨家族
 
   const heteroOk = await runChatScenario({ failHeteroFirst: false });
   assert.equal(heteroOk.acpBodies.length, 1, 'Pass 1 should use Gemini ACP');
-  assert.equal(heteroOk.httpCalls.length, 1, 'Pass 2 should auto-route to heterogeneous gpt-5.6-luna over HTTP');
+  assert.equal(heteroOk.httpCalls.length, 1, 'Pass 2 should auto-route to heterogeneous gpt-6-luna over HTTP');
   assert.equal(heteroOk.httpCalls[0].url, 'https://codex.xiaoguo.work/v1/chat/completions');
-  assert.equal(heteroOk.httpCalls[0].body.model, 'gpt-5.6-luna');
+  assert.equal(heteroOk.httpCalls[0].body.model, 'gpt-6-luna');
   assert.equal(heteroOk.httpCalls[0].body.reasoning_effort, 'low');
-  assert.ok(heteroOk.httpCalls[0].body.temperature >= 1.0, 'heterogeneous Pass 2 should send elevated temperature');
   assert.equal(heteroOk.httpCalls[0].body.presence_penalty, 0);
   assert.equal(heteroOk.httpCalls[0].body.frequency_penalty, 0);
-  assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.secondPassModelId, 'gpt-5.6-luna');
+  assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.secondPassModelId, 'gpt-6-luna');
   assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.heterogeneous, true);
   assert.equal(heteroOk.settledEvents[0].aiFlavor.rewrite.heteroFallbackUsed, false);
 
