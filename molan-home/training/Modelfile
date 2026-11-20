@@ -1,0 +1,22 @@
+# Modelfile for Molan De-AI Novel Humanizer (Qwen2.5-7B LoRA Merged)
+# 用于将训练好的 GGUF 模型导入 Ollama 本地运行 (AMD 8845HS 核显 / CPU 秒级启动)
+
+FROM ./qwen2.5-7b-molan-q4_k_m.gguf
+
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>"""
+
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"
+
+# 采样与解码参数 (对齐 1,279 本真人小说高突发度分布)
+PARAMETER temperature 0.98
+PARAMETER top_p 0.92
+PARAMETER presence_penalty 0.0
+PARAMETER frequency_penalty 0.0
+PARAMETER num_ctx 4096

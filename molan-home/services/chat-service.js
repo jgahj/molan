@@ -847,6 +847,58 @@ function createChatService({
       let aiFlavorSecondPass = null;
       let firstPassCorrectionHits = 0;
       let rewriteMeta = null;
+      // 自检闸门（Self-check gate）：Pass 2 改写后若本地朱雀代理分未达标，自动再改最多 N 轮，
+      // 全程缓冲、只在收尾时把最优版本一次性下发，避免前端重复显示多轮稿。
+      const humanizeGateMaxRounds = (() => {
+        const raw = (input && input.humanizeGateMaxRounds) != null
+          ? input.humanizeGateMaxRounds
+          : (typeof getEnvironment === 'function' ? getEnvironment() : process.env).MOLAN_HUMANIZE_GATE_ROUNDS;
+        const n = Number(raw);
+        // 闸门默认关闭：仅在 input.humanizeGateMaxRounds 或 MOLAN_HUMANIZE_GATE_ROUNDS 显式配置时启用，
+        // 由启动脚本显式设为 2。这样未配置的测试/调用方保持单轮行为，零回归。
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(4, Math.floor(n)));
+      })();
+      let humanizeRound = 0;
+      let humanizeBestText = '';
+      let humanizeBestScore = Infinity;
+      let humanizeBestReport = null;
+      let humanizeRoundScores = [];
+      // 桥接：handleHumanizeRoundEnd 在 handleFirstPassEnd 外层，需要通过它触发下一轮闸门改写。
+      let relayHumanizeLaunch = null;
+      let humanizeUsageTotal = null;
+      const accumulateHumanizeUsage = () => {
+        const u = normalizeUsage(lastUsage);
+        if (u.totalTokens == null) return;
+        humanizeUsageTotal = humanizeUsageTotal
+          ? normalizeUsage(mergeUsageSum(humanizeUsageTotal, lastUsage))
+          : u;
+      };
+      // 本地朱雀代理“全绿”判定：AI 味分过低 + 无高危结构/词汇指纹。
+      // 与外部朱雀报告数值体系不同，这里只保证本地代理信号最优，不等同外部报告百分比。
+      const humanizeGateReached = report => {
+        if (!report) return false;
+        const score = Number(report.score) || 0;
+        const m = report.metrics || {};
+        const zq = m.zhuqueSignals || {};
+        const blockHits = Array.isArray(report.details && report.details.blockHits) ? report.details.blockHits.length : 0;
+        const glueHits = Array.isArray(report.details && report.details.llmGlueHits) ? report.details.llmGlueHits.length : 0;
+        const structural = Number(m.structuralRiskTotal) || 0;
+        const highGlue = Number(zq.llmGluePerKilo) >= 1.5;
+        const flatCadence = Boolean(zq.uniformCadenceRisk);
+        const compressedVocab = Boolean(zq.overCompressedVocabRisk);
+        const btr = Number(zq.bigramTtr);
+        const vocabOut = Number.isFinite(btr) && btr > 0 && (btr < 0.72 || btr > 0.9);
+        return Number.isFinite(score)
+          && score < 12
+          && blockHits === 0
+          && glueHits === 0
+          && structural === 0
+          && !highGlue
+          && !flatCadence
+          && !compressedVocab
+          && !vocabOut;
+      };
       // The reservation already holds the full cost of the safe output budget,
       // and max_tokens/max_completion_tokens is sent upstream as the hard cap.
       // Do not stop from a text-length estimate: CJK tokenization varies by
@@ -1065,8 +1117,9 @@ function createChatService({
           correctionAudit,
           characterMaterial
         };
+        const rewriteUsage = humanizeUsageTotal || lastUsage;
         const usage = twoPassHumanize
-          ? normalizeUsage(mergeUsageSum(firstPassUsage, lastUsage))
+          ? normalizeUsage(mergeUsageSum(firstPassUsage, rewriteUsage))
           : normalizeUsage(lastUsage);
         const settledStatus = status === 'completed' && upstreamFinishReason === 'length' ? 'truncated' : status;
         const finalStatus = settledStatus === 'completed' && characterMaterial.blocked
@@ -1403,12 +1456,17 @@ function createChatService({
           textureReport
         };
         const failedHeteroIds = new Set();
-        const launchSecondPass = (routeToUse, fallbackDepth = 0) => {
+        const launchSecondPass = (routeToUse, fallbackDepth = 0, gateDraftText = firstPassText, gateDiagnostics = diagSnapshot) => {
           const isFallbackRetry = fallbackDepth > 0;
-          const bodyForPass2 = buildSecondPassBody(firstPassText, diagSnapshot, routeToUse);
+          // 每轮改写前重置缓冲与用量，保证 streamedContentText 只含当前轮文本。
+          streamedContentText = '';
+          streamedOutputText = '';
+          lastUsage = null;
+          upstreamFinishReason = null;
+          const bodyForPass2 = buildSecondPassBody(gateDraftText, gateDiagnostics, routeToUse);
           const secondFallbackBody = routeToUse.isOpenAI && routeToUse.pm && routeToUse.pm.promptCaching && routeToUse.pm.promptCacheMode === 'explicit'
             ? (() => {
-              const copy = { ...bodyForPass2, messages: buildHumanizePassMessages(firstPassText, { genre: humanizeGenreForScan, targetChars: Number(input.targetChars || input.targetWords) || 0, ...diagSnapshot }) };
+              const copy = { ...bodyForPass2, messages: buildHumanizePassMessages(gateDraftText, { genre: humanizeGenreForScan, targetChars: Number(input.targetChars || input.targetWords) || 0, ...gateDiagnostics }) };
               delete copy.prompt_cache_key;
               delete copy.prompt_cache_options;
               return copy;
@@ -1418,10 +1476,10 @@ function createChatService({
             pass: 2,
             stage: isFallbackRetry ? 'second_pass_fallback' : 'second_pass',
             route: routeToUse,
-            attemptId: `${requestId}_att_p2_${isFallbackRetry ? 'fb' + fallbackDepth : '1'}_${Date.now()}`,
-            passthrough: true,
+            attemptId: `${requestId}_att_p2_${isFallbackRetry ? 'fb' + fallbackDepth : 'r' + humanizeRound}_${Date.now()}`,
+            passthrough: humanizeGateMaxRounds === 0,
             fallbackBody: secondFallbackBody,
-            onStreamEnd: handleSecondPassEnd,
+            onStreamEnd: humanizeGateMaxRounds === 0 ? handleSecondPassEnd : handleHumanizeRoundEnd,
             onError: (errReason, errDetail) => {
               if (fallbackDepth < 2 && routeToUse.modelId !== primaryRoute.modelId && !streamedContentText.trim()) {
                 failedHeteroIds.add(String(routeToUse.modelId || '').toLowerCase());
@@ -1436,28 +1494,147 @@ function createChatService({
               }
               console.warn(`[chat] second pass (${routeToUse.modelId}) failed (${errReason}${errDetail ? ': ' + errDetail : ''}), streamedChars=${streamedContentText.trim().length}`);
               if (!streamedContentText.trim()) {
-                streamedContentText = firstPassText;
-                streamedOutputText = firstPassText;
-                flushDraftAsSSE(firstPassText);
+                const fallbackText = humanizeBestText || firstPassText;
+                streamedContentText = fallbackText;
+                streamedOutputText = fallbackText;
+                flushDraftAsSSE(fallbackText);
                 rewriteMeta = {
-                  applied: 'failed',
+                  applied: humanizeBestText ? true : 'failed',
                   reason: errReason || 'upstream_error',
                   detail: errDetail || '',
-                  fallback: 'first_pass',
+                  fallback: humanizeBestText ? 'best_round' : 'first_pass',
                   secondPassModelId: routeToUse.modelId,
                   heterogeneous: routeToUse.modelId !== modelId,
-                  firstPassScore: aiFlavorFirstPass.score
+                  firstPassScore: aiFlavorFirstPass ? aiFlavorFirstPass.score : null,
+                  ...(humanizeBestText ? { gate: { enabled: humanizeGateMaxRounds > 0, roundsRun: humanizeRound, roundScores: humanizeRoundScores.slice(), selectedRound: humanizeRoundScores.indexOf(humanizeBestScore) + 1 } } : {})
                 };
               }
               finalizeUsage('completed');
             }
           });
         };
+        relayHumanizeLaunch = launchSecondPass;
         launchSecondPass(secondPassRoute, 0);
       }
 
       /**
-       * 第二遍（humanize 遍）流结束：对改写结果复检，记录两轮报告后收尾。
+       * humanize 遍单轮流结束（自检闸门）：
+       * 1) 累计本轮用量；2) 本地朱雀代理评分；3) 记录本轮为候选最优；
+       * 4) 达标或到达轮次上限 → 下发最优版本并收尾；5) 否则以本轮稿为 input 再改一轮。
+       * 全程缓冲，前端只在最终收到一次完整正文，避免多轮重复显示。
+       */
+      function handleHumanizeRoundEnd() {
+        if (finalized || responseClosed) return;
+        accumulateHumanizeUsage();
+        const roundText = String(streamedContentText || '');
+        humanizeRound += 1;
+        let secondCorrectionHits = null;
+        try {
+          if (roundText.trim() && typeof scanUniversalCorrectionRisks === 'function') {
+            const secondGenre = String((characterMaterialRequest && characterMaterialRequest.genre) || (materialHint && materialHint.genre) || (input && input.genre) || effectiveGenre || '').trim();
+            secondCorrectionHits = Number(scanUniversalCorrectionRisks(roundText, { genre: secondGenre, includeLibrary: true })?.findingCount) || 0;
+          }
+        } catch (_) {}
+
+        if (!roundText.trim()) {
+          // 本轮空输出：若已有更优候选则继续用它，否则回退初稿；不再空转迭代。
+          const fallbackText = humanizeBestText || firstPassText;
+          streamedContentText = fallbackText;
+          streamedOutputText = fallbackText;
+          flushDraftAsSSE(fallbackText);
+          rewriteMeta = {
+            applied: humanizeBestText ? true : 'fallback',
+            reason: 'empty_rewrite',
+            fallback: humanizeBestText ? 'best_round' : 'first_pass',
+            secondPassModelId: secondPassRoute.modelId,
+            heterogeneous: secondPassRoute.modelId !== modelId,
+            firstPassScore: aiFlavorFirstPass ? aiFlavorFirstPass.score : null,
+            gateRounds: humanizeRound - 1,
+            correctionHitsBefore: firstPassCorrectionHits
+          };
+          finalizeUsage('completed');
+          return;
+        }
+
+        const roundReport = computeAiFlavorScore(roundText, twoPassProfile);
+        const roundScore = Number(roundReport && roundReport.score) || 0;
+        humanizeRoundScores.push(roundScore);
+        aiFlavorSecondPass = roundReport; // 对外仍报告“第二遍/最终遍”的报告
+
+        // 择优：分数更低者为最优；同分时取纠错库命中更少者。
+        const isBetter = roundScore < humanizeBestScore
+          || (roundScore === humanizeBestScore && (secondCorrectionHits == null ? 0 : secondCorrectionHits) < (humanizeBestReport && humanizeBestReport.correctionHits != null ? humanizeBestReport.correctionHits : Infinity));
+        if (isBetter) {
+          humanizeBestText = roundText;
+          humanizeBestScore = roundScore;
+          humanizeBestReport = { score: roundScore, correctionHits: secondCorrectionHits, report: roundReport };
+        }
+
+        const gateReached = humanizeGateReached(roundReport);
+        // humanizeRound 从 1 开始计改写轮，maxRounds 表示“最多额外改写轮数”，故 >= 即到顶。
+        const roundsExhausted = humanizeRound >= humanizeGateMaxRounds;
+        console.log(`[chat] humanize gate round=${humanizeRound} score=${roundScore} best=${humanizeBestScore} reached=${gateReached} exhausted=${roundsExhausted} chars=${roundText.length}`);
+
+        if (!gateReached && !roundsExhausted && humanizeGateMaxRounds > 0) {
+          // 未达标：以本轮稿为 input、携带本轮实测诊断，再 targeted 改一轮（跨轮 prompt 逐步收紧）。
+          const nextDiagnostics = {
+            aiFlavorReport: roundReport,
+            correctionScan: (() => {
+              try {
+                const g = String((characterMaterialRequest && characterMaterialRequest.genre) || (materialHint && materialHint.genre) || (input && input.genre) || effectiveGenre || '').trim();
+                return typeof scanUniversalCorrectionRisks === 'function'
+                  ? scanUniversalCorrectionRisks(roundText, { genre: g, includeLibrary: true })
+                  : null;
+              } catch (_) { return null; }
+            })(),
+            textureReport: (() => {
+              try {
+                const g = String((characterMaterialRequest && characterMaterialRequest.genre) || (materialHint && materialHint.genre) || (input && input.genre) || effectiveGenre || '').trim();
+                return typeof analyzeHumanTexture === 'function' ? analyzeHumanTexture(roundText, { genre: g }) : null;
+              } catch (_) { return null; }
+            })()
+          };
+          if (typeof relayHumanizeLaunch === 'function') {
+            writeSseControlEvent('data: ' + JSON.stringify({
+              molan_rewrite: { phase: 'gate_retry', round: humanizeRound, score: roundScore, bestScore: humanizeBestScore }
+            }) + '\n\n');
+            relayHumanizeLaunch(secondPassRoute, 0, roundText, nextDiagnostics);
+            return;
+          }
+          // 桥接不可用时不再重试，走下方收敛分支下发当前最优。
+        }
+
+        // 收敛：下发最优版本（可能是某一历史轮），记录闸门元信息。
+        streamedContentText = humanizeBestText;
+        streamedOutputText = humanizeBestText;
+        aiFlavorSecondPass = humanizeBestReport.report;
+        flushDraftAsSSE(humanizeBestText);
+        rewriteMeta = {
+          applied: true,
+          secondPassModelId: secondPassRoute.modelId,
+          heterogeneous: secondPassRoute.modelId !== modelId,
+          heteroFallbackUsed: heteroFallbackAttempted,
+          firstPassScore: aiFlavorFirstPass ? aiFlavorFirstPass.score : null,
+          secondPassScore: humanizeBestScore === Infinity ? null : humanizeBestScore,
+          passedAfter: !!(humanizeBestReport && humanizeBestReport.report && humanizeBestReport.report.passed),
+          correctionHitsBefore: firstPassCorrectionHits,
+          ...(humanizeBestReport && humanizeBestReport.correctionHits != null ? { correctionHitsAfter: humanizeBestReport.correctionHits } : {}),
+          gate: {
+            enabled: humanizeGateMaxRounds > 0,
+            maxExtraRounds: humanizeGateMaxRounds,
+            roundsRun: humanizeRound,
+            reached: gateReached,
+            roundScores: humanizeRoundScores.slice(),
+            selectedRound: humanizeRoundScores.indexOf(humanizeBestScore) + 1
+          }
+        };
+        console.log(`[chat] two-pass+gate completed first=${modelId} second=${secondPassRoute.modelId} rounds=${humanizeRound} score=${aiFlavorFirstPass ? aiFlavorFirstPass.score : '?'}->${humanizeBestScore} reached=${gateReached} chars=${humanizeBestText.length}`);
+        finalizeUsage('completed');
+      }
+
+      /**
+       * 第二遍（humanize 遍）流结束——闸门关闭（humanizeGateMaxRounds===0）时的原始单轮收尾逻辑，
+       * 与闸门引入前逐字一致：改写结果已实时透传前端，这里只复检并记录报告后收尾。
        */
       function handleSecondPassEnd() {
         if (finalized || responseClosed) return;
@@ -1470,7 +1647,6 @@ function createChatService({
           }
         } catch (_) {}
         if (!streamedContentText.trim()) {
-          // 改写遍空输出：回退初稿，避免 empty_output。
           streamedContentText = firstPassText;
           streamedOutputText = firstPassText;
           flushDraftAsSSE(firstPassText);

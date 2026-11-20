@@ -541,6 +541,22 @@ const MODEL_REGISTRY = new Map([
     cjkTokenRatio: 0.75,
     nonCjkTokenRatio: 0.30
   }],
+  ['molan-humanizer-7b', {
+    modelId: 'molan-humanizer-7b',
+    displayName: '墨阑 1279本真人小说微调模型 (Qwen2.5-7B-LoRA)',
+    contextWindow: 32768,
+    maxOutputTokens: 8192,
+    supportsReasoning: false,
+    reasoningModes: [],
+    supportsJson: true,
+    supportsSeed: true,
+    supportsCaching: false,
+    supportsStream: true,
+    recommendedRole: 'humanizer',
+    tokenizer: 'qwen2.5',
+    cjkTokenRatio: 0.65,
+    nonCjkTokenRatio: 0.30
+  }],
   ['default', {
     modelId: 'default',
     displayName: '默认兜底配置',
@@ -572,7 +588,10 @@ const MODEL_ALIAS_MAP = {
   'grok4.5': 'grok-4.5',
   'grok45': 'grok-4.5',
   'grok4.6': 'grok-4.6',
-  'grok46': 'grok-4.6'
+  'grok46': 'grok-4.6',
+  'molan-humanizer': 'molan-humanizer-7b',
+  'qwen2.5-7b-lora': 'molan-humanizer-7b',
+  'molan-lora': 'molan-humanizer-7b'
 };
 
 /**

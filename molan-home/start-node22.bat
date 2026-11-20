@@ -8,6 +8,10 @@ if "%MOLAN_LOCAL_ONLY%"=="" set MOLAN_LOCAL_ONLY=1
 if "%MOLAN_LOCAL_OPEN_ACCESS%"=="" set MOLAN_LOCAL_OPEN_ACCESS=1
 if "%MOLAN_GENERATION_V2%"=="" set MOLAN_GENERATION_V2=1
 if "%MOLAN_TWO_PASS_HUMANIZE%"=="" set MOLAN_TWO_PASS_HUMANIZE=1
+rem 全程 gpt-6-luna：Pass 2 强制用 gpt-6-luna 改写；Pass 1 请在前端选 gpt-6-luna（默认模型由一个管理项控制，不在此处覆盖用户偏好）
+if "%MOLAN_HUMANIZE_MODEL_ID%"=="" set MOLAN_HUMANIZE_MODEL_ID=gpt-6-luna
+rem 自检闸门：Pass 2 改写后本地朱雀代理分未达标时额外再改的轮数（0=关闭，最多4）
+if "%MOLAN_HUMANIZE_GATE_ROUNDS%"=="" set MOLAN_HUMANIZE_GATE_ROUNDS=2
 
 set "LOCAL_PG_BIN=%LOCALAPPDATA%\molan-postgresql\pgsql-18.6\pgsql\bin"
 set "LOCAL_PG_DATA=%LOCALAPPDATA%\molan-postgresql\data-18.6"

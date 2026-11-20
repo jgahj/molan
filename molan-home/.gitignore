@@ -25,6 +25,7 @@ data/benchmark-local-runtime/
 data/benchmark-runs/
 data/corpus-build/
 data/strategy-knowledge-base/
+data/lora-training/train_*.json*
 
 # Local logs and temporary files
 *.log
