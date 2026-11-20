@@ -13,9 +13,8 @@ if "%MOLAN_LOCAL_ONLY%"=="" set MOLAN_LOCAL_ONLY=1
 if "%MOLAN_ALLOW_LOCAL_MODELS%"=="" set MOLAN_ALLOW_LOCAL_MODELS=1
 if "%MOLAN_LOCAL_OPEN_ACCESS%"=="" set MOLAN_LOCAL_OPEN_ACCESS=1
 if "%MOLAN_GENERATION_V2%"=="" set MOLAN_GENERATION_V2=1
-if "%MOLAN_TWO_PASS_HUMANIZE%"=="" set MOLAN_TWO_PASS_HUMANIZE=1
-rem 全程 gpt-6-luna：Pass 2 强制用 gpt-6-luna 改写；Pass 1 请在前端选 gpt-6-luna
-if "%MOLAN_HUMANIZE_MODEL_ID%"=="" set MOLAN_HUMANIZE_MODEL_ID=gpt-6-luna
-rem 自检闸门：本地朱雀代理分未达标时额外再改的轮数（0=关闭，最多4）
-if "%MOLAN_HUMANIZE_GATE_ROUNDS%"=="" set MOLAN_HUMANIZE_GATE_ROUNDS=2
+rem 恢复 10月4日 极质单遍起草模式：默认关闭两遍改写，如需开启传 1
+if "%MOLAN_TWO_PASS_HUMANIZE%"=="" set MOLAN_TWO_PASS_HUMANIZE=0
+rem 自检闸门：默认关闭（0）
+if "%MOLAN_HUMANIZE_GATE_ROUNDS%"=="" set MOLAN_HUMANIZE_GATE_ROUNDS=0
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-node22-pg.ps1"

@@ -1214,7 +1214,7 @@ function createGenerationService({
         ...input, projectId, novelId: input.novelId || projectId, modelId, prompt, userInstruction: input.userInstruction || prompt,
         ...(providerContextLimit ? { providerContextLimit } : {}),
         useCompositionV3: input.useCompositionV3 !== undefined ? input.useCompositionV3 : true,
-        twoPassHumanize: input.twoPassHumanize !== undefined ? input.twoPassHumanize : true,
+        twoPassHumanize: input.twoPassHumanize !== undefined ? Boolean(input.twoPassHumanize) : (process.env.MOLAN_TWO_PASS_HUMANIZE === '1'),
         enableQualityJudge: input.enableQualityJudge !== undefined ? input.enableQualityJudge : true,
         idempotencyKey: key
       });
@@ -1527,7 +1527,7 @@ function createGenerationService({
           modelId,
           ...(providerContextLimit ? { providerContextLimit } : {}),
           useCompositionV3: body.useCompositionV3 !== undefined ? body.useCompositionV3 : true,
-          twoPassHumanize: body.twoPassHumanize !== undefined ? body.twoPassHumanize : true,
+          twoPassHumanize: body.twoPassHumanize !== undefined ? Boolean(body.twoPassHumanize) : (process.env.MOLAN_TWO_PASS_HUMANIZE === '1'),
           enableQualityJudge: body.enableQualityJudge !== undefined ? body.enableQualityJudge : true,
           idempotencyKey: key
         });

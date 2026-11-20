@@ -5,6 +5,48 @@
 
 ---
 
+## 阶段记录：方案 A 落地——精准回退小说生成管线至 10 月 4 日黄金基线（单遍极质高张力起草，告别机械改写与套词灌水）(2026-11-20)
+
+> 背景与用户指示：用户上传了《桃花剑仙》（佳云泽“防封道”搞笑反差吐槽、顾凝欣千年无情道破防心动、云光仙子识海吃瓜）优质章节文本，并明确指示回退到生成该文本的黄金版本管线（对应 Git commit `741eebf`，2026-10-04 20:18:43）。用户拍板执行【方案 A】：精准回退提示词约束与生成管线，保留 10 月中旬以来的全部编辑器工作台、SQLite/PostgreSQL 持久化防崩溃与安全硬围栏等基础设施。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/start-node22.bat`<br>`molan-home/start-node22-pg.bat` | 启动脚本默认配置回退 | 1. 将 `MOLAN_TWO_PASS_HUMANIZE` 默认值从 `1` 改回 `0`，全面恢复 10月4日 单遍极质起草模式；<br>2. 移除强制 `MOLAN_HUMANIZE_MODEL_ID=gpt-6-luna`，解除模型锁死，用户可在前端自由选择任意模型（Gemini 3.8 Flash、GPT-6 Luna 等）；<br>3. 将自检闸门 `MOLAN_HUMANIZE_GATE_ROUNDS` 默认值从 `2` 改回 `0`（关闭闸门），消除多轮强制重写延迟。 |
+| `molan-home/services/humanize-policy-service.js` | 提示词边界纯净化回退 | 1. 彻底剔除 11 月中旬强加的机械化朱雀统计指标枷锁（“段均严格20~40字”、“强制清零破折号”、“必须反复灌入大水词‘什么/自己/没有/这个/知道/已经’”、“砍掉AI套路四件套”等）；<br>2. 恢复 10 月 4 日 11 条黄金文学修订边界：<br>   - 第 3 条：“保留人物自己的情绪与判断。直接心理、必要背景说明和明确转场都可使用……”；<br>   - 第 5 条：“删除重复而无效的情绪解释，不把普通词语出现当作错误，也不把所有情绪替换成咬牙、手抖等身体动作”；<br>   - 第 7 条：“保留对白中的关心、误会、尴尬、玩笑和直接请求，不强制每句话都有机锋或配微动作”；<br>   - 第 8 条：“短段和单句成段本身不是缺陷。按完整的动作、感受或思考分段，不强制每段句数，不为降低检测分机械合并或扩写”；<br>   - 第 9 条：“叙事节奏清爽凌厉，打破匀速平推（形成高困惑度与长短句剧烈落差）……”；<br>3. User 消息精简为原汁原味的自然指令，不再向大模型灌输“按网文手感拼凑大水词”的负向暗示。 |
+| `molan-home/services/chat-service.js` | 采样温度回归黄金区间 | Pass 2 改写温度从 1.04 强行高温回退至天然黄金采样温度（`0.82 ~ 0.85`），消除高温导致的逻辑涣散与人物失真；单遍主流程保持 `0.82`。 |
+| `molan-home/services/generation-service.js` | V2 管线默认起草解绑 | `twoPassHumanize` 参数默认逻辑由强行 `true` 改回 `Boolean(input.twoPassHumanize) || (process.env.MOLAN_TWO_PASS_HUMANIZE === '1')`，使单遍起草成为默认主流。 |
+
+### 二、设计决策与权衡
+
+1. **为什么 10 月 4 日的版本能写出高灵动感小说**：
+   - 在 10 月 4 日的 `741eebf` 基准中，系统全局默认停用两遍洗稿（`MOLAN_TWO_PASS_HUMANIZE=0`），采用“单遍极质高张力起草”。
+   - 模型在单遍写作中拥有连贯的上下文、统一的人物性格和从容的铺垫节奏。佳云泽内心独白（“老子修的是防封道啊！”）、顾凝欣纯情破防与娇嗔怒怼、云光仙子识海吃瓜的层次感得以浑然一体。
+   - 11 月中旬引入的朱雀指标机械约束（段均字数死限、禁止情绪定义、强制复现大水词）本质上是对文字的“统计学阉割”，导致生动诙谐的对白和内心戏被抹平为干瘪枯燥的机械流水账。
+2. **为什么不全部回退 Git Commit（方案 A 优于 方案 B/C）**：
+   - 10 月 4 日至今，系统沉淀了大量关键稳定性架构：Editor Workbench 多标签联动、划选浮动改写菜单、PostgreSQL/SQLite 双持久化引擎、任务租约防崩溃重试、以及安全隔离硬围栏；
+   - 若粗暴执行 `git reset --hard 741eebf`，将丢失上述全部健壮性资产，退回脆弱单库架构；
+   - 方案 A 精准剔除了提示词与洗稿配置中的畸形约束，保留全部工程健壮性底座，兼具“灵动文风”与“企业级稳定性”。
+
+### 三、真实验证证据
+
+- **语法检测**：
+  - `tools/node22_runtime/node.exe --check molan-home/services/chat-service.js`：SYNTAX OK
+  - `tools/node22_runtime/node.exe --check molan-home/services/generation-service.js`：SYNTAX OK
+  - `tools/node22_runtime/node.exe --check molan-home/services/humanize-policy-service.js`：SYNTAX OK
+- **专项测试验证**：
+  - `test/two-pass-humanize.test.js`：**7/7 pass, 0 fail (3476ms)**
+  - `test/humanize-gate.test.js`：**3/3 pass, 0 fail (867ms)**
+  - `test/correction-policy.test.js`：**10/10 pass, 0 fail (305ms)**
+  - `test/living-prose-optimization.test.js`：**18/18 pass, 0 fail (5051ms)**
+  - `test/lora-dataset-and-pipeline.test.js`：**6/6 pass, 0 fail (40ms)**
+- **全量无回归测试套件验证**：
+  - `tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "molan-home/test/*.test.js" "molan-home/test/*.test.mjs" "molan-home/test/*.test.cjs"`
+  - **`2478 tests / 74 suites / 2462 pass / 0 fail / 16 skipped`**（全部 2,478 项测试 0 失败，耗时 49.8s）。
+
+---
+
 ## 阶段记录：方案 2 落地——1,279 本真人小说全量微调数据集构建与 Qwen2.5-7B LoRA 云端/本地一体化训练与部署方案 (2026-11-20)
 
 > 背景与用户拍板：经过 14 轮朱雀实测与《桃花剑仙》PDF 报告对比（0% 红 / 14.14% 绿 / 85.86% 黄），证实通用闭源大模型（GPT-6 / Gemini-3.8）通过纯 Prompt 或高熵分块回译的物理极限是“稳定全黄（0% 红，0% 绿，AIGC 值 0.65~0.75）”，无法稳定突破 `< 0.50` 全绿大门。用户明确指示执行【方案 2】：基于 `资源库/小说原本` 的 1,279 本真人小说构建高突发度微调数据集，微调 Qwen2.5-7B 开源模型，从底层彻底重塑 Token 条件转移概率矩阵。

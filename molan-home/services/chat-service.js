@@ -1318,7 +1318,7 @@ function createChatService({
           : Math.min(maxBudget, Math.max(2048, Math.round(baseEstimate * 1.35)));
         const secondTemp = typeof input.humanizeTemperature === 'number' && Number.isFinite(input.humanizeTemperature)
           ? input.humanizeTemperature
-          : Math.max(typeof temperature === 'number' ? temperature : 0.85, 1.04);
+          : (typeof temperature === 'number' ? temperature : 0.85);
         // 实证发现 presence/frequency penalty 会逼迫模型做同义词避重（例如把“铁盒子”轮换为“旧铁箱/这东西”），
         // 反而暴露 AI 概率平滑指纹；清零罚项才能写出真人原著直白复现原词的自然节奏。
         const secondPresence = typeof input.humanizePresencePenalty === 'number' && Number.isFinite(input.humanizePresencePenalty)
