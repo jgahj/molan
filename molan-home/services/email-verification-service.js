@@ -68,10 +68,14 @@ function createEmailVerificationService({
       ? Boolean(await mailService.isConfigured())
       : false;
     const emailVerifyEnabled = explicit !== null ? explicit : emailConfigured;
+    const emailStatusReason = !emailConfigured && mailService && typeof mailService.getLastDiagnostic === 'function'
+      ? String(mailService.getLastDiagnostic() || '')
+      : '';
     return {
       registrationEnabled: true,
       emailVerifyEnabled,
       emailConfigured,
+      emailStatusReason,
       countdownSeconds: Math.max(1, Math.ceil(cooldownMs / 1000)),
       codeLength: 6,
       codeExpiresMinutes: Math.max(1, Math.round(codeTtlMs / 60000)),

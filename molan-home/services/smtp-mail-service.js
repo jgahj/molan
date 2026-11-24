@@ -1,5 +1,6 @@
 'use strict';
 
+const { execFile } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const net = require('node:net');
@@ -613,11 +614,27 @@ function readSub2ApiPgConnectionConfig(env, defaultEnvPaths) {
   };
 }
 
+function runDockerExec(args, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    execFile('docker', args, { timeout: timeoutMs, windowsHide: true, maxBuffer: 256 * 1024 }, (err, stdout, stderr) => {
+      if (err) {
+        const detail = String(stderr || err.message || 'docker exec failed').trim();
+        const wrapped = new Error(detail);
+        wrapped.code = err.code;
+        reject(wrapped);
+        return;
+      }
+      resolve(String(stdout || ''));
+    });
+  });
+}
+
 function createSmtpMailService({
   env = process.env,
   configFile = '',
   sub2apiEnvFiles,
   pgClientFactory = null,
+  dockerExecRunner = runDockerExec,
   sendTransport = sendSmtpEmailWithConfig,
   logger = console,
   now = () => Date.now(),
@@ -625,6 +642,7 @@ function createSmtpMailService({
   negativeCacheTtlMs = DEFAULT_SUB2API_NEG_CACHE_TTL_MS
 } = {}) {
   let sub2Cache = null; // { expiresAt, config }
+  let lastDiagnostic = '';
 
   const resolvedSub2EnvFiles = Array.isArray(sub2apiEnvFiles)
     ? sub2apiEnvFiles
@@ -659,6 +677,60 @@ function createSmtpMailService({
     }
   }
 
+  function buildConfigFromSub2SettingsMap(map, source) {
+    return normalizeSmtpConfig({
+      host: map.smtp_host,
+      port: map.smtp_port,
+      username: map.smtp_username,
+      password: map.smtp_password,
+      from: map.smtp_from,
+      fromName: env.MOLAN_SMTP_FROM_NAME || map.smtp_from_name,
+      useTLS: map.smtp_use_tls
+    }, source);
+  }
+
+  async function readSub2ApiDockerSmtpConfig(pgConfig) {
+    if (parseBoolFlag(env.MOLAN_SUB2API_DOCKER_DISABLE, false)) return { config: null, error: '' };
+    if (typeof dockerExecRunner !== 'function') return { config: null, error: '' };
+
+    const container = String(env.MOLAN_SUB2API_DOCKER_CONTAINER || 'sub2api-postgres').trim();
+    const user = String((pgConfig && pgConfig.user) || env.MOLAN_SUB2API_PG_USER || 'sub2api').trim();
+    const database = String((pgConfig && pgConfig.database) || env.MOLAN_SUB2API_PG_DATABASE || 'sub2api').trim();
+    const timeoutMs = Number(env.MOLAN_SUB2API_PG_TIMEOUT_MS) || DEFAULT_SUB2API_QUERY_TIMEOUT_MS;
+    const keyListSql = SUB2API_SMTP_KEYS.map(k => `'${k}'`).join(',');
+    const sql = `SELECT key, value FROM settings WHERE key IN (${keyListSql})`;
+
+    try {
+      const stdout = await dockerExecRunner(
+        ['exec', container, 'psql', '-U', user, '-d', database, '-AtF', '\t', '-c', sql],
+        timeoutMs
+      );
+      const map = {};
+      for (const rawLine of String(stdout || '').split(/\r?\n/)) {
+        if (!rawLine) continue;
+        const tab = rawLine.indexOf('\t');
+        if (tab <= 0) continue;
+        const key = rawLine.slice(0, tab).trim();
+        const val = rawLine.slice(tab + 1);
+        map[key] = val;
+      }
+      const config = buildConfigFromSub2SettingsMap(map, 'sub2api-docker');
+      if (!config) {
+        return { config: null, error: 'sub2api 数据库中尚未保存 SMTP 发信配置（smtp_host 为空）' };
+      }
+      return { config, error: '' };
+    } catch (error) {
+      const raw = String(error && error.message || '').trim();
+      if (/dockerDesktopLinuxEngine|cannot find the file|daemon is running|ENOENT|not recognized/i.test(raw)) {
+        return { config: null, error: '未检测到运行中的 Docker / sub2api-postgres 容器，请先启动 Docker 中的 sub2api，或在 data/config.json / 环境变量中配置 SMTP' };
+      }
+      if (/No such container|is not running/i.test(raw)) {
+        return { config: null, error: `Docker 容器 ${container} 未启动，请先启动 sub2api 容器` };
+      }
+      return { config: null, error: '无法通过 Docker 读取 sub2api SMTP 配置' };
+    }
+  }
+
   async function readSub2ApiDatabaseSmtpConfig() {
     const ts = now();
     if (sub2Cache && sub2Cache.expiresAt > ts) {
@@ -666,61 +738,71 @@ function createSmtpMailService({
     }
 
     const pgConfig = readSub2ApiPgConnectionConfig(env, resolvedSub2EnvFiles);
-    if (!pgConfig) {
+    if (!pgConfig && parseBoolFlag(env.MOLAN_SUB2API_PG_DISABLE, false)) {
+      lastDiagnostic = '未配置 MOLAN_SMTP_* 或 data/config.json smtp，且已禁用 sub2api 数据库回退';
       sub2Cache = { expiresAt: ts + negativeCacheTtlMs, config: null };
       return null;
     }
 
-    let client = null;
-    try {
-      if (typeof pgClientFactory === 'function') {
-        client = pgClientFactory(pgConfig);
-      } else {
-        const { Client } = require('pg');
-        client = new Client(pgConfig);
-      }
-      await client.connect();
-      const result = await client.query(
-        'SELECT key, value FROM settings WHERE key = ANY($1::text[])',
-        [SUB2API_SMTP_KEYS]
-      );
-      const map = {};
-      for (const row of (result && Array.isArray(result.rows) ? result.rows : [])) {
-        map[String(row.key || '')] = String(row.value || '');
-      }
-      const config = normalizeSmtpConfig({
-        host: map.smtp_host,
-        port: map.smtp_port,
-        username: map.smtp_username,
-        password: map.smtp_password,
-        from: map.smtp_from,
-        fromName: env.MOLAN_SMTP_FROM_NAME || map.smtp_from_name,
-        useTLS: map.smtp_use_tls
-      }, 'sub2api-pg');
-
-      sub2Cache = {
-        expiresAt: ts + (config ? cacheTtlMs : negativeCacheTtlMs),
-        config
-      };
-      return config;
-    } catch (error) {
-      if (logger && typeof logger.warn === 'function') {
-        logger.warn('[smtp] 无法从 sub2api PostgreSQL 读取 SMTP 配置：' + String(error && error.message || 'unavailable'));
-      }
-      sub2Cache = { expiresAt: ts + negativeCacheTtlMs, config: null };
-      return null;
-    } finally {
-      if (client && typeof client.end === 'function') {
-        try { await client.end(); } catch (_) {}
+    let tcpFailureReason = '';
+    if (pgConfig) {
+      let client = null;
+      try {
+        if (typeof pgClientFactory === 'function') {
+          client = pgClientFactory(pgConfig);
+        } else {
+          const { Client } = require('pg');
+          client = new Client(pgConfig);
+        }
+        await client.connect();
+        const result = await client.query(
+          'SELECT key, value FROM settings WHERE key = ANY($1::text[])',
+          [SUB2API_SMTP_KEYS]
+        );
+        const map = {};
+        for (const row of (result && Array.isArray(result.rows) ? result.rows : [])) {
+          map[String(row.key || '')] = String(row.value || '');
+        }
+        const config = buildConfigFromSub2SettingsMap(map, 'sub2api-pg');
+        if (config) {
+          lastDiagnostic = '';
+          sub2Cache = { expiresAt: ts + cacheTtlMs, config };
+          return config;
+        }
+        tcpFailureReason = 'sub2api PostgreSQL settings 表中未配置 smtp_host';
+      } catch (error) {
+        tcpFailureReason = String(error && error.message || 'unavailable');
+        if (logger && typeof logger.warn === 'function') {
+          logger.warn('[smtp] 无法通过 TCP 从 sub2api PostgreSQL 读取 SMTP 配置：' + tcpFailureReason);
+        }
+      } finally {
+        if (client && typeof client.end === 'function') {
+          try { await client.end(); } catch (_) {}
+        }
       }
     }
+
+    // 本地 Windows Docker Desktop 中 sub2api-postgres 默认不向宿主机暴露 5432/25432 端口，
+    // 自动回退到只读 docker exec 查询容器内 settings 表。
+    const dockerResult = await readSub2ApiDockerSmtpConfig(pgConfig);
+    if (dockerResult.config) {
+      lastDiagnostic = '';
+      sub2Cache = { expiresAt: ts + cacheTtlMs, config: dockerResult.config };
+      return dockerResult.config;
+    }
+
+    lastDiagnostic = dockerResult.error || (tcpFailureReason
+      ? '无法连接 sub2api 数据库读取 SMTP 配置，请确认 sub2api 已运行或在 data/config.json 配置 smtp'
+      : '未配置 SMTP 邮箱参数，请先配置 MOLAN_SMTP_*、data/config.json smtp 或启动 sub2api');
+    sub2Cache = { expiresAt: ts + negativeCacheTtlMs, config: null };
+    return null;
   }
 
   async function resolveSmtpConfig() {
     const fromEnv = readEnvSmtpConfig();
-    if (fromEnv) return fromEnv;
+    if (fromEnv) { lastDiagnostic = ''; return fromEnv; }
     const fromFile = readFileSmtpConfig();
-    if (fromFile) return fromFile;
+    if (fromFile) { lastDiagnostic = ''; return fromFile; }
     return readSub2ApiDatabaseSmtpConfig();
   }
 
@@ -728,10 +810,14 @@ function createSmtpMailService({
     return Boolean(await resolveSmtpConfig());
   }
 
+  function getLastDiagnostic() {
+    return lastDiagnostic;
+  }
+
   async function sendVerificationCodeEmail({ to, code, siteName = DEFAULT_FROM_NAME, expiresMinutes = 15 }) {
     const config = await resolveSmtpConfig();
     if (!config) {
-      const err = new Error('邮件服务尚未配置，请先配置 SMTP 或确认 sub2api 邮箱配置可用');
+      const err = new Error(lastDiagnostic || '邮件服务尚未配置，请先启动 sub2api 或配置 SMTP');
       err.status = 503;
       err.code = 'EMAIL_NOT_CONFIGURED';
       throw err;
@@ -749,11 +835,13 @@ function createSmtpMailService({
 
   function resetCache() {
     sub2Cache = null;
+    lastDiagnostic = '';
   }
 
   return {
     resolveSmtpConfig,
     isConfigured,
+    getLastDiagnostic,
     sendVerificationCodeEmail,
     resetCache
   };

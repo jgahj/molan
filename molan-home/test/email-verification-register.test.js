@@ -307,6 +307,56 @@ test('SMTP config resolution prioritizes env > config.json > sub2api PostgreSQL 
   }
 });
 
+test('SMTP config falls back to docker exec sub2api-postgres when TCP port 25432 collides or fails', async () => {
+  const failingPgFactory = () => ({
+    async connect() { throw new Error('password authentication failed for user "sub2api"'); },
+    async end() {}
+  });
+  let dockerCalls = 0;
+  let capturedArgs = null;
+  const mockDockerExec = async args => {
+    dockerCalls += 1;
+    capturedArgs = args;
+    return [
+      'smtp_host\tsmtp.qq.com',
+      'smtp_port\t465',
+      'smtp_username\t12345@qq.com',
+      'smtp_password\tauth-secret',
+      'smtp_from\t12345@qq.com',
+      'smtp_from_name\tSub2API',
+      'smtp_use_tls\ttrue'
+    ].join('\n');
+  };
+
+  const svc = createSmtpMailService({
+    env: { MOLAN_SUB2API_PG_HOST: '127.0.0.1', MOLAN_SUB2API_PG_PASSWORD: 'wrong-local-pg-pass' },
+    configFile: '',
+    pgClientFactory: failingPgFactory,
+    dockerExecRunner: mockDockerExec,
+    logger: { warn() {} }
+  });
+
+  const cfg = await svc.resolveSmtpConfig();
+  assert.equal(dockerCalls, 1);
+  assert.equal(capturedArgs[0], 'exec');
+  assert.equal(capturedArgs[1], 'sub2api-postgres');
+  assert.equal(cfg.source, 'sub2api-docker');
+  assert.equal(cfg.host, 'smtp.qq.com');
+  assert.equal(cfg.port, 465);
+  assert.equal(cfg.useTLS, true);
+  assert.equal(cfg.fromName, '墨阑 AI 小说');
+
+  const offlineSvc = createSmtpMailService({
+    env: { MOLAN_SUB2API_PG_HOST: '127.0.0.1', MOLAN_SUB2API_PG_PASSWORD: 'wrong' },
+    configFile: '',
+    pgClientFactory: failingPgFactory,
+    dockerExecRunner: async () => { throw new Error('open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.'); },
+    logger: { warn() {} }
+  });
+  assert.equal(await offlineSvc.resolveSmtpConfig(), null);
+  assert.match(offlineSvc.getLastDiagnostic(), /Docker/);
+});
+
 test('email verification service enforces cooldown, expiry, 5-attempt lockout, single-use, and failure rollback', async () => {
   let clock = 1_700_000_000_000;
   let shouldFailSend = false;

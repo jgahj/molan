@@ -5,6 +5,30 @@
 
 ---
 
+## 阶段记录：修复本地注册跳过邮箱验证码问题——补齐 sub2api Docker 容器回退与强制校验开关 (2026-11-24)
+
+> 背景：用户实测本地 `http://127.0.0.1:3000` 注册时未发送邮箱验证码。实机根因排查确认两点：① 本机 `127.0.0.1:25432` 被无关软件 `OSService\public\pgsql` 占用（报 `password authentication failed for user "sub2api"`），且本地 `sub2api/deploy/docker-compose.yml` 中的 `sub2api-postgres` 容器默认不向宿主机暴露 5432/25432 端口，当时 Docker Desktop 也处于 Stopped 状态、ECS `8.138.128.184` 不可达；② `start-node22.bat` / `start-node22-pg.bat` 未显式设置 `MOLAN_EMAIL_VERIFY_ENABLED=1`，导致 SMTP 未连通时 `getPolicy()` 自动将 `emailVerifyEnabled` 降级为 `false` 从而静默跳过验证码步骤。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/smtp-mail-service.js` | 新增 Docker 容器回退与诊断 | 在 TCP 直连 `sub2api` PG 失败（如 Windows 25432 端口冲突或本地 Docker 未暴露端口）时，自动回退执行只读 `docker exec sub2api-postgres psql -AtF "\t"` 读取 `settings` 表 SMTP 参数；新增 `getLastDiagnostic()` 输出不含密钥的中文诊断信息（如提示 Docker Desktop / `sub2api-postgres` 未启动）。 |
+| `molan-home/services/email-verification-service.js` | 透传非敏感诊断 | `getPolicy()` 新增 `emailStatusReason` 字段，通过 `GET /api/auth/register-config` 透传给前端提示。 |
+| `molan-home/start-node22.bat`<br>`molan-home/start-node22-pg.bat`<br>`molan-home/start-node22-pg.ps1` | 启动强制开启验证与隧道避让 | 两个启动脚本默认设置 `MOLAN_EMAIL_VERIFY_ENABLED=1`，杜绝本地运行态静默绕过邮箱验证码；`start-node22-pg.ps1` 额外转发 `127.0.0.1:25433 -> 127.0.0.1:25432` 并默认 `MOLAN_SUB2API_PG_PORT=25433`，避开 Windows 本机 25432 冲突。 |
+| `molan-home/pages/js/register.js`<br>`molan-home/completion-platform.js`<br>`molan-home/boot-head.js` / `boot-scripts.js` / `index.html` / `pages/*.html` | 前端诊断展示与版本戳升级 | SPA 与独立注册页优先展示服务端返回的 `emailStatusReason`；缓存版本戳统一升级至 `20261124_smtp_docker_v1`。 |
+| `molan-home/scripts/sync-sub2api-smtp.mjs` | 新增同步工具 | 一键只读提取运行中 `sub2api`（TCP 或 Docker）的 SMTP 配置并写入 `.gitignore` 忽略的 `data/config.json`（绝不打印密码），同步一次后即使关闭 Docker Desktop 墨阑仍可独立发码。 |
+| `molan-home/test/email-verification-register.test.js` | 新增回归断言 | 新增 1 项专项测试：模拟 Windows `25432` 冲突触发 `docker exec sub2api-postgres` 回退成功解析 SMTP，以及 Docker 未启动时返回准确诊断信息。 |
+
+### 二、真实验证证据
+
+- **语法与门禁**：`node.exe --check` 全部通过；`production-import-audit.mjs`（238 文件，exit=0）；`check-frontend-stamp.mjs`（`20261124_smtp_docker_v1`，exit=0）。
+- **专项测试**：`test/email-verification-register.test.js` + `test/csp-tightening.test.js` → **12/12 pass, 0 fail (1.24s)**。
+- **全量回归**：`tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"` → **`2498 tests / 74 suites / 2482 pass / 0 fail / 16 skipped`（耗时 41.2s，基线 2497 → +1）**。
+- **实机服务复验**：重启本地 `start-node22.bat` 后实测 `GET http://127.0.0.1:3000/api/auth/register-config` 返回 `emailVerifyEnabled: true`、`emailConfigured: false`、`emailStatusReason: "未检测到运行中的 Docker / sub2api-postgres 容器..."`，不再静默跳过邮箱验证。
+
+---
+
 ## 阶段记录：全站 UI 细节系统性打磨、信息架构精简、登录注册一体化整合与墨阑设计体系深度统一 (2026-11-24)
 
 > 背景：基于 `pages/tokens.css` 墨阑文人水墨风单一真源（Light/Dark），分三步完成全站视觉打磨、信息架构极简提效与登录注册一体化整合：第一轮彻底修复深浅色对比度、跨页风格割裂、按钮遮挡、图标缺失与旧版滤镜冲突；第二轮按渐进式披露原则完成编辑器三栏默认与专注写作模式、顶栏「更多」收纳、AI 侧栏分层与双列参数、一屏侧栏折叠 + 全局 `Ctrl+K` 快速命令面板、以及双工作台默认作家视图；第三轮将「6 位邮箱验证码两步注册 + 密码登录」完整打通到主工作台 SPA（`#login` / `#register` / `#account` / 顶栏 / 侧栏 / `Ctrl+K`）与独立子页，统一缓存戳至 `20261124_ui_auth_v3`，同时 100% 保持主体内容与测试契约零破坏。

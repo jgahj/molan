@@ -231,7 +231,7 @@
         if (cfg.codeExpiresMinutes) state.expiresMinutes = Number(cfg.codeExpiresMinutes) || 15;
         renderStep();
         if (state.emailVerifyEnabled && !state.emailConfigured) {
-          setTip('当前已开启邮箱验证，但尚未检测到可用的 SMTP 邮箱配置，请确认 sub2api 邮箱配置或环境变量。', 'error');
+          setTip(cfg.emailStatusReason || '当前已开启邮箱验证，但尚未检测到可用的 SMTP 邮箱配置，请先启动 sub2api 或在 data/config.json 中配置 smtp。', 'error');
         }
       })
       .catch(function () {

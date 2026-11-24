@@ -22,6 +22,7 @@ $sshPath = (Get-Command ssh.exe -ErrorAction Stop).Source
 $sshArguments = @(
   '-N',
   '-L', "127.0.0.1:${port}:127.0.0.1:5432",
+  '-L', '127.0.0.1:25433:127.0.0.1:25432',
   '-o', 'BatchMode=yes',
   '-o', 'ExitOnForwardFailure=yes',
   '-o', 'ServerAliveInterval=30',
@@ -31,6 +32,7 @@ $sshArguments = @(
   '-i', $sshKey,
   'root@8.138.128.184'
 )
+if (-not $env:MOLAN_SUB2API_PG_PORT) { $env:MOLAN_SUB2API_PG_PORT = '25433' }
 $tunnel = $null
 
 try {

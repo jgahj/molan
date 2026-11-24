@@ -573,11 +573,12 @@
         s.auth.emailConfigured = Boolean(cfg && cfg.emailConfigured);
         if (cfg && cfg.countdownSeconds) s.auth.countdownSeconds = Number(cfg.countdownSeconds) || 60;
         if (cfg && cfg.codeExpiresMinutes) s.auth.expiresMinutes = Number(cfg.codeExpiresMinutes) || 15;
+        s.auth.emailStatusReason = String((cfg && cfg.emailStatusReason) || '');
         s.auth.configLoaded = true;
         if (currentPage === 'login') {
           renderAuth();
           if (s.auth.mode === 'register' && s.auth.emailVerifyEnabled && !s.auth.emailConfigured) {
-            setAuthNotice('当前已开启邮箱验证，但尚未检测到可用的 SMTP 邮箱配置，请确认邮箱配置或环境变量。', 'error');
+            setAuthNotice(s.auth.emailStatusReason || '当前已开启邮箱验证，但尚未检测到可用的 SMTP 邮箱配置，请先启动 sub2api 或配置邮箱参数。', 'error');
           }
         }
       })
