@@ -26,6 +26,17 @@
   --amber-bg: #fff7ea;
   --danger: #ae3d3d;
   --danger-bg: #fff0f0;
+  --danger-line: #eccaca;
+
+  /* 语义反色与表面阶梯（保障深浅模式对比度） */
+  --ink-inverted: #ffffff;
+  --surface-header: rgba(255, 255, 255, .95);
+  --surface-active: #f0f0ed;
+  --surface-dark-card: #0a0a0a;
+  --surface-dark-card-soft: #1e1e1c;
+  --blog-cover-1: #e8e5dd;
+  --blog-cover-2: #dfe6e2;
+  --blog-cover-3: #e1e3e8;
 
   /* 投影与微质感 */
   --shadow-sm: 0 1px 2px rgba(17, 17, 15, .04);
@@ -72,10 +83,14 @@
   /* 向前兼容：历史 --molan-* 别名映射 */
   --molan-ink: var(--ink);
   --molan-ink-soft: var(--ink-soft);
+  --molan-ink-inverted: var(--ink-inverted);
   --molan-paper: var(--paper);
   --molan-paper-warm: var(--paper-warm);
   --molan-card: var(--card);
   --molan-canvas: var(--canvas);
+  --molan-surface-header: var(--surface-header);
+  --molan-surface-active: var(--surface-active);
+  --molan-surface-dark-card: var(--surface-dark-card);
   --molan-line: var(--line);
   --molan-line-strong: var(--line-strong);
   --molan-muted: var(--muted);
@@ -88,6 +103,7 @@
   --molan-amber-bg: var(--amber-bg);
   --molan-danger: var(--danger);
   --molan-danger-bg: var(--danger-bg);
+  --molan-danger-line: var(--danger-line);
   --molan-shadow: var(--shadow);
   --molan-sans: var(--sans);
   --molan-serif: var(--serif);
@@ -110,23 +126,32 @@ html.dark,
   --ink: #f2f2ed;
   --ink-soft: #d7d7d0;
   --ink-light: #aaa9a1;
+  --ink-inverted: #171716;
   --paper: #242422;
   --paper-warm: #2b2b28;
   --card: #282825;
   --canvas: #171716;
+  --surface-header: rgba(28, 28, 26, .95);
+  --surface-active: #32322f;
+  --surface-dark-card: #111110;
+  --surface-dark-card-soft: #262623;
+  --blog-cover-1: #2b2925;
+  --blog-cover-2: #232b28;
+  --blog-cover-3: #24272e;
   --line: #3b3b37;
   --line-strong: #55554f;
-  --muted: #aaa9a1;
-  --muted-light: #7f7f78;
-  --green: #62c799;
-  --green-bg: #1e3528;
-  --blue: #7ba3e8;
-  --blue-bg: #202d40;
-  --amber: #f0b86e;
-  --amber-bg: #3b2e1d;
-  --danger: #e57373;
-  --danger-bg: #3b2020;
-  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  --muted: #b0afa7;
+  --muted-light: #87867e;
+  --green: #74d4a8;
+  --green-bg: #1a3326;
+  --blue: #9cc2ff;
+  --blue-bg: #1f2e45;
+  --amber: #f5c47c;
+  --amber-bg: #3a2d1b;
+  --danger: #f28b8b;
+  --danger-bg: #3d2121;
+  --danger-line: #6b3535;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .38);
   color-scheme: dark;
 }
 

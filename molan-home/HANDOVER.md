@@ -5,6 +5,143 @@
 
 ---
 
+## 阶段记录：全站 UI 细节系统性打磨、信息架构精简、登录注册一体化整合与墨阑设计体系深度统一 (2026-11-24)
+
+> 背景：基于 `pages/tokens.css` 墨阑文人水墨风单一真源（Light/Dark），分三步完成全站视觉打磨、信息架构极简提效与登录注册一体化整合：第一轮彻底修复深浅色对比度、跨页风格割裂、按钮遮挡、图标缺失与旧版滤镜冲突；第二轮按渐进式披露原则完成编辑器三栏默认与专注写作模式、顶栏「更多」收纳、AI 侧栏分层与双列参数、一屏侧栏折叠 + 全局 `Ctrl+K` 快速命令面板、以及双工作台默认作家视图；第三轮将「6 位邮箱验证码两步注册 + 密码登录」完整打通到主工作台 SPA（`#login` / `#register` / `#account` / 顶栏 / 侧栏 / `Ctrl+K`）与独立子页，统一缓存戳至 `20261124_ui_auth_v3`，同时 100% 保持主体内容与测试契约零破坏。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/pages/tokens.css`<br>`molan-home/pages/shell.css`<br>`molan-home/index.html`<br>`molan-home/boot-head.js`<br>`molan-home/boot-scripts.js` | 语义令牌、极简布局与版本戳升级 | 1. 新增三层语义令牌 `--ink-inverted`、`--surface-header`、`--surface-active`、`--surface-dark-card`、`--danger-line`、`--blog-cover-1/2/3`，根治深色模式下 12+ 处白字白底隐患；<br>2. 新增 `.editor-preview.zen-mode`（740px 居中专注稿纸）、`.editor-more-menu`（顶栏二级分组菜单）、`.ai-params-grid`（2×2 紧凑参数网格）、`.chat-chip-groups`（双行防裁切分层芯片）、`.side-more-group`（侧栏次级折叠区）、`.cmdk-backdrop/.cmdk-dialog`（全局 `Ctrl+K` 命令面板）以及 `.top-auth-group`/`.auth-steps`/`.auth-code-input`（登录注册两步验证样式）；<br>3. 侧栏从 5 组 19 项精简为「创作中心 / 当前作品资料 / 效率工具」+ 可折叠「更多与账户服务」（含普通用户登录 + 注册新账号），常规 1280×800 屏幕一屏免滚动；顶栏新增 `快速跳转 Ctrl K` 与未登录态 `#topAuthActions`（登录/注册直达）；全站前端缓存版本戳统一升级至 `20261124_ui_auth_v3`。 |
+| `molan-home/app-boot.js`<br>`molan-home/completion-editor.js`<br>`molan-home/completion-platform.js` | 编辑器三栏/专注模式、`Ctrl+K` 与 SPA 登录注册闭环 | 1. **编辑器默认三栏 + 专注写作模式**：`#editorWorkbenchDock` 默认折叠，释放 +300px 正文空间；顶栏从 23 个平铺按钮精简为核心高频项 + `#editorMoreMenu` 二级分组弹窗（排版/质检与档案/文件与返回）；新增 `toggleEditorZenMode()`（`Ctrl+\` 切换 / `Esc` 退出）；<br>2. **AI 侧栏分层与双列参数**：输入框上方拆清“上下文开关行”与“快捷指令行”，彻底消除横向裁切；`创作参数` 抽屉将锁死的写作预设收敛为单行只读标识，高频 4 项改为 2×2 紧凑网格；补全三大 AI 侧栏视图 `mountIconsSafe()`，修复双对勾、双绑定与窄屏 `resize` 自动收拢；<br>3. **SPA 登录注册一体化闭环**：`completion-platform.js` 升级 `loginPage()`/`renderAuth()`/`authSubmit()`/`resendAuthCode()`，自动查询 `GET /api/auth/register-config`，支持 6 位邮箱验证码两步注册（`POST /api/auth/send-verify-code` + 60s 倒计时重发 + `429 retryAfter` 平滑接管 + `verifyCode` 校验提交）与离线直连注册兼容；新增 `window.MolanOpenAuth(mode)`、`#register` 路由别名、`#account` 动态标题与登录安全区“切换账号/注册新账号”入口；`app-boot.js` `Ctrl+K` 命令面板内置「登录 / 切换账号」与「注册新账号」直达项并透传 `error.retryAfter`。 |
+| `molan-home/pages/molan-shell.js`<br>`molan-home/pages/molan-ui.css`<br>`molan-home/pages/auth.css`<br>`molan-home/pages/js/login.js`<br>`molan-home/pages/js/register.js`<br>`molan-home/pages/site.js` | 独立子页 Shell / 认证页深度统一 | 1. `molan-shell.js` 同步三核心区 + 折叠次级导航（补齐 `register.html` 入口），自动恢复并跨标签同步 `molan_theme`（兼容 `'dim'`/`'dark'`），补齐头像首字母回退；<br>2. `auth.css`、`login.js`、`register.js` 对齐 `tokens.css` 语义令牌（`--surface-header` / `--ink-inverted` / `--surface-dark-card`），同时兼容 `body.theme-dim` 与 `html.dark` 并支持跨标签页 `storage` 主题实时同步；<br>3. `molan-ui.css` 完整覆盖独立页及登录页深色高对比样式；`site.js` 移除旧版 `filter: invert(1)` 暗色滤镜冲突，修复登录页错误提示暗色对比度与密码显隐图标切换，教程注册引导链接直指 `./register.html`。 |
+| `molan-home/pages/project-docs.html`<br>`molan-home/pages/project-docs.css`<br>`molan-home/pages/project-docs.js`<br>`molan-home/pages/story-workbench.html`<br>`molan-home/pages/story-workbench.css`<br>`molan-home/pages/story-workbench.js` | 嵌入式双工作台去绿换墨 + 默认作家视图 | 1. 彻底替换历史森林绿主题为 `tokens.css` 水墨风，实时同步宿主深浅色，嵌入 iframe 时自动折叠冗余顶栏；<br>2. `project-docs.html` 编辑弹窗将 18 行原始 `JSON 资料负载` 收纳进 `<details class="docs-advanced-box">`；`story-workbench.html` 将底层投影同步、补偿撤销与事件日志折叠进 `<details>`，并将 `not_found` 映射为友好中文提示。 |
+| `molan-home/pages/docs.html`<br>`molan-home/pages/blog.html`<br>`molan-home/pages/pricing.html`<br>`molan-home/pages/tools.html`<br>`molan-home/pages/admin-login.html`<br>`molan-home/pages/js/admin-login.js`<br>`molan-home/test/email-verification-register.test.js` | 独立页精修与自动化契约锁死 | 修复 `docs.html`/`blog.html` 浅色模式激活态“全部”按钮白字白底、收敛 `pricing.html` 重复面包屑与状态框内边距、隐藏 `tools.html` 分类栏滚动条并统一水墨 CTA、修正 `admin-login.html` 样式加载顺序与主题同步；新增 SPA 两步注册与全局登录注册入口断言测试（7 项）。 |
+
+### 二、设计决策与权衡
+
+1. **三层语义反色令牌 + 渐进式披露**：既从根源一次性解决深色模式反色对比度问题，又通过“默认三栏 + 顶栏二级菜单 + 侧栏次级折叠 + 作家视图折叠 JSON”在不删除任何功能的前提下显著降低界面噪音。
+2. **主工作台 SPA 与独立认证页双轨统一**：用户在主工作台可通过顶栏、`Ctrl+K`、侧栏折叠区或 `#account` 安全页直接完成登录/两步邮箱验证注册，同时保留 `pages/login.html` 与 `pages/register.html` 独立直达页，两端共享同一套 `/api/auth/register-config`、`/api/auth/send-verify-code`、`/api/auth/register` 契约与墨阑宣纸墨黑设计体系。
+3. **零破坏兼容既有测试与 CSP 门禁**：完整保留 `workbench-editor-fusion.test.js`、`memory-workbench-integration.test.js`、`deai-tool-stop-slop.test.js`、`creation-main-flow.test.js`、`project-material-schema.test.js`、`email-verification-register.test.js` 与 `csp-tightening.test.js` 的全部 DOM/文案/零内联脚本契约。
+
+### 三、真实验证证据
+
+- **语法、导入隔离与版本戳门禁**：
+  - 全部修改脚本 `tools/node22_runtime/node.exe --check` → 全部 `SYNTAX OK`；
+  - `scripts/check-frontend-stamp.mjs` → 退出码 `0`（统一版本戳 `20261124_ui_auth_v3`）；
+  - `scripts/production-import-audit.mjs` → 已扫描 238 文件，退出码 `0`。
+- **全量与专项自动化测试**：
+  - 全量无回归套件：`tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "molan-home/test/*.test.js" "molan-home/test/*.test.mjs" "molan-home/test/*.test.cjs"` → **`2497 tests / 74 suites / 2481 pass / 0 fail / 16 skipped`**（耗时 `46.4s`，较前基线 `2496` 新增 +1 项 SPA 登录注册集成断言）；
+  - 最终微调后 6 套件复跑（`email-verification-register`、`csp-tightening`、`feature-audit`、`workbench-editor-fusion`、`memory-workbench-integration`、`deai-tool-stop-slop`）→ **`63 tests / 63 pass / 0 fail`**。
+- **实机服务与浏览器视觉复验（`http://127.0.0.1:3000`）**：
+  - 重启本地 Node 22 服务后实测 `GET /api/auth/register-config` → `200 OK` JSON；
+  - 实机浏览器核验通过：侧栏一屏免滚动、`Ctrl+K` 检索「登录 / 切换账号」与「注册新账号」、SPA `#login` 登录/注册两 tab（深浅色）、`#account` 登录安全入口、独立 `pages/login.html` 与 `pages/register.html` 深浅色视觉与零控制台错误。
+
+---
+
+## 阶段记录：结合 sub2api 邮箱验证注册体系 + 主页一致宣纸墨黑风登录/注册页 (2026-11-24)
+
+> 背景：用户确认三项架构决策：① 采用与 `sub2api` 一致的「6 位邮箱数字验证码」两步注册流（提交邮箱密码后自动发码，输入 6 位码完成注册）；② 方案 A 复用 `sub2api` SMTP 配置（环境变量/本地配置优先，自动只读回退查询同机 `sub2api` PostgreSQL `settings` 表）；③ 将 `login.html` 与独立 `register.html` 统一升级为主页 `index.html` 的宣纸墨黑文人风格（含 `theme-dim` 暗色同步）。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/smtp-mail-service.js` | 新增零依赖邮件服务 | `createSmtpMailService`、`sendSmtpEmailWithConfig`、`buildSMTPMessage`、`buildVerifyCodeEmailHtml`。纯 Node.js（`node:net`/`node:tls`）实现 SMTP 客户端，复刻 `sub2api` 连接策略（`useTLS=true` 先试隐式 TLS 465，遇明文问候自动强制升级 STARTTLS 587；`useTLS=false` 机会式 STARTTLS；支持 `AUTH PLAIN` + `AUTH LOGIN` 回退、防 CRLF 邮件头注入、UTF-8 MIME 标题与 Base64 墨阑宣纸风 HTML 邮件）。SMTP 配置按 `MOLAN_SMTP_*` → `data/config.json` `smtp` → 自动只读回退查询 `sub2api` PG `settings` 表（`smtp_host/port/username/password/from/from_name/use_tls`，60s 缓存，自动将 `Sub2API` 发件名品牌化为 `墨阑 AI 小说`）。 |
+| `molan-home/services/email-verification-service.js` | 新增验证码服务 | `createEmailVerificationService`、`generateSixDigitCode`。`crypto.randomInt` 生成 6 位数字码、15 分钟过期、60 秒冷却（`429` + `retryAfter`）、最多 5 次试错锁废、`crypto.timingSafeEqual` 常量时间比对、发信失败自动回滚不误锁冷却；`getPolicy()` 实现自动/显式模式开关（`MOLAN_EMAIL_VERIFY_ENABLED`）。 |
+| `molan-home/services/auth-account-service.js`<br>`molan-home/routes/auth.js`<br>`molan-home/server.js` | 认证接口扩展 | 新增 `GET /api/auth/register-config`、`POST /api/auth/send-verify-code`（发码前校验邮箱未注册，避免已注册邮箱消耗发信额度，返回 `409`）；`POST /api/auth/register` 支持 `verifyCode`/`verify_code` 校验，开启邮箱验证且未配置 SMTP 时 fail-closed 返回 `503`，离线测试无 SMTP 时保持向后兼容。`server.js` 仅修改 4979/5760 行附近，不触碰 `production-import-audit.mjs` 行号白名单锚点。 |
+| `molan-home/pages/auth.css`<br>`molan-home/pages/register.html`<br>`molan-home/pages/js/register.js`<br>`molan-home/pages/login.html`<br>`molan-home/pages/js/login.js`<br>`molan-home/pages/site.js` | 统一宣纸墨黑 UI 与两步注册交互 | 新建 `pages/auth.css` 与独立注册页 `pages/register.html` + `pages/js/register.js`，同步升级 `pages/login.html` + `pages/js/login.js`：复用 `tokens.css` 与主页同款顶栏、深墨 `"墨"` 字水印概览板、`6px` 表单控件与 `molan_theme` (`theme-dim`) 暗色同步。注册页自动探测 `/api/auth/register-config`：Step 1 填写邮箱/昵称/密码/确认密码后点击提交即自动发码并切入 Step 2（6 位等宽验证码框、支持粘贴清洗、60s 倒计时重发、返回修改邮箱）。全部脚本外移满足零内联 CSP。 |
+| `molan-home/boot-head.js`<br>`molan-home/boot-scripts.js`<br>`molan-home/index.html`<br>`molan-home/pages/*.html`<br>`molan-home/scripts/check-frontend-stamp.mjs` | 缓存戳同步 | 统一升级前端缓存版本戳至 `20261124_emailverify_v1`，并将 `pages/auth.css` 与 `pages/js/register.js` 纳入 `STAMPED_ASSETS` 门禁。 |
+| `molan-home/test/email-verification-register.test.js` | 新增专项测试 | 6 项测试：SMTP 邮件头防注入与 HTML 渲染、本地真实 TCP Mock SMTP 服务器 `AUTH PLAIN` + `AUTH LOGIN` 端到端发信、`env > config.json > sub2api PG` 配置优先级与缓存、验证码冷却/过期/5 次试错锁废/单次消费/发信失败回滚、认证路由闭环与 fail-closed/向后兼容、页面 UI/CSP/暗色主题结构断言。 |
+
+### 二、设计决策与权衡
+
+1. **零新增 npm 依赖复用 `sub2api` SMTP**：采用 Node.js 原生 `node:net`/`node:tls` SMTP 客户端 + 既有 `pg` 依赖只读查询 `sub2api` `settings` 表，不引入第三方邮件库，离线打包与 ECS 部署零额外依赖；同时避免 HTTP 代理调用 `sub2api` 发码接口导致的跨系统用户表冲突与品牌错位。
+2. **Fail-Closed 安全与零回归兼得**：检测到有效 SMTP 配置或显式设置 `MOLAN_EMAIL_VERIFY_ENABLED=1` 时强制校验 6 位邮箱验证码（无 SMTP 时拒绝绕过返回 `503`）；在本地无 SMTP 的既有 PG 集成测试环境中自动兼容原有直连注册，确保既有 2,490 项测试零回归。
+3. **不把密钥写进仓库**：`sub2api` PG 密码仅从运行期环境变量（`MOLAN_SUB2API_DATABASE_URL` / `MOLAN_SUB2API_PG_PASSWORD`）或运行主机上的 `MOLAN_SUB2API_ENV_FILE`（默认探查 `/opt/sub2api/deploy/.env` 等路径）动态读取，绝不硬编码入代码。
+
+### 三、真实验证证据
+
+- **语法检查**：`tools/node22_runtime/node.exe --check` 覆盖 `server.js`、`routes/auth.js`、`services/smtp-mail-service.js`、`services/email-verification-service.js`、`services/auth-account-service.js`、`pages/js/login.js`、`pages/js/register.js`、`pages/site.js`、`test/email-verification-register.test.js` → 全部 `SYNTAX OK`。
+- **专项测试**：`tools/node22_runtime/node.exe --no-warnings --test "test/email-verification-register.test.js" "test/csp-tightening.test.js" "test/feature-audit.test.mjs"` → **24/24 pass, 0 fail (1.27s)**。
+- **全量回归**：`tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"` → **`2496 tests / 74 suites / 2480 pass / 0 fail / 16 skipped`（耗时 40.7s，基线 2490 → +6）**。
+- **门禁审计**：`production-import-audit.mjs`（238 文件，exit=0）、`check-frontend-stamp.mjs`（`20261124_emailverify_v1`，exit=0）、`audit-golden-suite.mjs`（80 tasks，exit=0）、`scanInteractiveControls` 对 `pages/login.html` 与 `pages/register.html` 扫描 **unmapped=0**。
+
+### 四、运维启用提示
+
+- **云端 ECS（同机运行 `sub2api`）**：只要 `/opt/sub2api/deploy/.env`（或通过 `MOLAN_SUB2API_ENV_FILE` / `MOLAN_SUB2API_PG_PASSWORD` 指定）存在且 `sub2api` 的 PostgreSQL 监听 `127.0.0.1:25432`，墨阑启动后即自动只读复用 `sub2api` 后台已配置的 SMTP 参数并开启 6 位邮箱验证码注册。
+- **独立环境变量覆盖**：也可显式设置 `MOLAN_SMTP_HOST/PORT/USERNAME/PASSWORD/FROM/FROM_NAME/USE_TLS` 及 `MOLAN_EMAIL_VERIFY_ENABLED=1`。
+
+---
+
+## 阶段记录：接入朱雀官方 AIGC 检测真值闭环（EdgeOne Makers @makers/zhuque-text）(2026-11-20)
+
+> 背景：用户选择路线 B（朱雀真值闭环），确认「仅开关开启时外发章节正文」、凭证只走环境变量、每章最多额外 2 轮改写。官方文档确认接口为 `POST https://ai-gateway.edgeone.link/v1/providers/zhuque-text/classify`，Bearer `MAKERS_MODELS_KEY`，Body `{text,is_merge}`，返回 `labels_ratio`（0=人工/1=AI/2=疑似）、`segment_labels[]`、`softmax_confidence`、`makers_models_usage.total_tokens`（真实扣费口径）。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/zhuque-detector-service.js` | 新增服务层 | 封装官方接口：`isZhuqueConfigured`、`detectZhuque`、`normalizeResponse`、`zhuqueGateReached`、`resetZhuqueCache`。无 Key 直接返回 null；短于 350 字不请求；SHA-256 文本哈希内存缓存（10 分钟 / 128 条）避免重复扣费；12s 超时、HTTP/网络异常一律返回可降级结果而不抛出；`segment_labels[].conf` 直接就是网页版 AIGC 值（真机实测样章片段2 `conf=0.3753` 对报告 `0.3758`），**不可做 1-conf 反转**；`labels_ratio['1']+['2']` 映射为 `aiScore`。 |
+| `molan-home/services/chat-service.js` | 闸门判定源替换 | `createChatService` 新增可注入 `zhuqueFetch`（测试用）。`handleHumanizeRoundEnd` 改为 async：每轮完成后若配置了 Key 则调用朱雀；真值成功时**全绿判定 + 择优**全部改用真实分数（`selectedBy:'zhuque'`），失败则原样回退本地代理（`selectedBy:'local'`）。`gate` 元信息新增 `sources`/`zhuqueScores`/`zhuqueTokens`/`selectedRound`；SSE `gate_retry` 控制事件新增 `scoreSource`/`zhuqueScore`/`greenRatio`；下一轮诊断携带 `zhuqueReport` 定点改写。无 Key 或闸门关闭时行为逐字不变，零回归。 |
+| `molan-home/test/zhuque-detector.test.js` | 新增专项测试 | 6 项：开关、响应归一化、全绿阈值、短文本拒绝、缓存命中、HTTP/网络异常降级。 |
+| `molan-home/test/humanize-gate.test.js` | 扩展集成测试 | `buildService` 支持 `env`/`zhuqueFetch`；新增 2 项：真值达标按 AIGC 择优下发（断言 URL/Bearer/片段分数/扣费 token/SSE 来源）、接口异常自动降级本地信号。原 3 项测试保持通过。 |
+
+### 二、设计决策与权衡
+
+1. **只替换判定源，不重写管线**：复用既有两遍生成、多轮缓冲下发、跨轮诊断传递和择优逻辑，风险面收敛到一个判定函数；`MOLAN_HUMANIZE_GATE_ROUNDS=0` 或未配置 Key 时完全不调用外部接口。
+2. **真值优先而非本地代理**：实测本地 `computeAiFlavorScore` 对生成样章 38 分、对朱雀全绿的《登徒子之剑》原作第 0 章 35 分，几乎无法区分；继续优化代理无意义。
+3. **失败降级而非阻断**：朱雀接口超时/限流/鉴权失败时只记日志并退回本地信号，保证写作可用性；不把检测的 `makers_models_usage` 混入模型积分结算（它不是模型生成 token）。
+4. **缓存护栏**：同文本 10 分钟内不重复检测，避免多轮重试与并发把每月 50 万免费额度耗尽。
+
+### 三、真实验证证据
+
+- 语法：`tools/node22_runtime/node.exe --check services/zhuque-detector-service.js`、`--check services/chat-service.js`、`--check test/*.test.js` 均 SYNTAX OK。
+- 专项：`node22_runtime/node.exe --test test/zhuque-detector.test.js test/humanize-gate.test.js` → **11 tests / 11 pass / 0 fail**。
+- 全量：`node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "molan-home/test/*.test.js" "molan-home/test/*.test.mjs" "molan-home/test/*.test.cjs"` → **2486 tests / 74 suites / 2470 pass / 0 fail / 16 skipped**（基线 2478 → +8，耗时 56s）。
+- **真实接口联调已完成**：用户提供 Key 后实测两段文本。生成样章：`labels_ratio={0:0.2118,1:0,2:0.7882}`、`aiScore=78.8`、`riskConfidence=0.9125`、三段 AIGC=0.7349/0.3753/0.6927（与网页报告 0.7217/0.3758/0.6554 基本吻合）；真人原作第0章：`labels_ratio={0:0.6174,1:0,2:0.3826}`、`aiScore=38.3`、`riskConfidence=0.4985`、四段 AIGC=0.5758/0.1923/0.5699/0.2655。两次调用共扣 makers token 约 11,495。实测确认 `conf` 即 AIGC 值，已修正映射并重跑全部测试通过。
+- **预期边界**：真人原作第0章在这套 API 下也不是字面 100% 全绿（61.74% 人工 / 38.26% 疑似），但 `aiScore` 与生成稿差距显著（38.3 vs 78.8）。闸门仍按严格全绿阈值判定，收敛难度需实测评估。
+
+### 四、启用方式 / 待办
+
+- 必须同时满足：`MAKERS_MODELS_KEY` 已注入环境变量，且 `MOLAN_HUMANIZE_GATE_ROUNDS >= 1`（当前启动脚本方案 A 默认 0，需显式改回 2）。
+- 可选微调：`MOLAN_ZHUQUE_MIN_GREEN_RATIO`（默认 0.99）、`MOLAN_ZHUQUE_MAX_SEGMENT_AIGC`（默认 0.5）、`MOLAN_ZHUQUE_API_URL`（默认官方地址）。
+- 待用户配置 Key 后：真实联调 → 按报告核对 `aiScore`/`greenRatio` 与网页版 AIGC 值的一致性 → 决定是否把阈值放宽到 0.98 以提高收敛率。
+
+### 五、后续小实验：P0 诊断透传 + 绿色锚点定点改写（2026-11-20）
+
+- **P0 断点修复**：`buildSecondPassBody` 现把 `zhuqueReport` 传给 `buildHumanizePassMessages`；`humanize-policy-service.js` 将超线片段（AIGC ≥ 0.50）的序号、起始位置与分值写进改写提示词，模型不再盲改。集成测试新增断言：提示词必须包含“朱雀官方检测”。全量回归复跑 **2486 tests / 2470 pass / 0 fail / 16 skipped**。
+- **绿色锚点实验**：从 `paragraph-samples.json` 抽 14 段真人片段，用朱雀真机筛出 2 段 AIGC≈0.000 的锚点（《凡人修仙传》《山海提灯》）。用 `gpt-6-luna` 按正向风格锚改写样章黄段（原 AIGC 0.7194 / label 2），要求保留字数、短句口语、不补比喻与情绪解释。
+- **实验结果**：改写后 AIGC **0.0691 / label 0 / greenRatio 1 / aiScore 0**，433 字。证明“真机绿色锚点 + 定点改写”能把黄段打到全绿，路线可行。实验脚本与结果留在系统 Temp（`zhuque_analysis/`），未进入项目。
+- **下一步候选**：把该实验固化为 P2 定点修补循环（绿段保留、黄段重写、拼接复检），并把锚点库从 2 段扩到按题材/场景索引的规模。
+
+### 六、真实生成管线纯自主全绿验证（用户要求：不注入抽取的真人片段）(2026-11-20)
+
+- 用户明确边界：禁止把 `小说原本` 抽取的段落注入提示词，必须跑真实生成管线，验收为每段 label=0 且 conf<0.5。
+- 实验脚本用 `compileDraftPrompt` + `buildDraftRequest`（`disableLivingExemplars:true`、`useCompositionV3:false`）生成起草提示词，实测起草提示词与改写提示词均**不含真人参照**。
+- `gpt-6-luna` 对同一场景生成 3 个候选（temperature 0.82 / 0.95 / 1.05）：
+  - 0.82：AIGC 0.6355，label 2，aiScore 100
+  - 0.95：三段 0.7771 / 0.3363 / 0.5002，aiScore 30.3，人工占比 69.7%（最优候选）
+  - 1.05：两段 0.5655 / 0.2465，aiScore 31.4，人工占比 68.64%
+- 取最优候选，仅把朱雀分段诊断（无真人片段、`includeLivingExemplars:false`）交给 `buildHumanizePassMessages`，以 temperature 1.0 改写：**AIGC 0.2729 / label 0 / greenRatio 1 / aiScore 0 / 全绿通过**，1878 字。
+- **结论**：在完全不注入真人抽取文本的前提下，真实生成 + 多候选真值择优 + 纯诊断改写即可达到严格全绿。下一步应把该链路产品化（多候选调度、诊断改写 pass、严格闸门），而非继续做提示词负面规则。
+- 实验脚本与三份全文结果在系统 Temp `zhuque_analysis/real_generation_experiment.json`，未进入项目。
+
+### 七、闭环产品化：多候选 + 诊断改写 + 按位置定点修补（2026-11-20）
+
+| 文件 | 变更 |
+| :--- | :--- |
+| `molan-home/services/zhuque-closed-loop-service.js` | 新增闭环服务：`run()` 先按可配温度生成 3 个候选（默认 0.82/0.95/1.05），朱雀真值择优；未全绿则做最多 2 轮整段诊断改写；仍卡短黄段时按 `segment_labels[].position=[start,length]` 取上下文窗口（前后各 220 字）做定点修补并拼接复检，最多 3 轮。全程 `disableLivingExemplars:true` / `includeLivingExemplars:false`，不注入抽取的真人片段。 |
+| `molan-home/server.js` | 新增 opt-in 端点 `POST /api/zhuque-closed-loop`。仅当 `MOLAN_ZHUQUE_CLOSED_LOOP=1` 且 `MAKERS_MODELS_KEY` 存在时可用；鉴权后调用闭环服务，返回正文、全绿判定、候选分数、改写/修补轨迹与 token 用量。现有 `/api/chat` 行为完全不变。 |
+| `molan-home/test/zhuque-closed-loop.test.js` | 新增 4 项测试：温度/轮数边界、多候选+诊断改写全绿、短黄段定点修补、首轮全绿跳过改写。 |
+
+- **真机产品化验证**：直接调用产品化服务（gpt-6-luna + 官方朱雀），候选最低 aiScore 13.4（短黄段 0.5099）；两轮整段改写降到 28.0 后仍有一个 0.57 的短段；**第 1 轮定点修补即全绿**：AIGC 0.2635 / label 0 / greenRatio 1 / aiScore 0 / 1968 字。证明定点修补层是严格全绿的必要组件。
+- **启用方式**：`MOLAN_ZHUQUE_CLOSED_LOOP=1` + `MAKERS_MODELS_KEY`；可选 `MOLAN_ZHUQUE_CANDIDATE_TEMPERATURES`、`MOLAN_ZHUQUE_REWRITE_ROUNDS`(默认2)、`MOLAN_ZHUQUE_SEGMENT_REPAIR_ROUNDS`(默认3)、`MOLAN_ZHUQUE_REWRITE_TEMPERATURE`(默认1.0)、`MOLAN_ZHUQUE_MIN_GREEN_RATIO`(0.99)、`MOLAN_ZHUQUE_MAX_SEGMENT_AIGC`(0.5)。
+- **验证**：专项 14/14 pass；全量 **2490 tests / 74 suites / 2474 pass / 0 fail / 16 skipped**（基线 2486 → +4，耗时 49s）。
+
+---
+
 ## 阶段记录：方案 A 落地——精准回退小说生成管线至 10 月 4 日黄金基线（单遍极质高张力起草，告别机械改写与套词灌水）(2026-11-20)
 
 > 背景与用户指示：用户上传了《桃花剑仙》（佳云泽“防封道”搞笑反差吐槽、顾凝欣千年无情道破防心动、云光仙子识海吃瓜）优质章节文本，并明确指示回退到生成该文本的黄金版本管线（对应 Git commit `741eebf`，2026-10-04 20:18:43）。用户拍板执行【方案 A】：精准回退提示词约束与生成管线，保留 10 月中旬以来的全部编辑器工作台、SQLite/PostgreSQL 持久化防崩溃与安全硬围栏等基础设施。
@@ -183,6 +320,7 @@ molan-home/
 │       ├── generation-pipeline-coordinator.js # 历史生成流水线 (已隔离)
 │       └── legacy-telemetry.js         # 历史废弃模块调用生命周期遥测器
 ├── routes/                             # 领域路由与处理器分发层 (Phase 1 ~ Phase 4 模块化解耦)
+│   ├── auth.js                         # 认证路由器 (含 register-config / send-verify-code / register / login / profile / logout)
 │   ├── dissection-handlers.js          # 拆书领域处理器工厂 (含 26+ 端点实现与紧凑序列化工具)
 │   ├── creation-books.js               # 创书领域路由器 (分发 17+ 新书/圣经/状态快照/扩展/合同端点)
 │   ├── creation-book-handlers.js       # 创书领域处理器工厂 (解耦核心包生成、计划扩写与审核并发锁)
@@ -197,6 +335,9 @@ molan-home/
 │   ├── knowledge.js                    # 知识与因果债务路由器
 │   └── projects.js                     # 项目与角色路由器
 ├── services/                           # 业务服务层
+│   ├── auth-account-service.js         # 账户认证、会话与邮箱验证码注册服务
+│   ├── email-verification-service.js   # 6 位数字邮箱验证码生命周期、冷却与防爆破校验服务
+│   ├── smtp-mail-service.js            # 零依赖 SMTP 发信与 sub2api PG settings 自动只读配置解析器
 │   ├── acp-transport-service.js        # 官方 Antigravity ACP (JSON-RPC over stdio) 本地传输适配器与会话池
 │   ├── chat-service.js                 # 对话与两遍去 AI 味精修总控 (SSE 行缓冲、OpenAI/DeepSeek/ACP 统一分发、自检闸门多轮择优改写)
 │   ├── generation-service.js           # 生成服务 (buildCanonicalOutlineContext、两遍精修与真实文学盲评串联)
@@ -207,7 +348,11 @@ molan-home/
 │   └── creation-plan-service.js        # 创作计划与大纲服务
 ├── scripts/acp-login.js & acp-login.bat # 官方 ACP OAuth 一次登录与模型能力探测脚本
 ├── pages/local-open-auth.js            # 独立子页本地免登录会话共享引导模块 (`MolanLocalOpenAuth`)
+├── pages/auth.css                      # 主页一致宣纸墨黑风认证页统一样式（支持 theme-dim 暗色模式）
+├── pages/login.html & js/login.js      # 主页风格一致登录页与 CSP 外移交互脚本
+├── pages/register.html & js/register.js # 两步邮箱验证码注册页（自动发码 + 60s 重发冷却）与 CSP 外移脚本
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
+    ├── email-verification-register.test.js # SMTP 发信、sub2api 配置回退、6位验证码注册闭环与页面 UI/CSP 专测 (6 项)
     ├── editor-bootstrap-creation-book.test.js # 编辑器直连 Generation V2 伴生创作书自动引导与圣经校验隔离测试 (4 项)
     ├── local-open-access.test.js              # 本地免登录开放模式 (`MOLAN_LOCAL_OPEN_ACCESS=1`) 与生产安全隔离测试 (2 项)
     ├── acp-transport.test.js                  # 官方 Antigravity ACP 传输、权限拒绝、OAuth未登录拦截与 chat-service 集成测试 (5 项)
@@ -3506,3 +3651,108 @@ molan-home/
 第二轮（终局）：2440 tests / 2424 pass / 0 fail / 16 skipped（全部为既有环境依赖守卫跳过）/ exit=0
 基线对照：修复前 #18-F 后为 2433 tests / 0 fail；本轮净增 7 测试（新建 wiring 3 + ownership-guard 4），删除腐烂 e2e 2 文件，0 回归。
 ```
+
+### 六、朱雀闭环本地部署（2026-11-20 ~ 11-21）
+
+用户最终裁决：**不再部署 ECS/云端，只做当前本机项目部署**。闭环只在本机 `127.0.0.1:3000` 生效。
+
+#### 6.1 本地运行形态
+
+- 服务：Node 22 运行时直接跑 `molan-home/server.js`，本机监听 3000；PostgreSQL 18 本机 55432（`molan` 库）必须已监听，否则 `initializePostgresRuntime()` 抛 `pg_unavailable` 并拒绝 listen。
+- 持久进程：本次用 Node `child_process.spawn(..., {detached:true, stdio:'ignore/append-log'})` 启动，最终实跑 PID 42460（中途因连通性检查误触发空请求，重启一次清掉遗留流）；日志在 `%LOCALAPPDATA%\Temp\molan-zhuque-stdout.log` / `-stderr.log`。不用会话后台任务承载正式服务（默认 2 分钟时限会在生成中途回收连接）。
+- 开关与凭证（**仅环境变量，不落盘**）：
+  - `MAKERS_MODELS_KEY=<用户 Key>`
+  - `MOLAN_ZHUQUE_CLOSED_LOOP=1`
+  - `MOLAN_ZHUQUE_REWRITE_ROUNDS=2`
+  - `MOLAN_ZHUQUE_SEGMENT_REPAIR_ROUNDS=3`
+  - `PORT=3000`、`MOLAN_LOCAL_ONLY=1`、`MOLAN_LOCAL_OPEN_ACCESS=1`、`MOLAN_GENERATION_V2=1`、`MOLAN_DB_BACKEND=postgres` 及 PG 连接参数与 `start-node22.bat` 对齐。
+- 现成启动器：`molan-home/start-node22-zhuque.bat`（先检查 `MAKERS_MODELS_KEY`，再置开关并 `call start-node22.bat`）。注意：若 3000 已被普通服务占用，`start-node22.bat` 会静默 skip，此时须先停旧进程再启动，否则端点仍返回“朱雀闭环未启用”。
+- 端点：`POST /api/zhuque-closed-loop`，请求体 `{modelId,novelGenre,targetChars,userInstruction,context?}`。未开开关 → 404；未配 Key → 503；未登录 → 401（本机开放访问下会自动落到 local 用户，不返回 401）。
+
+#### 6.2 本地真实链路暴露并修复的 3 个产品化缺口（此前临时脚本直连模型未覆盖）
+
+| 症状 | 根因 | 修复 |
+|---|---|---|
+| `正式章节生成必须提供稳定的 Idempotency-Key` | 闭环服务没有给内部 `callMolanChat` 传 `requestId`，`model-call-service` 因此不带 `Idempotency-Key` | `zhuque-closed-loop-service.js` 新增 `makeRequestId(base,label)`，按 `req_` + 40 位十六进制生成，并对候选/改写/定点修补分别给唯一键 |
+| `正式章节生成必须提供 projectId` | `requireComplete` 未置位 → 内部路由头缺失 → `/api/chat` 把 stage=writing 误判为普通写章，转手 Generation V2 并要求项目合同 | 三处模型调用统一加 `requireComplete: true`，明确走内部 Provider 路由，不伪造项目 |
+| 本地实跑候选 AIGC 全部 >0.82，整轮不复现此前的全绿 | `requireComplete:true` 同时让 `model-call-service` 自动挂上 `benchmarkProtocol='benchmark-local-v2'`，污染了临时验证脚本原本使用的纯闭环提示词 | 三处调用补 `disableBenchmarkProtocol: true`，保留内部路由但去掉 benchmark 协议；测试新增断言锁定 |
+
+> 另两个环境问题非代码缺陷：直接启动 Node 未执行 `start-node22.bat` 里的 PG 自举；后台任务默认 2 分钟时限会在长模型调用中途回收服务。已在启动流程中显式处理。
+
+#### 6.3 真机端到端验证（本地项目，非临时脚本）
+
+同一份“师徒夜谈/桃花粥”请求（gpt-6-luna，目标 1600 字）：
+
+```text
+HTTP 200 / 103.8s
+allGreen: true
+selected: phase=candidate, temperature=0.82, aiScore=0
+report: greenRatio=1, aiScore=0, riskConfidence=0.1504
+segment: label=0, AIGC=0.1572, 2155 字
+候选分数: [0, 13.1, 38.5]
+rewrites: 0 轮；segmentRepairs: 0 轮（首候选即全绿）
+usage.totalTokens: 9457
+```
+
+对照：修复 benchmark 污染前，同一本地端点 8 次模型调用后所有候选/改写/修补 AIGC 仍在 0.80~1.00，全红。说明全绿来自“内部路由 + 原始提示词”的组合，而非检测放宽。
+
+#### 6.4 回归证据
+
+- 定向：`test/zhuque-closed-loop.test.js` 每轮修复后均 4/4 通过，新增断言覆盖幂等键格式/唯一性、`requireComplete`、`disableBenchmarkProtocol`。
+- 全量：`npm test` 终局 **2490 tests / 2474 pass / 0 fail / 16 skipped**（16 项为既有环境依赖守卫跳过），exit 0。
+- 凭证纪律：`MAKERS_MODELS_KEY` 从未写入项目文件；仅通过进程环境变量传给服务，日志只记录模型调用诊断，不记录密钥。
+
+#### 6.5 真实用户提示词生成（2026-11-21，`反派今天也在努力不剧透`）
+
+用户要求用真实项目生成一篇小说，提示词含章节名/核心场景/关键转折/元叙事笑点（作者批注、电报声）/指定结尾。
+
+- 调用方式：自包含脚本 `spawn` 服务 → 轮询 health → `POST /api/zhuque-closed-loop` → 落盘结果 → `taskkill` 关服务，全部在一次前台调用内完成（规避后台任务 2 分钟上限杀进程）。脚本与结果在 `%LOCALAPPDATA%\Temp\`，未留项目根目录。
+- 产物：`molan-home/output/反派今天也在努力不剧透.md`，2182 字（6202 bytes）。
+- 运行记录：HTTP 200 / 268.8s；gpt-6-luna；3 候选 + 2 改写 + 3 定点修补全部跑满；`totalTokens=28017`；`usageSource=upstream`（真实上游供应商，非 mock）。
+- **本次未全绿**：`allGreen=false`，`aiScore=24.8`，`greenRatio=0.7516`，`riskConfidence=0.3065`；两段检测 = label2 `aigc=0.5732`(542字，超 0.5 阈值) + label0 `aigc=0.2924`(1640字)。候选分 24.9/78.5/100，改写 24.9→24.8，定点修补 24.9→24.8→24.8（触顶不再下降）。
+- 结论：印证 6.3 的边界声明——全绿是单次生成结果，不是恒真属性。不同提示词/题材下检测分数会波动；闭环会在预算内尽量压分，但不保证任意输入每次都过阈值。
+- 纠错审计：`correctionAudit.status=needs_review`，但 `findings=[]`、`matchedRuleIds=[]`、`findingCount=0`；唯一超标指标是 `shortParagraphs=27`（喜剧对话体的正常特征，非纠错库硬规则命中）。元叙事批注/电报声/指定结尾属于用户本次明确要求的技法，按最高指示放行。
+
+#### 6.6 朱雀闭环接入「去 AI 味改写」工具（2026-11-21）
+
+> 用户要求把 6.5 的闭环功能接进工具页的「AI味」工具。原话有歧义（deai 改写 vs aiflavor 检测），用户跳过选择，按最贴合语义实施：接进 `deai`（去 AI 味改写），做成可选「朱雀深度模式」，普通模式逐字不变。
+
+| 文件 | 改动 | 要点 |
+| :--- | :--- | :--- |
+| `services/zhuque-closed-loop-service.js` | 扩展 | `run()` 新增 `seedText` 入参：有值时把用户文本作为唯一候选（phase=`seed`）跳过生成阶段，直接进入检测→humanize 改写→定点修补；`targetChars` 默认取 seed 长度；返回值新增 `mode:'seed'\|'generate'`。生成模式行为不变。 |
+| `server.js` | 新增 2 端点 | `POST /api/zhuque-detect`（真朱雀单次检测，返回 aiScore/greenRatio/segments，<350 字返回 400）；`POST /api/deai-zhuque-loop`（seed 闭环，<350 字 400、>20000 字 400）。均需登录 + `MOLAN_ZHUQUE_CLOSED_LOOP=1` + 朱雀 Key。抽出 `createZhuqueLoopService()` 供 3 个朱雀端点共用。 |
+| `pages/site.js` | 前端接入 | deai 工作台加「朱雀深度模式」复选框；勾选后按钮变「朱雀深度改写」，先调检测端点渲染 `renderZhuqueReport()`（改写前分数/绿段比/高风险片段），再调闭环端点渲染后测分数+正文，保留对比工具入口。普通分支不动。 |
+| `pages/tools.html` | 文案 | deai 卡片补「可选朱雀深度模式：真实 AIGC 检测+多轮改写到全绿」与绿色标签。 |
+
+**验证证据**：
+- 语法：`node --check` 三个改动文件全过；`test/deai-tool-stop-slop.test.js` 5/5 通过（无回归）。
+- 单测：seed 模式 mock 测试——只调 1 次改写（无生成候选）、全绿时正文被改写候选替换、`selected.phase='rewrite'`，PASS。
+- 真实 API（本地服务 + 真朱雀 Key）：`/api/zhuque-detect` 对样章返回 aiScore=24.8/greenRatio=0.7516/2 段；短文本 9 字返回 400；`/api/deai-zhuque-loop` seed 模式 60.8s 返回 mode=seed/正文/报告，链路通。
+- UI（Playwright msedge headless）：开关渲染、按钮文案切换「开始改写→朱雀深度改写」、mock 检测响应后报告区显示「改写前 88→改写后 5/已全绿」、正文渲染，全 PASS。
+- **部署注意**：新端点依赖 `MOLAN_ZHUQUE_CLOSED_LOOP=1` + `MAKERS_MODELS_KEY`，默认关闭；ECS 未部署本轮改动，需同步 server.js（重启）+ site.js/tools.html（静态即生效）并确认环境变量。单次深度模式 ≈ 1 检测 + 多轮改写（按 `MOLAN_ZHUQUE_REWRITE_ROUNDS`/`SEGMENT_REPAIR_ROUNDS`），耗时与积分消耗显著高于普通改写，前端已用文案提示。
+
+#### 6.7 朱雀真实应用到编辑器两处入口（2026-11-21 下午）
+
+> 用户指出 6.6 只接了独立工具页，编辑器里的「去 AI 味」和「AI 创作助手」并未真实用上朱雀。诊断出三层断点并逐一修复。
+
+**诊断结论（关键）**：
+1. 编辑器坞站「去 AI 味」的真正事件绑定在 **`app-boot.js:3620` 的 `executeDockTool`**（3693 行 addEventListener），`completion-editor.js` 里同名函数是**死代码**——最初改错文件，验证时端点零调用才暴露。
+2. 服务端 `chat-service.js` 的真朱雀自检闸门（`MOLAN_HUMANIZE_GATE_ROUNDS`）**只在 stage=writing 的两遍生成 Pass2 后触发**；`humanizer` stage 是单遍，闸门天然不生效——"复用闸门"路线对去 AI 味工具走不通，已改走闭环端点。
+3. `refFunction('backendRequest')`（completion-editor.js:616）对 `backendRequest`/`openBackendNovel` 做提前 `return`，而局部同名变量不存在，导致**永远返回 null**——已修为局部缺失时继续走 `window[name]` 兜底（app-boot 把 backendRequest 挂在 window 上）。
+
+| 文件 | 改动 | 要点 |
+| :--- | :--- | :--- |
+| `app-boot.js` | 编辑器去 AI 味接入 | `executeDockTool`（3620）在「去 AI 味」且文本≥350 字时优先 `POST /api/deai-zhuque-loop`（真朱雀闭环），失败/未启用才回退原 LLM；结果区追加「朱雀真值闭环 · 全绿状态 · AIGC/绿段/改写轮数」报告行。 |
+| `app-boot.js` | requestChatText 扩展 | body 透传 `humanizeGateMaxRounds`；SSE 捕获 `molan_rewrite` 控制事件经 `onGateEvent` 暴露（通用能力，供未来 stage 使用）。 |
+| `completion-editor.js` | AI 创作助手接入 | 新增 `runZhuqueAuditForDraft`（4948 附近）：`applyGenerationV2Snapshot` 的 `if(draft)` 正文落定点异步调 `/api/zhuque-detect`，结果挂 `run/item.zhuqueAudit`，用 draft 哈希去重；渲染时显示「朱雀 AIGC 体检 · AI 味分/绿段/高风险片段」。**只检测不改写正文**（保护情节），失败静默降级。 |
+| `completion-editor.js` | bug 修复 | `refFunction` 的 window 兜底（见诊断 3）；检测函数与坞站工具改用 `window.backendRequest` 优先。 |
+| `start-node22-zhuque.bat` | 闸门开关 | 设 `MOLAN_HUMANIZE_GATE_ROUNDS=2`（有 Key 时对 writing 两遍生成生效；无 Key 降级本地代理）。 |
+
+**验证**：
+- 语法：5 个文件 `node --check` 全过；`humanize-gate` + `deai-tool-stop-slop` 共 **10/10** 通过。
+- 编辑器去 AI 味：Playwright msedge 打开 #editor → 坞站选「去 AI 味」→ 输入 377 字 → **`/api/deai-zhuque-loop` 实调用 1 次**，结果区显示朱雀改写正文 + 「AIGC 6/100 · 绿段 100%」报告。PASS。
+- 端点真值：浏览器内直调 `/api/zhuque-detect` 返回 aiScore=100（AI 味样本），`/api/deai-zhuque-loop` 返回 mode=seed/正文。PASS。
+- **AI 创作助手端到端已验证通过（2026-11-21 补验）**：编辑器模型切到 `gpt-6-luna` 后发「续写雪地脚印 600 字」，V2 任务成功产出正文；`/api/zhuque-detect` **真实调用 1 次**（POST body 含完整正文），对话区显示「朱雀 AIGC 体检 · AI 味 8/100 · 绿段 97% · 全篇低风险」。PASS。
+  - 补验前两个干扰因素（非代码 bug）：① 平台默认模型 `gemini-4-hydrogen` 额度耗尽（`Usage Limit Reached, reset in 3 days`）导致生成停 `needs_human`；改用有额度的 gpt-6-luna 后正常。② 首次用「写 200 字」测试，正文 <350 字被朱雀接口门槛拒绝，检测静默跳过；已补短文本明确提示「正文 N 字，未达检测门槛 350 字，本次跳过」。真实章节（1500~3000 字）不受影响。
+  - **运维注意**：`data/config.json` 默认模型是 `gemini-4-hydrogen`，额度耗尽时所有创作会失败；作者需在编辑器模型下拉框手动切到 `gpt-6-luna`（有额度），或与平台方确认 gemini 配额恢复。未擅自改全局默认（属用户配置决策）。
+- 服务已重启加载新代码（detached pid 见运行时），端口 3000 监听中。

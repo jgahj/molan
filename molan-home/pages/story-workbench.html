@@ -157,15 +157,25 @@
         <label>对象 ID<input id="impactTarget" autocomplete="off"></label>
         <label>创作分支<input id="impactBranch" value="main" autocomplete="off"></label>
       </div>
-      <button id="analyzeImpact" type="button">分析修改影响</button>
+      <button id="analyzeImpact" type="button" class="primary">分析修改影响</button>
       <pre id="impactAnalysisReport"></pre>
       <div id="impactAnalysisResults"></div>
-      <h3>已记录的来源失效</h3>
-      <button id="process" data-write>处理待同步投影 / 安全重试</button>
-      <pre id="projectionReport"></pre>
-      <div id="impactList"></div>
-      <h3>操作记录与补偿撤销</h3><div id="operationList"></div>
-      <h3>持久阶段事件</h3><pre id="events"></pre>
+      <details>
+        <summary>来源失效与投影同步（高级运维）</summary>
+        <div style="margin-top:10px">
+          <button id="process" data-write>处理待同步投影 / 安全重试</button>
+          <pre id="projectionReport" style="margin-top:10px"></pre>
+          <div id="impactList"></div>
+        </div>
+      </details>
+      <details>
+        <summary>操作记录与补偿撤销（高级）</summary>
+        <div id="operationList" style="margin-top:10px"></div>
+      </details>
+      <details>
+        <summary>持久阶段事件日志（调试）</summary>
+        <pre id="events" style="margin-top:10px"></pre>
+      </details>
     </section>
   </main>
   <script src="./local-open-auth.js"></script>

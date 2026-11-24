@@ -13,10 +13,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
-    <script src="../assets/tailwind-browser.js?v=20261119_human1279_v1"></script>
+    <script src="../assets/tailwind-browser.js?v=20261124_ui_auth_v3"></script>
 
     <!-- Lucide Icons -->
-    <script src="../assets/lucide.min.js?v=20261119_human1279_v1"></script>
+    <script src="../assets/lucide.min.js?v=20261124_ui_auth_v3"></script>
 
     <!-- Brand Tokens -->
     <style data-vd-inlined-stylesheet="../colors_and_type.css">
@@ -191,16 +191,25 @@
             font: inherit;
         }
 
-        /* 去除按钮默认边框与背景 */
+        /* 按钮保留背景与边框以便 Tailwind 工具类生效 */
         button {
-            border: none;
-            background: none;
             cursor: pointer;
         }
 
-        /* 文章正文段落间距 */
+        /* 文章正文段落间距与提示框内边距保护（不被基础重置覆盖） */
         .article-body p {
             margin-bottom: 1.25em;
+        }
+        .pricing-status-notice {
+            margin-top: 20px;
+            padding: 12px 16px !important;
+            border: 1px solid var(--amber, #a86b20);
+            border-left-width: 3px;
+            border-radius: 8px;
+            background: var(--amber-bg, #fff7ea);
+            color: var(--amber, #a86b20);
+            font-size: 13px;
+            line-height: 1.65;
         }
 
         /* FAQ 手风琴细节样式 */
@@ -267,19 +276,7 @@
             <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <nav aria-label="面包屑导航">
                     <ol class="flex flex-wrap items-center gap-2 text-sm text-[#999999]">
-                        <li><a href="#" class="hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-index">首页</a></li>
-                        <li><i data-lucide="chevron-right" class="w-3 h-3"></i></li>
-                        <li><a href="#" class="hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-features">功能总览</a></li>
-                        <li><i data-lucide="chevron-right" class="w-3 h-3"></i></li>
-                        <li><a href="#" class="hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-docs">文档</a></li>
-                        <li><i data-lucide="chevron-right" class="w-3 h-3"></i></li>
-                        <li><a href="#" class="hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-tools">免费工具</a></li>
-                        <li><i data-lucide="chevron-right" class="w-3 h-3"></i></li>
-                        <li><a href="#" class="hover:text-[#0a0a0a] transition-colors">深度对比</a></li>
-                        <li><i data-lucide="chevron-right" class="w-3 h-3"></i></li>
-                        <li><a href="#" class="hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-docs">使用文档</a></li>
-                        <li><i data-lucide="chevron-right" class="w-3 h-3"></i></li>
-                        <li><a href="#" class="hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-blog">创作者手札</a></li>
+                        <li><a href="../index.html" class="hover:text-[#0a0a0a] transition-colors" data-dom-id="nav-index">首页</a></li>
                         <li><i data-lucide="chevron-right" class="w-3 h-3"></i></li>
                         <li class="text-[#0a0a0a] font-medium" aria-current="page">价格与订阅</li>
                     </ol>
@@ -311,7 +308,7 @@
                 <p>
                     这篇页面会讲清楚当前免费额度、积分怎么扣、常见使用场景大致要花多少，以及写长篇时如何控制成本。页面中的消耗数据用于体验说明，支付入口开放后会同步更新正式价格。
                 </p>
-                <p class="mt-5 px-4 py-3 border border-[#f3d08a] bg-[#fffaf0] rounded-xl text-sm text-[#7a5410]">
+                <p class="pricing-status-notice">
                     当前状态：可注册、可使用赠送积分；充值与订阅暂未开放。
                 </p>
             </div>
@@ -727,7 +724,7 @@
     </footer>
 
     <!-- 移动端菜单切换脚本 -->
-  <script src="./js/pricing.js?v=20261119_human1279_v1"></script>
+  <script src="./js/pricing.js?v=20261124_ui_auth_v3"></script>
 
     <!-- 初始化 Lucide 图标 -->
     <script src="./site.js"></script>

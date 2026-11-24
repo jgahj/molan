@@ -50,6 +50,8 @@ const { resolveFingerprintProfile, buildRhythmTargetBlock } = require('./lib/sty
 const benchmarkPipeline = require('./lib/benchmark-pipeline');
 const { calculateBenchmarkCallTimeoutMs } = require('./lib/benchmark-call-timeout');
 const contentEngine = require('./lib/generation/content-engine');
+const zhuqueDetection = require('./services/zhuque-detector-service');
+const { createZhuqueClosedLoopService } = require('./services/zhuque-closed-loop-service');
 const { resolveGenre: canonicalResolveGenre } = require('./lib/genre/resolver');
 const { applyAuthSessionInvalidation, sessionEventUserId } = require('./lib/auth-session-events');
 const { generationV2Enabled, generationV2Status } = require('./lib/generation/feature-flag');
@@ -4974,6 +4976,17 @@ const { loadDissectionChapters, loadAllChapterFacts, loadDissectionBatches, stor
 
 const { isPublicStaticPath, serveStatic, pickStaticEncoding, compressedStaticBody, sendStatic } = require('./services/static-service').createStaticService({ MIME, PUBLIC_DIR, PUBLIC_ROOT_FILES, STATIC_CACHE_MAX_BYTES, STATIC_COMPRESSIBLE_EXT, STATIC_COMPRESS_MIN_BYTES, fs, path, responseCors, zlib });
 
+const smtpMailService = require('./services/smtp-mail-service').createSmtpMailService({
+  env: process.env,
+  configFile: PLATFORM_CONFIG_FILE,
+  logger: console
+});
+const emailVerificationService = require('./services/email-verification-service').createEmailVerificationService({
+  mailService: smtpMailService,
+  env: process.env,
+  siteName: '墨阑 AI 小说'
+});
+
 const authAccountService = require('./services/auth-account-service').createAuthAccountService({
   SESSION_TTL_MS,
   allowAuthAttempt,
@@ -4982,6 +4995,7 @@ const authAccountService = require('./services/auth-account-service').createAuth
   canChooseModel,
   crypto,
   currentDefaultModel,
+  emailVerificationService,
   findPlatformModel,
   getPostgresUsageSummary,
   isAdminUser,
@@ -5003,7 +5017,7 @@ const authAccountService = require('./services/auth-account-service').createAuth
   respondError,
   sessionEventUserId,
 });
-const { insertUserIfAbsent,createPasswordRecord,createPasswordRecordAsync,verifyPassword,verifyPasswordAsync,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,sessions } = authAccountService;
+const { insertUserIfAbsent,createPasswordRecord,createPasswordRecordAsync,verifyPassword,verifyPasswordAsync,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegisterConfig,handleSendVerifyCode,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,sessions } = authAccountService;
 
 let localOpenUserPromise = null;
 let localOpenUserCacheKey = '';
@@ -5744,6 +5758,7 @@ async function dispatchRequest(req, res) {
   }
   const domainRoutes = {
     auth: createAuthRoutes({
+      registerConfig: handleRegisterConfig, sendVerifyCode: handleSendVerifyCode,
       register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
       localSession: handleLocalSession,
       me: handleMe, profile: handleProfile, logout: handleLogout, logoutAll: handleLogoutAll,
@@ -5849,6 +5864,136 @@ async function dispatchRequest(req, res) {
     })
   };
 
+  function createZhuqueLoopService() {
+    return createZhuqueClosedLoopService({
+      compileDraftPrompt: contentEngine.compileDraftPrompt,
+      buildDraftRequest: contentEngine.buildDraftRequest,
+      buildHumanizePassMessages,
+      detectZhuque: zhuqueDetection.detectZhuque,
+      zhuqueGateReached: zhuqueDetection.zhuqueGateReached
+    });
+  }
+
+  function zhuqueTextTooShortError(length) {
+    return '文本太短，朱雀检测建议不少于 ' + zhuqueDetection.MIN_TEXT_CHARS + ' 字（当前 ' + length + ' 字）';
+  }
+
+  /** 去 AI 味工具：对用户粘贴的文本做一次真实朱雀检测，不改写、不调用生成模型。 */
+  async function handleZhuqueDetect(req, res) {
+    if (req.method !== 'POST') return json(res, 405, { error: '仅支持 POST' });
+    if (String(process.env.MOLAN_ZHUQUE_CLOSED_LOOP || '') !== '1') {
+      return json(res, 404, { error: '朱雀检测未启用' });
+    }
+    const auth = await getAuthUser(req);
+    if (!auth) return json(res, 401, { error: '请先登录后再使用朱雀检测' });
+    if (!zhuqueDetection.isZhuqueConfigured(process.env)) {
+      return json(res, 503, { error: '朱雀检测凭据未配置' });
+    }
+    try {
+      const body = await readBody(req);
+      const text = String(body && body.text || '').trim();
+      if (text.length < zhuqueDetection.MIN_TEXT_CHARS) {
+        return json(res, 400, { error: zhuqueTextTooShortError(text.length) });
+      }
+      const report = await zhuqueDetection.detectZhuque(text, { env: process.env });
+      if (!report || !report.ok) {
+        return json(res, 502, { error: '朱雀检测失败：' + (report && report.error ? report.error : '检测服务暂不可用') });
+      }
+      return json(res, 200, {
+        ok: true,
+        chars: text.length,
+        aiScore: report.aiScore,
+        greenRatio: report.greenRatio,
+        aiLikeRatio: report.aiLikeRatio,
+        riskConfidence: report.riskConfidence,
+        segments: (Array.isArray(report.segments) ? report.segments : []).map(function (segment) {
+          return {
+            index: segment.index,
+            text: segment.text,
+            aigc: segment.aigc,
+            label: segment.label,
+            green: segment.green,
+            position: segment.position
+          };
+        })
+      });
+    } catch (error) {
+      return json(res, 500, { error: '朱雀检测失败：' + (error && error.message ? error.message : String(error)) });
+    }
+  }
+
+  /** 去 AI 味工具：以用户粘贴文本为起点跑朱雀闭环（检测→改写→修补）。 */
+  async function handleDeaiZhuqueLoop(req, res) {
+    if (req.method !== 'POST') return json(res, 405, { error: '仅支持 POST' });
+    if (String(process.env.MOLAN_ZHUQUE_CLOSED_LOOP || '') !== '1') {
+      return json(res, 404, { error: '朱雀闭环未启用' });
+    }
+    const auth = await getAuthUser(req);
+    if (!auth) return json(res, 401, { error: '请先登录后再使用朱雀深度改写' });
+    if (!zhuqueDetection.isZhuqueConfigured(process.env)) {
+      return json(res, 503, { error: '朱雀检测凭据未配置' });
+    }
+    try {
+      const body = await readBody(req);
+      const seedText = String(body && body.seedText || '').trim();
+      if (seedText.length < zhuqueDetection.MIN_TEXT_CHARS) {
+        return json(res, 400, { error: zhuqueTextTooShortError(seedText.length) });
+      }
+      if (seedText.length > 20000) {
+        return json(res, 400, { error: '文本过长，请控制在 20000 字以内' });
+      }
+      const service = createZhuqueLoopService();
+      const result = await service.run({
+        authToken: String(req.headers.authorization || ''),
+        user: auth.user,
+        input: Object.assign({}, body, {
+          seedText,
+          novelGenre: String(body && (body.novelGenre || body.genre) || '通用文学')
+        }),
+        callModel: (token, user, options) => callMolanChat(token, user, options),
+        env: process.env
+      });
+      return json(res, 200, result);
+    } catch (error) {
+      return json(res, 500, { error: '朱雀深度改写失败：' + (error && error.message ? error.message : String(error)) });
+    }
+  }
+
+  async function handleZhuqueClosedLoop(req, res) {
+    if (req.method !== 'POST') return json(res, 405, { error: '仅支持 POST' });
+    if (String(process.env.MOLAN_ZHUQUE_CLOSED_LOOP || '') !== '1') {
+      return json(res, 404, { error: '朱雀闭环未启用' });
+    }
+    const auth = await getAuthUser(req);
+    if (!auth) return json(res, 401, { error: '请先登录后再使用朱雀闭环' });
+    if (!zhuqueDetection.isZhuqueConfigured(process.env)) {
+      return json(res, 503, { error: '朱雀检测凭据未配置' });
+    }
+    try {
+      const body = await readBody(req);
+      const service = createZhuqueLoopService();
+      const result = await service.run({
+        authToken: String(req.headers.authorization || ''),
+        user: auth.user,
+        input: body && typeof body === 'object' ? body : {},
+        callModel: (token, user, options) => callMolanChat(token, user, options),
+        env: process.env
+      });
+      return json(res, 200, result);
+    } catch (error) {
+      return json(res, 500, { error: '朱雀闭环生成失败：' + (error && error.message ? error.message : String(error)) });
+    }
+  }
+
+  if (u === '/api/zhuque-closed-loop') {
+    return handleZhuqueClosedLoop(req, res);
+  }
+  if (u === '/api/zhuque-detect') {
+    return handleZhuqueDetect(req, res);
+  }
+  if (u === '/api/deai-zhuque-loop') {
+    return handleDeaiZhuqueLoop(req, res);
+  }
   if (u.startsWith('/api/genre-lab/')) {
     return handleGenreLab(req, res, u);
   }

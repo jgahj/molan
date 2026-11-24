@@ -1,6 +1,25 @@
 (function () {
   'use strict';
   const params = new URLSearchParams(location.search);
+  function applyEmbeddedTheme(themeValue) {
+    const dark = themeValue === 'dim' || themeValue === 'dark';
+    document.documentElement.classList.toggle('dark', dark);
+    document.documentElement.classList.toggle('light', !dark);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    if (document.body) document.body.classList.toggle('theme-dim', dark);
+  }
+  try { applyEmbeddedTheme(localStorage.getItem('molan_theme')); } catch (_) {}
+  if (document.body && (window.self !== window.top || params.get('embed') === '1')) {
+    document.body.classList.add('is-embedded');
+  }
+  window.addEventListener('storage', event => {
+    if (event && event.key === 'molan_theme') applyEmbeddedTheme(event.newValue);
+  });
+  window.addEventListener('message', event => {
+    if (event && event.origin === window.location.origin && event.data && event.data.type === 'molan:theme-change') {
+      applyEmbeddedTheme(event.data.theme);
+    }
+  });
   const projectId = params.get('nid');
   const memoryBookId = params.get('bookId') || projectId;
   let token = localStorage.getItem('ml_token') || '';
@@ -33,7 +52,13 @@
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     });
     const result = await response.json();
-    if (!response.ok || result.ok === false) throw new Error(result.code || result.error || '请求失败');
+    if (!response.ok || result.ok === false) {
+      const code = result.code || result.error || '';
+      const friendly = code === 'not_found'
+        ? '当前作品尚未初始化故事记忆档案（请先在编辑器保存作品或刷新重试）'
+        : (result.message || code || '请求失败');
+      throw new Error(friendly);
+    }
     return result;
   }
   function task(action) {

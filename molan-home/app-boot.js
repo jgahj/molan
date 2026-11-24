@@ -118,9 +118,7 @@
       if (key === 'billing') return `<button class="button" data-action="billing-export">${icon('download')}导出记录</button><button class="button primary" data-action="billing-topup">${icon('plus')}充值积分</button>`;
       if (key === 'account') return `<button class="button primary" data-backend-profile>${icon('save')}保存修改</button>`;
       if (key === 'story-workbench' || key === 'project-docs') {
-        const activeNid = (window.previewState && window.previewState.novelId) || (backendState.novels && backendState.novels[0]?.id) || '';
-        const pathName = key === 'story-workbench' ? 'story-workbench.html' : 'project-docs.html';
-        return activeNid ? `<a class="button" href="./pages/${pathName}?nid=${encodeURIComponent(activeNid)}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开</a>` : '';
+        return '';
       }
       if (key === 'login') return '';
       if (key === 'admin-login') return '';
@@ -129,7 +127,7 @@
     };
 
     function overviewPage() {
-      return shell('overview', `<section class="overview-hero"><article class="continue-panel"><div class="eyebrow">继续创作</div><h2>逆天重生：从废物到至尊</h2><p>第 3 章 · 雨夜试锋 · 已完成 1,286 字。接着写下叶辰走进祠堂后的第一次正面冲突。</p><div class="continue-actions"><button class="button primary" data-page="editor">${icon('pen-line')}继续编辑</button><button class="button" data-page="knowledge">查看设定集</button></div></article><article class="panel task-panel"><h3>最近任务</h3><div class="task-row"><span class="task-icon">${icon('sparkles')}</span><div class="task-copy"><div class="task-title">第 3 章续写建议</div><div class="task-meta">已完成 · 24 积分</div></div><span class="badge green">完成</span></div><div class="task-row"><span class="task-icon">${icon('scan-text')}</span><div class="task-copy"><div class="task-title">设定集批量抽取</div><div class="task-meta">处理中 · 67%</div></div><span class="badge amber">进行中</span></div><div class="task-row"><span class="task-icon">${icon('wand-sparkles')}</span><div class="task-copy"><div class="task-title">第 2 章去 AI 味</div><div class="task-meta">昨天 · 86 积分</div></div><span class="badge gray">已归档</span></div></article></section><section class="grid grid-4" style="margin-top:14px"><div class="metric"><div class="metric-label">作品总数</div><div class="metric-value">3</div><div class="metric-foot">持续创作中</div></div><div class="metric"><div class="metric-label">本月生成字数</div><div class="metric-value">28.6k</div><div class="metric-foot good">↑ 18% 较上月</div></div><div class="metric"><div class="metric-label">设定实体</div><div class="metric-value">431</div><div class="metric-foot">12 个伏笔待回收</div></div><div class="metric"><div class="metric-label">积分余额</div><div class="metric-value">8,240</div><div class="metric-foot warn">预计可生成 34 章</div></div></section><section class="grid grid-2" style="margin-top:14px"><article class="panel"><div class="panel-heading"><div><h2>快速开始</h2><p>把常用动作放在创作入口附近</p></div></div><div class="panel-body grid grid-2"><button class="quick-action" data-open-modal><span class="icon-wrap">${icon('plus')}</span><span><strong>新建小说</strong><span>从标题、简介和类型开始</span></span></button><button class="quick-action" data-page="dissect"><span class="icon-wrap">${icon('scan-text')}</span><span><strong>拆解样文</strong><span>提取可复用的写作规律</span></span></button><button class="quick-action" data-page="creation"><span class="icon-wrap">${icon('wand-sparkles')}</span><span><strong>创书</strong><span>从拆书结果生成原创新作</span></span></button><button class="quick-action" data-page="knowledge"><span class="icon-wrap">${icon('network')}</span><span><strong>整理设定</strong><span>查看未引用和重复设定</span></span></button><button class="quick-action" data-page="skills"><span class="icon-wrap">${icon('sparkles')}</span><span><strong>浏览 Skill</strong><span>为当前作品选择写作方法</span></span></button></div></article><article class="panel"><div class="panel-heading"><div><h2>最近编辑</h2><p>从上次停留位置继续</p></div><button class="icon-button" data-page="novels" aria-label="查看全部小说">${icon('arrow-up-right')}</button></div><div class="panel-body" style="padding-top:4px"><table class="recent-table"><thead><tr><th>作品</th><th>章节</th><th>更新时间</th></tr></thead><tbody><tr><td>逆天重生：从废物到至尊</td><td>第 3 章</td><td>刚刚</td></tr><tr><td>欢乐谷规则怪谈</td><td>第 18 章</td><td>昨天</td></tr><tr><td>未命名小说</td><td>设定集</td><td>3 天前</td></tr></tbody></table></div></article></section>`, 'overview-page');
+      return shell('overview', `<section class="overview-hero"><article class="continue-panel"><div class="eyebrow">继续创作</div><h2>逆天重生：从废物到至尊</h2><p>第 3 章 · 雨夜试锋 · 已完成 1,286 字。接着写下叶辰走进祠堂后的第一次正面冲突。</p><div class="continue-actions"><button class="button primary" data-page="editor">${icon('pen-line')}继续编辑</button><button class="button" data-page="knowledge">查看设定集</button></div></article><article class="panel task-panel"><h3>最近任务</h3><div class="task-row"><span class="task-icon">${icon('sparkles')}</span><div class="task-copy"><div class="task-title">第 3 章续写建议</div><div class="task-meta">已完成 · 24 积分</div></div><span class="badge green">完成</span></div><div class="task-row"><span class="task-icon">${icon('scan-text')}</span><div class="task-copy"><div class="task-title">设定集批量抽取</div><div class="task-meta">处理中 · 67%</div></div><span class="badge amber">进行中</span></div><div class="task-row"><span class="task-icon">${icon('wand-sparkles')}</span><div class="task-copy"><div class="task-title">第 2 章去 AI 味</div><div class="task-meta">昨天 · 86 积分</div></div><span class="badge gray">已归档</span></div></article></section><section class="grid grid-4" style="margin-top:14px"><div class="metric"><div class="metric-label">作品总数</div><div class="metric-value">3</div><div class="metric-foot">持续创作中</div></div><div class="metric"><div class="metric-label">本月生成字数</div><div class="metric-value">28.6k</div><div class="metric-foot good">↑ 18% 较上月</div></div><div class="metric"><div class="metric-label">设定实体</div><div class="metric-value">431</div><div class="metric-foot">12 个伏笔待回收</div></div><div class="metric"><div class="metric-label">积分余额</div><div class="metric-value">8,240</div><div class="metric-foot warn">预计可生成 34 章</div></div></section><section class="overview-quick-strip" aria-label="快捷入口"><button class="overview-quick-pill" data-open-modal><span class="icon-wrap">${icon('plus')}</span><span>新建小说</span></button><button class="overview-quick-pill" data-page="dissect"><span class="icon-wrap">${icon('scan-text')}</span><span>拆解样文</span></button><button class="overview-quick-pill" data-page="creation"><span class="icon-wrap">${icon('wand-sparkles')}</span><span>从拆书创书</span></button><button class="overview-quick-pill" data-page="knowledge"><span class="icon-wrap">${icon('network')}</span><span>整理设定集</span></button></section><section class="panel" style="margin-top:14px"><div class="panel-heading"><div><h2>最近编辑</h2><p>从上次停留位置继续写作</p></div><button class="icon-button" data-page="novels" aria-label="查看全部小说" title="查看全部小说">${icon('arrow-up-right')}</button></div><div class="panel-body" style="padding-top:4px"><table class="recent-table"><thead><tr><th>作品</th><th>章节</th><th>更新时间</th></tr></thead><tbody><tr><td>逆天重生：从废物到至尊</td><td>第 3 章</td><td>刚刚</td></tr><tr><td>欢乐谷规则怪谈</td><td>第 18 章</td><td>昨天</td></tr><tr><td>未命名小说</td><td>设定集</td><td>3 天前</td></tr></tbody></table></div></section>`, 'overview-page');
     }
 
     function novelsPage() {
@@ -215,7 +213,7 @@
     }
 
     function blogPage() {
-      return shell('blog', `<div class="grid grid-3"><article class="panel"><div style="height:125px;background:#e8e5dd;display:flex;align-items:flex-end;padding:15px;font-family:var(--serif);font-size:24px">写作不是堆字</div><div class="panel-body"><span class="badge gray">方法论</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">先建立场景，再让人物说话</h3><p class="section-note">为什么 AI 续写容易变成摘要，以及如何用具体目标重新启动一场戏。</p><div class="metric-foot">8 分钟阅读 · 2026.08.12</div></div></article><article class="panel"><div style="height:125px;background:#dfe6e2;display:flex;align-items:flex-end;padding:15px;font-family:var(--serif);font-size:24px">人物有选择</div><div class="panel-body"><span class="badge gray">人物塑造</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">人物弧光不是人物简介</h3><p class="section-note">把“设定”转成可观察的选择、代价和关系变化，人物才会进入正文。</p><div class="metric-foot">6 分钟阅读 · 2026.08.06</div></div></article><article class="panel"><div style="height:125px;background:#e1e3e8;display:flex;align-items:flex-end;padding:15px;font-family:var(--serif);font-size:24px">管理长篇</div><div class="panel-body"><span class="badge gray">长篇工程</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">设定越多，越要限制上下文</h3><p class="section-note">不是把所有资料都塞给模型，而是让当前场景拥有足够、准确、可解释的上下文。</p><div class="metric-foot">9 分钟阅读 · 2026.07.29</div></div></article></div>`, 'blog-page');
+      return shell('blog', `<div class="grid grid-3"><article class="panel"><div class="blog-cover blog-cover--1">写作不是堆字</div><div class="panel-body"><span class="badge gray">方法论</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">先建立场景，再让人物说话</h3><p class="section-note">为什么 AI 续写容易变成摘要，以及如何用具体目标重新启动一场戏。</p><div class="metric-foot">8 分钟阅读 · 2026.08.12</div></div></article><article class="panel"><div class="blog-cover blog-cover--2">人物有选择</div><div class="panel-body"><span class="badge gray">人物塑造</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">人物弧光不是人物简介</h3><p class="section-note">把“设定”转成可观察的选择、代价和关系变化，人物才会进入正文。</p><div class="metric-foot">6 分钟阅读 · 2026.08.06</div></div></article><article class="panel"><div class="blog-cover blog-cover--3">管理长篇</div><div class="panel-body"><span class="badge gray">长篇工程</span><h3 style="margin:12px 0 6px;font-family:var(--serif);font-size:17px">设定越多，越要限制上下文</h3><p class="section-note">不是把所有资料都塞给模型，而是让当前场景拥有足够、准确、可解释的上下文。</p><div class="metric-foot">9 分钟阅读 · 2026.07.29</div></div></article></div>`, 'blog-page');
     }
 
     function loginPage() {
@@ -236,7 +234,8 @@
         return shell('story-workbench', `<div class="panel empty" style="padding:48px;max-width:560px;margin:40px auto;text-align:center"><div class="empty-icon">—</div><h3>请先选择一本小说</h3><p style="color:var(--muted);margin:8px 0 20px">长篇记忆与文风工作台需要基于具体的小说档案与设定进行研判。</p><button class="button primary" data-page="novels">打开我的小说</button></div>`, 'workbench-page');
       }
       const url = `./pages/story-workbench.html?nid=${encodeURIComponent(activeNid)}`;
-      return shell('story-workbench', `<div class="workbench-fusion-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--paper-warm);border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;margin-bottom:0"><div style="display:flex;align-items:center;gap:10px"><button class="button" data-page="editor" style="font-size:12px;display:flex;align-items:center;gap:4px">${icon('arrow-left')}返回 AI 小说编辑器</button><span class="badge blue">已联动当前作品</span><span style="font-size:12px;color:var(--muted)">正文与记忆变更可一键双向流转</span></div><div style="display:flex;gap:8px"><a class="button" href="${url}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开 (/browser)</a></div></div><div class="embedded-workbench-wrap" style="height:calc(100vh - 210px);min-height:560px;border-radius:0 0 8px 8px;overflow:hidden;border:1px solid var(--line);background:var(--paper)"><iframe src="${url}" style="width:100%;height:100%;border:none" title="故事记忆与文风工作台"></iframe></div>`, 'workbench-page');
+      const embedUrl = `${url}&embed=1`;
+      return shell('story-workbench', `<div class="workbench-fusion-bar"><div class="workbench-fusion-bar__left"><button class="button" data-page="editor">${icon('arrow-left')}返回 AI 小说编辑器</button><span class="badge blue">已联动当前作品</span><span class="workbench-fusion-bar__note">正文与记忆变更可一键双向流转</span></div><div class="workbench-fusion-bar__right"><a class="button" href="${url}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开</a></div></div><div class="embedded-workbench-wrap"><iframe src="${embedUrl}" title="故事记忆与文风工作台"></iframe></div>`, 'workbench-page');
     }
 
     function projectDocsPage() {
@@ -245,7 +244,8 @@
         return shell('project-docs', `<div class="panel empty" style="padding:48px;max-width:560px;margin:40px auto;text-align:center"><div class="empty-icon">—</div><h3>请先选择一本小说</h3><p style="color:var(--muted);margin:8px 0 20px">全套创作资料需要基于具体的小说档案进行分板块维护。</p><button class="button primary" data-page="novels">打开我的小说</button></div>`, 'workbench-page');
       }
       const url = `./pages/project-docs.html?nid=${encodeURIComponent(activeNid)}`;
-      return shell('project-docs', `<div class="workbench-fusion-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--paper-warm);border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;margin-bottom:0"><div style="display:flex;align-items:center;gap:10px"><button class="button" data-page="editor" style="font-size:12px;display:flex;align-items:center;gap:4px">${icon('arrow-left')}返回 AI 小说编辑器</button><span class="badge blue">已联动当前作品</span><span style="font-size:12px;color:var(--muted)">七大资料板块与 AI 提示词已无缝打通</span></div><div style="display:flex;gap:8px"><a class="button" href="${url}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开 (/browser)</a></div></div><div class="embedded-workbench-wrap" style="height:calc(100vh - 210px);min-height:560px;border-radius:0 0 8px 8px;overflow:hidden;border:1px solid var(--line);background:var(--paper)"><iframe src="${url}" style="width:100%;height:100%;border:none" title="全套创作资料"></iframe></div>`, 'workbench-page');
+      const embedUrl = `${url}&embed=1`;
+      return shell('project-docs', `<div class="workbench-fusion-bar"><div class="workbench-fusion-bar__left"><button class="button" data-page="editor">${icon('arrow-left')}返回 AI 小说编辑器</button><span class="badge blue">已联动当前作品</span><span class="workbench-fusion-bar__note">七大资料板块与 AI 提示词已无缝打通</span></div><div class="workbench-fusion-bar__right"><a class="button" href="${url}" target="_blank" rel="noopener">${icon('external-link')}新标签页打开</a></div></div><div class="embedded-workbench-wrap"><iframe src="${embedUrl}" title="全套创作资料"></iframe></div>`, 'workbench-page');
     }
 
     const renderers = { overview: overviewPage, novels: novelsPage, editor: editorPage, resources: resourcesPage, outline: outlinePage, dissect: dissectPage, creation: () => typeof creationPage === 'function' ? creationPage() : '<div class="page-shell"><div class="empty"><p>创书任务正在加载…</p></div></div>', knowledge: knowledgePage, skills: skillsPage, tools: toolsPage, billing: billingPage, docs: docsPage, account: accountPage, login: loginPage, features: featuresPage, blog: blogPage, 'admin-login': adminLoginPage, admin: adminPage, 'story-workbench': storyWorkbenchPage, 'project-docs': projectDocsPage };
@@ -460,6 +460,7 @@
         error.status = response.status;
         if (data && typeof data === 'object') {
           if (data.code) error.code = data.code;
+          if (data.retryAfter != null) error.retryAfter = data.retryAfter;
           if (Array.isArray(data.hits)) error.hits = data.hits;
           if (Array.isArray(data.missing)) error.missing = data.missing;
         }
@@ -1722,15 +1723,29 @@
       });
     }
 
-    function toggleTheme() {
-      const enabled = document.body.classList.toggle('theme-dim');
-      try { localStorage.setItem('molan_theme', enabled ? 'dim' : 'light'); } catch (_) {}
-      document.querySelectorAll('.theme-label').forEach(node => { node.textContent = enabled ? '深色' : '浅色'; });
+    function applyWorkbenchTheme(enabled, options = {}) {
+      const dark = Boolean(enabled);
+      document.body.classList.toggle('theme-dim', dark);
+      document.documentElement.classList.toggle('dark', dark);
+      document.documentElement.classList.toggle('light', !dark);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      if (options.persist) {
+        try { localStorage.setItem('molan_theme', dark ? 'dim' : 'light'); } catch (_) {}
+      }
+      document.querySelectorAll('.theme-label').forEach(node => { node.textContent = dark ? '深色' : '浅色'; });
       document.querySelectorAll('[data-action="theme"]').forEach(btn => {
         const iconNode = btn.querySelector('.icon, [data-lucide], svg');
-        if (iconNode) iconNode.outerHTML = icon(enabled ? 'moon' : 'sun');
+        if (iconNode) iconNode.outerHTML = icon(dark ? 'moon' : 'sun');
+      });
+      document.querySelectorAll('iframe').forEach(frameEl => {
+        try { frameEl.contentWindow?.postMessage({ type: 'molan:theme-change', theme: dark ? 'dark' : 'light' }, window.location.origin); } catch (_) {}
       });
       mountIcons();
+    }
+
+    function toggleTheme() {
+      const enabled = !document.body.classList.contains('theme-dim');
+      applyWorkbenchTheme(enabled, { persist: true });
       showToast(enabled ? '已切换到深色工作台' : '已切换到浅色工作台');
     }
 
@@ -2255,6 +2270,9 @@
         if (options.skillAudit) body.skillAudit = options.skillAudit;
         if (options.jsonMode) body.jsonMode = true;
         if (options.returnUsage) body.returnUsage = true;
+        // 朱雀自检闸门：前端可显式要求 humanize 阶段跑真值检测与多轮改写择优。
+        // 服务端在配置了 MAKERS_MODELS_KEY 时用真朱雀分数判定，未配置则降级本地代理。
+        if (options.humanizeGateMaxRounds != null) body.humanizeGateMaxRounds = options.humanizeGateMaxRounds;
         if (options.reasoningEffort != null) body.reasoningEffort = options.reasoningEffort;
         if (options.thinking != null) body.thinking = options.thinking === true;
         if (options.correctionPolicy != null) body.correctionPolicy = options.correctionPolicy === true;
@@ -2294,6 +2312,10 @@
           try {
             const chunk = JSON.parse(text);
             if (chunk.molan_usage) usage = chunk.molan_usage;
+            // 朱雀闸门控制事件（gate_retry / 收敛）：让调用方展示真值检测与多轮改写进度。
+            if (chunk.molan_rewrite && typeof options.onGateEvent === 'function') {
+              try { options.onGateEvent(chunk.molan_rewrite); } catch (_) {}
+            }
             if (chunk.molan_billing) {
               if ((chunk.molan_billing.downgraded || isDowngradedHeader) && typeof options.onModelDowngraded === 'function') {
                 try { options.onModelDowngraded({ requested: chunk.molan_billing.downgradedFrom || requestedModelHeader, resolved: chunk.molan_billing.modelId || resolvedModelHeader }); } catch (_) {}
@@ -2603,6 +2625,8 @@
       frame.classList.toggle('editor-focus', hasEditorNovel);
       document.body.classList.toggle('editor-only-mode', hasEditorNovel);
       document.querySelectorAll('[data-page]').forEach((node) => node.classList.toggle('active', node.dataset.page === currentPage && node.classList.contains('side-link')));
+      const sideMore = document.getElementById('sideMoreGroup');
+      if (sideMore && sideMore.querySelector('.side-link.active')) sideMore.open = true;
       stage.scrollTop = 0;
       closeSidebar();
       applyBackendPageData();
@@ -3250,9 +3274,11 @@
         const railToggle = document.getElementById('editorRailToggle');
         const paper = stage.querySelector('.editor-paper');
         const editorToolbar = stage.querySelector('.editor-bar .toolbar');
-        const saveStatus = stage.querySelector('#editorSaveStatus, [data-completion-save-status]');
-        if (saveStatus) {
-          saveStatus.id = 'editorSaveStatus';
+        const completionSaveStatus = stage.querySelector('[data-completion-save-status]');
+        const legacySaveStatus = stage.querySelector('#editorSaveStatus');
+        if (completionSaveStatus) {
+          completionSaveStatus.textContent = '已自动保存';
+        } else if (legacySaveStatus) {
           setEditorSaveStatus('已自动保存', 'check');
         }
         initEditorHistory(paper);
@@ -3449,28 +3475,31 @@
           setDockState(false);
         }
 
-        dockToggle?.addEventListener('click', () => {
-          setDockState(!isDockOpen());
-        });
-
-        dockCollapseBtn?.addEventListener('click', () => setDockState(false));
-
-        // Toolbar dock pill tabs click
-        stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const tabId = btn.dataset.dockTab;
-            if (btn.classList.contains('active') && isDockOpen()) {
-              setDockState(false);
-            } else {
-              switchDockTab(tabId);
-            }
+        // 当 completion-editor.js 接管编辑器时，由其统一事件委托管理坞站开关与标签切换，避免双重绑定导致状态错乱
+        if (!preview || preview.dataset.completionRoot !== 'editor') {
+          dockToggle?.addEventListener('click', () => {
+            setDockState(!isDockOpen());
           });
-        });
 
-        // Dock header nav tabs click
-        stage.querySelectorAll('#dockNavTabs .dock-tab-btn').forEach(btn => {
-          btn.addEventListener('click', () => switchDockTab(btn.dataset.dockTab));
-        });
+          dockCollapseBtn?.addEventListener('click', () => setDockState(false));
+
+          // Toolbar dock pill tabs click
+          stage.querySelectorAll('#editorDockTabs .dock-pill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const tabId = btn.dataset.dockTab;
+              if (btn.classList.contains('active') && isDockOpen()) {
+                setDockState(false);
+              } else {
+                switchDockTab(tabId);
+              }
+            });
+          });
+
+          // Dock header nav tabs click
+          stage.querySelectorAll('#dockNavTabs .dock-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchDockTab(btn.dataset.dockTab));
+          });
+        }
 
         // Inject reference context to AI prompt (#editorPrompt)
         const injectPromptContext = (title, meta, desc, typePrefix) => {
@@ -3631,7 +3660,21 @@
 
           try {
             let output = '';
-            if (backendState.token && typeof requestChatText === 'function') {
+            // 朱雀真值闭环：编辑器「去 AI 味」工具优先走服务端朱雀检测 + 多轮改写端点。
+            // 服务端未启用朱雀 / 无 Key / 文本 < 350 字时返回错误，自动回退原 LLM 改写，工具始终可用。
+            const isDeaiTool = currentActiveTool === '去 AI 味';
+            let zhuqueResult = null;
+            if (isDeaiTool && rawText.length >= 350 && backendState.token) {
+              try {
+                zhuqueResult = await backendRequest('/api/deai-zhuque-loop', {
+                  method: 'POST',
+                  body: { seedText: rawText, novelGenre: '通用文学', targetChars: rawText.length }
+                });
+              } catch (_) { zhuqueResult = null; }
+            }
+            if (zhuqueResult && zhuqueResult.ok && zhuqueResult.text) {
+              output = zhuqueResult.text;
+            } else if (backendState.token && typeof requestChatText === 'function') {
               try {
                 output = await requestChatText([
                   { role: 'system', content: `你是墨阑创作工作台专用工具“${currentActiveTool}”。${toolPrompts[currentActiveTool] || ''}` },
@@ -3673,7 +3716,17 @@
               }
             }
             currentToolProcessedText = output;
-            if (toolResultText) toolResultText.textContent = output;
+            if (toolResultText) {
+              toolResultText.textContent = output;
+              if (zhuqueResult && zhuqueResult.ok && zhuqueResult.text) {
+                const rep = zhuqueResult.report || {};
+                const meta = document.createElement('div');
+                meta.style.cssText = 'margin-top:10px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)';
+                meta.textContent = `朱雀真值闭环 · ${zhuqueResult.allGreen ? '已全绿' : '已压到最低'} · AIGC ${rep.aiScore == null ? '—' : rep.aiScore}/100 · 绿段 ${rep.greenRatio == null ? '—' : Math.round(rep.greenRatio * 100)}%` +
+                  (Array.isArray(zhuqueResult.rewrites) && zhuqueResult.rewrites.length ? ` · 改写 ${zhuqueResult.rewrites.length} 轮` : '');
+                toolResultText.appendChild(meta);
+              }
+            }
             if (toolResultActions) toolResultActions.style.display = 'flex';
           } catch (err) {
             showToast('处理失败：' + (err.message || '网络或模型异常'));
@@ -4151,10 +4204,18 @@
       const pageButton = event.target.closest('[data-page]');
       if (pageButton && !stage.contains(pageButton)) {
         event.preventDefault();
+        const authIntent = pageButton.dataset.authIntent || '';
         const targetPage = pageButton.hasAttribute('data-user-login-entry') && backendState.user ? 'account' : pageButton.dataset.page;
         if (targetPage === 'tools') {
           window.location.href = './pages/tools.html';
           return;
+        }
+        if (targetPage === 'login' && authIntent) {
+          if (typeof window.MolanOpenAuth === 'function') {
+            window.MolanOpenAuth(authIntent);
+            return;
+          }
+          window.__molanPendingAuthMode = authIntent;
         }
         renderPage(targetPage);
       }
@@ -4253,19 +4314,163 @@
         void bootstrapBackend();
       }, 0);
     });
-    window.addEventListener('popstate', () => { const page = window.location.hash.slice(1); renderPage(renderers[page] ? page : 'overview', { fromHistory: true }); });
-    window.addEventListener('hashchange', () => { const page = window.location.hash.slice(1); if (page !== currentPage) renderPage(renderers[page] ? page : 'overview', { fromHistory: true }); });
-    try {
-      if (localStorage.getItem('molan_theme') === 'dim') document.body.classList.add('theme-dim');
-    } catch (_) {}
-    const isDimInitial = document.body.classList.contains('theme-dim');
-    document.querySelectorAll('.theme-label').forEach(node => { node.textContent = isDimInitial ? '深色' : '浅色'; });
-    document.querySelectorAll('[data-action="theme"]').forEach(btn => {
-      const iconNode = btn.querySelector('.icon, [data-lucide], svg');
-      if (iconNode) iconNode.outerHTML = icon(isDimInitial ? 'moon' : 'sun');
+    window.addEventListener('popstate', () => {
+      const hashPage = window.location.hash.slice(1);
+      if (hashPage === 'register') {
+        if (typeof window.MolanOpenAuth === 'function') window.MolanOpenAuth('register');
+        else { window.__molanPendingAuthMode = 'register'; renderPage('login', { fromHistory: true }); }
+        return;
+      }
+      renderPage(renderers[hashPage] ? hashPage : 'overview', { fromHistory: true });
     });
-    mountIcons();
-    const initialPage = window.location.hash.slice(1);
+    window.addEventListener('hashchange', () => {
+      const hashPage = window.location.hash.slice(1);
+      if (hashPage === 'register') {
+        if (typeof window.MolanOpenAuth === 'function') window.MolanOpenAuth('register');
+        else { window.__molanPendingAuthMode = 'register'; renderPage('login', { fromHistory: true }); }
+        return;
+      }
+      if (hashPage !== currentPage) renderPage(renderers[hashPage] ? hashPage : 'overview', { fromHistory: true });
+    });
+    try {
+      const savedTheme = localStorage.getItem('molan_theme');
+      if (savedTheme === 'dim' || savedTheme === 'dark') applyWorkbenchTheme(true, { persist: false });
+      else applyWorkbenchTheme(false, { persist: false });
+    } catch (_) {
+      mountIcons();
+    }
+    window.addEventListener('storage', event => {
+      if (event && event.key === 'molan_theme') {
+        applyWorkbenchTheme(event.newValue === 'dim' || event.newValue === 'dark', { persist: false });
+      }
+    });
+
+    /* 全局 Ctrl+K / Cmd+K 快速命令与页面跳转面板 */
+    (function initCommandPalette() {
+      const backdrop = document.getElementById('cmdkBackdrop');
+      const input = document.getElementById('cmdkInput');
+      const list = document.getElementById('cmdkList');
+      const trigger = document.getElementById('cmdkTrigger');
+      if (!backdrop || !input || !list) return;
+      let activeIndex = 0;
+      let currentItems = [];
+
+      function buildCommands() {
+        const pageItems = [
+          { group: '页面导航', label: '创作总览', hint: 'overview', icon: 'layout-dashboard', run: () => renderPage('overview') },
+          { group: '页面导航', label: '我的小说', hint: '书架 / 作品库', icon: 'library', run: () => renderPage('novels') },
+          { group: '页面导航', label: '小说编辑器', hint: '正文写作', icon: 'pen-line', run: () => renderPage('editor') },
+          { group: '页面导航', label: '拆书分析', hint: '样文拆解', icon: 'scan-text', run: () => renderPage('dissect') },
+          { group: '页面导航', label: '创书任务', hint: '拆书创书', icon: 'wand-sparkles', run: () => renderPage('creation') },
+          { group: '页面导航', label: '大纲与时间线', hint: '总纲 / 卷纲 / 伏笔', icon: 'milestone', run: () => renderPage('outline') },
+          { group: '页面导航', label: '设定集 / 知识库', hint: '人物 / 地点 / 势力', icon: 'network', run: () => renderPage('knowledge') },
+          { group: '页面导航', label: '故事记忆与文风', hint: '认知差 / 文风', icon: 'brain', run: () => renderPage('story-workbench') },
+          { group: '页面导航', label: '全套资料(七大板块)', hint: '作品资料中心', icon: 'layers', run: () => renderPage('project-docs') },
+          { group: '页面导航', label: '资源中心', hint: '导入文件与素材', icon: 'folder-open', run: () => renderPage('resources') },
+          { group: '页面导航', label: 'AI 工具', hint: '去 AI 味 / 校对', icon: 'wand-sparkles', run: () => renderPage('tools') },
+          { group: '页面导航', label: '开放 Skill', hint: '写作技能库', icon: 'sparkles', run: () => renderPage('skills') },
+          { group: '页面导航', label: '积分与套餐', hint: '额度与账单', icon: 'coins', run: () => renderPage('billing') },
+          { group: '页面导航', label: '使用教程', hint: '帮助文档', icon: 'book-open', run: () => renderPage('docs') },
+          { group: '页面导航', label: '账户设置', hint: '个人资料', icon: 'settings-2', run: () => renderPage('account') },
+          { group: '页面导航', label: '登录 / 切换账号', hint: '邮箱密码登录', icon: 'log-in', run: () => { if (typeof window.MolanOpenAuth === 'function') window.MolanOpenAuth('login'); else { window.__molanPendingAuthMode = 'login'; renderPage('login'); } } },
+          { group: '页面导航', label: '注册新账号', hint: '邮箱验证码注册', icon: 'user-plus', run: () => { if (typeof window.MolanOpenAuth === 'function') window.MolanOpenAuth('register'); else { window.__molanPendingAuthMode = 'register'; renderPage('login'); } } }
+        ];
+        const novelItems = (Array.isArray(backendState.novels) ? backendState.novels : []).slice(0, 8).map(n => ({
+          group: '我的作品',
+          label: n.title || '未命名小说',
+          hint: '打开编辑',
+          icon: 'book-open',
+          run: () => {
+            if (typeof openBackendNovel === 'function') void openBackendNovel(n.id || n.nid);
+            else renderPage('editor');
+          }
+        }));
+        const actionItems = [
+          { group: '快捷操作', label: '新建小说', hint: '创建新作品', icon: 'plus', run: () => openModal() },
+          { group: '快捷操作', label: document.body.classList.contains('theme-dim') ? '切换到浅色工作台' : '切换到深色工作台', hint: '明暗主题', icon: document.body.classList.contains('theme-dim') ? 'sun' : 'moon', run: () => toggleTheme() },
+          { group: '快捷操作', label: '切换编辑器专注写作模式', hint: 'Ctrl+\\', icon: 'maximize-2', run: () => { if (currentPage !== 'editor') renderPage('editor'); window.setTimeout(() => { if (typeof window.MolanToggleEditorZen === 'function') window.MolanToggleEditorZen(); }, 80); } },
+          { group: '快捷操作', label: '打开通知中心', hint: '任务与记录', icon: 'bell', run: () => openNotifications() }
+        ];
+        return [...actionItems, ...novelItems, ...pageItems];
+      }
+
+      function renderList(query) {
+        const q = String(query || '').trim().toLowerCase();
+        const all = buildCommands();
+        currentItems = q ? all.filter(item => (`${item.label} ${item.hint} ${item.group}`).toLowerCase().includes(q)) : all;
+        if (activeIndex >= currentItems.length) activeIndex = 0;
+        if (!currentItems.length) {
+          list.innerHTML = '<div class="cmdk-empty">未找到匹配的页面、作品或操作</div>';
+          return;
+        }
+        let html = '';
+        let lastGroup = '';
+        currentItems.forEach((item, idx) => {
+          if (item.group !== lastGroup) {
+            lastGroup = item.group;
+            html += `<div class="cmdk-group-title">${escapeBackendHtml(item.group)}</div>`;
+          }
+          html += `<button class="cmdk-item${idx === activeIndex ? ' is-selected' : ''}" type="button" data-cmdk-idx="${idx}">${icon(item.icon)}<span>${escapeBackendHtml(item.label)}</span><small>${escapeBackendHtml(item.hint)}</small></button>`;
+        });
+        list.innerHTML = html;
+        mountIcons();
+      }
+
+      function openCmdk() {
+        backdrop.classList.add('open');
+        backdrop.setAttribute('aria-hidden', 'false');
+        input.value = '';
+        activeIndex = 0;
+        renderList('');
+        window.setTimeout(() => input.focus(), 10);
+      }
+
+      function closeCmdk() {
+        backdrop.classList.remove('open');
+        backdrop.setAttribute('aria-hidden', 'true');
+      }
+
+      function executeItem(idx) {
+        const item = currentItems[idx];
+        closeCmdk();
+        if (item && typeof item.run === 'function') {
+          window.setTimeout(() => { item.run(); }, 0);
+        }
+      }
+
+      trigger?.addEventListener('click', openCmdk);
+      backdrop.addEventListener('click', event => { if (event.target === backdrop) closeCmdk(); });
+      input.addEventListener('input', () => { activeIndex = 0; renderList(input.value); });
+      input.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          if (currentItems.length) { activeIndex = (activeIndex + 1) % currentItems.length; renderList(input.value); }
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          if (currentItems.length) { activeIndex = (activeIndex - 1 + currentItems.length) % currentItems.length; renderList(input.value); }
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          executeItem(activeIndex);
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          closeCmdk();
+        }
+      });
+      list.addEventListener('click', event => {
+        const btn = event.target.closest('[data-cmdk-idx]');
+        if (btn) executeItem(Number(btn.dataset.cmdkIdx));
+      });
+      document.addEventListener('keydown', event => {
+        if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 'k') {
+          event.preventDefault();
+          if (backdrop.classList.contains('open')) closeCmdk();
+          else openCmdk();
+        }
+      });
+    })();
+    const rawInitialPage = window.location.hash.slice(1);
+    const initialPage = rawInitialPage === 'register' ? 'login' : rawInitialPage;
+    if (rawInitialPage === 'register') window.__molanPendingAuthMode = 'register';
     if (initialPage === 'editor' && initialEditorPrompt) {
       const promptTitle = initialEditorPrompt.slice(0, 18) + (initialEditorPrompt.length > 18 ? '…' : '');
       previewState.novel = { title: promptTitle || '未命名小说', intro: initialEditorPrompt, type: '玄幻' };

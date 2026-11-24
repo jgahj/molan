@@ -615,8 +615,10 @@
 
   function refFunction(name) {
     try {
-      if (name === 'backendRequest') return typeof backendRequest === 'function' ? backendRequest : null;
-      if (name === 'openBackendNovel') return typeof openBackendNovel === 'function' ? openBackendNovel : null;
+      // 这些函数实际由 app-boot 挂在 window 上；局部同名变量仅在某些初始化路径存在。
+      // 局部不存在时必须继续走下方 window[name] 兜底，否则会误返回 null。
+      if (name === 'backendRequest') { if (typeof backendRequest === 'function') return backendRequest; }
+      else if (name === 'openBackendNovel') { if (typeof openBackendNovel === 'function') return openBackendNovel; }
       if (name === 'renderPage') return renderPage;
       if (name === 'mountIcons') return mountIcons;
       if (name === 'showToast') return showToast;
@@ -2388,18 +2390,19 @@
     const chapterFunctionSelect = `<label class="ai-control-field" data-completion-function-field title="选择本章承担的功能定位（黄金三章/推进/打脸/铺垫/高潮等）"><span class="ai-control-field__label">本章功能</span><select class="ai-select" data-completion-chapter-function aria-label="选择本章功能">${buildChapterFunctionOptions(state)}</select></label>`;
       const chapterFocusSelect = `<label class="ai-control-field" data-completion-focus-field title="选择本章镜头侧重点（对话/战斗/环境/心理/智斗/情感等）"><span class="ai-control-field__label">该章侧重点</span><select class="ai-select" data-completion-chapter-focus aria-label="选择该章侧重点">${buildChapterFocusOptions(state)}</select></label>`;
     const endingHookSelect = `<label class="ai-control-field" data-completion-hook-field title="选择章末结尾断章钩子（危机/悬念/反转/期待/情感等）"><span class="ai-control-field__label">结尾钩子</span><select class="ai-select" data-completion-ending-hook aria-label="选择结尾钩子">${buildEndingHookOptions(state)}</select></label>`;
-    const styleDetectorControl = `<div class="ai-control-field" data-completion-style-detector-box style="display:flex;flex-direction:column;gap:3px;padding:4px 10px;background:rgba(0,0,0,0.02);border-radius:6px;margin:2px 0">
+    const styleDetectorControl = `<div class="ai-control-field" data-completion-style-detector-box style="display:flex;flex-direction:column;gap:4px;padding:6px 8px;background:var(--paper-warm);border:1px solid var(--line);border-radius:6px;margin:7px 10px 0">
       <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
-        <span style="display:flex;align-items:center;gap:3px;color:var(--text-secondary,#666)">写作风格</span>
-        <span data-completion-style-badge style="font-weight:600;color:var(--accent,#4f46e5);font-size:10px">自动匹配</span>
+        <span style="display:flex;align-items:center;gap:3px;color:var(--muted)">写作风格</span>
+        <span data-completion-style-badge style="font-weight:600;color:var(--blue);font-size:10px">自动匹配</span>
       </div>
-      <select class="ai-select" data-completion-archetype-override style="height:24px;font-size:10px;padding:0 4px" aria-label="选择写作风格">
+      <select class="ai-select" data-completion-archetype-override style="height:28px;min-height:28px;font-size:10px;padding:0 26px 0 8px" aria-label="选择写作风格">
         ${buildWritingStyleOptions(state)}
       </select>
     </div>`;
     const creationCost = state.creationBookId ? '<div data-completion-creation-cost class="section-note" style="padding:4px 12px 0;font-size:10px">创作书预算正在读取…</div>' : '';
-    const paramsDrawer = `<details class="ai-params-drawer" data-completion-params-drawer><summary class="ai-params-summary"><span class="ai-params-summary-title">创作参数</span><span class="ai-params-summary-hint" data-completion-params-hint>题材·风格·功能·侧重点·钩子</span><span class="ai-params-toggle-text">展开 ▾</span></summary><div class="ai-params-body"><label class="ai-control-field" style="margin-top:2px"><span class="ai-control-field__label">写作预设</span>${skillSelect}</label><label class="ai-control-field"><span class="ai-control-field__label">历史会话</span>${history}</label>${thinkingControl}${genreFamilySelect}${xuanhuanRouteSelect}${styleDetectorControl}${chapterFunctionSelect}${chapterFocusSelect}${endingHookSelect}${creationCost}</div></details>`;
-    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview ai-open" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><aside class="editor-dock" id="editorWorkbenchDock" aria-label="创作工作台坞站"><div class="dock-header"><div class="dock-title-wrap"><span class="dock-title-badge">${ico('layers')}</span><strong>创作坞站</strong></div><div class="dock-header-actions"><button class="dock-collapse-btn" id="dockCollapseBtn" aria-label="收起工作台坞站" title="收起工作台坞站">${ico('chevron-left')}</button></div></div><div class="dock-nav-bar" id="dockNavTabs"><button class="dock-tab-btn active" data-dock-tab="outline">${ico('milestone')}<span>大纲</span></button><button class="dock-tab-btn" data-dock-tab="knowledge">${ico('network')}<span>设定</span></button><button class="dock-tab-btn" data-dock-tab="memory">${ico('brain')}<span>记忆文风</span></button><button class="dock-tab-btn" data-dock-tab="tools">${ico('wand-sparkles')}<span>AI工具</span></button></div><div class="dock-body-scroll"><div class="dock-panel active" data-dock-panel="outline"><div class="dock-subnav"><button class="dock-subtab active" data-outline-sub="timeline">时间线</button><button class="dock-subtab" data-outline-sub="ledger">伏笔台账</button></div><div class="dock-outline-timeline-list" id="dockOutlineTimeline"></div><div class="dock-outline-ledger-list" id="dockOutlineLedger" style="display:none"></div></div><div class="dock-panel" data-dock-panel="knowledge"><div class="dock-search-wrap">${ico('search')}<input id="dockEntitySearch" placeholder="搜索实体、人物、地点..."></div><div class="dock-filter-tags"><button class="dock-filter-tag active" data-entity-filter="all">全部</button><button class="dock-filter-tag" data-entity-filter="人物">人物</button><button class="dock-filter-tag" data-entity-filter="地点">地点</button><button class="dock-filter-tag" data-entity-filter="势力">势力</button><button class="dock-filter-tag" data-entity-filter="物品">物品</button></div><div class="dock-entity-list" id="dockEntityList"></div></div><div class="dock-panel" data-dock-panel="memory"></div><div class="dock-panel" data-dock-panel="tools"><div class="dock-tools-selector"><button class="dock-tool-choice active" data-tool="去 AI 味"><span class="tool-ic">${ico('eraser')}</span><strong>去 AI 味</strong><small>消除八股套话</small></button><button class="dock-tool-choice" data-tool="错别字检测"><span class="tool-ic">${ico('spell-check')}</span><strong>错别字检测</strong><small>校对病句标点</small></button><button class="dock-tool-choice" data-tool="扩写/润色"><span class="tool-ic">${ico('sparkles')}</span><strong>扩写/润色</strong><small>丰富细节白描</small></button><button class="dock-tool-choice" data-tool="节奏分析"><span class="tool-ic">${ico('activity')}</span><strong>节奏分析</strong><small>研判冲突密度</small></button></div><div class="dock-tool-input-bar"><span class="dock-tool-desc" id="dockCurrentToolDesc">依据 Stop AI Slop 准则消除机械排比与套话</span><button class="dock-tool-fetch-btn" id="dockFetchSelectionBtn" title="读取正文选区">${ico('mouse-pointer')}读取选中文本</button></div><textarea class="dock-tool-editor" id="dockToolInput" placeholder="从正文选中一段文本，或在此粘贴需要处理的内容..."></textarea><div class="dock-tool-actions"><span class="dock-tool-wc" id="dockToolWordCount">0 字</span><button class="button primary" id="dockExecuteToolBtn">${ico('play')}开始处理</button></div><div class="section-title" style="font-size:11px;margin-bottom:6px">处理结果</div><div class="dock-result-box" id="dockToolResultText">等待执行：从正文选中一段内容后点击上方工具，或直接输入正文开始。</div><div class="dock-result-btns" id="dockToolResultActions" style="display:none"><button class="button primary" id="dockApplyReplaceBtn" data-tool-action="apply-paper" title="应用至正文（替换选中正文或追加到末尾）">${ico('repeat')}应用至正文</button><button class="button" id="dockApplyInsertBtn" title="在光标位置插入">${ico('arrow-down-to-line')}插入光标处</button><button class="button" id="dockApplyAppendBtn" title="追加到章节末尾">${ico('plus')}追加到章节末尾</button><button class="button" id="dockCopyResultBtn" title="复制结果到剪贴板">${ico('copy')}复制结果</button></div></div></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><div class="dock-segmented-tabs" id="editorDockTabs"><button class="dock-pill-btn active" data-dock-tab="outline" title="切换大纲坞站">${ico('milestone')}<span>大纲</span></button><button class="dock-pill-btn" data-dock-tab="knowledge" title="切换设定坞站">${ico('network')}<span>设定</span></button><button class="dock-pill-btn" data-dock-tab="memory" title="切换记忆文风坞站">${ico('brain')}<span>记忆文风</span></button><button class="dock-pill-btn" data-dock-tab="tools" title="切换 AI 工具坞站">${ico('wand-sparkles')}<span>AI工具</span></button></div><button class="editor-toolbar-button" id="editorDockToggle" aria-label="收起工作台坞站" title="展开/收起工作台坞站">${ico('panel-left-close')}</button><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}</button><button class="editor-toolbar-button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button><button class="editor-toolbar-button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}</button><button class="editor-toolbar-button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}</button><button class="editor-toolbar-button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}</button><button class="editor-toolbar-button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}</button><button class="editor-toolbar-button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}</button><button class="editor-toolbar-button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}</button></div><div style="display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;flex-shrink:0"><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}</button><button class="editor-toolbar-button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}</button><button class="editor-toolbar-button editor-toolbar-dissection" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><span>${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><button class="editor-toolbar-button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}</button><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article><div class="editor-selection-menu" id="editorSelectionMenu" hidden><button data-sel-tool="去 AI 味">${ico('eraser')}去 AI 味</button><button data-sel-tool="错别字检测">${ico('spell-check')}错别字</button><button data-sel-tool="扩写/润色">${ico('sparkles')}扩写润色</button><button data-sel-tool="节奏分析">${ico('activity')}节奏分析</button><button data-sel-tool="ai-prompt">${ico('message-square')}发给 AI</button></div></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div><div class="editor-ai-dock-tabs" style="display:flex;border-bottom:1px solid var(--line);background:var(--paper-warm);padding:2px 4px;gap:2px"><button class="editor-ai-dock-btn active" type="button" data-completion-action="switch-ai-dock" data-dock="chat" style="flex:1;padding:5px 2px;border:none;background:var(--paper);border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:3px">${ico('sparkles')}AI助手</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="memory" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('brain')}故事记忆</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="docs" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('folder-kanban')}全套资料</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="outline" style="flex:1;padding:5px 2px;border:none;background:transparent;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px">${ico('milestone')}细纲伏笔</button></div><div data-ai-dock-view="chat" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div></div><div data-ai-dock-view="memory" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="docs" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="outline" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div class="chat-composer"><div class="chat-quick-chips"><button type="button" class="chat-chip chat-toggle-chip" data-completion-action="boost-context" data-chip="boost" style="color:var(--amber,#b45309);font-weight:600;background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.4)" title="开启/关闭全景联动增强：发送时后台静默聚合当前章节关联的七大资料定位、世界观规则、人物认知与伏笔台账">🚀 全景联动增强 /boost</button><button type="button" class="chat-chip chat-toggle-chip" data-completion-action="toggle-memory" data-chip="memory" style="color:var(--accent,#4f46e5);font-weight:600;background:rgba(79,70,229,0.06);border-color:rgba(79,70,229,0.3)" title="开启/关闭故事记忆与认知增强：发送时后台静默注入角色认知差、前情约束与长期故事记忆">${ico('brain')} 故事记忆</button><button type="button" class="chat-chip chat-toggle-chip" data-completion-action="toggle-docs" data-chip="docs" style="color:var(--emerald,#059669);font-weight:600;background:rgba(16,185,129,0.06);border-color:rgba(16,185,129,0.3)" title="开启/关闭全套创作资料增强：发送时后台静默注入世界观法则、设定条目与剧情资料中心">${ico('folder-kanban')} 全套资料</button><button type="button" class="chat-chip" data-completion-action="inspect-params" data-action="inspect-params" style="color:var(--ink-soft,#374151);font-weight:500;background:var(--paper-warm);border-color:var(--line)" title="核对当前已选定的题材、文风、功能、侧重点等创作参数">⚙️ 创作参数核对</button><button type="button" class="chat-chip" data-completion-action="open-full-workbench-browser" title="在全屏独立工作台进行深度研判与推演">${ico('external-link')} 全屏工作台 /browser</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述创作任务，或输入 /boost 全景增强、/browser 全屏工作台…（Enter 发送）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
+    const paramsDrawer = `<details class="ai-params-drawer" data-completion-params-drawer><summary class="ai-params-summary"><span class="ai-params-summary-title">创作参数</span><span class="ai-params-summary-hint" data-completion-params-hint>题材·风格·功能·侧重点·钩子</span><span class="ai-params-toggle-text">展开 ▾</span></summary><div class="ai-params-body"><div class="ai-preset-pill"><span>写作预设</span><strong>高张力写作 Skill</strong><span hidden>${skillSelect}</span></div><div class="ai-params-section-label">本章参数</div><div class="ai-params-grid">${thinkingControl}${chapterFunctionSelect}${chapterFocusSelect}${endingHookSelect}</div><div class="ai-params-section-label">作品与会话设定</div><label class="ai-control-field"><span class="ai-control-field__label">历史会话</span>${history}</label>${genreFamilySelect}${xuanhuanRouteSelect}${styleDetectorControl}${creationCost}</div></details>`;
+    const initAiOpenClass = (typeof window === 'undefined' || window.innerWidth > 820) ? ' ai-open' : '';
+    return pageShell('editor', 'EDITOR', '小说编辑器', `${esc(title)} · 正文、卷章、场景和 AI 协作`, tools, `<button class="editor-rail-toggle" id="editorRailToggle" aria-label="收起工作台导航" title="收起工作台导航">${ico('panel-left-close')}</button><div class="editor-preview${initAiOpenClass}" id="editorPreview" data-completion-root="editor"><div class="editor-nav-scrim" data-completion-action="close-nav" aria-hidden="true"></div><aside class="editor-nav"><div class="editor-nav-head"><div class="editor-nav-title-row"><strong>${esc(title)}</strong><button class="editor-back-button" type="button" data-completion-page="novels" aria-label="返回我的小说" title="返回我的小说">${ico('arrow-left')}<span>返回</span></button></div><span>${state.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)} 章 · ${state.outline.volume && state.outline.volume.done || 0} 章已完成</span></div><div class="editor-chapters completion-editor-tree">${volumes || '<div class="empty"><p>当前作品还没有章节。</p></div>'}<button class="button" style="width:calc(100% - 12px);margin:12px 6px;min-height:29px;font-size:10px" data-completion-action="add-volume" aria-label="新增卷" title="新增卷">${ico('plus')}新增卷</button></div></aside><aside class="editor-dock collapsed" id="editorWorkbenchDock" aria-label="创作工作台坞站"><div class="dock-header"><div class="dock-title-wrap"><span class="dock-title-badge">${ico('layers')}</span><strong>创作坞站</strong></div><div class="dock-header-actions"><button class="dock-collapse-btn" id="dockCollapseBtn" aria-label="收起工作台坞站" title="收起工作台坞站">${ico('chevron-left')}</button></div></div><div class="dock-nav-bar" id="dockNavTabs"><button class="dock-tab-btn active" data-dock-tab="outline">${ico('milestone')}<span>大纲</span></button><button class="dock-tab-btn" data-dock-tab="knowledge">${ico('network')}<span>设定</span></button><button class="dock-tab-btn" data-dock-tab="memory">${ico('brain')}<span>记忆文风</span></button><button class="dock-tab-btn" data-dock-tab="tools">${ico('wand-sparkles')}<span>AI工具</span></button></div><div class="dock-body-scroll"><div class="dock-panel active" data-dock-panel="outline"><div class="dock-subnav"><button class="dock-subtab active" data-outline-sub="timeline">时间线</button><button class="dock-subtab" data-outline-sub="ledger">伏笔台账</button></div><div class="dock-outline-timeline-list" id="dockOutlineTimeline"></div><div class="dock-outline-ledger-list" id="dockOutlineLedger" style="display:none"></div></div><div class="dock-panel" data-dock-panel="knowledge"><div class="dock-search-wrap">${ico('search')}<input id="dockEntitySearch" placeholder="搜索实体、人物、地点..."></div><div class="dock-filter-tags"><button class="dock-filter-tag active" data-entity-filter="all">全部</button><button class="dock-filter-tag" data-entity-filter="人物">人物</button><button class="dock-filter-tag" data-entity-filter="地点">地点</button><button class="dock-filter-tag" data-entity-filter="势力">势力</button><button class="dock-filter-tag" data-entity-filter="物品">物品</button></div><div class="dock-entity-list" id="dockEntityList"></div></div><div class="dock-panel" data-dock-panel="memory"></div><div class="dock-panel" data-dock-panel="tools"><div class="dock-tools-selector"><button class="dock-tool-choice active" data-tool="去 AI 味"><span class="tool-ic">${ico('eraser')}</span><strong>去 AI 味</strong><small>消除八股套话</small></button><button class="dock-tool-choice" data-tool="错别字检测"><span class="tool-ic">${ico('spell-check')}</span><strong>错别字检测</strong><small>校对病句标点</small></button><button class="dock-tool-choice" data-tool="扩写/润色"><span class="tool-ic">${ico('sparkles')}</span><strong>扩写/润色</strong><small>丰富细节白描</small></button><button class="dock-tool-choice" data-tool="节奏分析"><span class="tool-ic">${ico('activity')}</span><strong>节奏分析</strong><small>研判冲突密度</small></button></div><div class="dock-tool-input-bar"><span class="dock-tool-desc" id="dockCurrentToolDesc">依据 Stop AI Slop 准则消除机械排比与套话</span><button class="dock-tool-fetch-btn" id="dockFetchSelectionBtn" title="读取正文选区">${ico('mouse-pointer')}读取选中文本</button></div><textarea class="dock-tool-editor" id="dockToolInput" placeholder="从正文选中一段文本，或在此粘贴需要处理的内容..."></textarea><div class="dock-tool-actions"><span class="dock-tool-wc" id="dockToolWordCount">0 字</span><button class="button primary" id="dockExecuteToolBtn">${ico('play')}开始处理</button></div><div class="section-title" style="font-size:11px;margin-bottom:6px">处理结果</div><div class="dock-result-box" id="dockToolResultText">等待执行：从正文选中一段内容后点击上方工具，或直接输入正文开始。</div><div class="dock-result-btns" id="dockToolResultActions" style="display:none"><button class="button primary" id="dockApplyReplaceBtn" data-tool-action="apply-paper" title="应用至正文（替换选中正文或追加到末尾）">${ico('repeat')}应用至正文</button><button class="button" id="dockApplyInsertBtn" title="在光标位置插入">${ico('arrow-down-to-line')}插入光标处</button><button class="button" id="dockApplyAppendBtn" title="追加到章节末尾">${ico('plus')}追加到章节末尾</button><button class="button" id="dockCopyResultBtn" title="复制结果到剪贴板">${ico('copy')}复制结果</button></div></div></div></aside><section class="editor-main"><div class="editor-bar"><div class="toolbar"><button class="editor-toolbar-button" data-completion-action="toggle-nav" aria-label="章节导航" title="展开/收起章节目录">${ico('list')}</button><div class="dock-segmented-tabs" id="editorDockTabs"><button class="dock-pill-btn" data-dock-tab="outline" title="展开大纲坞站">${ico('milestone')}<span>大纲</span></button><button class="dock-pill-btn" data-dock-tab="knowledge" title="展开设定坞站">${ico('network')}<span>设定</span></button><button class="dock-pill-btn" data-dock-tab="memory" title="展开记忆文风坞站">${ico('brain')}<span>记忆文风</span></button><button class="dock-pill-btn" data-dock-tab="tools" title="展开 AI 工具坞站">${ico('wand-sparkles')}<span>AI工具</span></button></div><button class="editor-toolbar-button" id="editorDockToggle" aria-label="展开工作台坞站" title="展开/收起工作台坞站">${ico('panel-left-open')}</button><span class="toolbar-divider" aria-hidden="true"></span><button class="editor-toolbar-button" data-completion-action="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">${ico('undo-2')}</button><button class="editor-toolbar-button" data-completion-action="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ico('redo-2')}</button><button class="editor-toolbar-button" data-completion-action="search-replace" aria-label="搜索替换" title="查找与替换">${ico('search')}</button></div><div style="display:flex;align-items:center;gap:4px;color:var(--muted);font-size:10px;flex-shrink:0"><span class="editor-save-wrap">${ico('check')}<span data-completion-save-status>已加载</span></span><button class="editor-toolbar-button" data-completion-action="editor-save" aria-label="保存" title="保存作品">${ico('save')}</button><button class="editor-toolbar-button" data-completion-action="toggle-zen" id="editorZenToggle" aria-label="专注写作模式" title="专注写作模式 (Ctrl+\\)">${ico('maximize-2')}</button><button class="editor-toolbar-button" data-action="theme" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">${ico('sun')}</button><details class="editor-more-menu" id="editorMoreMenu"><summary aria-label="更多编辑与资料工具" title="更多工具（排版 / 质检 / 资料 / 导入导出）">${ico('more-horizontal')}</summary><div class="editor-more-popover"><div class="editor-more-group">排版格式</div><button class="editor-more-item" type="button" data-completion-action="format" data-format="bold" aria-label="加粗" title="加粗">${ico('bold')}<span>加粗</span></button><button class="editor-more-item" type="button" data-completion-action="format" data-format="italic" aria-label="斜体" title="斜体">${ico('italic')}<span>斜体</span></button><button class="editor-more-item" type="button" data-completion-action="format" data-format="formatBlock" data-format-value="h3" aria-label="标题" title="设置为小标题">${ico('heading-3')}<span>小标题</span></button><button class="editor-more-item" type="button" data-completion-action="format" data-format="insertUnorderedList" aria-label="无序列表" title="无序列表">${ico('list')}<span>无序列表</span></button><div class="editor-more-sep"></div><div class="editor-more-group">质检与档案</div><button class="editor-more-item" type="button" data-completion-action="prose-health-check" aria-label="正文质检" title="正文健康度与合规质检">${ico('activity')}<span>正文质检</span></button><button class="editor-more-item" type="button" data-completion-action="audit-summary" aria-label="本章审计" title="本章审计">${ico('shield-check')}<span>本章审计</span></button><button class="editor-more-item" type="button" data-completion-action="history" aria-label="版本历史" title="版本历史记录">${ico('history')}<span>版本历史</span></button><button class="editor-more-item" type="button" data-completion-action="open-memory-workbench" aria-label="故事记忆与文风" title="故事记忆、人物认知与文风稳定工作台">${ico('brain')}<span>故事记忆与文风</span></button><button class="editor-more-item" type="button" data-completion-action="open-materials-seven" aria-label="全套创作资料" title="小说创作全套资料库（七大板块）">${ico('folder-kanban')}<span>全套创作资料</span></button><button class="editor-more-item" type="button" data-completion-action="create-from-dissection" aria-label="拆书创书" title="拆书创书">${ico('scan-text')}<span>拆书创书</span></button><div class="editor-more-sep"></div><div class="editor-more-group">文件与返回</div><button class="editor-more-item" type="button" data-completion-action="editor-import" aria-label="导入正文" title="导入正文">${ico('upload')}<span>导入正文</span></button><button class="editor-more-item" type="button" data-completion-action="editor-export" data-feature="NOVEL_EXPORT" data-action="novel-export" aria-label="导出正文" title="导出正文">${ico('download')}<span>导出正文</span></button><button class="editor-more-item" type="button" data-completion-action="trash" aria-label="回收站" title="回收站">${ico('trash-2')}<span>回收站</span></button><button class="editor-more-item" type="button" data-completion-page="overview" aria-label="返回控制台" title="返回主控制台">${ico('layout-dashboard')}<span>返回创作总览</span></button></div></details><button class="editor-toolbar-button" data-completion-action="editor-ai-focus" aria-label="打开 AI 助手" title="打开/收起 AI 助手">${ico('message-square')}</button></div></div><div class="editor-scroll"><article class="editor-paper" contenteditable="false" spellcheck="false" data-completion-paper></article><div class="editor-selection-menu" id="editorSelectionMenu" hidden><button data-sel-tool="去 AI 味">${ico('eraser')}去 AI 味</button><button data-sel-tool="错别字检测">${ico('spell-check')}错别字</button><button data-sel-tool="扩写/润色">${ico('sparkles')}扩写润色</button><button data-sel-tool="节奏分析">${ico('activity')}节奏分析</button><button data-sel-tool="ai-prompt">${ico('message-square')}发给 AI</button></div></div></section><aside class="editor-ai"><div class="ai-head"><div class="ai-name"><span class="ai-mark">${ico('sparkles')}</span>AI 创作助手</div><div style="display:flex;align-items:center;gap:4px"><button class="icon-button" data-completion-action="new-ai-session" aria-label="新建 AI 会话" title="新建 AI 会话">${ico('plus')}</button><button class="icon-button" data-completion-action="close-ai" aria-label="关闭 AI 助手" title="关闭 AI 助手">${ico('x')}</button></div></div><div class="editor-ai-dock-tabs"><button class="editor-ai-dock-btn active" type="button" data-completion-action="switch-ai-dock" data-dock="chat">${ico('sparkles')}AI助手</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="memory">${ico('brain')}故事记忆</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="docs">${ico('folder-kanban')}全套资料</button><button class="editor-ai-dock-btn" type="button" data-completion-action="switch-ai-dock" data-dock="outline">${ico('milestone')}细纲伏笔</button></div><div data-ai-dock-view="chat" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">${modelSelect}${paramsDrawer}<div class="chat-scroll" id="completionEditorChat"></div><div class="chat-thinking" data-completion-thinking aria-live="polite">正在整理上下文</div></div><div data-ai-dock-view="memory" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="docs" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div data-ai-dock-view="outline" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:10px;gap:10px" class="editor-dock-scroll"></div><div class="chat-composer"><div class="chat-chip-groups"><div class="chat-chip-row"><button type="button" class="chat-chip chat-toggle-chip chat-chip--boost" data-completion-action="boost-context" data-chip="boost" title="开启/关闭全景联动增强：发送时后台静默聚合当前章节关联的七大资料定位、世界观规则、人物认知与伏笔台账">🚀 全景联动增强 /boost</button><button type="button" class="chat-chip chat-toggle-chip chat-chip--memory" data-completion-action="toggle-memory" data-chip="memory" title="开启/关闭故事记忆与认知增强：发送时后台静默注入角色认知差、前情约束与长期故事记忆">${ico('brain')} 故事记忆</button><button type="button" class="chat-chip chat-toggle-chip chat-chip--docs" data-completion-action="toggle-docs" data-chip="docs" title="开启/关闭全套创作资料增强：发送时后台静默注入世界观法则、设定条目与剧情资料中心">${ico('folder-kanban')} 全套资料</button><button type="button" class="chat-chip" data-completion-action="inspect-params" data-action="inspect-params" title="核对当前已选定的题材、文风、功能、侧重点等创作参数">⚙️ 创作参数核对</button><button type="button" class="chat-chip" data-completion-action="open-full-workbench-browser" title="在全屏独立工作台进行深度研判与推演">${ico('external-link')} 全屏工作台 /browser</button></div><div class="chat-chip-row chat-chip-row--prompts"><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="续写当前场景，推进故事情节">续写下文</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="润色当前正文，加强人物微表情与心理拉扯">精修对白</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="在此处制造突发冲突，打破当前平衡节奏">制造冲突</button><button type="button" class="chat-chip" data-completion-action="quick-chip" data-chip-text="增加环境白描与感官细节，营造压迫感">环境渲染</button></div></div><div class="chat-input-box"><textarea data-completion-prompt placeholder="描述创作任务，或输入 /boost 全景增强、/browser 全屏工作台…（Enter 发送）"></textarea><div class="chat-send-actions"><button class="chat-send" data-completion-action="ai-send" data-feature="AI_GENERATE" data-action="ai-generate" aria-label="发送" title="发送">${ico('arrow-up')}</button><button class="chat-send chat-stop" data-completion-action="ai-stop" data-feature="AI_STOP" data-action="ai-stop" aria-label="暂停生成" title="暂停生成" hidden>${ico('pause')}</button></div></div></div></aside></div>`, 'editor-page');
     }
 
   function renderEditorNav() {
@@ -2757,6 +2760,20 @@
         ? `<details style="margin-top:4px;font-size:9px;color:var(--muted)"><summary style="cursor:pointer;user-select:none">查看 ${item.audit.issues.length} 条审校建议 ▾</summary><div style="margin-top:4px;line-height:1.6;padding:4px 6px;background:var(--card,var(--paper-warm,#f9f8f6));border:1px solid var(--line);border-radius:3px">${item.audit.issues.slice(0, 6).map(issueItem => `<div>• ${esc(issueItem.problem || issueItem.detail || issueItem)}${issueItem.fix ? ` <span style="color:var(--ink-light,var(--muted))">（建议：${esc(issueItem.fix)}）</span>` : ''}</div>`).join('')}</div></details>`
         : '';
 
+      // 真朱雀检测报告（AI 创作助手成稿体检，不自动改写正文）
+      const zq = item.zhuqueAudit || (run && run.zhuqueAudit);
+      const zhuqueAuditHtml = zq && zq.ok
+        ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--paper-warm,#f9f8f6);font-size:9px;color:var(--muted)">` +
+          `<span style="font-weight:600;color:var(--ink)">朱雀 AIGC 体检</span> · AI 味 <b style="color:${Number(zq.aiScore) >= 50 ? 'var(--red,#dc2626)' : 'var(--green,#16a34a)'}">${esc(zq.aiScore)}/100</b>` +
+          ` · 绿段 ${Math.round(Number(zq.greenRatio || 0) * 100)}%` +
+          (Array.isArray(zq.segments) && zq.segments.filter(seg => seg && !seg.green).length
+            ? ` · 高风险片段 ${zq.segments.filter(seg => seg && !seg.green).length} 段`
+            : ' · 全篇低风险') +
+          `</div>`
+        : (zq && zq.status === 'too_short'
+          ? `<div style="margin-top:6px;font-size:9px;color:var(--muted)">朱雀 AIGC 体检：正文 ${esc(zq.chars || 0)} 字，未达检测门槛 350 字，本次跳过。</div>`
+          : '');
+
       const applyTargets = item.generationV2 ? ['body'] : ['body', 'setting', 'outline', 'foreshadow'];
       const applyButtons = applyTargets.map(target => {
         if (target === 'body') {
@@ -2771,7 +2788,7 @@
         }
         return `<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-apply="${target}" data-result-index="${index}"${generationPending || reviewBlocked || (pendingCommit && target !== 'body') ? ' disabled' : ''}>${target === 'setting' ? '保存设定' : target === 'outline' ? '保存大纲' : '记录伏笔'}</button>`;
       }).join('');
-      const actionRow = hasResult ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px"><span class="badge ${badgeClass}">${badgeText}</span>${item.audit ? `<div style="margin-top:6px;color:var(--muted);font-size:9px">审计 ${esc(normalizeAudit(item.audit).status)}${item.audit.summary ? `：${esc(item.audit.summary)}` : ''}</div>` : ''}${auditIssuesHtml}${run ? `<div class="chat-usage-meta">${esc(generationUsageSummary(run))}</div>` : ''}<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${applyButtons}<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-copy data-result-index="${index}">复制</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--green,#16a34a);border-color:var(--green,#16a34a)" data-completion-ai-save-dossier="${index}" title="将本段生成中的新设定沉淀到全套创作资料库">${ico('folder-plus')}沉淀资料</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--blue);border-color:var(--blue)" data-completion-ai-memory-extract="${index}" title="从本段提取候选事实与认知变化">${ico('scan')}提取记忆变更</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-style-audit="${index}" title="检测本段文风套话与节奏">${ico('activity')}文风质检</button>${adoptBtn}${reviseBtn}${retryBtn}</div></div>` : (retryBtn ? `<div style="margin-top:6px">${retryBtn}</div>` : '');
+      const actionRow = hasResult ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px"><span class="badge ${badgeClass}">${badgeText}</span>${item.audit ? `<div style="margin-top:6px;color:var(--muted);font-size:9px">审计 ${esc(normalizeAudit(item.audit).status)}${item.audit.summary ? `：${esc(item.audit.summary)}` : ''}</div>` : ''}${zhuqueAuditHtml}${auditIssuesHtml}${run ? `<div class="chat-usage-meta">${esc(generationUsageSummary(run))}</div>` : ''}<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${applyButtons}<button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-copy data-result-index="${index}">复制</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--green,#16a34a);border-color:var(--green,#16a34a)" data-completion-ai-save-dossier="${index}" title="将本段生成中的新设定沉淀到全套创作资料库">${ico('folder-plus')}沉淀资料</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px;color:var(--blue);border-color:var(--blue)" data-completion-ai-memory-extract="${index}" title="从本段提取候选事实与认知变化">${ico('scan')}提取记忆变更</button><button class="button" style="min-height:25px;padding:0 7px;font-size:9px" data-completion-ai-style-audit="${index}" title="检测本段文风套话与节奏">${ico('activity')}文风质检</button>${adoptBtn}${reviseBtn}${retryBtn}</div></div>` : (retryBtn ? `<div style="margin-top:6px">${retryBtn}</div>` : '');
       if (item.kind === 'user') {
         return `<div class="chat-message user"><span class="chat-avatar">你</span><div class="chat-bubble">${esc(item.text).replace(/\n/g, '<br>')}</div></div>`;
       }
@@ -3151,7 +3168,69 @@
     toast(`已引用「${title}」至 AI 提示词`);
   }
 
+  function toggleEditorZenMode(forceState) {
+    const stageNode = getStage();
+    const preview = stageNode && stageNode.querySelector('#editorPreview');
+    if (!preview) return false;
+    const next = typeof forceState === 'boolean' ? forceState : !preview.classList.contains('zen-mode');
+    preview.classList.toggle('zen-mode', next);
+    runtime.zenMode = next;
+    const btn = stageNode.querySelector('#editorZenToggle');
+    if (btn) {
+      btn.classList.toggle('is-active', next);
+      btn.innerHTML = ico(next ? 'minimize-2' : 'maximize-2');
+      btn.setAttribute('aria-label', next ? '退出专注写作模式' : '专注写作模式');
+      btn.title = next ? '退出专注写作模式 (Ctrl+\\ / Esc)' : '专注写作模式 (Ctrl+\\)';
+      mountIconsSafe();
+    }
+    toast(next ? '已进入专注写作模式（按 Ctrl+\\ 或 Esc 退出）' : '已退出专注写作模式');
+    return next;
+  }
+  window.MolanToggleEditorZen = toggleEditorZenMode;
+
+  function bindResponsiveEditorViewport() {
+    if (typeof window === 'undefined' || window.__molanEditorResizeBound) return;
+    window.__molanEditorResizeBound = true;
+    let wasNarrow = window.innerWidth <= 820;
+    window.addEventListener('resize', () => {
+      const isNarrow = window.innerWidth <= 820;
+      if (isNarrow && !wasNarrow) {
+        const stageNode = getStage();
+        const preview = stageNode && stageNode.querySelector('#editorPreview');
+        if (preview) {
+          preview.classList.remove('ai-open', 'dock-open', 'nav-open');
+          runtime.aiOpen = false;
+          runtime.navOpen = false;
+        }
+        setWorkbenchDockState(false);
+      }
+      wasNarrow = isNarrow;
+    });
+    document.addEventListener('click', event => {
+      const menu = document.getElementById('editorMoreMenu');
+      if (!menu || !menu.open) return;
+      if (!menu.contains(event.target) || event.target.closest('.editor-more-item')) {
+        menu.open = false;
+      }
+    });
+    document.addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === '\\') {
+        const preview = getStage() && getStage().querySelector('#editorPreview');
+        if (preview) {
+          event.preventDefault();
+          toggleEditorZenMode();
+        }
+      } else if (event.key === 'Escape' && runtime.zenMode) {
+        const preview = getStage() && getStage().querySelector('#editorPreview');
+        if (preview && preview.classList.contains('zen-mode')) {
+          toggleEditorZenMode(false);
+        }
+      }
+    });
+  }
+
   function renderWorkbenchDock(state) {
+    bindResponsiveEditorViewport();
     if (!state) return;
     const stageNode = getStage();
     if (!stageNode) return;
@@ -4880,6 +4959,47 @@
     };
   }
 
+  /**
+   * AI 创作助手：正文落定后对成稿做一次真实朱雀检测，把结果挂到消息上展示给作者。
+   * 设计约束：只检测、不自动改写正文（保护情节与设定）；检测失败静默降级，不影响生成。
+   * 用 draft 哈希去重——同一篇稿子轮询期间不会重复调用检测接口（朱雀按文本缓存，仍省一次往返）。
+   */
+  async function runZhuqueAuditForDraft(state, run, item, draft) {
+    if (!draft || typeof draft !== 'string') return;
+    if (draft.trim().length < 350) {
+      // 朱雀接口要求正文不少于 350 字；短稿给出明确提示而非静默跳过。
+      if (item) item.zhuqueAudit = { ok: false, status: 'too_short', chars: draft.trim().length };
+      renderEditorChat();
+      return;
+    }
+    const backendRequest = (typeof window !== 'undefined' && typeof window.backendRequest === 'function')
+      ? window.backendRequest : refFunction('backendRequest');
+    if (typeof backendRequest !== 'function') return;
+    const hashSource = (run && run.id || '') + '|' + draft;
+    let hash;
+    try { hash = await hashText(hashSource); } catch (_) { hash = draft.length + ':' + draft.slice(0, 40); }
+    if (run && run.zhuqueAuditHash === hash) return;
+    if (run) run.zhuqueAuditHash = hash;
+    try {
+      const report = await backendRequest('/api/zhuque-detect', { method: 'POST', body: { text: draft } });
+      if (!report || report.ok === false) return;
+      const audit = {
+        ok: true,
+        aiScore: report.aiScore,
+        greenRatio: report.greenRatio,
+        riskConfidence: report.riskConfidence,
+        segments: Array.isArray(report.segments) ? report.segments : [],
+        at: Date.now()
+      };
+      if (run) run.zhuqueAudit = audit;
+      if (item) item.zhuqueAudit = audit;
+      if (typeof persistGenerationRun === 'function' && state) { try { persistGenerationRun(state, run); } catch (_) {} }
+      renderEditorChat();
+    } catch (_) {
+      // 检测失败（未启用/凭据缺失/网络异常）不影响正文生成，静默降级。
+    }
+  }
+
   async function applyGenerationV2Snapshot(state, run, item, remote, stages) {
     if (!run || !remote) return false;
     const nextState = text(remote.state || '');
@@ -4932,6 +5052,8 @@
       run.pendingFactLedgerDelta = semantic.factLedgerDelta || result.audit && result.audit.factLedgerDelta || null;
       run.audit = generationV2Audit(result, nextState);
       run.outputHash = run.resultContentHash;
+      // 真朱雀检测（异步、非阻塞、失败降级）：成稿落定即体检一次，结果展示在对话区。
+      void runZhuqueAuditForDraft(state, run, item, draft);
     }
     if (item) {
       const status = generationV2Status(nextState);
@@ -8499,10 +8621,6 @@ ${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${world
     dockBtns.forEach(btn => {
       const isActive = btn.dataset.dock === dockName;
       btn.classList.toggle('active', isActive);
-      btn.style.background = isActive ? 'var(--paper)' : 'transparent';
-      btn.style.fontWeight = isActive ? '600' : 'normal';
-      btn.style.color = isActive ? 'var(--ink)' : 'var(--muted)';
-      btn.style.boxShadow = isActive ? '0 1px 2px rgba(0,0,0,0.05)' : 'none';
     });
 
     const views = stageNode.querySelectorAll('[data-ai-dock-view]');
@@ -8602,6 +8720,7 @@ ${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${world
         `).join('') : '<p class="section-note">暂无待回收伏笔。</p>'}
       </div>
     `;
+    mountIconsSafe();
   }
 
   /** 渲染侧栏：七大创作资料板块联动视图 */
@@ -8668,7 +8787,7 @@ ${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${world
       </div>
 
       <div style="font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:4px;margin-top:6px">
-        ${ico('sparkles')} 五、专项细节设定 (${details.length})
+        ${ico('sparkles')} 三、专项细节设定 (${details.length})
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${details.length ? details.map(dt => `
@@ -8683,6 +8802,7 @@ ${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${world
         `).join('') : '<p class="section-note">当前暂无专项细节设定，生成时点击“沉淀资料”可快速创建。</p>'}
       </div>
     `;
+    mountIconsSafe();
   }
 
   /** 渲染侧栏：细纲与伏笔联动视图 */
@@ -8717,6 +8837,7 @@ ${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${world
         </div>
       </div>
     `;
+    mountIconsSafe();
   }
 
   /** 快速沉淀生成内容为资料卡 */
@@ -10163,7 +10284,17 @@ ${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${world
         setWorkbenchDockState(false);
         return;
       }
-      if (name === 'editor-ai-focus') { runtime.aiOpen = true; runtime.navOpen = false; const preview = getStage().querySelector('#editorPreview'); preview?.classList.add('ai-open'); preview?.classList.remove('nav-open'); return; }
+      if (name === 'toggle-zen') { toggleEditorZenMode(); return; }
+      if (name === 'editor-ai-focus') {
+        const preview = getStage().querySelector('#editorPreview');
+        if (preview && preview.classList.contains('zen-mode')) toggleEditorZenMode(false);
+        const nextAi = window.innerWidth <= 820 ? !preview?.classList.contains('ai-open') : true;
+        runtime.aiOpen = nextAi;
+        runtime.navOpen = false;
+        preview?.classList.toggle('ai-open', nextAi);
+        preview?.classList.remove('nav-open');
+        return;
+      }
       if (name === 'close-ai') { runtime.aiOpen = false; getStage().querySelector('#editorPreview')?.classList.remove('ai-open'); return; }
       if (name === 'new-ai-session') { newEditorChatSession(); return; }
       if (name === 'open-outline' || name === 'open-knowledge') {

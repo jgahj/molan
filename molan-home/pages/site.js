@@ -37,7 +37,7 @@
   var ROUTES = {
     index: './index.html', features: './features.html', pricing: './pricing.html',
     docs: './docs.html', blog: './blog.html', tools: './tools.html',
-    login: './login.html', about: './about.html', contact: './contact.html', editor: '../index.html#editor', skills: './skills.html'
+    login: './login.html', register: './register.html', about: './about.html', contact: './contact.html', editor: '../index.html#editor', skills: './skills.html'
   };
   /* 首页在上一级目录 */
   ROUTES.index = '../index.html';
@@ -58,7 +58,7 @@
   var TEXT_ROUTES = {
     '功能总览': ROUTES.features, '价格与订阅': ROUTES.pricing, '订阅方案': ROUTES.pricing,
     '使用文档': ROUTES.docs, '创作者手札': ROUTES.blog, '免费工具': ROUTES.tools,
-    '登录': ROUTES.login, '开始使用': ROUTES.login, '免费注册': ROUTES.login,
+    '登录': ROUTES.login, '开始使用': ROUTES.login, '免费注册': ROUTES.register, '注册账号': ROUTES.register,
     '联系我们': ROUTES.contact, '关于我们': ROUTES.about, '文档': ROUTES.docs,
     '查看全部工具': ROUTES.tools, 'llms.txt': '../llms.txt',
     '去 AI 味改写': ROUTES.tools + '?tool=deai', '错别字检测': ROUTES.tools + '?tool=typo',
@@ -115,37 +115,43 @@
     }
   }
 
-  /* ===================== 2. 主题切换（明 / 暗） ===================== */
-  function applyTheme(dark) {
-    var st = $('#ml-dark-style');
-    if (dark) {
-      if (!st) {
-        st = document.createElement('style');
-        st.id = 'ml-dark-style';
-        st.textContent = 'html{filter:invert(1) hue-rotate(180deg);background:#0a0a0a;}img,video,iframe,svg.no-invert{filter:invert(1) hue-rotate(180deg);}';
-        document.head.appendChild(st);
-      }
-    } else if (st) { st.remove(); }
-    try { localStorage.setItem('ml_theme', dark ? 'dark' : 'light'); } catch (e) {}
+  /* ===================== 2. 主题切换（统一接入 tokens.css / molan_theme） ===================== */
+  function applyTheme(dark, persist) {
+    var enabled = Boolean(dark);
+    var legacy = $('#ml-dark-style');
+    if (legacy) legacy.remove();
+    document.documentElement.classList.toggle('dark', enabled);
+    document.documentElement.classList.toggle('light', !enabled);
+    document.documentElement.setAttribute('data-theme', enabled ? 'dark' : 'light');
+    if (document.body) document.body.classList.toggle('theme-dim', enabled);
+    if (persist) {
+      try {
+        localStorage.setItem('molan_theme', enabled ? 'dim' : 'light');
+        localStorage.removeItem('ml_theme');
+      } catch (e) {}
+    }
   }
   function initTheme() {
     var dark = false;
-    try { dark = localStorage.getItem('ml_theme') === 'dark'; } catch (e) {}
-    if (dark) applyTheme(true);
-    /* 导航栏中带 moon / sun 图标的按钮视为主题切换 */
+    try {
+      var saved = localStorage.getItem('molan_theme') || localStorage.getItem('ml_theme');
+      dark = saved === 'dim' || saved === 'dark';
+    } catch (e) {}
+    applyTheme(dark, false);
+    /* 仅绑定未由 molan-shell.js / login.js 接管的独立主题按钮 */
     $all('button[aria-label="切换主题"], button[aria-label="主题切换"]').forEach(bind);
     $all('nav button, header button').forEach(function (btn) {
-      if (btn._mlTheme) return;
+      if (btn._mlTheme || btn.hasAttribute('data-shell-theme') || btn.id === 'authThemeToggle') return;
       var icon = btn.querySelector('[data-lucide="moon"],[data-lucide="sun"],svg.lucide-moon,svg.lucide-sun');
       if (icon) bind(btn);
     });
     function bind(btn) {
-      if (btn._mlTheme) return;
+      if (btn._mlTheme || btn.hasAttribute('data-shell-theme') || btn.id === 'authThemeToggle') return;
       btn._mlTheme = true;
       btn.addEventListener('click', function () {
-        var isDark = !!$('#ml-dark-style');
-        applyTheme(!isDark);
-        toast(!isDark ? '已切换到暗色主题' : '已切换到亮色主题');
+        var isDark = document.documentElement.classList.contains('dark');
+        applyTheme(!isDark, true);
+        toast(!isDark ? '已切换到深色主题' : '已切换到浅色主题');
       });
     }
   }
@@ -257,7 +263,15 @@
     /* 密码可见性切换 */
     var eyeBtn = $('button[aria-label="切换密码可见性"]');
     if (eyeBtn) eyeBtn.addEventListener('click', function () {
-      pwdInput.type = pwdInput.type === 'password' ? 'text' : 'password';
+      var show = pwdInput.type === 'password';
+      pwdInput.type = show ? 'text' : 'password';
+      var iconEl = eyeBtn.querySelector('[data-lucide]');
+      if (iconEl) {
+        iconEl.setAttribute('data-lucide', show ? 'eye-off' : 'eye');
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+        }
+      }
     });
 
     /* 找到各按钮（按文本匹配，避免改动设计稿结构） */
@@ -281,8 +295,10 @@
       tip.className = 'login-tip';
       form.insertBefore(tip, form.firstChild);
     }
-    tip.style.cssText = 'font-size:13px;margin:4px 0 0;min-height:18px;color:#dc2626;';
-    function setTip(msg, ok) { tip.textContent = msg || ''; tip.style.color = ok ? '#16a34a' : '#dc2626'; }
+    function setTip(msg, ok) {
+      tip.textContent = msg || '';
+      tip.classList.toggle('is-success', Boolean(ok));
+    }
 
     /* 验证码入口保留为禁用状态，避免没有邮件服务时误导用户。 */
     var codeWrap = document.createElement('div');
@@ -307,10 +323,15 @@
     if (codeBtn) {
       codeBtn.style.display = 'none';
     }
-    if (registerLink) registerLink.addEventListener('click', function (e) {
-      e.preventDefault();
-      setMode(mode === 'register' ? 'login' : 'register');
-    });
+    if (registerLink) {
+      var registerHref = registerLink.getAttribute('href') || '';
+      if (!/register\.html/i.test(registerHref)) {
+        registerLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          setMode(mode === 'register' ? 'login' : 'register');
+        });
+      }
+    }
     if (forgotBtn) forgotBtn.addEventListener('click', function (e) {
       e.preventDefault();
       setTip('本地工作台支持创作者账号直连：若忘记密码请重新注册创作者身份或使用管理员登录', false);
@@ -508,7 +529,7 @@
             '<h1 style="font-size:24px;font-weight:700;color:#0a0a0a;line-height:1.4;margin:0 0 16px;">' + esc(tut.title) + '</h1>' +
             mdToHtml(tut.body) +
             '<div style="margin-top:24px;padding-top:16px;border-top:1px solid #f0f0f0;">' +
-            '<a href="./login.html" style="font-size:13px;color:#16a34a;text-decoration:none;">→ 注册账号，跟着教程实操</a></div>', true);
+            '<a href="./register.html" style="font-size:13px;color:var(--green);text-decoration:none;font-weight:600;">→ 注册账号，跟着教程实操</a></div>', true);
         });
       });
     });
@@ -670,6 +691,11 @@
       '<span style="display:inline-block;font-size:11px;letter-spacing:.15em;color:#16a34a;text-transform:uppercase;margin-bottom:8px;">AI 工具 · 已登录</span>' +
       '<h1 style="font-size:22px;font-weight:700;color:#0a0a0a;margin:0 0 16px;">' + esc(def.name) + '</h1>' +
       '<textarea id="ml-tool-input" placeholder="' + esc(def.ph) + '" style="width:100%;min-height:140px;padding:14px;border:1px solid #e5e5e5;border-radius:14px;font-size:14px;line-height:1.7;resize:vertical;outline:none;font-family:inherit;box-sizing:border-box;" onfocus="this.style.borderColor=\'#0a0a0a\'" onblur="this.style.borderColor=\'#e5e5e5\'"></textarea>' +
+      (key === 'deai' ?
+        '<label id="ml-zhuque-toggle-wrap" style="display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:11px 14px;background:#f7f7f7;border:1px solid #e5e5e5;border-radius:12px;cursor:pointer;font-size:13px;color:#333;">' +
+        '<input type="checkbox" id="ml-zhuque-toggle" style="width:16px;height:16px;margin-top:2px;accent-color:#16a34a;cursor:pointer;flex-shrink:0;">' +
+        '<span><b>朱雀深度模式</b> <span style="color:#888;">· 真实 AIGC 检测 + 多轮改写到全绿（约 2-5 分钟，消耗较多积分）</span></span>' +
+        '</label>' : '') +
       '<div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">' +
       '<button id="ml-tool-run" style="padding:11px 28px;background:#0a0a0a;color:#fff;border:none;border-radius:999px;font-size:14px;cursor:pointer;">' + esc(def.btn) + '</button>' +
       '<span id="ml-tool-status" style="font-size:12px;color:#999;"></span>' +
@@ -677,9 +703,19 @@
       '<button id="ml-tool-diff" style="display:none;padding:8px 18px;background:#111827;color:#fff;border:none;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>进入对比工具</button>' +
       '<button id="ml-tool-copy" style="padding:8px 18px;background:#fff;color:#0a0a0a;border:1px solid #d1d5db;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;">' + (key === 'deai' ? '复制' : '复制结果') + '</button>' +
       '</div></div>' +
+      '<div id="ml-zhuque-report" style="display:none;margin-top:16px;padding:16px 18px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;font-size:13px;line-height:1.8;color:#1f2937;"></div>' +
       '<div id="ml-tool-output" style="display:none;margin-top:16px;padding:18px;background:#fafafa;border:1px solid #f0f0f0;border-radius:14px;font-size:14px;line-height:1.9;color:#333;white-space:pre-wrap;word-break:break-word;max-height:44vh;overflow-y:auto;"></div>', true);
 
     var runBtn = $('#ml-tool-run'), input = $('#ml-tool-input'), out = $('#ml-tool-output'), status = $('#ml-tool-status'), actionsGroup = $('#ml-tool-actions'), copyBtn = $('#ml-tool-copy'), diffBtn = $('#ml-tool-diff');
+    var zhuqueToggle = $('#ml-zhuque-toggle'), zhuqueReport = $('#ml-zhuque-report');
+    if (zhuqueToggle) {
+      zhuqueToggle.addEventListener('change', function () {
+        runBtn.textContent = zhuqueToggle.checked ? '朱雀深度改写' : def.btn;
+        if (zhuqueToggle.checked && out && !out.textContent.trim()) out.textContent = '深度模式：先用朱雀模型检测真实 AI 味分数与高风险片段，再把这段文本改写到全绿。文本需不少于 350 字。';
+        else if (out && out.textContent.indexOf('深度模式：') === 0) { out.textContent = ''; out.style.display = 'none'; }
+        if (zhuqueReport) { zhuqueReport.style.display = 'none'; zhuqueReport.innerHTML = ''; }
+      });
+    }
     input.focus();
     function showCreditShortage() {
       if (out && !out.textContent.trim()) out.style.display = 'none';
@@ -698,12 +734,83 @@
       }
       status.textContent = '生成失败：' + (message || '服务暂时不可用，请稍后再试');
     }
+    function renderZhuqueReport(before, after, result) {
+      if (!zhuqueReport) return;
+      var h = '<div style="font-weight:700;margin-bottom:8px;color:#0a0a0a;">朱雀 AIGC 检测报告</div>';
+      h += '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#4b5563;">';
+      h += '<span>改写前 AI 味 <b style="color:#dc2626;font-size:15px;">' + esc(before.aiScore) + '</b>/100</span>';
+      h += '<span>绿段占比 <b style="color:#16a34a;">' + esc(Math.round((before.greenRatio || 0) * 100)) + '%</b></span>';
+      if (after) {
+        h += '<span>改写后 AI 味 <b style="color:#16a34a;font-size:15px;">' + esc(after.aiScore) + '</b>/100</span>';
+        h += '<span>结果 <b style="color:' + (result && result.allGreen ? '#16a34a' : '#b45309') + ';">' + (result && result.allGreen ? '已全绿' : '未全绿（已压到最低）') + '</b></span>';
+      }
+      h += '</div>';
+      var risky = (before.segments || []).filter(function (s) { return !s.green || Number(s.aigc) > 0.5; });
+      if (risky.length) {
+        h += '<div style="margin-top:10px;font-size:12px;color:#6b7280;">高风险片段：' + risky.slice(0, 3).map(function (s) {
+          return '第' + esc(s.index) + '段（AIGC ' + esc(s.aigc) + '）';
+        }).join('、') + (risky.length > 3 ? ' 等 ' + risky.length + ' 段' : '') + '</div>';
+      }
+      if (result) {
+        h += '<div style="margin-top:10px;font-size:12px;color:#9ca3af;">改写 ' + (result.rewrites || []).length + ' 轮 · 定点修补 ' + (result.segmentRepairs || []).length + ' 轮</div>';
+      }
+      zhuqueReport.innerHTML = h;
+      zhuqueReport.style.display = 'block';
+    }
+
+    function executeZhuqueDeep(user) {
+      var text = input.value.trim();
+      if (text.length < 350) {
+        status.textContent = '文本太短，朱雀检测建议不少于 350 字（当前 ' + text.length + ' 字）';
+        return;
+      }
+      runBtn.disabled = true; runBtn.style.opacity = '.5';
+      status.textContent = '朱雀检测中…';
+      out.style.display = 'block'; out.textContent = '';
+      if (actionsGroup) actionsGroup.style.display = 'none';
+      if (zhuqueReport) { zhuqueReport.style.display = 'none'; zhuqueReport.innerHTML = ''; }
+      resolveToolModel().then(function (model) {
+        return api('/api/zhuque-detect', { text: text }).then(function (before) {
+          renderZhuqueReport(before, null, null);
+          status.textContent = 'AI 味 ' + before.aiScore + '/100，正在深度改写（约 2-5 分钟，请勿关闭页面）…';
+          return api('/api/deai-zhuque-loop', {
+            seedText: text,
+            modelId: model,
+            novelGenre: '通用文学',
+            targetChars: text.length
+          }).then(function (result) {
+            runBtn.disabled = false; runBtn.style.opacity = '';
+            renderZhuqueReport(before, result.report, result);
+            out.textContent = (result && result.text) || '';
+            out.style.display = 'block';
+            if (actionsGroup) {
+              actionsGroup.style.display = 'inline-flex';
+              if (diffBtn) diffBtn.style.display = 'inline-flex';
+            }
+            return refreshAuthUser().then(function (u) {
+              var isAdm = u && (u.isAdmin === true || u.role === 'admin');
+              var credText = isAdm ? '无限' : (u && typeof u.credits === 'number' ? u.credits : '');
+              status.textContent = '深度改写完成' + (credText !== '' ? ' · 当前余额 ' + credText + ' 积分' : '');
+            });
+          });
+        });
+      }).catch(function (err) {
+        runBtn.disabled = false; runBtn.style.opacity = '';
+        showToolFailure(err && err.message ? err.message : err);
+        refreshAuthUser();
+      });
+    }
+
     function executeRun(user) {
       var text = input.value.trim();
       var isAdmin = user && (user.isAdmin === true || user.role === 'admin' || user.unlimitedCredits === true);
       var credits = user && typeof user.credits === 'number' ? user.credits : 0;
       if (!isAdmin && credits <= 0) {
         showCreditShortage();
+        return;
+      }
+      if (zhuqueToggle && zhuqueToggle.checked) {
+        executeZhuqueDeep(user);
         return;
       }
       runBtn.disabled = true; runBtn.style.opacity = '.5';

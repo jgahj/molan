@@ -9,7 +9,22 @@
     bill: { filter: 'all', page: 1 },
     account: { tab: 'profile', avatar: '' },
     docs: { q: '', category: 'all', id: 'start' },
-    auth: { mode: 'login', code: false, busy: false }
+    auth: {
+      mode: 'login',
+      step: 1,
+      emailVerifyEnabled: false,
+      emailConfigured: false,
+      configLoaded: false,
+      countdownSeconds: 60,
+      expiresMinutes: 15,
+      countdown: 0,
+      timerId: null,
+      resending: false,
+      busy: false,
+      email: '',
+      name: '',
+      password: ''
+    }
   };
 
   var tools = [
@@ -66,16 +81,49 @@
   function empty(node, title, copy) { if (node) node.innerHTML = '<div class="empty"><div class="empty-icon">—</div><h3>' + e(title) + '</h3><p>' + e(copy || '') + '</p></div>'; }
   function refreshChrome() {
     var user = backendState.user;
+    var initial = user ? String(user.name || user.email || '墨').trim().slice(0, 1).toUpperCase() : '';
     var top = document.querySelector('.avatar-button');
     if (top) {
       top.replaceChildren();
-      if (user && user.avatar) { var img = document.createElement('img'); img.src = user.avatar; img.alt = ''; img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%'; top.appendChild(img); }
-      top.title = user ? user.email + ' · 已登录' : '登录';
+      if (user && user.avatar) {
+        var img = document.createElement('img');
+        img.src = user.avatar;
+        img.alt = '';
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+        top.appendChild(img);
+      } else if (initial) {
+        top.textContent = initial;
+      } else {
+        top.innerHTML = icon('user-round');
+        if (typeof mountIcons === 'function') mountIcons();
+      }
+      top.title = user ? user.email + ' · 已登录' : '登录 / 注册';
+      top.setAttribute('aria-label', user ? '账户设置' : '登录或注册');
+      top.dataset.page = user ? 'account' : 'login';
+    }
+    var topAuth = document.getElementById('topAuthActions');
+    if (topAuth) topAuth.hidden = !!user;
+    var sideProfileBtn = document.querySelector('.side-profile .icon-button');
+    if (sideProfileBtn) {
+      sideProfileBtn.dataset.page = user ? 'account' : 'login';
+      sideProfileBtn.setAttribute('aria-label', user ? '账户设置' : '登录或注册');
+      sideProfileBtn.title = user ? '账户设置' : '登录或注册';
     }
     var avatar = document.querySelector('.side-profile .profile-avatar');
     if (avatar) {
       avatar.replaceChildren();
-      if (user && user.avatar) { var side = document.createElement('img'); side.src = user.avatar; side.alt = ''; side.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%'; avatar.appendChild(side); }
+      if (user && user.avatar) {
+        var side = document.createElement('img');
+        side.src = user.avatar;
+        side.alt = '';
+        side.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+        avatar.appendChild(side);
+      } else if (initial) {
+        avatar.textContent = initial;
+      } else {
+        avatar.innerHTML = icon('user-round');
+        if (typeof mountIcons === 'function') mountIcons();
+      }
     }
     var name = document.querySelector('.side-profile .profile-name');
     var meta = document.querySelector('.side-profile .profile-meta');
@@ -449,13 +497,17 @@
     var u = backendState.user;
     if (s.account.tab === 'profile') return '<div class="profile-form"><div><span class="big-avatar" data-c-avatar>' + (s.account.avatar ? '<img src="' + e(s.account.avatar) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">' : '') + '</span><label class="button" style="width:100%;margin-top:9px;text-align:center;cursor:pointer">上传头像<input type="file" data-c-avatar-file accept="image/png,image/jpeg,image/webp,image/gif" hidden></label><button class="button" style="width:100%;margin-top:7px" data-c-action="account-clear">清除头像</button></div><div class="form-grid"><div class="field"><label>登录邮箱</label><input value="' + e(u?.email || '') + '" disabled></div><div class="field"><label>显示名称</label><input id="c-account-name" maxlength="24" value="' + e(u?.name || '') + '" ' + (!u ? 'disabled' : '') + '></div><div class="field"><label>个人简介</label><textarea id="c-account-bio" maxlength="500" ' + (!u ? 'disabled' : '') + '>' + e(u?.bio || '') + '</textarea></div></div></div>' + (!u ? '<div class="notice" style="margin-top:14px">请先登录后编辑账户资料。</div>' : '');
     if (s.account.tab === 'preferences') return '<div class="form-grid"><div class="field"><label>默认创作模型</label><select data-c-model-select data-model-select ' + (!u ? 'disabled' : '') + '></select><small>普通用户使用平台默认模型，VIP 和管理员可选择模型。</small></div><div class="notice"><label class="check"><input type="checkbox" data-c-pref="autosave" ' + (read('prefs', {}).autosave !== false ? 'checked' : '') + '> 自动保存编辑内容</label></div><div class="notice"><label class="check"><input type="checkbox" data-c-pref="preview" ' + (read('prefs', {}).preview !== false ? 'checked' : '') + '> AI 发送前显示上下文预览</label></div></div>';
-    if (s.account.tab === 'security') return '<div class="form-grid"><div class="notice">当前登录邮箱：<strong>' + e(u?.email || '未登录') + '</strong></div><button class="button" data-c-action="account-logout-all" ' + (!u ? 'disabled' : '') + '>退出所有设备</button><button class="button" disabled>修改密码（暂未开放）</button><p class="section-note">验证码登录、找回密码和修改密码接口当前未开放，页面不会伪造成功结果。</p></div>';
+    if (s.account.tab === 'security') return '<div class="form-grid"><div class="notice">当前登录邮箱：<strong>' + e(u?.email || '未登录') + '</strong></div><div style="display:flex;flex-wrap:wrap;gap:8px"><button class="button primary" data-c-action="auth-go-login">' + icon('log-in') + (u ? '切换账号 / 登录' : '登录账号') + '</button><button class="button" data-c-action="auth-go-register">' + icon('user-plus') + '注册新账号</button><button class="button" data-c-action="account-logout-all" ' + (!u ? 'disabled' : '') + '>退出所有设备</button><button class="button" disabled>修改密码（暂未开放）</button></div><p class="section-note">支持邮箱 6 位验证码安全注册与多端会话保护；找回密码与修改密码接口当前暂未开放。</p></div>';
     var rows = backendState.usage && backendState.usage.recent || [];
     return '<div class="notice">请求次数：' + Number(backendState.usage?.requestCount || 0).toLocaleString() + ' · Token：' + Number(backendState.usage?.totalTokens || 0).toLocaleString() + '</div><div class="table-wrap" style="margin-top:12px\"><table class="data-table\"><thead><tr><th>时间</th><th>模型</th><th>Token</th><th>积分</th></tr></thead><tbody>' + (rows.map(function (r) { return '<tr><td>' + e(typeof backendDate === 'function' ? backendDate(r.createdAt) : '') + '</td><td>' + e(r.modelId || '-') + '</td><td>' + (r.totalTokens == null ? '待结算' : Number(r.totalTokens).toLocaleString()) + '</td><td>' + Number(r.creditCost || 0).toLocaleString() + '</td></tr>'; }).join('') || '<tr><td colspan="4">暂无使用记录</td></tr>') + '</tbody></table></div>';
   }
   function renderAccount() {
     if (currentPage !== 'account') return;
-    var root = stage.querySelector('[data-c-page="account"]'); if (!root) return; root.querySelector('[data-c-account-body]').innerHTML = accountBody(); root.querySelectorAll('[data-c-account-tab]').forEach(function (x) { x.classList.toggle('active', x.dataset.cAccountTab === s.account.tab); }); var modelSelect = root.querySelector('[data-c-model-select]'); if (modelSelect && typeof populateModelSelect === 'function') populateModelSelect(modelSelect); icons();
+    var root = stage.querySelector('[data-c-page="account"]'); if (!root) return;
+    var titles = { profile: '个人资料', preferences: '创作偏好', security: '登录安全', usage: '使用记录' };
+    var titleEl = root.querySelector('[data-c-account-title]');
+    if (titleEl) titleEl.textContent = titles[s.account.tab] || '个人资料';
+    root.querySelector('[data-c-account-body]').innerHTML = accountBody(); root.querySelectorAll('[data-c-account-tab]').forEach(function (x) { x.classList.toggle('active', x.dataset.cAccountTab === s.account.tab); }); var modelSelect = root.querySelector('[data-c-model-select]'); if (modelSelect && typeof populateModelSelect === 'function') populateModelSelect(modelSelect); icons();
   }
   async function saveAccount() {
     if (!logged()) { go('login'); return say('请先登录后保存账户资料'); }
@@ -468,11 +520,321 @@
   }
   async function logout(all) { try { if (backendState.token) await backendRequest(all ? '/api/auth/logout-all' : '/api/auth/logout', { method: 'POST', body: {} }); } catch (_) {} clearBackendAuth(); if (backendState.localOpenAccess && typeof window.ensureMolanLocalSession === 'function') { await window.ensureMolanLocalSession(true); refreshChrome(); say('已重置为本地免登录默认模式'); return go('overview'); } window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null })); refreshChrome(); say(all ? '已退出所有设备' : '已退出登录'); go('overview'); }
 
-  /* Login */
-  function loginPage() { return shell('login', '<div class="user-login c-page" data-c-page="login"><section class="user-login-copy"><div><div style="display:flex;align-items:center;gap:9px"><span class="brand-mark">墨</span><strong style="font-family:var(--serif);font-size:16px">墨阑</strong></div><h2>让每一个故事，都有自己的工作台。</h2><p>保存你的作品、设定和 Skill，在任意设备继续创作。</p><div class="login-signal"><span></span>你的作品数据按账户独立保存</div></div></section><section class="user-login-form"><form class="user-login-inner" data-c-login><div class="login-tabs"><button type="button" class="login-tab active" data-c-auth-mode="login">登录</button><button type="button" class="login-tab" data-c-auth-mode="register">注册</button></div><h1 data-c-auth-title>欢迎回来</h1><p data-c-auth-copy>登录后继续最近编辑的小说和 AI 任务。</p><div class="form-grid"><div class="field"><label>邮箱</label><input id="c-login-email" type="email" required placeholder="you@example.com"></div><div class="field"><label>密码</label><div style="display:flex;gap:6px"><input id="c-login-password" type="password" required placeholder="请输入密码" style="flex:1"><button type="button" class="button" data-c-action="auth-password">显示</button></div></div><div class="field" data-c-code-field hidden><label>验证码</label><div style="display:flex;gap:6px"><input id="c-login-code" maxlength="6" style="flex:1"><button type="button" class="button" data-c-action="auth-code">获取验证码</button></div></div></div><div class="login-links"><label class="check"><input type="checkbox" id="c-login-remember" checked>记住我</label><button type="button" class="button" data-c-action="auth-forgot">忘记密码？</button></div><button class="button primary" type="submit" data-c-auth-submit style="width:100%;margin-top:20px">登录并进入工作台</button><div class="notice" style="margin-top:16px"><span data-c-auth-notice>本地服务模式：登录或注册后，作品和任务会保存到当前本地后端。</span></div><div style="display:flex;gap:8px;margin-top:12px"><button type="button" class="button" data-c-action="auth-terms">服务条款</button><button type="button" class="button" data-c-action="auth-privacy">隐私政策</button></div></form></section></div>', 'login-page'); }
-  function renderAuth() { if (currentPage !== 'login') return; var root = stage.querySelector('[data-c-page="login"]'); if (!root) return; root.querySelectorAll('[data-c-auth-mode]').forEach(function (x) { x.classList.toggle('active', x.dataset.cAuthMode === s.auth.mode); }); root.querySelector('[data-c-auth-title]').textContent = s.auth.mode === 'register' ? '创建账户' : '欢迎回来'; root.querySelector('[data-c-auth-copy]').textContent = s.auth.mode === 'register' ? '注册后保存作品、Skill 和 AI 任务。' : '登录后继续最近编辑的小说和 AI 任务。'; root.querySelector('[data-c-auth-submit]').textContent = s.auth.mode === 'register' ? '注册并进入工作台' : '登录并进入工作台'; root.querySelector('[data-c-code-field]').hidden = !s.auth.code; root.querySelector('#c-login-password').closest('.field').style.display = s.auth.code ? 'none' : ''; icons(); }
+  /* Login & Register (with 2-step email verification support) */
+  function stopAuthTimer() {
+    if (s.auth.timerId) {
+      clearInterval(s.auth.timerId);
+      s.auth.timerId = null;
+    }
+  }
+  function updateAuthResendBtn() {
+    var btn = stage.querySelector('[data-c-action="auth-resend"]');
+    if (!btn) return;
+    if (s.auth.resending) {
+      btn.disabled = true;
+      btn.textContent = '正在发送…';
+    } else if (s.auth.countdown > 0) {
+      btn.disabled = true;
+      btn.textContent = '重新发送 (' + s.auth.countdown + 's)';
+    } else {
+      btn.disabled = false;
+      btn.textContent = '重新发送验证码';
+    }
+  }
+  function startAuthCountdown(seconds) {
+    stopAuthTimer();
+    s.auth.countdown = Math.max(0, Number(seconds) || 0);
+    updateAuthResendBtn();
+    if (s.auth.countdown <= 0) return;
+    s.auth.timerId = setInterval(function () {
+      s.auth.countdown -= 1;
+      if (s.auth.countdown <= 0) {
+        s.auth.countdown = 0;
+        stopAuthTimer();
+      }
+      updateAuthResendBtn();
+    }, 1000);
+  }
+  function setAuthNotice(msg, tone) {
+    var box = stage.querySelector('[data-c-auth-notice-box]');
+    var text = stage.querySelector('[data-c-auth-notice]');
+    if (text) text.textContent = msg || '';
+    if (box) {
+      box.classList.remove('is-error', 'is-success');
+      if (tone === 'error') box.classList.add('is-error');
+      else if (tone === 'success') box.classList.add('is-success');
+    }
+  }
+  function loadAuthConfig(force) {
+    if (s.auth.configLoaded && !force) return Promise.resolve();
+    return backendRequest('/api/auth/register-config', { method: 'GET' })
+      .then(function (cfg) {
+        s.auth.emailVerifyEnabled = Boolean(cfg && cfg.emailVerifyEnabled);
+        s.auth.emailConfigured = Boolean(cfg && cfg.emailConfigured);
+        if (cfg && cfg.countdownSeconds) s.auth.countdownSeconds = Number(cfg.countdownSeconds) || 60;
+        if (cfg && cfg.codeExpiresMinutes) s.auth.expiresMinutes = Number(cfg.codeExpiresMinutes) || 15;
+        s.auth.configLoaded = true;
+        if (currentPage === 'login') {
+          renderAuth();
+          if (s.auth.mode === 'register' && s.auth.emailVerifyEnabled && !s.auth.emailConfigured) {
+            setAuthNotice('当前已开启邮箱验证，但尚未检测到可用的 SMTP 邮箱配置，请确认邮箱配置或环境变量。', 'error');
+          }
+        }
+      })
+      .catch(function () {
+        s.auth.configLoaded = true;
+      });
+  }
+  function loginPage() {
+    return shell('login', '<div class="user-login c-page" data-c-page="login">' +
+      '<section class="user-login-copy"><div><div style="display:flex;align-items:center;gap:9px"><span class="brand-mark">墨</span><strong style="font-family:var(--serif);font-size:16px">墨阑</strong></div>' +
+      '<h2>让每一个故事，都有自己的工作台。</h2>' +
+      '<p>以宣纸质感与清晰结构承载百万字长篇：作品库、拆书学习、三级大纲与沉浸编辑器无缝衔接。</p>' +
+      '<ul class="auth-copy-list">' +
+      '<li>' + icon('feather') + '<span>作品正文、设定集、长篇记忆与个人 Skill 按账户独立存储。</span></li>' +
+      '<li>' + icon('shield-check') + '<span>支持 6 位邮箱验证码安全注册、多端会话管理与一键退出。</span></li>' +
+      '<li>' + icon('sparkles') + '<span>注册即赠 500 创作积分，立即体验单遍高张力起草与去 AI 味。</span></li>' +
+      '</ul>' +
+      '<div class="login-signal"><span></span>你的作品数据按账户独立保存</div></div>' +
+      '<div class="metric-foot">墨阑 · 以书香之韵，驭现代之智</div></section>' +
+      '<section class="user-login-form"><form class="user-login-inner" data-c-login novalidate>' +
+      '<div class="login-tabs"><button type="button" class="login-tab active" data-c-auth-mode="login">登录</button><button type="button" class="login-tab" data-c-auth-mode="register">注册</button></div>' +
+      '<h1 data-c-auth-title>欢迎回来</h1><p data-c-auth-copy>登录后继续最近编辑的小说和 AI 任务。</p>' +
+      '<div class="auth-steps" data-c-auth-steps hidden><div class="auth-step is-active" data-c-step-badge="1"><span class="auth-step-num">1</span><span>账号信息</span></div><div class="auth-step" data-c-step-badge="2"><span class="auth-step-num">2</span><span>邮箱验证</span></div></div>' +
+      '<div data-c-step1-fields><div class="form-grid">' +
+      '<div class="field"><label for="c-login-email">邮箱地址</label><input id="c-login-email" type="email" autocomplete="email" required placeholder="name@example.com"></div>' +
+      '<div class="field" data-c-register-only hidden><label for="c-login-name">笔名 / 昵称 <span style="font-weight:400;color:var(--muted-light)">（选填，最多 24 字）</span></label><input id="c-login-name" type="text" maxlength="24" autocomplete="nickname" placeholder="留空则默认使用邮箱前缀"></div>' +
+      '<div class="field"><label for="c-login-password">密码</label><div style="display:flex;gap:6px"><input id="c-login-password" type="password" autocomplete="current-password" required placeholder="请输入密码" style="flex:1"><button type="button" class="button" data-c-action="auth-password">显示</button></div></div>' +
+      '<div class="field" data-c-register-only hidden><label for="c-login-confirm">确认密码</label><div style="display:flex;gap:6px"><input id="c-login-confirm" type="password" autocomplete="new-password" placeholder="请再次输入密码" style="flex:1"><button type="button" class="button" data-c-action="auth-confirm-password">显示</button></div></div>' +
+      '</div>' +
+      '<div class="login-links" data-c-login-only><label class="check"><input type="checkbox" id="c-login-remember" checked>记住我</label><button type="button" class="button" data-c-action="auth-forgot">忘记密码？</button></div></div>' +
+      '<div data-c-step2-fields hidden>' +
+      '<div class="auth-verify-banner">' + icon('mail-check') + '<div><strong>验证码已发送</strong><div>我们已向 <strong data-c-verify-email></strong> 发送 6 位数字验证码，<span data-c-verify-expire>15</span> 分钟内有效。</div></div></div>' +
+      '<div class="field"><label for="c-login-code">6 位邮箱验证码 <span style="font-weight:400;color:var(--muted-light)">（支持直接粘贴）</span></label><input id="c-login-code" class="auth-code-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000"><small>如未收到，请检查垃圾邮件箱或等待倒计时结束后重新发送。</small></div>' +
+      '</div>' +
+      '<button class="button primary" type="submit" data-c-auth-submit style="width:100%;margin-top:18px">登录并进入工作台</button>' +
+      '<div class="auth-secondary-row" data-c-step2-actions hidden><button type="button" class="button" data-c-action="auth-step-back">' + icon('arrow-left') + '返回修改邮箱</button><button type="button" class="auth-link-btn" data-c-action="auth-resend">重新发送验证码</button></div>' +
+      '<div class="notice" data-c-auth-notice-box style="margin-top:14px"><span data-c-auth-notice>登录或注册后，作品、设定和 AI 任务将保存到当前账户。</span></div>' +
+      '<div class="auth-inline-links"><div style="display:flex;gap:8px"><button type="button" class="button" data-c-action="auth-terms">服务条款</button><button type="button" class="button" data-c-action="auth-privacy">隐私政策</button></div><div style="display:flex;gap:10px"><a href="./pages/login.html">独立登录页</a><a href="./pages/register.html">独立注册页</a></div></div>' +
+      '</form></section></div>', 'login-page');
+  }
+  function renderAuth() {
+    if (currentPage !== 'login') return;
+    var root = stage.querySelector('[data-c-page="login"]');
+    if (!root) return;
+    var isReg = s.auth.mode === 'register';
+    var isStep2 = isReg && s.auth.step === 2;
+    root.querySelectorAll('[data-c-auth-mode]').forEach(function (x) { x.classList.toggle('active', x.dataset.cAuthMode === s.auth.mode); });
+    document.querySelectorAll('.side-link[data-page="login"]').forEach(function (node) {
+      var intent = node.dataset.authIntent || 'login';
+      node.classList.toggle('active', intent === s.auth.mode);
+    });
+    var title = root.querySelector('[data-c-auth-title]');
+    var copy = root.querySelector('[data-c-auth-copy]');
+    var submitBtn = root.querySelector('[data-c-auth-submit]');
+    var stepsWrap = root.querySelector('[data-c-auth-steps]');
+    var b1 = root.querySelector('[data-c-step-badge="1"]');
+    var b2 = root.querySelector('[data-c-step-badge="2"]');
+    var step1Box = root.querySelector('[data-c-step1-fields]');
+    var step2Box = root.querySelector('[data-c-step2-fields]');
+    var step2Actions = root.querySelector('[data-c-step2-actions]');
+    var pwdInput = document.getElementById('c-login-password');
+
+    if (stepsWrap) stepsWrap.hidden = !(isReg && s.auth.emailVerifyEnabled);
+    if (b1) { b1.classList.toggle('is-active', !isStep2); b1.classList.toggle('is-done', isStep2); }
+    if (b2) { b2.classList.toggle('is-active', isStep2); b2.classList.remove('is-done'); }
+    if (step1Box) step1Box.hidden = isStep2;
+    if (step2Box) step2Box.hidden = !isStep2;
+    if (step2Actions) step2Actions.hidden = !isStep2;
+    root.querySelectorAll('[data-c-register-only]').forEach(function (el) { el.hidden = !isReg; });
+    root.querySelectorAll('[data-c-login-only]').forEach(function (el) { el.hidden = isReg; });
+
+    if (pwdInput) {
+      pwdInput.setAttribute('autocomplete', isReg ? 'new-password' : 'current-password');
+      pwdInput.setAttribute('placeholder', isReg ? '至少 6 位密码' : '请输入密码');
+    }
+    if (title) title.textContent = !isReg ? '欢迎回来' : (isStep2 ? '验证你的邮箱' : '注册新账号');
+    if (copy) {
+      copy.textContent = !isReg
+        ? '登录后继续最近编辑的小说和 AI 任务。'
+        : (isStep2
+          ? '请输入收件箱中收到的 6 位数字验证码，验证通过后立即完成注册。'
+          : (s.auth.emailVerifyEnabled
+            ? '填写邮箱与密码，系统将自动发送 6 位数字验证码。'
+            : '填写邮箱与密码，注册即赠 500 创作积分。'));
+    }
+    if (submitBtn) {
+      submitBtn.disabled = !!s.auth.busy;
+      submitBtn.textContent = !isReg
+        ? '登录并进入工作台'
+        : (isStep2 ? '验证并完成注册' : (s.auth.emailVerifyEnabled ? '继续并发送验证码' : '立即注册并进入工作台'));
+    }
+    if (isStep2) {
+      var targetEmail = root.querySelector('[data-c-verify-email]');
+      var expireSpan = root.querySelector('[data-c-verify-expire]');
+      if (targetEmail) targetEmail.textContent = s.auth.email;
+      if (expireSpan) expireSpan.textContent = String(s.auth.expiresMinutes || 15);
+      updateAuthResendBtn();
+    }
+    icons();
+  }
+  async function resendAuthCode() {
+    if (s.auth.resending || s.auth.countdown > 0 || !s.auth.email) return;
+    s.auth.resending = true;
+    updateAuthResendBtn();
+    setAuthNotice('正在重新发送验证码至 ' + s.auth.email + '…', 'info');
+    try {
+      var data = await backendRequest('/api/auth/send-verify-code', { method: 'POST', body: { email: s.auth.email } });
+      setAuthNotice('新验证码已发送至 ' + s.auth.email + '，请注意查收。', 'success');
+      startAuthCountdown((data && data.countdown) || s.auth.countdownSeconds);
+    } catch (error) {
+      if (error && error.status === 429 && error.retryAfter) startAuthCountdown(error.retryAfter);
+      setAuthNotice(error.message || '重新发送失败，请稍后重试', 'error');
+    } finally {
+      s.auth.resending = false;
+      updateAuthResendBtn();
+    }
+  }
   async function authSubmit() {
-    if (s.auth.busy) return; var email = document.getElementById('c-login-email').value.trim().toLowerCase(), password = document.getElementById('c-login-password').value, notice = stage.querySelector('[data-c-auth-notice]'); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return notice.textContent = '请输入正确的邮箱地址。'; if (s.auth.code) return notice.textContent = '邮箱验证码登录暂未开放，请使用密码登录。'; if (s.auth.mode === 'register' && password.length < 6) return notice.textContent = '密码至少需要 6 位。'; var rememberCheck = document.getElementById('c-login-remember'); backendState.rememberMe = rememberCheck ? rememberCheck.checked : true; s.auth.busy = true; try { var data = await backendRequest(s.auth.mode === 'register' ? '/api/auth/register' : '/api/auth/login', { method: 'POST', body: { email: email, password: password, name: email.split('@')[0] } }); setBackendAuth(data); refreshChrome(); window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: data.user })); say('登录成功'); go('overview'); } catch (error) { notice.textContent = error.message || '登录失败'; say(error.message || '登录失败'); } finally { s.auth.busy = false; } }
+    if (s.auth.busy) return;
+    var submitBtn = stage.querySelector('[data-c-auth-submit]');
+    var isReg = s.auth.mode === 'register';
+
+    if (!isReg) {
+      var email = (document.getElementById('c-login-email')?.value || '').trim().toLowerCase();
+      var password = document.getElementById('c-login-password')?.value || '';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setAuthNotice('请输入正确的邮箱地址。', 'error');
+      if (!password) return setAuthNotice('请输入登录密码。', 'error');
+      var rememberCheck = document.getElementById('c-login-remember');
+      backendState.rememberMe = rememberCheck ? rememberCheck.checked : true;
+      s.auth.busy = true;
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '正在登录…'; }
+      setAuthNotice('正在验证登录信息…', 'info');
+      try {
+        var loginData = await backendRequest('/api/auth/login', { method: 'POST', body: { email: email, password: password } });
+        setBackendAuth(loginData);
+        refreshChrome();
+        window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: loginData.user }));
+        say('登录成功');
+        go('overview');
+      } catch (error) {
+        setAuthNotice(error.message || '登录失败', 'error');
+        say(error.message || '登录失败');
+      } finally {
+        s.auth.busy = false;
+        renderAuth();
+      }
+      return;
+    }
+
+    if (s.auth.step === 1) {
+      var regEmail = (document.getElementById('c-login-email')?.value || '').trim().toLowerCase();
+      var regName = (document.getElementById('c-login-name')?.value || '').trim();
+      var regPassword = document.getElementById('c-login-password')?.value || '';
+      var regConfirm = document.getElementById('c-login-confirm')?.value || '';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) return setAuthNotice('请输入正确的邮箱地址。', 'error');
+      if (regName.length > 24) return setAuthNotice('笔名 / 昵称不能超过 24 个字符。', 'error');
+      if (regPassword.length < 6 || regPassword.length > 256) return setAuthNotice('密码长度需为 6 到 256 位。', 'error');
+      if (regPassword !== regConfirm) return setAuthNotice('两次输入的密码不一致，请核对。', 'error');
+
+      s.auth.email = regEmail;
+      s.auth.name = regName;
+      s.auth.password = regPassword;
+      backendState.rememberMe = true;
+      s.auth.busy = true;
+      if (submitBtn) submitBtn.disabled = true;
+
+      if (!s.auth.emailVerifyEnabled) {
+        if (submitBtn) submitBtn.textContent = '正在创建账号…';
+        setAuthNotice('正在创建墨阑账号…', 'info');
+        try {
+          var directData = await backendRequest('/api/auth/register', { method: 'POST', body: { email: regEmail, password: regPassword, name: regName || undefined } });
+          setBackendAuth(directData);
+          refreshChrome();
+          window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: directData.user }));
+          say('注册成功，已赠送 500 创作积分');
+          go('overview');
+        } catch (error) {
+          setAuthNotice(error.message || '注册失败，请稍后重试', 'error');
+          say(error.message || '注册失败');
+        } finally {
+          s.auth.busy = false;
+          renderAuth();
+        }
+        return;
+      }
+
+      if (submitBtn) submitBtn.textContent = '正在发送验证码…';
+      setAuthNotice('正在向 ' + regEmail + ' 发送 6 位验证码…', 'info');
+      try {
+        var sent = await backendRequest('/api/auth/send-verify-code', { method: 'POST', body: { email: regEmail } });
+        if (sent && sent.expiresMinutes) s.auth.expiresMinutes = Number(sent.expiresMinutes) || s.auth.expiresMinutes;
+        s.auth.step = 2;
+        setAuthNotice('验证码已发送，请查收邮箱并输入 6 位数字验证码。', 'success');
+        renderAuth();
+        startAuthCountdown((sent && sent.countdown) || s.auth.countdownSeconds);
+        var codeEl = document.getElementById('c-login-code');
+        if (codeEl) { codeEl.value = ''; setTimeout(function () { codeEl.focus(); }, 40); }
+      } catch (error) {
+        if (error && error.status === 429 && error.retryAfter) {
+          s.auth.step = 2;
+          renderAuth();
+          startAuthCountdown(error.retryAfter);
+          setAuthNotice(error.message || '验证码已发送，请查收邮箱或等待倒计时后重发。', 'info');
+        } else {
+          setAuthNotice(error.message || '发送验证码失败，请稍后重试', 'error');
+          say(error.message || '发送验证码失败');
+        }
+      } finally {
+        s.auth.busy = false;
+        renderAuth();
+      }
+      return;
+    }
+
+    // Step 2: verify 6-digit code & complete registration
+    var codeInput = document.getElementById('c-login-code');
+    var verifyCode = String(codeInput ? codeInput.value : '').replace(/\D+/g, '').trim();
+    if (verifyCode.length !== 6) {
+      setAuthNotice('请输入完整的 6 位数字验证码。', 'error');
+      if (codeInput) codeInput.focus();
+      return;
+    }
+    s.auth.busy = true;
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '正在验证并注册…'; }
+    setAuthNotice('正在验证邮箱并创建账号…', 'info');
+    try {
+      var verifiedData = await backendRequest('/api/auth/register', {
+        method: 'POST',
+        body: { email: s.auth.email, password: s.auth.password, name: s.auth.name || undefined, verifyCode: verifyCode }
+      });
+      stopAuthTimer();
+      s.auth.step = 1;
+      setBackendAuth(verifiedData);
+      refreshChrome();
+      window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: verifiedData.user }));
+      say('注册成功，已赠送 500 创作积分');
+      go('overview');
+    } catch (error) {
+      setAuthNotice(error.message || '验证失败，请核对验证码后重试', 'error');
+      say(error.message || '验证失败');
+    } finally {
+      s.auth.busy = false;
+      renderAuth();
+    }
+  }
+  function openAuthMode(mode) {
+    s.auth.mode = mode === 'register' ? 'register' : 'login';
+    s.auth.step = 1;
+    if (currentPage === 'login') {
+      renderAuth();
+      if (s.auth.mode === 'register') loadAuthConfig(false);
+    } else {
+      window.__molanPendingAuthMode = s.auth.mode;
+      go('login');
+    }
+  }
+  window.MolanOpenAuth = openAuthMode;
   function legal(title, text) { openActionModal({ title: title, body: '<div class="article"><p>' + e(text) + '</p></div>', confirmText: '关闭', onConfirm: closeModal }); }
 
   function click(event) {
@@ -484,7 +846,14 @@
     if (n.dataset.cAccountTab) { s.account.tab = n.dataset.cAccountTab; renderAccount(); return; }
     if (n.dataset.cFilter) { n.parentElement.querySelectorAll('button').forEach(function (x) { x.classList.toggle('active', x === n); }); s.bill.page = 1; return renderBilling(); }
     if (n.dataset.cDocId) { s.docs.id = n.dataset.cDocId; return renderDocs(); }
-    if (n.dataset.cAuthMode) { s.auth.mode = n.dataset.cAuthMode; s.auth.code = false; return renderAuth(); }
+    if (n.dataset.cAuthMode) {
+      s.auth.mode = n.dataset.cAuthMode === 'register' ? 'register' : 'login';
+      s.auth.step = 1;
+      setAuthNotice(s.auth.mode === 'register' ? '新用户注册即赠 500 创作积分。' : '登录或注册后，作品、设定和 AI 任务将保存到当前账户。', 'info');
+      renderAuth();
+      if (s.auth.mode === 'register') loadAuthConfig(false);
+      return;
+    }
     if (n.dataset.cSkillClear !== undefined) { s.skill.importFiles = []; s.skill.importFilesTouched = true; return updateSkillImportView('已清空文件清单，可重新选择单个文件或文件夹。', ''); }
     if (a === 'skill-create') return editSkill('create'); if (a === 'skill-refresh' || a === 'skill-private-refresh') return loadSkills(a === 'skill-private-refresh'); if (a === 'skill-prev') { if (s.skill.page > 1) { s.skill.page--; loadSkills(); } return; } if (a === 'skill-next') { s.skill.page++; loadSkills(); return; } if (a === 'skill-detail') return skillDetail(n.dataset.id, false); if (a === 'skill-private-detail') return skillDetail(n.dataset.id, true); if (a === 'skill-download' || a === 'skill-download-detail') return downloadSkill(n.dataset.id); if (a === 'skill-edit') { var editVersion = ++s.skill.editVersion, editSession = sessionKey(); return backendRequest('/api/open-skills/' + encodeURIComponent(n.dataset.id)).then(function (x) { if (editVersion === s.skill.editVersion && currentSession(editSession)) editSkill('edit', x.skill); }).catch(function (x) { if (editVersion === s.skill.editVersion && currentSession(editSession)) say(x.message); }); } if (a === 'skill-status') { var statusSession = sessionKey(); return backendRequest('/api/open-skills/' + encodeURIComponent(n.dataset.id), { method: 'PATCH', body: { status: n.dataset.status } }).then(function () { if (!currentSession(statusSession)) return; return loadSkills(); }).then(function () { if (currentSession(statusSession)) say('Skill 状态已更新'); }).catch(function (x) { if (currentSession(statusSession)) say(x.message); }); } if (a === 'skill-sync') return syncSkill(n.dataset.id); if (a === 'skill-publish-draft') return saveSkill(true);
     if (a === 'tool-select') { s.tool.id = n.dataset.id; s.tool.result = ''; s.tool.accepted = false; return renderTools(); } if (a === 'tool-run') return runTool(); if (a === 'tool-cancel') { if (s.tool.controller) s.tool.controller.abort(); return; }
@@ -508,9 +877,23 @@
     if (a === 'tool-copy') return copyText(s.tool.result).then(function () { say(s.tool.id === 'deai' ? '已复制全文' : '结果已复制'); }); if (a === 'tool-accept') { var input = stage.querySelector('[data-c-tool-input]'); s.tool.original = s.tool.original || input.value; input.value = s.tool.result; s.tool.text = s.tool.result; s.tool.accepted = true; return renderTools(); } if (a === 'tool-undo') { var input2 = stage.querySelector('[data-c-tool-input]'); input2.value = s.tool.original; s.tool.text = s.tool.original; s.tool.accepted = false; return renderTools(); }
     if (a === 'bill-export') return exportBilling(); if (a === 'bill-topup') return topup(); if (a === 'bill-prev') { if (s.bill.page > 1) s.bill.page--; return renderBilling(); } if (a === 'bill-next') { s.bill.page++; return renderBilling(); }
     if (a === 'account-save') return saveAccount(); if (a === 'account-logout') return logout(false); if (a === 'account-logout-all') return logout(true); if (a === 'account-clear') { s.account.avatar = ''; return renderAccount(); }
-    if (a === 'auth-password') { var p = document.getElementById('c-login-password'); p.type = p.type === 'password' ? 'text' : 'password'; n.textContent = p.type === 'password' ? '显示' : '隐藏'; return; } if (a === 'auth-code') { s.auth.code = true; renderAuth(); return say('邮箱验证码登录暂未开放，请使用密码登录'); } if (a === 'auth-forgot') return say('密码找回暂未开放，请使用已注册密码登录或联系管理员'); if (a === 'auth-terms') return legal('服务条款', '当前本地版本提供 AI 创作、积分记录和作品保存服务。请妥善保管账户凭证，充值按钮只提供测试额度，不产生真实支付。'); if (a === 'auth-privacy') return legal('隐私政策', '墨阑使用注册邮箱、登录记录、AI 使用记录和账户内作品数据来提供服务、结算积分并隔离不同用户的数据。私有作品不会被公开展示。'); if (a === 'docs-go') return go(n.dataset.pageTarget);
+    if (a === 'auth-go-login') return openAuthMode('login');
+    if (a === 'auth-go-register') return openAuthMode('register');
+    if (a === 'auth-password') { var p = document.getElementById('c-login-password'); if (p) { p.type = p.type === 'password' ? 'text' : 'password'; n.textContent = p.type === 'password' ? '显示' : '隐藏'; } return; }
+    if (a === 'auth-confirm-password') { var cp = document.getElementById('c-login-confirm'); if (cp) { cp.type = cp.type === 'password' ? 'text' : 'password'; n.textContent = cp.type === 'password' ? '显示' : '隐藏'; } return; }
+    if (a === 'auth-step-back') { s.auth.step = 1; setAuthNotice('请修改邮箱后重新获取验证码。', 'info'); renderAuth(); var em = document.getElementById('c-login-email'); if (em) em.focus(); return; }
+    if (a === 'auth-resend') return resendAuthCode();
+    if (a === 'auth-forgot') return say('密码找回暂未开放，请使用已注册密码登录或联系管理员'); if (a === 'auth-terms') return legal('服务条款', '当前本地版本提供 AI 创作、积分记录和作品保存服务。请妥善保管账户凭证，充值按钮只提供测试额度，不产生真实支付。'); if (a === 'auth-privacy') return legal('隐私政策', '墨阑使用注册邮箱、登录记录、AI 使用记录和账户内作品数据来提供服务、结算积分并隔离不同用户的数据。私有作品不会被公开展示。'); if (a === 'docs-go') return go(n.dataset.pageTarget);
   }
-  function input(event) { var n = event.target; if (n.dataset.cSearch === 'skill') { event.stopPropagation(); s.skill.q = n.value.trim(); clearTimeout(s.timer); s.timer = setTimeout(function () { s.skill.page = 1; loadSkills(); }, 220); } else if (n.dataset.cSearch === 'docs') { event.stopPropagation(); s.docs.q = n.value.trim(); renderDocs(); } else if (n.dataset.cToolInput !== undefined) { event.stopPropagation(); s.tool.text = n.value; var x = stage.querySelector('[data-c-tool-length]'); if (x) x.textContent = n.value.length.toLocaleString() + ' / 20,000 字'; } }
+  function input(event) {
+    var n = event.target;
+    if (n.id === 'c-login-code') {
+      var cleaned = String(n.value || '').replace(/\D+/g, '').slice(0, 6);
+      if (n.value !== cleaned) n.value = cleaned;
+      return;
+    }
+    if (n.dataset.cSearch === 'skill') { event.stopPropagation(); s.skill.q = n.value.trim(); clearTimeout(s.timer); s.timer = setTimeout(function () { s.skill.page = 1; loadSkills(); }, 220); } else if (n.dataset.cSearch === 'docs') { event.stopPropagation(); s.docs.q = n.value.trim(); renderDocs(); } else if (n.dataset.cToolInput !== undefined) { event.stopPropagation(); s.tool.text = n.value; var x = stage.querySelector('[data-c-tool-length]'); if (x) x.textContent = n.value.length.toLocaleString() + ' / 20,000 字'; }
+  }
   function change(event) {
     var n = event.target;
     if (n.dataset.cSkillSort !== undefined) { event.stopPropagation(); s.skill.sort = n.value; s.skill.page = 1; loadSkills(); }
@@ -530,7 +913,20 @@
       renderTools();
       if (logged() && typeof loadBackendUsage === 'function') loadBackendUsage().then(renderTools);
     }
-    if (page === 'billing') { renderBilling(); loadBilling(); } if (page === 'docs') renderDocs(); if (page === 'account') { s.account.avatar = backendState.user?.avatar || ''; renderAccount(); if (logged() && typeof loadBackendUsage === 'function') loadBackendUsage().then(renderAccount); } if (page === 'login') renderAuth(); icons(); }
+    if (page === 'billing') { renderBilling(); loadBilling(); }
+    if (page === 'docs') renderDocs();
+    if (page === 'account') { s.account.avatar = backendState.user?.avatar || ''; renderAccount(); if (logged() && typeof loadBackendUsage === 'function') loadBackendUsage().then(renderAccount); }
+    if (page === 'login') {
+      if (window.__molanPendingAuthMode) {
+        s.auth.mode = window.__molanPendingAuthMode === 'register' ? 'register' : 'login';
+        s.auth.step = 1;
+        window.__molanPendingAuthMode = '';
+      }
+      renderAuth();
+      loadAuthConfig(false);
+    }
+    icons();
+  }
   function install() {
     if (done) return; done = true;
     renderers.skills = skillsPage; renderers.tools = toolsPage; renderers.billing = billingPage; renderers.docs = docsPage; renderers.account = accountPage; renderers.login = loginPage;

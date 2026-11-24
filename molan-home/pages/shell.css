@@ -22,7 +22,7 @@
   height: 64px;
   padding: 0 clamp(18px, 4vw, 60px);
   border-bottom: 1px solid var(--line, #e7e7e2);
-  background: rgba(247, 248, 246, .94);
+  background: var(--surface-header, rgba(255, 255, 255, .95));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -45,7 +45,7 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-md, 6px);
-  color: var(--paper, #ffffff);
+  color: var(--ink-inverted, #ffffff);
   background: var(--ink, #0a0a0a);
   font-family: var(--serif, "Noto Serif SC", serif);
   font-size: 15px;
@@ -119,7 +119,7 @@
 
 .molan-btn--primary {
   border-color: var(--ink, #0a0a0a);
-  color: var(--paper, #ffffff);
+  color: var(--ink-inverted, #ffffff);
   background: var(--ink, #0a0a0a);
   box-shadow: var(--shadow-sm, 0 1px 2px rgba(17, 17, 15, .04));
 }

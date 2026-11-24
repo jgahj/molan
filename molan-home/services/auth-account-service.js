@@ -18,6 +18,7 @@ function createAuthAccountService({
   canChooseModel,
   crypto,
   currentDefaultModel,
+  emailVerificationService = null,
   findPlatformModel,
   getPostgresUsageSummary,
   isAdminUser,
@@ -233,6 +234,55 @@ function createAuthAccountService({
     try { return normalizeAvatar(value, ''); } catch (_) { return ''; }
   }
 
+  async function handleRegisterConfig(req, res) {
+    try {
+      const policy = emailVerificationService && typeof emailVerificationService.getPolicy === 'function'
+        ? await emailVerificationService.getPolicy()
+        : {
+            registrationEnabled: true,
+            emailVerifyEnabled: false,
+            emailConfigured: false,
+            countdownSeconds: 60,
+            codeLength: 6,
+            codeExpiresMinutes: 15,
+            siteName: '墨阑 AI 小说'
+          };
+      json(res, 200, { ok: true, ...policy });
+    } catch (e) {
+      respondError(res, e);
+    }
+  }
+
+  function handleSendVerifyCode(req, res) {
+    if (!allowAuthAttempt(req, 'register-code', 10)) {
+      return json(res, 429, { error: '操作过于频繁，请稍后再试' }, { 'Retry-After': String(authRetryAfter(req, 'register-code')) });
+    }
+    readBody(req).then(async p => {
+      const email = String(p.email || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw requestError(400, '邮箱格式不正确');
+      }
+      if (!emailVerificationService || typeof emailVerificationService.sendRegisterCode !== 'function') {
+        throw requestError(503, '邮件验证码服务暂不可用');
+      }
+      if (await postgresRepository.runtimeAccountByEmail(email)) {
+        throw requestError(409, '该邮箱已注册，请直接登录');
+      }
+      const result = await emailVerificationService.sendRegisterCode(email);
+      json(res, 200, {
+        ok: true,
+        message: '验证码已发送至邮箱，请注意查收',
+        countdown: result.countdown,
+        expiresMinutes: result.expiresMinutes
+      });
+    }).catch(e => {
+      if (e && e.status === 429 && e.retryAfter) {
+        return json(res, 429, { error: e.message || '发送过于频繁，请稍后再试', retryAfter: e.retryAfter }, { 'Retry-After': String(e.retryAfter) });
+      }
+      respondError(res, e);
+    });
+  }
+
   function handleRegister(req, res) {
     if (!allowAuthAttempt(req, 'register', 20)) return json(res, 429, { error: '操作过于频繁，请稍后再试' }, { 'Retry-After': String(authRetryAfter(req, 'register')) });
     readBody(req).then(async p => {
@@ -242,6 +292,16 @@ function createAuthAccountService({
       if (password.length < 6 || password.length > 256) throw new Error('密码长度需为 6 到 256 位');
       if (await postgresRepository.runtimeAccountByEmail(email)) {
         throw requestError(409, '该邮箱已注册，请直接登录');
+      }
+      if (emailVerificationService && typeof emailVerificationService.getPolicy === 'function') {
+        const policy = await emailVerificationService.getPolicy();
+        if (policy && policy.emailVerifyEnabled) {
+          if (!policy.emailConfigured) {
+            throw requestError(503, '邮箱验证已开启，但邮件服务尚未配置，暂无法注册');
+          }
+          const verifyCode = String(p.verifyCode || p.verify_code || '').trim();
+          emailVerificationService.verifyRegisterCode(email, verifyCode, { consume: true });
+        }
       }
       const passwordRecord = await createPasswordRecordAsync(password);
       const role = isAdminUser(email) ? 'admin' : 'normal';
@@ -414,7 +474,7 @@ function createAuthAccountService({
   }
 
   return {
-    insertUserIfAbsent, createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, markSessionRevoked, isSessionRevoked, hashSessionToken, normalizeSessionScope, loadSessions, hydratePostgresSessions, issueToken, getAuthUser, publicUser, normalizeAvatar, storedAvatar, handleRegister, authenticatePasswordLogin, handleLogin, handleAdminLogin, handleSendCode, handleLoginByCode, handleMe, handleAdminMe, handleProfile, handleLogout, handleLogoutAll, sessions
+    insertUserIfAbsent, createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, markSessionRevoked, isSessionRevoked, hashSessionToken, normalizeSessionScope, loadSessions, hydratePostgresSessions, issueToken, getAuthUser, publicUser, normalizeAvatar, storedAvatar, handleRegisterConfig, handleSendVerifyCode, handleRegister, authenticatePasswordLogin, handleLogin, handleAdminLogin, handleSendCode, handleLoginByCode, handleMe, handleAdminMe, handleProfile, handleLogout, handleLogoutAll, sessions
   };
 }
 

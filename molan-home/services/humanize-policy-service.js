@@ -97,6 +97,21 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
         diagnosticLines.push(`- 段落长度过于均匀（变异系数 ${Number(metrics.paragraphUniformity).toFixed(2)}）：避免每段字数像模具压出来一样齐整，按动作与情绪自然分段，揉合 140~240 字饱满长段与短促口语断句`);
       }
     }
+    const zhuqueReport = metaInfo.zhuqueReport || null;
+    if (zhuqueReport && typeof zhuqueReport === 'object') {
+      const segments = Array.isArray(zhuqueReport.segments) ? zhuqueReport.segments : [];
+      const badSegments = segments.filter(segment => !segment.green || Number(segment.aigc) >= 0.5).slice(0, 6);
+      if (badSegments.length) {
+        const greenRatio = Number(zhuqueReport.greenRatio);
+        diagnosticLines.push(`- 朱雀官方检测：人工占比 ${Number.isFinite(greenRatio) ? (greenRatio * 100).toFixed(1) : '?'}%，以下片段 AIGC 超线（目标 < 0.50），优先定点修复：`);
+        badSegments.forEach(segment => {
+          const position = Array.isArray(segment.position) && Number.isFinite(Number(segment.position[0]))
+            ? Number(segment.position[0])
+            : null;
+          diagnosticLines.push(`  · 第 ${segment.index} 段${position == null ? '' : `（约第 ${position} 字）`}：AIGC ${Number(segment.aigc).toFixed(2)}，保留事件事实，改成真人短句口吻，不补感官比喻和情绪解释`);
+        });
+      }
+    }
     if (textureReport && typeof textureReport === 'object') {
       const rawCliches = Array.isArray(textureReport.cliches)
         ? textureReport.cliches

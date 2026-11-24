@@ -10,6 +10,43 @@
     tokenLink.setAttribute('data-molan-design-tokens', '');
     document.head.prepend(tokenLink);
   }
+  function readStoredDarkTheme() {
+    try {
+      var saved = localStorage.getItem('molan_theme');
+      return saved === 'dim' || saved === 'dark';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function applyShellTheme(dark, persist) {
+    var enabled = Boolean(dark);
+    document.documentElement.classList.toggle('dark', enabled);
+    document.documentElement.classList.toggle('light', !enabled);
+    document.documentElement.setAttribute('data-theme', enabled ? 'dark' : 'light');
+    if (document.body) document.body.classList.toggle('theme-dim', enabled);
+    if (persist) {
+      try { localStorage.setItem('molan_theme', enabled ? 'dim' : 'light'); } catch (_) {}
+    }
+    var themeBtn = document.querySelector('[data-shell-theme]');
+    if (themeBtn) {
+      themeBtn.innerHTML = icon(enabled ? 'moon' : 'sun');
+      themeBtn.setAttribute('aria-label', enabled ? '切换浅色主题' : '切换深色主题');
+      themeBtn.title = enabled ? '当前：深色主题（点击切换浅色）' : '当前：浅色主题（点击切换深色）';
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+      }
+    }
+  }
+
+  // 立即恢复保存的主题（含 login / admin-login 等独立页面）
+  applyShellTheme(readStoredDarkTheme(), false);
+  window.addEventListener('storage', function (event) {
+    if (event && event.key === 'molan_theme') {
+      applyShellTheme(event.newValue === 'dim' || event.newValue === 'dark', false);
+    }
+  });
+
   if (!body || body.classList.contains('login-page') || body.classList.contains('admin-login-page') || document.getElementById('adminApp')) return;
 
   var file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
@@ -51,30 +88,32 @@
     return './' + target;
   };
   var navItems = [
-    { group: '创作工作台', items: [
+    { group: '创作中心', items: [
       ['overview', 'layout-dashboard', '创作总览'],
       ['novels', 'library', '我的小说'],
       ['editor', 'pen-line', '小说编辑器'],
-      ['resources', 'folder-open', '资源中心'],
+      ['dissect', 'scan-text', '拆书分析'],
+      ['creation', 'wand-sparkles', '创书任务']
+    ]},
+    { group: '当前作品资料', items: [
       ['outline', 'milestone', '大纲与时间线'],
-      ['dissect', 'scan-text', '拆书分析']
-    ]},
-    { group: '资源与工具', items: [
       ['knowledge', 'network', '设定集 / 知识库'],
-      ['skills', 'sparkles', '开放 Skill'],
-      ['tools', 'wand-sparkles', 'AI 工具']
+      ['story-workbench', 'brain', '故事记忆与文风'],
+      ['project-docs', 'layers', '全套资料(七大板块)'],
+      ['resources', 'folder-open', '资源中心']
     ]},
-    { group: '账户与服务', items: [
+    { group: '效率工具', items: [
+      ['tools', 'wand-sparkles', 'AI 工具'],
+      ['skills', 'sparkles', '开放 Skill']
+    ]},
+    { group: '更多与账户服务', collapsible: true, items: [
       ['billing', 'coins', '积分与套餐'],
       ['docs', 'book-open', '使用教程'],
-      ['account', 'settings-2', '账户设置'],
-      ['login', 'log-in', '普通用户登录']
-    ]},
-    { group: '平台内容', items: [
       ['features', 'blocks', '产品功能'],
-      ['blog', 'notebook-pen', '创作者手札']
-    ]},
-    { group: '管理入口', items: [
+      ['blog', 'notebook-pen', '创作者手札'],
+      ['account', 'settings-2', '账户设置'],
+      ['login', 'log-in', '普通用户登录'],
+      ['register', 'user-plus', '注册新账号'],
       ['admin-login', 'shield-check', '管理员登录'],
       ['admin', 'panel-top', '管理后台']
     ]}
@@ -118,21 +157,39 @@
     sidebar.setAttribute('aria-label', '功能页面导航');
     var html = '<div class="molan-shell-sidebar-scroll">';
     navItems.forEach(function (section) {
-      html += '<section class="molan-shell-nav-section"><div class="molan-shell-nav-label">' + section.group + '</div>';
+      var hasActive = section.items.some(function (item) { return item[0] === pageKey; });
+      if (section.collapsible) {
+        html += '<details class="molan-shell-more"' + (hasActive ? ' open' : '') + '><summary><span>' + section.group + '</span>' + icon('chevron-down') + '</summary><div class="molan-shell-more-list">';
+      } else {
+        html += '<section class="molan-shell-nav-section"><div class="molan-shell-nav-label">' + section.group + '</div>';
+      }
       section.items.forEach(function (item) {
         var key = item[0];
         if (key === 'account') {
           html += '<button class="molan-shell-nav-link" type="button" data-shell-account><span>' + icon(item[1]) + item[2] + '</span></button>';
           return;
         }
-        var target = key === 'overview' ? 'index.html' : key === 'editor' ? '../index.html#editor' : key === 'resources' ? '../index.html#resources' : key === 'outline' ? '../index.html#outline' : key === 'knowledge' ? '../index.html#knowledge' : key === 'billing' ? 'pricing.html' : key === 'login' ? 'login.html' : key === 'admin-login' ? 'admin-login.html' : key === 'admin' ? 'admin.html' : key + '.html';
+        var target = key === 'overview' ? 'index.html'
+          : key === 'editor' ? '../index.html#editor'
+          : key === 'resources' ? '../index.html#resources'
+          : key === 'outline' ? '../index.html#outline'
+          : key === 'story-workbench' ? '../index.html#story-workbench'
+          : key === 'project-docs' ? '../index.html#project-docs'
+          : key === 'creation' ? '../index.html#creation'
+          : key === 'knowledge' ? '../index.html#knowledge'
+          : key === 'billing' ? 'pricing.html'
+          : key === 'login' ? 'login.html'
+          : key === 'register' ? 'register.html'
+          : key === 'admin-login' ? 'admin-login.html'
+          : key === 'admin' ? 'admin.html'
+          : key + '.html';
         var href = key === 'overview' ? rootHref : (isRoot ? './pages/' + target : './' + target);
         var active = key === pageKey;
         html += '<a class="molan-shell-nav-link' + (active ? ' is-active' : '') + '" href="' + href + '" data-shell-page="' + key + '"><span>' + icon(item[1]) + item[2] + '</span>' + (key === 'novels' ? '<small data-shell-count="novels"></small>' : '') + (key === 'knowledge' ? '<small data-shell-count="entities"></small>' : '') + (key === 'admin-login' ? '<i class="molan-shell-admin-dot" aria-hidden="true"></i>' : '') + '</a>';
       });
-      html += '</section>';
+      html += section.collapsible ? '</div></details>' : '</section>';
     });
-    html += '</div><div class="molan-shell-sidebar-footer"><button class="molan-shell-profile" type="button" data-shell-account><span class="molan-shell-avatar" data-shell-avatar aria-hidden="true"></span><span class="molan-shell-profile-copy"><strong data-shell-user-name>未登录</strong><small data-shell-user-meta>点击登录</small></span>' + icon('more-horizontal') + '</button></div>';
+    html += '</div><div class="molan-shell-sidebar-footer"><button class="molan-shell-profile" type="button" data-shell-account><span class="molan-shell-avatar" data-shell-avatar aria-hidden="true"></span><span class="molan-shell-profile-copy"><strong data-shell-user-name>未登录</strong><small data-shell-user-meta>点击登录 / 注册</small></span>' + icon('more-horizontal') + '</button></div>';
     sidebar.innerHTML = html;
     return sidebar;
   }
@@ -155,15 +212,21 @@
           image.alt = '';
           image.src = user.avatar;
           avatar.appendChild(image);
+        } else if (user) {
+          var labelText = String(user.name || user.email || '墨').trim();
+          avatar.textContent = labelText.slice(0, 1).toUpperCase();
+        } else {
+          avatar.innerHTML = icon('user-round');
         }
       }
       node.setAttribute('aria-label', user ? '已登录，打开账户设置' : '登录');
       node.title = user ? (user.email + ' · 已登录') : '登录';
     });
+    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
     var name = document.querySelector('[data-shell-user-name]');
     var meta = document.querySelector('[data-shell-user-meta]');
     if (name) name.textContent = user ? (user.name || user.email) : '未登录';
-    if (meta) meta.textContent = user ? credits(user) : '点击登录';
+    if (meta) meta.textContent = user ? credits(user) : '点击登录 / 注册';
   }
 
   function bindShellEvents(frame) {
@@ -181,8 +244,8 @@
     });
     var theme = document.querySelector('[data-shell-theme]');
     if (theme) theme.addEventListener('click', function () {
-      var dark = document.documentElement.classList.toggle('dark');
-      try { localStorage.setItem('molan_theme', dark ? 'dark' : 'light'); } catch (_) {}
+      var dark = !document.documentElement.classList.contains('dark');
+      applyShellTheme(dark, true);
     });
     var notification = document.querySelector('[data-shell-notification]');
     if (notification) notification.addEventListener('click', function () {
@@ -258,6 +321,7 @@
     body.prepend(header);
     header.insertAdjacentElement('afterend', frame);
     bindShellEvents(frame);
+    applyShellTheme(readStoredDarkTheme(), false);
     updateAccount();
     updateCounts();
     window.setTimeout(updateCounts, 500);

@@ -5,6 +5,13 @@
  */
     (function () {
       'use strict';
+      try {
+        var savedTheme = localStorage.getItem('molan_theme');
+        var isDark = savedTheme === 'dim' || savedTheme === 'dark';
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        if (document.body) document.body.classList.toggle('theme-dim', isDark);
+      } catch (_) {}
       var form = document.getElementById('adminLoginForm');
       var emailInput = document.getElementById('adminEmail');
       var passwordInput = document.getElementById('adminPassword');

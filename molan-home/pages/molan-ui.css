@@ -645,7 +645,9 @@ body.molan-shell-enabled > .h-16 {
   gap: 26px;
   padding: 0 28px;
   border-bottom: 1px solid var(--molan-line);
-  background: rgba(255, 255, 255, .96);
+  background: var(--molan-surface-header, rgba(255, 255, 255, .96));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .molan-shell-brand {
@@ -664,14 +666,14 @@ body.molan-shell-enabled > .h-16 {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  color: #fff;
+  color: var(--molan-ink-inverted, #fff);
   background: var(--molan-ink);
   font-family: var(--molan-serif);
   font-size: 17px;
   font-weight: 700;
 }
 
-.molan-shell-brand-name { font-family: var(--molan-serif); font-size: 17px; font-weight: 700; }
+.molan-shell-brand-name { font-family: var(--molan-serif); font-size: 17px; font-weight: 700; color: var(--molan-ink); }
 .molan-shell-brand-label { padding-left: 10px; border-left: 1px solid var(--molan-line-strong); color: var(--molan-muted); font-size: 12px; }
 .molan-shell-crumb { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--molan-muted); font-size: 12px; }
 .molan-shell-crumb strong { overflow: hidden; color: var(--molan-ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -679,10 +681,10 @@ body.molan-shell-enabled > .h-16 {
 .molan-shell-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .molan-shell-icon-button { width: 31px; height: 31px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid transparent; border-radius: 6px; color: var(--molan-muted); background: transparent; }
 .molan-shell-icon-button:hover { color: var(--molan-ink); background: var(--molan-canvas); }
-.molan-shell-account { border-color: var(--molan-line-strong); border-radius: 50%; background: var(--molan-paper); }
-.molan-shell-header-cta { min-height: 31px; display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; border: 1px solid var(--molan-ink); border-radius: 6px; color: #fff; background: var(--molan-ink); font-size: 12px; text-decoration: none; }
+.molan-shell-account { border-color: var(--molan-line-strong); border-radius: 50%; background: var(--molan-paper); color: var(--molan-ink); }
+.molan-shell-header-cta { min-height: 31px; display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; border: 1px solid var(--molan-ink); border-radius: 6px; color: var(--molan-ink-inverted, #fff); background: var(--molan-ink); font-size: 12px; font-weight: 600; text-decoration: none; }
 .molan-shell-header-cta:hover { background: var(--molan-ink-soft); }
-.molan-shell-avatar { width: 29px; height: 29px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--molan-line-strong); border-radius: 50%; background: var(--molan-paper); }
+.molan-shell-avatar { width: 29px; height: 29px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--molan-line-strong); border-radius: 50%; background: var(--molan-canvas); color: var(--molan-ink); font-family: var(--molan-serif); font-size: 12px; font-weight: 700; line-height: 1; }
 .molan-shell-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .molan-shell-mobile-menu { display: none; }
 
@@ -690,13 +692,30 @@ body.molan-shell-enabled > .h-16 {
 .molan-shell-sidebar { min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--molan-line); background: var(--molan-paper); }
 .molan-shell-sidebar-scroll { flex: 1; overflow: auto; padding: 20px 13px 15px; }
 .molan-shell-sidebar-scroll::-webkit-scrollbar { width: 8px; }
-.molan-shell-sidebar-scroll::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: #d7d7d1; background-clip: padding-box; }
-.molan-shell-nav-section { margin-bottom: 22px; }
+.molan-shell-sidebar-scroll::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: var(--molan-line-strong); background-clip: padding-box; }
+.molan-shell-nav-section { margin-bottom: 18px; }
+.molan-shell-more { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--molan-line); }
+.molan-shell-more > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 9px;
+  border-radius: 6px;
+  color: var(--molan-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+.molan-shell-more > summary::-webkit-details-marker { display: none; }
+.molan-shell-more > summary:hover { color: var(--molan-ink); background: var(--molan-canvas); }
+.molan-shell-more-list { margin-top: 4px; display: flex; flex-direction: column; gap: 1px; }
 .molan-shell-nav-label { padding: 0 9px 7px; color: var(--molan-muted-light); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
-.molan-shell-nav-link { width: 100%; min-height: 35px; display: flex; align-items: center; gap: 9px; padding: 0 9px; border: 0; border-radius: 6px; color: var(--molan-muted); background: transparent; font-size: 13px; text-align: left; text-decoration: none; }
+.molan-shell-nav-link { width: 100%; min-height: 35px; display: flex; align-items: center; gap: 9px; padding: 0 9px; border: 0; border-radius: 6px; color: var(--molan-muted); background: transparent; font-size: 13px; text-align: left; text-decoration: none; transition: color .15s ease, background-color .15s ease; }
 .molan-shell-nav-link > span { min-width: 0; display: inline-flex; align-items: center; gap: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .molan-shell-nav-link:hover { color: var(--molan-ink); background: var(--molan-canvas); }
-.molan-shell-nav-link.is-active { color: var(--molan-ink); background: #f0f0ed; font-weight: 600; }
+.molan-shell-nav-link.is-active { color: var(--molan-ink); background: var(--molan-surface-active, #f0f0ed); font-weight: 600; }
 .molan-shell-nav-link small { margin-left: auto; color: var(--molan-muted-light); font-family: var(--molan-mono); font-size: 11px; }
 .molan-shell-admin-dot { width: 6px; height: 6px; margin-left: auto; border-radius: 50%; background: var(--molan-amber); }
 .molan-shell-sidebar-footer { padding: 13px 16px; border-top: 1px solid var(--molan-line); }
@@ -704,13 +723,13 @@ body.molan-shell-enabled > .h-16 {
 .molan-shell-profile:hover .molan-shell-profile-copy strong { color: var(--molan-muted); }
 .molan-shell-profile-copy { min-width: 0; flex: 1; }
 .molan-shell-profile-copy strong, .molan-shell-profile-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.molan-shell-profile-copy strong { font-size: 12px; }
+.molan-shell-profile-copy strong { font-size: 12px; color: var(--molan-ink); }
 .molan-shell-profile-copy small { margin-top: 2px; color: var(--molan-muted); font-size: 10px; }
 .molan-shell-profile > .molan-shell-icon { margin-left: auto; color: var(--molan-muted); }
 .molan-shell-page { min-width: 0; min-height: 0; height: 100%; overflow: auto; padding: 34px clamp(18px, 4vw, 62px) 68px; }
 .molan-shell-page::-webkit-scrollbar { width: 8px; }
-.molan-shell-page::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: #d7d7d1; background-clip: padding-box; }
-.molan-shell-notice { position: fixed; right: 24px; bottom: 24px; z-index: 120; padding: 10px 13px; border-radius: 6px; color: #fff; background: var(--molan-ink); font-size: 12px; opacity: 0; pointer-events: none; transform: translateY(10px); transition: opacity .18s ease, transform .18s ease; }
+.molan-shell-page::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: var(--molan-line-strong); background-clip: padding-box; }
+.molan-shell-notice { position: fixed; right: 24px; bottom: 24px; z-index: 120; padding: 10px 13px; border-radius: 6px; color: var(--molan-ink-inverted, #fff); background: var(--molan-ink); font-size: 12px; opacity: 0; pointer-events: none; transform: translateY(10px); transition: opacity .18s ease, transform .18s ease; }
 .molan-shell-notice.is-visible { opacity: 1; transform: translateY(0); }
 .molan-shell-content { width: min(1180px, 100%); margin: 0 auto; }
 .molan-shell-content > main { width: 100% !important; max-width: none !important; margin: 0 !important; padding-top: 0 !important; }
@@ -1285,4 +1304,181 @@ body.theme-dim .chat-bubble .button:hover { background: #363632; color: #f2f2ed;
 body.theme-dim .chat-bubble .button.primary { color: #171716; background: #f2f2ed; border-color: #f2f2ed; }
 body.theme-dim .chat-bubble .button.primary:hover { background: #ffffff; }
 body.theme-dim .chat-bubble details div { background: #20201e !important; border-color: #3b3b37 !important; color: #d7d7d0 !important; }
+
+/* =====================================================================
+ * 全站独立页（tools / docs / blog / pricing / features / login）统一深色与墨阑适配
+ * ===================================================================== */
+:is(html.dark, [data-theme="dark"], body.theme-dim) .novels-topbar,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .skills-topbar,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .dissect-header {
+  background: var(--molan-surface-header, rgba(28, 28, 26, .95));
+  border-bottom-color: var(--molan-line);
+}
+
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-submit,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-submit {
+  color: var(--molan-ink-inverted, #171716);
+  background: var(--molan-ink);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-submit:hover,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-submit:hover {
+  background: var(--molan-ink-soft);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-art-panel,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-login-aside {
+  background: var(--molan-surface-dark-card, #111110);
+  border-right: 1px solid var(--molan-line);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-brand__mark {
+  color: var(--molan-ink-inverted, #171716);
+  background: var(--molan-ink);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-brand-mark {
+  background: var(--molan-ink);
+  color: var(--molan-ink-inverted, #171716);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-field { color: var(--molan-muted); }
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-field input {
+  color: var(--molan-ink);
+  background: var(--molan-canvas);
+  border-color: var(--molan-line-strong);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-field input:focus {
+  border-color: var(--molan-ink);
+  background: var(--molan-paper);
+  box-shadow: 0 0 0 3px rgba(242, 242, 237, .1);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-security-note {
+  border-top-color: var(--molan-line);
+  color: var(--molan-muted);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .admin-security-note strong {
+  color: var(--molan-ink-soft);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-copy__lead,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-terms,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-terms a { color: var(--molan-muted); }
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-language {
+  color: var(--molan-muted);
+  border-color: var(--molan-line-strong);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-language:hover {
+  color: var(--molan-ink);
+  border-color: var(--molan-ink);
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .login-password-toggle:hover {
+  background: var(--molan-surface-active, #32322f);
+}
+
+/* 独立内容页（tools / docs / blog / pricing / features）挂载到 molan-shell 后的深色高对比映射 */
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page main,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page section.bg-white,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page main.bg-white {
+  background-color: transparent !important;
+  color: var(--molan-ink) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-white,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .tools-banner-card {
+  background-color: var(--molan-paper) !important;
+  background: var(--molan-paper) !important;
+  border-color: var(--molan-line) !important;
+  color: var(--molan-ink) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-\[\#fafafa\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-\[\#f5f5f5\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-\[\#f0f0f0\] {
+  background-color: var(--molan-paper-warm) !important;
+  border-color: var(--molan-line) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .border-\[\#f5f5f5\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .border-\[\#f0f0f0\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .border-\[\#e8e8e8\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .border-\[\#e5e5e5\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .border-\[\#d4d4d4\] {
+  border-color: var(--molan-line) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#0a0a0a\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#1a1a1a\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#2a2a2a\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page h1,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page h2,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page h3 {
+  color: var(--molan-ink) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#666666\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#666\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#555\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#999999\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#999\] {
+  color: var(--molan-muted) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-\[\#0a0a0a\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .hero-primary-action {
+  background: var(--molan-ink) !important;
+  border-color: var(--molan-ink) !important;
+  color: var(--molan-ink-inverted, #171716) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .hero-primary-action span,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .hero-primary-action i,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .hero-primary-action svg {
+  color: var(--molan-ink-inverted, #171716) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-\[\#f0fdf4\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-\[\#dcfce7\] {
+  background-color: var(--molan-green-bg) !important;
+  border-color: rgba(116, 212, 168, .28) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#16a34a\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#15803d\] {
+  color: var(--molan-green) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-\[\#fffaf0\],
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .bg-\[\#fffbeb\] {
+  background-color: var(--molan-amber-bg) !important;
+  border-color: rgba(245, 196, 124, .35) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .text-\[\#7a5410\] {
+  color: var(--molan-amber) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .tool-cat-btn {
+  color: var(--molan-muted) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .tool-cat-btn:hover {
+  color: var(--molan-ink) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .tool-cat-btn.is-active {
+  color: var(--molan-ink) !important;
+  background: var(--molan-paper-warm) !important;
+  border-color: var(--molan-line-strong) !important;
+  box-shadow: none !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .tool-cat-btn.is-active .tool-cat-count {
+  color: var(--molan-ink-soft) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page input,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page textarea,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page select {
+  background-color: var(--molan-canvas) !important;
+  color: var(--molan-ink) !important;
+  border-color: var(--molan-line-strong) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page input::placeholder,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page textarea::placeholder {
+  color: var(--molan-muted-light) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .filter-tab,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .filter-btn {
+  background-color: var(--molan-paper) !important;
+  color: var(--molan-muted) !important;
+  border-color: var(--molan-line-strong) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .filter-tab.active,
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page .filter-btn.active {
+  background-color: var(--molan-ink) !important;
+  color: var(--molan-ink-inverted, #171716) !important;
+  border-color: var(--molan-ink) !important;
+}
+:is(html.dark, [data-theme="dark"], body.theme-dim) .molan-shell-page [style*="radial-gradient"] {
+  opacity: .08;
+}
 

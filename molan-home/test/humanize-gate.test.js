@@ -11,6 +11,7 @@ const correctionPolicy = require('../correction-policy');
 const { buildCharacterMaterialBlock, buildLivingProseExemplarBlock } = require('../lib/character-material');
 const { createHumanizePolicyService } = require('../services/humanize-policy-service');
 const { buildHumanizeLexiconBlock } = require('../lib/ai-flavor-detector');
+const { resetZhuqueCache } = require('../services/zhuque-detector-service');
 const UNIVERSAL_CORRECTION_MARKER = '<!-- molan-universal-correction-policy-v1 -->';
 
 const humanizeService = createHumanizePolicyService({
@@ -24,7 +25,7 @@ const DRAFT_TEXT = '便利店里陷入死一般的寂静，她嘴角勾起一抹
 const ROUND1_TEXT = '雨点顺着玻璃往下滑，她把塑料袋递过去，顺手抹了把桌上的水。';
 const ROUND2_TEXT = '便利店门口的雨没停。她拎着塑料袋走过去，往他那边递了一把，说先擦擦。他接过手，纸袋窸窣响了一声，两个人谁都没再提刚才那句。';
 
-function buildService({ gateRounds, scoreByText, texts }) {
+function buildService({ gateRounds, scoreByText, texts, env = {}, zhuqueFetch = null }) {
   const acpModel = {
     id: 'gpt-6-luna', name: 'GPT-6 Luna', group: 'gpt', provider: 'openai-compat',
     model: 'gpt-6-luna', apiKey: 'test-key', baseURL: 'http://127.0.0.1:1/v1',
@@ -33,7 +34,7 @@ function buildService({ gateRounds, scoreByText, texts }) {
   const calls = [];
   const service = createChatService({
     getDatabase: () => null,
-    getEnvironment: () => ({ MOLAN_HUMANIZE_GATE_ROUNDS: gateRounds }),
+    getEnvironment: () => ({ MOLAN_HUMANIZE_GATE_ROUNDS: gateRounds, ...env }),
     getDeepseekKey: () => '', getDeepseekUrl: () => '', getProxyUrl: () => '',
     POSTGRES_MODE: false, postgresRepository: { enabled: false }, postgresActor: () => 'u_1',
     getAuthUser: () => ({ user: { userId: 'u_1', email: 'test@local' } }),
@@ -112,7 +113,8 @@ function buildService({ gateRounds, scoreByText, texts }) {
     responseCors: () => ({}),
     UPSTREAM_MAX_RESPONSE_BYTES: 1024 * 1024, UPSTREAM_SSE_BUFFER_BYTES: 65536,
     UPSTREAM_QUALITY_SCAN_MAX_CHARS: 10000, UPSTREAM_TOTAL_TIMEOUT_MS: 30000,
-    LIVE_BILLING_EVENT_INTERVAL_MS: 5000
+    LIVE_BILLING_EVENT_INTERVAL_MS: 5000,
+    zhuqueFetch
   });
   return { service, calls };
 }
@@ -191,4 +193,93 @@ test('自检闸门：轮数=0 时保持单轮行为，零回归', async () => {
   const out = await run(service);
   assert.equal(calls.length, 2, '闸门关闭：仅初稿 + 1 轮改写');
   assert.ok(!out.controlEvents.some(e => e.molan_rewrite.phase === 'gate_retry'), '不应有 gate_retry');
+});
+
+const padToZhuque = text => `${text}\n${'她把碗放回案几，窗外竹影还在晃。'.repeat(24)}`;
+const ZHUQUE_ROUND1 = padToZhuque(ROUND1_TEXT);
+const ZHUQUE_ROUND2 = padToZhuque(ROUND2_TEXT);
+
+function zhuqueMockFetch(record) {
+  return async (url, options) => {
+    const body = JSON.parse(options.body);
+    const green = String(body.text).includes(ZHUQUE_ROUND2);
+    record.push({ url, authorization: options.headers.Authorization, text: body.text, isMerge: body.is_merge });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'success',
+        softmax_confidence: green ? 0.04 : 0.72,
+        ratio_confidence: 0,
+        labels_ratio: green ? { '0': 0.995, '1': 0.002, '2': 0.003 } : { '0': 0.14, '1': 0.02, '2': 0.84 },
+        segment_labels: [{
+          text: body.text,
+          label: green ? 0 : 2,
+          conf: green ? 0.18 : 0.86,
+          order: 1,
+          position: [0, body.text.length]
+        }],
+        usage: { total_tokens: body.text.length },
+        msg: '',
+        makers_models_usage: { total_tokens: Math.round(body.text.length * 1.67) }
+      })
+    };
+  };
+}
+
+test('朱雀真值闭环：按真实 AIGC 分数判定达标并择优下发', async () => {
+  resetZhuqueCache();
+  const zhuqueCalls = [];
+  const scoreByText = () => ({
+    score: 40,
+    passed: false,
+    metrics: { structuralRiskTotal: 0, zhuqueSignals: {} },
+    details: { blockHits: [], llmGlueHits: [] }
+  });
+  const { service, calls } = buildService({
+    gateRounds: '2', scoreByText,
+    texts: [DRAFT_TEXT, ZHUQUE_ROUND1, ZHUQUE_ROUND2],
+    env: { MAKERS_MODELS_KEY: 'test-makers-key' },
+    zhuqueFetch: zhuqueMockFetch(zhuqueCalls)
+  });
+  const out = await run(service);
+  assert.equal(calls.length, 3, '第1轮未达标，应触发第2轮改写');
+  assert.equal(zhuqueCalls.length, 2, '两轮改写各调用一次朱雀接口');
+  assert.equal(zhuqueCalls[0].url, 'https://ai-gateway.edgeone.link/v1/providers/zhuque-text/classify');
+  assert.equal(zhuqueCalls[0].authorization, 'Bearer test-makers-key');
+  assert.equal(zhuqueCalls[0].isMerge, true);
+  assert.equal(JSON.stringify(calls).includes('朱雀官方检测'), true, '朱雀分段诊断应真正进入改写模型提示词');
+  assert.equal(out.content.includes(ZHUQUE_ROUND2), true, '应下发朱雀判绿的轮次');
+  assert.equal(out.content.includes(ZHUQUE_ROUND1), false, '不应重复下发判黄的轮次');
+  const gate = out.usageEvent && out.usageEvent.molan_usage.aiFlavor.rewrite.gate;
+  assert.equal(gate.reached, true);
+  assert.equal(gate.selectedBy, 'zhuque');
+  assert.deepEqual(gate.sources, ['zhuque', 'zhuque']);
+  assert.deepEqual(gate.zhuqueScores, [86, 0.5]);
+  assert.ok(gate.zhuqueTokens > 0, '应记录 makers_models_usage 扣费 token');
+  assert.ok(out.controlEvents.some(e => e.molan_rewrite.scoreSource === 'zhuque'), 'SSE 控制事件应标注真值分数来源');
+});
+
+test('朱雀接口不可用时自动降级到本地信号，写作不中断', async () => {
+  resetZhuqueCache();
+  const scoreByText = text => ({
+    score: text.includes(ZHUQUE_ROUND2) ? 8 : 30,
+    passed: text.includes(ZHUQUE_ROUND2),
+    metrics: { structuralRiskTotal: 0, zhuqueSignals: { bigramTtr: 0.8 } },
+    details: { blockHits: [], llmGlueHits: [] }
+  });
+  const { service, calls } = buildService({
+    gateRounds: '2', scoreByText,
+    texts: [DRAFT_TEXT, ZHUQUE_ROUND1, ZHUQUE_ROUND2],
+    env: { MAKERS_MODELS_KEY: 'test-makers-key' },
+    zhuqueFetch: async () => { throw new Error('network down'); }
+  });
+  const out = await run(service);
+  assert.equal(calls.length, 3);
+  assert.equal(out.content.includes(ZHUQUE_ROUND2), true);
+  const gate = out.usageEvent && out.usageEvent.molan_usage.aiFlavor.rewrite.gate;
+  assert.equal(gate.reached, true);
+  assert.equal(gate.selectedBy, 'local');
+  assert.deepEqual(gate.sources, ['local', 'local']);
+  assert.deepEqual(gate.zhuqueScores, []);
 });

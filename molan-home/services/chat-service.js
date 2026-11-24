@@ -3,6 +3,7 @@ const { StringDecoder } = require('node:string_decoder');
 const { createChatStreamRuntime } = require('./chat-stream-runtime');
 const { sanitizeUserPrompt } = require('../lib/ip-continuation-adapter');
 const { analyzeHumanTexture } = require('../lib/style/human-texture');
+const zhuque = require('./zhuque-detector-service');
 
 function resolveUpstreamModelForReasoning(pm, eff) {
   if (pm && pm.provider === 'antigravity-acp') return (pm && (pm.model || pm.id)) || '';
@@ -105,6 +106,7 @@ function createChatService({
   UPSTREAM_QUALITY_SCAN_MAX_CHARS,
   UPSTREAM_TOTAL_TIMEOUT_MS,
   LIVE_BILLING_EVENT_INTERVAL_MS,
+  zhuqueFetch = null,
   recordDispatchAttempt: customRecordDispatchAttempt
 }) {
   const resolveDispatchAttemptRecorder = () => {
@@ -849,10 +851,11 @@ function createChatService({
       let rewriteMeta = null;
       // 自检闸门（Self-check gate）：Pass 2 改写后若本地朱雀代理分未达标，自动再改最多 N 轮，
       // 全程缓冲、只在收尾时把最优版本一次性下发，避免前端重复显示多轮稿。
+      const runtimeEnv = typeof getEnvironment === 'function' ? getEnvironment() : process.env;
       const humanizeGateMaxRounds = (() => {
         const raw = (input && input.humanizeGateMaxRounds) != null
           ? input.humanizeGateMaxRounds
-          : (typeof getEnvironment === 'function' ? getEnvironment() : process.env).MOLAN_HUMANIZE_GATE_ROUNDS;
+          : runtimeEnv.MOLAN_HUMANIZE_GATE_ROUNDS;
         const n = Number(raw);
         // 闸门默认关闭：仅在 input.humanizeGateMaxRounds 或 MOLAN_HUMANIZE_GATE_ROUNDS 显式配置时启用，
         // 由启动脚本显式设为 2。这样未配置的测试/调用方保持单轮行为，零回归。
@@ -864,6 +867,12 @@ function createChatService({
       let humanizeBestScore = Infinity;
       let humanizeBestReport = null;
       let humanizeRoundScores = [];
+      let humanizeBestRound = 0;
+      let hasZhuqueData = false;
+      let humanizeBestZhuqueScore = Infinity;
+      let humanizeZhuqueScores = [];
+      let humanizeZhuqueTokens = 0;
+      let gateSources = [];
       // 桥接：handleHumanizeRoundEnd 在 handleFirstPassEnd 外层，需要通过它触发下一轮闸门改写。
       let relayHumanizeLaunch = null;
       let humanizeUsageTotal = null;
@@ -1306,6 +1315,7 @@ function createChatService({
           genre: humanizeGenre,
           targetChars: Number(input.targetChars || input.targetWords) || 0,
           aiFlavorReport: diag.aiFlavorReport || aiFlavorFirstPass || null,
+          zhuqueReport: diag.zhuqueReport || null,
           correctionScan: diag.correctionScan || null,
           textureReport: diag.textureReport || null
         });
@@ -1523,7 +1533,7 @@ function createChatService({
        * 4) 达标或到达轮次上限 → 下发最优版本并收尾；5) 否则以本轮稿为 input 再改一轮。
        * 全程缓冲，前端只在最终收到一次完整正文，避免多轮重复显示。
        */
-      function handleHumanizeRoundEnd() {
+      async function handleHumanizeRoundEnd() {
         if (finalized || responseClosed) return;
         accumulateHumanizeUsage();
         const roundText = String(streamedContentText || '');
@@ -1561,24 +1571,82 @@ function createChatService({
         humanizeRoundScores.push(roundScore);
         aiFlavorSecondPass = roundReport; // 对外仍报告“第二遍/最终遍”的报告
 
-        // 择优：分数更低者为最优；同分时取纠错库命中更少者。
-        const isBetter = roundScore < humanizeBestScore
-          || (roundScore === humanizeBestScore && (secondCorrectionHits == null ? 0 : secondCorrectionHits) < (humanizeBestReport && humanizeBestReport.correctionHits != null ? humanizeBestReport.correctionHits : Infinity));
+        // 真值闭环：配置 MAKERS_MODELS_KEY 时优先用朱雀官方分数，否则保持本地代理信号。
+        // 接口失败/超时不阻断写作，仅记录降级，并用本地信号继续判定。
+        let zhuqueReport = null;
+        let zhuqueScore = null;
+        if (zhuque.isZhuqueConfigured(runtimeEnv)) {
+          try {
+            const detected = await zhuque.detectZhuque(roundText, {
+              env: runtimeEnv,
+              fetchImpl: zhuqueFetch || undefined
+            });
+            if (finalized || responseClosed) return;
+            if (detected && detected.ok) {
+              zhuqueReport = detected;
+              zhuqueScore = detected.aiScore;
+              hasZhuqueData = true;
+            } else {
+              console.warn('[chat] zhuque detection unavailable:', detected && (detected.error || detected.status));
+            }
+          } catch (error) {
+            console.warn('[chat] zhuque detection exception:', error && error.message ? error.message : error);
+          }
+        }
+        if (zhuqueReport) {
+          humanizeZhuqueScores.push(zhuqueScore);
+          humanizeZhuqueTokens += Number(zhuqueReport.usage && zhuqueReport.usage.makersTokens) || 0;
+          gateSources.push('zhuque');
+        } else {
+          gateSources.push('local');
+        }
+
+        // 择优：有真值分数时按 AIGC 比例择优；否则按原本地分数择优（零回归）。
+        const selectionScore = hasZhuqueData
+          ? (zhuqueScore == null ? Infinity : zhuqueScore)
+          : roundScore;
+        const currentBest = hasZhuqueData ? humanizeBestZhuqueScore : humanizeBestScore;
+        const isBetter = selectionScore < currentBest
+          || (selectionScore === currentBest && (secondCorrectionHits == null ? 0 : secondCorrectionHits) < (humanizeBestReport && humanizeBestReport.correctionHits != null ? humanizeBestReport.correctionHits : Infinity));
         if (isBetter) {
           humanizeBestText = roundText;
           humanizeBestScore = roundScore;
-          humanizeBestReport = { score: roundScore, correctionHits: secondCorrectionHits, report: roundReport };
+          humanizeBestZhuqueScore = selectionScore;
+          humanizeBestRound = humanizeRound;
+          humanizeBestReport = {
+            score: roundScore,
+            zhuqueScore,
+            correctionHits: secondCorrectionHits,
+            report: roundReport
+          };
         }
 
-        const gateReached = humanizeGateReached(roundReport);
+        const gateReached = hasZhuqueData
+          ? (zhuqueReport
+            ? zhuque.zhuqueGateReached(zhuqueReport, {
+              minGreenRatio: Number(runtimeEnv.MOLAN_ZHUQUE_MIN_GREEN_RATIO) || 0.99,
+              maxSegmentAigc: Number(runtimeEnv.MOLAN_ZHUQUE_MAX_SEGMENT_AIGC) || 0.5
+            })
+            : false)
+          : humanizeGateReached(roundReport);
         // humanizeRound 从 1 开始计改写轮，maxRounds 表示“最多额外改写轮数”，故 >= 即到顶。
         const roundsExhausted = humanizeRound >= humanizeGateMaxRounds;
-        console.log(`[chat] humanize gate round=${humanizeRound} score=${roundScore} best=${humanizeBestScore} reached=${gateReached} exhausted=${roundsExhausted} chars=${roundText.length}`);
+        console.log(`[chat] humanize gate round=${humanizeRound} local=${roundScore} zhuque=${zhuqueScore == null ? '-' : zhuqueScore} green=${zhuqueReport ? zhuqueReport.greenRatio : '-'} reached=${gateReached} exhausted=${roundsExhausted} chars=${roundText.length}`);
 
         if (!gateReached && !roundsExhausted && humanizeGateMaxRounds > 0) {
           // 未达标：以本轮稿为 input、携带本轮实测诊断，再 targeted 改一轮（跨轮 prompt 逐步收紧）。
           const nextDiagnostics = {
             aiFlavorReport: roundReport,
+            zhuqueReport: zhuqueReport ? {
+              aiScore: zhuqueReport.aiScore,
+              greenRatio: zhuqueReport.greenRatio,
+              segments: zhuqueReport.segments.map(segment => ({
+                index: segment.index,
+                label: segment.label,
+                aigc: segment.aigc,
+                position: segment.position
+              }))
+            } : null,
             correctionScan: (() => {
               try {
                 const g = String((characterMaterialRequest && characterMaterialRequest.genre) || (materialHint && materialHint.genre) || (input && input.genre) || effectiveGenre || '').trim();
@@ -1596,7 +1664,15 @@ function createChatService({
           };
           if (typeof relayHumanizeLaunch === 'function') {
             writeSseControlEvent('data: ' + JSON.stringify({
-              molan_rewrite: { phase: 'gate_retry', round: humanizeRound, score: roundScore, bestScore: humanizeBestScore }
+              molan_rewrite: {
+                phase: 'gate_retry',
+                round: humanizeRound,
+                score: roundScore,
+                bestScore: humanizeBestScore,
+                scoreSource: hasZhuqueData ? 'zhuque' : 'local',
+                zhuqueScore,
+                greenRatio: zhuqueReport ? zhuqueReport.greenRatio : null
+              }
             }) + '\n\n');
             relayHumanizeLaunch(secondPassRoute, 0, roundText, nextDiagnostics);
             return;
@@ -1616,7 +1692,7 @@ function createChatService({
           heteroFallbackUsed: heteroFallbackAttempted,
           firstPassScore: aiFlavorFirstPass ? aiFlavorFirstPass.score : null,
           secondPassScore: humanizeBestScore === Infinity ? null : humanizeBestScore,
-          passedAfter: !!(humanizeBestReport && humanizeBestReport.report && humanizeBestReport.report.passed),
+          passedAfter: hasZhuqueData ? gateReached : !!(humanizeBestReport && humanizeBestReport.report && humanizeBestReport.report.passed),
           correctionHitsBefore: firstPassCorrectionHits,
           ...(humanizeBestReport && humanizeBestReport.correctionHits != null ? { correctionHitsAfter: humanizeBestReport.correctionHits } : {}),
           gate: {
@@ -1624,8 +1700,12 @@ function createChatService({
             maxExtraRounds: humanizeGateMaxRounds,
             roundsRun: humanizeRound,
             reached: gateReached,
+            sources: gateSources.slice(),
+            selectedBy: hasZhuqueData ? 'zhuque' : 'local',
             roundScores: humanizeRoundScores.slice(),
-            selectedRound: humanizeRoundScores.indexOf(humanizeBestScore) + 1
+            zhuqueScores: humanizeZhuqueScores.slice(),
+            zhuqueTokens: humanizeZhuqueTokens,
+            selectedRound: humanizeBestRound || humanizeRoundScores.indexOf(humanizeBestScore) + 1
           }
         };
         console.log(`[chat] two-pass+gate completed first=${modelId} second=${secondPassRoute.modelId} rounds=${humanizeRound} score=${aiFlavorFirstPass ? aiFlavorFirstPass.score : '?'}->${humanizeBestScore} reached=${gateReached} chars=${humanizeBestText.length}`);

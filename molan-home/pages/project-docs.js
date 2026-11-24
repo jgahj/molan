@@ -1,6 +1,26 @@
 (function () {
   'use strict';
 
+  function applyEmbeddedTheme(themeValue) {
+    var dark = themeValue === 'dim' || themeValue === 'dark';
+    document.documentElement.classList.toggle('dark', dark);
+    document.documentElement.classList.toggle('light', !dark);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    if (document.body) document.body.classList.toggle('theme-dim', dark);
+  }
+  try { applyEmbeddedTheme(localStorage.getItem('molan_theme')); } catch (_) {}
+  if (document.body && (window.self !== window.top || new URLSearchParams(location.search).get('embed') === '1')) {
+    document.body.classList.add('is-embedded');
+  }
+  window.addEventListener('storage', function (event) {
+    if (event && event.key === 'molan_theme') applyEmbeddedTheme(event.newValue);
+  });
+  window.addEventListener('message', function (event) {
+    if (event && event.origin === window.location.origin && event.data && event.data.type === 'molan:theme-change') {
+      applyEmbeddedTheme(event.data.theme);
+    }
+  });
+
   var API_BASE = location.protocol === 'file:' || location.protocol === 'about:' ? 'http://localhost:3000' : '';
   var token = '';
   var projectId = '';

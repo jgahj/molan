@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230a0a0a'/><text x='16' y='21' font-size='16' text-anchor='middle' fill='%23fff' font-family='serif'>墨</text></svg>">
+  <title>注册账号 | 墨阑 · 创作工作台</title>
+  <link rel="stylesheet" href="./tokens.css?v=20261124_ui_auth_v3">
+  <link rel="stylesheet" href="./auth.css?v=20261124_ui_auth_v3">
+  <script src="../assets/lucide.min.js?v=20261124_ui_auth_v3"></script>
+</head>
+<body class="login-page register-page auth-page">
+  <header class="auth-header">
+    <a class="auth-brand" href="../index.html" data-dom-id="nav-index" aria-label="墨阑创作工作台首页">
+      <span class="auth-brand-mark" aria-hidden="true">墨</span>
+      <span class="auth-brand-name">墨阑</span>
+      <span class="auth-brand-label">本地创作工作台</span>
+    </a>
+    <div class="auth-header-actions">
+      <button class="auth-top-btn" id="authThemeToggle" type="button" aria-label="切换明暗主题">
+        <i data-lucide="moon"></i>
+        <span class="auth-theme-label">深色</span>
+      </button>
+      <a class="auth-top-btn" href="../index.html">
+        <i data-lucide="arrow-left"></i>
+        <span>返回主页</span>
+      </a>
+      <a class="auth-top-btn is-bordered" id="headerLoginLink" href="./login.html">登录</a>
+    </div>
+  </header>
+
+  <main class="auth-shell">
+    <section class="auth-frame" aria-label="墨阑账号注册">
+      <aside class="auth-aside">
+        <div class="auth-aside-head">
+          <p class="auth-eyebrow">CREATE ACCOUNT</p>
+          <h2>创建你的墨阑创作空间</h2>
+          <p class="auth-aside-lead">从灵感、三级大纲、角色设定卡到长篇正文成稿，在一个干净安静的宣纸工作台里完成每一本书。</p>
+        </div>
+        <ul class="auth-aside-features">
+          <li class="auth-aside-feature">
+            <span class="auth-aside-feature-icon" aria-hidden="true"><i data-lucide="book-open"></i></span>
+            <div>
+              <strong>三级大纲与长篇记忆</strong>
+              <span>自动维护角色、势力、时间线与伏笔债务，写到百万字也不吃书。</span>
+            </div>
+          </li>
+          <li class="auth-aside-feature">
+            <span class="auth-aside-feature-icon" aria-hidden="true"><i data-lucide="sparkles"></i></span>
+            <div>
+              <strong>高张力单遍起草与精修</strong>
+              <span>支持拆书风格学习、局部划选改写与多模型灵活切换。</span>
+            </div>
+          </li>
+          <li class="auth-aside-feature">
+            <span class="auth-aside-feature-icon" aria-hidden="true"><i data-lucide="shield-check"></i></span>
+            <div>
+              <strong>邮箱验证码安全注册</strong>
+              <span>提交邮箱与密码后自动发送 6 位数字验证码，保障账号安全与作品归属。</span>
+            </div>
+          </li>
+        </ul>
+        <div class="auth-aside-foot">
+          <span>墨阑 AI 小说创作平台</span>
+          <span class="auth-aside-badge"><i data-lucide="gift"></i>新用户赠 500 积分</span>
+        </div>
+      </aside>
+
+      <div class="auth-form-panel">
+        <div class="auth-form-wrap">
+          <p class="auth-panel-eyebrow" id="registerEyebrow">STEP 1 OF 2 · REGISTER</p>
+          <h1 class="auth-title" id="registerTitle">注册新账号</h1>
+          <p class="auth-subtitle" id="registerSubtitle">填写邮箱与密码，系统将自动向你的邮箱发送 6 位验证码。</p>
+
+          <div class="auth-steps" id="registerSteps" aria-label="注册步骤">
+            <div class="auth-step is-active" id="stepBadge1">
+              <span class="auth-step-num">1</span>
+              <span>账号信息</span>
+            </div>
+            <div class="auth-step" id="stepBadge2">
+              <span class="auth-step-num">2</span>
+              <span>邮箱验证</span>
+            </div>
+          </div>
+
+          <p class="auth-tip" id="registerTip" aria-live="polite"></p>
+
+          <!-- 第一步：填写邮箱与密码 -->
+          <form id="registerStep1Form" class="auth-form" aria-label="注册信息表单" novalidate>
+            <div class="auth-field">
+              <label class="auth-label" for="regEmail">邮箱地址</label>
+              <div class="auth-input-wrap">
+                <i class="auth-input-icon" data-lucide="mail"></i>
+                <input class="auth-input" type="email" id="regEmail" name="email" placeholder="name@example.com" autocomplete="email" required>
+              </div>
+            </div>
+
+            <div class="auth-field">
+              <label class="auth-label" for="regName">
+                <span>笔名 / 昵称</span>
+                <span class="auth-label-opt">选填，最多 24 字</span>
+              </label>
+              <div class="auth-input-wrap">
+                <i class="auth-input-icon" data-lucide="user"></i>
+                <input class="auth-input" type="text" id="regName" name="name" maxlength="24" placeholder="留空则默认使用邮箱前缀" autocomplete="nickname">
+              </div>
+            </div>
+
+            <div class="auth-field">
+              <label class="auth-label" for="regPassword">设置密码</label>
+              <div class="auth-input-wrap">
+                <i class="auth-input-icon" data-lucide="lock"></i>
+                <input class="auth-input" type="password" id="regPassword" name="password" placeholder="至少 6 位密码" autocomplete="new-password" required>
+                <button class="auth-eye-btn" id="toggleRegPassword" type="button" aria-label="切换密码可见性">
+                  <i data-lucide="eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="auth-field">
+              <label class="auth-label" for="regConfirmPassword">确认密码</label>
+              <div class="auth-input-wrap">
+                <i class="auth-input-icon" data-lucide="lock-keyhole"></i>
+                <input class="auth-input" type="password" id="regConfirmPassword" name="confirmPassword" placeholder="请再次输入密码" autocomplete="new-password" required>
+                <button class="auth-eye-btn" id="toggleRegConfirmPassword" type="button" aria-label="切换确认密码可见性">
+                  <i data-lucide="eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <button class="auth-submit" id="registerNextBtn" type="submit">
+              <span id="registerNextLabel">继续并发送验证码</span>
+              <i data-lucide="arrow-right"></i>
+            </button>
+          </form>
+
+          <!-- 第二步：输入邮箱 6 位验证码 -->
+          <form id="registerStep2Form" class="auth-form" aria-label="邮箱验证码表单" hidden novalidate>
+            <div class="auth-notice is-green" id="verifySentNotice">
+              <i data-lucide="mail-check"></i>
+              <div>
+                <strong>验证码已发送</strong>
+                <div>我们已向 <strong id="verifyTargetEmail"></strong> 发送了 6 位数字验证码，<span id="verifyExpireText">15</span> 分钟内有效。</div>
+              </div>
+            </div>
+
+            <div class="auth-field">
+              <label class="auth-label" for="regVerifyCode">
+                <span>6 位邮箱验证码</span>
+                <span class="auth-label-opt">支持直接粘贴</span>
+              </label>
+              <input class="auth-input is-code" type="text" id="regVerifyCode" name="verifyCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required>
+              <p class="auth-input-hint">如未收到，请检查垃圾邮件箱或等待倒计时结束后重新发送。</p>
+            </div>
+
+            <button class="auth-submit" id="verifySubmitBtn" type="submit">
+              <i data-lucide="check"></i>
+              <span id="verifySubmitLabel">验证并完成注册</span>
+            </button>
+
+            <div class="auth-secondary-row">
+              <button class="auth-ghost-btn" id="backToStep1Btn" type="button">
+                <i data-lucide="arrow-left"></i>
+                <span>返回修改邮箱</span>
+              </button>
+              <button class="auth-link-btn" id="resendCodeBtn" type="button">重新发送验证码</button>
+            </div>
+          </form>
+
+          <div class="auth-links">
+            <span>已有墨阑账号？</span>
+            <a id="footerLoginLink" href="./login.html">立即登录 →</a>
+          </div>
+          <p class="auth-terms">注册即表示你同意墨阑创作工作台的<a class="login-terms-tos" href="./about.html">服务说明</a>与<a class="login-terms-privacy" href="./about.html">隐私说明</a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./js/register.js?v=20261124_ui_auth_v3"></script>
+  <script src="./molan-shell.js"></script>
+</body>
+</html>
