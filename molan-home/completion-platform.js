@@ -497,7 +497,7 @@
     var u = backendState.user;
     if (s.account.tab === 'profile') return '<div class="profile-form"><div><span class="big-avatar" data-c-avatar>' + (s.account.avatar ? '<img src="' + e(s.account.avatar) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">' : '') + '</span><label class="button" style="width:100%;margin-top:9px;text-align:center;cursor:pointer">上传头像<input type="file" data-c-avatar-file accept="image/png,image/jpeg,image/webp,image/gif" hidden></label><button class="button" style="width:100%;margin-top:7px" data-c-action="account-clear">清除头像</button></div><div class="form-grid"><div class="field"><label>登录邮箱</label><input value="' + e(u?.email || '') + '" disabled></div><div class="field"><label>显示名称</label><input id="c-account-name" maxlength="24" value="' + e(u?.name || '') + '" ' + (!u ? 'disabled' : '') + '></div><div class="field"><label>个人简介</label><textarea id="c-account-bio" maxlength="500" ' + (!u ? 'disabled' : '') + '>' + e(u?.bio || '') + '</textarea></div></div></div>' + (!u ? '<div class="notice" style="margin-top:14px">请先登录后编辑账户资料。</div>' : '');
     if (s.account.tab === 'preferences') return '<div class="form-grid"><div class="field"><label>默认创作模型</label><select data-c-model-select data-model-select ' + (!u ? 'disabled' : '') + '></select><small>普通用户使用平台默认模型，VIP 和管理员可选择模型。</small></div><div class="notice"><label class="check"><input type="checkbox" data-c-pref="autosave" ' + (read('prefs', {}).autosave !== false ? 'checked' : '') + '> 自动保存编辑内容</label></div><div class="notice"><label class="check"><input type="checkbox" data-c-pref="preview" ' + (read('prefs', {}).preview !== false ? 'checked' : '') + '> AI 发送前显示上下文预览</label></div></div>';
-    if (s.account.tab === 'security') return '<div class="form-grid"><div class="notice">当前登录邮箱：<strong>' + e(u?.email || '未登录') + '</strong></div><div style="display:flex;flex-wrap:wrap;gap:8px"><button class="button primary" data-c-action="auth-go-login">' + icon('log-in') + (u ? '切换账号 / 登录' : '登录账号') + '</button><button class="button" data-c-action="auth-go-register">' + icon('user-plus') + '注册新账号</button><button class="button" data-c-action="account-logout-all" ' + (!u ? 'disabled' : '') + '>退出所有设备</button><button class="button" disabled>修改密码（暂未开放）</button></div><p class="section-note">支持邮箱 6 位验证码安全注册与多端会话保护；找回密码与修改密码接口当前暂未开放。</p></div>';
+    if (s.account.tab === 'security') return '<div class="form-grid"><div class="notice">当前登录邮箱：<strong>' + e(u?.email || '未登录') + '</strong></div><div style="display:flex;flex-wrap:wrap;gap:8px"><button class="button primary" data-c-action="auth-go-login">' + icon('log-in') + (u ? '切换账号 / 登录' : '登录账号') + '</button><button class="button" data-c-action="auth-go-register">' + icon('user-plus') + '注册新账号</button><button class="button" data-c-action="account-logout-all" ' + (!u ? 'disabled' : '') + '>退出所有设备</button><button class="button" disabled>修改密码（暂未开放）</button></div><p class="section-note">支持邮箱 6 位验证码安全注册与多端会话保护；找回密码与修改密码接口当前暂未开放。</p><div class="notice" style="border-left-color:var(--danger)"><strong style="color:var(--danger)">危险操作 · 注销账号</strong><div style="margin-top:6px">注销后账号立即无法登录，昵称、头像、简介与密码将被清除，邮箱释放后可重新注册；所有设备登录态失效。已创作的作品与用量记录将以匿名数据保留。该操作不可撤销。</div><button class="button danger" style="margin-top:10px" data-c-action="account-delete" ' + (!u ? 'disabled' : '') + '>' + icon('trash-2') + '注销账号</button></div></div>';
     var rows = backendState.usage && backendState.usage.recent || [];
     return '<div class="notice">请求次数：' + Number(backendState.usage?.requestCount || 0).toLocaleString() + ' · Token：' + Number(backendState.usage?.totalTokens || 0).toLocaleString() + '</div><div class="table-wrap" style="margin-top:12px\"><table class="data-table\"><thead><tr><th>时间</th><th>模型</th><th>Token</th><th>积分</th></tr></thead><tbody>' + (rows.map(function (r) { return '<tr><td>' + e(typeof backendDate === 'function' ? backendDate(r.createdAt) : '') + '</td><td>' + e(r.modelId || '-') + '</td><td>' + (r.totalTokens == null ? '待结算' : Number(r.totalTokens).toLocaleString()) + '</td><td>' + Number(r.creditCost || 0).toLocaleString() + '</td></tr>'; }).join('') || '<tr><td colspan="4">暂无使用记录</td></tr>') + '</tbody></table></div>';
   }
@@ -517,6 +517,35 @@
     if (!/^image\/(?:png|jpe?g|webp|gif)$/i.test(file.type)) throw new Error('请选择 PNG、JPG、WebP 或 GIF 图片');
     if (file.size > 5 * 1024 * 1024) throw new Error('图片不能超过 5 MB');
     return new Promise(function (resolve, reject) { var r = new FileReader(), image = new Image(); r.onerror = function () { reject(new Error('图片读取失败')); }; image.onerror = function () { reject(new Error('图片读取失败')); }; image.onload = function () { var c = document.createElement('canvas'); c.width = c.height = 256; var x = c.getContext('2d'), scale = Math.max(256 / image.width, 256 / image.height); x.drawImage(image, (256 - image.width * scale) / 2, (256 - image.height * scale) / 2, image.width * scale, image.height * scale); resolve(c.toDataURL('image/jpeg', .8)); }; r.onload = function () { image.src = r.result; }; r.readAsDataURL(file); });
+  }
+  async function deleteAccount() {
+    var u = backendState.user;
+    if (!u) { go('login'); return say('请先登录'); }
+    openActionModal({
+      title: '注销账号',
+      body: '<div class="notice" style="border-left-color:var(--danger)">此操作不可撤销：账号将立即无法登录，个人资料被清除，所有设备退出登录。作品与用量记录以匿名数据保留。</div>' +
+        '<div class="form-grid" style="margin-top:12px"><div class="field"><label for="c-del-email">请输入当前登录邮箱以确认（' + e(u.email || '') + '）</label><input id="c-del-email" type="email" autocomplete="off" placeholder="' + e(u.email || '') + '"></div>' +
+        '<div class="field"><label for="c-del-password">登录密码</label><input id="c-del-password" type="password" autocomplete="current-password" placeholder="请输入登录密码"></div>' +
+        '<div class="notice" data-c-del-status style="display:none"></div></div>',
+      confirmText: '确认注销', cancelText: '取消',
+      onConfirm: async function () {
+        var status = document.querySelector('[data-c-del-status]');
+        var setStatus = function (msg) { if (status) { status.style.display = ''; status.textContent = msg; } };
+        var confirmEmail = (document.getElementById('c-del-email') || {}).value || '';
+        var password = (document.getElementById('c-del-password') || {}).value || '';
+        if (!confirmEmail.trim() || !password) return setStatus('请填写确认邮箱和登录密码。');
+        var btn = document.getElementById('confirmModal'); if (btn) btn.disabled = true;
+        try {
+          await backendRequest('/api/auth/delete-account', { method: 'POST', body: { confirmEmail: confirmEmail.trim(), password: password } });
+          closeModal(); clearBackendAuth();
+          window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
+          refreshChrome(); say('账号已注销'); go('login');
+        } catch (error) {
+          if (btn) btn.disabled = false;
+          setStatus(error.message || '注销失败，请稍后重试');
+        }
+      }
+    });
   }
   async function logout(all) { try { if (backendState.token) await backendRequest(all ? '/api/auth/logout-all' : '/api/auth/logout', { method: 'POST', body: {} }); } catch (_) {} clearBackendAuth(); if (backendState.localOpenAccess && typeof window.ensureMolanLocalSession === 'function') { await window.ensureMolanLocalSession(true); refreshChrome(); say('已重置为本地免登录默认模式'); return go('overview'); } window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null })); refreshChrome(); say(all ? '已退出所有设备' : '已退出登录'); go('overview'); }
 
@@ -877,7 +906,7 @@
     }
     if (a === 'tool-copy') return copyText(s.tool.result).then(function () { say(s.tool.id === 'deai' ? '已复制全文' : '结果已复制'); }); if (a === 'tool-accept') { var input = stage.querySelector('[data-c-tool-input]'); s.tool.original = s.tool.original || input.value; input.value = s.tool.result; s.tool.text = s.tool.result; s.tool.accepted = true; return renderTools(); } if (a === 'tool-undo') { var input2 = stage.querySelector('[data-c-tool-input]'); input2.value = s.tool.original; s.tool.text = s.tool.original; s.tool.accepted = false; return renderTools(); }
     if (a === 'bill-export') return exportBilling(); if (a === 'bill-topup') return topup(); if (a === 'bill-prev') { if (s.bill.page > 1) s.bill.page--; return renderBilling(); } if (a === 'bill-next') { s.bill.page++; return renderBilling(); }
-    if (a === 'account-save') return saveAccount(); if (a === 'account-logout') return logout(false); if (a === 'account-logout-all') return logout(true); if (a === 'account-clear') { s.account.avatar = ''; return renderAccount(); }
+    if (a === 'account-save') return saveAccount(); if (a === 'account-logout') return logout(false); if (a === 'account-logout-all') return logout(true); if (a === 'account-delete') return deleteAccount(); if (a === 'account-clear') { s.account.avatar = ''; return renderAccount(); }
     if (a === 'auth-go-login') return openAuthMode('login');
     if (a === 'auth-go-register') return openAuthMode('register');
     if (a === 'auth-password') { var p = document.getElementById('c-login-password'); if (p) { p.type = p.type === 'password' ? 'text' : 'password'; n.textContent = p.type === 'password' ? '显示' : '隐藏'; } return; }

@@ -5,6 +5,27 @@
 
 ---
 
+## 阶段记录：新增用户自主注销账号功能（匿名化注销 + 密码/邮箱二次确认）(2026-11-25)
+
+> 背景：用户要求增加注销账号功能，并确认三项核心规则：① 匿名化注销（清除个人资料与密码、释放邮箱可重新注册、撤销所有会话，作品与用量账本保留为匿名数据，不触碰外键）；② 仅需输入当前登录邮箱文字 + 登录密码确认；③ 禁止注销管理员账号与本地免登录默认账号（`local@molan.local`）。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/lib/postgres-repository.js` | 新增匿名化注销仓储方法 | 新增 `runtimeDeactivateAccount({ userId })`：在事务中将 `luna.runtime_accounts` 目标行更新为墓碑邮箱（`deleted-<uuid>@deleted.molan.invalid`）、清空 `name`（`'已注销用户'`）/ `avatar` / `bio` / `default_model` / `salt`、`pwd='!deactivated'`、`credits=0`，并在 SQL 条件 `WHERE id = $1::uuid AND role <> 'admin'` 中硬性排除管理员。 |
+| `molan-home/services/auth-account-service.js`<br>`molan-home/routes/auth.js`<br>`molan-home/server.js` | 注销接口与重注册冲突防护 | 1. 新增 `POST /api/auth/delete-account`（`handleDeleteAccount`）：限流（10 次窗口）、校验登录态、拒绝管理员（`403`）与本地免登录账号（`403`）、校验 `confirmEmail` 与 `verifyPasswordAsync`、调用 `runtimeDeactivateAccount` 并撤销内存与 PG 全量会话（`revokeAuthSessions`）；<br>2. 增强 `insertUserIfAbsent`：当释放后的邮箱再次注册时，若原 `stableUserId(email)` 已被墓碑账户占用，自动派生全新独立 `userId`，避免主键冲突并杜绝新账号继承旧数据。 |
+| `molan-home/completion-platform.js`<br>`molan-home/pages/account.js`<br>`molan-home/boot-head.js` / `boot-scripts.js` / `index.html` / `pages/*.html` | 前端危险操作区与确认弹窗 | 1. 主工作台 `#account`「登录安全」页签新增「危险操作 · 注销账号」卡片与确认弹窗（`deleteAccount()`），输入当前登录邮箱与密码后完成注销并清空本地会话跳回登录页；<br>2. 独立子页 `pages/account.js` 账户设置弹窗底部新增「注销账号」危险确认面板；<br>3. 前端缓存版本戳同步升级至 `20261125_account_delete_v1`。 |
+| `molan-home/test/account-deletion.test.js` | 新增专项测试 | 3 项测试：匿名化注销释放邮箱/撤销会话/防重登及释放后安全重注册（派生新 ID）、未登录 `401`/管理员 `403`/本地免登录账号 `403` 拦截、SPA/独立弹窗/PG 仓储接线契约校验。 |
+
+### 二、真实验证证据
+
+- **语法与门禁**：`node.exe --check` 覆盖全部修改脚本均 `SYNTAX OK`；`production-import-audit.mjs`（238 文件，exit=0）；`check-frontend-stamp.mjs`（`20261125_account_delete_v1`，exit=0）。
+- **专项测试**：`test/account-deletion.test.js` + `test/email-verification-register.test.js` + `test/csp-tightening.test.js` → **15/15 pass, 0 fail**。
+- **全量回归**：`tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"` → **`2501 tests / 74 suites / 2485 pass / 0 fail / 16 skipped`（耗时 39.9s，基线 2498 → +3）**。
+
+---
+
 ## 阶段记录：修复本地注册跳过邮箱验证码问题——补齐 sub2api Docker 容器回退与强制校验开关 (2026-11-24)
 
 > 背景：用户实测本地 `http://127.0.0.1:3000` 注册时未发送邮箱验证码。实机根因排查确认两点：① 本机 `127.0.0.1:25432` 被无关软件 `OSService\public\pgsql` 占用（报 `password authentication failed for user "sub2api"`），且本地 `sub2api/deploy/docker-compose.yml` 中的 `sub2api-postgres` 容器默认不向宿主机暴露 5432/25432 端口，当时 Docker Desktop 也处于 Stopped 状态、ECS `8.138.128.184` 不可达；② `start-node22.bat` / `start-node22-pg.bat` 未显式设置 `MOLAN_EMAIL_VERIFY_ENABLED=1`，导致 SMTP 未连通时 `getPolicy()` 自动将 `emailVerifyEnabled` 降级为 `false` 从而静默跳过验证码步骤。
@@ -377,6 +398,7 @@ molan-home/
 ├── pages/register.html & js/register.js # 两步邮箱验证码注册页（自动发码 + 60s 重发冷却）与 CSP 外移脚本
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
     ├── email-verification-register.test.js # SMTP 发信、sub2api 配置回退、6位验证码注册闭环与页面 UI/CSP 专测 (6 项)
+    ├── account-deletion.test.js           # 自主匿名化注销账号、释放邮箱安全重注册与权限拦截测试 (3 项)
     ├── editor-bootstrap-creation-book.test.js # 编辑器直连 Generation V2 伴生创作书自动引导与圣经校验隔离测试 (4 项)
     ├── local-open-access.test.js              # 本地免登录开放模式 (`MOLAN_LOCAL_OPEN_ACCESS=1`) 与生产安全隔离测试 (2 项)
     ├── acp-transport.test.js                  # 官方 Antigravity ACP 传输、权限拒绝、OAuth未登录拦截与 chat-service 集成测试 (5 项)

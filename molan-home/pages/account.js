@@ -116,7 +116,13 @@
       '<div class="molan-account-modal__field"><span>头像</span><div class="molan-account-modal__actions"><label class="molan-account-modal__upload">上传头像<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-account-file></label><button type="button" class="molan-account-modal__clear" data-account-clear>清除头像</button></div><span class="molan-account-modal__hint">支持 PNG、JPG、WebP、GIF，系统会自动压缩。</span></div>' +
       '<p class="molan-account-modal__status" data-account-status aria-live="polite"></p>' +
       '<div class="molan-account-modal__actions"><span></span><button type="button" class="molan-account-modal__save" data-account-save>保存更改</button></div>' +
-      '</div><footer class="molan-account-modal__foot"><button type="button" class="molan-account-modal__logout" data-account-logout>退出登录</button></footer></section>';
+      '<div class="molan-account-modal__danger" data-account-danger hidden style="margin-top:14px;padding:12px;border:1px solid var(--danger,#ae3d3d);border-radius:6px;display:grid;gap:8px">' +
+      '<strong style="color:var(--danger,#ae3d3d);font-size:13px">注销账号（不可撤销）</strong>' +
+      '<span class="molan-account-modal__hint">账号将立即无法登录，资料与密码被清除，所有设备退出登录；作品与用量记录以匿名数据保留。</span>' +
+      '<label class="molan-account-modal__field">确认登录邮箱<input type="email" autocomplete="off" data-account-del-email></label>' +
+      '<label class="molan-account-modal__field">登录密码<input type="password" autocomplete="current-password" data-account-del-password></label>' +
+      '<div class="molan-account-modal__actions"><button type="button" class="molan-account-modal__clear" data-account-del-cancel>取消</button><button type="button" class="molan-account-modal__logout" data-account-del-confirm>确认注销</button></div></div>' +
+      '</div><footer class="molan-account-modal__foot"><button type="button" class="molan-account-modal__logout" data-account-logout>退出登录</button> <button type="button" class="molan-account-modal__logout" data-account-delete style="color:var(--danger,#ae3d3d)">注销账号</button></footer></section>';
     document.body.appendChild(modal);
     state.modal = modal;
     modal.querySelector('[data-account-close]').addEventListener('click', closeModal);
@@ -140,6 +146,14 @@
     });
     modal.querySelector('[data-account-save]').addEventListener('click', saveProfile);
     modal.querySelector('[data-account-logout]').addEventListener('click', logout);
+    modal.querySelector('[data-account-delete]').addEventListener('click', function () {
+      modal.querySelector('[data-account-danger]').hidden = false;
+      modal.querySelector('[data-account-del-email]').focus();
+    });
+    modal.querySelector('[data-account-del-cancel]').addEventListener('click', function () {
+      modal.querySelector('[data-account-danger]').hidden = true;
+    });
+    modal.querySelector('[data-account-del-confirm]').addEventListener('click', deleteAccount);
     return modal;
   }
 
@@ -242,6 +256,31 @@
       window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: state.user }));
     }).catch(function (error) {
       modalStatus(error.message || '保存失败，请稍后重试。', true);
+    }).finally(function () { button.disabled = false; });
+  }
+
+  function deleteAccount() {
+    if (!state.token || !state.user || !state.modal) return;
+    var email = state.modal.querySelector('[data-account-del-email]').value.trim();
+    var password = state.modal.querySelector('[data-account-del-password]').value;
+    if (!email || !password) { modalStatus('请填写确认邮箱和登录密码。', true); return; }
+    var button = state.modal.querySelector('[data-account-del-confirm]');
+    button.disabled = true;
+    modalStatus('正在注销…', false);
+    fetch('/api/auth/delete-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + state.token },
+      body: JSON.stringify({ confirmEmail: email, password: password })
+    }).then(parseResponse).then(function () {
+      state.token = null;
+      state.user = null;
+      try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (_) {}
+      closeModal();
+      renderAccounts();
+      window.dispatchEvent(new CustomEvent('molan:auth-changed', { detail: null }));
+      location.href = loginUrl();
+    }).catch(function (error) {
+      modalStatus(error.message || '注销失败，请稍后重试', true);
     }).finally(function () { button.disabled = false; });
   }
 

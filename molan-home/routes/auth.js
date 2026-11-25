@@ -13,6 +13,7 @@ function createAuthRoutes(handlers) {
     if (method === 'GET' && url === '/api/auth/me') { await handlers.me(req, res); return true; }
     if (method === 'PATCH' && url === '/api/auth/profile') { await handlers.profile(req, res); return true; }
     if (method === 'POST' && url === '/api/auth/logout') { await handlers.logout(req, res); return true; }
+    if (method === 'POST' && url === '/api/auth/delete-account' && typeof handlers.deleteAccount === 'function') { await handlers.deleteAccount(req, res); return true; }
     if (method === 'POST' && url === '/api/auth/logout-all') { await handlers.logoutAll(req, res); return true; }
     if (method === 'POST' && url === '/api/admin/auth/login') { await handlers.adminLogin(req, res); return true; }
     if (method === 'GET' && url === '/api/admin/auth/me') { await handlers.adminMe(req, res); return true; }

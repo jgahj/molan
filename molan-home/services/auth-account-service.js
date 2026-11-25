@@ -22,6 +22,7 @@ function createAuthAccountService({
   findPlatformModel,
   getPostgresUsageSummary,
   isAdminUser,
+  isLocalOpenAccount = null,
   json,
   normalizeUserRole,
   postgresRepository,
@@ -46,7 +47,14 @@ function createAuthAccountService({
   async function insertUserIfAbsent(user) {
     const email = String(user && user.email || '').trim().toLowerCase();
     if (!email) return false;
-    const normalized = { ...user, email, userId: String(user.userId || projectScope.stableUserId(email)) };
+    let userId = String(user.userId || projectScope.stableUserId(email));
+    // 邮箱对应的稳定 ID 若已被「已注销」账户占用（邮箱已释放但主键保留），为新账户派生独立 ID，避免主键冲突并杜绝继承旧数据。
+    if (!user.userId && typeof postgresRepository.runtimeAccountByUserId === 'function'
+      && await postgresRepository.runtimeAccountByUserId(userId)) {
+      userId = 'usr_' + cryptoModule.createHash('sha256')
+        .update(`molan-user:${email}:${cryptoModule.randomUUID()}`, 'utf8').digest('hex').slice(0, 32);
+    }
+    const normalized = { ...user, email, userId };
     const saved = await postgresRepository.runtimeRegisterAccount({ ...normalized, createdAtText: normalized.createdAt });
     if (!saved) throw requestError(503, '账户创建未得到数据库确认');
     Object.assign(user, postgresRuntimeUserFromRow(saved));
@@ -454,6 +462,46 @@ function createAuthAccountService({
     json(res, 200, { ok: true });
   }
 
+  /** 注销账号（匿名化）：需密码确认；管理员与本地免登录账号禁止注销。 */
+  function handleDeleteAccount(req, res) {
+    if (!allowAuthAttempt(req, 'delete-account', 10)) {
+      return json(res, 429, { error: '操作过于频繁，请稍后再试' }, { 'Retry-After': String(authRetryAfter(req, 'delete-account')) });
+    }
+    const auth = getAuthUser(req);
+    if (!auth) return json(res, 401, { error: '未登录' });
+    readBody(req).then(async body => {
+      const email = String(auth.user && auth.user.email || '').trim().toLowerCase();
+      if (auth.localMemoryOnly || (typeof isLocalOpenAccount === 'function' && isLocalOpenAccount(email))) {
+        throw requestError(403, '本地免登录默认账号不可注销');
+      }
+      if (isAdminUser(auth.user)) throw requestError(403, '管理员账号不可注销，请先在后台调整角色');
+      const account = postgresRuntimeUserFromRow(await postgresRepository.runtimeAccountByEmail(email));
+      if (!account) throw requestError(404, '账户不存在');
+      const confirmEmail = String(body.confirmEmail || '').trim().toLowerCase();
+      if (confirmEmail !== email) throw requestError(400, '请输入当前登录邮箱以确认注销');
+      const verification = await verifyPasswordAsync(String(body.password || ''), account);
+      if (!verification.ok) {
+        recordAuthFailure(req, 'delete-account');
+        throw requestError(400, '登录密码不正确');
+      }
+      recordAuthSuccess(req, 'delete-account');
+      const userId = String(account.userId || auth.user.userId || projectScope.stableUserId(email)).trim();
+      await postgresRepository.runtimeDeactivateAccount({ userId });
+      let removed = 0;
+      for (const [tokenHash, record] of sessions.entries()) {
+        if (record && String(record.userId || '') === userId) {
+          markSessionRevoked(tokenHash);
+          sessions.delete(tokenHash);
+          removed += 1;
+        }
+      }
+      const token = String(req.headers['authorization'] || '').replace(/^Bearer\s+/i, '').trim();
+      if (token) markSessionRevoked(hashSessionToken(token));
+      if (postgresRepository.enabled) await postgresRepository.revokeAuthSessions(userId);
+      json(res, 200, { ok: true, removed });
+    }).catch(e => respondError(res, e));
+  }
+
   async function handleLogoutAll(req, res) {
     const auth = getAuthUser(req);
     if (!auth) return json(res, 401, { error: '未登录' });
@@ -474,7 +522,7 @@ function createAuthAccountService({
   }
 
   return {
-    insertUserIfAbsent, createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, markSessionRevoked, isSessionRevoked, hashSessionToken, normalizeSessionScope, loadSessions, hydratePostgresSessions, issueToken, getAuthUser, publicUser, normalizeAvatar, storedAvatar, handleRegisterConfig, handleSendVerifyCode, handleRegister, authenticatePasswordLogin, handleLogin, handleAdminLogin, handleSendCode, handleLoginByCode, handleMe, handleAdminMe, handleProfile, handleLogout, handleLogoutAll, sessions
+    insertUserIfAbsent, createPasswordRecord, createPasswordRecordAsync, verifyPassword, verifyPasswordAsync, markSessionRevoked, isSessionRevoked, hashSessionToken, normalizeSessionScope, loadSessions, hydratePostgresSessions, issueToken, getAuthUser, publicUser, normalizeAvatar, storedAvatar, handleRegisterConfig, handleSendVerifyCode, handleRegister, authenticatePasswordLogin, handleLogin, handleAdminLogin, handleSendCode, handleLoginByCode, handleMe, handleAdminMe, handleProfile, handleLogout, handleLogoutAll, handleDeleteAccount, sessions
   };
 }
 

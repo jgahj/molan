@@ -4999,6 +4999,7 @@ const authAccountService = require('./services/auth-account-service').createAuth
   findPlatformModel,
   getPostgresUsageSummary,
   isAdminUser,
+  isLocalOpenAccount: email => isLocalOpenAccessEnabled() && String(email || '').trim().toLowerCase() === localOpenAccountEmail(),
   json,
   normalizeUserRole,
   postgresRepository,
@@ -5017,7 +5018,7 @@ const authAccountService = require('./services/auth-account-service').createAuth
   respondError,
   sessionEventUserId,
 });
-const { insertUserIfAbsent,createPasswordRecord,createPasswordRecordAsync,verifyPassword,verifyPasswordAsync,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegisterConfig,handleSendVerifyCode,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,sessions } = authAccountService;
+const { insertUserIfAbsent,createPasswordRecord,createPasswordRecordAsync,verifyPassword,verifyPasswordAsync,markSessionRevoked,isSessionRevoked,hashSessionToken,normalizeSessionScope,loadSessions,hydratePostgresSessions,issueToken,getAuthUser,publicUser,normalizeAvatar,storedAvatar,handleRegisterConfig,handleSendVerifyCode,handleRegister,authenticatePasswordLogin,handleLogin,handleAdminLogin,handleSendCode,handleLoginByCode,handleMe,handleAdminMe,handleProfile,handleLogout,handleLogoutAll,handleDeleteAccount,sessions } = authAccountService;
 
 let localOpenUserPromise = null;
 let localOpenUserCacheKey = '';
@@ -5761,7 +5762,7 @@ async function dispatchRequest(req, res) {
       registerConfig: handleRegisterConfig, sendVerifyCode: handleSendVerifyCode,
       register: handleRegister, login: handleLogin, sendCode: handleSendCode, loginByCode: handleLoginByCode,
       localSession: handleLocalSession,
-      me: handleMe, profile: handleProfile, logout: handleLogout, logoutAll: handleLogoutAll,
+      me: handleMe, profile: handleProfile, logout: handleLogout, logoutAll: handleLogoutAll, deleteAccount: handleDeleteAccount,
       adminLogin: handleAdminLogin, adminMe: handleAdminMe, usage: handleUsage,
     }),
     admin: createAdminRoutes({

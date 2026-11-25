@@ -4279,6 +4279,30 @@ function createPostgresRepository(options = {}) {
     });
   }
 
+  /**
+   * 匿名化注销：清除个人资料与密码，释放邮箱，保留账户主键以满足 ON DELETE RESTRICT 外键，
+   * 作品与用量账本继续以匿名数据保留。管理员账户在 SQL 条件中被排除。
+   */
+  async function runtimeDeactivateAccount(input) {
+    const targetUserId = normalizeLegacyId(input.userId, 'userId');
+    return withTransaction(targetUserId, async client => {
+      const target = internalUuid(targetUserId);
+      const tombstone = `deleted-${target.replace(/-/g, '')}@deleted.molan.invalid`;
+      const result = await client.query(
+        `UPDATE luna.runtime_accounts
+         SET email = $2::text, name = '已注销用户', avatar = '', bio = '', default_model = '',
+             salt = '', pwd = '!deactivated', role = 'normal', level = 'normal', plan = 'normal',
+             credits = 0, updated_at = now()
+         WHERE id = $1::uuid AND role <> 'admin'
+         RETURNING id`,
+        [target, tombstone]
+      );
+      if (!result.rows.length) throw repositoryError('not_found', '账户不存在或不允许注销', 404);
+      await notifyRuntimeChanged(client, 'account', targetUserId);
+      return { userId: targetUserId, tombstoneEmail: tombstone };
+    });
+  }
+
   /** 账户余额使用原子增量更新，避免多个实例基于旧缓存覆盖积分。 */
   async function runtimeAdjustCredits(input) {
     const actorUserId = normalizeLegacyId(input.actorUserId || input.userId, 'actorUserId');
@@ -7303,6 +7327,7 @@ function createPostgresRepository(options = {}) {
     runtimeRegisterAccount,
     runtimeUpdateAccount,
     runtimeUpdateAccountProfile,
+    runtimeDeactivateAccount,
     runtimeAdjustCredits,
     runtimeReserveTokenUsage,
     runtimeRecordDispatchAttempt,
