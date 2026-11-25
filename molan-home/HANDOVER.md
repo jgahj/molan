@@ -13,16 +13,17 @@
 ```text
 molan-home/
 ├── data/                               # 数据存储中心与持久化仓储
-│   ├── lora-training/                  # 1279本真人小说全量LoRA微调数据集 (Alpaca/ShareGPT/dataset_info)
+│   ├── lora-training/                  # 1276本真人小说 v2 零假模板 LoRA 微调数据集 (书本级隔离, Alpaca/ShareGPT/dataset_info)
 │   ├── legacy-archive/                 # 历史平铺数据与历史评测归档目录 (含 README.md)
 │   ├── strategy-knowledge-base/        # 策略知识库 (LRU 3包滚动机制与激活包保护)
 │   └── molan.db                        # SQLite 单一真实主库 (已 VACUUM 瘦身至 17MB)
 ├── training/                           # LoRA 微调脚手架与云端/本地一键部署套件
+│   ├── colab/molan_qwen25_7b_lora_colab.ipynb # Google Colab 免费版 T4 防断线/防OOM 一键 Qwen2.5-7B QLoRA 工作台 (v2)
 │   ├── train_lora_llamafactory.yaml    # LLaMA-Factory 行业标准微调配置文件
 │   ├── train_unsloth.py                # Unsloth 极速省显存训练脚本 (支持 16GB/24GB 显卡)
 │   ├── run_autodl.sh                   # AutoDL / 算力云一键全自动化环境配置与训练脚本
 │   ├── Modelfile                       # 本机 Ollama 免显卡运行模板 (AMD 8845HS 核显/CPU 秒级启动)
-│   └── README_TRAINING_GUIDE.md        # 完整云端 45 分钟 / ~2 元训练与部署教程
+│   └── README_TRAINING_GUIDE.md        # Google Colab 免费 T4 与 AutoDL 云端微调部署教程
 ├── lib/
 │   ├── composition/                    # 创作策略体系 (V3 / Phase 2 核心)
 │   │   ├── compiler/                   # 策略编译与注意力裁剪
@@ -138,11 +139,37 @@ molan-home/
     ├── phase2-engine-enhancements.test.js     # 边界 ??、确定性 Debt ID、来源解耦与遥测等 30 项回归测试
     ├── living-prose-optimization.test.js      # 《小说原本》零AI味范本注入、《纠错库》靶向诊断与全题材去AI味优化 (10 项)
     ├── humanize-gate.test.js                  # 自检闸门多轮改写与历史最优下发专项测试 (3 项)
-    ├── lora-dataset-and-pipeline.test.js      # 1279本真人小说微调数据集与模型注册表管道测试 (6 项)
+    ├── lora-dataset-and-pipeline.test.js      # 1276本真人小说 v2 数据集防泄露/零截断与 Colab T4 Notebook 校验测试 (8 项)
     ├── real-corpus-style-deai.test.js         # 全库1279本真实风格指纹、PMF词表、零破碎样本与纯统计降AI专测 (5 项)
     ├── system-optimization-suite.test.js      # 首屏异步竞态修复、679KB懒加载、无竞争节流落盘、仓储/双编辑器拆解专测 (5 项)
     └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
+
+---
+
+## 阶段记录：Google Colab 免费版 T4 小说模型训练全链路重构——v2 零假模板/书本级防泄露数据集与防断线防 OOM Notebook 落地 (2026-11-25)
+
+> 背景：用户需要使用 `资源库/小说原本` 数据在 Google Colab（免费版 T4，16GB 显存 / 12.7GB 内存）上微调自己的 Qwen2.5-7B-Instruct 小说模型。前置审计发现旧版 `build_lora_dataset.mjs` 存在写死 120 字假粗稿诱发幻觉、脏人名抽取、测试目录混入、样本级打乱导致验证泄露及超 2048 截断 4 大硬伤，且旧版 Colab Notebook 存在免费版导出 GGUF 易 OOM、无断点续训、未开启 `train_on_responses_only`、未挂载验证集及推理测试未套 ChatML 模板等 5 项隐患。经用户确认后实施全链路 v2 升级。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/scripts/build_lora_dataset.mjs` | 数据集引擎 v2 重构 | 1. 彻底移除 `buildRoughDraftForPass2` 写死假粗稿模板，改为 **70% 真实前文续写 (`novel_continuation`) + 30% 干净节拍写作 (`outline_expansion`)**，且两任务切片互不重叠；<br>2. 新增 `SKIP_DIRS` 自动排除 `测试` 目录（有效扫描 1,276 本），强化 `NON_NAME_REGEX` + `INVALID_NAME_CHAR_REGEX` 人名净滤；<br>3. 改为**书本级隔离切分**（1,213 训练书 / 63 验证书，0% 跨集重叠），并支持 `--genres=` 题材筛选；<br>4. 全量产出 2,135 条训练 + 117 条验证样本（总正文 268.6 万字，均长 1,812 字 / 最大 2,176 字 / 超过 2,400 字 0 条），`train_sharegpt.jsonl` 体积由 40.8 MB 压缩至 11.07 MB。 |
+| `molan-home/training/colab/molan_qwen25_7b_lora_colab.ipynb` | Colab T4 防断线/防 OOM 工作台 v2 | 1. Google Drive 优先读数（`MyDrive/molan-lora/data/`），首次缺失支持网页上传并自动转存云盘；<br>2. 启用 Unsloth 官方 Colab 兼容安装与 `SFTConfig` + `train_on_responses_only`（仅正文算 Loss，屏蔽 system/user 提示词）；<br>3. 挂载独立验证集（`eval_dataset=val_dataset`, `eval_steps=50`）、`is_bfloat16_supported()` 自适应 T4 `fp16` / L4/A100 `bf16`；<br>4. 内置 `find_latest_checkpoint(OUT_DIR)` 自动断点续训，完训立即先备份轻量化 LoRA（~150MB）到云盘；<br>5. 修复推理试写为标准 ChatML 模板；导出 GGUF 前释放 `trainer`/数据集与显存并限制 `maximum_memory_usage=0.4`，附带 **Cell 10 独立重启恢复导出单元**彻底规避 T4 12.7GB RAM 崩溃风险。 |
+| `molan-home/training/README_TRAINING_GUIDE.md`<br>`molan-home/data/lora-training/{dataset_summary.json,val_alpaca.json,val_sharegpt.jsonl}`<br>`molan-home/test/lora-dataset-and-pipeline.test.js` | 文档同步 + v2 数据资产 + 自动化校验 | 同步补充 Google Colab 免费版 T4 章节与 v2 数据指标；新增 2 项契约测试校验 `book_level_zero_leakage`、零假粗稿、0 截断风险、排除 `测试` 题材及 Colab Notebook 全部防断线/防 OOM 防护配置。 |
+
+### 二、设计决策与权衡
+
+1. **放弃硬编码假粗稿，采用“真实前文续写 + 真实节拍写作”**：零合成噪音，确保 7B 模型 LoRA 权重 100% 贴合真实网文的剧情连贯性、对话密度与自然段长，避免模型学坏无视指令瞎编。
+2. **LoRA `r=32 / alpha=64` + `MAX_SEQ_LENGTH=2048` + 2 Epochs（~267 步）**：在免费版 T4 16GB 显存下兼顾文风迁移力与防过拟合，全程约 35~50 分钟即可在单次免费会话内跑完。
+
+### 三、真实验证证据
+
+- **数据集重建**：`tools/node22_runtime/node.exe molan-home/scripts/build_lora_dataset.mjs` → 1,276 本有效小说（排除 3 本测试），2,135 训练 / 117 验证（书本级 0% 泄露），最大总长 2,176 字（0 条超 2,400），`train_sharegpt.jsonl` 11.07 MB。
+- **Notebook 语法校验**：Python `ast.parse` 校验全部 10 个代码单元 → `Python AST syntax OK across all 10 code cells!`。
+- **专项测试**：`tools/node22_runtime/node.exe --no-warnings --test molan-home/test/lora-dataset-and-pipeline.test.js` → **8/8 pass, 0 fail**。
+- **全量回归**：`tools/node22_runtime/node.exe --no-warnings --test molan-home/test/*.test.js` → **2,304 tests / 74 suites / 2,291 pass / 0 fail / 13 skipped (23.3s)**。
 
 ---
 

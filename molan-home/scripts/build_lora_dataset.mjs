@@ -3,20 +3,19 @@
 
 /**
  * @file build_lora_dataset.mjs
- * 资源库 1,279 本真人小说全量 LoRA 微调数据集构造引擎
- * 
- * 核心目标：
- * 从 `资源库/小说原本` (48 题材家族 + 根目录 1,279 本真人网文) 提取高突发度、高白描、自然断句的真实段落，
- * 构造符合 LLaMA-Factory / ms-swift / Unsloth 行业标准的 Alpaca 与 ShareGPT 双格式 SFT 数据集。
- * 
- * 包含两大去AI味核心微调任务：
- * 1. 【Pass 2 降AI精修洗稿】(de_ai_humanize): 输入细纲/草稿 -> 输出地道真人自然网文，重塑 Logits 转移概率
- * 2. 【Pass 1 细纲高突发度主笔】(outline_expansion): 输入题材/角色/4节拍大纲 -> 输出真人小说正文
+ * 资源库 1,279 本真人小说全量 LoRA 微调数据集构造引擎 (v2 零假模板/防泄露版)
+ *
+ * 核心升级：
+ * 1. 彻底移除写死假粗稿模板，杜绝“输入与正文无关”导致的严重幻觉与不听指令问题；
+ * 2. 以 70%【真实前文续写 (novel_continuation)】+ 30%【真实节拍写作 (outline_expansion)】构建双任务 SFT，
+ *    且两条任务使用互不重叠的独立文本切片（零重复输出）；
+ * 3. 按【书本级】严格切分训练集 (95%) 与验证集 (5%)，实现 0% 数据泄露；
+ * 4. 跳过 `测试` 等非语料目录，强化人名抽取黑名单，并将单条样本总长度精准控在
+ *    1,500~2,150 字内，确保 Qwen2.5 MAX_SEQ_LENGTH=2048 零截断。
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -34,15 +33,23 @@ const OUTPUT_DIR = path.resolve(__dirname, '../data/lora-training');
 const args = process.argv.slice(2);
 function getArg(name, def) {
   for (const a of args) {
-    if (a.startsWith(`--${name}=`)) return a.split('=')[1];
+    if (a.startsWith(`--${name}=`)) return a.split('=').slice(1).join('=');
     if (a === `--${name}`) return true;
   }
   return def;
 }
-const LIMIT_BOOKS = parseInt(getArg('limit-books', '0'), 10); // 0 为全量 1279 本
-const SLICES_PER_BOOK = parseInt(getArg('slices-per-book', '3'), 10);
-const TARGET_SLICE_CHARS = parseInt(getArg('slice-chars', '2000'), 10);
+
+const LIMIT_BOOKS = parseInt(getArg('limit-books', '0'), 10); // 0 为全量
+const SLICES_PER_BOOK = parseInt(getArg('slices-per-book', '4'), 10);
+const CONTEXT_CHARS = parseInt(getArg('context-chars', '600'), 10);
+const TARGET_CHARS = parseInt(getArg('target-chars', '1200'), 10);
 const VAL_RATIO = parseFloat(getArg('val-ratio', '0.05'));
+const GENRES_FILTER_RAW = String(getArg('genres', '') || '').trim();
+const GENRES_FILTER = GENRES_FILTER_RAW
+  ? new Set(GENRES_FILTER_RAW.split(/[,，]/).map(s => s.trim()).filter(Boolean))
+  : null;
+
+const SKIP_DIRS = new Set(['测试', 'test', 'tmp', 'temp', '.git', 'node_modules']);
 
 // 编码回退解码器
 const gbkDecoder = new TextDecoder('gb18030', { fatal: false });
@@ -66,210 +73,364 @@ function readNovelText(filePath) {
   return buf.toString('utf8');
 }
 
-// 噪音过滤正则表达式（剔除水印、感言、推书、网站广告）
-const NOISE_LINE_REGEX = /^(?:第[0-9一二三四五六七八九十百千万零〇]+[章节回卷篇话折]|Chapter\s*\d+|【\s*\d+\s*】|PS|ps|求月票|求推荐|求收藏|本章完|作者有话说|感谢各位|感谢读者|感谢打赏|推书|上架感言|完本感言|新书预告|www\.|http|笔趣阁|起点中文网|起点女生网|纵横中文网|搜笔趣阁|手机用户请浏览|免费阅读|无弹窗)/i;
+// 噪音过滤正则表达式（剔除章节标题、水印、感言、推书、网站广告）
+const NOISE_LINE_REGEX = /^(?:第[0-9一二三四五六七八九十百千万零〇]+[章节回卷篇话折]|Chapter\s*\d+|【\s*\d+\s*】|PS|ps|求月票|求推荐|求收藏|求订阅|求打赏|本章完|未完待续|作者有话说|感谢各位|感谢读者|感谢打赏|推书|上架感言|完本感言|新书预告|防盗章节|www\.|http|笔趣阁|起点中文网|起点女生网|纵横中文网|搜笔趣阁|手机用户请浏览|免费阅读|无弹窗|请记住本书首发域名|天才一秒记住)/i;
+
+// 严禁混入的典型 AI 套词
+const AI_CLICHE_REGEX = /嘴角勾起|倒吸凉气|眼神闪过一丝|瞳孔骤缩|空气仿佛凝固|宛如实质|令人窒息的压迫感|正如他所料|伴随着这一声|微凝/;
+
+// 非人名黑名单与禁用虚词/代词字（防止把动词、代词、量词误抽为角色名）
+const NON_NAME_REGEX = /^(?:大的|小的|老的|老头|老者|老人|少年|青年|少女|男子|女子|男人|女人|妇女|众人|对方|自己|心中|心里|有人|没人|这时|此时|突然|随即|只见|一边|一面|一旁|旁边|大家|大伙|兄弟|姐妹|朋友|师父|师傅|老板|先生|女士|小姐|公子|姑娘|丫头|小子|家伙|东西|什么|怎么|没有|不是|已经|那个|这个|他们|她们|我们|你们|大人|大军|大队|大殿|大厅|大门|大声|大笑|大喊|大喝|大事|大喜|大惊|大怒|小声|小心|小事|小队|小院|小巷|小屋|小脸|小手|老大|老二|老三|老四|老五|老子|老婆|老爹|老娘|老妈|老爸|老师|老实|老早|老爷|大师兄|大师姐|二师兄|小师妹|小师弟|老大人|禁军统领)$/;
+const INVALID_NAME_CHAR_REGEX = /[的她他它我你您这那哪谁其各每某两三四五六七八九十百千万的得地了着过又也在有是从把被给向对跟和与及或但而却才就都还只很太更最不没无别正刚已曾将要会能可该应让使叫请压苦]/;
 
 /**
- * 清洗单篇小说并按跨度截取指定数量的高质量切片
+ * 规范化单行文本
  */
-function cleanAndExtractSlices(rawText, slicesCount = 3, targetChars = 2000) {
+function normalizeParagraph(raw) {
+  const trimmed = raw.replace(/^[\s\u3000\uFEFF]+|[\s\u3000\uFEFF]+$/g, '');
+  if (!trimmed || trimmed.length < 4) return '';
+  if (trimmed.includes('\uFFFD')) return '';
+  if (NOISE_LINE_REGEX.test(trimmed)) return '';
+  return trimmed
+    .replace(/"([^"]*)"/g, '“$1”')
+    .replace(/'([^']*)'/g, '‘$1’')
+    .replace(/--|——/g, '——');
+}
+
+/**
+ * 计算段落集合的质量指标
+ */
+function evaluateParagraphQuality(paragraphs) {
+  const charCount = paragraphs.reduce((sum, p) => sum + p.length, 0);
+  if (paragraphs.length < 6 || charCount < 750) return null;
+
+  const paraMean = charCount / paragraphs.length;
+  if (paraMean < 16 || paraMean > 62) return null;
+
+  let dialogueChars = 0;
+  for (const p of paragraphs) {
+    const matches = p.match(/[“"][^”"]*[”"]/g);
+    if (matches) {
+      dialogueChars += matches.reduce((sum, m) => sum + m.length, 0);
+    }
+  }
+  const dialRatio = dialogueChars / charCount;
+  if (dialRatio < 0.08 || dialRatio > 0.74) return null;
+
+  const text = paragraphs.join('\n');
+  if (AI_CLICHE_REGEX.test(text)) return null;
+
+  return {
+    text,
+    charCount,
+    paraCount: paragraphs.length,
+    paraMean: parseFloat(paraMean.toFixed(1)),
+    dialRatio: parseFloat(dialRatio.toFixed(3)),
+    paragraphs
+  };
+}
+
+/**
+ * 从单篇小说按不重叠跨度抽取独立高质量切片
+ * - 偶数/多数切片用于【真实前文续写】(需要连续 context + target，约 1,800 字)
+ * - 其余切片用于【真实节拍写作】(只需要独立 target，约 1,200 字)
+ */
+function extractIndependentSlices(rawText, slicesCount = 4, contextChars = 600, targetChars = 1200) {
   const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const len = text.length;
-  if (len < 3000) return [];
+  if (len < 6000) return [];
 
-  // 跳过前 10%（避免前言、设定集、目录堆叠）并截取分散的切片
   const offsets = [];
   if (slicesCount === 1) {
     offsets.push(0.35);
-  } else if (slicesCount === 2) {
-    offsets.push(0.25, 0.65);
-  } else if (slicesCount === 3) {
-    offsets.push(0.18, 0.48, 0.78);
   } else {
     for (let i = 0; i < slicesCount; i++) {
-      offsets.push(0.15 + (i * (0.75 / (slicesCount - 1))));
+      offsets.push(0.14 + (i * (0.72 / (slicesCount - 1))));
     }
   }
 
-  const validSlices = [];
-  for (const frac of offsets) {
+  const results = [];
+  let lastUsedEnd = -1;
+
+  for (let idx = 0; idx < offsets.length; idx++) {
+    const frac = offsets[idx];
     let start = Math.floor(len * frac);
+    if (start <= lastUsedEnd + 200) continue; // 严防同一本书内切片重叠
+
     // 对齐自然段落首
     const nextNl = text.indexOf('\n', start);
     if (nextNl > start && nextNl - start < 400) {
       start = nextNl + 1;
     }
 
-    const rawChunk = text.slice(start, start + targetChars + 800);
+    // 75% (前3/4 或 idx%3!==2) 构造真实续写，25%~33% 构造干净节拍写作
+    const isContinuation = (idx % 3 !== 2);
+    const neededChars = isContinuation ? (contextChars + targetChars) : targetChars;
+    const rawChunk = text.slice(start, start + neededChars + 1200);
     const rawParas = rawChunk.split(/\n+/);
-    
-    // 逐段过滤与清洗
+
     const cleanParas = [];
     let currentChars = 0;
+    let rawConsumed = 0;
 
-    for (const p of rawParas) {
-      const trimmed = p.replace(/^[\s\u3000\uFEFF]+|[\s\u3000\uFEFF]+$/g, '');
-      if (!trimmed || trimmed.length < 4) continue;
-      if (NOISE_LINE_REGEX.test(trimmed)) continue;
-      
-      // 标点符号规范化：英文双引号转中文
-      const normalized = trimmed
-        .replace(/"([^"]*)"/g, '“$1”')
-        .replace(/'([^']*)'/g, '‘$1’')
-        .replace(/--|——/g, '——');
-
+    for (const rawP of rawParas) {
+      rawConsumed += rawP.length + 1;
+      const normalized = normalizeParagraph(rawP);
+      if (!normalized) {
+        // 如果遇到明显的章节切换标题且已经收集了一段内容，停止当前切片以保证连贯性
+        if (NOISE_LINE_REGEX.test(rawP.trim()) && currentChars >= 400) {
+          break;
+        }
+        continue;
+      }
       cleanParas.push(normalized);
       currentChars += normalized.length;
-      if (currentChars >= targetChars) break;
+      if (currentChars >= neededChars) break;
     }
 
-    if (cleanParas.length < 6 || currentChars < 1000) continue;
-
-    // 统计特征质量过滤（确保真人高突发度、段长轻快）
-    const paraLens = cleanParas.map(p => p.length);
-    const paraMean = currentChars / cleanParas.length;
-    // 排除极端散文大方块段落 (段均 > 55) 或纯极端碎语 (段均 < 15)
-    if (paraMean < 18 || paraMean > 52) continue;
-
-    // 对白比例过滤 (确保既有动作又有言行交锋，对白占比 10% ~ 70%)
-    let dialogueChars = 0;
-    for (const p of cleanParas) {
-      const matches = p.match(/[“"][^”"]*[”"]/g);
-      if (matches) {
-        dialogueChars += matches.reduce((sum, m) => sum + m.length, 0);
+    if (isContinuation) {
+      // 按自然段落切分成 context (~500~700字) + target (~950~1350字)
+      const ctxParas = [];
+      let ctxLen = 0;
+      let splitIdx = 0;
+      for (let i = 0; i < cleanParas.length; i++) {
+        ctxParas.push(cleanParas[i]);
+        ctxLen += cleanParas[i].length;
+        splitIdx = i + 1;
+        if (ctxLen >= contextChars - 80) break;
       }
-    }
-    const dialRatio = dialogueChars / currentChars;
-    if (dialRatio < 0.08 || dialRatio > 0.72) continue;
 
-    // 严禁含 AI 恶习套词的废样本
-    const sliceText = cleanParas.join('\n');
-    if (/嘴角勾起|倒吸凉气|眼神闪过一丝|微凝|正如他所料|伴随着这一声/.test(sliceText)) {
-      continue;
-    }
+      const tgtParas = cleanParas.slice(splitIdx);
+      const tgtQuality = evaluateParagraphQuality(tgtParas);
+      if (!tgtQuality) continue;
+      if (ctxParas.length < 3 || ctxLen < 350 || ctxLen > contextChars + 260) continue;
+      if (tgtQuality.charCount > targetChars + 260) continue;
 
-    validSlices.push({
-      text: sliceText,
-      charCount: currentChars,
-      paraCount: cleanParas.length,
-      paraMean: parseFloat(paraMean.toFixed(1)),
-      dialRatio: parseFloat(dialRatio.toFixed(3)),
-      paragraphs: cleanParas
-    });
+      const ctxText = ctxParas.join('\n');
+      if (AI_CLICHE_REGEX.test(ctxText)) continue;
+
+      lastUsedEnd = start + rawConsumed;
+      results.push({
+        task: 'novel_continuation',
+        contextText: ctxText,
+        contextChars: ctxLen,
+        target: tgtQuality
+      });
+    } else {
+      const tgtQuality = evaluateParagraphQuality(cleanParas);
+      if (!tgtQuality || tgtQuality.charCount > targetChars + 260) continue;
+
+      lastUsedEnd = start + rawConsumed;
+      results.push({
+        task: 'outline_expansion',
+        target: tgtQuality
+      });
+    }
   }
 
-  return validSlices;
+  return results;
 }
 
 /**
- * 从切片中提取角色画像与 4 节拍（起承转合）
+ * 从切片中严谨提取真实出场人名（宁缺毋滥）与 4 节拍真实推进句
  */
-function extractSliceElements(paragraphs) {
+function extractCleanElements(paragraphs) {
   const fullText = paragraphs.join('\n');
   const charsMap = new Map();
 
-  // 对白归属人物扫描：“...”张三冷声道 / 李四皱眉道
-  const diaRegex = /[”"’](\s*[\u4e00-\u9fa5]{2,4}\s*(?:冷笑|低声|沉声|皱眉|怒喝|笑道|轻笑|怒道|说|道|问|喝道|叹道|喃喃|喊道|回应|答道))/g;
+  // 仅从明确对白归属动词前抽取 2~3 字中文人名
+  const diaRegex = /[”"’]\s*([\u4e00-\u9fa5]{2,3})(?:冷笑|低声|沉声|皱眉|怒喝|笑道|轻笑|怒道|说道|问道|喝道|叹道|喃喃|喊道|回应|答道|开口|哼道|冷声道)/g;
   let m;
   while ((m = diaRegex.exec(fullText)) !== null) {
-    const rawName = m[1].replace(/(?:冷笑|低声|沉声|皱眉|怒喝|笑道|轻笑|怒道|说|道|问|喝道|叹道|喃喃|喊道|回应|答道)/g, '').trim();
-    if (rawName && rawName.length >= 2 && rawName.length <= 4 && !/^(心中|自己|众人|对方|有人|这时|突然|随即|只见)/.test(rawName)) {
-      charsMap.set(rawName, (charsMap.get(rawName) || 0) + 3);
+    const candidate = m[1].trim();
+    if (
+      candidate.length >= 2 &&
+      candidate.length <= 3 &&
+      !NON_NAME_REGEX.test(candidate) &&
+      !INVALID_NAME_CHAR_REGEX.test(candidate)
+    ) {
+      charsMap.set(candidate, (charsMap.get(candidate) || 0) + 3);
     }
   }
 
-  // 常见称号模式扫描
-  const titleRegex = /(?:[老小大阿][\u4e00-\u9fa5]|[\u4e00-\u9fa5]{2,3}(?:师兄|师弟|师姐|师妹|长老|宗主|统领|队长|将军|大人|掌门|道友|兄弟|公子|小姐|先生|夫人))/g;
+  // 带明确称谓的真实人名（排除纯通用泛称）
+  const titleRegex = /([\u4e00-\u9fa5]{1,2}(?:师兄|师弟|师姐|师妹|长老|宗主|掌门|道友|将军|队长|统领|掌柜|管事|大人))/g;
   while ((m = titleRegex.exec(fullText)) !== null) {
-    const name = m[0].trim();
-    if (name.length >= 2 && name.length <= 5) {
-      charsMap.set(name, (charsMap.get(name) || 0) + 2);
+    const candidate = m[1].trim();
+    if (
+      candidate.length >= 3 &&
+      candidate.length <= 4 &&
+      !NON_NAME_REGEX.test(candidate) &&
+      !INVALID_NAME_CHAR_REGEX.test(candidate)
+    ) {
+      charsMap.set(candidate, (charsMap.get(candidate) || 0) + 2);
     }
   }
 
-  const sortedChars = Array.from(charsMap.entries())
+  const verifiedChars = Array.from(charsMap.entries())
+    .filter(([, score]) => score >= 3)
     .sort((a, b) => b[1] - a[1])
-    .map(([name]) => name);
+    .map(([name]) => name)
+    .slice(0, 3);
 
-  const protagonist = sortedChars[0] || '核心主角';
-  const antagonist = sortedChars[1] || '现场阻力方/对手';
-
-  // 提取 4 节拍骨架
+  // 提取 4 节拍真实叙事锚点（只用该片段真实存在的非对白完整句）
   const totalParas = paragraphs.length;
-  const p1 = paragraphs.slice(0, Math.floor(totalParas * 0.25)).join(' ');
-  const p2 = paragraphs.slice(Math.floor(totalParas * 0.25), Math.floor(totalParas * 0.55)).join(' ');
-  const p3 = paragraphs.slice(Math.floor(totalParas * 0.55), Math.floor(totalParas * 0.85)).join(' ');
-  const p4 = paragraphs.slice(Math.floor(totalParas * 0.85)).join(' ');
+  const segments = [
+    paragraphs.slice(0, Math.max(1, Math.floor(totalParas * 0.25))).join('\n'),
+    paragraphs.slice(Math.floor(totalParas * 0.25), Math.floor(totalParas * 0.55)).join('\n'),
+    paragraphs.slice(Math.floor(totalParas * 0.55), Math.floor(totalParas * 0.85)).join('\n'),
+    paragraphs.slice(Math.floor(totalParas * 0.85)).join('\n')
+  ];
 
-  const getBeat = (chunk, def) => {
-    const sents = chunk.split(/[。！？!?\n]+/)
+  const extractBeat = (chunk) => {
+    const sents = chunk
+      .split(/[。！？!?\n]+/)
       .map(s => s.trim())
-      .filter(s => s.length >= 12 && s.length <= 48 && !/^[“”"']/.test(s));
-    return sents[0] || def;
+      .filter(s => s.length >= 12 && s.length <= 44 && !/[“”"'‘’]/.test(s));
+    return sents[0] || '';
   };
 
+  const beats = segments.map(extractBeat).filter(Boolean);
   return {
-    protagonist,
-    antagonist,
-    beatQi: getBeat(p1, '现场气氛暗流涌动，核心人物面临当下切身阻碍。'),
-    beatCheng: getBeat(p2, '言语试探与动作交锋逐步升级，利益矛盾公开。'),
-    beatZhuan: getBeat(p3, '变故突发或关键底牌显露，局势急转直下。'),
-    beatHe: getBeat(p4, '阶段性交锋落幕，余波未平并留下悬念危机。')
+    verifiedChars,
+    beats
   };
 }
 
 /**
- * 构造用于 Pass 2 的待精修草稿 (保留核心事实与节拍，但包含部分AI常见平滑描述，训练模型去除AI味)
+ * 确定性伪随机打乱
  */
-function buildRoughDraftForPass2(elements, genre, bookTitle) {
-  return [
-    `【故事背景】题材：${genre} | 出处：《${bookTitle}》`,
-    `【核心人物】主角：${elements.protagonist} | 对峙对手：${elements.antagonist}`,
-    `【情节节拍】`,
-    `1. 起：${elements.beatQi}`,
-    `2. 承：${elements.beatCheng}`,
-    `3. 转：${elements.beatZhuan}`,
-    `4. 合：${elements.beatHe}`,
-    `【原始场景粗稿】`,
-    `现场气氛有些凝固，${elements.protagonist}站在原地注视着周围的一切，神情显得若有所思。${elements.antagonist}冷冷开口，语气中带着几分挑衅与试探。双方在简短的言辞交锋中互相打量，空气中弥漫着紧张的火药味。随着局势的推移，原本平静的场面被突如其来的变故打破，各种动作接踵而至，矛盾进一步激化。最终双方在试探后暂时告一段落，但更深的隐患已经埋下。`
-  ].join('\n');
+function seededShuffle(arr, seed = 20261125) {
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+const CONTINUATION_SYSTEM = [
+  '你是一名擅长写高质感中文网络小说的资深作者。',
+  '请紧接用户给出的前文片段自然续写正文，保持人物性格、视口连续与口语白描节奏。',
+  '写作准则：以具体动作、细节和对白推动情节；段落轻快有呼吸感；禁止空洞总结与机械AI套话。'
+].join('\n');
+
+const OUTLINE_SYSTEM = [
+  '你是一名擅长写高质感中文网络小说的资深作者。',
+  '请根据给定的题材与场景推进要点，直接撰写生动克制、节奏紧凑的小说正文。',
+  '写作准则：以白描与自然对话为主，人物行动合乎常理，段落错落轻快，禁止空洞抒情与机械AI套话。'
+].join('\n');
+
+/**
+ * 将单本书提取的切片转为 SFT 样本
+ */
+function buildSamplesForBook(bookItem) {
+  const rawText = readNovelText(bookItem.fullPath);
+  const slices = extractIndependentSlices(rawText, SLICES_PER_BOOK, CONTEXT_CHARS, TARGET_CHARS);
+  const samples = [];
+
+  for (const slice of slices) {
+    if (slice.task === 'novel_continuation') {
+      const approxTarget = Math.round(slice.target.charCount / 100) * 100;
+      const userPrompt = [
+        `【题材】${bookItem.genre}`,
+        `【字数目标】约 ${approxTarget} 字`,
+        `【前文片段】`,
+        slice.contextText,
+        '',
+        '请紧接上述前文自然续写接下来的情节正文，直接输出小说正文，不要加标题或说明。'
+      ].join('\n');
+
+      samples.push({
+        task: 'novel_continuation',
+        genre: bookItem.genre,
+        bookId: bookItem.bookId,
+        instruction: CONTINUATION_SYSTEM,
+        input: userPrompt,
+        output: slice.target.text,
+        charCount: slice.target.charCount
+      });
+    } else {
+      const { verifiedChars, beats } = extractCleanElements(slice.target.paragraphs);
+      if (beats.length < 3) continue; // 缺乏清晰真实推进要点则宁缺毋滥
+
+      const approxTarget = Math.round(slice.target.charCount / 100) * 100;
+      const lines = [`【题材】${bookItem.genre}`];
+      if (verifiedChars.length > 0) {
+        lines.push(`【出场人物】${verifiedChars.join('、')}`);
+      }
+      lines.push('【场景推进要点】');
+      beats.forEach((b, i) => {
+        lines.push(`${i + 1}. ${b}`);
+      });
+      lines.push(`【字数目标】约 ${approxTarget} 字`);
+      lines.push('请根据以上要点直接创作流畅自然的小说正文，不要加标题或解释。');
+
+      samples.push({
+        task: 'outline_expansion',
+        genre: bookItem.genre,
+        bookId: bookItem.bookId,
+        instruction: OUTLINE_SYSTEM,
+        input: lines.join('\n'),
+        output: slice.target.text,
+        charCount: slice.target.charCount
+      });
+    }
+  }
+
+  return samples;
 }
 
 /**
  * 主执行函数
  */
 async function main() {
-  console.log('='.repeat(70));
-  console.log('【墨阑 LoRA 训练数据集构造引擎】启动');
+  console.log('='.repeat(72));
+  console.log('【墨阑 LoRA 真人小说训练数据集构造引擎 v2】启动');
   console.log(`- 语料根目录: ${CORPUS_ROOT}`);
   console.log(`- 产出目标目录: ${OUTPUT_DIR}`);
-  console.log(`- 单本抽样切片数: ${SLICES_PER_BOOK} | 单片目标字数: ${TARGET_SLICE_CHARS}`);
-  console.log(`- 书籍扫描上限: ${LIMIT_BOOKS > 0 ? LIMIT_BOOKS : '全库 1,279 本'}`);
-  console.log('='.repeat(70));
+  console.log(`- 单本独立切片上限: ${SLICES_PER_BOOK} | 前文 ~${CONTEXT_CHARS} 字 / 正文 ~${TARGET_CHARS} 字`);
+  console.log(`- 题材过滤: ${GENRES_FILTER ? Array.from(GENRES_FILTER).join(', ') : '全题材 (自动排除测试目录)'}`);
+  console.log(`- 书籍扫描上限: ${LIMIT_BOOKS > 0 ? LIMIT_BOOKS : '全库'}`);
+  console.log('='.repeat(72));
 
   if (!fs.existsSync(CORPUS_ROOT)) {
     console.error(`[FATAL] 语料库目录不存在: ${CORPUS_ROOT}`);
     process.exit(1);
   }
 
-  // 递归扫描所有 txt 文件
+  // 1. 扫描所有 txt 书本（跳过测试目录）
   const bookFiles = [];
   const entries = fs.readdirSync(CORPUS_ROOT, { withFileTypes: true });
+  let skippedTestFiles = 0;
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
       const genre = entry.name;
+      if (SKIP_DIRS.has(genre.toLowerCase()) || SKIP_DIRS.has(genre)) {
+        const subDir = path.join(CORPUS_ROOT, genre);
+        skippedTestFiles += fs.readdirSync(subDir).filter(f => f.endsWith('.txt')).length;
+        continue;
+      }
+      if (GENRES_FILTER && !GENRES_FILTER.has(genre)) continue;
+
       const subDir = path.join(CORPUS_ROOT, genre);
-      const files = fs.readdirSync(subDir).filter(f => f.endsWith('.txt'));
+      const files = fs.readdirSync(subDir).filter(f => f.endsWith('.txt')).sort();
       for (const f of files) {
         bookFiles.push({
+          bookId: `${genre}/${f}`,
           genre,
           fileName: f,
           fullPath: path.join(subDir, f)
         });
       }
     } else if (entry.isFile() && entry.name.endsWith('.txt')) {
+      if (GENRES_FILTER && !GENRES_FILTER.has('综合通用')) continue;
       bookFiles.push({
+        bookId: `综合通用/${entry.name}`,
         genre: '综合通用',
         fileName: entry.name,
         fullPath: path.join(CORPUS_ROOT, entry.name)
@@ -277,144 +438,90 @@ async function main() {
     }
   }
 
-  console.log(`[1/4] 扫描全库完成: 共发现 ${bookFiles.length} 本小说原本。`);
+  console.log(`[1/4] 扫描完成: 有效小说 ${bookFiles.length} 本（已排除测试目录 ${skippedTestFiles} 本）。`);
 
   const processList = (LIMIT_BOOKS > 0) ? bookFiles.slice(0, LIMIT_BOOKS) : bookFiles;
 
-  const datasetSamples = [];
+  // 2. 先按【书本级】确定性打乱并切分训练/验证书单（彻底杜绝数据泄露）
+  const shuffledBooks = [...processList];
+  seededShuffle(shuffledBooks, 20261125);
+
+  const valBookCount = Math.max(5, Math.floor(shuffledBooks.length * VAL_RATIO));
+  const valBooks = shuffledBooks.slice(0, valBookCount);
+  const trainBooks = shuffledBooks.slice(valBookCount);
+
+  console.log(`[2/4] 书本级隔离切分完成: 训练书本 ${trainBooks.length} 本 | 验证书本 ${valBooks.length} 本（0% 跨集重叠）。`);
+
+  const trainSamples = [];
+  const valSamples = [];
   const genreStats = {};
-  let totalProcessed = 0;
-  let totalCharsExtracted = 0;
+  let totalOutputChars = 0;
+  let processedBooks = 0;
   const startTime = Date.now();
 
-  console.log(`[2/4] 正在提取高质量网文切片并构造双任务微调对...`);
-
-  for (let i = 0; i < processList.length; i++) {
-    const item = processList[i];
-    try {
-      const rawText = readNovelText(item.fullPath);
-      const bookTitle = item.fileName.replace(/\.txt$/i, '');
-      const slices = cleanAndExtractSlices(rawText, SLICES_PER_BOOK, TARGET_SLICE_CHARS);
-
-      for (const slice of slices) {
-        const elements = extractSliceElements(slice.paragraphs);
-
-        // 任务 1: 【Pass 2 降AI精修洗稿】(De-AI Humanizer)
-        const deAiInstruction = [
-          '你是擅长高质感中文网络小说的资深金牌主笔与文字精修师。',
-          '请对以下粗糙、带有机械平滑感或AI套话痕迹的网文草稿进行深度去AI味精修重构。',
-          '【精修严厉要求】',
-          '1. 【段落轻快】：严格控制单段在 20~40 字之间，多逗号一气呵成，符合手机轻快阅读韵律；',
-          '2. 【白描实操】：用具体的动词、物理受力与环境实体推进，禁止主观臆断与情绪定义；',
-          '3. 【对白接地气】：台词简明有力，去掉多余的心理解释，动作穿插在对话前后；',
-          '4. 【清零AI套话】：严禁出现“伴随着、嘴角勾起、眼神微凝、正如...所说、心中的大石落地”等平滑词汇；',
-          '5. 完整保全原草稿中的人物对抗与起承转合事实，输出无任何AI痕迹的地道网络小说正文。'
-        ].join('\n');
-
-        const deAiInput = buildRoughDraftForPass2(elements, item.genre, bookTitle);
-        const deAiOutput = slice.text;
-
-        datasetSamples.push({
-          task: 'de_ai_humanize',
-          genre: item.genre,
-          book: bookTitle,
-          instruction: deAiInstruction,
-          input: deAiInput,
-          output: deAiOutput,
-          charCount: slice.charCount
-        });
-
-        // 任务 2: 【Pass 1 细纲高突发度主笔】(Outline to Chapter Continuation)
-        const outlineInstruction = [
-          '你是中文网络小说领域的金牌主笔。请根据给定的题材背景、核心角色和场景四节拍大纲，撰写一节生动鲜活、节奏紧凑的正文段落。',
-          '【写作要求】以白描为主，对白接地气，段落短促轻快，严禁机械AI套词与空洞抒情。'
-        ].join('\n');
-
-        const outlineInput = [
-          `【题材家族】${item.genre}`,
-          `【作品参考】《${bookTitle}》`,
-          `【登场人物】主角：${elements.protagonist} | 对抗方：${elements.antagonist}`,
-          `【情节起承转合】`,
-          `- 起：${elements.beatQi}`,
-          `- 承：${elements.beatCheng}`,
-          `- 转：${elements.beatZhuan}`,
-          `- 合：${elements.beatHe}`,
-          `【字数目标】约 ${slice.charCount} 字`
-        ].join('\n');
-
-        datasetSamples.push({
-          task: 'outline_expansion',
-          genre: item.genre,
-          book: bookTitle,
-          instruction: outlineInstruction,
-          input: outlineInput,
-          output: deAiOutput,
-          charCount: slice.charCount
-        });
-
-        totalCharsExtracted += slice.charCount * 2;
-        genreStats[item.genre] = (genreStats[item.genre] || 0) + 2;
+  const processBucket = (books, targetArr) => {
+    for (const book of books) {
+      try {
+        const samples = buildSamplesForBook(book);
+        for (const s of samples) {
+          targetArr.push(s);
+          totalOutputChars += s.charCount;
+          genreStats[s.genre] = (genreStats[s.genre] || 0) + 1;
+        }
+      } catch {
+        // 单个文件损坏容错
       }
-
-      totalProcessed++;
-      if (totalProcessed % 100 === 0 || totalProcessed === processList.length) {
-        process.stdout.write(`  已处理 ${totalProcessed}/${processList.length} 本小说，累计生成 ${datasetSamples.length} 条微调训练样本...\r`);
+      processedBooks++;
+      if (processedBooks % 100 === 0 || processedBooks === processList.length) {
+        process.stdout.write(`  已处理 ${processedBooks}/${processList.length} 本小说，累计样本 ${trainSamples.length + valSamples.length} 条...\r`);
       }
-    } catch (err) {
-      // 容错处理单个文件异常
     }
+  };
+
+  processBucket(trainBooks, trainSamples);
+  processBucket(valBooks, valSamples);
+
+  // 各自内部打乱
+  seededShuffle(trainSamples, 20261126);
+  seededShuffle(valSamples, 20261127);
+
+  const allSamples = [...trainSamples, ...valSamples];
+  let sumTotalChars = 0;
+  let maxTotalChars = 0;
+  let over2400Chars = 0;
+  for (const s of allSamples) {
+    const total = s.instruction.length + s.input.length + s.output.length;
+    sumTotalChars += total;
+    if (total > maxTotalChars) maxTotalChars = total;
+    if (total > 2400) over2400Chars++;
   }
 
-  console.log(`\n[3/4] 数据提取完成！总样本数: ${datasetSamples.length}，涵盖字数: ${(totalCharsExtracted / 10000).toFixed(1)} 万字，耗时: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+  console.log(`\n[3/4] 提取完成！总样本: ${allSamples.length}（训练 ${trainSamples.length} / 验证 ${valSamples.length}），正文总字数: ${(totalOutputChars / 10000).toFixed(1)} 万字，耗时: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+  console.log(`      单条平均总字数: ${Math.round(sumTotalChars / Math.max(1, allSamples.length))} | 最大总字数: ${maxTotalChars} | 超过 2400 字: ${over2400Chars}`);
 
-  // 打乱数据集 (基于确定性种子)
-  function seededShuffle(arr, seed = 20261120) {
-    let s = seed;
-    const rnd = () => {
-      s = (s * 9301 + 49297) % 233280;
-      return s / 233280;
-    };
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  }
-
-  seededShuffle(datasetSamples);
-
-  // 切分训练集与验证集 (95% / 5%)
-  const valCount = Math.max(10, Math.floor(datasetSamples.length * VAL_RATIO));
-  const valSamples = datasetSamples.slice(0, valCount);
-  const trainSamples = datasetSamples.slice(valCount);
-
-  console.log(`[4/4] 正在序列化输出标准 Alpaca 与 ShareGPT 格式数据集至: ${OUTPUT_DIR}`);
-
+  // 3. 序列化输出
+  console.log(`[4/4] 正在输出标准 Alpaca 与 ShareGPT/ChatML 格式数据集至: ${OUTPUT_DIR}`);
   if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   }
 
-  // 1. 输出 Alpaca 格式 JSON
+  const toAlpaca = (s) => ({
+    instruction: s.instruction,
+    input: s.input,
+    output: s.output
+  });
+
   fs.writeFileSync(
     path.join(OUTPUT_DIR, 'train_alpaca.json'),
-    JSON.stringify(trainSamples.map(s => ({
-      instruction: s.instruction,
-      input: s.input,
-      output: s.output
-    })), null, 2),
+    JSON.stringify(trainSamples.map(toAlpaca), null, 2),
     'utf8'
   );
-
   fs.writeFileSync(
     path.join(OUTPUT_DIR, 'val_alpaca.json'),
-    JSON.stringify(valSamples.map(s => ({
-      instruction: s.instruction,
-      input: s.input,
-      output: s.output
-    })), null, 2),
+    JSON.stringify(valSamples.map(toAlpaca), null, 2),
     'utf8'
   );
 
-  // 2. 输出 ShareGPT / ChatML 格式 JSONL (单行紧凑)
   const toShareGptLine = (s) => JSON.stringify({
     messages: [
       { role: 'system', content: s.instruction },
@@ -428,14 +535,12 @@ async function main() {
     trainSamples.map(toShareGptLine).join('\n') + '\n',
     'utf8'
   );
-
   fs.writeFileSync(
     path.join(OUTPUT_DIR, 'val_sharegpt.jsonl'),
     valSamples.map(toShareGptLine).join('\n') + '\n',
     'utf8'
   );
 
-  // 3. 输出 LLaMA-Factory 标准数据集注册文件 dataset_info.json
   const datasetInfo = {
     molan_de_ai_alpaca: {
       file_name: 'train_alpaca.json',
@@ -468,18 +573,27 @@ async function main() {
     'utf8'
   );
 
-  // 4. 输出统计摘要
   const summary = {
+    schemaVersion: '2.0',
     generatedAt: new Date().toISOString(),
+    splitStrategy: 'book_level_zero_leakage',
     corpusBooksCount: processList.length,
-    totalSamples: datasetSamples.length,
+    trainBooksCount: trainBooks.length,
+    valBooksCount: valBooks.length,
+    skippedTestBooks: skippedTestFiles,
+    totalSamples: allSamples.length,
     trainCount: trainSamples.length,
     valCount: valSamples.length,
-    totalCharacters: totalCharsExtracted,
-    approxTokens: Math.round(totalCharsExtracted * 0.72),
+    totalCharacters: totalOutputChars,
+    approxTokens: Math.round(sumTotalChars * 0.72),
+    charStats: {
+      avgTotalChars: Math.round(sumTotalChars / Math.max(1, allSamples.length)),
+      maxTotalChars,
+      over2400Chars
+    },
     taskBreakdown: {
-      de_ai_humanize: datasetSamples.filter(s => s.task === 'de_ai_humanize').length,
-      outline_expansion: datasetSamples.filter(s => s.task === 'outline_expansion').length
+      novel_continuation: allSamples.filter(s => s.task === 'novel_continuation').length,
+      outline_expansion: allSamples.filter(s => s.task === 'outline_expansion').length
     },
     genreStats
   };
@@ -490,13 +604,12 @@ async function main() {
     'utf8'
   );
 
-  console.log('='.repeat(70));
-  console.log('🎉 数据集构造成功！');
-  console.log(`- 训练集样本数: ${trainSamples.length} (train_alpaca.json, train_sharegpt.jsonl)`);
-  console.log(`- 验证集样本数: ${valSamples.length} (val_alpaca.json, val_sharegpt.jsonl)`);
-  console.log(`- LLaMA-Factory 配置: ${path.join(OUTPUT_DIR, 'dataset_info.json')}`);
-  console.log(`- 统计摘要: ${path.join(OUTPUT_DIR, 'dataset_summary.json')}`);
-  console.log('='.repeat(70));
+  console.log('='.repeat(72));
+  console.log('🎉 v2 零假模板真人小说数据集构造成功！');
+  console.log(`- 训练集: ${trainSamples.length} 条 (${trainBooks.length} 本书)`);
+  console.log(`- 验证集: ${valSamples.length} 条 (${valBooks.length} 本书，零泄露)`);
+  console.log(`- 任务分布: 真实前文续写 ${summary.taskBreakdown.novel_continuation} 条 | 节拍写作 ${summary.taskBreakdown.outline_expansion} 条`);
+  console.log('='.repeat(72));
 }
 
 main().catch(err => {

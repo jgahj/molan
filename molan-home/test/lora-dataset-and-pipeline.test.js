@@ -96,5 +96,51 @@ describe('LoRA Pipeline & Dataset Validation Suite', () => {
     assert.ok(fs.existsSync(path.join(trainingDir, 'run_autodl.sh')), 'AutoDL 一键脚本应存在');
     assert.ok(fs.existsSync(path.join(trainingDir, 'Modelfile')), 'Ollama Modelfile 应存在');
     assert.ok(fs.existsSync(path.join(trainingDir, 'README_TRAINING_GUIDE.md')), '微调指南应存在');
+    assert.ok(fs.existsSync(path.join(trainingDir, 'colab/molan_qwen25_7b_lora_colab.ipynb')), 'Colab T4 Notebook 应存在');
+  });
+
+  it('validates v2 dataset anti-leakage, anti-truncation and zero fake boilerplate invariants', () => {
+    const dataDir = path.resolve(__dirname, '../data/lora-training');
+    const summary = JSON.parse(fs.readFileSync(path.join(dataDir, 'dataset_summary.json'), 'utf8'));
+    assert.strictEqual(summary.schemaVersion, '2.0');
+    assert.strictEqual(summary.splitStrategy, 'book_level_zero_leakage');
+    assert.strictEqual(summary.charStats.over2400Chars, 0, '不应存在超过 2400 字的截断风险样本');
+    assert.ok(!summary.genreStats['测试'], '不应包含测试目录题材');
+
+    const trainLines = fs.readFileSync(path.join(dataDir, 'train_sharegpt.jsonl'), 'utf8').trim().split('\n');
+    const valLines = fs.readFileSync(path.join(dataDir, 'val_sharegpt.jsonl'), 'utf8').trim().split('\n');
+    const trainPrefixes = new Set();
+
+    for (const line of trainLines) {
+      const row = JSON.parse(line);
+      assert.ok(!row.messages[1].content.includes('现场气氛有些凝固'), '严禁出现写死假粗稿模板');
+      trainPrefixes.add(row.messages[2].content.slice(0, 120));
+    }
+
+    let overlap = 0;
+    for (const line of valLines) {
+      const row = JSON.parse(line);
+      if (trainPrefixes.has(row.messages[2].content.slice(0, 120))) overlap++;
+    }
+    assert.strictEqual(overlap, 0, '训练集与验证集应为书本级 0% 泄露隔离');
+  });
+
+  it('validates Colab T4 notebook JSON structure and anti-OOM / resume safeguards', () => {
+    const nbPath = path.resolve(__dirname, '../training/colab/molan_qwen25_7b_lora_colab.ipynb');
+    const nb = JSON.parse(fs.readFileSync(nbPath, 'utf8'));
+    assert.strictEqual(nb.nbformat, 4);
+    assert.ok(Array.isArray(nb.cells) && nb.cells.length >= 10, 'Notebook 应包含完整训练与恢复单元');
+
+    const allCode = nb.cells
+      .filter(c => c.cell_type === 'code')
+      .map(c => (Array.isArray(c.source) ? c.source.join('') : String(c.source || '')))
+      .join('\n');
+
+    assert.ok(allCode.includes('train_on_responses_only'), '应开启仅对小说正文算 Loss');
+    assert.ok(allCode.includes('resume_from_checkpoint'), '应支持 Colab 断线自动断点续训');
+    assert.ok(allCode.includes('eval_dataset=val_dataset'), '应挂载验证集监控过拟合');
+    assert.ok(allCode.includes('is_bfloat16_supported'), '应自适应 T4 fp16 与 L4/A100 bf16');
+    assert.ok(allCode.includes('maximum_memory_usage=0.4'), '应配置低内存 GGUF 防 OOM 导出');
+    assert.ok(allCode.includes('add_generation_prompt=True'), '推理验收应使用 ChatML 模板');
   });
 });

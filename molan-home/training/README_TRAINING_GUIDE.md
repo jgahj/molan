@@ -14,22 +14,33 @@
 
 ---
 
-## 二、数据集就绪报告 (已全量生成)
+## 二、数据集就绪报告 (v2 零假模板/书本级防泄露版)
 
-数据集生成引擎已执行完毕，数据存放于 `molan-home/data/lora-training/`：
+数据集生成引擎（`molan-home/scripts/build_lora_dataset.mjs`）已升级至 **v2** 并全量重建，数据存放于 `molan-home/data/lora-training/`：
 
-| 文件名称 | 格式规范 | 样本数量 | 涵盖字数 | 适用训练框架 |
-| :--- | :---: | :---: | :---: | :--- |
-| `train_alpaca.json` | Alpaca (`instruction`, `input`, `output`) | **5,345 条** | ~1080 万字 | LLaMA-Factory / ms-swift / Alpaca-LoRA |
-| `val_alpaca.json` | Alpaca 验证集 (5% 隔离) | **281 条** | ~56 万字 | 验证集评估与 Loss 曲线监控 |
-| `train_sharegpt.jsonl` | ShareGPT / ChatML (`messages`) | **5,345 条** | ~1080 万字 | Unsloth / Axolotl / vLLM SFT |
-| `val_sharegpt.jsonl` | ShareGPT 验证集 | **281 条** | ~56 万字 | 验证集监控 |
-| `dataset_info.json` | LLaMA-Factory 数据注册配置 | - | - | LLaMA-Factory 开箱即用识别 |
-| `dataset_summary.json` | 全维度统计摘要 (题材分布/分词/字数) | - | - | 训练审计与基线对齐 |
+| 文件名称 | 格式规范 | 样本数量 | 核心特性 | 适用训练框架 |
+| :--- | :---: | :---: | :--- | :--- |
+| `train_alpaca.json` | Alpaca (`instruction`, `input`, `output`) | **2,135 条**（1,213 本） | 零假模板、最大总长 2,176 字零截断 | LLaMA-Factory / ms-swift |
+| `val_alpaca.json` | Alpaca 独立验证集 | **117 条**（63 本） | 书本级严格隔离（0% 数据泄露） | 验证集 Loss 监控 |
+| `train_sharegpt.jsonl` | ShareGPT / ChatML (`messages`) | **2,135 条**（~11.1 MB） | 免费版 Colab 极速上传/云盘复用 | **Google Colab Unsloth** / Axolotl |
+| `val_sharegpt.jsonl` | ShareGPT 验证集 | **117 条**（~0.6 MB） | 书本级严格隔离（0% 数据泄露） | **Google Colab Unsloth** 验证 |
+| `dataset_info.json` | LLaMA-Factory 数据注册配置 | - | 开箱即用识别 | LLaMA-Factory |
+| `dataset_summary.json` | 全维度统计摘要 (题材/字数/任务) | - | 训练审计与基线对齐 | 审计基线 |
 
-### 训练包含两大针对性任务：
-1. **Pass 2 降AI精修洗稿 (`de_ai_humanize`)**：占 50% 样本。输入粗糙草稿、大纲与潜在平滑片段，输出真人作者生动利落、纯白描、零套词的自然正文。专用于在墨阑系统中作为第二遍精修主笔。
-2. **Pass 1 细纲高突发度扩写 (`outline_expansion`)**：占 50% 样本。输入题材、角色对峙与起承转合 4 节拍，输出真人小说正文。
+### 训练包含两大零幻觉真实任务（切片互不重叠）：
+1. **真实前文续写 (`novel_continuation`)**：1,472 条（~65%）。切取真实连续段落，前 ~600 字作上文、紧接 ~1,200 字作续写正文，100% 真实人名、对话与节奏承接。
+2. **真实节拍写作 (`outline_expansion`)**：780 条（~35%）。自动排除 `测试` 目录与脏人名，依据真实推进要点直出自然正文。
+
+---
+
+## 二·五、免费零成本方案：Google Colab 免费版 T4 一键微调（推荐优先体验）
+
+仓库已内置专治 Colab 免费版 T4（16GB 显存 / 12.7GB 内存）痛点的 Notebook：`molan-home/training/colab/molan_qwen25_7b_lora_colab.ipynb`（内置 Google Drive 优先读数、每 50 步自动断点续训、`train_on_responses_only` 仅正文算 Loss、验证集监控、防 OOM 分步导出 GGUF 及 Cell 10 纯净重启恢复导出）：
+
+1. 打开 [Google Colab](https://colab.research.google.com/)，点击 **文件 -> 上传笔记本**，上传 `molan-home/training/colab/molan_qwen25_7b_lora_colab.ipynb`。
+2. 菜单点击 **代码执行程序 -> 更改运行时类型 -> T4 GPU -> 保存**。
+3. 在 Google Drive 新建 `molan-lora/data/`，上传 `molan-home/data/lora-training/train_sharegpt.jsonl`（~11.1 MB）和 `val_sharegpt.jsonl`（~0.6 MB）（也可直接在 Cell 3 网页上传，会自动转存云盘）。
+4. 依次运行 Cell 1 ~ Cell 9（全程约 **35~50 分钟**），完成后从 `MyDrive/molan-lora/gguf/` 下载 `qwen2.5-7b-molan-q4_k_m.gguf`，按下方第四节导入本地 Ollama 即可。
 
 ---
 
