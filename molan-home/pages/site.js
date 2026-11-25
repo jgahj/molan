@@ -679,6 +679,38 @@
     }
   }
 
+  function inferDeaiGenre(text, selected) {
+    if (selected && selected !== 'auto') return selected;
+    var sample = String(text || '').slice(0, 1500);
+    if (/(?:灵草|灵气|筑基|金丹|元婴|师兄|师叔|宗门|外门|吐纳|炼丹|飞剑|山门|道友)/.test(sample)) return '仙侠';
+    if (/(?:斗气|武魂|血脉|神域|圣地|至尊|天骄|气海|玄气|皇朝|魔宗)/.test(sample)) return '玄幻';
+    if (/(?:气血值|武考|异兽|武者|星际武道|觉醒转职|副本|战力指数)/.test(sample)) return '都市高武';
+    if (/(?:诡异|纸人|凶宅|民俗|尸体|法医|笔录|死者|阴影里|怪谈|San值)/i.test(sample)) return '悬疑灵异';
+    if (/(?:丧尸|末世|避难所|辐射|废土|机甲|星舰|跃迁|基因锁)/.test(sample)) return '科幻末世';
+    if (/(?:陛下|朝堂|奏折|县令|科举|世子|侯府|藩王|大明|大唐)/.test(sample)) return '历史古代';
+    if (/(?:嫡女|庶女|主母|王爷|嫁妆|宫闱|太后|丫鬟)/.test(sample)) return '古风世情';
+    if (/(?:学长|校草|暗恋|心动|脸红|耳机|奶茶|民政局|领证)/.test(sample)) return '青春甜宠';
+    if (/(?:地铁|出租屋|工位|老板|医院|手机|微信|便利店)/.test(sample)) return '都市';
+    return '通用文学';
+  }
+
+  function fetchGenreStyleHint(genre) {
+    if (!genre || genre === '通用文学' || genre === '通用散文') return Promise.resolve('');
+    return fetch('/api/local-style/baseline?bucket=' + encodeURIComponent(genre))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var b = data && data.baseline;
+        if (!b || !data.matchedBooks) return '';
+        var sm = b.sentenceLenMean && b.sentenceLenMean.mean ? Math.round(b.sentenceLenMean.mean) : 21;
+        var ss = b.sentenceLenStd && b.sentenceLenStd.mean ? b.sentenceLenStd.mean.toFixed(1) : '16.5';
+        var pm = b.paragraphLenMean && b.paragraphLenMean.mean ? Math.round(b.paragraphLenMean.mean) : 30;
+        var dr = b.dialogueRatio && b.dialogueRatio.mean ? Math.round(b.dialogueRatio.mean * 100) : 20;
+        var sp = b.similePerKilo && b.similePerKilo.mean ? b.similePerKilo.mean.toFixed(1) : '1.2';
+        return '\n【当前命中题材真实统计锚点：' + genre + '（实测 ' + data.matchedBooks + ' 本真人原书，纯统计、零原文拷贝）】句长均值约 ' + sm + ' 字、标准差约 ' + ss + ' 字，段均约 ' + pm + ' 字，对白占比约 ' + dr + '%，比喻词 ≤ ' + sp + ' 次/千字。';
+      })
+      .catch(function () { return ''; });
+  }
+
   function openWorkbench(key) {
     var def = TOOL_DEFS[key];
     if (!def) return;
@@ -694,7 +726,24 @@
       '<h1 style="font-size:22px;font-weight:700;color:#0a0a0a;margin:0 0 16px;">' + esc(def.name) + '</h1>' +
       '<textarea id="ml-tool-input" placeholder="' + esc(def.ph) + '" style="width:100%;min-height:140px;padding:14px;border:1px solid #e5e5e5;border-radius:14px;font-size:14px;line-height:1.7;resize:vertical;outline:none;font-family:inherit;box-sizing:border-box;" onfocus="this.style.borderColor=\'#0a0a0a\'" onblur="this.style.borderColor=\'#e5e5e5\'"></textarea>' +
       (key === 'deai' ?
-        '<label id="ml-zhuque-toggle-wrap" style="display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:11px 14px;background:#f7f7f7;border:1px solid #e5e5e5;border-radius:12px;cursor:pointer;font-size:13px;color:#333;">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;">' +
+        '<label for="ml-deai-genre" style="font-size:13px;font-weight:600;color:#333;">题材统计指纹：</label>' +
+        '<select id="ml-deai-genre" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:13px;background:#fff;color:#111827;cursor:pointer;">' +
+        '<option value="auto">自动识别题材（命中 1,279 本原书统计指纹）</option>' +
+        '<option value="仙侠">仙侠 / 东方仙侠</option>' +
+        '<option value="玄幻">玄幻 / 传统玄幻</option>' +
+        '<option value="都市">都市 / 现实</option>' +
+        '<option value="都市高武">都市高武 / 脑洞</option>' +
+        '<option value="青春甜宠">青春甜宠 / 现言</option>' +
+        '<option value="古风世情">古风世情 / 宫斗宅斗</option>' +
+        '<option value="悬疑灵异">悬疑灵异 / 刑侦</option>' +
+        '<option value="历史古代">历史古代 / 架空</option>' +
+        '<option value="科幻末世">科幻末世 / 诸天无限</option>' +
+        '<option value="轻小说">轻小说 / 二次元</option>' +
+        '<option value="通用散文">通用散文 / 非虚构</option>' +
+        '</select>' +
+        '</div>' +
+        '<label id="ml-zhuque-toggle-wrap" style="display:flex;align-items:flex-start;gap:9px;margin-top:10px;padding:11px 14px;background:#f7f7f7;border:1px solid #e5e5e5;border-radius:12px;cursor:pointer;font-size:13px;color:#333;">' +
         '<input type="checkbox" id="ml-zhuque-toggle" style="width:16px;height:16px;margin-top:2px;accent-color:#16a34a;cursor:pointer;flex-shrink:0;">' +
         '<span><b>朱雀深度模式</b> <span style="color:#888;">· 真实 AIGC 检测 + 多轮改写到全绿（约 2-5 分钟，消耗较多积分）</span></span>' +
         '</label>' : '') +
@@ -771,14 +820,16 @@
       out.style.display = 'block'; out.textContent = '';
       if (actionsGroup) actionsGroup.style.display = 'none';
       if (zhuqueReport) { zhuqueReport.style.display = 'none'; zhuqueReport.innerHTML = ''; }
+      var genreSelect = $('#ml-deai-genre');
+      var resolvedGenre = inferDeaiGenre(text, genreSelect ? genreSelect.value : 'auto');
       resolveToolModel().then(function (model) {
         return api('/api/zhuque-detect', { text: text }).then(function (before) {
           renderZhuqueReport(before, null, null);
-          status.textContent = 'AI 味 ' + before.aiScore + '/100，正在深度改写（约 2-5 分钟，请勿关闭页面）…';
+          status.textContent = 'AI 味 ' + before.aiScore + '/100（题材：' + resolvedGenre + '），正在深度改写（约 2-5 分钟，请勿关闭页面）…';
           return api('/api/deai-zhuque-loop', {
             seedText: text,
             modelId: model,
-            novelGenre: '通用文学',
+            novelGenre: resolvedGenre === '通用散文' ? '通用文学' : resolvedGenre,
             targetChars: text.length
           }).then(function (result) {
             runBtn.disabled = false; runBtn.style.opacity = '';
@@ -819,9 +870,16 @@
       status.textContent = '正在生成…';
       out.style.display = 'block'; out.textContent = '';
       if (actionsGroup) actionsGroup.style.display = 'none';
-      resolveToolModel().then(function (model) {
+      var genreSelect = $('#ml-deai-genre');
+      var resolvedGenre = key === 'deai' ? inferDeaiGenre(text, genreSelect ? genreSelect.value : 'auto') : '';
+      Promise.all([
+        resolveToolModel(),
+        key === 'deai' ? fetchGenreStyleHint(resolvedGenre) : Promise.resolve('')
+      ]).then(function (pair) {
+        var model = pair[0];
+        var genreHint = pair[1] || '';
         streamChat([
-          { role: 'system', content: def.sys },
+          { role: 'system', content: def.sys + genreHint },
           { role: 'user', content: text }
         ], function (chunk) {
           out.textContent += chunk;

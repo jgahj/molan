@@ -4,17 +4,19 @@
  * 代码为逐字迁移（行为不变），加载位置与原内联位置一致。
  */
     if (location.protocol !== 'file:') {
-      const v = '20261125_real_style_deai_v1';
-      // 核心脚本（首屏必需）：作品库 / 编辑器 / 平台页 / 工作区装配
-      // completion-import.js（resources/dissect/creation）与 completion-admin.js（admin）
-      // 改为按路由懒加载，由 app-boot.js 的 renderPage 守卫触发，节省首屏约 399KB。
+      const v = '20261125_perf_arch_opt_v1';
+      // 核心脚本（首屏必需）：作品库 / 平台页 / 工作区装配
+      // completion-editor.js（editor/outline/knowledge，679KB）、completion-import.js（321KB）
+      // 与 completion-admin.js（72KB）均按路由懒加载，首屏合计立省约 1,072KB；
+      // 同时显式设置 s.async = false，根除公网环境下动态脚本乱序执行的竞态隐患。
       [
+        `./pages/js/editor-shared-core.js?v=${v}`,
         `./completion-library.js?v=${v}`,
-        `./completion-editor.js?v=${v}`,
         `./completion-platform.js?v=${v}`,
         `./workspace-completion.js?v=${v}`
       ].forEach(src => {
         const s = document.createElement('script');
+        s.async = false;
         s.src = src;
         document.body.appendChild(s);
       });

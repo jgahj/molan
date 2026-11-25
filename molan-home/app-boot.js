@@ -54,6 +54,7 @@
       } catch (_) { return ''; }
     })();
     const LAZY_ROUTE_SCRIPTS = {
+      './completion-editor.js': ['editor', 'outline', 'knowledge'],
       './completion-import.js': ['resources', 'dissect', 'creation'],
       // 2026-10-19 P1-1：admin-login 此前不在清单内，进入管理员登录页时脚本根本不加载
       './completion-admin.js': ['admin', 'admin-login']
@@ -63,6 +64,7 @@
       if (loadedLazyScripts.has(src)) return Promise.resolve();
       return new Promise((resolve, reject) => {
         const s = document.createElement('script');
+        s.async = false;
         s.src = FRONTEND_STAMP ? `${src}?v=${FRONTEND_STAMP}` : src;
         s.onload = () => { loadedLazyScripts.add(src); resolve(); };
         s.onerror = () => reject(new Error('懒加载脚本失败: ' + src));

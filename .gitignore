@@ -26,9 +26,12 @@ molan-home/.ds-profile/
 molan-home/data/config.json
 molan-home/data/*.db
 molan-home/data/*.db-*
+molan-home/data/*.db.*
 molan-home/data/*.sqlite
 molan-home/data/*.sqlite-*
 molan-home/data/xuanhuan-lab/*.db*
+molan-home/data/legacy-archive/
+molan-home/output/
 molan-home/data/character-material-*/
 molan-home/data/genre-lab/extracted-triplets/
 molan-home/data/benchmark-runs/

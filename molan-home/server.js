@@ -1034,20 +1034,24 @@ function postgresRuntimeSkillFromRow(row, source) {
 
 async function flushPostgresRuntimeWrites() { return true; }
 
+const {
+  debugWarn: persistenceDebugWarn,
+  writeJsonAtomicSync,
+  createThrottledJsonStore
+} = require('./services/json-persistence-service');
+
 function readJsonFile(file, fallback) {
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
     return data;
-  } catch (_) { return fallback; }
+  } catch (err) {
+    if (err && err.code !== 'ENOENT') persistenceDebugWarn('json-read', `读取 ${file} 失败，回退默认值`, err);
+    return fallback;
+  }
 }
 
 function writeJsonFile(file, data) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-  try { fs.chmodSync(tmp, 0o600); } catch (_) {}
-  fs.renameSync(tmp, file);
-  try { fs.chmodSync(file, 0o600); } catch (_) {}
+  writeJsonAtomicSync(file, data, { mode: 0o600 });
 }
 
 
@@ -1174,14 +1178,14 @@ function loadCorrectionHits() {
 }
 
 function flushCorrectionHits() {
-  correctionHitsTimer = null;
+  if (correctionHitsTimer) {
+    clearTimeout(correctionHitsTimer);
+    correctionHitsTimer = null;
+  }
   if (!correctionHitsDirty || !correctionHitsCache) return;
   correctionHitsDirty = false;
   try {
-    fs.mkdirSync(CORRECTION_LIBRARY_DIR, { recursive: true });
-    const tmp = CORRECTION_HITS_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(correctionHitsCache, null, 2), 'utf8');
-    fs.renameSync(tmp, CORRECTION_HITS_FILE);
+    writeJsonAtomicSync(CORRECTION_HITS_FILE, correctionHitsCache, { mode: 0o600 });
   } catch (error) {
     console.error('[correction] 命中统计保存失败：', error && error.message || error);
   }
@@ -1563,26 +1567,19 @@ function legacyStorageRemovedError() {
   return Object.assign(new Error('该记录属于已下线的本地存储模式，请改用新的拆书任务'), { status: 410, code: 'legacy_storage_removed' });
 }
 
+const tokenUsageJsonStore = createThrottledJsonStore(TOKEN_USAGE_FILE, {
+  debounceMs: 1200,
+  fallback: [],
+  mode: 0o600
+});
+
 function usageRowsFromJson() {
-  try {
-    const rows = JSON.parse(fs.readFileSync(TOKEN_USAGE_FILE, 'utf-8'));
-    return Array.isArray(rows) ? rows : [];
-  } catch (_) { return []; }
+  const rows = tokenUsageJsonStore.read();
+  return Array.isArray(rows) ? rows : [];
 }
 
 function saveUsageRowsToJson(rows) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = TOKEN_USAGE_FILE + '.tmp';
-  const payload = JSON.stringify(rows, null, 2);
-  const fd = fs.openSync(tmp, 'w', 0o600);
-  try {
-    fs.writeFileSync(fd, payload, 'utf-8');
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-  fs.renameSync(tmp, TOKEN_USAGE_FILE);
-  try { fs.chmodSync(TOKEN_USAGE_FILE, 0o600); } catch (_) {}
+  tokenUsageJsonStore.save(Array.isArray(rows) ? rows : []);
 }
 
 function roundCreditValue(value) {

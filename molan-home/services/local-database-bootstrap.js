@@ -25,6 +25,7 @@ function createLocalDatabaseBootstrap(deps) {
   const fs = require('node:fs');
   const path = require('node:path');
   const { assertJsonSource } = require('../lib/repositories/assert-json-source');
+  const { debugWarn } = require('./json-persistence-service');
 
   return function initLocalDatabase(options = {}) {
   if (!dbEnabled) return false;
@@ -85,7 +86,7 @@ function createLocalDatabaseBootstrap(deps) {
       created_at INTEGER NOT NULL,
       revoked_at INTEGER
     )`);
-    try { database.exec("ALTER TABLE auth_sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT ''"); } catch (_) {}
+    try { database.exec("ALTER TABLE auth_sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT ''"); } catch (err) { debugWarn('sqlite-migrate', 'auth_sessions.user_id column already exists or skipped', err); }
     database.prepare('SELECT token_hash, email, user_id FROM auth_sessions WHERE user_id = ?').all('').forEach(row => {
       const account = database.prepare('SELECT user_id FROM accounts WHERE email = ?').get(String(row.email || '').trim().toLowerCase());
       if (account && account.user_id) database.prepare('UPDATE auth_sessions SET user_id = ? WHERE token_hash = ?').run(account.user_id, row.token_hash);

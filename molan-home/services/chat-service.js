@@ -4,6 +4,7 @@ const { createChatStreamRuntime } = require('./chat-stream-runtime');
 const { sanitizeUserPrompt } = require('../lib/ip-continuation-adapter');
 const { analyzeHumanTexture } = require('../lib/style/human-texture');
 const zhuque = require('./zhuque-detector-service');
+const { debugWarn } = require('./json-persistence-service');
 
 function resolveUpstreamModelForReasoning(pm, eff) {
   if (pm && pm.provider === 'antigravity-acp') return (pm && (pm.model || pm.id)) || '';
@@ -998,7 +999,7 @@ function createChatService({
         try {
           const { sanitizeInPlace } = require('../lib/generation/inplace-sanitizer');
           content = sanitizeInPlace(content).text;
-        } catch (_) {}
+        } catch (err) { debugWarn('chat-sanitize', 'sanitizeInPlace fallback triggered', err); }
         if (!content) { try { res.write('data: [DONE]\n\n'); } catch (_) {} return; }
         const CHUNK = 240;
         for (let i = 0; i < content.length; i += CHUNK) {

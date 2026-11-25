@@ -9,7 +9,8 @@ test('仅放行明确列出的客户端 WAL 和搜索静态资源', () => {
     '/lib/client/local-wal.js',
     '/lib/client/search-index.js',
     '/lib/client/search-worker.js',
-    '/lib/client/generation-runs.js'
+    '/lib/client/generation-runs.js',
+    '/pages/js/editor-shared-core.js'
   ]) assert.equal(__test.isPublicStaticPath(asset), true, asset);
   for (const asset of [
     '/lib/client/other.js',
@@ -87,27 +88,29 @@ test('index.html 与 app-boot.js 引用的外部脚本均包含统一的 Cache-B
   assert.match(html, /boot-scripts\.js\?v=[a-zA-Z0-9_-]+/);
   assert.match(html, /app-boot\.js\?v=[a-zA-Z0-9_-]+/);
 
-  // 首屏 4 个核心补全脚本由 boot-scripts.js 动态注入，均拼接运行时版本戳
+  // 首屏轻量核心补全脚本由 boot-scripts.js 动态顺序注入（s.async = false），均拼接运行时版本戳
   const bootScripts = fs.readFileSync(path.resolve(__dirname, '../boot-scripts.js'), 'utf8');
   const eagerScripts = [
+    'pages/js/editor-shared-core.js',
     'completion-library.js',
-    'completion-editor.js',
     'completion-platform.js',
     'workspace-completion.js'
   ];
   for (const script of eagerScripts) {
-    const pattern = new RegExp(`\\./${script}\\?v=\\$\\{v\\}`);
+    const escaped = script.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`\\./${escaped}\\?v=\\$\\{v\\}`);
     assert.ok(pattern.test(bootScripts), `boot-scripts.js 中 ${script} 必须拼接 ?v=\${v} 运行时版本戳`);
   }
 
-  // 2026-10-14 懒加载：import/admin 脚本改由 app-boot.js 按路由加载，
+  // 路由按需懒加载：editor（679KB）/ import（321KB）/ admin（72KB）均改由 app-boot.js 按路由加载，
   // 版本戳在运行时从 app-boot 自身 URL 自读取后拼接，不得硬编码过期戳
-  const lazyScripts = ['completion-import.js', 'completion-admin.js'];
+  const lazyScripts = ['completion-editor.js', 'completion-import.js', 'completion-admin.js'];
   for (const script of lazyScripts) {
     assert.ok(boot.includes(script), `app-boot.js 懒加载表必须注册 ${script}`);
   }
   assert.match(boot, /FRONTEND_STAMP \? `\$\{src\}\?v=\$\{FRONTEND_STAMP\}` : src/, '懒加载 URL 必须运行时拼接自读取版本戳');
   // 旧版全量加载清单不得残留（防止回退到首屏全载）
+  assert.ok(!/completion-editor\.js\?v=/.test(html), 'completion-editor.js 不得再出现于 index.html 首屏清单');
   assert.ok(!/completion-import\.js\?v=/.test(html), 'completion-import.js 不得再出现于 index.html 首屏清单');
   assert.ok(!/completion-admin\.js\?v=/.test(html), 'completion-admin.js 不得再出现于 index.html 首屏清单');
 });
