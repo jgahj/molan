@@ -147,6 +147,57 @@ molan-home/
 
 ---
 
+## 阶段记录：注册邮箱 SMTP 配置同步与红框消除——对接 sub2api Docker 容器并持久化至本地 config.json (2026-11-25)
+
+> 背景：用户在本地 `http://localhost:3000` 注册墨阑工作台时，界面提示红框警告 `未检测到运行中的 Docker / sub2api-postgres 容器，请先启动 Docker 中的 sub2api，或在 data/config.json / 环境变量中配置 SMTP`。用户确认已在 `sub2api` 项目中配置过发信邮箱（选项 B）。经排查，用户本机 Docker Desktop 此前未启动导致 PostgreSQL 容器未处于监听状态。在用户启动 Docker Desktop 后，自动读取 `sub2api-postgres` 容器中的 `settings` 表并将 SMTP 配置无损落盘至 `molan-home/data/config.json`，实现墨阑即便在后续 Docker 关闭时也能独立稳定发送 6 位注册验证码。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 目标 | 动作类型 | 关键改动点与核心操作 |
+| :--- | :---: | :--- |
+| `molan-home/data/config.json` | 配置落盘 | 通过 `molan-home/scripts/sync-sub2api-smtp.mjs` 从运行中的 `sub2api-postgres` 容器提取 `smtp_host`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_from`, `smtp_from_name`, `smtp_use_tls`，并安全合并写入本地 `data/config.json`（密码仅本地持久化，受 `.gitignore` 保护不入版本控制）。 |
+| `molan-home/routes/auth.js` & `services/smtp-mail-service.js` | 服务就绪验证 | `GET /api/auth/register-config` 实时感知 `config.json` 中的 `smtp` 字段，响应返回 `emailConfigured: true` 且 `emailStatusReason: ""`。前端注册弹窗顶部红色告警框彻底消除。 |
+
+### 二、设计决策与权衡
+
+1. **从 Docker 直读改为落盘 `config.json` 的双保险设计**：
+   - 依赖 Docker 运行时读取会受到 Docker Desktop 开关状态的强约束（启动慢、占用内存）。
+   - 一次性同步并将脱敏解析后的配置落盘到 `data/config.json`，使得墨阑服务在日常使用时无需常驻启动 Docker Desktop 或依赖 SSH 隧穿，降低系统资源损耗。
+2. **密码与敏感信息硬围栏**：
+   - 同步脚本与测试全程绝不打印真实密码/授权码，仅在控制台与日志中输出 `passwordSaved: true`，符合项目安全硬围栏标准。
+
+### 三、真实验证证据
+
+1. **配置同步命令与输出**：
+   ```bash
+   tools/node22_runtime/node.exe molan-home/scripts/sync-sub2api-smtp.mjs
+   ```
+   输出：
+   ```json
+   {
+     "ok": true,
+     "source": "sub2api-docker",
+     "host": "smtp.qq.com",
+     "port": 465,
+     "from": "1271055010@qq.com",
+     "fromName": "顶点api",
+     "useTLS": true,
+     "passwordSaved": true,
+     "target": "C:\\Users\\lyh\\Desktop\\小说专属网页\\molan-home\\data\\config.json"
+   }
+   ```
+2. **接口健康与配置校验**：
+   - `GET http://127.0.0.1:3000/api/auth/register-config` 状态码 200：
+     `{"ok":true,"registrationEnabled":true,"emailVerifyEnabled":true,"emailConfigured":true,"emailStatusReason":"","countdownSeconds":60,"codeLength":6,"codeExpiresMinutes":15,"siteName":"墨阑 AI 小说"}`
+3. **UI 视觉实证**：
+   - 浏览器子代理访问 `http://localhost:3000/#login` 切换至注册标签，截图确认原红色告警框已彻底消失，两步验证注册表单（账号信息与邮箱验证）渲染完整规范。
+   - 截图存证：`C:/Users/lyh/.gemini/antigravity/brain/36be6919-5f88-4ac0-8c6f-7e567fc53cb4/browser_evidence/be2641d5-0719-4452-aa4e-00289aa69908/final_step_14.png`
+4. **自动化测试套件回归**：
+   - 运行：`tools/node22_runtime/node.exe --test molan-home/test/email-verification-register.test.js molan-home/test/auth-account-service.test.js`
+   - 结果：12 tests, 12 pass, 0 fail, 100% 真实通过。
+
+---
+
 ## 阶段记录：Google Colab 免费版 T4 小说模型训练全链路重构——v2 零假模板/书本级防泄露数据集与防断线防 OOM Notebook 落地 (2026-11-25)
 
 > 背景：用户需要使用 `资源库/小说原本` 数据在 Google Colab（免费版 T4，16GB 显存 / 12.7GB 内存）上微调自己的 Qwen2.5-7B-Instruct 小说模型。前置审计发现旧版 `build_lora_dataset.mjs` 存在写死 120 字假粗稿诱发幻觉、脏人名抽取、测试目录混入、样本级打乱导致验证泄露及超 2048 截断 4 大硬伤，且旧版 Colab Notebook 存在免费版导出 GGUF 易 OOM、无断点续训、未开启 `train_on_responses_only`、未挂载验证集及推理测试未套 ChatML 模板等 5 项隐患。经用户确认后实施全链路 v2 升级。
