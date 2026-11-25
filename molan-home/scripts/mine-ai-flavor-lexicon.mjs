@@ -20,11 +20,11 @@ const OUTPUT_PATH = path.join(MOLAN_HOME, 'data', 'ai-flavor-lexicon.json');
 const SCHEMA_VERSION = 'ai-flavor-lexicon-1';
 const LEXICON_VERSION_PREFIX = 'ai-flavor-lexicon-v1';
 
-// 语料抽样总量目标（约 40 本）。实际题材桶数较多时，每桶抽样数按总量目标自适应
-// （每桶至少 1 本、至多 4 本），在“共约 40 本”与“覆盖所有题材桶”之间取平衡。
-const TARGET_TOTAL_BOOKS = 40;
+// 全库扫描模式：遍历 资源库/小说原本 下全部题材桶与根目录原书（只读），零抽样偏差。
+const FULL_CORPUS_MODE = true;
+const TARGET_TOTAL_BOOKS = 1279;
 const MIN_PER_BUCKET = 1;
-const MAX_PER_BUCKET = 4;
+const MAX_PER_BUCKET = 9999;
 
 // PMF（每百万字频率）分级阈值：< 5 → block；5~30 → watch；> 30 → 语料常用词，丢弃。
 const BLOCK_PMF_BELOW = 5;
@@ -214,12 +214,23 @@ function pickSpreadIndices(total, pick) {
  */
 function selectSampleBooks(corpusRoot, targetTotal) {
   const buckets = listCorpusBuckets(corpusRoot);
-  const quota = resolvePerBucketQuota(buckets.length);
+  const quota = FULL_CORPUS_MODE ? 'all' : resolvePerBucketQuota(buckets.length);
   const books = [];
   for (const { bucket, dir, files } of buckets) {
-    for (const index of pickSpreadIndices(files.length, quota)) {
+    const selectedIndices = FULL_CORPUS_MODE
+      ? Array.from({ length: files.length }, (_, i) => i)
+      : pickSpreadIndices(files.length, quota);
+    for (const index of selectedIndices) {
       const file = files[index];
       books.push({ bucket, file, filePath: path.join(dir, file) });
+    }
+  }
+  if (FULL_CORPUS_MODE) {
+    const rootEntries = fs.readdirSync(corpusRoot, { withFileTypes: true });
+    for (const entry of rootEntries) {
+      if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.txt')) continue;
+      const bucket = /仙|道|修真/.test(entry.name) ? '仙侠' : '玄幻';
+      books.push({ bucket, file: entry.name, filePath: path.join(corpusRoot, entry.name) });
     }
   }
   return { bucketCount: buckets.length, quota, books, targetTotal };
@@ -295,7 +306,8 @@ function scanCorpus(books, terms) {
   const counts = new Map(terms.map((term) => [term, 0]));
   const bookStats = [];
   let totalChars = 0;
-  for (const book of books) {
+  for (let i = 0; i < books.length; i += 1) {
+    const book = books[i];
     const text = normalizeCorpusText(book.filePath);
     totalChars += text.length;
     bookStats.push({ bucket: book.bucket, file: book.file, chars: text.length });
@@ -304,7 +316,9 @@ function scanCorpus(books, terms) {
       const hits = regex ? countPatternOccurrences(text, regex) : countPlainOccurrences(text, term);
       if (hits) counts.set(term, counts.get(term) + hits);
     }
-    console.log(`[语料] ${book.bucket}/${book.file} · ${text.length.toLocaleString('zh-CN')} 字`);
+    if ((i + 1) % 200 === 0 || i === books.length - 1) {
+      console.log(`[语料] 已扫描 ${i + 1}/${books.length} 本 · 累计 ${totalChars.toLocaleString('zh-CN')} 字`);
+    }
   }
   return { counts, totalChars, bookStats };
 }
@@ -350,7 +364,15 @@ function buildLexiconOutput(cpTerms, manualTerms, counts, totalChars, corpusMeta
   }
   for (const term of cpTerms) {
     const pmf = computePmf(counts.get(term) || 0, totalChars);
-    entries.push({ term, corpusPmf: pmf, source: 'correction-policy', recommendation: 'block' });
+    // 纠错正则拆分出的字面片段同样接受全库真实 PMF 检验，杜绝把“还是/一点/一枚/两声/闷响”等正常高频词误判为 block
+    const recommendation = classifyByPmf(pmf);
+    if (!recommendation) {
+      discardedManualCount += 1;
+      continue;
+    }
+    // 长度 <= 2 且全库 PMF >= 5 的零碎字面片段多为复合正则语境词（如“蹲在/气血/两声/闷响”），降级为 watch
+    const finalRec = (term.length <= 2 && pmf >= BLOCK_PMF_BELOW) ? 'watch' : recommendation;
+    entries.push({ term, corpusPmf: pmf, source: 'correction-policy', recommendation: finalRec });
   }
   // 排序：block 在前，其次按语料 PMF 升序（越低越“AI 专属”），最后按词面稳定排序。
   entries.sort((a, b) => {
@@ -371,7 +393,7 @@ function buildLexiconOutput(cpTerms, manualTerms, counts, totalChars, corpusMeta
       bookCount: corpusMeta.bookStats.length,
       totalChars,
       perBucketQuota: corpusMeta.quota,
-      samplingNote: `语料库实际题材桶数较多，按“抽样总量约 ${TARGET_TOTAL_BOOKS} 本”优先，自适应为每桶 ${corpusMeta.quota} 本；全库只读，未向资源库写入任何文件。`,
+      samplingNote: `全库 ${corpusMeta.bookStats.length} 本真实原书 100% 只读全量扫描（无抽样偏差），未向资源库写入任何文件。`,
       books: corpusMeta.bookStats
     },
     thresholds: {

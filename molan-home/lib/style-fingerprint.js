@@ -25,6 +25,17 @@ const PROFILE_FIELDS = [
   'similePerKilo'
 ];
 
+// 全库 1,279 本真实统计扩展抗 AI 维度（可选聚合，不影响既有 PROFILE_FIELDS 契约）。
+const EXTENDED_PROFILE_FIELDS = [
+  'sentenceLenCv',
+  'shortSentenceRatio',
+  'longSentenceRatio',
+  'paragraphLenCv',
+  'directPsychPerKilo',
+  'aiGluePerKilo',
+  'modalParticlePerKilo'
+];
+
 // 指纹缓存三态：undefined=尚未加载，null=已尝试加载但文件缺失/损坏，对象=加载成功。
 let fingerprintCache;
 // 当前指纹文件路径（默认常量；_internals.setFingerprintFilePath 可覆盖以便测试）。
@@ -142,6 +153,18 @@ function aggregateProfile(books) {
       ? roundTo(trimmedMean(values), 4)
       : null;
   }
+  for (const field of EXTENDED_PROFILE_FIELDS) {
+    const values = [];
+    for (const book of books) {
+      const raw = book && book.fingerprint ? book.fingerprint[field] : null;
+      if (raw === null || raw === undefined) continue;
+      const num = Number(raw);
+      if (Number.isFinite(num)) values.push(num);
+    }
+    if (values.length > 0) {
+      profile[field] = roundTo(trimmedMean(values), 4);
+    }
+  }
   return profile;
 }
 
@@ -211,6 +234,60 @@ function buildRhythmTargetBlock(genre) {
 }
 
 /**
+ * 基于全库真实原书纯统计指纹，生成专为「去 AI 味改写」服务的风格锚点块（绝不注入原书正文段落）。
+ * 将统计分布转化为可落地的句长突发度、体感替代心理、对白口语与低比喻约束。
+ * @param {string} genre 题材字符串
+ * @returns {string} 纯统计风格锚点块，无数据时返回 ''
+ */
+function buildDeaiStyleFingerprintBlock(genre) {
+  const resolved = resolveFingerprintProfile(genre);
+  const profile = resolved ? resolved.profile : null;
+  if (!profile) return '';
+  const scopeLabel = resolved.matchedBucket
+    ? `${resolved.matchedBucket}（实测 ${resolved.bookCount} 本真人原书）`
+    : `全库 ${resolved.bookCount} 本真人原书基线`;
+  const sentenceMean = Number(profile.sentenceLenMean);
+  const sentenceStd = Number(profile.sentenceLenStd);
+  const sentenceCv = Number(profile.sentenceLenCv);
+  const shortRatio = Number(profile.shortSentenceRatio);
+  const longRatio = Number(profile.longSentenceRatio);
+  const paraMean = Number(profile.paragraphLenMean);
+  const paraCv = Number(profile.paragraphLenCv);
+  const dialogueRatio = Number(profile.dialogueRatio);
+  const dialogueTurnMean = Number(profile.dialogueTurnMean);
+  const similePerKilo = Number(profile.similePerKilo);
+  const directPsychPerKilo = Number(profile.directPsychPerKilo);
+  const aiGluePerKilo = Number(profile.aiGluePerKilo);
+
+  const lines = [`【真实网文统计风格锚点（${scopeLabel}，纯统计基线、零原书段落拷贝）】`];
+  if (Number.isFinite(sentenceMean) && sentenceMean > 0) {
+    const stdPart = Number.isFinite(sentenceStd) && sentenceStd > 0 ? `、标准差约 ${sentenceStd.toFixed(1)} 字` : '';
+    const cvPart = Number.isFinite(sentenceCv) && sentenceCv > 0 ? `（突发度 CV≈${sentenceCv.toFixed(2)}）` : '';
+    const splitPart = Number.isFinite(shortRatio) && Number.isFinite(longRatio)
+      ? `，≤10 字短句约占 ${Math.round(shortRatio * 100)}%、≥35 字长句约占 ${Math.round(longRatio * 100)}%`
+      : '';
+    lines.push(`- 句长突发度：均值约 ${Math.round(sentenceMean)} 字${stdPart}${cvPart}${splitPart}；打破匀速流水账，禁止连续 4 句等长。`);
+  }
+  if (Number.isFinite(paraMean) && paraMean > 0) {
+    const cvText = Number.isFinite(paraCv) && paraCv > 0 ? `（参差度 CV≈${paraCv.toFixed(2)}）` : '';
+    lines.push(`- 段落呼吸：段均约 ${Math.round(paraMean)} 字${cvText}；按动作与信息自然分段，合并无意义的廉价孤句停顿（如“屋里没人回答。”）。`);
+  }
+  if (Number.isFinite(dialogueRatio) && dialogueRatio > 0) {
+    const turnText = Number.isFinite(dialogueTurnMean) && dialogueTurnMean > 0 ? `，单轮约 ${Math.round(dialogueTurnMean)} 字` : '';
+    lines.push(`- 对白人设化：对话占比约 ${Math.round(dialogueRatio * 100)}%${turnText}；依身份写出敷衍、试探、打断与省字，告别机械轮换“说道/问道/答道”。`);
+  }
+  const redlines = [];
+  if (Number.isFinite(similePerKilo) && similePerKilo > 0) redlines.push(`比喻词 ≤ ${similePerKilo.toFixed(1)} 次/千字`);
+  if (Number.isFinite(directPsychPerKilo) && directPsychPerKilo >= 0) redlines.push(`直白心理报幕 ≤ ${Math.max(0.2, directPsychPerKilo).toFixed(1)} 次/千字`);
+  if (Number.isFinite(aiGluePerKilo) && aiGluePerKilo >= 0) redlines.push(`AI 平滑粘连词 ≤ ${Math.max(0.2, aiGluePerKilo).toFixed(1)} 次/千字`);
+  if (redlines.length) {
+    lines.push(`- 体感与红线：${redlines.join('，')}；用具体动作与器物体感替代“心里一紧/心里有些乱/知道自己必须……”等总结句。`);
+  }
+  lines.push('- 体验守则：严禁靠造错别字、破坏中文标点引号、生造病句或古今穿越换词（如“月俸→月工资”）做低级洗稿。');
+  return lines.join('\n');
+}
+
+/**
  * 清空指纹缓存（仅供测试）：下一次 loadStyleFingerprints 将重新读盘。
  * @returns {void}
  */
@@ -231,13 +308,15 @@ function setFingerprintFilePath(filePath) {
 module.exports = {
   loadStyleFingerprints,
   resolveFingerprintProfile,
-  buildRhythmTargetBlock
+  buildRhythmTargetBlock,
+  buildDeaiStyleFingerprintBlock
 };
 
 // 内部钩子：仅供单元测试覆盖路径、清缓存与直接检验匹配/聚合逻辑。
 module.exports._internals = {
   DEFAULT_FINGERPRINT_FILE,
   PROFILE_FIELDS,
+  EXTENDED_PROFILE_FIELDS,
   resetCache,
   setFingerprintFilePath,
   normalizeGenreKey,

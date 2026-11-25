@@ -7,8 +7,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import flavorDetector from '../lib/ai-flavor-detector.js';
 import { buildParagraphSamples } from './build-paragraph-samples.mjs';
+
+const require = createRequire(import.meta.url);
+const { isBrokenAnonymizedText } = require('../lib/character-material.js');
 
 const SCRIPT_PATH = path.resolve(fileURLToPath(import.meta.url));
 
@@ -60,6 +64,7 @@ Object.values(payload.buckets).forEach((bucket) => {
   (bucket.samples || []).forEach(sample => {
     total += 1;
     if (/^小说名[:：]/.test(sample.text || '') || /^内容简介[:：]/m.test((sample.text || '').slice(0, 120))) { gated += 1; return; }
+    if (sample.anonymizedText && isBrokenAnonymizedText(sample.anonymizedText)) { gated += 1; return; }
     const textKey = (sample.text || '').slice(0, 80);
     if (seenTexts.has(textKey)) return;
     const flavor = flavorDetector.computeAiFlavorScore(sample.text || '');

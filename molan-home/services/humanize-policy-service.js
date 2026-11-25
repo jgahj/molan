@@ -128,8 +128,21 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       if (issues.length) diagnosticLines.push(`- 文本结构单调提示：${issues.join('；')}`);
     }
 
+    let styleFingerprintBlock = '';
+    try {
+      const { buildDeaiStyleFingerprintBlock } = require('../lib/style-fingerprint');
+      if (typeof buildDeaiStyleFingerprintBlock === 'function') {
+        styleFingerprintBlock = buildDeaiStyleFingerprintBlock(genreLabel);
+      }
+    } catch (_) {
+      styleFingerprintBlock = '';
+    }
+
     let livingExemplarBlock = '';
-    if (metaInfo.includeLivingExemplars !== false) {
+    const disableExemplars = metaInfo.includeLivingExemplars === false
+      || metaInfo.styleOnly === true
+      || process.env.MOLAN_HUMANIZE_NO_EXEMPLARS === '1';
+    if (!disableExemplars) {
       try {
         const { buildLivingProseExemplarBlock } = require('../lib/character-material');
         if (typeof buildLivingProseExemplarBlock === 'function') {
@@ -149,6 +162,7 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       UNIVERSAL_CORRECTION_MARKER,
       UNIVERSAL_CORRECTION_POLICY_PROMPT
     ];
+    if (styleFingerprintBlock) systemParts.push(styleFingerprintBlock);
     if (lexiconBlock) systemParts.push(lexiconBlock);
     if (diagnosticLines.length) {
       systemParts.push(`【本篇初稿实测 AI 味诊断（优先逐项修复）】\n${diagnosticLines.join('\n')}`);
@@ -164,14 +178,14 @@ function createHumanizePolicyService({ buildHumanizeLexiconBlock, UNIVERSAL_CORR
       '【改写边界（必须遵守）】',
       '1. 保持剧情主干、核心情境与人物立场：修补初稿中的叙事断层与前后矛盾，修正违背基本生活常识与物理常识的悬浮动作；修补需顺理成章、行云流水，杜绝刻意跳出故事解释道具台账的打卡感。',
       '2. 道具与状态时空自洽：文牒、信物、兵刃、伤势等关键要素前后连贯，严禁前文收起后文凭空在他人手中复现的穿帮；生死关头动机合理，严禁死斗中突兀停战演讲。',
-      '3. 保留人物自己的情绪与判断。直接心理、必要背景说明和明确转场都可使用；只澄清缺失的知识来源，不给每个角色强加算计、冷幽默或额外经历。',
+      '3. 保留人物自己的情绪与判断。直接心理、必要背景说明和明确转场都可使用；优先用具体动作、器物反馈和当下处境呈现压力，删掉“心里一紧/心里有些乱/更加不踏实/知道自己不能再拖”类空洞心理报幕；只澄清缺失的知识来源，不给每个角色强加算计、冷幽默或额外经历。',
       '4. 彻底剔除假文青与修辞通胀（核心去AI味）：坚决删掉无病呻吟的做作通感比喻（严禁动辄出现“像发胀棉絮/像劣茶/像熬焦旧钱/像死鱼眼珠”等矫饰），换为干净利落、画面感极强的直接白描与动作推进。',
       '5. 删除重复而无效的情绪解释，不把普通词语出现当作错误，也不把所有情绪替换成咬牙、手抖等身体动作。',
       '6. 让读者知道人物看到了什么、据此判断了什么；判断证据不足时保留不确定，不由旁白把怀疑认证为事实。',
-      '7. 保留对白中的关心、误会、尴尬、玩笑和直接请求，不强制每句话都有机锋或配微动作。人物反应应影响关系或下一步行动。',
-      '8. 短段和单句成段本身不是缺陷。按完整的动作、感受或思考分段，不强制每段句数，不为降低检测分机械合并或扩写。',
+      '7. 对白贴合身份与口语分寸：保留对白中的关心、误会、尴尬、玩笑、敷衍、打断与直接请求，告别机械轮换“说道/问道/答道”和大纲播音腔，不强制每句话都有机锋或配微动作。人物反应应影响关系或下一步行动。',
+      '8. 短段和单句成段本身不是缺陷。按完整的动作、感受或思考分段，不强制每段句数，不为降低检测分机械合并或扩写；但需清理毫无信息增量的廉价孤句停顿（如“屋里没人回答。”）与连续相同主语起句。',
       '9. 叙事节奏清爽凌厉，打破匀速平推（形成高困惑度与长短句剧烈落差）：动作交锋主次分明，次要过招顺笔带过，关键破局浓墨重彩，长短句错落有致，让阅读充满爽快感与张力。',
-      '10. 不能靠添加新工具、异常规则、伤势或收费补因果。保留已经兑现的阶段结果，不强制升级危机；无法从初稿确认的事实不擅自补定。',
+      '10. 严禁低级机械降重破坏阅读体验：绝对禁止通过制造错别字、破坏规范中文引号标点、生造翻译腔病句或古今穿越同义词替换（如把“月俸”改成“月工资”、把“药苗”改成“药品苗”）来硬拉困惑度；同时不能靠添加新工具、异常规则、伤势或收费补因果，保留已经兑现的阶段结果，无法从初稿确认的事实不擅自补定。',
       '11. 直接输出改写后的正文，不要任何解释、前言或 Markdown 围栏。'
     ].join('\n'));
     return [

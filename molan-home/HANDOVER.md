@@ -5,6 +5,40 @@
 
 ---
 
+## 阶段记录：全库 1,279 本真实《小说原本》风格提取重建 + 清理模拟假包 + 升级网文去 AI 味策略与工具链 (2026-11-25)
+
+> 背景：审计发现 `molan-home/data/` 多项旧风格数据存在严重陈旧、抽样过窄或造假问题：① `data/strategy-knowledge-base` 当前激活包 `corpus_20261010_8327` 竟出自临时测试目录 `Temp\molan-mock-corpus-vgjDeD\传统玄幻\凡人求道录.txt`（仅 1 本假书、2 章）；② `style-fingerprints.json` 停留在 2026-09-06、漏扫 244 本、未过滤标题/广告且未统一单双换行口径；③ `paragraph-samples.json` 中 1,046 条存在错误匿名化破坏语义；④ `ai-flavor-lexicon.json` 仅抽样 48 本且 `correction-policy` 拆词绕过 PMF 误伤高频日常词。用户拍板执行【方案 C】并确认风格使用边界：**仅向降 AI 提示词注入纯统计风格指纹 + 真实高低频词谱 + 网文叙事规律，绝不注入原书正文段落（零串味/抄袭风险）**。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/scripts/build-style-fingerprints.mjs`<br>`molan-home/data/style-fingerprints.json` | 全库 1,279 本真实风格指纹重建 | 升级 `listArchiveBuckets`/`accumulateStyleLine`/`finalizeFingerprint`：只读覆盖 48 个题材桶 + 根目录 3 本长篇共 **1,279 本（0 失败，有效清洗 8,100 万字）**；过滤章节标题/水印/作者感言，统一按有效自然行统计段长，补齐 `primaryGenre`，新增 `sentenceLenCv`、`paragraphLenCv`、`shortSentenceRatio`、`longSentenceRatio`、`directPsychPerKilo`、`aiGluePerKilo`、`modalParticlePerKilo` 真实抗 AI 维度（100% 向下兼容 `style-fingerprints-1`）。 |
+| `molan-home/scripts/mine-ai-flavor-lexicon.mjs`<br>`molan-home/data/ai-flavor-lexicon.json` | 全库 8,284 万字真实 PMF 词表重建 | 从 48 本抽样升级为 **1,279 本（82,843,103 字）100% 全量只读扫描**；修复 `correction-policy` 正则拆词绕过 PMF 导致误杀“还是/一声/一点/一枚/顺着/停了”等 54 个日常高频词的缺陷，产出 548 条全库实证词表（422 `block` + 126 `watch`）。 |
+| `molan-home/lib/character-material.js`<br>`molan-home/scripts/build-paragraph-samples-pro.mjs`<br>`molan-home/data/paragraph-samples.json` | 修复匿名化切词漏洞与重建干净样本库 | 在 `isParagraphNameCandidate` 新增 `ANON_SPLIT_VERB_PAIRS`（防止把“蓝曦浅笑”劈成 `【人X】笑`）及高歧义单字姓防护；构建脚本叠加 `isBrokenAnonymizedText` 与 `max-flavor-score=35` 门禁，重跑保留 2,194 条样本，破碎匿名化占位符从 1,046 条降至 **0 条**。 |
+| `molan-home/scripts/rebuild-strategy-knowledge-base.mjs`<br>`molan-home/data/strategy-knowledge-base/` | 删除 Mock 假包并发布真实全库策略包 | 新增重建脚本消费 1,279 本真实指纹与全库 PMF 词表，通过 `PackagePublisher` 原子发布 `corpus_real_1279_20261125`（4 条 A 级纯统计抗 AI 叙事策略，零原书原文拷贝），彻底删除历史临时目录假包 `corpus_20261010_8327`。 |
+| `molan-home/lib/style-fingerprint.js`<br>`molan-home/services/humanize-policy-service.js`<br>`molan-home/skills/humanizer/SKILL.md`<br>`molan-home/pages/site.js`<br>`molan-home/completion-platform.js`<br>`molan-home/app-boot.js`<br>17 个版本戳前端文件 | 网文去 AI 味策略与工具链全线升级 | 1. `lib/style-fingerprint.js` 新增 `EXTENDED_PROFILE_FIELDS` 聚合与 `buildDeaiStyleFingerprintBlock(genre)`（纯统计风格锚点，零原书段落拷贝）；<br>2. `services/humanize-policy-service.js` 在改写系统消息中接入 `buildDeaiStyleFingerprintBlock(genre)`，支持 `styleOnly`/`includeLivingExemplars:false`/`MOLAN_HUMANIZE_NO_EXEMPLARS=1` 零原段注入，并新增「体感动作替代心理报幕」「对白身份口语化」「严禁造错别字/毁标点/古今穿越换词机械洗稿」硬约束；<br>3. `skills/humanizer/SKILL.md`、`pages/site.js`、`completion-platform.js`、`app-boot.js` 同步融合 1,279 本网文去 AI 味专项规则（完整保留 Stop AI Slop 契约），前端版本戳统一升级至 `20261125_real_style_deai_v1`。 |
+| `molan-home/test/real-corpus-style-deai.test.js` | 新增专项测试 | 5 项测试锁死：1,279 本真实风格指纹及扩展突发度字段、8,284 万字真实 PMF 词表防高频词误伤、`strategy-knowledge-base` 清除 mock 假包并激活真实包、`paragraph-samples.json` 零破碎匿名化、`humanize-policy-service` 零原段注入纯统计锚点闭环。 |
+
+### 二、设计决策与权衡
+
+1. **纯统计风格锚点替代原书段落拷贝**：直接向提示词灌入原书原文易引发串味、撞车和匿名化破碎污染；改用 1,279 本真实原书聚合出的句长突发度（CV）、段长参差度、对话占比、比喻/心理报幕红线与 8,284 万字 PMF 词谱，既能有效拉高困惑度与突发度，又彻底杜绝抄袭隐患。
+2. **禁止低级机械洗稿，兼顾防检测与读者体验**：实测对照市面机械降重版（毁坏引号标点、把“月俸”洗成“月工资”、把“药苗”洗成“药品苗”甚至出现药田凭空多出桌子的穿帮）与本套 1,279 本真实仙侠风格重构版：重构版在 100% 保留全部剧情事实、规范中文标点与修仙语域的前提下，本地 AI 味综合分从 **38 → 0**，句长标准差比从 **0.47 → 0.97**（完美贴合 51 本真实仙侠原书均值 17.6 字），直白心理报幕 `4 → 0`、机械对话标签 `11 → 0`。
+3. **只读保护与全量零回归**：`资源库/小说原本` 全程只读未做任何改动；所有 JSON Schema 与 Stop AI Slop、10 月 4 日默认单遍起草基线保持 100% 向下兼容。
+
+### 三、真实验证证据
+
+- **数据重建实测**：
+  - `node22_runtime/node.exe molan-home/scripts/build-style-fingerprints.mjs --all` → 覆盖 48 桶 **1,279 本 / 0 失败 / 0.81 亿有效字**；
+  - `node22_runtime/node.exe molan-home/scripts/mine-ai-flavor-lexicon.mjs` → 全量扫描 **1,279 本 / 82,843,103 字**，548 条（422 block / 126 watch / 54 高频日常词安全剔除）；
+  - `node22_runtime/node.exe molan-home/scripts/build-paragraph-samples-pro.mjs --books-per-bucket 8 --groups-per-book 8 --max-flavor-score 35` → 保留 2,194 段，破碎匿名化 **0 条**；
+  - `node22_runtime/node.exe molan-home/scripts/rebuild-strategy-knowledge-base.mjs` → 删除 mock 假包 `corpus_20261010_8327`，发布激活 `corpus_real_1279_20261125`。
+- **语法与门禁**：全部修改脚本 `node.exe --check` → `ALL SYNTAX OK`；`production-import-audit.mjs`（238 文件，exit=0）；`check-frontend-stamp.mjs`（`20261125_real_style_deai_v1`，exit=0）。
+- **专项测试（8 套件）**：`real-corpus-style-deai`、`style-fingerprint`、`ai-flavor-detector`、`deai-tool-stop-slop`、`living-prose-optimization`、`humanize-gate`、`zhuque-closed-loop`、`package-publisher-lru` → **50/50 pass, 0 fail (5.6s)**。
+- **全量回归**：`tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"` → **`2506 tests / 74 suites / 2490 pass / 0 fail / 16 skipped`（耗时 39.6s，基线 2501 → +5）**。
+
+---
+
 ## 阶段记录：新增用户自主注销账号功能（匿名化注销 + 密码/邮箱二次确认）(2026-11-25)
 
 > 背景：用户要求增加注销账号功能，并确认三项核心规则：① 匿名化注销（清除个人资料与密码、释放邮箱可重新注册、撤销所有会话，作品与用量账本保留为匿名数据，不触碰外键）；② 仅需输入当前登录邮箱文字 + 登录密码确认；③ 禁止注销管理员账号与本地免登录默认账号（`local@molan.local`）。

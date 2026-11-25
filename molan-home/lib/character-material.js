@@ -146,6 +146,15 @@ function paragraphAnonymizationState(sourceKey) {
   return state;
 }
 
+const ANON_SPLIT_VERB_PAIRS = new Set([
+  '浅笑', '冷笑', '轻笑', '苦笑', '大笑', '微笑', '淡笑', '嗤笑', '嘲笑', '憨笑', '傻笑', '干笑', '狞笑', '狂笑', '失笑', '陪笑', '赔笑',
+  '轻声', '沉声', '低声', '大声', '小声', '厉声', '冷声', '高声', '哑声', '闷声', '柔声', '朗声',
+  '低语', '喃喃', '暗想', '默念', '开口', '说道', '问道', '答道', '笑道', '喝道', '喊道', '骂道', '叹道', '劝道', '叫道', '回道',
+  '回头', '低头', '抬头', '摇头', '点头', '扭头', '转头', '埋头', '俯身', '起身', '转身', '侧身', '闪身', '抽身',
+  '睁眼', '闭眼', '眯眼', '瞪眼', '抬眼', '垂眼', '斜眼', '白眼', '红眼', '傻眼', '眨眼', '看眼',
+  '皱眉', '挑眉', '扬眉', '蹙眉', '锁眉', '伸手', '抬手', '摆手', '挥手', '握手', '松手', '收手', '住手', '插手'
+]);
+
 /** 判断候选词是否满足中文人名的姓氏、长度和语境约束，减少普通词误替换。 */
 function isParagraphNameCandidate(source, start, token) {
   const value = String(token || '');
@@ -157,6 +166,13 @@ function isParagraphNameCandidate(source, start, token) {
   if (/^(.)\1+$/u.test(value)) return false;
   const before = source[start - 1] || '';
   const after = source[start + value.length] || '';
+  // 防止把“蓝曦浅笑”里的“浅笑”劈开成【人X】笑
+  if (after && ANON_SPLIT_VERB_PAIRS.has(value[value.length - 1] + after)) return false;
+  // 防止单字高歧义虚词开头在未配对复现时误伤常见短语
+  if (/^[那于有全高好都就可却连单双满温冷严明平齐空白公相红常安真万方]$/.test(value[0]) && value.length === 2) {
+    const secondChar = value[1];
+    if (/[是啥嘛呢么个些里儿时年日天月上下前后左右大小多少高低长短新旧好坏真假正反]/u.test(secondChar)) return false;
+  }
   const boundary = !before || /[\s，。！？；：、“”‘’「」『』（）()]/u.test(before);
   const following = !after || /[\s，。！？；：、“”‘’「」『』（）()]/u.test(after)
     || /[说说道问答喊叫笑哭骂劝看望盯瞥抬低垂握抓捏咬走跑退转停开起坐躲挡拦应察想见伸打抱拿接推带沉眯]/u.test(after);

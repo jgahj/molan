@@ -27,8 +27,35 @@ const DIALOGUE_CLOSE_CHAR = '”';
 const COMMA_CHAR = '，';
 const PERIOD_CHAR = '。';
 const SIMILE_PATTERN = /像|仿佛|宛如|如同|好似|恍若/gu;
+const DIRECT_PSYCH_PATTERN = /心里一紧|心头一紧|心里有些乱|心里更加|心里一沉|心中一凛|内心深处|心里明白|知道自己|意识到自己|不由得感到|暗暗想到/gu;
+const AI_GLUE_PATTERN = /悄无声息|硬生生|下意识|不由得|微不可察|与此同时|话音刚落|空气仿佛凝固|瞳孔骤缩|嘴角勾起|呼吸一滞|指节泛白/gu;
+const MODAL_PARTICLE_PATTERN = /[吧嘛呢呗呀啊哟哦呵哼诶]/gu;
 const WHITESPACE_PATTERN = /\s+/gu;
 const STOP_PUNCTUATION_PATTERN = /[\p{P}\p{S}]/gu;
+const CHAPTER_HEADING_PATTERN = /^\s*(?:第[〇零一二三四五六七八九十百千万0-9]{1,12}\s*[章节卷回部集幕]|正文卷|序章|楔子|尾声|番外|内容简介|简介[:：]?|小说名[:：]?|作者[:：]?)/u;
+const NOISE_LINE_PATTERN = /(?:笔趣阁|求月票|求推荐票|求订阅|求打赏|求追读|作者有话说|本章完|未完待续|最新章节|无弹窗|免费阅读|www\.|http:\/\/|https:\/\/|\.com|\.cn|\.net|PS[:：]|ps[:：])/i;
+const CJK_COUNT_PATTERN = /[\u4e00-\u9fff]/gu;
+
+/**
+ * 判断一行是否为非正文噪音（章节标题、站点水印、作者感言、纯符号分割线）。
+ */
+function isNoiseLine(rawLine) {
+  const trimmed = String(rawLine ?? '').trim();
+  if (!trimmed) return false;
+  if (trimmed.length <= 60 && CHAPTER_HEADING_PATTERN.test(trimmed)) return true;
+  if (trimmed.length <= 120 && NOISE_LINE_PATTERN.test(trimmed)) return true;
+  const cjk = trimmed.match(CJK_COUNT_PATTERN);
+  if (!cjk || cjk.length < 2) return true;
+  return false;
+}
+
+/**
+ * 统计某个正则在文本中的匹配次数。
+ */
+function countPattern(text, pattern) {
+  const hits = text.match(pattern);
+  return hits ? hits.length : 0;
+}
 
 /**
  * 将数值四舍五入到指定小数位，避免输出浮点噪声。
@@ -59,6 +86,8 @@ export function createStyleAccumulator() {
     sentenceCount: 0,
     sentenceLenSum: 0,
     sentenceLenSumSq: 0,
+    shortSentenceCount: 0,
+    longSentenceCount: 0,
     pendingSentenceLen: 0,
     paragraphCount: 0,
     paragraphLenSum: 0,
@@ -72,6 +101,9 @@ export function createStyleAccumulator() {
     commaCount: 0,
     periodCount: 0,
     simileHitCount: 0,
+    directPsychHitCount: 0,
+    aiGlueHitCount: 0,
+    modalParticleHitCount: 0,
     bigramTotal: 0,
     bigramTypes: new Set(),
     pendingBigramChar: ''
@@ -85,6 +117,8 @@ function recordSentence(acc, length) {
   acc.sentenceCount += 1;
   acc.sentenceLenSum += length;
   acc.sentenceLenSumSq += length * length;
+  if (length <= 10) acc.shortSentenceCount += 1;
+  if (length >= 35) acc.longSentenceCount += 1;
 }
 
 /**
@@ -100,8 +134,9 @@ function recordParagraph(acc, length) {
  * 将一行正文喂入累积器：按空行切段、按句终符切句、成对引号状态机、
  * 逗号句号计数、比喻词命中以及去停用标点后的字符 bigram 统计。
  */
-export function accumulateStyleLine(acc, line) {
-  const compact = String(line ?? '').replace(WHITESPACE_PATTERN, '');
+export function accumulateStyleLine(acc, line, options = {}) {
+  const raw = String(line ?? '').replace(/^\uFEFF/, '');
+  const compact = raw.replace(WHITESPACE_PATTERN, '');
   if (!compact) {
     if (acc.currentParagraphLen > 0) {
       recordParagraph(acc, acc.currentParagraphLen);
@@ -109,8 +144,24 @@ export function accumulateStyleLine(acc, line) {
     }
     return;
   }
+  if (options.filterNoise && isNoiseLine(raw)) {
+    if (acc.currentParagraphLen > 0) {
+      recordParagraph(acc, acc.currentParagraphLen);
+      acc.currentParagraphLen = 0;
+    }
+    if (acc.pendingSentenceLen > 0) {
+      acc.pendingSentenceLen = 0;
+    }
+    acc.inDialogue = false;
+    acc.currentTurnLen = 0;
+    return;
+  }
   acc.totalChars += compact.length;
-  acc.currentParagraphLen += compact.length;
+  if (options.lineIsParagraph) {
+    recordParagraph(acc, compact.length);
+  } else {
+    acc.currentParagraphLen += compact.length;
+  }
 
   const fragments = compact.split(SENTENCE_SPLIT_PATTERN);
   for (const fragment of fragments) {
@@ -122,12 +173,18 @@ export function accumulateStyleLine(acc, line) {
       acc.pendingSentenceLen += fragment.length;
     }
   }
+  if (options.lineIsParagraph && acc.pendingSentenceLen > 0) {
+    recordSentence(acc, acc.pendingSentenceLen);
+    acc.pendingSentenceLen = 0;
+  }
 
   acc.commaCount += countChar(compact, COMMA_CHAR);
   acc.periodCount += countChar(compact, PERIOD_CHAR);
 
-  const simileHits = compact.match(SIMILE_PATTERN);
-  if (simileHits) acc.simileHitCount += simileHits.length;
+  acc.simileHitCount += countPattern(compact, SIMILE_PATTERN);
+  acc.directPsychHitCount += countPattern(compact, DIRECT_PSYCH_PATTERN);
+  acc.aiGlueHitCount += countPattern(compact, AI_GLUE_PATTERN);
+  acc.modalParticleHitCount += countPattern(compact, MODAL_PARTICLE_PATTERN);
 
   for (let index = 0; index < compact.length; index += 1) {
     const ch = compact.charAt(index);
@@ -184,7 +241,7 @@ export function finishStyleFile(acc) {
 export async function accumulateStyleFile(acc, filePath) {
   const rl = readline.createInterface({ input: fs.createReadStream(filePath, 'utf8'), crlfDelay: Infinity });
   try {
-    for await (const line of rl) accumulateStyleLine(acc, line);
+    for await (const line of rl) accumulateStyleLine(acc, line, { filterNoise: true, lineIsParagraph: true });
   } finally {
     rl.close();
   }
@@ -193,7 +250,7 @@ export async function accumulateStyleFile(acc, filePath) {
 
 /**
  * 将累积器汇总为最终指纹对象：句长/段长均值与总体标准差、对话占比、
- * 对话轮均值、逗号句号比、bigram ttr、每千字比喻词，并做合理性校验。
+ * 对话轮均值、逗号句号比、bigram ttr、每千字比喻词，以及真实抗 AI 节奏/语感特征。
  */
 export function finalizeFingerprint(acc) {
   const sentenceMean = acc.sentenceCount > 0 ? acc.sentenceLenSum / acc.sentenceCount : 0;
@@ -201,15 +258,23 @@ export function finalizeFingerprint(acc) {
   const paragraphMean = acc.paragraphCount > 0 ? acc.paragraphLenSum / acc.paragraphCount : 0;
   const paragraphStd = acc.paragraphCount > 1 ? Math.sqrt(Math.max(0, acc.paragraphLenSumSq / acc.paragraphCount - paragraphMean * paragraphMean)) : 0;
   const fingerprint = {
+    charCount: acc.totalChars,
     sentenceLenMean: roundTo(sentenceMean, 4),
     sentenceLenStd: roundTo(sentenceStd, 4),
+    sentenceLenCv: sentenceMean > 0 ? roundTo(sentenceStd / sentenceMean, 4) : 0,
+    shortSentenceRatio: acc.sentenceCount > 0 ? roundTo(acc.shortSentenceCount / acc.sentenceCount, 4) : 0,
+    longSentenceRatio: acc.sentenceCount > 0 ? roundTo(acc.longSentenceCount / acc.sentenceCount, 4) : 0,
     paragraphLenMean: roundTo(paragraphMean, 4),
     paragraphLenStd: roundTo(paragraphStd, 4),
+    paragraphLenCv: paragraphMean > 0 ? roundTo(paragraphStd / paragraphMean, 4) : 0,
     dialogueRatio: acc.totalChars > 0 ? roundTo(acc.dialogueCharCount / acc.totalChars, 6) : 0,
     dialogueTurnMean: acc.dialogueTurnCount > 0 ? roundTo(acc.dialogueTurnLenSum / acc.dialogueTurnCount, 4) : 0,
     commaPeriodRatio: acc.periodCount > 0 ? roundTo(acc.commaCount / acc.periodCount, 4) : null,
     ttr: acc.bigramTotal > 0 ? roundTo(acc.bigramTypes.size / acc.bigramTotal, 6) : 0,
     similePerKilo: acc.totalChars > 0 ? roundTo(acc.simileHitCount * 1000 / acc.totalChars, 4) : 0,
+    directPsychPerKilo: acc.totalChars > 0 ? roundTo(acc.directPsychHitCount * 1000 / acc.totalChars, 4) : 0,
+    aiGluePerKilo: acc.totalChars > 0 ? roundTo(acc.aiGlueHitCount * 1000 / acc.totalChars, 4) : 0,
+    modalParticlePerKilo: acc.totalChars > 0 ? roundTo(acc.modalParticleHitCount * 1000 / acc.totalChars, 4) : 0,
     warning: []
   };
   if (fingerprint.sentenceLenMean < FINGERPRINT_RULES.sentenceLenMeanMin || fingerprint.sentenceLenMean > FINGERPRINT_RULES.sentenceLenMeanMax) {
@@ -235,14 +300,28 @@ function isInsideDirectory(target, directory) {
  * 每个桶携带按文件名稳定排序的直接子级 .txt 文件名（不递归、不写入）。
  */
 export function listArchiveBuckets(archiveRoot = DEFAULT_ARCHIVE_ROOT) {
-  const buckets = [];
+  const bucketMap = new Map();
+  const ensureBucket = (name) => {
+    if (!bucketMap.has(name)) bucketMap.set(name, []);
+    return bucketMap.get(name);
+  };
   let entries;
   try {
     entries = fs.readdirSync(archiveRoot, { withFileTypes: true });
   } catch {
-    return buckets;
+    return [];
   }
   for (const entry of entries) {
+    if (entry.isFile() && entry.name.toLowerCase().endsWith('.txt')) {
+      // 根目录经典长篇（如《蛊真人》《逆天邪神》）归入玄幻桶，保留真实根目录路径
+      const targetBucket = /仙|道|修真/.test(entry.name) ? '仙侠' : '玄幻';
+      ensureBucket(targetBucket).push({
+        fileName: entry.name,
+        absPath: path.join(archiveRoot, entry.name),
+        relativePath: `${ARCHIVE_DIR_NAME}/${entry.name}`
+      });
+      continue;
+    }
     if (!entry.isDirectory()) continue;
     let names;
     try {
@@ -250,11 +329,21 @@ export function listArchiveBuckets(archiveRoot = DEFAULT_ARCHIVE_ROOT) {
     } catch {
       continue;
     }
-    const txtNames = names
+    const txtItems = names
       .filter(item => item.isFile() && item.name.toLowerCase().endsWith('.txt'))
-      .map(item => item.name)
-      .sort();
-    if (txtNames.length > 0) buckets.push({ bucket: entry.name, files: txtNames });
+      .map(item => ({
+        fileName: item.name,
+        absPath: path.join(archiveRoot, entry.name, item.name),
+        relativePath: `${ARCHIVE_DIR_NAME}/${entry.name}/${item.name}`
+      }));
+    if (txtItems.length > 0) {
+      ensureBucket(entry.name).push(...txtItems);
+    }
+  }
+  const buckets = [];
+  for (const [bucket, items] of bucketMap.entries()) {
+    items.sort((a, b) => (a.fileName < b.fileName ? -1 : a.fileName > b.fileName ? 1 : 0));
+    buckets.push({ bucket, files: items });
   }
   return buckets.sort((a, b) => (a.bucket < b.bucket ? -1 : a.bucket > b.bucket ? 1 : 0));
 }
@@ -315,19 +404,22 @@ export async function buildStyleFingerprints(options = {}) {
   const books = [];
   const skippedBooks = [];
   let processedCount = 0;
+  let totalValidChars = 0;
   for (const bucket of buckets) {
-    for (const fileName of sampleBucketFiles(bucket.files, sampleSize)) {
+    for (const fileItem of sampleBucketFiles(bucket.files, sampleSize)) {
+      const fileName = typeof fileItem === 'string' ? fileItem : fileItem.fileName;
+      const absPath = typeof fileItem === 'string' ? path.join(archiveRoot, bucket.bucket, fileName) : fileItem.absPath;
+      const relativePath = typeof fileItem === 'string' ? `${ARCHIVE_DIR_NAME}/${bucket.bucket}/${fileName}` : fileItem.relativePath;
       processedCount += 1;
-      const relativePath = `${ARCHIVE_DIR_NAME}/${bucket.bucket}/${fileName}`;
       const record = {
         id: deriveBookId(relativePath),
         title: fileName.replace(/\.txt$/iu, ''),
         bucket: bucket.bucket,
-        primaryGenre: ''
+        primaryGenre: bucket.bucket
       };
       const acc = createStyleAccumulator();
       try {
-        await accumulateStyleFile(acc, path.join(archiveRoot, bucket.bucket, fileName));
+        await accumulateStyleFile(acc, absPath);
       } catch (error) {
         skippedBooks.push({ ...record, reason: `read_error:${error?.code || error?.message || 'unknown'}` });
         continue;
@@ -336,14 +428,17 @@ export async function buildStyleFingerprints(options = {}) {
         skippedBooks.push({ ...record, reason: 'no_content' });
         continue;
       }
+      totalValidChars += acc.totalChars;
       books.push({ ...record, filePath: relativePath, fingerprint: finalizeFingerprint(acc) });
     }
   }
 
   const output = {
     schemaVersion: 'style-fingerprints-1',
+    measurementVersion: '2-full-corpus-clean-lines-1279',
     generatedAt: new Date().toISOString(),
     bookCount: books.length,
+    totalChars: totalValidChars,
     books,
     skippedBooks,
     summary: {
