@@ -778,6 +778,7 @@
 
     async function pollBackendTasks() {
       if (!backendState.token || backendTaskPollBusy) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
       // 拆书页自身会拉取详情；全局轮询只负责总览、小说库和旧版入口，避免双重请求。
       if (currentPage === 'dissect' && window.MolanCompletionImport) return;
       backendTaskPollBusy = true;
@@ -811,6 +812,12 @@
       if (!active) return;
       backendTaskPollTimer = window.setInterval(pollBackendTasks, 3000);
       void pollBackendTasks();
+    }
+
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && backendTaskPollTimer) void pollBackendTasks();
+      });
     }
 
     async function loadBackendUsage() {

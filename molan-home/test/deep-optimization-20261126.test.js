@@ -263,9 +263,9 @@ test('P0-6, P1-3 & P2: 前端 CSS 外移（index.html < 12KB）、lucide/boot-sc
   const indexHtml = fs.readFileSync(path.join(MOLAN_HOME, 'index.html'), 'utf8');
   const indexBytes = Buffer.byteLength(indexHtml, 'utf8');
   assert.ok(indexBytes < 12 * 1024, `index.html 抽离内联 CSS 后应小于 12KB，实际 ${indexBytes} bytes`);
-  assert.match(indexHtml, /<link rel="stylesheet" href="\.\/pages\/app-shell\.css\?v=20261126_deep_opt_v1">/);
-  assert.match(indexHtml, /<script src="\.\/assets\/lucide\.min\.js\?v=20261126_deep_opt_v1" defer><\/script>/);
-  assert.match(indexHtml, /<script src="\.\/boot-scripts\.js\?v=20261126_deep_opt_v1" defer><\/script>/);
+  assert.match(indexHtml, /<link rel="stylesheet" href="\.\/pages\/app-shell\.css\?v=[^"]+">/);
+  assert.match(indexHtml, /<script src="\.\/assets\/lucide\.min\.js\?v=[^"]+" defer><\/script>/);
+  assert.match(indexHtml, /<script src="\.\/boot-scripts\.js\?v=[^"]+" defer><\/script>/);
   assert.ok(fs.existsSync(path.join(MOLAN_HOME, 'pages', 'app-shell.css')));
   assert.ok(fs.existsSync(path.join(MOLAN_HOME, 'pages', 'editor-inline.css')));
 

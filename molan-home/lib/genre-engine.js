@@ -904,8 +904,54 @@ const SCENE_FUNCTIONS = [
   ['冲突与兑现', '不服|规矩|当众|挑战|赌|赢|输|下跪|反驳|质问|立威', '先明确读者期待和对手理由，兑现时改变利益或关系，而不只描写围观惊讶。']
 ];
 
-// 内存语料缓存（LRU/按需）
+// 内存语料与管线 LRU 缓存（有界上限，避免全题材加载后无限常驻 V8 堆内存）
+const CORPUS_CACHE_MAX_ENTRIES = 3;
+const PIPELINE_CACHE_MAX_ENTRIES = 64;
 const corpusCache = new Map();
+const pipelineCache = new Map();
+let libraryIndexCache = { mtimeMs: -1, checkedAt: 0, value: null };
+
+function lruGet(cache, key) {
+  if (!cache.has(key)) return undefined;
+  const val = cache.get(key);
+  cache.delete(key);
+  cache.set(key, val);
+  return val;
+}
+
+function lruSet(cache, key, val, maxEntries) {
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, val);
+  while (cache.size > maxEntries) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+}
+
+function loadPipelineLibraryIndex() {
+  const libraryIndexFile = path.join(PIPELINES_DIR, 'library-index.json');
+  const now = Date.now();
+  if (libraryIndexCache.value !== null && now - libraryIndexCache.checkedAt < 5000) {
+    return libraryIndexCache.value;
+  }
+  libraryIndexCache.checkedAt = now;
+  try {
+    if (!fs.existsSync(libraryIndexFile)) {
+      libraryIndexCache = { mtimeMs: -1, checkedAt: now, value: null };
+      return null;
+    }
+    const stat = fs.statSync(libraryIndexFile);
+    if (libraryIndexCache.value !== null && stat.mtimeMs === libraryIndexCache.mtimeMs) {
+      return libraryIndexCache.value;
+    }
+    const parsed = JSON.parse(fs.readFileSync(libraryIndexFile, 'utf8'));
+    libraryIndexCache = { mtimeMs: stat.mtimeMs, checkedAt: now, value: parsed };
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
 
 function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -952,58 +998,57 @@ function listRoutesForGenre(genre) {
   return routes;
 }
 
-/** 动态加载特定路线对应的特化管线资产 */
+/** 动态加载特定路线对应的特化管线资产（带 64 条有界 LRU 缓存与 library-index mtime 缓存） */
 function loadPipelineForRoute(routeId) {
   if (!routeId) return null;
-  const directPath = path.join(PIPELINES_DIR, `${routeId}-pipeline.json`);
-  if (fs.existsSync(directPath)) {
-    try { return JSON.parse(fs.readFileSync(directPath, 'utf8')); } catch (_) {}
-  }
-  const hyphenPath = path.join(PIPELINES_DIR, `${routeId.replace(/_/g, '-')}-pipeline.json`);
-  if (fs.existsSync(hyphenPath)) {
-    try { return JSON.parse(fs.readFileSync(hyphenPath, 'utf8')); } catch (_) {}
-  }
-  const aliasMap = {
-    'yuanshi': 'yuanshi-law-pipeline.json',
-    'jianzhu': 'jianzhu-dahuang-pipeline.json',
-    'fanren': 'fanren-xiuxian-pipeline.json',
-    'urban_grind': 'urban-grind-pipeline.json',
-    'hard_survival': 'hard-survival-pipeline.json',
-    'laoshiren': 'laoshiren-pipeline.json',
-    'dynasty_friction': 'dynasty-friction-pipeline.json',
-    'sequence_cost': 'sequence-cost-pipeline.json',
-    'mansion_secrets': 'mansion-secrets-pipeline.json',
-    'urban_emotion': 'urban-emotion-pipeline.json'
+  const cacheKey = String(routeId);
+  const cached = lruGet(pipelineCache, cacheKey);
+  if (cached !== undefined) return cached;
+
+  const tryReadJson = filePath => {
+    if (!fs.existsSync(filePath)) return null;
+    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (_) { return null; }
   };
-  const aliasFile = aliasMap[routeId];
-  if (aliasFile) {
-    const aliasPath = path.join(PIPELINES_DIR, aliasFile);
-    if (fs.existsSync(aliasPath)) {
-      try { return JSON.parse(fs.readFileSync(aliasPath, 'utf8')); } catch (_) {}
-    }
+
+  let loaded = tryReadJson(path.join(PIPELINES_DIR, `${cacheKey}-pipeline.json`));
+  if (!loaded) loaded = tryReadJson(path.join(PIPELINES_DIR, `${cacheKey.replace(/_/g, '-')}-pipeline.json`));
+  if (!loaded) {
+    const aliasMap = {
+      'yuanshi': 'yuanshi-law-pipeline.json',
+      'jianzhu': 'jianzhu-dahuang-pipeline.json',
+      'fanren': 'fanren-xiuxian-pipeline.json',
+      'urban_grind': 'urban-grind-pipeline.json',
+      'hard_survival': 'hard-survival-pipeline.json',
+      'laoshiren': 'laoshiren-pipeline.json',
+      'dynasty_friction': 'dynasty-friction-pipeline.json',
+      'sequence_cost': 'sequence-cost-pipeline.json',
+      'mansion_secrets': 'mansion-secrets-pipeline.json',
+      'urban_emotion': 'urban-emotion-pipeline.json'
+    };
+    const aliasFile = aliasMap[cacheKey];
+    if (aliasFile) loaded = tryReadJson(path.join(PIPELINES_DIR, aliasFile));
   }
 
   // Also support loading from library index by bookId, routeId or title match
-  const libraryIndexFile = path.join(PIPELINES_DIR, 'library-index.json');
-  if (fs.existsSync(libraryIndexFile)) {
-    try {
-      const idx = JSON.parse(fs.readFileSync(libraryIndexFile, 'utf8'));
-      const found = idx.pipelines.find(p => p.bookId === routeId || p.bookTitle === routeId || p.bookTitle.includes(routeId));
-      if (found) {
+  if (!loaded) {
+    const idx = loadPipelineLibraryIndex();
+    if (idx && Array.isArray(idx.pipelines)) {
+      const found = idx.pipelines.find(p => p.bookId === cacheKey || p.bookTitle === cacheKey || (p.bookTitle && p.bookTitle.includes(cacheKey)));
+      if (found && found.pipelinePath) {
         const fullLibPath = path.resolve(__dirname, '..', found.pipelinePath);
-        if (fs.existsSync(fullLibPath)) {
-          return JSON.parse(fs.readFileSync(fullLibPath, 'utf8'));
-        }
+        loaded = tryReadJson(fullLibPath);
       }
-    } catch (_) {}
+    }
   }
-  return null;
+  lruSet(pipelineCache, cacheKey, loaded || null, PIPELINE_CACHE_MAX_ENTRIES);
+  return loaded || null;
 }
 
-/** 加载母类语料库（带缓存） */
+/** 加载母类语料库（最多保留最近 3 个热题材的 LRU 缓存） */
 function loadCorpusForFamily(familyId) {
-  if (corpusCache.has(familyId)) {
-    return corpusCache.get(familyId);
+  const cached = lruGet(corpusCache, familyId);
+  if (cached !== undefined) {
+    return cached;
   }
   const candidateFiles = [
     path.join(DATA_DIR, 'genre-lab', `corpus-${familyId}.json`),
@@ -1016,7 +1061,7 @@ function loadCorpusForFamily(familyId) {
       try {
         const data = JSON.parse(fs.readFileSync(file, 'utf8'));
         if (!data || !Array.isArray(data.scenes)) throw new Error('语料结构无效');
-        corpusCache.set(familyId, data);
+        lruSet(corpusCache, familyId, data, CORPUS_CACHE_MAX_ENTRIES);
         return data;
       } catch (err) {
         console.error(`加载题材库 [${familyId}] 失败:`, err.message);

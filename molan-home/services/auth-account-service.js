@@ -105,8 +105,21 @@ function createAuthAccountService({
     return { ok: hashPwd(password, user && user.salt) === stored, needsUpgrade: true };
   }
 
+  const MAX_LOCALLY_REVOKED_SESSIONS = 10000;
+
   function markSessionRevoked(tokenHash) {
-    locallyRevokedSessions.set(String(tokenHash || '').toLowerCase(), Date.now() + SESSION_TTL_MS);
+    const now = Date.now();
+    if (locallyRevokedSessions.size >= MAX_LOCALLY_REVOKED_SESSIONS) {
+      for (const [k, exp] of locallyRevokedSessions.entries()) {
+        if (exp <= now) locallyRevokedSessions.delete(k);
+      }
+      while (locallyRevokedSessions.size >= MAX_LOCALLY_REVOKED_SESSIONS) {
+        const oldest = locallyRevokedSessions.keys().next().value;
+        if (oldest === undefined) break;
+        locallyRevokedSessions.delete(oldest);
+      }
+    }
+    locallyRevokedSessions.set(String(tokenHash || '').toLowerCase(), now + SESSION_TTL_MS);
   }
 
   function isSessionRevoked(tokenHash) {

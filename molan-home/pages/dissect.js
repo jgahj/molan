@@ -465,17 +465,32 @@
     if (data.task && ['queued', 'running'].includes(data.task.status)) startPolling(id);
   }
 
+  let pollTaskId = '';
+  async function pollActiveTask() {
+    if (!pollTaskId || (typeof document !== 'undefined' && document.hidden)) return;
+    const id = pollTaskId;
+    try {
+      const data = await api('/api/dissections/' + encodeURIComponent(id));
+      renderResult(data.task);
+      tasks = tasks.map(item => item.id === id ? data.task : item);
+      renderTaskList();
+      if (['completed', 'failed', 'cancelled'].includes(data.task.status)) {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        pollTaskId = '';
+      }
+    } catch (_) {}
+  }
+
   function startPolling(id) {
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(async () => {
-      try {
-        const data = await api('/api/dissections/' + encodeURIComponent(id));
-        renderResult(data.task);
-        tasks = tasks.map(item => item.id === id ? data.task : item);
-        renderTaskList();
-        if (['completed', 'failed', 'cancelled'].includes(data.task.status)) { clearInterval(pollTimer); pollTimer = null; }
-      } catch (_) {}
-    }, 1600);
+    pollTaskId = String(id || '');
+    pollTimer = setInterval(pollActiveTask, 1600);
+  }
+
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && pollTimer && pollTaskId) void pollActiveTask();
+    });
   }
 
   async function createTask() {

@@ -1,6 +1,20 @@
 'use strict';
 
+const net = require('node:net');
+
 function createModelTransportService({ UPSTREAM_CONNECT_TIMEOUT_MS, UPSTREAM_IDLE_TIMEOUT_MS, http, https, providerUrlGuard, tls }) {
+  const sharedHttpAgent = http && typeof http.Agent === 'function'
+    ? new http.Agent({ keepAlive: true, keepAliveMsecs: 30000, maxSockets: 64, maxFreeSockets: 16 })
+    : undefined;
+  const sharedHttpsAgent = https && typeof https.Agent === 'function'
+    ? new https.Agent({ keepAlive: true, keepAliveMsecs: 30000, maxSockets: 64, maxFreeSockets: 16 })
+    : undefined;
+
+  function close() {
+    try { if (sharedHttpAgent) sharedHttpAgent.destroy(); } catch (_) {}
+    try { if (sharedHttpsAgent) sharedHttpsAgent.destroy(); } catch (_) {}
+  }
+
   function openUpstream(targetURL, proxyURL, reqOptions, cb) {
     const isLocalOrHost = /^(https?:\/\/)?(127\.0\.0\.1|localhost|8\.138\.128\.184|::1)(:\d+)?(\/|$)/i.test(targetURL);
     providerUrlGuard.validateProviderTarget(targetURL, { allowLocal: isLocalOrHost || Boolean(reqOptions && reqOptions.allowLocal) })
@@ -12,21 +26,25 @@ function createModelTransportService({ UPSTREAM_CONNECT_TIMEOUT_MS, UPSTREAM_IDL
     const u = validatedTarget.url;
     const isHttps = u.protocol === 'https:';
     const port = validatedTarget.port;
-    const tlsServername = require('node:net').isIP(validatedTarget.hostname) ? undefined : validatedTarget.hostname;
+    const tlsServername = net.isIP(validatedTarget.hostname) ? undefined : validatedTarget.hostname;
     const connectAddress = validatedTarget.addresses[0].address;
     const connectHost = validatedTarget.addresses[0].family === 6 ? `[${connectAddress}]` : connectAddress;
     const configureRequest = request => {
       let connected = false;
       const connectTimer = setTimeout(() => request.destroy(new Error('上游连接超时')), UPSTREAM_CONNECT_TIMEOUT_MS);
+      if (typeof connectTimer.unref === 'function') connectTimer.unref();
+      const clearConnectTimer = () => {
+        if (connected) return;
+        connected = true;
+        clearTimeout(connectTimer);
+      };
+      request.once('close', clearConnectTimer);
+      request.once('error', clearConnectTimer);
       request.once('socket', socket => {
-        const clearConnectTimer = () => {
-          if (connected) return;
-          connected = true;
-          clearTimeout(connectTimer);
-        };
         if (socket.connecting) socket.once('connect', clearConnectTimer);
         else clearConnectTimer();
         socket.once('error', clearConnectTimer);
+        socket.once('close', clearConnectTimer);
       });
       if (UPSTREAM_IDLE_TIMEOUT_MS > 0) request.setTimeout(UPSTREAM_IDLE_TIMEOUT_MS, () => request.destroy(new Error('上游响应空闲超时')));
       return request;
@@ -39,6 +57,7 @@ function createModelTransportService({ UPSTREAM_CONNECT_TIMEOUT_MS, UPSTREAM_IDL
         hostname: validatedTarget.hostname, port,
         lookup: validatedTarget.lookup,
         ...(isHttps && tlsServername ? { servername: tlsServername } : {}),
+        ...(isHttps ? (sharedHttpsAgent ? { agent: sharedHttpsAgent } : {}) : (sharedHttpAgent ? { agent: sharedHttpAgent } : {})),
         path: u.pathname + (u.search || ''),
         headers: reqOptions.headers
       }, reqOptions.onResponse));
@@ -116,7 +135,7 @@ function createModelTransportService({ UPSTREAM_CONNECT_TIMEOUT_MS, UPSTREAM_IDL
     connectReq.end();
   }
 
-  return { openUpstream, openValidatedUpstream };
+  return { openUpstream, openValidatedUpstream, close };
 }
 
 module.exports = { createModelTransportService };

@@ -194,6 +194,7 @@
    * 同时把持有页推进的最新状态（如远程取消生效）同步到本页展示。 */
   function reconcileCreationHeartbeats() {
     if (!state.creation.tasksLoaded) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
     let latest = [];
     try { latest = (JSON.parse(localStorage.getItem(creationTasksStorageKey()) || '[]')).map(normalizeCreationTask); } catch (_) { return; }
     let changed = false;
@@ -2731,6 +2732,7 @@
     const pollVersion = ++state.dissectionPollVersion;
     const poll = async () => {
       if (state.dissectionPollBusy) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
       if (!isCurrentImportSession(requestSession)) {
         if (pollVersion === state.dissectionPollVersion) stopDissectionPolling();
         return;
@@ -2761,8 +2763,17 @@
         state.dissectionPollBusy = false;
       }
     };
+    state.dissectionPollFn = poll;
     state.dissectionPollTimer = window.setInterval(poll, 2500);
     void poll();
+  }
+
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      if (creationReconcileTimer) reconcileCreationHeartbeats();
+      if (state.dissectionPollTimer && typeof state.dissectionPollFn === 'function') void state.dissectionPollFn();
+    });
   }
 
   async function startDissectionTask() {

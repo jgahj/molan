@@ -6675,19 +6675,30 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
       syncBtn.textContent = oldText;
       syncBtn.disabled = false;
     };
-    // 监听 token 变化（同一窗口内登录后）刷新徽章
-    setInterval(() => {
+    // 监听 token 变化（同一窗口内登录后）刷新徽章；后台标签页暂停轮询，切回前台时立即补检
+    const checkCloudAuthChange = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       const hasTok = !!getToken();
       const accountChanged = switchAccountNamespaceIfNeeded();
       const lastHas = window.__mlCloudLast === undefined ? !!hasTok : window.__mlCloudLast;
-        if (accountChanged || lastHas !== hasTok) {
-          window.__mlCloudLast = hasTok;
-          renderSyncBadge();
-          refreshServerCredits();
-          // 同窗口内登录后，自动从云端拉取小说（含 GPT 源等配置）
-          if (hasTok) { pullFromCloud().then(r => { if (r.ok && r.loaded > 0) { renderTree(); renderEditor(); } }).catch(() => {}); }
+      if (accountChanged || lastHas !== hasTok) {
+        window.__mlCloudLast = hasTok;
+        renderSyncBadge();
+        refreshServerCredits();
+        // 同窗口内登录后，自动从云端拉取小说（含 GPT 源等配置）
+        if (hasTok) { pullFromCloud().then(r => { if (r.ok && r.loaded > 0) { renderTree(); renderEditor(); } }).catch(() => {}); }
+      }
+    };
+    setInterval(checkCloudAuthChange, 2000);
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          if (state.settings && state.settings.autosave) save({ snapshot: true });
+        } else {
+          checkCloudAuthChange();
         }
-    }, 2000);
+      });
+    }
     recomputeChapterWords();
     applyTheme(state.settings.theme);
     renderTree();
@@ -6950,8 +6961,8 @@ function composeLocalSkill(id, raw, fileMap, fileMeta) {
       };
     }
 
-    // 自动保存间隔
-    setInterval(() => { if (state.settings.autosave) save({ snapshot: true }); }, 30000);
+    // 自动保存间隔（后台隐藏标签页跳过重复快照，切隐瞬间已由 visibilitychange 落盘）
+    setInterval(() => { if (state.settings.autosave && !(typeof document !== 'undefined' && document.hidden)) save({ snapshot: true }); }, 30000);
 
     // 右侧面板场景属性已迁移至设定集视图（renderSidebarSheji）
 

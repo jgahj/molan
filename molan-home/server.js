@@ -84,7 +84,6 @@ const { createDissectionRoutes } = require('./routes/dissections');
 const { createDissectionHandlers } = require('./routes/dissection-handlers');
 const { createDissectionPipelineAggregationService } = require('./services/dissection-pipeline-aggregation-service');
 const { createDissectionChatRunner } = require('./lib/dissection-chat');
-const { createLocalDatabaseBootstrap } = require('./services/local-database-bootstrap');
 const { createCreationBookRoutes } = require('./routes/creation-books');
 const { createCreationBookHandlers } = require('./routes/creation-book-handlers');
 const { createProjectRoutes } = require('./routes/projects');
@@ -117,6 +116,8 @@ function generationRunStore() {
 async function closeStorageStores() {
   stopCreditReservationReaper();
   flushCorrectionHits();
+  if (typeof closeCloudProxy === 'function') closeCloudProxy();
+  if (typeof closeModelTransport === 'function') closeModelTransport();
   chatAdmission.close();
   const failures = [];
   const labResults = await Promise.allSettled([
@@ -610,7 +611,6 @@ const PUBLIC_ROOT_FILES = new Set([
   '/boot-scripts.js',
   '/llms.txt',
   '/assets/lucide.min.js',
-  '/assets/tailwind-browser.js',
   '/lib/project-material-schema.js',
   '/lib/client/local-wal.js',
   '/lib/client/search-index.js',
@@ -654,7 +654,7 @@ const STATIC_COMPRESSIBLE_EXT = new Set(['.html', '.htm', '.css', '.js', '.json'
 
 
 
-const { shouldProxyCloudRequest, cloudProxyBodyLimit, handleLocalSyncStatus, handleCloudProxy } = require('./services/cloud-proxy-service').createCloudProxyService({
+const { shouldProxyCloudRequest, cloudProxyBodyLimit, handleLocalSyncStatus, handleCloudProxy, close: closeCloudProxy } = require('./services/cloud-proxy-service').createCloudProxyService({
   CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECTION_MAX_BODY_BYTES, MAX_JSON_BODY_BYTES, UPSTREAM_IDLE_TIMEOUT_MS,
   isLocalOpenAccess: isLocalOpenAccessEnabled, json, readBody, responseCors
 });
@@ -5219,7 +5219,7 @@ const creationCoreJobHttpService = require('./services/creation-core-job-http-se
   postgresCreationCoreJobView, persistCreationCoreJob
 });
 
-const { openUpstream, openValidatedUpstream } = require('./services/model-transport-service').createModelTransportService({ UPSTREAM_CONNECT_TIMEOUT_MS, UPSTREAM_IDLE_TIMEOUT_MS, http, https, providerUrlGuard, tls });
+const { openUpstream, openValidatedUpstream, close: closeModelTransport } = require('./services/model-transport-service').createModelTransportService({ UPSTREAM_CONNECT_TIMEOUT_MS, UPSTREAM_IDLE_TIMEOUT_MS, http, https, providerUrlGuard, tls });
 
 const { handleNovelPackageExport, handleNovelExport, restoreProjectResourceSnapshot, handleNovelPackageImport, handleNovelPackageRestore, handleNovelResources, handleNovelResourceHistory, handleWorkspaceList, handleWorkspaceCreate, handleWorkspaceMembers, handleWorkspaceProjectList, handleNovelMembers } = require('./services/project-service').createProjectService({
   MAX_NOVEL_STATE_BYTES,

@@ -248,7 +248,8 @@ test('creation domain registers book/bible/commit/state routes', () => {
 
 test('creation book commit uses CAS and rejects stale state', () => {
   const chapterSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'creation-chapter-service.js'), 'utf8');
-  const postgresSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'postgres-repository.js'), 'utf8');
+  const postgresSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'postgres-repository.js'), 'utf8')
+    + '\n' + fs.readFileSync(path.join(__dirname, '..', 'lib', 'repositories', 'postgres-creation-book-methods.js'), 'utf8');
   assert.match(chapterSource, /WHERE id = \? AND current_state_version = \?/);
   assert.match(chapterSource, /needs_rebase/);
   assert.match(postgresSource, /AND current_state_version = \$7::bigint/);

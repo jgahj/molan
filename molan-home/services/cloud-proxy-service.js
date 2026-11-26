@@ -3,6 +3,14 @@ const http = require('node:http');
 const https = require('node:https');
 
 function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECTION_MAX_BODY_BYTES, MAX_JSON_BODY_BYTES, UPSTREAM_IDLE_TIMEOUT_MS, isLocalOpenAccess, json, readBody, responseCors }) {
+  const sharedHttpAgent = new http.Agent({ keepAlive: true, timeout: 300000, keepAliveMsecs: 30000, maxSockets: 64, maxFreeSockets: 16 });
+  const sharedHttpsAgent = new https.Agent({ keepAlive: true, timeout: 300000, keepAliveMsecs: 30000, maxSockets: 64, maxFreeSockets: 16 });
+
+  function close() {
+    try { sharedHttpAgent.destroy(); } catch (_) {}
+    try { sharedHttpsAgent.destroy(); } catch (_) {}
+  }
+
   /** 判断请求是否应由本地服务代理到云端，保留本地同步状态接口不经过代理。 */
   function shouldProxyCloudRequest(req) {
     if (!CLOUD_API_BASE || !req) return false;
@@ -63,9 +71,7 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
         headers['content-length'] = String(body.length);
       }
 
-      const agent = target.protocol === 'https:'
-        ? new https.Agent({ keepAlive: true, timeout: 300000 })
-        : new http.Agent({ keepAlive: true, timeout: 300000 });
+      const agent = target.protocol === 'https:' ? sharedHttpsAgent : sharedHttpAgent;
 
       const upstream = transport.request({
         method: req.method,
@@ -139,7 +145,7 @@ function createCloudProxyService({ CLOUD_API_BASE, CLOUD_API_BASE_ERROR, DISSECT
       json(res, 502, { error: '云端数据服务暂时不可用，请检查本地云端同步配置', detail });
     });
   }
-  return { shouldProxyCloudRequest, cloudProxyBodyLimit, handleLocalSyncStatus, handleCloudProxy };
+  return { shouldProxyCloudRequest, cloudProxyBodyLimit, handleLocalSyncStatus, handleCloudProxy, close };
 }
 
 module.exports = { createCloudProxyService };

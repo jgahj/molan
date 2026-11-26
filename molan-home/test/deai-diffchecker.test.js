@@ -86,7 +86,7 @@ test('pages/site.js 与 pages/tools.html 包含【进入对比工具】与【复
   assert.match(siteCode, /openDiffcheckerModal/);
 
   const toolsHtml = fs.readFileSync(path.join(__dirname, '../pages/tools.html'), 'utf8');
-  assert.match(toolsHtml, /src="\.\/diffchecker\.js"/);
+  assert.match(toolsHtml, /src="\.\/diffchecker\.js(?:\?v=[^"]+)?"/);
 });
 
 test('completion-platform.js 与 index.html 包含去 AI 味对比工具与复制全文入口', () => {

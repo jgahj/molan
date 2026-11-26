@@ -14,8 +14,9 @@
 
 const MAX_CLIENT_ERRORS = 100;
 const CLIENT_ERROR_RATE = { windowMs: 60 * 1000, max: 10 };
+const MAX_RATE_BUCKETS = 10000;
 
-function createObservabilityService({ now = Date.now } = {}) {
+function createObservabilityService({ now = Date.now, maxRateBuckets = MAX_RATE_BUCKETS } = {}) {
   const counters = {
     startedAt: now(),
     requests: 0,
@@ -53,6 +54,16 @@ function createObservabilityService({ now = Date.now } = {}) {
     const key = String(ip || 'unknown');
     const bucket = rateBuckets.get(key);
     if (!bucket || currentTime - bucket.startedAt >= CLIENT_ERROR_RATE.windowMs) {
+      if (rateBuckets.size >= maxRateBuckets) {
+        for (const [k, b] of rateBuckets.entries()) {
+          if (currentTime - b.startedAt >= CLIENT_ERROR_RATE.windowMs) rateBuckets.delete(k);
+        }
+        while (rateBuckets.size >= maxRateBuckets) {
+          const oldest = rateBuckets.keys().next().value;
+          if (oldest === undefined) break;
+          rateBuckets.delete(oldest);
+        }
+      }
       rateBuckets.set(key, { startedAt: currentTime, count: 1 });
     } else if (bucket.count >= CLIENT_ERROR_RATE.max) {
       counters.clientErrorsDropped += 1;

@@ -38,4 +38,4 @@ if not errorlevel 1 (
   echo [%date% %time%] port %MOLAN_PORT% already in use, skip start >> "%~dp0watchdog.log"
   exit /b 0
 )
-"%~dp0..\tools\node22_runtime\node.exe" --experimental-sqlite --no-warnings server.js
+"%~dp0..\tools\node22_runtime\node.exe" --no-warnings server.js

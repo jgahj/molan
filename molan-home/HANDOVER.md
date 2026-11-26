@@ -64,7 +64,7 @@ molan-home/
 │   ├── memory-context.js               # 长篇记忆上下文 (selectRelevantPlans 多维打分提炼、数值0/空串防假值坍塌、writingPackage 提升入模)
 │   ├── scene-planner.js                # 细纲场景规划器 (三态完备度识别、事件链推导、因果硬围栏阻断与自愈剪枝)
 │   ├── security-guard.js               # 端到端防套取提示词检测与系统安全硬围栏 (Fail-Fast探针拦截, 硬围栏注入)
-│   ├── repositories/                   # PostgreSQL 领域化子仓储模块 (GenerationRun / LabJob / AuthSession 单事务鉴权)
+│   ├── repositories/                   # PostgreSQL 领域化子仓储模块 (GenerationRun / LabJob / AuthSession 单事务鉴权 / CreationBook 创书与提交)
 │   └── legacy/                         # 历史组件平滑治理与隔离
 │       ├── generation-pipeline-coordinator.js # 历史生成流水线 (已隔离)
 │       └── legacy-telemetry.js         # 历史废弃模块调用生命周期遥测器
@@ -99,14 +99,18 @@ molan-home/
 │   ├── creation-chapter-service.js     # 章节生成编排入口
 │   └── creation-plan-service.js        # 创作计划与大纲服务
 ├── scripts/acp-login.js & acp-login.bat # 官方 ACP OAuth 一次登录与模型能力探测脚本
+├── db/migrations/0052_luna_hot_lookup_indexes.sql # PG 高频索引迁移 (auth_sessions/workspace_members)
+├── docs/archive/                       # 已归档的 25 份零引用历史分析/审查报告
 ├── pages/app-shell.css                 # 主工作台 SPA 核心样式（自 index.html 外移 109.5KB，immutable 强缓存）
 ├── pages/editor-inline.css             # 独立编辑器知识库样式（自 pages/editor.html 外移 26.9KB，immutable 强缓存）
+├── pages/tailwind-static.css           # 预编译 Tailwind v4.3.1 静态样式（38.6KB，取代 474KB 运行时 JS）
 ├── pages/local-open-auth.js            # 独立子页本地免登录会话共享引导模块 (`MolanLocalOpenAuth`)
 ├── pages/auth.css                      # 主页一致宣纸墨黑风认证页统一样式（支持 theme-dim 暗色模式）
 ├── pages/login.html & js/login.js      # 主页风格一致登录页与 CSP 外移交互脚本
 ├── pages/register.html & js/register.js # 两步邮箱验证码注册页（自动发码 + 60s 重发冷却）与 CSP 外移脚本
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
-    ├── deep-optimization-20261126.test.js # 全栈深度优化专项测试（本地CORS/PNA隔离、PG单事务鉴权与LISTEN重连、静态304与JSON压缩、CSS外移与train_unsloth v2）(5 项)
+    ├── deep-optimization-round2-20261126.test.js # 第二轮 10 项全栈深度优化专项测试（连接池复用、Map上限淘汰、PG索引/批量锁/子仓储拆解、Tailwind静态化、全子页版本戳+defer、可见性轮询与根目录归档）(5 项)
+    ├── deep-optimization-20261126.test.js # 第一轮全栈深度优化专项测试（本地CORS/PNA隔离、PG单事务鉴权与LISTEN重连、静态304与JSON压缩、CSS外移与train_unsloth v2）(5 项)
     ├── email-verification-register.test.js # SMTP 发信、sub2api 配置回退、6位验证码注册闭环与页面 UI/CSP 专测 (6 项)
     ├── account-deletion.test.js           # 自主匿名化注销账号、释放邮箱安全重注册与权限拦截测试 (3 项)
     ├── editor-bootstrap-creation-book.test.js # 编辑器直连 Generation V2 伴生创作书自动引导与圣经校验隔离测试 (4 项)
@@ -148,6 +152,40 @@ molan-home/
     ├── system-optimization-suite.test.js      # 首屏异步竞态修复、679KB懒加载、无竞争节流落盘、仓储/双编辑器拆解专测 (5 项)
     └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
+
+---
+
+## 阶段记录：第二轮全栈 10 项深度优化落地——连接池与定时器泄漏根治、Map 上限防 OOM、PG 索引/批量锁与 CreationBook 子仓储拆分、Tailwind 预编译静态化及全子页版本戳+可见性轮询 (2026-11-26)
+
+> 背景：第一轮 14 项深度优化交付后，开展第二轮更深层全栈静态与运行时审计，定位出 10 项高价值隐患与性能瓶颈：云代理逐请求创建 `http(s).Agent` 连接池泄漏、无界内存 Map 潜在 OOM、模型传输连接定时器泄漏与缺复用连接池、PG 缺少高频二级索引及 `syncStructuredResourceProjection` 存在 N+1 `SELECT FOR UPDATE`、7 个子页加载 474KB 运行时 `tailwind-browser.js`、4 处前端轮询后台标签页空转、`genre-engine` 管线重复同步读盘与语料缓存无上限、拆书后端定时器缺 `.unref()`、20 个子页 109 处资源缺 `?v=` 缓存戳与 `defer`，以及 `postgres-repository.js` 仍达 6,756 行与根目录 25 份历史 `.md` 堆积。经用户授权全量落地。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/services/cloud-proxy-service.js`<br>`molan-home/services/model-transport-service.js`<br>`molan-home/server.js` | 连接池复用与定时器防泄漏（#1 & #3） | 1. `cloud-proxy-service.js` 将逐请求新建 Agent 改为共享 `sharedHttpAgent`/`sharedHttpsAgent`（`keepAlive: true, timeout: 300000, keepAliveMsecs: 30000, maxSockets: 64, maxFreeSockets: 16`），暴露 `close()`；<br>2. `model-transport-service.js` 顶层引入 `node:net`、复用共享 Agent、为 `connectTimer` 调用 `.unref()` 并绑定 `request`/`socket` 的 `close`/`error` 清理，暴露 `close()`；<br>3. `server.js` 在 `closeStorageStores()` 停机路径中调用 `closeCloudProxy()` 与 `closeModelTransport()` 回收连接池。 |
+| `molan-home/services/observability-service.js`<br>`molan-home/services/auth-account-service.js` | 内存 Map 有界淘汰防 OOM（#2） | 1. `observability-service.js` 为 `rateBuckets` 增加 `MAX_RATE_BUCKETS = 10000` 上限，超限时先清过期桶再按 FIFO 淘汰最旧键；<br>2. `auth-account-service.js` 为 `locallyRevokedSessions` 增加 `MAX_LOCALLY_REVOKED_SESSIONS = 10000` 上限与同策略清理淘汰。 |
+| `molan-home/db/migrations/0052_luna_hot_lookup_indexes.sql`<br>`molan-home/lib/postgres-repository.js`<br>`molan-home/lib/repositories/postgres-creation-book-methods.js` | PG 索引、批量锁消除 N+1 与 CreationBook 子仓储拆分（#4 & #10a） | 1. 新增事务安全迁移 `0052_luna_hot_lookup_indexes.sql`，补齐 `luna.auth_sessions(user_id)`、`luna.auth_sessions(expires_at) WHERE revoked_at IS NULL` 与 `luna.workspace_members(user_id, active)` 三条高频索引；<br>2. `syncStructuredResourceProjection` 改为单条 `WHERE ... id = ANY($3::uuid[]) ORDER BY id ASC FOR UPDATE` 批量预取加锁，消除 N+1 查询并按 `id` 排序防死锁；<br>3. 将 1,142 行 CreationBook/Bible/CausalDebt/Commit 域方法拆出至 `lib/repositories/postgres-creation-book-methods.js`，`lib/postgres-repository.js` 由 6,777 行瘦身至 **5,692 行（-1,085 行）**。 |
+| `molan-home/lib/genre-engine.js`<br>`molan-home/services/dissection-pipeline-aggregation-service.js`<br>`molan-home/services/native-dissection-worker.js` | 管线/语料 LRU 缓存与后台定时器 `unref()`（#7 & #8） | 1. `genre-engine.js` 为 `loadPipelineForRoute` 增加 64 项 LRU `pipelineCache` 与 `library-index.json` `mtimeMs`+5s 缓存，并将 `corpusCache` 封顶至 3 项 LRU 防内存膨胀；<br>2. `dissection-pipeline-aggregation-service.js` 将取消轮询间隔由硬编码 1s 改为可配 `MOLAN_DISSECTION_CANCEL_POLL_MS`（默认 3s，范围 1~15s）并 `.unref()`；`native-dissection-worker.js` 为 `renewalTimer` 增加 `.unref()`。 |
+| `molan-home/pages/tailwind-static.css` (新)<br>`molan-home/assets/tailwind-browser.js` (删)<br>20 个 `pages/*.html`<br>`index.html`、`boot-head.js`、`boot-scripts.js`<br>`scripts/check-frontend-stamp.mjs` | Tailwind 预编译静态化 + 全子页 109 处版本戳 + 77 处 `defer`（#5 & #9） | 1. 基于 `assets/tailwind-browser.js` (v4.3.1) 全量扫描 7 个营销/文档页及脚本动态类名（443 类），预编译生成 **38.6KB** 静态样式 `pages/tailwind-static.css`，彻底移除 474KB 运行时 JS（体积 -92%，零运行时解析开销）并清理 `server.js` 白名单；<br>2. 为全部 20 个 `pages/*.html` 的 109 处本地 CSS/JS 补齐 `?v=20261126_deep_opt_v2`，为 77 处外部 `<script>` 添加 `defer`（保留 `pages/editor.html` `<head>` 首屏主题初始化脚本同步执行防闪烁）；<br>3. 将 26 个子页资产纳入 `scripts/check-frontend-stamp.mjs` `STAMPED_ASSETS` 门禁保护。 |
+| `molan-home/app-boot.js`<br>`molan-home/completion-import.js`<br>`molan-home/pages/dissect.js`<br>`molan-home/pages/editor.js` | 前端轮询前台可见性守卫（#6） | 为 `pollBackendTasks`、`reconcileCreationHeartbeats`、`startDissectionPolling`、`pages/dissect.js` 与 `pages/editor.js` 定时轮询增加 `document.hidden` 后台暂停与 `visibilitychange` 切回前台立即同步（`editor.js` 切隐瞬间立即触发一次自动保存快照，保留 `creationHeartbeatTimer` 跨页防误杀锁不断链）。 |
+| `molan-home/start-node22.bat`<br>`molan-home/start-node22-pg.ps1`<br>`molan-home/server.js`<br>`molan-home/docs/archive/` (25 份)<br>`molan-home/test/deep-optimization-round2-20261126.test.js` | 废弃启动参数清理、根目录归档与 Round 2 专项测试（#10b-d） | 1. 清理 PG-only 启动脚本残留的 `--experimental-sqlite` 及 `server.js` 未使用导入 `createLocalDatabaseBootstrap`；<br>2. 将根目录 25 份经校验零引用的历史审查/方案 `.md` 报告归档至 `docs/archive/`；<br>3. 新增 5 项全覆盖专项测试 `test/deep-optimization-round2-20261126.test.js`，并同步对齐 `test/deai-diffchecker.test.js` 与 `test/dissection-graph.test.js` 契约断言。 |
+
+### 二、设计决策与权衡
+
+1. **`completion-import.js` 仅暂停对账与拆书轮询、保留 `creationHeartbeatTimer`**：后台标签页执行长创书流式生成时，`creationHeartbeatTimer` 负责续租 `localStorage` 90s 存活锁；若隐藏时暂停心跳，其他标签页会误判任务崩溃并触发中断标记，故精准区分「状态轮询暂停」与「持有锁心跳保活」。
+2. **`pages/editor.html` 保留 `<head>` `./js/editor.js` 同步执行**：该轻量脚本仅在首帧渲染前写入暗/亮主题类避免白屏闪烁（FOUC），其余 77 处外部脚本全部安全 `defer`，按文档顺序在 `DOMContentLoaded` 前执行。
+3. **Tailwind 静态化保留 CSP `style-src 'self' 'unsafe-inline'`**：满足现有行内动态样式及 `test/csp-tightening.test.js` 契约，同时彻底免除 474KB 运行时 JS 下载与 DOM 扫描开销。
+
+### 三、真实验证证据
+
+- **语法与静态校验**：19 个修改/新增 JS/MJS 文件 `tools/node22_runtime/node.exe --check` 全部 `SYNTAX OK`；`pages/tailwind-static.css` 经无头 Edge 校验 `tools.html` / `pricing.html` / `docs.html` 计算样式一致。
+- **四大内置 CI 门禁全绿**：
+  - `production-import-audit.mjs` → `242 文件 PASS (exit=0)`；
+  - `audit-golden-suite.mjs` → `80 tasks PASS (exit=0)`；
+  - `audit-features.mjs` → `FEATURE GATE PASS contracts=8 failed_contracts=0 unknown_markers=0 unmapped_controls=0 (scanned=1964 mapped=1247, exit=0)`；
+  - `check-frontend-stamp.mjs` → `20261126_deep_opt_v2 PASS (exit=0)`。
+- **全量回归**：`tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"` → **`2523 tests / 74 suites / 2507 pass / 0 fail / 16 skipped`（耗时 39.3s，基线 2518 → +5）**。
 
 ---
 

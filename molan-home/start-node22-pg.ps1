@@ -59,7 +59,7 @@ try {
     throw 'Cloud PostgreSQL runtime check failed; the application was not started.'
   }
 
-  & $nodePath --experimental-sqlite --no-warnings server.js
+  & $nodePath --no-warnings server.js
   exit $LASTEXITCODE
 }
 finally {

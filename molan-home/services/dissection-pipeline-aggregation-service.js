@@ -250,13 +250,15 @@ async function callDissectionPipelineModel(authToken, owner, record, options) {
     }
   };
   await check();
+  const cancelPollMs = Math.max(1000, Math.min(15000, Number(process.env.MOLAN_DISSECTION_CANCEL_POLL_MS) || 3000));
   const timer = setInterval(() => {
     if (stopped || inFlightPoll) return;
     inFlightPoll = check().catch(error => {
       pollError = error;
       controller.abort(error);
     }).finally(() => { inFlightPoll = null; });
-  }, 1000);
+  }, cancelPollMs);
+  if (typeof timer.unref === 'function') timer.unref();
   try {
     const output = await callMolanChat(authToken, owner, {
       ...options, controller, requireComplete: true

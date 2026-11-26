@@ -28,6 +28,7 @@ function createNativeDissectionWorker({ repository, phases, callStage, getAccoun
             renewal = renewal.then(() => repository.renewLease({ ...leased, leaseMs }))
               .catch(error => { controller.abort(error); });
           }, Math.min(30000, Math.max(1, Math.floor(leaseMs / 3))));
+          if (typeof renewalTimer.unref === 'function') renewalTimer.unref();
           try { output = await callStage({ record: current, stageId, user, authToken, requestId, controller }); }
           catch (error) {
             await repository.endProvider({ ...leased, requestId, requestHash, attemptToken: attempt.attemptToken, receipt: { status: 'unknown', error: String(error.code || error.message) } });
