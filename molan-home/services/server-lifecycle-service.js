@@ -76,6 +76,8 @@ function createServerLifecycleService(deps) {
     runtime.once('SIGINT', () => { void shutdown('SIGINT'); });
     server.keepAliveTimeout = 5000;
     server.headersTimeout = 15000;
+    server.requestTimeout = 120000;
+    server.maxHeadersCount = 100;
     server.maxRequestsPerSocket = 1000;
     server.maxConnections = maxConnections;
     try {

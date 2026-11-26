@@ -4,7 +4,7 @@
  * 代码为逐字迁移（行为不变），加载位置与原内联位置一致。
  */
     if (location.protocol !== 'file:') {
-      const v = '20261126_deep_opt_v2';
+      const v = '20261126_deep_opt_v3';
       // 核心脚本（首屏必需）：作品库 / 平台页 / 工作区装配
       // completion-editor.js（editor/outline/knowledge，679KB）、completion-import.js（321KB）
       // 与 completion-admin.js（72KB）均按路由懒加载，首屏合计立省约 1,072KB；

@@ -11,7 +11,8 @@ const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'u
 const querySource = fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-query-service.js'), 'utf8');
 const analysisSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'dissection-pipeline-analysis-service.js'), 'utf8');
 const modelCallSource = fs.readFileSync(path.join(__dirname, '..', 'services', 'model-call-service.js'), 'utf8');
-const postgresSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'postgres-repository.js'), 'utf8');
+const postgresSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'postgres-repository.js'), 'utf8')
+  + '\n' + fs.readFileSync(path.join(__dirname, '..', 'lib', 'repositories', 'postgres-runtime-dissection-methods.js'), 'utf8');
 const dissectionRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'dissections.js'), 'utf8');
 const editorSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'editor.js'), 'utf8');
 

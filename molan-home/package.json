@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node --no-warnings server.js",
     "test": "node --no-warnings --test --test-reporter=spec --test-concurrency=4 \"test/*.test.js\" \"test/*.test.mjs\" \"test/*.test.cjs\"",
-    "ci": "node --no-warnings --test --test-reporter=spec --test-concurrency=4 \"test/*.test.js\" \"test/*.test.mjs\" \"test/*.test.cjs\" && node scripts/production-import-audit.mjs && node scripts/audit-golden-suite.mjs && node scripts/audit-features.mjs",
+    "ci": "node --no-warnings --test --test-reporter=spec --test-concurrency=4 \"test/*.test.js\" \"test/*.test.mjs\" \"test/*.test.cjs\" && node scripts/production-import-audit.mjs && node scripts/audit-golden-suite.mjs && node scripts/audit-features.mjs && node scripts/check-frontend-stamp.mjs",
     "audit:production-imports": "node scripts/production-import-audit.mjs",
+    "audit:stamp": "node scripts/check-frontend-stamp.mjs",
     "corpus:cli": "node scripts/corpus-cli.js",
     "corpus:extract": "node scripts/corpus-cli.js extract",
     "corpus:cluster": "node scripts/corpus-cli.js cluster",

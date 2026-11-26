@@ -64,7 +64,7 @@ molan-home/
 │   ├── memory-context.js               # 长篇记忆上下文 (selectRelevantPlans 多维打分提炼、数值0/空串防假值坍塌、writingPackage 提升入模)
 │   ├── scene-planner.js                # 细纲场景规划器 (三态完备度识别、事件链推导、因果硬围栏阻断与自愈剪枝)
 │   ├── security-guard.js               # 端到端防套取提示词检测与系统安全硬围栏 (Fail-Fast探针拦截, 硬围栏注入)
-│   ├── repositories/                   # PostgreSQL 领域化子仓储模块 (GenerationRun / LabJob / AuthSession 单事务鉴权 / CreationBook 创书与提交)
+│   ├── repositories/                   # PostgreSQL 领域化子仓储模块 (GenerationRun / LabJob / AuthSession / CreationBook / RuntimeDissection)
 │   └── legacy/                         # 历史组件平滑治理与隔离
 │       ├── generation-pipeline-coordinator.js # 历史生成流水线 (已隔离)
 │       └── legacy-telemetry.js         # 历史废弃模块调用生命周期遥测器
@@ -99,9 +99,10 @@ molan-home/
 │   ├── creation-chapter-service.js     # 章节生成编排入口
 │   └── creation-plan-service.js        # 创作计划与大纲服务
 ├── scripts/acp-login.js & acp-login.bat # 官方 ACP OAuth 一次登录与模型能力探测脚本
-├── db/migrations/0052_luna_hot_lookup_indexes.sql # PG 高频索引迁移 (auth_sessions/workspace_members)
-├── docs/archive/                       # 已归档的 25 份零引用历史分析/审查报告
+├── db/migrations/0052_luna_hot_lookup_indexes.sql & 0053_luna_runtime_usage_indexes.sql # PG 高频查询与部分索引迁移
+├── docs/archive/                       # 已归档的 27 份零引用历史分析/审查报告与 JSON
 ├── pages/app-shell.css                 # 主工作台 SPA 核心样式（自 index.html 外移 109.5KB，immutable 强缓存）
+├── pages/brand-tokens.css              # 7 个营销/文档页共享外移品牌设计变量（消除 32.9KB 重复内联 CSS）
 ├── pages/editor-inline.css             # 独立编辑器知识库样式（自 pages/editor.html 外移 26.9KB，immutable 强缓存）
 ├── pages/tailwind-static.css           # 预编译 Tailwind v4.3.1 静态样式（38.6KB，取代 474KB 运行时 JS）
 ├── pages/local-open-auth.js            # 独立子页本地免登录会话共享引导模块 (`MolanLocalOpenAuth`)
@@ -109,6 +110,7 @@ molan-home/
 ├── pages/login.html & js/login.js      # 主页风格一致登录页与 CSP 外移交互脚本
 ├── pages/register.html & js/register.js # 两步邮箱验证码注册页（自动发码 + 60s 重发冷却）与 CSP 外移脚本
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
+    ├── deep-optimization-round3-20261126.test.js # 第三轮全栈深度优化专项测试（去 Google Fonts 与 brand-tokens 外移、纠错库缓存、Map 有界淘汰、Slowloris 加固、PG 0053 索引与 RuntimeDissection 子仓储拆解、死代码清理与 CI 串联）(4 项)
     ├── deep-optimization-round2-20261126.test.js # 第二轮 10 项全栈深度优化专项测试（连接池复用、Map上限淘汰、PG索引/批量锁/子仓储拆解、Tailwind静态化、全子页版本戳+defer、可见性轮询与根目录归档）(5 项)
     ├── deep-optimization-20261126.test.js # 第一轮全栈深度优化专项测试（本地CORS/PNA隔离、PG单事务鉴权与LISTEN重连、静态304与JSON压缩、CSS外移与train_unsloth v2）(5 项)
     ├── email-verification-register.test.js # SMTP 发信、sub2api 配置回退、6位验证码注册闭环与页面 UI/CSP 专测 (6 项)
@@ -152,6 +154,37 @@ molan-home/
     ├── system-optimization-suite.test.js      # 首屏异步竞态修复、679KB懒加载、无竞争节流落盘、仓储/双编辑器拆解专测 (5 项)
     └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
+
+---
+
+## 阶段记录：第三轮全栈 8 项深度优化落地——移除阻断首屏 Google Fonts 与重复内联 CSS、纠错库 mtime 缓存、防 OOM/Slowloris/Tabnabbing 加固、PG 0053 部分索引与 RuntimeDissection 子仓储再拆解 (2026-11-26)
+
+> 背景：第二轮交付后再次执行五维全栈深扫，新发现 8 项高收益优化点：7 个营销/文档页同步加载 `fonts.googleapis.com`（国内无代理首屏阻塞 15~60s）并重复内联 7 份逐字节一致的 4.7KB 品牌样式；`server.js` `loadEditorOnlyCorrectionLibrary` 每次纠错请求重复同步读盘与解析 Markdown；`chat-admission-service` 与 `character-material.js` 仍存在两处无界 `Map`；HTTP 服务缺显式 `requestTimeout` 与 `maxHeadersCount`；`completion-editor.js` 一处 `target="_blank"` 漏 `rel="noopener noreferrer"`；PG `runtime_dissection_rows` 缺管理全量用量与按拆书聚合部分索引；`postgres-repository.js` 仍含 1,598 行独立拆书/管理域可拆解；以及 4 个零引用遗留模块、2 份零引用报告 JSON 与 `package.json` `ci` 漏串 `check-frontend-stamp.mjs`。已全部落地闭环。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/pages/brand-tokens.css` (新)<br>7 个营销/文档页 (`about/blog/contact/docs/features/pricing/tools.html`)<br>23 个前端版本戳文件、`scripts/check-frontend-stamp.mjs` | 移除外链字体阻塞 + 品牌 CSS 去重外移（#1） | 1. 彻底移除 7 页 `<head>` 中阻断首屏的 `fonts.googleapis.com` / `fonts.gstatic.com` 标签，统一回退系统原生中文字体栈（与 `index.html` 一致，彻底消除国内网络首屏挂起）；<br>2. 将 7 页逐字节一致的 4.7KB `<style data-vd-inlined-stylesheet="../colors_and_type.css">` 抽离为单份强缓存 `pages/brand-tokens.css`（消除 32.9KB 重复 HTML 传输），纳入 `check-frontend-stamp.mjs` 并升级全站缓存戳至 `20261126_deep_opt_v3`。 |
+| `molan-home/server.js`<br>`molan-home/services/chat-admission-service.js`<br>`molan-home/lib/character-material.js`<br>`molan-home/services/server-lifecycle-service.js`<br>`molan-home/completion-editor.js` | 热路径缓存、防 OOM、防 Slowloris 与防 Tabnabbing（#2~#5） | 1. `server.js` `loadEditorOnlyCorrectionLibrary` 增加 `(filePath, mtimeMs, size)` 内存缓存，免除每次纠错请求同步读盘、SHA-256 与 Markdown 全量重解析；<br>2. `chat-admission-service.js` 为 `rate` Map 增加 `MAX_RATE_KEYS = 10000` 过期清理+FIFO 淘汰；`character-material.js` 为 `paragraphAnonymizationCache` 增加 `MAX_PARAGRAPH_ANON_SOURCES = 256` LRU 淘汰；<br>3. `server-lifecycle-service.js` 新增 `server.requestTimeout = 120000` 与 `server.maxHeadersCount = 100`；<br>4. `completion-editor.js:8942` 为 `target="_blank"` 补齐 `rel="noopener noreferrer"`。 |
+| `molan-home/db/migrations/0053_luna_runtime_usage_indexes.sql`<br>`molan-home/lib/postgres-repository.js`<br>`molan-home/lib/repositories/postgres-runtime-dissection-methods.js` | PG 部分索引与 RuntimeDissection 子仓储拆解（#6 & #7） | 1. 新增非破坏性事务迁移 `0053_luna_runtime_usage_indexes.sql`，为 `luna.runtime_dissection_rows` 补齐 `(updated_at DESC) WHERE source_table = 'token_usage' AND deleted_at IS NULL` 与 `(owner_actor_id, dissection_id) WHERE deleted_at IS NULL` 两条部分索引；<br>2. 将 1,598 行（42 个公共方法）运行时拆书/角色库/管理/用量域拆出至 `lib/repositories/postgres-runtime-dissection-methods.js`，`lib/postgres-repository.js` 再瘦身 **1,615 行**（6,777 → 5,692 → **4,077 行，累计 -40%**）。 |
+| `molan-home/package.json`<br>4 个零引用遗留模块 (删)<br>2 份零引用 JSON 归档至 `docs/archive/`<br>`molan-home/test/deep-optimization-round3-20261126.test.js` | 死代码清理与 CI 门禁补齐（#8） | 1. 删除全库零生产、零测试引用的 4 个历史残留文件（`routes/novel-domain-handlers.js`、`services/native-benchmark-chapter-service.js`、`services/native-dissection-service.js`、`services/native-skill-service.js`）；<br>2. 将 `generalization-report.json` 与 `self-evolution-report.json` 归档至 `docs/archive/`；<br>3. `package.json` 新增 `audit:stamp` 并将 `check-frontend-stamp.mjs` 正式串入 `npm run ci`；新增 4 项专项回归测试。 |
+
+### 二、设计决策与权衡
+
+1. **移除 `fonts.googleapis.com` 而非换国内第三方镜像**：第三方免费字体镜像存在稳定性与隐私外泄不确定性；主工作台 `index.html` 本身已无任何外链字体且系统原生衬线/黑体栈排版清晰，统一零外部依赖最稳健。
+2. **`server.requestTimeout = 120000` 兼顾 Slow-POST 防护与 20MB 拆书上传**：Node.js 22 的 `requestTimeout` 仅限定客户端上传请求头+请求体的总耗时，不影响服务端 SSE 长流式响应吐字，120s 既比默认 300s 显著收缩慢速攻击面，又为大文档上传留足裕量。
+3. **保留 `services/native-dissection-query-service.js`**：尽管生产未引入，但 `test/native-dissection-query.test.js` 仍对其执行契约覆盖，严格遵循零破坏原则予以保留。
+
+### 三、真实验证证据
+
+- **语法检查**：12 个修改/新增 JS/MJS 文件 `tools/node22_runtime/node.exe --check` 全部 `SYNTAX OK`。
+- **四大内置 CI 门禁全绿**：
+  - `production-import-audit.mjs` → `239 文件 PASS (exit=0)`；
+  - `audit-golden-suite.mjs` → `80 tasks PASS (exit=0)`；
+  - `audit-features.mjs` → `FEATURE GATE PASS contracts=8 failed_contracts=0 unknown_markers=0 unmapped_controls=0 (scanned=1964 mapped=1247, exit=0)`；
+  - `check-frontend-stamp.mjs` → `20261126_deep_opt_v3 PASS (exit=0)`。
+- **全量回归**：`tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"` → **`2527 tests / 74 suites / 2511 pass / 0 fail / 16 skipped`（耗时 39.7s，基线 2523 → +4）**。
 
 ---
 

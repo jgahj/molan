@@ -114,6 +114,7 @@ const GENERIC_RULES = Object.freeze([
 
 let characterMaterialIndexCache = null;
 let paragraphSampleLibraryCache = null;
+const MAX_PARAGRAPH_ANON_SOURCES = 256;
 const paragraphAnonymizationCache = new Map();
 
 /** strong 模式每轮注入的完整段落样本条数（维度配额在此条数内分配）。 */
@@ -135,14 +136,21 @@ function anonymizationLabel(index) {
   return `第${value + 1}个`;
 }
 
-/** 为单本来源书取得可复用的人名、地名替换表，确保同一专名始终对应同一占位符。 */
+/** 为单本来源书取得可复用的人名、地名替换表，确保同一专名始终对应同一占位符（LRU 有界防长期运行内存增长）。 */
 function paragraphAnonymizationState(sourceKey) {
   const key = normalizeMaterialText(sourceKey, 240) || '__default__';
   let state = paragraphAnonymizationCache.get(key);
-  if (!state) {
-    state = { names: new Map(), locations: new Map() };
+  if (state) {
+    paragraphAnonymizationCache.delete(key);
     paragraphAnonymizationCache.set(key, state);
+    return state;
   }
+  if (paragraphAnonymizationCache.size >= MAX_PARAGRAPH_ANON_SOURCES) {
+    const oldest = paragraphAnonymizationCache.keys().next().value;
+    if (oldest !== undefined) paragraphAnonymizationCache.delete(oldest);
+  }
+  state = { names: new Map(), locations: new Map() };
+  paragraphAnonymizationCache.set(key, state);
   return state;
 }
 

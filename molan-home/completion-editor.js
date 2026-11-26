@@ -8939,7 +8939,7 @@ ${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${world
           <span class="badge blue" id="mwbStatusBadge">正在连接故事记忆引擎…</span>
           <span style="font-size:11px;color:var(--muted)" id="mwbMetaInfo">作品：${esc(state && state.title || bookId)}</span>
         </div>
-        <a class="button" href="./pages/story-workbench.html?nid=${encodeURIComponent(bookId)}" target="_blank" style="padding:3px 8px;font-size:11px" title="在新窗口以独立全屏页打开故事工作台">${ico('external-link')}独立全屏页</a>
+        <a class="button" href="./pages/story-workbench.html?nid=${encodeURIComponent(bookId)}" target="_blank" rel="noopener noreferrer" style="padding:3px 8px;font-size:11px" title="在新窗口以独立全屏页打开故事工作台">${ico('external-link')}独立全屏页</a>
       </div>
       <div class="workbench-tabs" style="display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:8px">
         <button class="workbench-tab-btn active" data-mwb-tab="cognition">人物私下认知 vs 表现</button>

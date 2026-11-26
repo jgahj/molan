@@ -40,6 +40,7 @@ const STAMPED_ASSETS = [
   'workspace-completion.js',
   'correction-policy.js',
   'pages/tokens.css',
+  'pages/brand-tokens.css',
   'pages/app-shell.css',
   'pages/editor-inline.css',
   'pages/tailwind-static.css',

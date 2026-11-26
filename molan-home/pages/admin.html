@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>墨阑管理后台</title>
-  <link rel="stylesheet" href="./tokens.css?v=20261126_deep_opt_v2">
-  <link rel="stylesheet" href="./admin.css?v=20261126_deep_opt_v2">
-  <link rel="stylesheet" href="./molan-ui.css?v=20261126_deep_opt_v2">
+  <link rel="stylesheet" href="./tokens.css?v=20261126_deep_opt_v3">
+  <link rel="stylesheet" href="./admin.css?v=20261126_deep_opt_v3">
+  <link rel="stylesheet" href="./molan-ui.css?v=20261126_deep_opt_v3">
 </head>
 <body>
   <div class="admin-shell" id="adminApp" hidden>
@@ -119,8 +119,8 @@
   <div class="toast" id="toast" role="status"></div>
   <dialog class="confirm-dialog" id="adminConfirmDialog"><form id="adminConfirmForm" method="dialog"><div class="dialog-head"><div><p class="eyebrow">CONFIRM ACTION</p><h2 id="adminConfirmTitle">确认操作</h2></div><button class="icon-btn" id="adminConfirmClose" value="cancel" type="submit" aria-label="关闭"><span class="ui-icon" data-icon="x" aria-hidden="true"></span></button></div><p class="confirm-message" id="adminConfirmMessage"></p><div class="form-actions"><button class="ghost-btn" id="adminConfirmCancel" value="cancel" type="submit">取消</button><button class="primary-btn" id="adminConfirmAccept" value="default" type="submit">确认</button></div></form></dialog>
   <dialog class="user-dialog" id="userDialog"><form method="dialog" id="userForm"><div class="dialog-head"><div><p class="eyebrow">ACCOUNT SETTINGS</p><h2>编辑用户</h2></div><button class="icon-btn" value="cancel" type="submit" aria-label="关闭"><span class="ui-icon" data-icon="x" aria-hidden="true"></span></button></div><p class="dialog-email" id="dialogEmail">—</p><label>用户名称<input id="editUserName" type="text" maxlength="24" required></label><label>用户等级<select id="editUserRole"><option value="normal">普通用户 · 2× 消耗</option><option value="vip">VIP 用户 · 1× 消耗</option><option value="admin">管理员 · 无限积分</option></select></label><label>积分余额<input id="editUserCredits" type="number" min="0" step="0.01"><small class="field-hint">管理员的积分余额不参与扣费。</small></label><div class="form-actions"><button class="ghost-btn" value="cancel" type="submit">取消</button><button class="primary-btn" id="saveUserBtn" value="default" type="submit"><span class="button-icon" data-icon="check" aria-hidden="true"></span>保存修改</button></div></form></dialog>
-  <script src="./local-open-auth.js?v=20261126_deep_opt_v2" defer></script>
-  <script src="./admin.js?v=20261126_deep_opt_v2" defer></script>
-  <script src="./molan-shell.js?v=20261126_deep_opt_v2" defer></script>
+  <script src="./local-open-auth.js?v=20261126_deep_opt_v3" defer></script>
+  <script src="./admin.js?v=20261126_deep_opt_v3" defer></script>
+  <script src="./molan-shell.js?v=20261126_deep_opt_v3" defer></script>
 </body>
 </html>

@@ -858,10 +858,24 @@ function resolveEditorOnlyCorrectionFile(options = {}) {
 }
 
 
+let editorOnlyCorrectionCache = null;
+
 function loadEditorOnlyCorrectionLibrary(options = {}) {
   const filePath = resolveEditorOnlyCorrectionFile(options);
   if (!filePath) {
     throw requestError(503, '编辑器完整纠错库不可用，请检查指定的 纠错库.md');
+  }
+  let stat = null;
+  try {
+    stat = fs.statSync(filePath);
+  } catch (error) {
+    throw requestError(503, '编辑器完整纠错库读取失败：' + String(error && error.message || error));
+  }
+  if (editorOnlyCorrectionCache &&
+      editorOnlyCorrectionCache.path === filePath &&
+      editorOnlyCorrectionCache.mtimeMs === stat.mtimeMs &&
+      editorOnlyCorrectionCache.size === stat.size) {
+    return editorOnlyCorrectionCache.result;
   }
   let content;
   try {
@@ -879,7 +893,7 @@ function loadEditorOnlyCorrectionLibrary(options = {}) {
   if (!structured || (!structured.rules.length && !structured.cases.length)) {
     throw requestError(503, '编辑器纠错库未解析出任何硬规则或案例，请检查 纠错库.md 的表格格式');
   }
-  return {
+  const result = {
     path: filePath,
     content: String(content),
     sha256: sha256Text(content),
@@ -887,6 +901,8 @@ function loadEditorOnlyCorrectionLibrary(options = {}) {
     version: EDITOR_ONLY_CORRECTION_VERSION + ':' + structured.version,
     structured
   };
+  editorOnlyCorrectionCache = { path: filePath, mtimeMs: stat.mtimeMs, size: stat.size, result };
+  return result;
 }
 
 

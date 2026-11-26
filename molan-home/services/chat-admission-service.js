@@ -1,8 +1,10 @@
 'use strict';
 
+const MAX_RATE_KEYS = 10000;
+
 /** Per-server request admission; no entry-point globals or storage dependencies. */
 function createChatAdmissionService({ stableUserId, requestLimit, maxInflight, maxPerUser,
-  windowMs = 60000, now = Date.now, timers = { setInterval, clearInterval } }) {
+  windowMs = 60000, maxRateKeys = MAX_RATE_KEYS, now = Date.now, timers = { setInterval, clearInterval } }) {
   const rate = new Map();
   const users = new Map();
   let inflight = 0;
@@ -16,6 +18,16 @@ function createChatAdmissionService({ stableUserId, requestLimit, maxInflight, m
     const time = now();
     const previous = rate.get(key);
     if (!previous || time - previous.startedAt >= windowMs) {
+      if (!previous && rate.size >= maxRateKeys) {
+        for (const [k, item] of rate) {
+          if (time - item.startedAt >= windowMs) rate.delete(k);
+        }
+        while (rate.size >= maxRateKeys) {
+          const oldest = rate.keys().next().value;
+          if (oldest === undefined) break;
+          rate.delete(oldest);
+        }
+      }
       rate.set(key, { startedAt: time, count: 1 });
       return true;
     }
