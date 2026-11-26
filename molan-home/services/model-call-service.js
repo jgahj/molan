@@ -1,5 +1,8 @@
 'use strict';
 
+const { debugWarn } = require('./json-persistence-service');
+const MAX_INTERNAL_CHAT_RESPONSE_BYTES = 32 * 1024 * 1024;
+
 function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HEADER, INTERNAL_MODEL_ROUTE_KEY, PORT, dissectionSkillRecord, extractJsonFromMixedText, findPlatformModel, http, loadBuiltinSkills, nativeSkillCatalog, recordModelUsage, requestError, resolveModelForUser, safeJsonParse, skillPromptFiles, skillPromptInstruction, wrapSkillBlock, parseChatStream }) {
   function dissectionStreamText(value) {
     if (typeof value === 'string') return value;
@@ -23,14 +26,16 @@ function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HE
     const model = internalModelId || resolveModelForUser(user, o.modelId);
     let systemPrompt = o.system || '';
     const skillAudit = o.skillAudit && Array.isArray(o.skillAudit.skills) && o.skillAudit.skills.length ? o.skillAudit : null;
-    const nativeCatalog = await nativeSkillCatalog(user);
     if (skillAudit) {
-      // skill 注入通道：按 opts.skillId 解析，不再写死拆书 skill（缺省或显式 'dissection' 走拆书 skill 以兼容既有调用）
+      // skill 注入通道：仅在启用 skillAudit 且需要查询用户/全局 Skill 时才懒查库，避免无 skillAudit 的内部模型调用做无效查库
       const requestedSkillId = String(o.skillId || '').trim();
-      const skill = (!requestedSkillId || requestedSkillId === 'dissection') ? dissectionSkillRecord()
-        : (nativeCatalog.userSkills || []).find(item => item && item.id === requestedSkillId)
-          || (nativeCatalog.globalSkills || []).find(item => item && item.id === requestedSkillId)
+      let skill = (!requestedSkillId || requestedSkillId === 'dissection') ? dissectionSkillRecord() : null;
+      if (!skill) {
+        const nativeCatalog = await nativeSkillCatalog(user);
+        skill = (nativeCatalog && nativeCatalog.userSkills || []).find(item => item && item.id === requestedSkillId)
+          || (nativeCatalog && nativeCatalog.globalSkills || []).find(item => item && item.id === requestedSkillId)
           || loadBuiltinSkills().find(item => item && item.id === requestedSkillId);
+      }
       if (!skill) throw new Error('Skill 未完整加载：' + (o.skillId || 'dissection'));
       const declaredSkill = skillAudit && Array.isArray(skillAudit.skills) && (skillAudit.skills.find(s => s && s.id === skill.id) || skillAudit.skills[0]);
       const promptFiles = declaredSkill && Array.isArray(declaredSkill.promptFiles) && declaredSkill.promptFiles.length
@@ -128,7 +133,15 @@ function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HE
             return;
           }
           let data = '';
-          upstreamResponse.on('data', chunk => { data += chunk; });
+          let receivedBytes = 0;
+          upstreamResponse.on('data', chunk => {
+            receivedBytes += Buffer.byteLength(chunk, 'utf8');
+            if (receivedBytes > MAX_INTERNAL_CHAT_RESPONSE_BYTES) {
+              upstreamResponse.destroy(requestError(502, '内部模型响应体超过安全上限'));
+              return;
+            }
+            data += chunk;
+          });
           upstreamResponse.on('end', () => resolve(data));
           upstreamResponse.on('error', reject);
         });
@@ -153,7 +166,7 @@ function createModelCallService({ DYNAMIC_PROMPT_MARKER, INTERNAL_MODEL_ROUTE_HE
       if (externalController && externalController.signal) externalController.signal.removeEventListener('abort', onExternalAbort);
       if (providerRequestStarted && typeof o.onProviderComplete === 'function') o.onProviderComplete();
     }
-     console.error('[callMolanChat] 响应诊断 model=' + (body.model || '') + ' rawLen=' + raw.length);
+     debugWarn('model-call', 'response summary', { model: body.model || '', rawLen: raw.length });
     if (!raw.trim()) throw requestError(502, '内部模型调用返回空响应，请重试');
     let usage = null, output = '';
     if (o.requireComplete === true) {

@@ -10060,7 +10060,9 @@ ${charSummaries ? `- 关键人物卡与认知：${charSummaries}\n` : ''}${world
         return;
       }
       // 创作坞站：节点卡片与引用按钮引用到 AI 提示词
-      const quoteCard = event.target.closest('.dock-node-card, .dock-entity-card, .dock-memory-card');
+      const quoteActionBtn = event.target.closest('[data-quote-action]');
+      const quoteCard = (quoteActionBtn && quoteActionBtn.closest('.dock-node-card, .dock-entity-card, .dock-memory-card'))
+        || event.target.closest('.dock-node-card, .dock-entity-card, .dock-memory-card');
       if (quoteCard && quoteCard.closest('#editorWorkbenchDock')) {
         event.preventDefault();
         event.stopPropagation();

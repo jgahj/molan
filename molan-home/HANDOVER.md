@@ -64,6 +64,7 @@ molan-home/
 │   ├── memory-context.js               # 长篇记忆上下文 (selectRelevantPlans 多维打分提炼、数值0/空串防假值坍塌、writingPackage 提升入模)
 │   ├── scene-planner.js                # 细纲场景规划器 (三态完备度识别、事件链推导、因果硬围栏阻断与自愈剪枝)
 │   ├── security-guard.js               # 端到端防套取提示词检测与系统安全硬围栏 (Fail-Fast探针拦截, 硬围栏注入)
+│   ├── repositories/                   # PostgreSQL 领域化子仓储模块 (GenerationRun / LabJob / AuthSession 单事务鉴权)
 │   └── legacy/                         # 历史组件平滑治理与隔离
 │       ├── generation-pipeline-coordinator.js # 历史生成流水线 (已隔离)
 │       └── legacy-telemetry.js         # 历史废弃模块调用生命周期遥测器
@@ -98,11 +99,14 @@ molan-home/
 │   ├── creation-chapter-service.js     # 章节生成编排入口
 │   └── creation-plan-service.js        # 创作计划与大纲服务
 ├── scripts/acp-login.js & acp-login.bat # 官方 ACP OAuth 一次登录与模型能力探测脚本
+├── pages/app-shell.css                 # 主工作台 SPA 核心样式（自 index.html 外移 109.5KB，immutable 强缓存）
+├── pages/editor-inline.css             # 独立编辑器知识库样式（自 pages/editor.html 外移 26.9KB，immutable 强缓存）
 ├── pages/local-open-auth.js            # 独立子页本地免登录会话共享引导模块 (`MolanLocalOpenAuth`)
 ├── pages/auth.css                      # 主页一致宣纸墨黑风认证页统一样式（支持 theme-dim 暗色模式）
 ├── pages/login.html & js/login.js      # 主页风格一致登录页与 CSP 外移交互脚本
 ├── pages/register.html & js/register.js # 两步邮箱验证码注册页（自动发码 + 60s 重发冷却）与 CSP 外移脚本
 └── test/                               # 核心自动化测试集 (Node 22 运行，全量真实通过)
+    ├── deep-optimization-20261126.test.js # 全栈深度优化专项测试（本地CORS/PNA隔离、PG单事务鉴权与LISTEN重连、静态304与JSON压缩、CSS外移与train_unsloth v2）(5 项)
     ├── email-verification-register.test.js # SMTP 发信、sub2api 配置回退、6位验证码注册闭环与页面 UI/CSP 专测 (6 项)
     ├── account-deletion.test.js           # 自主匿名化注销账号、释放邮箱安全重注册与权限拦截测试 (3 项)
     ├── editor-bootstrap-creation-book.test.js # 编辑器直连 Generation V2 伴生创作书自动引导与圣经校验隔离测试 (4 项)
@@ -144,6 +148,40 @@ molan-home/
     ├── system-optimization-suite.test.js      # 首屏异步竞态修复、679KB懒加载、无竞争节流落盘、仓储/双编辑器拆解专测 (5 项)
     └── auth-persistence-and-latency.test.js   # 登录态持久化、异步Scrypt、内存缓存与小说秒开专项测试 (5 项)
 ```
+
+---
+
+## 阶段记录：全栈 14 项深度优化落地——修复红灯 CI 门禁、封堵本地跨域接管、PG 连接池/单事务鉴权加固、静态 304 与 API 压缩、`index.html` 瘦身 93% 及 114MB 冗余清理 (2026-11-26)
+
+> 背景：全项目深度只读审计定位出 P0（CI 门禁红灯、本地免登录跨域/PNA 接管风险、PG 连接池与 `LISTEN` 缺错处理及连接浪费、`/tmp` 明文 Prompt 泄露与正则拼写错误、PG 模式退出漏关 ACP 子进程、朱雀接口缺限流、`boot-scripts` 残留竞态）、P1（`dispatchRequest` 每请求重建 8 套路由器与静态未短路、每次登录请求 14 次 SQL 往返、`index.html` 含 109KB 不可缓存内联 CSS、`static-service` `no-store` 使 304 失效、API 大 JSON 未压缩、热路径冗余查库与 6MB 同步重载）及 P2（114MB 死资源与 `hits.json` 污染 Git、`train_unsloth.py` 滞后于 Colab v2）。用户授权按最优解全量推进落地。
+
+### 一、改动范围与核心逻辑
+
+| 涉及模块 / 文件 | 改动类型 | 关键改动点与核心函数 / 接口 |
+| :--- | :---: | :--- |
+| `molan-home/scripts/audit-features.mjs`<br>`molan-home/app-boot.js`<br>`molan-home/completion-editor.js` | CI 门禁修复与扫描提速（P0-1） | 1. 将外移后的 `app-boot.js`、`boot-head.js`、`boot-scripts.js`、`completion-platform.js`、`completion-admin.js`、`workspace-completion.js` 补入 `loadAuditSources` 与 SPA `scriptBundle`；<br>2. 为控件扫描增加字符串 fast-path 守卫、限定正则长度防回溯与条件短路；显式命名 `cmdkInput` 并在 `completion-editor.js` 显式匹配 `[data-quote-action]`，使 `audit:features` 从 `FAIL (54 unmapped)` 恢复至 `PASS (0 unmapped / 1,964 scanned)`。 |
+| `molan-home/server.js`<br>`molan-home/services/creation-core-job-runtime.js`<br>`molan-home/services/platform-model-config-service.js`<br>`molan-home/services/server-lifecycle-service.js` | 安全纵深防御与可靠性修复（P0-2/4/5） | 1. `corsHeadersForOrigin` 新增 `isTrustedLocalOrigin` 校验：非 `PUBLIC_MODE` 仅对本地来源（`null`、`localhost`/`127.0.0.1`/`[::1]`）下发 CORS 与 PNA，`PUBLIC_MODE` 下发 HSTS；本地免登录自动鉴权同步拒绝外部恶意 `Origin`；<br>2. `creation-core-job-runtime.js` 修复 `.replace(/s+/g, ' ')` → `.replace(/\s+/g, ' ')` 并将 `/tmp/corejob-debug-*.json` 明文 Prompt 落盘替换为受控 `debugWarn`；<br>3. `platform-model-config-service.js` 切换至 `writeJsonAtomicSync(..., { mode: 0o600 })`；<br>4. `server-lifecycle-service.js` 移除 `if (!postgresMode)` 守卫确保 PG 模式优雅退出也调用 `stopLocalWorkers()` 关闭 ACP 子进程；<br>5. 朱雀三端点接入 `allowChatRate` + `acquireChatSlot` + `20000` 字上限；`correctionHitsTimer` 增加 `.unref()` 并在退出时兜底 `flushCorrectionHits()`；清理死变量 `emailCodes`。 |
+| `molan-home/lib/repositories/postgres-auth-session-methods.js`<br>`molan-home/lib/postgres-repository.js`<br>`molan-home/server.js` | PG 池容错、共享重连 LISTEN 与单事务鉴权（P0-3 & P1-2） | 1. 注册 `pool.on('error')`、配置 `application_name: 'molan-server'` 与 `statement_timeout: 30000`；<br>2. 将 `molan_auth_session` 与 `molan_runtime_changed` 两条 `LISTEN` 合并到单条独立 `pg.Client`（不占业务 Pool 25% 配额），支持断连指数退避自动重连；<br>3. 拆出 `postgres-auth-session-methods.js` 并新增单事务 `LEFT JOIN LATERAL` 的 `requestAuthContext(tokenHash)`，`server.js` 优先调用（鉴权事务与池检出立减 50%）。 |
+| `molan-home/server.js`<br>`molan-home/services/static-service.js`<br>`molan-home/services/http-request-service.js`<br>`molan-home/services/model-call-service.js`<br>`molan-home/services/local-style-service.js`<br>`molan-home/services/acp-transport-service.js` | 路由单例、304 协商、API 压缩与热路径降耗（P1-1/3/4） | 1. `dispatchRequest` 对非 `/api/` 的 `GET`/`HEAD` 直接前置短路到 `serveStatic`，并将 8 个域路由器与 Zhuque 处理器抽离为惰性单例 `getDomainRoutes()`；<br>2. `static-service.js` 将 HTML 缓存头升级为 RFC 9111 `no-cache, must-revalidate, max-age=0`（激活 ETag/`304`）、编码限定 ETag、异步压缩并计入压缩体积账本（默认上限调至 16MB）；<br>3. `http-request-service.js` 对 >= 2KB JSON 响应按 `Accept-Encoding` 自动启用 `br`/`gzip` 压缩；<br>4. `model-call-service.js` 将 `nativeSkillCatalog(user)` 懒移入 `if (skillAudit)`、移除调试 `console.error` 并增加 32MB 响应上限；<br>5. `local-style-service.js` 改用 `mtimeMs` 缓存并补齐 7 个新建抗 AI 指纹基线字段；`acp-transport-service.js` 改用异步 `execFile` 读取系统代理。 |
+| `molan-home/index.html`<br>`molan-home/pages/app-shell.css`<br>`molan-home/pages/editor.html`<br>`molan-home/pages/editor-inline.css`<br>`molan-home/assets/lucide.min.js`<br>`molan-home/scripts/check-frontend-stamp.mjs`<br>17 个版本戳前端文件 | 前端 CSS 外移（HTML 瘦身 93%）+ 脚本 `defer`（P0-6 & P1-3） | 1. 将 `index.html` 109.5KB 内联 `<style>` 外移至 `pages/app-shell.css`（`index.html` 由 **117.7KB → 8.1KB / 42 行，-93%**）；将 `pages/editor.html` 26.9KB 知识库样式外移至 `pages/editor-inline.css`；<br>2. 为 `index.html` 的 `lucide.min.js` 与 `boot-scripts.js` 添加 `defer`，彻底消除首屏阻塞及与 `app-boot.js(defer)` 的加载竞态；清理 `lucide.min.js` 失效 sourcemap 尾注；<br>3. 将新外移 CSS 纳入 `check-frontend-stamp.mjs` 并全站升级统一缓存戳至 `20261126_deep_opt_v1`。 |
+| `molan-home/assets/login-writing-room.png` (删)<br>`molan-home/lib/character-material/index.json` (删)<br>`molan-home/.gitignore`<br>`molan-home/training/train_unsloth.py`<br>`molan-home/test/deep-optimization-20261126.test.js` | 114MB 冗余清理、训练脚本 v2 对齐与专项测试（P2） | 1. 清理零引用的 1.13MB 死图 `login-writing-room.png` 与被 `sharded/` 取代的 112.95MB 本地废弃单体索引 `lib/character-material/index.json`；<br>2. 将运行期易变文件 `data/correction-library/hits.json` 移出 Git 跟踪并加入 `.gitignore`；<br>3. 升级 `training/train_unsloth.py` 至 v2（`SFTConfig` + `train_on_responses_only` + 验证集 + 断点续训 + 低内存 GGUF 导出）；<br>4. 新增 5 项全覆盖专项测试 `test/deep-optimization-20261126.test.js`。 |
+
+### 二、设计决策与权衡
+
+1. **PG 鉴权采用「单事务 `LEFT JOIN LATERAL`」而非引入内存账户缓存**：遵循项目 `postgres-runtime-no-cache.test.js` 的强一致 PG 权威红线，不引入任何账户陈旧缓存，同时用零迁移的单条 LATERAL SQL 将鉴权事务和池检出减半，兼顾性能与零一致性风险。
+2. **HTML 使用 `no-cache, must-revalidate` 替代 `no-store`**：遵循 RFC 9111，`no-store` 会使已实现的 `ETag/304` 彻底失效；移除 `no-store` 后浏览器仍每次向服务端校验新鲜度（零陈旧风险），未更新时走 304 零正文响应。
+3. **保留独立 `pages/editor.html` 并做共享外移而非暴力删除**：现有路由与多项契约测试依赖独立编辑器页，优先抽离 26.9KB CSS 并维持与 SPA 共享核心，避免破坏性重构。
+
+### 三、真实验证证据
+
+- **语法与静态校验**：18 个修改/新增 JS 文件 `tools/node22_runtime/node.exe --check` 全部 `SYNTAX OK`；`python ast.parse` 校验 `training/train_unsloth.py` → `PYTHON AST OK`。
+- **四大内置 CI 门禁全绿**：
+  - `production-import-audit.mjs` → `241 文件 PASS (exit=0)`；
+  - `audit-golden-suite.mjs` → `80 tasks PASS (exit=0)`；
+  - `audit-features.mjs` → `FEATURE GATE PASS contracts=8 failed_contracts=0 unknown_markers=0 unmapped_controls=0 (scanned=1964 mapped=1247, exit=0)`；
+  - `check-frontend-stamp.mjs` → `20261126_deep_opt_v1 PASS (exit=0)`。
+- **专项回归（13 套件）**：`deep-optimization-20261126`、`static-file-allowlist`、`csp-tightening`、`system-optimization-suite`、`server-lifecycle`、`local-open-access`、`postgres-repository`、`postgres-runtime-no-cache`、`acp-transport`、`feature-audit`、`lora-dataset-and-pipeline`、`workbench-editor-fusion`、`zhuque-closed-loop` → **97/97 pass, 0 fail (1.5s)**。
+- **全量回归**：`tools/node22_runtime/node.exe --no-warnings --test --test-concurrency=4 "test/*.test.js" "test/*.test.mjs" "test/*.test.cjs"` → **`2518 tests / 74 suites / 2502 pass / 0 fail / 16 skipped`（耗时 38.8s，基线 2511 → +7）**。
 
 ---
 

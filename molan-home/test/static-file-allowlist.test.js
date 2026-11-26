@@ -47,11 +47,12 @@ test('静态资源服务对 HTML 和客户端 JS 强化抗缓存响应头，带�
     };
   }
 
-  // 1. HTML 请求应始终返回 no-cache, no-store, must-revalidate 且包含 Pragma: no-cache
+  // 1. HTML 请求应返回 RFC 9111 协商缓存头 no-cache, must-revalidate（移除 no-store 以激活 ETag/304）且包含 Pragma: no-cache
   const htmlRes = mockRes();
   service.sendStatic({ headers: {} }, htmlRes, '.html', true, '"123-456"', { data: Buffer.from('<html></html>') }, false);
   assert.equal(htmlRes.getStatusCode(), 200);
-  assert.match(htmlRes.getHeader('Cache-Control'), /no-cache,\s*no-store,\s*must-revalidate/);
+  assert.match(htmlRes.getHeader('Cache-Control'), /no-cache,\s*must-revalidate/);
+  assert.doesNotMatch(htmlRes.getHeader('Cache-Control'), /\bno-store\b/);
   assert.equal(htmlRes.getHeader('Pragma'), 'no-cache');
   assert.equal(htmlRes.getHeader('Expires'), '0');
 
@@ -61,11 +62,11 @@ test('静态资源服务对 HTML 和客户端 JS 强化抗缓存响应头，带�
   assert.equal(versionedRes.getStatusCode(), 200);
   assert.equal(versionedRes.getHeader('Cache-Control'), 'public, max-age=31536000, immutable');
 
-  // 3. 未带版本戳的 JS 文件应返回 no-cache, no-store, must-revalidate 防陈旧缓存
+  // 3. 未带版本戳的 JS 文件应返回 no-cache, must-revalidate 防陈旧缓存且允许 304 协商
   const unversionedJsRes = mockRes();
   service.sendStatic({ headers: {} }, unversionedJsRes, '.js', true, '"789-xyz"', { data: Buffer.from('console.log(2)') }, false);
   assert.equal(unversionedJsRes.getStatusCode(), 200);
-  assert.match(unversionedJsRes.getHeader('Cache-Control'), /no-cache,\s*no-store,\s*must-revalidate/);
+  assert.match(unversionedJsRes.getHeader('Cache-Control'), /no-cache,\s*must-revalidate/);
 
   // 4. 普通非 HTML/JS 文件（如图片）保留常规缓存
   const imgRes = mockRes();

@@ -9,6 +9,7 @@ data/molan.db.backup*
 data/users.json
 data/sessions.json
 data/token_usage.json
+data/correction-library/hits.json
 data/user_skills.json
 data/global_skills.json
 data/admin_audit.json

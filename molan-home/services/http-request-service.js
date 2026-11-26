@@ -1,5 +1,30 @@
 'use strict';
 
+const zlib = require('node:zlib');
+
+const API_COMPRESS_MIN_BYTES = 2048;
+
+function pickJsonEncoding(req, rawBytes) {
+  if (!req || !req.headers || rawBytes < API_COMPRESS_MIN_BYTES) return '';
+  const accept = String(req.headers['accept-encoding'] || '').toLowerCase();
+  if (/\bbr\b/.test(accept)) return 'br';
+  if (/\bgzip\b/.test(accept)) return 'gzip';
+  return '';
+}
+
+function mergeVaryHeader(corsHeaders, extraVary) {
+  if (!extraVary) return corsHeaders;
+  const out = { ...corsHeaders };
+  const existingKey = Object.keys(out).find(k => k.toLowerCase() === 'vary');
+  const existing = existingKey ? String(out[existingKey] || '') : '';
+  const parts = new Set(
+    existing.split(',').concat(extraVary.split(',')).map(s => s.trim()).filter(Boolean)
+  );
+  if (existingKey && existingKey !== 'Vary') delete out[existingKey];
+  out.Vary = [...parts].join(', ');
+  return out;
+}
+
 function createHttpRequestService({ MAX_JSON_BODY_BYTES, responseCors, shouldFlushWrites, flushWrites }) {
   function requestError(status, message) {
     const error = new Error(message);
@@ -22,14 +47,33 @@ function createHttpRequestService({ MAX_JSON_BODY_BYTES, responseCors, shouldFlu
     const body = typeof obj === 'string' ? obj : JSON.stringify(obj);
     const send = (sendStatus = status, sendBody = body) => {
       if (res.headersSent || res.writableEnded || res.destroyed) return;
+      const rawBuf = Buffer.isBuffer(sendBody) ? sendBody : Buffer.from(String(sendBody), 'utf8');
+      const req = res.req || null;
+      const encoding = pickJsonEncoding(req, rawBuf.length);
+      let payload = rawBuf;
+      let usedEncoding = '';
+      if (encoding) {
+        try {
+          const compressed = encoding === 'br'
+            ? zlib.brotliCompressSync(rawBuf, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } })
+            : zlib.gzipSync(rawBuf, { level: 5 });
+          if (compressed && compressed.length < rawBuf.length) {
+            payload = compressed;
+            usedEncoding = encoding;
+          }
+        } catch (_) {}
+      }
+      const baseCors = responseCors(res);
+      const finalCors = usedEncoding ? mergeVaryHeader(baseCors, 'Accept-Encoding') : baseCors;
       res.writeHead(sendStatus, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
-        'Content-Length': Buffer.byteLength(sendBody),
+        ...(usedEncoding ? { 'Content-Encoding': usedEncoding } : {}),
+        'Content-Length': payload.length,
         ...(headers && typeof headers === 'object' ? headers : null),
-        ...responseCors(res)
+        ...finalCors
       });
-      res.end(sendBody);
+      res.end(payload);
     };
     // PG 模式下 SQLite 只是可重建的同步兼容镜像。凡是请求触发了镜像写入，
     // 必须在返回成功响应前等到对应的 PostgreSQL 事务完成。

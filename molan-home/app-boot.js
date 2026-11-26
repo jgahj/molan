@@ -4350,10 +4350,10 @@
     /* 全局 Ctrl+K / Cmd+K 快速命令与页面跳转面板 */
     (function initCommandPalette() {
       const backdrop = document.getElementById('cmdkBackdrop');
-      const input = document.getElementById('cmdkInput');
+      const cmdkInput = document.getElementById('cmdkInput');
       const list = document.getElementById('cmdkList');
       const trigger = document.getElementById('cmdkTrigger');
-      if (!backdrop || !input || !list) return;
+      if (!backdrop || !cmdkInput || !list) return;
       let activeIndex = 0;
       let currentItems = [];
 
@@ -4421,10 +4421,10 @@
       function openCmdk() {
         backdrop.classList.add('open');
         backdrop.setAttribute('aria-hidden', 'false');
-        input.value = '';
+        cmdkInput.value = '';
         activeIndex = 0;
         renderList('');
-        window.setTimeout(() => input.focus(), 10);
+        window.setTimeout(() => cmdkInput.focus(), 10);
       }
 
       function closeCmdk() {
@@ -4442,14 +4442,14 @@
 
       trigger?.addEventListener('click', openCmdk);
       backdrop.addEventListener('click', event => { if (event.target === backdrop) closeCmdk(); });
-      input.addEventListener('input', () => { activeIndex = 0; renderList(input.value); });
-      input.addEventListener('keydown', event => {
+      cmdkInput.addEventListener('input', () => { activeIndex = 0; renderList(cmdkInput.value); });
+      cmdkInput.addEventListener('keydown', event => {
         if (event.key === 'ArrowDown') {
           event.preventDefault();
-          if (currentItems.length) { activeIndex = (activeIndex + 1) % currentItems.length; renderList(input.value); }
+          if (currentItems.length) { activeIndex = (activeIndex + 1) % currentItems.length; renderList(cmdkInput.value); }
         } else if (event.key === 'ArrowUp') {
           event.preventDefault();
-          if (currentItems.length) { activeIndex = (activeIndex - 1 + currentItems.length) % currentItems.length; renderList(input.value); }
+          if (currentItems.length) { activeIndex = (activeIndex - 1 + currentItems.length) % currentItems.length; renderList(cmdkInput.value); }
         } else if (event.key === 'Enter') {
           event.preventDefault();
           executeItem(activeIndex);

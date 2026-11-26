@@ -1,4 +1,5 @@
 'use strict';
+const { debugWarn } = require('./json-persistence-service');
 
 function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_JOB_TTL_MS, callMolanChat, creationBibleSeedValidation, creationForbiddenTerms, deleteCreationBookPlaceholder, fs, normalizeBiblePayload, postgresRepository, projectScope, saveCreationBookFirstBible, sha256Text }) {
   const creationCoreJobs = new Map();
@@ -159,9 +160,9 @@ function createCreationCoreJobRuntime({ CREATION_CORE_JOB_MAX_MS, CREATION_CORE_
       }
       if (!generated || typeof generated !== 'object' || Array.isArray(generated)) {
         deleteCreationBookPlaceholder(job.bookId, job.userEmail);
-        const rawSnippet = (text.slice(0, 220) + '……' + text.slice(-220)).replace(/s+/g, ' ');
+        const rawSnippet = (text.slice(0, 220) + '……' + text.slice(-220)).replace(/\s+/g, ' ');
         console.error('[creation] 核心包非 JSON 输出 job=' + job.id + ' len=' + text.length + ' head=' + text.slice(0, 120));
-        try { fs.writeFileSync('/tmp/corejob-debug-' + job.id + '.json', JSON.stringify({ system: job.system, userPrompt: job.userPrompt, modelId: job.modelId, outputLen: text.length })); } catch (_) {}
+        debugWarn('creation-core-job', 'invalid json output', { jobId: job.id, modelId: job.modelId, outputLen: text.length });
         finalizeCreationCoreJob(job, { status: 'failed', code: 'invalid_json', error: '创书模型返回的内容不是有效 JSON（输出 ' + text.length + ' 字符，开头：' + rawSnippet.slice(0, 200) + '）' });
         return;
       }

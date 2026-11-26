@@ -12,7 +12,11 @@ const NON_WORKFLOW_PAGES = new Set([
 
 /** 在限定的产品代码和测试目录中读取可审计源码。 */
 export async function loadAuditSources(root = ROOT) {
-  const files = new Set(['server.js', 'index.html', 'completion-editor.js', 'completion-import.js', 'completion-library.js']);
+  const files = new Set([
+    'server.js', 'index.html', 'app-boot.js', 'boot-head.js', 'boot-scripts.js',
+    'completion-editor.js', 'completion-import.js', 'completion-library.js',
+    'completion-platform.js', 'completion-admin.js', 'workspace-completion.js'
+  ]);
   const directories = ['pages', 'lib/client', 'lib/generation', 'lib/quality', 'lib/evolution', 'lib/repositories', 'routes', 'services', 'test'];
   for (const directory of directories) {
     const absolute = path.join(root, directory);
@@ -105,18 +109,22 @@ function scriptBundle(file, source, sources) {
     const candidate = candidates.map(item => item.replace(/\\/g, '/')).find(item => sources.has(item));
     if (candidate && !chunks.includes(sources.get(candidate))) chunks.push(sources.get(candidate));
   }
-  if (/^completion-(?:editor|import|library)\.js$/.test(file)) {
-    for (const [candidate, content] of sources) {
-      if (/^completion-(?:editor|import|library)\.js$/.test(candidate) && !chunks.includes(content)) chunks.push(content);
+  if (file === 'index.html' || file === 'app-boot.js' || /^completion-(?:editor|import|library|platform|admin)\.js$/.test(file)) {
+    const spaFiles = [
+      'index.html', 'app-boot.js', 'boot-head.js', 'boot-scripts.js',
+      'completion-editor.js', 'completion-import.js', 'completion-library.js',
+      'completion-platform.js', 'completion-admin.js', 'workspace-completion.js'
+    ];
+    for (const candidate of spaFiles) {
+      const content = sources.get(candidate);
+      if (content && !chunks.includes(content)) chunks.push(content);
     }
-    const applicationShell = sources.get('index.html');
-    if (applicationShell && !chunks.includes(applicationShell)) chunks.push(applicationShell);
   }
   return chunks.join('\n');
 }
 
 function hasDirectEventBinding(value, bundle, events) {
-  if (!value || value.includes('${')) return false;
+  if (!value || value.includes('${') || !bundle.includes(value)) return false;
   if (hasArrayLoopBinding(value, bundle, events)) return true;
   const quoted = quotedValue(value);
   const escaped = escapeRegExp(value);
@@ -148,7 +156,7 @@ function hasArrayLoopBinding(value, bundle, events) {
 }
 
 function hasRuntimeDisabledState(value, bundle) {
-  if (!value || value.includes('${')) return false;
+  if (!value || value.includes('${') || !bundle.includes(value) || !bundle.includes('.disabled')) return false;
   const quoted = quotedValue(value);
   const escaped = escapeRegExp(value);
   const accessor = `(?:(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)?(?:getElementById|querySelector(?:All)?)\\s*\\(\\s*(?:${quoted}|['"]#${escaped}['"])\\s*\\)|[A-Za-z_$][\\w$]*\\s*\\(\\s*(?:${quoted}|['"]#${escaped}['"])\\s*\\))`;
@@ -163,7 +171,8 @@ function hasRuntimeDisabledState(value, bundle) {
 function hasClassEventBinding(classValue, bundle, events) {
   const classes = String(classValue || '').split(/\s+/).filter(Boolean);
   return classes.some(className => {
-    const selector = new RegExp(`(?:closest|matches|querySelector(?:All)?)\\s*\\(\\s*['"][^'"]*\\.${escapeRegExp(className)}(?:[^a-zA-Z0-9_-]|$)`, 'i');
+    if (!bundle.includes('.' + className)) return false;
+    const selector = new RegExp(`(?:closest|matches|querySelector(?:All)?)\\s*\\(\\s*['"][^'"]{0,160}\\.${escapeRegExp(className)}(?:[^a-zA-Z0-9_-]|$)`, 'i');
     const listener = new RegExp(`addEventListener\\s*\\(\\s*['"](?:${events.join('|')})['"]`, 'i');
     return selector.test(bundle) && listener.test(bundle);
   });
@@ -186,7 +195,8 @@ function hasCollectionCallbackBinding(bundle, match, events) {
 function hasClassTargetEventBinding(classValue, bundle, events) {
   const classes = String(classValue || '').split(/\s+/).filter(Boolean);
   return classes.some(className => {
-    const selector = `(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)?querySelector\\s*\\(\\s*['"][^'"]*\\.${escapeRegExp(className)}(?:[^a-zA-Z0-9_-]|$)[^'"]*['"]\\s*\\)|[A-Za-z_$][\\w$]*\\s*\\(\\s*['"][^'"]*\\.${escapeRegExp(className)}(?:[^a-zA-Z0-9_-]|$)[^'"]*['"]\\s*\\)`;
+    if (!bundle.includes('.' + className)) return false;
+    const selector = `(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)?querySelector\\s*\\(\\s*['"][^'"]{0,160}\\.${escapeRegExp(className)}(?:[^a-zA-Z0-9_-]|$)[^'"]{0,160}['"]\\s*\\)|[A-Za-z_$][\\w$]*\\s*\\(\\s*['"][^'"]{0,160}\\.${escapeRegExp(className)}(?:[^a-zA-Z0-9_-]|$)[^'"]{0,160}['"]\\s*\\)`;
     const listener = `(?:addEventListener\\s*\\(\\s*['"](?:${events.join('|')})['"]|on(?:${events.join('|')})\\s*=)`;
     if (new RegExp(`${selector}\\s*(?:\\?\\.|\\.)\\s*${listener}`, 'i').test(bundle)) return true;
     const assignment = new RegExp(`(?:\\b(?:const|let|var)\\s+|[,;]\\s*)([A-Za-z_$][\\w$]*)\\s*=\\s*${selector}`, 'g');
@@ -194,11 +204,11 @@ function hasClassTargetEventBinding(classValue, bundle, events) {
       const handler = new RegExp(`\\b${escapeRegExp(match[1])}\\s*(?:\\?\\.|\\.)\\s*${listener}`, 'i');
       if (handler.test(bundle)) return true;
     }
-    const helperSelection = new RegExp(`[A-Za-z_$][\\w$]*\\s*\\(\\s*['"][^'"]*\\.${escapeRegExp(className)}(?=[^a-zA-Z0-9_-]|$)[^'"]*['"]\\s*\\)`, 'gi');
+    const helperSelection = new RegExp(`[A-Za-z_$][\\w$]*\\s*\\(\\s*['"][^'"]{0,160}\\.${escapeRegExp(className)}(?=[^a-zA-Z0-9_-]|$)[^'"]{0,160}['"]\\s*\\)`, 'gi');
     for (const match of bundle.matchAll(helperSelection)) {
       if (hasCollectionCallbackBinding(bundle, match, events)) return true;
     }
-    const collection = new RegExp(`querySelectorAll\\s*\\(\\s*['"][^'"]*\\.${escapeRegExp(className)}(?=[^a-zA-Z0-9_-]|$)[^'"]*['"]\\s*\\)`, 'gi');
+    const collection = new RegExp(`querySelectorAll\\s*\\(\\s*['"][^'"]{0,160}\\.${escapeRegExp(className)}(?=[^a-zA-Z0-9_-]|$)[^'"]{0,160}['"]\\s*\\)`, 'gi');
     for (const match of bundle.matchAll(collection)) {
       if (hasCollectionCallbackBinding(bundle, match, events)) return true;
     }
@@ -488,40 +498,57 @@ export function scanInteractiveControls(sources) {
       const featureMarker = attributes.get('data-feature') || '';
       const events = ['input', 'select'].includes(kind) ? ['input', 'change', 'submit'] : ['click', 'submit', 'change'];
       const inlineBinding = [...attributes.keys()].some(name => new RegExp(`^on(?:${events.join('|')})$`, 'i').test(name));
-      const primaryAction = ['data-action', 'data-completion-action', 'data-completion-ai-apply', 'data-completion-ai-revise', 'data-completion-ai-retry']
-        .find(name => attributes.has(name));
-      const actionMapped = primaryAction && hasBoundSelector(primaryAction, bundle, events) &&
-        (actionValueHandled(primaryAction, attributes.get(primaryAction), bundle) ||
-          hasExactAttributeBinding(primaryAction, attributes.get(primaryAction), bundle, events) || hasDynamicAttributeReadback(primaryAction, bundle));
-      const dataMapped = [...attributes.keys()].some(name => name.startsWith('data-') && name !== 'data-feature' && name !== primaryAction &&
-        (hasBoundSelector(name, bundle, events) && actionValueHandled(name, attributes.get(name), bundle) ||
-          hasExactAttributeBinding(name, attributes.get(name), bundle, events) || hasDynamicAttributeReadback(name, bundle)));
-      const formId = enclosingFormId(source, match.index, attributes);
-      const formMapped = Boolean(formId && hasDirectEventBinding(formId, bundle, ['submit']));
-      const formClasses = enclosingFormClasses(source, match.index, attributes).split(/\s+/).filter(Boolean);
-      const formClassMapped = hasClassTargetEventBinding(formClasses.join(' '), bundle, ['submit']);
+      const passive = attributes.has('disabled') || attributes.has('readonly') || attributes.get('type') === 'hidden' ||
+        kind === 'input' && attributes.has('hidden') && attributes.get('type') === 'file';
       const href = attributes.get('href') || '';
       const fragmentNavigation = kind === 'a' && /^#[^#\s]+$/.test(href) &&
         new RegExp(`\\bid\\s*=\\s*['"]${escapeRegExp(href.slice(1))}['"]`, 'i').test(source);
       const navigation = kind === 'a' && Boolean(href.trim()) && href !== '#' && !/^javascript:/i.test(href) || fragmentNavigation;
-      const passive = attributes.has('disabled') || attributes.has('readonly') || attributes.get('type') === 'hidden' ||
-        kind === 'input' && attributes.has('hidden') && attributes.get('type') === 'file';
-      const direct = hasDirectEventBinding(attributes.get('id'), bundle, events) ||
-        hasDirectEventBinding(attributes.get('name'), bundle, events);
-      const parentClasses = enclosingParentClasses(source, match.index);
-      const classBinding = hasClassEventBinding(attributes.get('class'), bundle, events) ||
-        hasClassTargetEventBinding(attributes.get('class'), bundle, events) ||
-        hasClassTargetEventBinding(parentClasses.join(' '), bundle, events);
-      const delegatedBinding = ['input', 'select'].includes(kind) && hasDelegatedIdBinding(attributes.get('id'), bundle, events);
-      const formReadback = ['input', 'select'].includes(kind) && (
-        hasControlReadback(attributes.get('id') || attributes.get('name'), bundle) ||
-        hasModalConfirmReadback(attributes.get('id') || attributes.get('name'), bundle)
-      );
-      const scopedFormBinding = Boolean(formId && hasScopedFormControlBinding(formId, kind, bundle));
-      const runtimeDisabled = kind === 'button' && hasRuntimeDisabledState(attributes.get('id'), bundle);
-      const dynamicTemplateBinding = hasDynamicTemplateControlBinding(attributes, kind, bundle);
-      const exactSelectorBinding = hasExactSelectorBinding(attributes, bundle, events);
-      const explicit = passive || runtimeDisabled || inlineBinding || Boolean(actionMapped || dataMapped || formMapped || formClassMapped || direct || classBinding || delegatedBinding || scopedFormBinding || formReadback || dynamicTemplateBinding || exactSelectorBinding || navigation);
+      let explicit = passive || navigation || inlineBinding;
+      if (!explicit) {
+        const primaryAction = ['data-action', 'data-completion-action', 'data-completion-ai-apply', 'data-completion-ai-revise', 'data-completion-ai-retry']
+          .find(name => attributes.has(name));
+        explicit = Boolean(primaryAction && hasBoundSelector(primaryAction, bundle, events) &&
+          (actionValueHandled(primaryAction, attributes.get(primaryAction), bundle) ||
+            hasExactAttributeBinding(primaryAction, attributes.get(primaryAction), bundle, events) || hasDynamicAttributeReadback(primaryAction, bundle)));
+        if (!explicit) {
+          explicit = [...attributes.keys()].some(name => name.startsWith('data-') && name !== 'data-feature' && name !== primaryAction &&
+            (hasBoundSelector(name, bundle, events) && actionValueHandled(name, attributes.get(name), bundle) ||
+              hasExactAttributeBinding(name, attributes.get(name), bundle, events) || hasDynamicAttributeReadback(name, bundle)));
+        }
+      }
+      if (!explicit) {
+        explicit = hasDirectEventBinding(attributes.get('id'), bundle, events) ||
+          hasDirectEventBinding(attributes.get('name'), bundle, events);
+      }
+      if (!explicit && ['input', 'select'].includes(kind)) {
+        explicit = hasDelegatedIdBinding(attributes.get('id'), bundle, events) ||
+          hasControlReadback(attributes.get('id') || attributes.get('name'), bundle) ||
+          hasModalConfirmReadback(attributes.get('id') || attributes.get('name'), bundle);
+      }
+      if (!explicit) {
+        const cls = attributes.get('class');
+        explicit = hasClassEventBinding(cls, bundle, events) || hasClassTargetEventBinding(cls, bundle, events);
+      }
+      if (!explicit) {
+        const formId = enclosingFormId(source, match.index, attributes);
+        explicit = Boolean(formId && (hasDirectEventBinding(formId, bundle, ['submit']) || hasScopedFormControlBinding(formId, kind, bundle)));
+      }
+      if (!explicit) {
+        const formClasses = enclosingFormClasses(source, match.index, attributes).split(/\s+/).filter(Boolean);
+        explicit = hasClassTargetEventBinding(formClasses.join(' '), bundle, ['submit']);
+      }
+      if (!explicit) {
+        const parentClasses = enclosingParentClasses(source, match.index);
+        explicit = hasClassTargetEventBinding(parentClasses.join(' '), bundle, events);
+      }
+      if (!explicit && kind === 'button') {
+        explicit = hasRuntimeDisabledState(attributes.get('id'), bundle);
+      }
+      if (!explicit) {
+        explicit = hasDynamicTemplateControlBinding(attributes, kind, bundle) ||
+          hasExactSelectorBinding(attributes, bundle, events);
+      }
       const line = source.slice(0, match.index).split('\n').length;
       controls.push({
         file, line, kind, explicit, inScope: !NON_WORKFLOW_PAGES.has(file), feature: featureMarker,

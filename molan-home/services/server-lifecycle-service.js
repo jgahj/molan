@@ -47,7 +47,7 @@ function createServerLifecycleService(deps) {
     deadline.unref?.();
     shutdownPromise = (async () => {
       await preparation.catch(() => {});
-      try { if (!postgresMode) stopLocalWorkers(); }
+      try { if (typeof stopLocalWorkers === 'function') stopLocalWorkers(); }
       catch (error) { fail('Local workers failed to stop:', error); }
       try { flushSessions(); }
       catch (error) { fail('Session shutdown flush failed:', error); }

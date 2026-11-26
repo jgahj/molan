@@ -40,6 +40,8 @@ const STAMPED_ASSETS = [
   'workspace-completion.js',
   'correction-policy.js',
   'pages/tokens.css',
+  'pages/app-shell.css',
+  'pages/editor-inline.css',
   'pages/auth.css',
   'assets/lucide.min.js',
   'assets/tailwind-browser.js',

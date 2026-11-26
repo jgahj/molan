@@ -4,10 +4,48 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
-const { spawn, execFileSync } = require('node:child_process');
+const { spawn, execFile, execFileSync } = require('node:child_process');
+const { promisify } = require('node:util');
+const execFileAsync = promisify(execFile);
 
 const DEFAULT_ACP_REL_PATH = path.resolve(__dirname, '../../tools/antigravity-acp/agy_acp_server.exe');
 const DEFAULT_SANDBOX_DIR = path.resolve(__dirname, '../data/acp-sandbox');
+
+function parseWindowsProxyServer(srv) {
+  const match = String(srv || '').match(/ProxyServer\s+REG_SZ\s+([^\r\n]+)/i);
+  const server = match ? String(match[1]).trim() : '';
+  if (!server) return '';
+  if (server.includes('=')) {
+    const httpsMatch = server.match(/https=([^;]+)/i) || server.match(/http=([^;]+)/i);
+    const picked = httpsMatch ? httpsMatch[1].trim() : '';
+    return picked ? (/^https?:\/\//i.test(picked) ? picked : `http://${picked}`) : '';
+  }
+  return /^https?:\/\//i.test(server) ? server : `http://${server}`;
+}
+
+async function resolveDefaultAcpProxyAsync(env = process.env) {
+  const explicit = String(env.MOLAN_ACP_PROXY || env.HTTPS_PROXY || env.HTTP_PROXY || env.MOLAN_PROXY || '').trim();
+  if (explicit) return explicit;
+  if (process.platform !== 'win32') return '';
+  try {
+    const { stdout: out } = await execFileAsync('reg.exe', [
+      'query',
+      'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
+      '/v',
+      'ProxyEnable'
+    ], { encoding: 'utf8', timeout: 1500, windowsHide: true });
+    if (!/0x1\b/i.test(out)) return '';
+    const { stdout: srv } = await execFileAsync('reg.exe', [
+      'query',
+      'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
+      '/v',
+      'ProxyServer'
+    ], { encoding: 'utf8', timeout: 1500, windowsHide: true });
+    return parseWindowsProxyServer(srv);
+  } catch (_) {
+    return '';
+  }
+}
 
 function resolveDefaultAcpProxy(env = process.env) {
   const explicit = String(env.MOLAN_ACP_PROXY || env.HTTPS_PROXY || env.HTTP_PROXY || env.MOLAN_PROXY || '').trim();
@@ -27,15 +65,7 @@ function resolveDefaultAcpProxy(env = process.env) {
       '/v',
       'ProxyServer'
     ], { encoding: 'utf8', timeout: 1500, windowsHide: true });
-    const match = srv.match(/ProxyServer\s+REG_SZ\s+([^\r\n]+)/i);
-    const server = match ? String(match[1]).trim() : '';
-    if (!server) return '';
-    if (server.includes('=')) {
-      const httpsMatch = server.match(/https=([^;]+)/i) || server.match(/http=([^;]+)/i);
-      const picked = httpsMatch ? httpsMatch[1].trim() : '';
-      return picked ? (/^https?:\/\//i.test(picked) ? picked : `http://${picked}`) : '';
-    }
-    return /^https?:\/\//i.test(server) ? server : `http://${server}`;
+    return parseWindowsProxyServer(srv);
   } catch (_) {
     return '';
   }
@@ -175,6 +205,7 @@ function createAcpTransportService(deps = {}) {
     : (text => Math.ceil(String(text || '').length * 0.65));
   const sandboxDir = pathImpl.resolve(deps.sandboxDir || DEFAULT_SANDBOX_DIR);
   let cachedProxy = null;
+  let cachedProxyPromise = null;
 
   function resolveBinaryPath(modelConfig) {
     return String(
@@ -185,14 +216,26 @@ function createAcpTransportService(deps = {}) {
     ).trim();
   }
 
-  function resolveEnv(modelConfig) {
-    if (cachedProxy === null) cachedProxy = resolveDefaultAcpProxy(process.env);
-    const proxy = String(
+  async function resolveEnvAsync(modelConfig) {
+    const explicit = String(
       (modelConfig && modelConfig.acpProxy)
       || process.env.MOLAN_ACP_PROXY
-      || cachedProxy
       || ''
     ).trim();
+    let proxy = explicit;
+    if (!proxy) {
+      if (cachedProxy !== null) {
+        proxy = cachedProxy;
+      } else {
+        if (!cachedProxyPromise) {
+          cachedProxyPromise = resolveDefaultAcpProxyAsync(process.env).then(val => {
+            cachedProxy = val || '';
+            return cachedProxy;
+          });
+        }
+        proxy = await cachedProxyPromise;
+      }
+    }
     const env = { ...process.env, ...(deps.acpEnv || {}) };
     if (proxy) {
       if (!env.HTTP_PROXY) env.HTTP_PROXY = proxy;
@@ -386,7 +429,6 @@ function createAcpTransportService(deps = {}) {
     const opts = reqOptions || {};
     const pm = opts.modelConfig || {};
     const binaryPath = resolveBinaryPath(pm);
-    const env = resolveEnv(pm);
 
     const upstreamReq = new EventEmitter();
     const chunks = [];
@@ -442,6 +484,8 @@ function createAcpTransportService(deps = {}) {
       const jsonMode = Boolean(bodyObj.response_format && bodyObj.response_format.type === 'json_object');
       const { systemText, promptText } = compileAcpPromptFromMessages(bodyObj.messages, { jsonMode });
 
+      const env = await resolveEnvAsync(pm);
+      if (destroyed) return;
       const worker = getOrCreateWorker(binaryPath, env);
       workerRef = worker;
       await worker.ensureInitialized();
@@ -534,7 +578,7 @@ function createAcpTransportService(deps = {}) {
 
   async function inspectCapabilities(modelConfig) {
     const binaryPath = resolveBinaryPath(modelConfig);
-    const env = resolveEnv(modelConfig);
+    const env = await resolveEnvAsync(modelConfig);
     const worker = getOrCreateWorker(binaryPath, env);
     const init = await worker.ensureInitialized();
     const session = await worker.request('session/new', { cwd: sandboxDir, mcpServers: [] });
@@ -543,7 +587,7 @@ function createAcpTransportService(deps = {}) {
 
   async function authenticateInteractive({ methodId = 'oauth-personal', modelConfig = null, onLog = null } = {}) {
     const binaryPath = resolveBinaryPath(modelConfig);
-    const env = resolveEnv(modelConfig);
+    const env = await resolveEnvAsync(modelConfig);
     const worker = getOrCreateWorker(binaryPath, env);
     if (typeof onLog === 'function') {
       const seen = new Set();
@@ -555,6 +599,7 @@ function createAcpTransportService(deps = {}) {
           }
         }
       }, 250);
+      if (typeof pollTimer.unref === 'function') pollTimer.unref();
       try {
         await worker.ensureInitialized();
         await worker.request('authenticate', { methodId });

@@ -11,6 +11,7 @@ const { hashValue } = require('./generation/manifest');
 const { matchesTokenUsageReservation } = require('./token-usage-idempotency');
 const { createPostgresLabJobMethods } = require('./repositories/postgres-lab-job-methods');
 const { createPostgresGenerationRunMethods } = require('./repositories/postgres-generation-run-methods');
+const { createPostgresAuthSessionMethods } = require('./repositories/postgres-auth-session-methods');
 const { debugWarn } = require('../services/json-persistence-service');
 const {
   parseStoredSkillFiles, normalizeSkillRuntimeFiles, skillFileNames,
@@ -23,8 +24,9 @@ const {
 });
 
 let Pool = null;
+let Client = null;
 try {
-  ({ Pool } = require('pg'));
+  ({ Pool, Client } = require('pg'));
 } catch (_) {}
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -86,6 +88,13 @@ function readConfig(env = process.env) {
         user: String(env.MOLAN_PG_USER || 'novel_runtime'),
         password: readPassword(env)
       };
+  const rawStatementTimeout = env.MOLAN_PG_STATEMENT_TIMEOUT_MS;
+  const parsedStatementTimeout = rawStatementTimeout === undefined || rawStatementTimeout === ''
+    ? 30000
+    : Math.floor(Number(rawStatementTimeout));
+  const statementTimeout = Number.isFinite(parsedStatementTimeout) && parsedStatementTimeout > 0
+    ? Math.min(300000, Math.max(1000, parsedStatementTimeout))
+    : undefined;
   return {
     enabled: true,
     config: {
@@ -94,7 +103,9 @@ function readConfig(env = process.env) {
       min: 0,
       connectionTimeoutMillis: Math.min(30000, Math.max(1000, Math.floor(Number(env.MOLAN_PG_CONNECT_TIMEOUT_MS) || 5000))),
       idleTimeoutMillis: Math.min(300000, Math.max(1000, Math.floor(Number(env.MOLAN_PG_IDLE_TIMEOUT_MS) || 30000))),
-    ssl: env.MOLAN_PG_SSL === '1' ? { rejectUnauthorized: env.MOLAN_PG_SSL_REJECT_UNAUTHORIZED !== '0' } : undefined
+      application_name: String(env.MOLAN_PG_APPLICATION_NAME || 'molan-server').trim() || 'molan-server',
+      ...(statementTimeout ? { statement_timeout: statementTimeout } : {}),
+      ssl: env.MOLAN_PG_SSL === '1' ? { rejectUnauthorized: env.MOLAN_PG_SSL_REJECT_UNAUTHORIZED !== '0' } : undefined
     },
     runtimeRole: String(env.MOLAN_PG_RUNTIME_ROLE || 'novel_app').trim(),
     workerRole: String(env.MOLAN_PG_WORKER_ROLE || 'novel_worker').trim()
@@ -306,9 +317,133 @@ function createPostgresRepository(options = {}) {
   }
 
   const pool = new PoolConstructor(settings.config);
+  if (typeof pool.on === 'function') {
+    pool.on('error', error => {
+      debugWarn('pg-pool', 'idle client error', error);
+    });
+  }
+  const ClientConstructor = options.Client || (!options.Pool ? Client : null);
   let closed = false;
-  let authSessionListener = null;
-  let runtimeListener = null;
+  let listenClient = null;
+  let listenClientStandalone = false;
+  let listenConnectPromise = null;
+  let listenReconnectTimer = null;
+  let listenBackoffMs = 1000;
+  const listenChannels = new Map();
+
+  function scheduleListenReconnect() {
+    if (closed || listenReconnectTimer || listenChannels.size === 0) return;
+    const delay = listenBackoffMs;
+    listenBackoffMs = Math.min(30000, listenBackoffMs * 2);
+    listenReconnectTimer = setTimeout(() => {
+      listenReconnectTimer = null;
+      if (closed || listenChannels.size === 0) return;
+      void ensureListenClient().catch(err => {
+        debugWarn('pg-listen', 'reconnect failed', err);
+        scheduleListenReconnect();
+      });
+    }, delay);
+    if (typeof listenReconnectTimer.unref === 'function') listenReconnectTimer.unref();
+  }
+
+  function detachListenClient(client) {
+    if (listenClient !== client) return;
+    const standalone = listenClientStandalone;
+    listenClient = null;
+    listenClientStandalone = false;
+    try {
+      if (standalone && typeof client.end === 'function') void client.end().catch(() => {});
+      else if (typeof client.release === 'function') client.release(true);
+    } catch (_) {}
+  }
+
+  /** 共享单条独立 LISTEN 长连接（不占业务 Pool 配额），断连后自动指数退避重连并重新 LISTEN。 */
+  async function ensureListenClient() {
+    if (closed) throw repositoryError('pg_closed', 'PostgreSQL 仓储已关闭', 503);
+    if (listenClient) return listenClient;
+    if (listenConnectPromise) return listenConnectPromise;
+    listenConnectPromise = (async () => {
+      let client = null;
+      let standalone = false;
+      try {
+        if (ClientConstructor) {
+          const listenConfig = { ...settings.config };
+          delete listenConfig.statement_timeout;
+          client = new ClientConstructor(listenConfig);
+          await client.connect();
+          standalone = true;
+        } else {
+          client = await pool.connect();
+          standalone = false;
+        }
+        if (settings.runtimeRole && settings.runtimeRole !== 'none') {
+          await client.query(`SET ROLE ${quoteIdentifier(settings.runtimeRole)}`);
+        }
+        if (typeof client.on === 'function') {
+          client.on('notification', message => {
+            const handlers = listenChannels.get(String(message && message.channel || ''));
+            if (!handlers || handlers.size === 0) return;
+            let parsed;
+            try { parsed = JSON.parse(message.payload || '{}'); }
+            catch (err) { debugWarn('pg-notify', 'invalid notification payload', err); return; }
+            for (const cb of handlers) {
+              try { cb(parsed); } catch (err) { debugWarn('pg-notify', 'listener callback error', err); }
+            }
+          });
+          client.on('error', err => {
+            debugWarn('pg-listen', 'listen client error', err);
+            detachListenClient(client);
+            scheduleListenReconnect();
+          });
+          client.on('end', () => {
+            detachListenClient(client);
+            scheduleListenReconnect();
+          });
+        }
+        for (const ch of listenChannels.keys()) {
+          await client.query(`LISTEN ${quoteIdentifier(ch)}`);
+        }
+        listenClient = client;
+        listenClientStandalone = standalone;
+        listenBackoffMs = 1000;
+        return client;
+      } catch (error) {
+        if (client) {
+          try {
+            if (standalone && typeof client.end === 'function') void client.end().catch(() => {});
+            else if (typeof client.release === 'function') client.release(true);
+          } catch (_) {}
+        }
+        throw translateDatabaseError(error);
+      } finally {
+        listenConnectPromise = null;
+      }
+    })();
+    return listenConnectPromise;
+  }
+
+  async function subscribeChannel(channel, callback) {
+    if (typeof callback !== 'function') return;
+    const ch = String(channel || '').trim();
+    if (!ch) return;
+    let set = listenChannels.get(ch);
+    const isNewChannel = !set;
+    if (!set) {
+      set = new Set();
+      listenChannels.set(ch, set);
+    }
+    set.add(callback);
+    const client = await ensureListenClient();
+    if (isNewChannel) {
+      try {
+        await client.query(`LISTEN ${quoteIdentifier(ch)}`);
+      } catch (error) {
+        set.delete(callback);
+        if (set.size === 0) listenChannels.delete(ch);
+        throw translateDatabaseError(error);
+      }
+    }
+  }
 
   /** 在事务结束后清理连接上的角色和事务级作用域，避免池连接串租户。 */
   async function resetClient(client, destroy) {
@@ -587,124 +722,24 @@ function createPostgresRepository(options = {}) {
     }
   }
 
-  /** 在共享 PostgreSQL 中创建会话，只保存 token 摘要，不保存明文 token。 */
-  async function createAuthSession(input) {
-    return withTransaction('', async client => {
-      await client.query(
-        `SELECT luna.create_auth_session(
-          $1::uuid, $2::uuid, $3::text, $4::text, $5::text, $6::timestamptz
-        )`,
-        [
-          internalUuid(normalizeLegacyId(input.sessionId, 'sessionId')),
-          internalUuid(normalizeLegacyId(input.userId, 'userId')),
-          normalizeLegacyId(input.legacyId || input.userId, 'legacyId'),
-          String(input.tokenHash || '').toLowerCase(),
-          String(input.scope || 'client'),
-          new Date(Number(input.expiresAt))
-        ]
-      );
-      return { ok: true };
-    });
-  }
-
-  /** 独立 worker 为任务所有者创建短期应用会话，沿用 worker 角色权限而不提升为应用角色。 */
-  async function createWorkerAuthSession(input) {
-    return withWorkerTransaction(async client => {
-      await client.query(
-        `SELECT luna.create_auth_session(
-          $1::uuid, $2::uuid, $3::text, $4::text, $5::text, $6::timestamptz
-        )`,
-        [
-          internalUuid(normalizeLegacyId(input.sessionId, 'sessionId')),
-          internalUuid(normalizeLegacyId(input.userId, 'userId')),
-          normalizeLegacyId(input.legacyId || input.userId, 'legacyId'),
-          String(input.tokenHash || '').toLowerCase(),
-          String(input.scope || 'client'),
-          new Date(Number(input.expiresAt))
-        ]
-      );
-      return { ok: true };
-    });
-  }
-
-  /** 读取共享会话摘要，启动新实例时恢复全部尚未过期会话。 */
-  async function listAuthSessions() {
-    return withTransaction('', async client => {
-      const result = await client.query('SELECT * FROM luna.list_auth_sessions()');
-      return result.rows.map(row => ({
-        tokenHash: String(row.token_hash || ''),
-        userId: String(row.legacy_id || row.user_id || ''),
-        scope: String(row.scope || 'client'),
-        expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : 0
-      }));
-    });
-  }
-
-  async function requestAuthSession(tokenHash) {
-    const hash = String(tokenHash || '').toLowerCase();
-    if (!/^[0-9a-f]{64}$/.test(hash)) return null;
-    return withTransaction('', async client => {
-      const result = await client.query('SELECT * FROM luna.request_auth_session($1::text) LIMIT 1', [hash]);
-      const row = result.rows[0];
-      return row ? {
-        tokenHash: row.token_hash, userId: row.legacy_id || row.user_id,
-        scope: row.scope, expiresAt: new Date(row.expires_at).getTime()
-      } : null;
-    });
-  }
-
-  /** 撤销一个共享会话并广播给其他应用实例。 */
-  async function revokeAuthSession(tokenHash) {
-    return withTransaction('', async client => {
-      const result = await client.query(
-        'SELECT luna.revoke_auth_session($1::text) AS revoked',
-        [String(tokenHash || '').toLowerCase()]
-      );
-      return result.rows[0] && (result.rows[0].revoked === true || result.rows[0].revoked === 't');
-    });
-  }
-
-  /** 撤销独立 worker 创建的短期应用会话。 */
-  async function revokeWorkerAuthSession(tokenHash) {
-    return withWorkerTransaction(async client => {
-      const result = await client.query(
-        'SELECT luna.revoke_auth_session($1::text) AS revoked',
-        [String(tokenHash || '').toLowerCase()]
-      );
-      return result.rows[0] && (result.rows[0].revoked === true || result.rows[0].revoked === 't');
-    });
-  }
-
-  /** 撤销某个稳定用户的全部共享会话并广播给其他应用实例。 */
-  async function revokeAuthSessions(userId) {
-    return withTransaction('', async client => {
-      const result = await client.query(
-        'SELECT luna.revoke_auth_sessions($1::uuid) AS revoked',
-        [internalUuid(normalizeLegacyId(userId, 'userId'))]
-      );
-      return Number(result.rows[0] && result.rows[0].revoked) || 0;
-    });
-  }
-
-  /** 订阅共享会话失效事件，避免多实例继续接受已退出或已撤销 token。 */
-  async function subscribeAuthSessionInvalidation(callback) {
-    if (authSessionListener || typeof callback !== 'function') return;
-    const client = await pool.connect().catch(error => { throw translateDatabaseError(error); });
-    try {
-      if (settings.runtimeRole && settings.runtimeRole !== 'none') {
-        await client.query(`SET ROLE ${quoteIdentifier(settings.runtimeRole)}`);
-      }
-      await client.query('LISTEN molan_auth_session');
-      client.on('notification', message => {
-        if (message.channel !== 'molan_auth_session') return;
-        try { callback(JSON.parse(message.payload || '{}')); } catch (_) {}
-      });
-      authSessionListener = client;
-    } catch (error) {
-      client.release(true);
-      throw translateDatabaseError(error);
-    }
-  }
+  const authSessionMethods = createPostgresAuthSessionMethods({
+    internalUuid,
+    normalizeLegacyId,
+    withTransaction,
+    withWorkerTransaction,
+    subscribeChannel
+  });
+  const {
+    createAuthSession,
+    createWorkerAuthSession,
+    listAuthSessions,
+    requestAuthSession,
+    requestAuthContext,
+    revokeAuthSession,
+    revokeWorkerAuthSession,
+    revokeAuthSessions,
+    subscribeAuthSessionInvalidation
+  } = authSessionMethods;
 
   /** 启动时验证 PostgreSQL 目标函数存在，不执行业务写入。 */
   async function initialize() {
@@ -6530,35 +6565,27 @@ function createPostgresRepository(options = {}) {
 
   /** 订阅其他应用实例的运行时投影变更，收到通知后由服务刷新内存只读缓存。 */
   async function subscribeRuntimeInvalidation(callback) {
-    if (runtimeListener || typeof callback !== 'function') return;
-    const client = await pool.connect().catch(error => { throw translateDatabaseError(error); });
-    try {
-      if (settings.runtimeRole && settings.runtimeRole !== 'none') {
-        await client.query(`SET ROLE ${quoteIdentifier(settings.runtimeRole)}`);
-      }
-      await client.query('LISTEN molan_runtime_changed');
-      client.on('notification', message => {
-        if (message.channel !== 'molan_runtime_changed') return;
-        try { callback(JSON.parse(message.payload || '{}')); } catch (err) { debugWarn('pg-notify', 'invalid runtime notification payload', err); }
-      });
-      runtimeListener = client;
-    } catch (error) {
-      client.release(true);
-      throw translateDatabaseError(error);
-    }
+    return subscribeChannel('molan_runtime_changed', callback);
   }
 
   /** 关闭 PostgreSQL 连接池，供服务优雅退出和测试清理使用。 */
   async function close() {
     if (closed) return;
     closed = true;
-    if (authSessionListener) {
-      try { authSessionListener.release(true); } catch (_) {}
-      authSessionListener = null;
+    if (listenReconnectTimer) {
+      clearTimeout(listenReconnectTimer);
+      listenReconnectTimer = null;
     }
-    if (runtimeListener) {
-      try { runtimeListener.release(true); } catch (_) {}
-      runtimeListener = null;
+    listenChannels.clear();
+    if (listenClient) {
+      const client = listenClient;
+      const standalone = listenClientStandalone;
+      listenClient = null;
+      listenClientStandalone = false;
+      try {
+        if (standalone && typeof client.end === 'function') await client.end().catch(() => {});
+        else if (typeof client.release === 'function') client.release(true);
+      } catch (_) {}
     }
     await pool.end();
   }
@@ -6650,6 +6677,7 @@ function createPostgresRepository(options = {}) {
     getProjectAccess,
     createAuthSession,
     requestAuthSession,
+    requestAuthContext,
     createWorkerAuthSession,
     listAuthSessions,
     revokeAuthSession,

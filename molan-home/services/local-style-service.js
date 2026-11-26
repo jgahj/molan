@@ -1,30 +1,61 @@
 'use strict';
 
+const { debugWarn } = require('./json-persistence-service');
+
+const LOCAL_BASELINE_FIELDS = [
+  'sentenceLenMean', 'sentenceLenStd', 'sentenceLenCv',
+  'paragraphLenMean', 'paragraphLenStd', 'paragraphLenCv',
+  'shortSentenceRatio', 'longSentenceRatio',
+  'dialogueRatio', 'dialogueTurnMean', 'commaPeriodRatio',
+  'ttr', 'similePerKilo',
+  'directPsychPerKilo', 'aiGluePerKilo', 'modalParticlePerKilo'
+];
+
 function createLocalStyleService({ fs, path, assetDirectory, json }) {
-  let localStyleCache = { samples: null, samplesAt: 0, fingerprints: null, fingerprintsAt: 0 };
-  function loadLocalStyleData(kind) {
+  const STAT_CHECK_INTERVAL_MS = 5000;
+  const localStyleCache = {
+    samples: { value: null, mtimeMs: -1, checkedAt: 0 },
+    fingerprints: { value: null, mtimeMs: -1, checkedAt: 0 }
+  };
+
+  function loadJsonByMtime(slot, filePath, validator) {
     const now = Date.now();
-    const cacheMs = 30000;
-    if (kind === 'samples') {
-      if (!localStyleCache.samples || now - localStyleCache.samplesAt > cacheMs) {
-        try {
-          const parsed = JSON.parse(fs.readFileSync(path.join(assetDirectory, 'data', 'paragraph-samples.json'), 'utf8'));
-          localStyleCache.samples = parsed && Array.isArray(parsed.buckets) ? parsed : null;
-        } catch (_) { localStyleCache.samples = null; }
-        localStyleCache.samplesAt = now;
+    if (slot.value !== null && now - slot.checkedAt < STAT_CHECK_INTERVAL_MS) {
+      return slot.value;
+    }
+    slot.checkedAt = now;
+    try {
+      const stat = typeof fs.statSync === 'function' ? fs.statSync(filePath) : null;
+      const mtimeMs = stat ? Number(stat.mtimeMs) : -1;
+      if (slot.value !== null && mtimeMs >= 0 && mtimeMs === slot.mtimeMs) {
+        return slot.value;
       }
-      return localStyleCache.samples;
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      slot.value = validator(parsed) ? parsed : null;
+      slot.mtimeMs = mtimeMs;
+    } catch (err) {
+      debugWarn('local-style', 'failed to load ' + path.basename(filePath), err);
+      slot.value = null;
+      slot.mtimeMs = -1;
     }
-    if (!localStyleCache.fingerprints || now - localStyleCache.fingerprintsAt > cacheMs) {
-      try {
-        const parsed = JSON.parse(fs.readFileSync(path.join(assetDirectory, 'data', 'style-fingerprints.json'), 'utf8'));
-        localStyleCache.fingerprints = parsed && Array.isArray(parsed.books) ? parsed : null;
-      } catch (_) { localStyleCache.fingerprints = null; }
-      localStyleCache.fingerprintsAt = now;
-    }
-    return localStyleCache.fingerprints;
+    return slot.value;
   }
-  
+
+  function loadLocalStyleData(kind) {
+    if (kind === 'samples') {
+      return loadJsonByMtime(
+        localStyleCache.samples,
+        path.join(assetDirectory, 'data', 'paragraph-samples.json'),
+        parsed => Boolean(parsed && Array.isArray(parsed.buckets))
+      );
+    }
+    return loadJsonByMtime(
+      localStyleCache.fingerprints,
+      path.join(assetDirectory, 'data', 'style-fingerprints.json'),
+      parsed => Boolean(parsed && Array.isArray(parsed.books))
+    );
+  }
+
   function handleLocalStyleSamples(req, res, params) {
     // 本地试用：浏览器会话在云端签发，本地不做鉴权（只读数据，来自用户自己的语料库）
     const data = loadLocalStyleData('samples');
@@ -65,14 +96,14 @@ function createLocalStyleService({ fs, path, assetDirectory, json }) {
       }))
     });
   }
-  
+
   /**
    * 范文对标管线路由：
    * GET  /api/benchmark/baseline?genre=  题材基线与节奏目标块
    * POST /api/benchmark/audit             证据审稿（quote 逐字回查 + 确定性硬约束 + 题材纠错）
    * POST /api/benchmark/revise-loop       审稿→局部修订→复核闭环（≤2 轮，未过保留 needs_review）
    */
-  
+
   function handleLocalStyleBaseline(req, res, params) {
     // 本地试用：同上，不鉴权
     const data = loadLocalStyleData('fingerprints');
@@ -83,7 +114,7 @@ function createLocalStyleService({ fs, path, assetDirectory, json }) {
       const genre = String(book.primaryGenre || '') + ' ' + String(book.bucket || '');
       return genre.includes(bucketParam) || bucketParam.includes(String(book.bucket || ''));
     });
-    const fields = ['sentenceLenMean', 'sentenceLenStd', 'paragraphLenMean', 'paragraphLenStd', 'dialogueRatio', 'dialogueTurnMean', 'commaPeriodRatio', 'ttr', 'similePerKilo'].filter(f => books.some(book => book.fingerprint && Number.isFinite(Number(book.fingerprint[f]))));
+    const fields = LOCAL_BASELINE_FIELDS.filter(f => books.some(book => book.fingerprint && Number.isFinite(Number(book.fingerprint[f]))));
     const baseline = {};
     fields.forEach(field => {
       const values = books.map(book => Number(book.fingerprint[field])).filter(Number.isFinite);
@@ -94,9 +125,7 @@ function createLocalStyleService({ fs, path, assetDirectory, json }) {
     });
     json(res, 200, { ok: true, bucket: bucketParam, matchedBooks: books.length, baseline, availableBuckets: [...new Set((data.books || []).map(book => String(book.bucket || '')).filter(Boolean))].slice(0, 60) });
   }
-  
-  
+
   return { handleLocalStyleSamples, handleLocalStyleBaseline };
 }
-module.exports = { createLocalStyleService };
-
+module.exports = { createLocalStyleService, LOCAL_BASELINE_FIELDS };

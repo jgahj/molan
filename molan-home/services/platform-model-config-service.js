@@ -1,5 +1,7 @@
 'use strict';
+const nodeFs = require('node:fs');
 const { assertPlatformConfigPromotion } = require('../lib/evolution/platform-config-gate');
+const { uniqueTempPath, writeJsonAtomicSync } = require('./json-persistence-service');
 
 function createPlatformModelConfigService({ fs, path, PLATFORM_CONFIG_FILE, normalizeConfiguredModel, findPlatformModel, normalizeModelCreditRate, getModelPolicy, setModelPolicy }) {
   function readPlatformConfig() {
@@ -14,9 +16,13 @@ function createPlatformModelConfigService({ fs, path, PLATFORM_CONFIG_FILE, norm
   }
   
   function writePlatformConfig(cfg) {
+    if (!fs || fs === nodeFs) {
+      writeJsonAtomicSync(PLATFORM_CONFIG_FILE, cfg, { mode: 0o600 });
+      return;
+    }
     if (!fs.existsSync(path.dirname(PLATFORM_CONFIG_FILE))) fs.mkdirSync(path.dirname(PLATFORM_CONFIG_FILE), { recursive: true });
-    const tmp = PLATFORM_CONFIG_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), 'utf-8');
+    const tmp = uniqueTempPath(PLATFORM_CONFIG_FILE);
+    fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), { encoding: 'utf-8', mode: 0o600 });
     fs.renameSync(tmp, PLATFORM_CONFIG_FILE);
   }
   
